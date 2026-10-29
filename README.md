@@ -213,12 +213,12 @@ pnpm desktop:dev -- ~/code/your-repo            # opening a folder, which joins 
 
 ## First run
 
-Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes where
-your components are — a component library package, or your application's own
-`src/components` (an app in `front/` gets `front/src/components`), which agents read when they
-implement — the stylesheet that sets up your design system, and a directory for the designs
-(`docs/designs` unless you already have one). Confirm or change the proposals, and
-the canvas opens with **Sync**, which takes you on from there. A repository with no React
+Start `ultrapaint` inside a repository and the setup looks at it for you: it asks only where
+the designs go (`docs/designs` unless you already have one) and which stylesheet sets up your
+design system, and proposes both. Where your application and its components are is filled in
+quietly, as hints for the agents that implement (Settings → Repository → Implementation).
+Confirm or change the proposals, and the canvas opens with **Sync**, which takes you on from
+there. A repository with no React
 application gets **Start a new application here** instead.
 
 Only Tailwind v4 is read today: the tokens are its `@theme`. The setup says so when the
@@ -497,8 +497,7 @@ has a dot while something is waiting.
 | a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
 | a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` or another tool in `design.tokens.json` into the design system; exports what the code is missing and takes in what the code changed alone; lists what drifted (tokens and components the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
 
-Settings that point nowhere (no component directory, one with no components the editor can
-read, no stylesheet) come first in every case: **Detect and apply** proposes where they are and
+Settings that point nowhere (no stylesheet) come first in every case: **Detect and apply** proposes where they are and
 applies them once you have seen it.
 
 **Figma's tokens are matched first**, to the design system's (to your code's while there is
@@ -662,9 +661,9 @@ type after it is added to it.
 | Field | What it is |
 |---|---|
 | `designsDir` | Where the pages are (`docs/designs`) |
-| `resolveFrom` | The package your application is (`front`), for its stylesheets' imports |
-| `libraryDirs` | Where your components are (`front/src/components`), for agents that implement |
-| `componentPackages` | Package names whose exports are your components, for a library that is a package |
+| `resolveFrom` | The package your application is (`front`), for its stylesheets' imports; a hint for agents that implement |
+| `libraryDirs` | Optional: where your components are (`front/src/components`), a hint for agents that implement |
+| `componentPackages` | Optional: packages of components your application uses, a hint for agents that implement |
 | `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `theme` | `light` or `dark` for the canvas |
@@ -718,10 +717,11 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a node's JSX with the classes a style system writes.
 - `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
-- `packages/preview-core` — the framework-neutral runtime of the frames drawn in the editor's page, and the entry of the module it loads, given a renderer: what to draw, measuring, hit-testing, text editing, the prototype's navigation, the sandbox's guards.
-- `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
+- `packages/preview-core` — the frames drawn in the editor's page, given a renderer: shadow roots, what to draw, measuring, hit-testing, pictures, text editing, the prototype's navigation.
+- `packages/primitives` — the editor's own components on Base UI (ADR 0040): their catalogue, their components, their default look and each frame's containment.
+- `packages/renderer-react` — draws design documents with the editor's React: nodes, drafts and primitives (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
-- `packages/framework-react-vite` — the Node side for React + Vite: catalogue extraction, repository detection, the preview server and its component registry, and the application a repository can start from.
+- `packages/framework-react-vite` — the Node side for React + Vite: repository detection and the application a repository can start from.
 - `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet, a node's utilities for the Code tab.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.

@@ -5,7 +5,9 @@ import {
 } from "@ultrapaint/contracts/settings";
 import {
   describeSuggestions,
+  hostCssFor,
   type SetupSuggestions,
+  stylesheetOf,
 } from "@ultrapaint/contracts/setup";
 import { CircleAlert, FolderSearch, RefreshCw, Rocket } from "lucide-react";
 import type * as React from "react";
@@ -107,8 +109,17 @@ const ConfigureForm = () => {
       });
   }, [saved, repoPath]);
 
+  // The stylesheet as the repository names it: the settings name it from the designs directory.
+  const [stylesheet, setStylesheet] = useState<string | null>(null);
+  const shownStylesheet =
+    stylesheet ??
+    (draft?.hostCss[0] === undefined
+      ? ""
+      : stylesheetOf(draft.designsDir, draft.hostCss[0]));
+
   const onDesignsDir = (e: React.ChangeEvent<HTMLInputElement>) => {
     const designsDir = e.target.value;
+    setStylesheet(shownStylesheet);
     setDraft((d) => (d ? { ...d, designsDir } : d));
   };
 
@@ -117,8 +128,12 @@ const ConfigureForm = () => {
       return;
     }
     setBusy(true);
+    const css = shownStylesheet.trim();
     try {
-      const refused = await setUpDesigns(draft);
+      const refused = await setUpDesigns({
+        ...draft,
+        hostCss: css ? [hostCssFor(draft.designsDir, css)] : [],
+      });
       setProblems(refused);
       if (refused.length === 0) {
         openSync();
@@ -191,9 +206,22 @@ const ConfigureForm = () => {
             value={draft?.designsDir ?? ""}
           />
           <FieldDescription>
-            Relative to the repository, and created if it is not there yet. The
-            stylesheets and component packages detection found are in the
-            settings.
+            Relative to the repository, and created if it is not there yet.
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="setup-stylesheet">Stylesheet</FieldLabel>
+          <Input
+            disabled={!draft}
+            id="setup-stylesheet"
+            onChange={(e) => setStylesheet(e.target.value)}
+            placeholder="src/index.css"
+            value={shownStylesheet}
+          />
+          <FieldDescription>
+            Your application's stylesheet with its theme, relative to the
+            repository: Sync reads your tokens from it and writes the design's
+            back. Empty when there is none yet.
           </FieldDescription>
         </Field>
       </FieldGroup>
