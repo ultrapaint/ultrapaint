@@ -22,6 +22,7 @@ import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import {
+  drawnRootOf,
   isNodeFrame,
   pageOfFrame,
   rootOfFrame,
@@ -30,6 +31,7 @@ import {
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
+import { useIsolatedRequest } from "../state/isolation.ts";
 import { useDesignLook } from "../state/look.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
@@ -129,7 +131,10 @@ export const Frame = memo(
     const selectedHere = useSelectedIn(frameId);
     const hoverHere = useHoverIn(frameId);
     const canvas = useEditor((s) => s.canvas);
+    // What its selection is in, and what it draws: the same but while a component is edited in place.
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+    const drawnRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
+    const isolate = useIsolatedRequest(frameId);
     const problem = useDocuments((s) =>
       isNodeFrame(frameId) ? undefined : s.docs[pageOfFrame(frameId)]?.problem
     );
@@ -149,7 +154,7 @@ export const Frame = memo(
     const [kept, setKept] = useState(false);
     const drawn = visible;
     const hosted = visible || kept;
-    const name = frameName(page, root);
+    const name = frameName(page, drawnRoot);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
       null
@@ -176,10 +181,11 @@ export const Frame = memo(
         defaults,
         designSystem,
         held,
+        isolate,
         look,
         mode: kind === "page" ? "page" : "fit",
         problem,
-        root,
+        root: drawnRoot,
         width: kind === "page" ? frame.width : undefined,
       })
     );

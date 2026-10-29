@@ -4,6 +4,7 @@
  * (`{ kind: "wrap", in: "row" }`). Pure, over the facts read off the stores, so a menu can be
  * read — and tested — without an editor. `menu-actions.ts` reads the facts and runs the actions.
  */
+import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
@@ -128,6 +129,9 @@ export type NodeAction =
   | { kind: "viewCode" }
   | { kind: "comment" }
   | { kind: "makeApp" }
+  /** An app component's instance: its component edited in place, or the instance detached from it (ADR 0041). */
+  | { kind: "editComponent" }
+  | { kind: "detach" }
   /** An instance of the repository's drawn as this system component (ADR 0040). */
   | { kind: "toSystem"; name: string }
   /** Leads to a page, by its file, or `back`; `null` takes the link away. */
@@ -240,6 +244,12 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
       item({ kind: "makeApp" }, "Make an app component…", {
         disabled: !f.wrappable,
       }),
+    node.type === "instance" &&
+      node.from === APP_FROM &&
+      item({ kind: "editComponent" }, "Edit component", one),
+    node.type === "instance" &&
+      node.from === APP_FROM &&
+      item({ kind: "detach" }, "Detach"),
     // An instance of a component of the repository's, from before the system components: a stand-in.
     node.type === "instance" &&
       isRepositoryInstance(node) && {

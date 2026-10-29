@@ -38,3 +38,16 @@ export const COMPONENT_STATES = [
 export const variantKey = (property: string, member: string) =>
   `${property}=${member}`;
 export const isVariantKey = (key: string) => key.includes("=");
+
+/**
+ * The document an app component's tree is edited as (ADR 0041), beside a page's and a canvas's:
+ * `component:Promo`. Its file is the component's.
+ */
+export const COMPONENT_DOC_PREFIX = "component:";
+export const componentDocOf = (name: string) =>
+  `${COMPONENT_DOC_PREFIX}${name}`;
+/** The app component a document is the tree of; null for a page or a canvas. */
+export const componentOfDoc = (doc: string): string | null =>
+  doc.startsWith(COMPONENT_DOC_PREFIX)
+    ? doc.slice(COMPONENT_DOC_PREFIX.length)
+    : null;

@@ -9,6 +9,7 @@
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type {
   DesignNode,
   ImageNode,
@@ -72,6 +73,7 @@ import { useInspected } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
 import { BreakpointSection } from "./inspector-breakpoints.tsx";
+import { IsolatedComponent } from "./inspector-component.tsx";
 import {
   allOf,
   allStacks,
@@ -106,6 +108,7 @@ export const Inspector = () => {
       key={`${frame}#${nodes.map((n) => n.id).join(",")}`}
     >
       <Header frame={frame} node={node} nodes={nodes} />
+      {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
       {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
       {node.type === "page" && nodes.length === 1 && (
         <PageSection frame={frame} />
@@ -490,17 +493,19 @@ const InstanceSection = ({
             {node.from}
           </span>
         </Row>
-        {nodes.every((n) => (n.children?.length ?? 0) === 0) && (
-          <Row label="Text">
-            <TextInput
-              onChange={(v) => set("text", v === "" ? null : v)}
-              {...shownAs(
-                sharedOf(nodes, (n) => n.text),
-                "No text"
-              )}
-            />
-          </Row>
-        )}
+        {/* An app component's text is its properties' (ADR 0041). */}
+        {node.from !== APP_FROM &&
+          nodes.every((n) => (n.children?.length ?? 0) === 0) && (
+            <Row label="Text">
+              <TextInput
+                onChange={(v) => set("text", v === "" ? null : v)}
+                {...shownAs(
+                  sharedOf(nodes, (n) => n.text),
+                  "No text"
+                )}
+              />
+            </Row>
+          )}
       </Section>
       <ComponentProps
         mixed={mixed}

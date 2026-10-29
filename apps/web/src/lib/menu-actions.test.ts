@@ -14,10 +14,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents } from "../state/agents.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
+import { useComponents } from "../state/components.ts";
 import type { MenuTarget } from "../state/context-menu.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -215,6 +217,8 @@ const setUp = () => {
             text: "Go",
             type: "instance",
           },
+          // An instance of one of the project's own components.
+          { component: "Promo", from: "#app", id: "promo", type: "instance" },
         ],
         id: "home",
         type: "page",
@@ -243,6 +247,19 @@ const setUp = () => {
     visible: true,
   });
   useAgents.setState({ current: null, following: null, threads: [thread] });
+  useComponents.setState({
+    components: [
+      {
+        name: "Promo",
+        origin: "app",
+        properties: [],
+        slots: [],
+        tree: { children: [text("sale")], id: "p-root", type: "column" },
+        version: 1,
+      },
+    ],
+  });
+  useIsolation.setState({ isolated: null });
 };
 
 beforeEach(setUp);
@@ -640,7 +657,9 @@ const EVERY_ACTION = {
     copyRef: true,
     cut: true,
     delete: true,
+    detach: true,
     duplicate: true,
+    editComponent: true,
     editText: true,
     hide: true,
     link: true,
@@ -689,6 +708,7 @@ const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
   nodeAt(HOME, "hero"),
   nodeAt(HOME, "old"),
+  nodeAt(HOME, "promo"),
   homePage,
   { kind: "page", pageId: ABOUT },
   { kind: "page", pageId: BOLD },

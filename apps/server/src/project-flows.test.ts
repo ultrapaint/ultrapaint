@@ -440,4 +440,67 @@ describe("flows in the services", () => {
       );
     }
   );
+
+  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+    it.effect(
+      "edits an app component's tree as a document, its properties following what its nodes show",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const components = project.service(ComponentService);
+          const documents = project.service(DocumentService);
+          yield* components((c) =>
+            c.write({
+              name: "Promo",
+              origin: "app",
+              properties: [
+                {
+                  default: "Sale",
+                  kind: "text",
+                  name: "title",
+                  targets: [{ node: "t" }],
+                },
+              ],
+              slots: [{ name: "extra", node: "x" }],
+              tree: {
+                children: [
+                  { id: "t", role: "heading", text: "Sale", type: "text" },
+                  { children: [], id: "x", type: "row" },
+                ],
+                id: "r",
+                type: "column",
+              },
+              version: 1,
+            })
+          );
+          const doc = yield* documents((d) => d.get("component:Promo"));
+          assert.strictEqual(doc.root?.id, "r");
+          yield* documents((d) =>
+            d.apply({
+              edits: [
+                {
+                  doc: "component:Promo",
+                  ops: [
+                    { id: "t", op: "update", set: { text: "Spring sale" } },
+                    { id: "x", op: "remove" },
+                  ],
+                },
+              ],
+            })
+          );
+          const [promo] = yield* components((c) => c.components);
+          assert.strictEqual(promo?.origin, "app");
+          if (promo?.origin !== "app") {
+            return;
+          }
+          // The text edited in place is the property's; the slot whose node went is gone.
+          assert.strictEqual(promo.properties[0]?.default, "Spring sale");
+          assert.deepStrictEqual(promo.slots, []);
+          assert.strictEqual(
+            promo.tree.type === "column" && promo.tree.children.length,
+            1
+          );
+        })
+    );
+  });
 });

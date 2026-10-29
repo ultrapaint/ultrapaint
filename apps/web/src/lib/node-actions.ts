@@ -13,18 +13,22 @@
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type {
   DesignNode,
   DocOp,
   DocumentEdit,
 } from "@ultrapaint/contracts/document";
+import { detachedOf } from "@ultrapaint/design-document/app-components";
 import {
   type Visibility,
   withVisibility,
 } from "@ultrapaint/design-document/breakpoints";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import {
   canvasDocOf,
   childrenOf,
+  idsOf,
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
@@ -35,6 +39,7 @@ import {
 } from "@ultrapaint/system-components/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
+import { appComponentOf, useComponents } from "../state/components.ts";
 import {
   applyEdits,
   canvasNodes,
@@ -572,6 +577,44 @@ export const replaceWithSystemComponent = (
   const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
   return edits.length > 0
     ? applyEdits(edits, `Draw as ${name}`)
+    : Promise.resolve(null);
+};
+
+/**
+ * Instances of app components detached (ADR 0041), each where it was: the nodes its component
+ * draws, with its property values and its slots' contents, plain nodes of the page from now on.
+ */
+export const detachInstances = (target?: Selection) => {
+  const { docs } = useDocuments.getState();
+  const { canvas } = useEditor.getState();
+  const { components } = useComponents.getState();
+  const byDoc = new Map<string, DocOp[]>();
+  for (const { doc, frame, node } of nodesOf(outermost(actedOn(target)))) {
+    const file =
+      node.type === "instance" && node.from === APP_FROM
+        ? appComponentOf(components, node.component)
+        : undefined;
+    if (!(file?.origin === "app" && node.type === "instance")) {
+      continue;
+    }
+    const root = rootOfFrame(docs, canvas, frame);
+    const parent = pathIn(docs, canvas, frame, node.id)?.at(-2) ?? null;
+    const siblings = parent ? childrenOf(parent) : canvasNodes(docs, canvas);
+    const next = makeIdGenerator(root ? idsOf(root) : []);
+    byDoc.set(doc, [
+      ...(byDoc.get(doc) ?? []),
+      { id: node.id, op: "remove" },
+      {
+        index: siblings.findIndex((c) => c.id === node.id),
+        node: detachedOf(file, node, next),
+        op: "insert",
+        parent: parent?.id ?? null,
+      },
+    ]);
+  }
+  const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
+  return edits.length > 0
+    ? applyEdits(edits, "Detach from the component")
     : Promise.resolve(null);
 };
 

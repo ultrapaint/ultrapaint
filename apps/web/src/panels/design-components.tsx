@@ -1156,7 +1156,8 @@ const AppDetail = ({
 );
 
 export const ComponentsView = ({ q }: { q: string }) => {
-  const catalogue = useCatalogue((s) => s.catalogue);
+  // The system components the editor has; the app components are the files'.
+  const catalogue = useCatalogue((s) => s.system);
   const files = useComponents((s) => s.components);
   const entries = useComponents((s) => s.entries);
   const problems = entries.filter((e) => e.problem !== undefined);

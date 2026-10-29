@@ -35,6 +35,7 @@ import type { RenderMode } from "@ultrapaint/contracts/preview";
 import type {
   FrameEvents,
   FrameRect,
+  RenderRequest as FrameRequest,
   FrameRuntime,
   FrameShown,
   PageError,
@@ -72,6 +73,8 @@ export interface RenderRequest {
   /** What the canvas draws every page in (`CanvasLayout.defaults`). */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
+  /** An app component's instance edited in place (ADR 0041). */
+  readonly isolate?: FrameRequest["isolate"];
   /** The design's look over the code's (ADR 0028, 0029); the current one when left out. */
   readonly look?: DesignLook;
   readonly message?: string;
@@ -122,6 +125,7 @@ interface Shown {
   readonly components: DesignLook["components"];
   readonly defaults: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
+  readonly isolate: RenderRequest["isolate"];
   readonly message: string | undefined;
   readonly mode: RenderMode;
   readonly renderId: number;
@@ -477,6 +481,7 @@ export class EditorFrame {
       shown.runtime === runtime &&
       shown.defaults === request.defaults &&
       shown.designSystem === request.designSystem &&
+      shown.isolate === request.isolate &&
       shown.root === request.root &&
       shown.mode === request.mode &&
       shown.message === request.message &&
@@ -494,6 +499,7 @@ export class EditorFrame {
       components: look.components,
       defaults: request.defaults,
       designSystem: request.designSystem,
+      isolate: request.isolate,
       message: request.message,
       mode: request.mode,
       renderId: renders,
@@ -505,6 +511,7 @@ export class EditorFrame {
       ...(look.components.length > 0 && { components: look.components }),
       defaults: request.defaults,
       designSystem: request.designSystem,
+      ...(request.isolate && { isolate: request.isolate }),
       mode: request.mode,
       renderId: renders,
       root: request.root,
