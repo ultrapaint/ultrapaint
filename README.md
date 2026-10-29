@@ -415,8 +415,8 @@ but it keeps the link between the two:
 ### Primitives: the editor's components, your look
 
 The canvas draws ultrapaint's own primitives ([ADR 0040](docs/adr/0040-the-editors-own-primitives.md)):
-Button, Badge, Avatar, Card, Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu,
-Popover, Tooltip, Dialog and Toast, on Base UI. Select one and the inspector lists its props and
+Button, Badge, Spinner, Avatar, Card, Separator, Input, Textarea, Checkbox, Switch, Tabs, Select,
+Menu, Popover, Tooltip, Dialog and Toast, on Base UI. Select one and the inspector lists its props and
 its **slots** — a Dialog's trigger, header, content and footer — with what fills each and a **+**
 that adds a text, a row, a column or a button to it; Layers shows the slot each child fills. A
 row in a dialog's footer, aligned right, with two buttons, is a standard footer.
@@ -433,6 +433,12 @@ disabled, open, checked…) while the fields set any part of it in your tokens. 
 agent give your application's own component that look, in whatever library it is written with. A
 part of a page can also be made a **draft component** (its menu): a component of your own, made of
 primitives, used on pages until it is implemented.
+
+A page made before the primitives, with your application's own components, draws each of them as
+a stand-in. **Sync** offers to draw them as primitives in one step you can undo: a component is
+matched by its name (shadcn's `DropdownMenu` is the Menu), its variants, children and text are
+kept, and a compound component's parts (`DialogFooter`, `CardHeader`) fill the primitive's slots.
+A stand-in's menu has **Replace with a primitive** for one at a time.
 
 ## The design system
 

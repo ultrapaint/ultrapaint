@@ -130,6 +130,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "documents.apply": (input) => documents((d) => d.apply(input)),
       "documents.get": ({ doc }) => documents((d) => d.get(doc)),
       "documents.list": ({ canvas }) => documents((d) => d.list(canvas)),
+      "documents.toPrimitives": () => documents((d) => d.toPrimitives),
       "dsSetup.audit": () => dsSetup.audit,
       "dsSetup.batchPreview": ({ batchId }) => dsSetup.batchPreview(batchId),
       "dsSetup.complete": ({ step }) => dsSetup.complete(step),

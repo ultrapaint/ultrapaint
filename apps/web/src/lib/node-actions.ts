@@ -28,6 +28,11 @@ import {
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
+import { primitiveOf } from "@ultrapaint/primitives/catalogue";
+import {
+  asPrimitive,
+  isRepositoryInstance,
+} from "@ultrapaint/primitives/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
@@ -532,6 +537,39 @@ export const nodesOf = (targets: readonly Selection[]) => {
       ? [{ doc: docOfFrame(t.frame, canvas), frame: t.frame, node }]
       : [];
   });
+};
+
+/**
+ * Instances of the repository's components drawn as a primitive (ADR 0040), each where it was:
+ * its props, children and text kept where the primitive has them (`migrate.ts`).
+ */
+export const replaceWithPrimitive = (name: string, target?: Selection) => {
+  const meta = primitiveOf(name);
+  const { docs } = useDocuments.getState();
+  const { canvas } = useEditor.getState();
+  const byDoc = new Map<string, DocOp[]>();
+  for (const { doc, frame, node } of nodesOf(outermost(actedOn(target)))) {
+    if (!(meta && isRepositoryInstance(node))) {
+      continue;
+    }
+    // A node on the canvas is the root of its own frame: its siblings are the canvas's.
+    const parent = pathIn(docs, canvas, frame, node.id)?.at(-2) ?? null;
+    const siblings = parent ? childrenOf(parent) : canvasNodes(docs, canvas);
+    byDoc.set(doc, [
+      ...(byDoc.get(doc) ?? []),
+      { id: node.id, op: "remove" },
+      {
+        index: siblings.findIndex((c) => c.id === node.id),
+        node: asPrimitive(node, meta),
+        op: "insert",
+        parent: parent?.id ?? null,
+      },
+    ]);
+  }
+  const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
+  return edits.length > 0
+    ? applyEdits(edits, `Draw as ${name}`)
+    : Promise.resolve(null);
 };
 
 /**

@@ -128,6 +128,22 @@ export function Badge(props: PrimitiveProps) {
   );
 }
 
+/** The button's spinner on its own. */
+export function Spinner(props: PrimitiveProps) {
+  return (
+    <span
+      aria-label="Loading"
+      role="status"
+      {...marksOf(props)}
+      data-primitive="spinner"
+      data-size={str(props.size, "md")}
+      data-slot="root"
+      onClickCapture={props.onClickCapture}
+      style={props.style}
+    />
+  );
+}
+
 export function AvatarPrimitive(props: PrimitiveProps) {
   const src = str(props.src);
   return (
@@ -716,6 +732,7 @@ export const PRIMITIVE_COMPONENTS: Readonly<
   Popover: PopoverPrimitive,
   Select: SelectPrimitive,
   Separator: SeparatorPrimitive,
+  Spinner,
   Switch: SwitchPrimitive,
   Tabs: TabsPrimitive,
   Textarea,

@@ -6,6 +6,7 @@
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
+import { plural } from "@ultrapaint/shared/text";
 import { cn } from "cn";
 import {
   Check,
@@ -29,6 +30,7 @@ import { pickFigmaFile } from "../lib/import-figma.ts";
 import { detect, save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { useAgents } from "../state/agents.ts";
+import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
@@ -158,6 +160,33 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
   </SyncCard>
 );
 
+/** Draws the pages' old instances as primitives, in one undo step (ADR 0040). */
+const drawAsPrimitives = async () => {
+  try {
+    const { documents, drawn } = await api().request(
+      "documents.toPrimitives",
+      undefined
+    );
+    toast.success(
+      `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as ${drawn === 1 ? "a primitive" : "primitives"}.`
+    );
+  } catch (error) {
+    reportError(error);
+  }
+  useSync.getState().load();
+};
+
+const PrimitivesStep = ({ index, step }: { index: number; step: SyncStep }) => (
+  <SyncCard index={index} step={step}>
+    <div className="flex flex-wrap gap-1.5">
+      <Button onClick={drawAsPrimitives} size="sm">
+        <Wand2 />
+        Draw them as primitives
+      </Button>
+    </div>
+  </SyncCard>
+);
+
 const DocumentStep = ({ index, step }: { index: number; step: SyncStep }) => (
   <SyncCard index={index} step={step}>
     {step.state === "done" ? null : (
@@ -252,6 +281,9 @@ const PlanStep = ({
   }
   if (step.kind === "settings") {
     return <SettingsStep index={index} step={step} />;
+  }
+  if (step.kind === "primitives") {
+    return <PrimitivesStep index={index} step={step} />;
   }
   if (step.kind === "describe") {
     return <DescribeStep index={index} step={step} />;

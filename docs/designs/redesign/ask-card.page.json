@@ -64,7 +64,7 @@
                 {"type": "text", "id": "t_d620pc", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
                 {"type": "image", "id": "img_euopzw", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_5r7b9e", "width": "fill", "children": []},
-                {"type": "instance", "id": "i_lo9mco", "component": "Button", "from": "@/components/ui/button", "opacity": 0.5, "props": {"size": "sm"}, "text": "Next question"}
+                {"type": "instance", "id": "i_lo9mco", "component": "Button", "from": "@ultrapaint/primitives", "opacity": 0.5, "props": {"size": "sm"}, "text": "Next question"}
               ]}
             ]}
           ]}
@@ -121,7 +121,7 @@
                 {"type": "text", "id": "t_uw602p", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
                 {"type": "image", "id": "img_rm2imv", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_3ecwxv", "width": "fill", "children": []},
-                {"type": "instance", "id": "i_vm2p5l", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
+                {"type": "instance", "id": "i_vm2p5l", "component": "Button", "from": "@ultrapaint/primitives", "props": {"size": "sm"}, "text": "Next question"}
               ]}
             ]}
           ]}
@@ -178,7 +178,7 @@
                 {"type": "text", "id": "t_341fvw", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
                 {"type": "image", "id": "img_chlpp0", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_pdvxd6", "width": "fill", "children": []},
-                {"type": "instance", "id": "i_fkuqie", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
+                {"type": "instance", "id": "i_fkuqie", "component": "Button", "from": "@ultrapaint/primitives", "props": {"size": "sm"}, "text": "Next question"}
               ]}
             ]}
           ]}
@@ -238,8 +238,8 @@
                 {"type": "text", "id": "t_31w08c", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
                 {"type": "image", "id": "img_fzgblj", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_7edyuk", "width": "fill", "children": []},
-                {"type": "instance", "id": "i_6gs4tl", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm", "variant": "outline"}, "text": "Previous"},
-                {"type": "instance", "id": "i_n89qrj", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Send answers"}
+                {"type": "instance", "id": "i_6gs4tl", "component": "Button", "from": "@ultrapaint/primitives", "props": {"size": "sm", "variant": "outline"}, "text": "Previous"},
+                {"type": "instance", "id": "i_n89qrj", "component": "Button", "from": "@ultrapaint/primitives", "props": {"size": "sm"}, "text": "Send answers"}
               ]}
             ]}
           ]}

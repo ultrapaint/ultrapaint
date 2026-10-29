@@ -26,6 +26,7 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
+  "primitives",
   "code-tokens",
   "design-md",
   "design-tokens",
@@ -138,6 +139,13 @@ export const SyncFacts = Schema.Struct({
    * that point at the wrong place.
    */
   librarySources: Schema.optional(Schema.Number),
+  /**
+   * Instances of the repository's components in the pages, from before the canvas drew
+   * primitives (ADR 0040), when there are any: how many a primitive can draw, how many it cannot.
+   */
+  oldInstances: Schema.optional(
+    Schema.Struct({ drawn: Schema.Number, left: Schema.Number })
+  ),
   styleSystem: Schema.String,
   /** The stylesheets the settings name. */
   stylesheets: Schema.Number,

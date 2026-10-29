@@ -39,6 +39,7 @@ import { CatalogueService } from "./catalogue.ts";
 import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
+import { DocumentService } from "./documents.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
@@ -200,6 +201,10 @@ export class DesignSystemSyncService extends Context.Service<
           const source = yield* code.tokens;
           const state = yield* (yield* DesignSystemService).get;
           const latest = yield* (yield* FigmaImportService).latest;
+          const old = yield* (yield* DocumentService).oldInstances.pipe(
+            // Pages that cannot be read say nothing of what they hold.
+            Effect.orElseSucceed(() => ({ drawn: 0, left: 0 }))
+          );
           const ds = state.designSystem;
           const comparison = ds ? yield* code.comparison(ds) : null;
           const codeTokens = comparison?.read
@@ -219,6 +224,7 @@ export class DesignSystemSyncService extends Context.Service<
             designSystem: state.designSystem !== null,
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
             libraryDirs: [...settings.libraryDirs],
+            ...(old.drawn + old.left > 0 && { oldInstances: old }),
             ...(components.length === 0 && {
               librarySources: yield* librarySources(
                 settings.libraryDirs.map((dir) => path.resolve(paths.root, dir))

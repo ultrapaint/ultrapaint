@@ -96,6 +96,7 @@ import {
   nodesOf,
   placeOf,
   renameNode,
+  replaceWithPrimitive,
   selected,
   selectParent,
   setField,
@@ -470,6 +471,8 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       return commentOn(sel, target.at);
     case "makeDraft":
       return makeDraftOf(sel);
+    case "toPrimitive":
+      return ensureEditable() && replaceWithPrimitive(act.name, sel);
     case "link":
       return setLink(sel, act.to);
     case "linkUrl":
