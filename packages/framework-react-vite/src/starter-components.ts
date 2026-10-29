@@ -439,7 +439,7 @@ function Checkbox({ className, label, ...props }: CheckboxPrimitive.Root.Props &
           ${CHECK_ICON}
         </CheckboxPrimitive.Indicator>
       </CheckboxPrimitive.Root>
-      {label}
+      {label ? <span data-slot="field-label">{label}</span> : null}
     </label>
   );
 }
@@ -465,7 +465,7 @@ function Switch({ className, label, ...props }: SwitchPrimitive.Root.Props & { l
           data-slot="switch-thumb"
         />
       </SwitchPrimitive.Root>
-      {label}
+      {label ? <span data-slot="field-label">{label}</span> : null}
     </label>
   );
 }
