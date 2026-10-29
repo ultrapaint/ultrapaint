@@ -27,9 +27,14 @@ export interface VariantEdited {
 
 export interface Isolation {
   readonly component: string;
+  /**
+   * The page's instance it was entered from: the instance edited, or, for an app component edited
+   * inside another's tree, the outermost one's, which leaving selects.
+   */
+  readonly entered: string;
   /** The frame the instance is drawn in. */
   readonly frame: string;
-  /** The page's instance edited in place. */
+  /** The instance edited in place: the page's, or one of the tree of the component edited around it. */
   readonly instance: string;
   /** The member edits land on; null for the component's own fields. */
   readonly variant: VariantEdited | null;
@@ -84,8 +89,10 @@ export const isolate = (frame: string, node: InstanceNode): boolean => {
   if (!file) {
     return false;
   }
+  const around = useIsolation.getState().isolated;
   const isolated: Isolation = {
     component: node.component,
+    entered: around?.frame === frame ? around.entered : node.id,
     frame,
     instance: node.id,
     variant: null,
@@ -97,7 +104,7 @@ export const isolate = (frame: string, node: InstanceNode): boolean => {
   return true;
 };
 
-/** Back to the page: the instance edited is selected again. */
+/** Back to the page: the page's instance it was entered from is selected again. */
 export const leaveIsolation = () => {
   const { isolated } = useIsolation.getState();
   if (!isolated) {
@@ -107,7 +114,7 @@ export const leaveIsolation = () => {
   editIn(null);
   useEditor
     .getState()
-    .select({ frame: isolated.frame, nodeId: isolated.instance });
+    .select({ frame: isolated.frame, nodeId: isolated.entered });
 };
 
 /** The member edits land on from now on; null for the component's own fields. */

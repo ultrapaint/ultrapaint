@@ -129,6 +129,36 @@ describe("an app component edited in place", () => {
     );
   });
 
+  it("leaves an app component edited inside another's tree for the page's instance it was entered from", () => {
+    const badge = {
+      component: "Badge2",
+      from: "#app",
+      id: "p-badge",
+      type: "instance",
+    } as const;
+    useComponents.setState({
+      components: [
+        ...useComponents.getState().components,
+        {
+          name: "Badge2",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: { children: [], id: "b-root", type: "row" },
+          version: 1,
+        },
+      ],
+    });
+    isolate(HOME, PROMO);
+    expect(isolate(HOME, badge)).toBe(true);
+    expect(docOfFrame(HOME, "")).toBe("component:Badge2");
+    leaveIsolation();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "promo",
+    });
+  });
+
   it("is no node but an app component's instance's", () => {
     expect(isolate(HOME, { ...PROMO, from: "@ultrapaint/system" })).toBe(
       false
