@@ -42,7 +42,6 @@ const found: SetupSuggestions = {
   anchors: [],
   cssEntries: ["src/app.css"],
   designsDirs: ["docs/designs"],
-  framework: "react-vite",
   libraries: [{ dir: "src", inApp: true, name: "shop", sourceDir: "src/ui" }],
   repoName: "shop",
   tailwind: "v4",
@@ -100,10 +99,10 @@ describe("detecting", () => {
     let draft: Settings = running;
     const detecting = detect(REPO);
     // The settings page's form, typed in while the server reads the repository.
-    draft = { ...draft, storybookUrl: "http://localhost:6006", theme: "dark" };
+    draft = { ...draft, pagePngs: true, theme: "dark" };
     answer(found);
     draft = (await detecting).onto(draft);
-    expect(draft.storybookUrl).toBe("http://localhost:6006");
+    expect(draft.pagePngs).toBe(true);
     expect(draft.theme).toBe("dark");
     expect(draft.designsDir).toBe("docs/designs");
     expect(draft.libraryDirs).toEqual(["src/ui"]);

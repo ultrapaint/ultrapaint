@@ -93,7 +93,7 @@ export class SetupService extends Context.Service<
         repoPath: string
       ) {
         const root = yield* repository(repoPath);
-        const { framework } = yield* locateFramework(defaultFramework, root);
+        const framework = yield* locateFramework(defaultFramework);
         // Reads manifests and directory listings, a few hundred milliseconds on a large
         // monorepo, and only when the setup asks for it.
         const found = yield* Effect.sync(() => framework.detect(root));
@@ -113,7 +113,6 @@ export class SetupService extends Context.Service<
           anchors: found?.anchors ?? [],
           cssEntries: [...styles.cssEntries],
           designsDirs: found?.designsDirs ?? [],
-          framework: defaultFramework,
           libraries: found?.libraries ?? [],
           repoName: path.basename(root),
           rootManifest: yield* exists(path.join(root, "package.json")),
@@ -273,7 +272,7 @@ export class SetupService extends Context.Service<
             message: `${input.dir} already has a package.json: start the application somewhere else`,
           });
         }
-        const { framework } = yield* locateFramework(defaultFramework, root);
+        const framework = yield* locateFramework(defaultFramework);
         if (!framework.scaffold) {
           return yield* new BadRequest({
             message: `${framework.id} cannot start an application`,

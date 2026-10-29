@@ -200,9 +200,3 @@ export type Scaffold = (input: {
   /** Tokens to start the theme with, by name; the template's own when empty. */
   readonly tokens: Readonly<Record<string, string>>;
 }) => ScaffoldResult;
-
-/** Where a framework implementation came from; a repository may pin its own later on. */
-export interface LocatedFramework {
-  readonly framework: Framework;
-  readonly origin: "bundled" | "installed";
-}

@@ -148,7 +148,7 @@ export class ProjectServer extends Context.Service<
                   cwd: options.cwd,
                   env: serverEnv(process.env, options.env),
                   extendEnv: false,
-                  // Long enough for the server to stop its agents and the preview.
+                  // Long enough for the server to stop its agents.
                   forceKillAfter: "10 seconds",
                   stdin: "pipe",
                 }

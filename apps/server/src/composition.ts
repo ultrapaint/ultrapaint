@@ -24,7 +24,6 @@ import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
-import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
@@ -111,9 +110,7 @@ export const projectLayer = (settings: Settings) =>
     Layer.provideMerge(GitService.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
-    Layer.provideMerge(
-      Layer.mergeAll(ProjectFramework.layer, ProjectStyleSystem.layer)
-    ),
+    Layer.provideMerge(ProjectStyleSystem.layer),
     Layer.provideMerge(RepoPaths.layer(settings))
   );
 

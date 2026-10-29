@@ -3,7 +3,10 @@ import { RepoRelativePath } from "./base.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
-/** Which renderer, builder and source tooling the target repository is driven with. */
+/**
+ * Where a repository's application is, and how a new one is written (ADR 0042): what the setup
+ * detects and scaffolds with. Nothing draws with it.
+ */
 export const FrameworkId = Schema.Literals(["react-vite"]);
 export type FrameworkId = typeof FrameworkId.Type;
 export const defaultFramework: FrameworkId = "react-vite";
@@ -24,8 +27,6 @@ const common = {
    * Sync for an export (`manual`, the default): the design holds the values (ADR 0028).
    */
   codeTokens: Schema.optional(Schema.Literals(["manual", "auto"])),
-  /** Renderer and builder for the preview; `react-vite` when absent. */
-  framework: Schema.optional(FrameworkId),
   /**
    * Whether the tool writes to git: commits from the Changes panel, and `git init` in a folder
    * that is no repository. Off when absent. Off or on, a repository that is there is read: its
@@ -45,8 +46,6 @@ const common = {
   resolveFrom: Schema.optional(RepoRelativePath),
   /** Which design skills agents are not told; all of them apply when absent. */
   skills: Schema.optional(SkillsConfig),
-  /** Running Storybook for the design system, used for the Assets panel's previews. */
-  storybookUrl: Schema.optional(Schema.String),
   /** What the tokens and classes are written in; `tailwind-v4` when absent (ADR 0024). */
   styleSystem: Schema.optional(StyleSystemId),
 };
@@ -77,7 +76,8 @@ export type Settings = typeof Settings.Type;
  * `settings.json` of a home directory. A file that lives in the repository is shared, so its
  * `repoPath` is relative to the file's directory and may be left out when it is that directory.
  * Everything with an obvious default may be left out of a hand-written file. A field that is no
- * setting any more (`providersModule`, which nothing draws since ADR 0040) is dropped as it is read.
+ * setting any more (`providersModule`, which nothing draws since ADR 0040; `framework` and
+ * `storybookUrl`, which nothing read, ADR 0042) is dropped as it is read.
  */
 export const ProjectConfig = Schema.Struct({
   ...common,

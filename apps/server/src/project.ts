@@ -39,7 +39,6 @@ import type { DocumentService } from "./services/documents.ts";
 import type { EditService } from "./services/edit.ts";
 import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
-import type { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import type { ImplementationService } from "./services/implementation.ts";
 import type { Migration } from "./services/migration.ts";
@@ -72,7 +71,6 @@ export type ProjectServices =
   | GitService
   | ImplementationService
   | PagePngs
-  | ProjectFramework
   | ProjectStyleSystem
   | RepoPaths
   | PagesService
