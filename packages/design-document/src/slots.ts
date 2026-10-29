@@ -85,13 +85,16 @@ const membersOf = (
   });
 
 /**
- * How the slot a child naming `slot` fills lays out what it holds, in the instance's variant;
- * null when the catalogue does not know the component. A slot that says nothing is a block.
+ * How the slot a child naming `slot` fills lays out what it holds, in the instance's variant and
+ * at the breakpoints that hold where it is drawn (`holding`, smallest first, as `upTo` gives
+ * them), each over the one before as the tree's overrides are laid; null when the catalogue does
+ * not know the component. A slot that says nothing is a block.
  */
 export const slotLayoutOf = (
   instance: InstanceNode,
   slot: string | undefined,
-  catalogue: Catalogue
+  catalogue: Catalogue,
+  holding: readonly string[] = []
 ): SlotLayout | null => {
   const meta = metaOf(catalogue, instance);
   if (!meta) {
@@ -101,8 +104,8 @@ export const slotLayoutOf = (
   if (!filled) {
     return null;
   }
-  const inVariant = membersOf(meta, instance.props)
+  const over = [...membersOf(meta, instance.props), ...holding]
     .map((key) => filled.layoutIn?.[key])
     .findLast((layout) => layout !== undefined);
-  return inVariant ?? filled.layout ?? "block";
+  return over ?? filled.layout ?? "block";
 };

@@ -83,4 +83,32 @@ describe("the catalogue", () => {
       metaOf(catalogue, { component: "Badge", from: SYSTEM_FROM })?.importFrom
     ).toBe(SYSTEM_FROM);
   });
+
+  it("lays an app component's slot out as its container turns in a member or at a breakpoint", () => {
+    const turning: AppComponentFile = {
+      ...PLAN,
+      tree: {
+        children: [
+          {
+            at: { md: { type: "row" }, "tone=primary": { gap: 8 } },
+            children: [],
+            id: "s",
+            type: "column",
+          },
+        ],
+        id: "root",
+        type: "column",
+      },
+    };
+    const entry = catalogueOf([turning]).find((e) => e.name === "Plan");
+    expect(entry?.slots).toEqual([
+      {
+        holds: "default",
+        label: "body",
+        layout: "column",
+        layoutIn: { md: "row" },
+        name: "body",
+      },
+    ]);
+  });
 });

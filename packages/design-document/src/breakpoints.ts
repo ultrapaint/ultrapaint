@@ -57,7 +57,7 @@ export const breakpointAt = (
  * The breakpoints that hold at a breakpoint, from the smallest up to it; none at the base. An
  * app component's variant (`size=lg`, ADR 0041) is edited over the base alone.
  */
-const upTo = (
+export const upTo = (
   breakpoints: readonly Breakpoint[],
   name: string | null
 ): readonly string[] => {
