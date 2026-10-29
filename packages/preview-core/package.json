@@ -13,7 +13,6 @@
   "dependencies": {
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
-    "@ultrapaint/framework-api": "workspace:*",
     "html-to-image": "^1.11.13"
   },
   "devDependencies": {

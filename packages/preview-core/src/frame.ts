@@ -12,6 +12,10 @@ import {
   makeStyleContext,
   pageDefaultsStyle,
 } from "@ultrapaint/design-document/css";
+import { toCanvas, toPng } from "html-to-image";
+import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
+import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
+import { elementAt, type HitScope } from "./hit.ts";
 import type {
   FrameRect,
   FrameRuntime,
@@ -23,14 +27,10 @@ import type {
   PreviewSetup,
   RenderRequest,
   RenderToCanvas,
-} from "@ultrapaint/framework-api/browser";
-import { toCanvas, toPng } from "html-to-image";
-import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
-import { BODY_ATTRIBUTE } from "./frame-css.ts";
-import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
-import { elementAt, type HitScope } from "./hit.ts";
+} from "./preview.ts";
 import { renderSetup } from "./render-setup.ts";
 import {
+  BODY_ATTRIBUTE,
   frameSheets,
   ownDesignSheet,
   setComponentsCss,
@@ -148,8 +148,7 @@ const SPACE_RE = /\s+/;
 
 /**
  * What the canvas draws every page in, on the frame's body, as an application sets it on its
- * root: popups the page opens are inside it too. They are the editor's classes and style there
- * (`frame-host.ts`): what the page's code put (a theme class, a modal's scroll lock) stays.
+ * root: popups the page opens are inside it too (`frame-host.ts` writes only what changed).
  */
 const applyDefaults = (
   body: HTMLElement,
@@ -159,14 +158,9 @@ const applyDefaults = (
   const { defaults } = request;
   body.setAttribute("data-theme", defaults?.theme ?? theme);
   // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set.
-  writeClasses(
-    body,
-    "editor",
-    (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean)
-  );
+  writeClasses(body, (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean));
   writeStyle(
     body,
-    "editor",
     defaults
       ? pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
       : {}

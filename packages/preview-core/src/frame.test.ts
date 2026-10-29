@@ -1,10 +1,8 @@
 // @vitest-environment happy-dom
-import type {
-  FrameRuntime,
-  FrameShown,
-} from "@ultrapaint/framework-api/browser";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BODY_ATTRIBUTE } from "./frame-css.ts";
+import type { FrameRuntime, FrameShown } from "./preview.ts";
+import { BODY_ATTRIBUTE } from "./styles.ts";
 import { scriptedPreview } from "./testing.ts";
 
 const { page, preview } = scriptedPreview();
@@ -36,7 +34,7 @@ const open = (
   const body = host.shadowRoot?.querySelector(
     `[${BODY_ATTRIBUTE}]`
   ) as HTMLElement;
-  /** The editor draws the frame; `code` is what its page's code does meanwhile. */
+  /** The editor draws the frame; `code` is what its renderer does meanwhile. */
   const draw = (code: Parameters<typeof page>[0]) => {
     page(code);
     runtime.render({
@@ -137,7 +135,6 @@ describe("a frame's error", () => {
     });
     expect(error).toHaveBeenLastCalledWith({
       message: "drawn badly",
-      source: "page",
     });
     page(() => undefined);
   });

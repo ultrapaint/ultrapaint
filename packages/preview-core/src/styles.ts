@@ -3,13 +3,16 @@
  * the system components' default look, and the design's (every token's value and the looks the
  * project owns, ADRs 0028, 0041). Each is parsed once and shared by every frame; a frame given a
  * look of its own adopts its own design sheet in place of the shared one (ADR 0042).
+ *
+ * The editor writes all of it for a frame (ADR 0042): the root is the shadow host (`:host`), the
+ * body the frame's body element, the window's size the frame's (`@container ed-frame`, `cqh`).
  */
-import {
-  BODY_ATTRIBUTE,
-  FRAME_CONTAINER,
-  type FrameCss,
-  frameCss,
-} from "./frame-css.ts";
+
+/** The name the frames' query container goes by: the shadow host. */
+export const FRAME_CONTAINER = "ed-frame";
+
+/** The attribute of the element that stands for a page's `<body>`. */
+export const BODY_ATTRIBUTE = "data-ed-body";
 
 const sheets: {
   base: CSSStyleSheet | null;
@@ -19,12 +22,6 @@ const sheets: {
 } = { base: null, components: null, design: null };
 let componentsText = "";
 let designText = "";
-/** What of the stylesheets only the document can hold: their font faces. */
-let lifted: { components: string; design: string } = {
-  components: "",
-  design: "",
-};
-let documentStyle: HTMLStyleElement | null = null;
 
 const SKELETON_CSS = `
 [data-ed-skeleton] {
@@ -123,36 +120,15 @@ export const frameSheets = (own?: CSSStyleSheet): CSSStyleSheet[] => [
   own ?? sheet("design"),
 ];
 
-/**
- * A design sheet of one frame's (a component's unsaved look): its font faces are the design's,
- * which the shared sheet lifts to the document already.
- */
+/** A design sheet of one frame's (a component's unsaved look). */
 export const ownDesignSheet = (css: string): CSSStyleSheet => {
   const own = new CSSStyleSheet();
-  own.replaceSync(css ? frameCss(css).frame : "");
+  own.replaceSync(css);
   return own;
 };
 
-/** Font faces and registered properties go to the editor's document, where the frames see them. */
-const liftToDocument = () => {
-  if (!documentStyle) {
-    documentStyle = document.createElement("style");
-    documentStyle.setAttribute("data-ed-preview", "");
-    document.head.append(documentStyle);
-  }
-  documentStyle.textContent = [lifted.components, lifted.design]
-    .filter(Boolean)
-    .join("\n");
-};
-
-const write = (key: "components" | "design", css: string) => {
-  const made: FrameCss = css ? frameCss(css) : { document: "", frame: "" };
-  sheet(key).replaceSync(made.frame);
-  if (made.document !== lifted[key]) {
-    lifted = { ...lifted, [key]: made.document };
-    liftToDocument();
-  }
-};
+const write = (key: "components" | "design", css: string) =>
+  sheet(key).replaceSync(css);
 
 /** The components' own stylesheet, the same for every frame: written again only when it changed. */
 export const setComponentsCss = (css: string) => {

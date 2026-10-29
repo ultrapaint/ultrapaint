@@ -3,7 +3,7 @@ import { Schema } from "effect";
 /**
  * What the editor and a frame drawn in its page (ADR 0034) share: the editor holds the documents
  * and tells a frame what to draw; the frame answers with where things are.
- * The frame is called directly (`framework-api/browser.ts`), and what it says is a typed callback
+ * The frame is called directly (preview-core's `preview.ts`), and what it says is a typed callback
  * per kind, not a message.
  */
 

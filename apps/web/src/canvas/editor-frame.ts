@@ -5,8 +5,7 @@
  * by the preview), says what it says (`listen`, one listener per kind), tells it what to draw
  * (`render`, which skips what it shows already) and asks it what is where, answered at once
  * (`hitTest`, `measure`, `tokens`). How its host is shown (its class, style, title, whether it
- * takes input, whether it is away) it tells the preview, which writes the host (`show`) and keeps
- * what the page's code writes to its `<html>` there apart from it.
+ * takes input, whether it is away) it tells the preview, which writes the host (`show`).
  *
  * The handle outlives the frame it speaks to. What it was asked to keep (the nodes it watches,
  * the skeletons, how its host is shown) is told again to the frame opened next, so a caller says
@@ -16,8 +15,7 @@
  * the frame is open, again whenever the request changes, and again in a frame opened anew.
  *
  * It keeps the frame's latest error (`error`, `useFrameError`), whoever listens, on screen or
- * parked: the page's until the frame draws again or the modules change, the dev server's until
- * they change; a frame thrown away has none.
+ * parked, until the frame draws again; a frame thrown away has none.
  *
  * A frame opened with `keep` (the canvas's) is parked when it is closed rather than thrown away
  * (ADR 0033, 0034): a frame that leaves the screen, a canvas switched away from or the prototype
@@ -41,7 +39,7 @@ import type {
   Look,
   PageError,
   Preview,
-} from "@ultrapaint/framework-api/browser";
+} from "@ultrapaint/preview-core/preview";
 import {
   useCallback,
   useEffect,
@@ -220,9 +218,8 @@ export class EditorFrame {
   }
 
   /**
-   * What went wrong in the frame's page, whoever listened when it was told: a page's error until
-   * the frame draws again or the modules change, the dev server's until they change. Null when
-   * nothing did, or the frame is not open.
+   * What went wrong in the frame's page, whoever listened when it was told, until the frame draws
+   * again. Null when nothing did, or the frame is not open.
    */
   get error(): PageError | null {
     return this.failure?.error ?? null;
@@ -375,7 +372,7 @@ export class EditorFrame {
         this.rendered = Math.max(this.rendered, renderId);
         this.drewOn(mount());
         const { failure } = this;
-        if (failure?.error.source === "page" && renderId > failure.during) {
+        if (failure && renderId > failure.during) {
           this.fail(null);
         }
         tell("rendered", (l) => l.rendered?.(renderId));

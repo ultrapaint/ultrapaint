@@ -1,9 +1,6 @@
 /** Small DOM helpers the core and the renderers share. */
 
-import {
-  NODE_ATTRIBUTE,
-  nodeSelector,
-} from "@ultrapaint/framework-api/browser";
+import { NODE_ATTRIBUTE, nodeSelector } from "./preview.ts";
 
 /**
  * The elements a node is drawn as. An instance is usually the component's own root element,

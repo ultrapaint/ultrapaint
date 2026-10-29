@@ -15,7 +15,7 @@ import {
   resolveAt,
 } from "@ultrapaint/design-document/breakpoints";
 import { frameOf, type OpenedFrame } from "./editor-frame.ts";
-import { previewReady } from "./preview-module.ts";
+import { thePreview } from "./preview-module.ts";
 
 const FRAME = "specimen";
 const WIDTH = 1200;
@@ -60,27 +60,17 @@ const settle = () =>
 
 /**
  * The frame nobody sees, kept from one picture to the next; drawn anew for another canvas, whose
- * images are found elsewhere. Null while the preview is not running, or when pictures stopped
- * the editor the last time: none are drawn until it loads again.
+ * images are found elsewhere.
  */
-const open = async (
-  canvas: string,
-  width: number,
-  height: number
-): Promise<OpenedFrame | null> => {
-  const preview = await previewReady();
-  if (!preview) {
-    return null;
-  }
-  return frameOf(FRAME).open({
+const open = (canvas: string, width: number, height: number): OpenedFrame =>
+  frameOf(FRAME).open({
     canvas,
     holder: holderOf(),
-    preview,
+    preview: thePreview(),
     still: true,
     // Drawn at the picture's size, but nowhere the pointer or the eye goes.
     style: `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px`,
   });
-};
 
 /** Waits for the frame to have drawn a render, however long its components take to load. */
 const rendered = (renderId: number, timeoutMs: number) =>
@@ -123,14 +113,11 @@ export const drawSpecimen = (
   options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    const frame = await open(
+    open(
       options.canvas ?? "",
       options.width ?? WIDTH,
       options.height ?? HEIGHT
     );
-    if (!frame) {
-      return null;
-    }
     // A canvas whose defaults cannot be read is drawn in the stylesheet's own.
     let defaults: PageDefaults | undefined;
     try {

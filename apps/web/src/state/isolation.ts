@@ -12,7 +12,7 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
-import type { RenderRequest } from "@ultrapaint/framework-api/browser";
+import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";

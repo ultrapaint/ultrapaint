@@ -175,7 +175,8 @@ const themeSelector = (theme: string) => {
 
 /**
  * Every token of the design system as the custom property it is (`--color-primary`), on the
- * page's root, and each other theme's values under that theme (ADR 0040): the frames draw with
+ * frame's root (`:host`, a frame being a shadow root, ADR 0042), and each other theme's values
+ * under that theme (ADR 0040): the frames draw with
  * the design's values alone, the system components' look and every node's style alike. A font size's
  * line height is `--text-sm--line-height`, as Tailwind names it.
  */
@@ -201,7 +202,7 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
     }
   }
   return [
-    ...(base.length > 0 ? [`:root {\n${base.join("\n")}\n}`] : []),
+    ...(base.length > 0 ? [`:host {\n${base.join("\n")}\n}`] : []),
     ...[...themed].map(
       ([theme, declarations]) =>
         `${themeSelector(theme)} {\n${declarations.join("\n")}\n}`

@@ -42,7 +42,7 @@ import {
   type RenderRequest,
   type RenderSetup,
   type RenderToCanvas,
-} from "@ultrapaint/framework-api/browser";
+} from "@ultrapaint/preview-core/preview";
 import {
   catalogueOf,
   systemComponentOf,
@@ -662,7 +662,8 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       body = createElement(NodeView, {
         node: {
           ...node,
-          minHeight: node.minHeight ?? setup.pageHeight,
+          // A frame is the page's window: what fills the window's height fills the frame's.
+          minHeight: node.minHeight ?? "100cqh",
         },
         parent: "free",
       });

@@ -4,7 +4,7 @@ import type {
   FrameRuntime,
   MountFrameOptions,
   Preview,
-} from "@ultrapaint/framework-api/browser";
+} from "@ultrapaint/preview-core/preview";
 import { scriptedPreview } from "@ultrapaint/preview-core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -406,7 +406,7 @@ describe("the pool", () => {
 });
 
 describe("a frame's error", () => {
-  const thrown = { message: "boom", source: "page" } as const;
+  const thrown = { message: "boom" } as const;
   /** Another document each time: the frame draws it again. */
   const another = () => ({ ...page, root: { ...root } });
 
@@ -483,7 +483,7 @@ describe("a frame's events handed on", () => {
       textCommit: () => calls.push("textCommit"),
     };
     const handed = m.forwardTo(() => every);
-    handed.error({ message: "m", source: "page" });
+    handed.error({ message: "m" });
     handed.navigateTo("/", false);
     handed.pressed([]);
     handed.ready();

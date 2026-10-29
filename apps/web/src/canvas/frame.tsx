@@ -1,7 +1,7 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
-import type { Preview } from "@ultrapaint/framework-api/browser";
+import type { Preview } from "@ultrapaint/preview-core/preview";
 import { cn } from "cn";
 import { X } from "lucide-react";
 import {
