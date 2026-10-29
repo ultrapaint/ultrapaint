@@ -163,15 +163,24 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
   </SyncCard>
 );
 
-/** Draws the pages' old instances as system components, in one undo step (ADR 0040). */
-const drawAsSystemComponents = async () => {
+/** Brings the designs from before up to date, in one undo step (ADRs 0040, 0041). */
+const bringUpToDate = async () => {
   try {
-    const { documents, drawn } = await api().request(
-      "documents.toSystemComponents",
+    const { components, documents, drawn } = await api().request(
+      "components.migrate",
       undefined
     );
     toast.success(
-      `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as ${drawn === 1 ? "a system component" : "system components"}.`
+      [
+        drawn > 0
+          ? `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as now`
+          : null,
+        components > 0
+          ? `${plural(components, "component")} in components/`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(", ") || "Nothing was left to bring up to date."
     );
   } catch (error) {
     reportError(error);
@@ -188,9 +197,9 @@ const SystemComponentsStep = ({
 }) => (
   <SyncCard index={index} step={step}>
     <div className="flex flex-wrap gap-1.5">
-      <Button onClick={drawAsSystemComponents} size="sm">
+      <Button onClick={bringUpToDate} size="sm">
         <Wand2 />
-        Draw them as system components
+        Bring them up to date
       </Button>
     </div>
   </SyncCard>

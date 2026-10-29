@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import { Effect } from "effect";
 import { CatalogueService } from "./services/catalogue.ts";
 

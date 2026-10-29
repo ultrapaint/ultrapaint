@@ -1,4 +1,8 @@
 import {
+  COMPONENT_EXTENSION,
+  COMPONENTS_DIR,
+} from "@ultrapaint/contracts/component-names";
+import {
   DESIGN_SYSTEM_FILE,
   type DesignFinding,
   type DesignSystem,
@@ -6,7 +10,6 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import { SPEC_EXTENSION, SPECS_DIR } from "@ultrapaint/contracts/spec-names";
 import { withTokenChanges } from "@ultrapaint/contracts/token-table";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
@@ -139,7 +142,7 @@ export class DesignSystemService extends Context.Service<
       const systemRel = paths.relative(systemFile);
       const tokensFile = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
       const tokensRel = paths.relative(tokensFile);
-      const specsPrefix = `${paths.relative(path.join(paths.designsDir, SPECS_DIR))}/`;
+      const componentsPrefix = `${paths.relative(path.join(paths.designsDir, COMPONENTS_DIR))}/`;
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -419,8 +422,9 @@ export class DesignSystemService extends Context.Service<
               ({ file }) =>
                 file === systemRel ||
                 file === tokensRel ||
-                // A spec's look is DESIGN.md's component tokens (ADR 0027, 0029).
-                (file.startsWith(specsPrefix) && file.endsWith(SPEC_EXTENSION))
+                // A system component's look is DESIGN.md's component tokens (ADRs 0027, 0041).
+                (file.startsWith(componentsPrefix) &&
+                  file.endsWith(COMPONENT_EXTENSION))
             ),
             Stream.as(undefined)
           ),

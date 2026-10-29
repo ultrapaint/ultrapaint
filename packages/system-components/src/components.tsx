@@ -1,13 +1,13 @@
 /**
  * The system components, drawn (ADR 0040): Base UI's behaviour, every part marked with its `data-slot`
- * for the look (`look.ts`, then the design's specs) to style. The renderer gives each one the
+ * for the look (`look.ts`, then the project's looks) to style. The renderer gives each one the
  * props of its instance, its children (the default slot) and the nodes of its other slots
  * (`slots`), and the node's marks and box (`data-ed-*`, `style`), which go on the element that is
  * the instance on the page.
  *
  * An overlay is its trigger in the page's flow and its popup in the frame's body: drawn open, the
  * popup carries the node's marks too, so it can be pointed at and measured; its parts are marked
- * for the specs (`data-ed-p`) as they are not inside the instance's element.
+ * for the looks (`data-ed-p`) as they are not inside the instance's element.
  */
 import { Avatar } from "@base-ui/react/avatar";
 import { Checkbox } from "@base-ui/react/checkbox";
@@ -49,7 +49,7 @@ const marksOf = (props: SystemComponentProps) => {
 
 /**
  * The marks a portalled part carries: the node's (so it is pointed at and measured as the
- * instance), and the component's for the specs as a portal (`data-ed-p`), not as its root.
+ * instance), and the component's for the looks as a portal (`data-ed-p`), not as its root.
  */
 const portalMarksOf = (props: SystemComponentProps) => {
   const { "data-ed-c": component, ...marks } = marksOf(props);
@@ -80,7 +80,7 @@ const items = (value: unknown): string[] => {
 const has = (node: ReactNode) =>
   node !== undefined && node !== null && node !== false;
 
-/** The marks the specs find a portal by: the component as a portal, its variant props, a pinned state. */
+/** The marks the looks find a portal by: the component as a portal, its variant props, a pinned state. */
 const specMarksOf = (props: SystemComponentProps) => ({
   "data-ed-p": props["data-ed-c"],
   "data-ed-state": props["data-ed-state"],

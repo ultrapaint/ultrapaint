@@ -11,6 +11,12 @@
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
+  APP_FROM,
+  COMPONENTS_DIR,
+  type ComponentFile,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/components";
+import {
   type DesignDocument,
   type DesignSystem,
   TEXT_STYLE_GROUPS,
@@ -18,12 +24,6 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { PageList } from "@ultrapaint/contracts/pages";
 import { writesGit } from "@ultrapaint/contracts/settings";
-import {
-  type ComponentSpec,
-  DRAFT_FROM,
-  SPECS_DIR,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/specs";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
@@ -31,12 +31,12 @@ import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
+import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { SkillsService } from "../skills.ts";
-import { SpecService } from "../specs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
 
@@ -146,7 +146,7 @@ const roleOf = (purpose: ThreadPurpose, designsDir: string, ways: AgentWays) =>
   purpose === "implement"
     ? `This thread implements: it turns designs into the application's code, and may write the
 whole repository. The design is what the UI looks like and which states it has; what it does is
-the code's. Token values are the design's: to bring one the code does not have yet over, ${ways.exportTokens("named")}; never the other way without asking. When a design is implemented, ${ways.markImplemented("the page, or spec:<Component>")}`
+the code's. Token values are the design's: to bring one the code does not have yet over, ${ways.exportTokens("named")}; never the other way without asking. When a design is implemented, ${ways.markImplemented("the page, or component:<Name>")}`
     : `This thread designs: it may write ${designsDir} only, not the application's code. The design is
 what the UI looks like and which states it has (an empty, loading or error state is a page of
 its own, orders@empty.page.json); what it does — data, permissions, validation, what a button
@@ -155,27 +155,28 @@ tell them it goes to the code when the design is implemented (the Implement butt
 are the design's: change them in the design system, never in a stylesheet.`;
 
 /**
- * The component specs (ADR 0029): which components' look the design owns, and the drafts the
- * code does not have yet.
+ * The components (ADR 0041): their files, which system components' look the design owns, the
+ * app components to place, and the format an agent writes a component's file in.
  */
-const specsOf = (specs: readonly ComponentSpec[]) => {
-  const owned = specs.filter((s) => s.look === "design" && !s.draft);
-  const drafts = specs.filter((s) => s.draft);
-  if (owned.length === 0 && drafts.length === 0) {
-    return "";
-  }
-  return `Component specs in ${SPECS_DIR}/ say how a component looks, apart from what it does, which is
-its code's: ${[
-    owned.length > 0
-      ? `the design owns the look of ${owned.map((s) => s.component).join(", ")}, drawn over the component (change a look in its spec, not on each instance)`
-      : null,
-    drafts.length > 0
-      ? `${drafts.map((s) => s.component).join(", ")} ${drafts.length === 1 ? "is a draft" : "are drafts"}, a component the code does not have yet: place ${drafts.length === 1 ? "it" : "them"} as an instance with from "${DRAFT_FROM}"`
-      : null,
-  ]
-    .filter(Boolean)
-    .join("; ")}.
-
+const componentsOf = (
+  designsDir: string,
+  components: readonly ComponentFile[]
+) => {
+  const looks = components.filter((c) => c.origin === "system");
+  const apps = components.filter((c) => c.origin === "app");
+  return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
+{ "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
+- origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
+  (per axis, per member) and "states" (hover, focus, active, disabled, open, checked, invalid),
+  each style fields per part (root or a data-slot): fill, color, border, radius, padding, height,
+  width, gap, fontSize, fontWeight, shadow, opacity. Without a file it has its default look.
+- origin "app": the project's own component, placed with from "${APP_FROM}": "tree" (a node, its
+  root the instance), "properties" ([{ name, kind: text|boolean|choice|image, default, members?,
+  targets?: [{ node, prop? }] }]: what an instance's props set, a text's text, a node shown, an
+  image's src, or a prop of the component the node is; a choice's member overrides a node's fields
+  in its at under "<property>=<member>") and "slots" ([{ name, node, default? }]: containers its
+  children fill, as a system component's). It cannot take a system component's name or place itself.
+${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}${apps.length > 0 ? `App components: ${apps.map((c) => c.name).join(", ")}.\n` : ""}
 `;
 };
 
@@ -228,9 +229,9 @@ export class ProjectBriefing extends Context.Service<
         );
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
-        const specs = yield* Effect.orElseSucceed(
-          Effect.flatMap(SpecService, (service) => service.specs),
-          (): readonly ComponentSpec[] => []
+        const files = yield* Effect.orElseSucceed(
+          Effect.flatMap(ComponentService, (service) => service.components),
+          (): readonly ComponentFile[] => []
         );
 
         return `<ultrapaint>
@@ -299,7 +300,7 @@ ${components.map(componentLine).join("\n")}`
 
 ${ways.changingDesigns}
 
-${specsOf(specs)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
+${componentsOf(settings.designsDir, files)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when styles are missing, send the user to Sync in the Design system panel.${dotGitNote(sandbox.available, gitRepository, writesGit(settings))}

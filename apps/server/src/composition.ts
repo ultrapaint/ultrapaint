@@ -15,6 +15,7 @@ import { ProjectManager, type ProjectRequirements } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
+import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
@@ -39,7 +40,6 @@ import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
 import { SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
-import { SpecService } from "./services/specs.ts";
 import { Storage } from "./services/storage.ts";
 import { ProjectStyleSystem } from "./services/style-system.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
@@ -76,11 +76,12 @@ export const ServerAdapters = {
 /** The services of the project the settings describe. */
 export const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
-  // names, with its behaviour notes in a spec or in comments (ADR 0030).
+  // names, with its behaviour notes in a component's file or in comments (ADR 0030).
   Layer.mergeAll(PagePngs.layer, DesignTargets.layer).pipe(
-    // The specs: a system component's look as the design says it (ADR 0029, 0040).
-    Layer.provideMerge(SpecService.layer),
-    // The link to the code reads the pages, their documents and the specs (ADR 0030).
+    // The components: a system component's look as the design says it, an app component's tree
+    // (ADR 0041).
+    Layer.provideMerge(ComponentService.layer),
+    // The link to the code reads the pages, their documents and the components (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),
     Layer.provideMerge(
       Layer.mergeAll(DocumentService.layer, FigmaImportService.layer)

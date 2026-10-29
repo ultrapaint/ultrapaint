@@ -79,27 +79,27 @@ describe("designTargetNamed", () => {
     route: "/pricing",
   });
   const pages = [home, bold, orders, sketch, marketing];
-  const specs = [{ component: "Button" }, { component: "Card" }];
+  const components = [{ name: "Button" }, { name: "Card" }];
 
   const target = (name: string, canvas?: string) => {
-    const named = designTargetNamed(pages, specs, name, canvas);
+    const named = designTargetNamed(pages, components, name, canvas);
     switch (named._tag) {
       case "Page":
         return named.nodeId === undefined
           ? named.page.id
           : `${named.page.id} ${named.nodeId}`;
-      case "Spec":
-        return `spec ${named.spec.component}`;
+      case "Component":
+        return `component ${named.component.name}`;
       default:
         return named;
     }
   };
 
   it.each([
-    ["Button", "spec Button"],
-    [" spec:Card ", "spec Card"],
-    ["spec:Nope", { _tag: "Missing", kind: "spec", route: null }],
-    ["Nope", { _tag: "Missing", kind: "spec", route: null }],
+    ["Button", "component Button"],
+    [" component:Card ", "component Card"],
+    ["component:Nope", { _tag: "Missing", kind: "component", route: null }],
+    ["Nope", { _tag: "Missing", kind: "component", route: null }],
     ["/", home.id],
     ["/orders", orders.id],
     ["orders.page.json", orders.id],
@@ -132,7 +132,7 @@ describe("designTargetNamed", () => {
       kind: "page",
       route: "/pricing",
     });
-    expect(target("Button", "marketing")).toBe("spec Button");
+    expect(target("Button", "marketing")).toBe("component Button");
     expect(target("", "marketing")).toBe(marketing.id);
   });
 
@@ -141,14 +141,14 @@ describe("designTargetNamed", () => {
       ...pages,
       page("marketing", "home.page.json", { route: "/" }),
     ];
-    expect(designTargetNamed(both, specs, "/")).toEqual({
+    expect(designTargetNamed(both, components, "/")).toEqual({
       _tag: "Ambiguous",
       canvases: ["", "marketing"],
     });
-    expect(designTargetNamed(both, specs, "/#c_1")).toMatchObject({
+    expect(designTargetNamed(both, components, "/#c_1")).toMatchObject({
       _tag: "Ambiguous",
     });
-    expect(designTargetNamed(both, specs, "marketing:/")).toMatchObject({
+    expect(designTargetNamed(both, components, "marketing:/")).toMatchObject({
       _tag: "Page",
       page: { canvas: "marketing" },
     });

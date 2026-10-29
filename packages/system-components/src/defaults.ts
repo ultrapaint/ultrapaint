@@ -1,19 +1,23 @@
 /**
- * Each system component's default look as data (ADR 0040): a component spec (ADR 0029) in the design
- * document's own style fields, over the design system's tokens (`$color-primary`). `look.ts`
- * draws them under the project's specs; taking a system component's look over starts the project's spec
- * from its default, so the designer edits real values. What a spec cannot say stays in `look.ts`:
- * layout, positioning, a dialog's sheet on a narrow frame, animations, and what a pointer or a
- * state does to a part.
+ * Each system component's default look as data (ADRs 0040, 0041): a system component's file in
+ * the design document's own style fields, over the design system's tokens (`$color-primary`).
+ * `look.ts` draws them under the project's files; taking a system component's look over starts
+ * the project's file from its default, so the designer edits real values. What a file cannot say
+ * stays in `look.ts`: positioning, a dialog's sheet on a narrow frame, animations, and what a
+ * pointer does to a part.
  */
-import type { Sides } from "@ultrapaint/contracts/document";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import type {
-  ComponentSpec,
-  SlotStyles,
-  SpecStyle,
-} from "@ultrapaint/contracts/specs";
-import { SYSTEM_COMPONENTS, type SystemComponentMeta } from "./catalogue.ts";
+  PartStyle,
+  PartStyles,
+  SystemComponentFile,
+} from "@ultrapaint/contracts/components";
+import type { Sides } from "@ultrapaint/contracts/document";
+import type { ComponentLook } from "@ultrapaint/design-document/component-look";
+import {
+  SYSTEM_COMPONENTS,
+  type SystemComponentMeta,
+  systemComponentOf,
+} from "./catalogue.ts";
 
 /** The same length above and below, and the same on either side. */
 const pad = (block: string | number, inline: string | number): Sides => ({
@@ -22,7 +26,7 @@ const pad = (block: string | number, inline: string | number): Sides => ({
   right: inline,
   top: block,
 });
-const line = (color: string): SpecStyle["border"] => ({
+const line = (color: string): PartStyle["border"] => ({
   color,
   width: "1px",
 });
@@ -32,7 +36,7 @@ const POPUP_SHADOW =
 const ROUND = "9999px";
 
 /** A popup's surface: a select's, a menu's, a popover's. */
-const popup: SpecStyle = {
+const popup: PartStyle = {
   color: "$color-popover-foreground",
   fill: "$color-popover",
   fontSize: "0.875rem",
@@ -40,18 +44,18 @@ const popup: SpecStyle = {
   shadow: POPUP_SHADOW,
 };
 /** An item of a select or a menu. */
-const item: SpecStyle = {
+const item: PartStyle = {
   gap: "0.5rem",
   padding: pad("0.375rem", "0.5rem"),
   radius: "$radius-sm",
 };
 /** A field's label and the box a value is typed or chosen in. */
-const label: SpecStyle = {
+const label: PartStyle = {
   color: "$color-foreground",
   fontSize: "0.875rem",
   fontWeight: 500,
 };
-const field: SpecStyle = {
+const field: PartStyle = {
   border: line("$color-input"),
   color: "$color-foreground",
   fill: "transparent",
@@ -60,8 +64,8 @@ const field: SpecStyle = {
 };
 
 interface Look {
-  readonly base: SlotStyles;
-  readonly variants?: ComponentSpec["variants"];
+  readonly base: PartStyles;
+  readonly variants?: SystemComponentFile["variants"];
 }
 
 const LOOKS: Readonly<Record<string, Look>> = {
@@ -389,32 +393,59 @@ const LOOKS: Readonly<Record<string, Look>> = {
   },
 };
 
-const specOf = (meta: SystemComponentMeta): ComponentSpec => {
+const fileOf = (meta: SystemComponentMeta): SystemComponentFile => {
   const look = LOOKS[meta.name] ?? { base: {} };
   return {
     base: look.base,
-    component: meta.name,
-    defaults: Object.fromEntries(
-      Object.entries(meta.variants).flatMap(([axis, members]) =>
-        members[0] === undefined ? [] : [[axis, members[0]]]
-      )
-    ),
-    description: meta.description,
-    from: SYSTEM_FROM,
-    look: "design",
-    slots: meta.slots.map((s) => ({ label: s.label, name: s.name })),
+    name: meta.name,
+    origin: "system",
     states: {},
     variants: look.variants ?? {},
     version: 1,
   };
 };
 
-/** Every system component's default look, as a spec. */
-export const SYSTEM_DEFAULTS: readonly ComponentSpec[] =
-  SYSTEM_COMPONENTS.map(specOf);
+/** Every system component's default look, as its file. */
+export const SYSTEM_DEFAULTS: readonly SystemComponentFile[] =
+  SYSTEM_COMPONENTS.map(fileOf);
 
-const byName = new Map(SYSTEM_DEFAULTS.map((s) => [s.component, s]));
+const byName = new Map(SYSTEM_DEFAULTS.map((s) => [s.name, s]));
 
-/** A system component's default look, as a spec; undefined for a name that is no system component. */
-export const defaultSpecOf = (component: string): ComponentSpec | undefined =>
-  byName.get(component);
+/** A system component's default look, as its file; undefined for a name that is no system component. */
+export const defaultLookOf = (
+  component: string
+): SystemComponentFile | undefined => byName.get(component);
+
+/**
+ * A system component's file as it is drawn: its fields, with its parts and the member each axis
+ * starts in from the catalogue. Undefined for a name that is no system component.
+ */
+export const lookOf = (
+  file: SystemComponentFile
+): ComponentLook | undefined => {
+  const meta = systemComponentOf(file.name);
+  if (!meta) {
+    return undefined;
+  }
+  return {
+    base: file.base,
+    component: file.name,
+    defaults: Object.fromEntries(
+      Object.entries(meta.variants).flatMap(([axis, members]) =>
+        members[0] === undefined ? [] : [[axis, members[0]]]
+      )
+    ),
+    parts: meta.slots.map((s) => s.name),
+    states: file.states,
+    variants: file.variants,
+  };
+};
+
+/** The looks of the files that are a system component's, as they are drawn. */
+export const looksOf = (
+  files: readonly SystemComponentFile[]
+): ComponentLook[] =>
+  files.flatMap((file) => {
+    const look = lookOf(file);
+    return look ? [look] : [];
+  });

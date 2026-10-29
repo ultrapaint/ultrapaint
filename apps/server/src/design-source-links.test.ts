@@ -205,25 +205,25 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "keeps a system component's behaviour notes in its spec, and tells the implementation of them",
+      "keeps a system component's behaviour notes in its file, and tells the implementation of them",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
-          yield* client["specs.fromCode"]({ component: "Button" });
+          yield* client["components.fromDefault"]({ name: "Button" });
           // What implements a system component's look is the application's own component (ADR 0040).
           yield* client["implementation.mark"]({
             files: ["designs/ui/button.tsx"],
-            target: "spec:Button",
+            target: "component:Button",
           });
           const button = statusOf(
             (yield* client["implementation.list"]()).items,
-            "spec:Button"
+            "component:Button"
           );
           assert.strictEqual(button?.status, "implemented");
           assert.deepStrictEqual(button?.files, ["designs/ui/button.tsx"]);
 
-          const note = yield* client["specs.addNote"]({
-            component: "Button",
+          const note = yield* client["components.addNote"]({
+            name: "Button",
             slot: "button-spinner",
             text: "Spins while the action runs",
           });
@@ -231,7 +231,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.include(
             yield* handoff({
               action: "note",
-              target: "spec:Button",
+              target: "component:Button",
               text: "Submits the form it is in",
             }),
             "Noted on Button."
@@ -240,13 +240,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             yield* handoff({
               action: "note",
               node: "nope",
-              target: "spec:Button",
+              target: "component:Button",
               text: "Never",
             }),
-            "has no slot nope"
+            "has no part nope"
           );
           const changed = yield* client["implementation.changes"]({
-            target: "spec:Button",
+            target: "component:Button",
           });
           assert.include(
             changed.text,
@@ -259,13 +259,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.isTrue(
             statusOf(
               (yield* client["implementation.list"]()).items,
-              "spec:Button"
+              "component:Button"
             )?.designChanged
           );
 
           const task = yield* handoff({
             action: "read",
-            target: "spec:Button",
+            target: "component:Button",
           });
           assert.include(task, "Behaviour notes on the component");
           assert.include(
@@ -277,12 +277,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             "Implement each behaviour note in the component"
           );
 
-          // Read off the code again, the spec keeps what it says the code must do.
-          const again = yield* client["specs.fromCode"]({
-            component: "Button",
+          // Started from its default again, the file keeps what it says the code must do.
+          const again = yield* client["components.fromDefault"]({
+            name: "Button",
           });
           assert.deepStrictEqual(
-            again.spec?.notes?.map((n) => n.text),
+            again.component?.notes?.map((n) => n.text),
             ["Spins while the action runs", "Submits the form it is in"]
           );
         }),

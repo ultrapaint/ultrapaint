@@ -1,7 +1,6 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
@@ -265,58 +264,91 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "starts a system component's spec from its default look, and makes a draft of a node",
+      "starts a system component's file from its default look, and makes an app component of nodes",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
           // A system component (ADR 0040): nothing of the repository's is read, its parts are the
           // catalogue's, and its look starts as the system component's default.
-          const read = yield* client["specs.fromCode"]({ component: "Button" });
-          const { spec } = read;
-          assert.strictEqual(read.file, "specs/Button.spec.json");
-          assert.strictEqual(spec?.look, "design");
-          assert.strictEqual(spec?.from, SYSTEM_FROM);
-          assert.deepStrictEqual(
-            spec?.slots.map((s) => s.name),
-            ["root", "button-spinner"]
-          );
-          assert.strictEqual(spec?.base.root?.fill, "$color-primary");
-
-          // The design changes the look.
-          if (!spec) {
+          const read = yield* client["components.fromDefault"]({
+            name: "Button",
+          });
+          const file = read.component;
+          assert.strictEqual(read.file, "components/Button.component.json");
+          assert.strictEqual(file?.origin, "system");
+          if (file?.origin !== "system") {
             return;
           }
-          yield* client["specs.write"]({
-            spec: {
-              ...spec,
-              base: { root: { fill: "#ff0000" } },
-              look: "design",
-            },
+          assert.strictEqual(file.base.root?.fill, "$color-primary");
+
+          // The design changes the look.
+          yield* client["components.write"]({
+            component: { ...file, base: { root: { fill: "#ff0000" } } },
           });
-          const listed = yield* client["specs.list"]();
-          assert.strictEqual(listed.specs[0]?.spec?.look, "design");
+          const listed = yield* client["components.list"]();
+          assert.strictEqual(listed.components[0]?.component?.origin, "system");
           const bound = yield* client["implementation.list"]();
           assert.strictEqual(
-            statusOf(bound.items, "spec:Button")?.kind,
-            "spec"
+            statusOf(bound.items, "component:Button")?.kind,
+            "component"
           );
-          const refusedSpec = yield* Effect.flip(
-            client["specs.write"]({
-              spec: { ...spec, component: "not-a-name" },
+          const refused = yield* Effect.flip(
+            client["components.write"]({
+              component: { ...file, name: "not-a-name" },
             })
           );
-          assert.include(refusedSpec.message, "PascalCase");
+          assert.include(refused.message, "PascalCase");
+          // An app component takes no system component's name, and cannot place itself.
+          const clash = yield* Effect.flip(
+            client["components.write"]({
+              component: {
+                name: "Card",
+                origin: "app",
+                properties: [],
+                slots: [],
+                tree: { children: [], id: "r", type: "row" },
+                version: 1,
+              },
+            })
+          );
+          assert.include(clash.message, "a system component's name");
+          const itself = yield* Effect.flip(
+            client["components.write"]({
+              component: {
+                name: "Loop",
+                origin: "app",
+                properties: [],
+                slots: [],
+                tree: {
+                  children: [
+                    {
+                      component: "Loop",
+                      from: "#app",
+                      id: "again",
+                      type: "instance",
+                    },
+                  ],
+                  id: "r",
+                  type: "row",
+                },
+                version: 1,
+              },
+            })
+          );
+          assert.include(itself.message, "Loop places Loop");
 
-          // A node becomes a draft component: its tree in the spec, an instance in its place.
-          const draft = yield* client["specs.draftFrom"]({
+          // A node becomes an app component: its tree in the file, an instance in its place.
+          const made = yield* client["components.makeApp"]({
             id: HOME,
             name: "Hero title",
-            nodeId: "heading",
+            nodeIds: ["heading"],
           });
-          assert.strictEqual(draft.spec?.component, "HeroTitle");
-          assert.strictEqual(draft.spec?.from, "#draft");
-          assert.strictEqual(draft.spec?.draft?.type, "text");
+          assert.strictEqual(made.component?.name, "HeroTitle");
+          assert.strictEqual(
+            made.component?.origin === "app" && made.component.tree.type,
+            "text"
+          );
           const page = yield* client["documents.get"]({ doc: HOME });
           const [heading] = (
             page.root as unknown as {
@@ -330,14 +362,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           ).children;
           assert.deepInclude(heading, {
             component: "HeroTitle",
-            from: "#draft",
+            from: "#app",
             id: "heading",
             type: "instance",
           });
-
-          yield* client["specs.remove"]({ component: "Button" });
+          // One step back takes both back: the page's node and the file.
+          yield* client["edit.undo"]();
           assert.isFalse(
-            yield* fs.exists(path.join(repo, "designs/specs/Button.spec.json"))
+            yield* fs.exists(
+              path.join(repo, "designs/components/HeroTitle.component.json")
+            )
+          );
+
+          yield* client["components.remove"]({ name: "Button" });
+          assert.isFalse(
+            yield* fs.exists(
+              path.join(repo, "designs/components/Button.component.json")
+            )
           );
         }),
       90_000

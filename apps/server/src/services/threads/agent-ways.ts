@@ -194,7 +194,7 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
    only it uses). A state's page is implemented by the same files as its page.`,
   markImplemented: (target) =>
     `mark it implemented: call ${handoffCall("mark")}, target ${target} and files, every repository file you wrote or changed for it. The editor then knows which code implements it, and tells the next implementation what changed.`,
-  noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component's spec (target spec:<Component>, node a slot)`,
+  noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component (target component:<Name>, node a part)`,
   proposeWith: `${TOOLS.scan_design_system} has what the theme declares; ${TOOLS.ask_user} puts a card of questions to the user; ${TOOLS.write_design_system} saves the result.`,
   readComponent: `call ${TOOLS.get_component}`,
   readDesignSystem: () =>

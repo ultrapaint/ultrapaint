@@ -1,16 +1,16 @@
 import { assert, describe, layer } from "@effect/vitest";
-import { emptySpec } from "@ultrapaint/contracts/specs";
+import { emptySystemComponent } from "@ultrapaint/contracts/components";
 import { type Context, Effect } from "effect";
 import { ProjectManager, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
+import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
-import { SpecService } from "./services/specs.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { callTool, ProjectTest } from "./testing/project.ts";
 
-/** The fixture's Button, with a spec of its own. */
-const BUTTON_SPEC = `${JSON.stringify(emptySpec("Button", "ui/button"))}\n`;
+/** The Button, with a file of its own: the project owns its look. */
+const BUTTON_FILE = `${JSON.stringify(emptySystemComponent("Button"))}\n`;
 
 const handoff = (
   parameters: Parameters<
@@ -43,7 +43,9 @@ const implementTask = (target: string) =>
 
 describe("a design target, named once", () => {
   layer(
-    ProjectTest({ files: { "designs/specs/Button.spec.json": BUTTON_SPEC } }),
+    ProjectTest({
+      files: { "designs/components/Button.component.json": BUTTON_FILE },
+    }),
     { excludeTestServices: true }
   )((it) => {
     it.effect("pins a note on a node reference to its node", () =>
@@ -93,10 +95,13 @@ describe("a design target, named once", () => {
       })
     );
 
-    it.effect("reads, marks and notes a spec named by its component", () =>
+    it.effect("reads, marks and notes a component named by its name", () =>
       Effect.gen(function* () {
         const task = yield* handoff({ action: "read", target: "Button" });
-        assert.include(task, "Implement the look of Button as its spec says");
+        assert.include(
+          task,
+          "Implement the look of the Button system component as its file says"
+        );
         assert.strictEqual(
           yield* handoff({
             action: "note",
@@ -111,19 +116,22 @@ describe("a design target, named once", () => {
             files: ["ui/button.tsx"],
             target: "Button",
           }),
-          "- spec:Button (Button): implemented → ui/button.tsx"
+          "- component:Button (Button): implemented → ui/button.tsx"
         );
         const changes = yield* project(ImplementationService, (i) =>
-          i.changes("spec:Button")
+          i.changes("component:Button")
         );
         assert.isTrue(changes.implemented);
-        const specs = yield* project(SpecService, (s) => s.specs);
+        const components = yield* project(
+          ComponentService,
+          (c) => c.components
+        );
         assert.deepStrictEqual(
-          specs[0]?.notes?.map((n) => n.text),
+          components[0]?.notes?.map((n) => n.text),
           ["Submits the form it is in"]
         );
-        // The note is the spec's, which /implement reads it from, by either name.
-        for (const target of ["Button", "spec:Button"]) {
+        // The note is the component's, which /implement reads it from, by either name.
+        for (const target of ["Button", "component:Button"]) {
           const implement = yield* implementTask(target);
           assert.include(implement, "- Submits the form it is in");
         }
@@ -133,8 +141,8 @@ describe("a design target, named once", () => {
     it.effect("says which kind a miss is, and lists that kind", () =>
       Effect.gen(function* () {
         assert.strictEqual(
-          yield* refusal({ action: "read", target: "spec:Nope" }),
-          "no component spec is spec:Nope; the component specs are:\n- Button"
+          yield* refusal({ action: "read", target: "component:Nope" }),
+          "no component is component:Nope; the components with a file are:\n- Button"
         );
         assert.strictEqual(
           yield* refusal({ action: "mark", files: ["x"], target: "/nowhere" }),
@@ -142,12 +150,12 @@ describe("a design target, named once", () => {
         );
         assert.strictEqual(
           yield* refusal({ action: "note", target: "Nope", text: "x" }),
-          "no component spec is Nope (a page is named by its URL or its file); the component specs are:\n- Button"
+          "no component is Nope (a page is named by its URL or its file); the components with a file are:\n- Button"
         );
-        const implement = yield* Effect.flip(implementTask("spec:Nope"));
+        const implement = yield* Effect.flip(implementTask("component:Nope"));
         assert.strictEqual(
           implement.message,
-          "no component spec is spec:Nope; the component specs are:\n- Button"
+          "no component is component:Nope; the components with a file are:\n- Button"
         );
         assert.strictEqual(implement.next, "Ask which one.");
       })

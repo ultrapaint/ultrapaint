@@ -1,20 +1,40 @@
 /**
- * Component specs drawn over the code (ADR 0029). The renderer marks every instance with the
- * component it is and the variant props it was given; a spec with `look: "design"` becomes a
- * stylesheet keyed on those marks, so a component keeps its behaviour and takes the design's
- * look. The sheet is unlayered and comes after the code's, so it wins over Tailwind's layered
- * utilities without `!important`, and a property the spec does not set stays the code's.
+ * A system component's look drawn over it (ADRs 0029, 0040, 0041). The renderer marks every
+ * instance with the component it is and the variant props it was given; a look, the style fields
+ * of each part at its base, in each variant and in each state, becomes a stylesheet keyed on
+ * those marks, so the component keeps its behaviour and takes the design's look. The project's
+ * looks are unlayered and come after the default looks' layer, so they win over it without
+ * `!important`, and a property a look does not set stays the default's.
  */
 
-import type { Border, Padding } from "@ultrapaint/contracts/document";
-import { ROOT_SLOT, SPEC_STATES } from "@ultrapaint/contracts/spec-names";
+import {
+  COMPONENT_STATES,
+  ROOT_SLOT,
+} from "@ultrapaint/contracts/component-names";
 import type {
-  ComponentSpec,
-  SlotStyles,
-  SpecState,
-  SpecStyle,
-} from "@ultrapaint/contracts/specs";
+  ComponentState,
+  PartStyle,
+  PartStyles,
+} from "@ultrapaint/contracts/components";
+import type { Border, Padding } from "@ultrapaint/contracts/document";
 import type { StyleContext } from "./css.ts";
+
+/** A system component's look as it is drawn: its file's fields, with what the catalogue says of it. */
+export interface ComponentLook {
+  /** Style fields every instance starts from, per part. */
+  readonly base: PartStyles;
+  readonly component: string;
+  /** The member each variant axis starts in when an instance does not say. */
+  readonly defaults: Readonly<Record<string, string>>;
+  /** Its parts, the root first: the order their rules are written in. */
+  readonly parts: readonly string[];
+  /** Style fields per state, per part. */
+  readonly states: Readonly<Record<string, PartStyles>>;
+  /** Style fields per variant axis, per member, per part. */
+  readonly variants: Readonly<
+    Record<string, Readonly<Record<string, PartStyles>>>
+  >;
+}
 
 /** The attribute values the renderer puts on an instance's root. */
 export const COMPONENT_ATTRIBUTE = "data-ed-c";
@@ -36,7 +56,7 @@ const NOT_VARIANTS: ReadonlySet<string> = new Set(["children"]);
 
 /**
  * `variant:outline size:sm` from an instance's props: every string, number and boolean prop,
- * whitespace in values replaced by `_`, sorted by key, so a spec can match one token of it.
+ * whitespace in values replaced by `_`, sorted by key, so a look can match one token of it.
  */
 export const variantAttributeOf = (
   props: Readonly<Record<string, unknown>> | undefined
@@ -105,9 +125,9 @@ const borderCss = (
   return out;
 };
 
-/** The CSS of one spec style as declarations, kebab-case property to value, tokens resolved. */
-export const specStyleCss = (
-  style: SpecStyle,
+/** The CSS of one part's style as declarations, kebab-case property to value, tokens resolved. */
+export const partStyleCss = (
+  style: PartStyle,
   ctx: StyleContext
 ): Record<string, string> => {
   const { css } = ctx.resolver;
@@ -156,9 +176,9 @@ export const specStyleCss = (
 
 /**
  * What a state is in the DOM: its pseudo-class and the attributes the headless libraries set
- * (Base UI, Radix, React Aria). `data-ed-state` pins it on the instance for the spec's matrix.
+ * (Base UI, Radix, React Aria). `data-ed-state` pins it on the instance for the look's matrix.
  */
-const STATE_SELECTORS: Record<SpecState, readonly string[]> = {
+const STATE_SELECTORS: Record<ComponentState, readonly string[]> = {
   active: [":active", "[data-pressed]"],
   checked: [
     "[data-checked]",
@@ -179,8 +199,8 @@ const STATE_SELECTORS: Record<SpecState, readonly string[]> = {
 };
 
 /** The states in the order their rules are written: disabled last, so it wins over the rest. */
-const STATE_ORDER: readonly SpecState[] = [
-  ...SPEC_STATES.filter((s) => s !== "disabled"),
+const STATE_ORDER: readonly ComponentState[] = [
+  ...COMPONENT_STATES.filter((s) => s !== "disabled"),
   "disabled",
 ];
 
@@ -221,9 +241,9 @@ const selectorsOf = (
   ];
 };
 
-/** The slots a style record sets, the spec's own order first. */
-const slotsOf = (spec: ComponentSpec, styles: SlotStyles): string[] => {
-  const named = [ROOT_SLOT, ...spec.slots.map((s) => s.name)];
+/** The parts a style record sets, the look's own order first. */
+const slotsOf = (look: ComponentLook, styles: PartStyles): string[] => {
+  const named = [ROOT_SLOT, ...look.parts];
   const keys = Object.keys(styles);
   return [...new Set([...named.filter((n) => keys.includes(n)), ...keys])];
 };
@@ -243,21 +263,21 @@ const ruleOf = (
 
 /** The rules of one style record, a rule per slot, matched by any of `matches`. */
 const rulesOf = (
-  spec: ComponentSpec,
-  styles: SlotStyles | undefined,
+  look: ComponentLook,
+  styles: PartStyles | undefined,
   matches: readonly Match[],
   ctx: StyleContext
 ): string[] => {
   if (!styles) {
     return [];
   }
-  return slotsOf(spec, styles).flatMap((slot) => {
+  return slotsOf(look, styles).flatMap((slot) => {
     const style = styles[slot];
     const rule =
       style &&
       ruleOf(
-        matches.flatMap((m) => selectorsOf(spec.component, slot, m)),
-        specStyleCss(style, ctx)
+        matches.flatMap((m) => selectorsOf(look.component, slot, m)),
+        partStyleCss(style, ctx)
       );
     return rule ? [rule] : [];
   });
@@ -285,39 +305,36 @@ const variantMatches = (
 };
 
 /** A state as its selectors on the component, and pinned on the instance. */
-const stateMatches = (state: SpecState): Match[] => [
+const stateMatches = (state: ComponentState): Match[] => [
   ...STATE_SELECTORS[state].map((target) => ({ host: "", target })),
   { host: attribute(STATE_ATTRIBUTE, "~", state), target: "" },
 ];
 
-const specRules = (spec: ComponentSpec, ctx: StyleContext): string[] => [
-  ...rulesOf(spec, spec.base, [{ host: "", target: "" }], ctx),
-  ...Object.entries(spec.variants).flatMap(([axis, members]) =>
+const lookRules = (look: ComponentLook, ctx: StyleContext): string[] => [
+  ...rulesOf(look, look.base, [{ host: "", target: "" }], ctx),
+  ...Object.entries(look.variants).flatMap(([axis, members]) =>
     Object.entries(members).flatMap(([member, styles]) =>
       rulesOf(
-        spec,
+        look,
         styles,
-        variantMatches(axis, member, spec.defaults[axis] === member),
+        variantMatches(axis, member, look.defaults[axis] === member),
         ctx
       )
     )
   ),
   ...STATE_ORDER.flatMap((state) =>
-    rulesOf(spec, spec.states[state], stateMatches(state), ctx)
+    rulesOf(look, look.states[state], stateMatches(state), ctx)
   ),
 ];
 
 /**
- * The stylesheet that draws every spec with `look: "design"` over its component: base, then
- * each variant axis' members, then the states with disabled last. A spec that mirrors the code
- * draws nothing; a draft's root is its instance as a component's is.
+ * The stylesheet that draws looks over their components: base, then each variant axis' members,
+ * then the states with disabled last.
  */
-export const specCss = (
-  specs: readonly ComponentSpec[],
+export const lookCss = (
+  looks: readonly ComponentLook[],
   ctx: StyleContext
 ): string => {
-  const rules = specs
-    .filter((spec) => spec.look === "design")
-    .flatMap((spec) => specRules(spec, ctx));
+  const rules = looks.flatMap((look) => lookRules(look, ctx));
   return rules.length === 0 ? "" : `${rules.join("\n\n")}\n`;
 };

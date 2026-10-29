@@ -1,24 +1,29 @@
 /**
- * The Design system panel's Components tab (ADR 0029, 0040): every system component and every draft,
- * each in its default look or in the project's. Opening one shows its look as a live matrix of
- * its variants and states, drawn by the preview with the system component itself, and the fields of one
- * slot in the base, a variant or a state. Taking a system component's look over starts the project's
- * spec from its default, so the fields hold real values; resetting it removes the spec.
+ * The Design system panel's Components tab (ADRs 0040, 0041): every system component, in its
+ * default look or in the project's, and every app component. Opening a system component shows its
+ * look as a live matrix of its variants and states, drawn by the preview with the component
+ * itself, and the fields of one part in the base, a variant or a state. Taking its look over starts
+ * the project's file from its default, so the fields hold real values; resetting it removes the
+ * file. Opening an app component shows it drawn, its properties and its slots.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
-import type { DesignNode } from "@ultrapaint/contracts/document";
-import { specTarget } from "@ultrapaint/contracts/implementation";
 import {
-  type ComponentSpec,
-  DRAFT_FROM,
+  APP_FROM,
+  type AppComponentFile,
+  COMPONENT_STATES,
+  type ComponentFile,
+  type ComponentState,
+  type PartStyle,
   ROOT_SLOT,
-  SPEC_STATES,
-  type SpecState,
-  type SpecStyle,
-} from "@ultrapaint/contracts/specs";
-import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
-import { defaultSpecOf } from "@ultrapaint/system-components/defaults";
+  SYSTEM_FROM,
+  type SystemComponentFile,
+} from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { componentTarget } from "@ultrapaint/contracts/implementation";
+import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
+import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -42,69 +47,88 @@ import {
   useTokenOptions,
 } from "../lib/token-options.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { statusLabel, useImplementation } from "../state/implementation.ts";
 import { useDesignLook } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
-import { useSpecs } from "../state/specs.ts";
 
-/** A component as the tab lists it: the code's, a spec's, or both. */
-interface Listed {
-  readonly from: string;
-  readonly meta?: ComponentMeta;
-  readonly name: string;
-  readonly spec?: ComponentSpec;
-}
+/** A component as the tab lists it: a system component, with its file when it has one, or an app component's. */
+type Listed =
+  | {
+      readonly file?: SystemComponentFile;
+      readonly meta?: ComponentMeta;
+      readonly name: string;
+      readonly origin: "system";
+    }
+  | {
+      readonly file: AppComponentFile;
+      readonly name: string;
+      readonly origin: "app";
+    };
 
 const listedOf = (
-  components: readonly ComponentMeta[],
-  specs: readonly ComponentSpec[]
+  catalogue: readonly ComponentMeta[],
+  files: readonly ComponentFile[]
 ): Listed[] => {
   const byName = new Map<string, Listed>();
-  for (const meta of components) {
-    byName.set(meta.name, { from: meta.importFrom, meta, name: meta.name });
+  for (const meta of catalogue) {
+    byName.set(meta.name, { meta, name: meta.name, origin: "system" });
   }
-  for (const spec of specs) {
-    const known = byName.get(spec.component);
-    byName.set(spec.component, {
-      from: spec.from,
-      name: spec.component,
-      spec,
-      ...(known?.meta && { meta: known.meta }),
-    });
+  for (const file of files) {
+    const known = byName.get(file.name);
+    byName.set(
+      file.name,
+      file.origin === "app"
+        ? { file, name: file.name, origin: "app" }
+        : {
+            file,
+            name: file.name,
+            origin: "system",
+            ...(known?.origin === "system" &&
+              known.meta && { meta: known.meta }),
+          }
+    );
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 };
 
-/** Whose look a component is drawn in: a spec that mirrors nothing draws the default. */
-const lookLabel = (spec: ComponentSpec | undefined) => {
-  if (spec?.draft) {
-    return "draft";
+/** Whose look a component is drawn in, or that it is the project's own. */
+const lookLabel = (listed: Listed) => {
+  if (listed.origin === "app") {
+    return "app";
   }
-  return spec?.look === "design" ? "your look" : "default look";
+  return listed.file ? "your look" : "default look";
 };
 
-/** Saves a spec; what the server refuses is said. */
-const save = async (spec: ComponentSpec) => {
+/** Saves a component's file; what the server refuses is said. */
+const save = async (component: ComponentFile) => {
   try {
-    await api().request("specs.write", { spec });
+    await api().request("components.write", { component });
   } catch (error) {
     reportError(error);
   }
 };
 
-/** Where a field of a spec is set: the base, a variant's member, or a state, and which slot. */
+/** A system component's parts, the root first, as the catalogue names them. */
+const partsOf = (name: string) =>
+  systemComponentOf(name)?.slots.map((s) => ({
+    label: s.label,
+    name: s.name,
+  })) ?? [{ label: "The component", name: ROOT_SLOT }];
+
+/** Where a field of a look is set: the base, a variant's member, or a state, and which part. */
 type Place =
   | { readonly kind: "base" }
   | { readonly axis: string; readonly kind: "variant"; readonly member: string }
-  | { readonly kind: "state"; readonly state: SpecState };
+  | { readonly kind: "state"; readonly state: ComponentState };
 
 const styleAt = (
-  spec: ComponentSpec,
+  spec: SystemComponentFile,
   place: Place,
   slot: string
-): SpecStyle => {
+): PartStyle => {
   if (place.kind === "base") {
     return spec.base[slot] ?? {};
   }
@@ -114,15 +138,15 @@ const styleAt = (
   return spec.states[place.state]?.[slot] ?? {};
 };
 
-/** The spec with one slot's style at a place replaced; empty styles are taken out. */
+/** The look with one part's style at a place replaced; empty styles are taken out. */
 const withStyle = (
-  spec: ComponentSpec,
+  spec: SystemComponentFile,
   place: Place,
   slot: string,
-  style: SpecStyle
-): ComponentSpec => {
+  style: PartStyle
+): SystemComponentFile => {
   const empty = Object.keys(style).length === 0;
-  const slots = (current: Readonly<Record<string, SpecStyle>> | undefined) => {
+  const slots = (current: Readonly<Record<string, PartStyle>> | undefined) => {
     const { [slot]: _old, ...rest } = current ?? {};
     return empty ? rest : { ...rest, [slot]: style };
   };
@@ -160,13 +184,13 @@ const placeOf = (key: string): Place => {
     return { axis: a, kind: "variant", member: b };
   }
   if (kind === "state") {
-    return { kind: "state", state: a as SpecState };
+    return { kind: "state", state: a as ComponentState };
   }
   return { kind: "base" };
 };
 
-/** The axes and members a spec is drawn in: its own, and the code's where it says none. */
-const axesOf = (spec: ComponentSpec, meta: ComponentMeta | undefined) => {
+/** The axes and members a look is drawn in: the catalogue's, and its own besides. */
+const axesOf = (spec: SystemComponentFile, meta: ComponentMeta | undefined) => {
   const axes: Record<string, string[]> = {};
   for (const [axis, members] of Object.entries(meta?.variants ?? {})) {
     axes[axis] = [...members];
@@ -179,21 +203,37 @@ const axesOf = (spec: ComponentSpec, meta: ComponentMeta | undefined) => {
 
 /**
  * The matrix the preview draws: a row per member of the first axis (the default alone when there
- * is none), a column for the base and each state, every cell the real component pinned in it.
+ * is none), a column for the base and each state, every cell the real component pinned in it. An
+ * app component is drawn once, as an instance with its properties' defaults.
  */
 const matrixOf = (
-  spec: ComponentSpec,
-  meta: ComponentMeta | undefined,
-  label: string
+  component: ComponentFile,
+  meta: ComponentMeta | undefined
 ): DesignNode => {
-  const axes = axesOf(spec, meta);
+  if (component.origin === "app") {
+    return {
+      children: [
+        {
+          component: component.name,
+          from: APP_FROM,
+          id: "cell-app",
+          type: "instance",
+        },
+      ],
+      id: "matrix",
+      padding: 12,
+      type: "column",
+      width: "fill",
+    };
+  }
+  const axes = axesOf(component, meta);
   const [axis] = Object.keys(axes);
   const members = axis ? (axes[axis] ?? []) : [];
-  const states: (SpecState | null)[] = [
+  const states: (ComponentState | null)[] = [
     null,
-    ...SPEC_STATES.filter(
+    ...COMPONENT_STATES.filter(
       (s) =>
-        spec.states[s] !== undefined ||
+        component.states[s] !== undefined ||
         ["hover", "focus", "disabled"].includes(s)
     ),
   ];
@@ -201,15 +241,15 @@ const matrixOf = (
     (member, r): DesignNode => ({
       children: states.map(
         (state, c): DesignNode => ({
-          component: spec.component,
-          from: spec.from,
+          component: component.name,
+          from: SYSTEM_FROM,
           id: `cell-${r}-${c}`,
           props: {
             ...(axis && member ? { [axis]: member } : {}),
             ...(state ? { [STATE_ATTRIBUTE]: state } : {}),
             ...(state === "disabled" ? { disabled: true } : {}),
           },
-          ...(spec.draft ? {} : { text: label }),
+          text: component.name,
           type: "instance",
         })
       ),
@@ -231,16 +271,16 @@ const matrixOf = (
   };
 };
 
-/** The spec drawn live, with the edits not saved yet. */
+/** A component drawn live, with the edits not saved yet. */
 export const Matrix = ({
+  component,
   meta,
-  spec,
 }: {
+  component: ComponentFile;
   meta: ComponentMeta | undefined;
-  spec: ComponentSpec;
 }) => {
   const ds = useDesignSystem((s) => s.designSystem);
-  const { specs, styles } = useDesignLook();
+  const { components, styles } = useDesignLook();
   const frame = "design-system:components";
   useFrameDrawing(
     frame,
@@ -248,24 +288,31 @@ export const Matrix = ({
       () => ({
         designSystem: ds,
         look: {
-          // The spec being edited stands in for the saved one.
-          specs: [...specs.filter((s) => s.component !== spec.component), spec],
+          // The file being edited stands in for the saved one.
+          components: [
+            ...components.filter((c) => c.name !== component.name),
+            component,
+          ],
           styles,
         },
         mode: "fit" as const,
-        root: matrixOf(spec, meta, spec.component),
+        root: matrixOf(component, meta),
       }),
-      [ds, meta, spec, specs, styles]
+      [ds, meta, component, components, styles]
     )
   );
   return (
-    // A spec with many fields and notes overflows the panel: the matrix keeps its height.
+    // A look with many fields and notes overflows the panel: the matrix keeps its height.
     <div className="shrink-0 overflow-hidden rounded-md border bg-white">
       <PreviewSurface
         className="w-full"
         frameId={frame}
         hostClassName="block w-full"
-        title={`${spec.component} in its variants and states`}
+        title={
+          component.origin === "app"
+            ? `${component.name} as an instance draws it`
+            : `${component.name} in its variants and states`
+        }
       />
     </div>
   );
@@ -303,20 +350,20 @@ const Field = ({
   );
 };
 
-/** The fields of one slot at one place. */
+/** The fields of one part at one place. */
 const SlotFields = ({
   onChange,
   style,
 }: {
-  onChange: (style: SpecStyle) => void;
-  style: SpecStyle;
+  onChange: (style: PartStyle) => void;
+  style: PartStyle;
 }) => {
-  const set = (key: keyof SpecStyle) => (value: JsonValue) => {
+  const set = (key: keyof PartStyle) => (value: JsonValue) => {
     const { [key]: _old, ...rest } = style;
     onChange(
       value === null || value === ""
         ? rest
-        : ({ ...rest, [key]: value } as SpecStyle)
+        : ({ ...rest, [key]: value } as PartStyle)
     );
   };
   const border = (key: "color" | "width") => (value: JsonValue) => {
@@ -327,7 +374,7 @@ const SlotFields = ({
     onChange(
       (Object.keys(next).length === 0
         ? others
-        : { ...others, border: next }) as SpecStyle
+        : { ...others, border: next }) as PartStyle
     );
   };
   return (
@@ -413,21 +460,29 @@ const SlotFields = ({
 };
 
 /**
- * The component's behaviour notes (ADR 0030): what its code must do that the spec cannot show,
- * about one part or the whole of it. They go with the spec to `/implement`. Added and taken out
- * on the spec as saved, so a look being edited is not saved with them.
+ * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
+ * about one part or the whole of it. They go with the component to `/implement`. Added and taken
+ * out on the file as saved, so a look being edited is not saved with them.
  */
-const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
+const Notes = ({
+  component,
+  dirty,
+  parts,
+}: {
+  component: ComponentFile;
+  dirty: boolean;
+  parts: readonly { readonly label?: string; readonly name: string }[];
+}) => {
   const [text, setText] = useState("");
   const [slot, setSlot] = useState(ROOT_SLOT);
-  const notes = spec.notes ?? [];
+  const notes = component.notes ?? [];
   const add = async () => {
     if (text.trim() === "") {
       return;
     }
     try {
-      await api().request("specs.addNote", {
-        component: spec.component,
+      await api().request("components.addNote", {
+        name: component.name,
         ...(slot !== ROOT_SLOT && { slot }),
         text: text.trim(),
       });
@@ -437,15 +492,19 @@ const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
     }
   };
   const remove = (id: string) =>
-    save({ ...spec, notes: notes.filter((n) => n.id !== id) });
+    save({ ...component, notes: notes.filter((n) => n.id !== id) });
   const partOf = (name: string | undefined) =>
-    spec.slots.find((s) => s.name === name)?.label ?? name;
+    parts.find((s) => s.name === name)?.label ?? name;
+  const choices = [
+    { label: "The component", name: ROOT_SLOT },
+    ...parts.filter((p) => p.name !== ROOT_SLOT),
+  ];
   return (
     <div className="flex flex-col gap-1.5">
       <span className="font-medium">Behaviour</span>
       {notes.length === 0 ? (
         <p className="text-muted-foreground">
-          What the code must do that the spec cannot show: it goes to the code
+          What the code must do that the design cannot show: it goes to the code
           when the component is implemented.
         </p>
       ) : (
@@ -474,7 +533,7 @@ const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
         </ul>
       )}
       <div className="flex gap-1.5">
-        {spec.slots.length > 1 ? (
+        {choices.length > 1 ? (
           <NativeSelect
             aria-label="About"
             className="w-28"
@@ -482,9 +541,9 @@ const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
             size="sm"
             value={slot}
           >
-            {spec.slots.map((s) => (
+            {choices.map((s) => (
               <NativeSelectOption key={s.name} value={s.name}>
-                {s.label ?? (s.name === ROOT_SLOT ? "The component" : s.name)}
+                {s.label ?? s.name}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -515,45 +574,21 @@ const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
   );
 };
 
-const SpecDetail = ({
-  listed,
+/** The detail's header: back, the component's name, and where its implementation stands. */
+const DetailHeader = ({
+  name,
   onBack,
 }: {
-  listed: Listed;
+  name: string;
   onBack: () => void;
 }) => {
-  const saved = listed.spec;
-  // Edits not saved yet, on the spec as the server had it: one from the server since replaces them.
-  const [edits, setEdits] = useState<{
-    readonly from: ComponentSpec | undefined;
-    readonly spec: ComponentSpec | undefined;
-  } | null>(null);
-  const spec = edits && edits.from === saved ? edits.spec : saved;
-  const setSpec = (next: ComponentSpec | undefined) =>
-    setEdits({ from: saved, spec: next });
-  const [placeKeyed, setPlace] = useState("base");
-  const [slot, setSlot] = useState(ROOT_SLOT);
-  const item = useImplementation((s) => s.byTarget[specTarget(listed.name)]);
-
-  const read = async (look: "design") => {
-    try {
-      const entry = await api().request("specs.fromCode", {
-        component: listed.name,
-        from: listed.from,
-        look,
-      });
-      setSpec(entry.spec);
-    } catch (error) {
-      reportError(error);
-    }
-  };
-
-  const header = (
+  const item = useImplementation((s) => s.byTarget[componentTarget(name)]);
+  return (
     <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
       <Button onClick={onBack} size="icon-sm" variant="ghost">
         <ArrowLeft />
       </Button>
-      <span className="truncate font-medium">{listed.name}</span>
+      <span className="truncate font-medium">{name}</span>
       {item && item.status !== "draft" ? (
         <span className="ml-auto truncate font-body text-muted-foreground">
           {statusLabel(item)}
@@ -561,36 +596,96 @@ const SpecDetail = ({
       ) : null}
     </div>
   );
+};
 
-  const fallback = defaultSpecOf(listed.name);
-  if (!spec || (spec.look !== "design" && !spec.draft)) {
+const ImplementButton = ({ name }: { name: string }) => (
+  <Button
+    className="ml-auto"
+    onClick={() => startTask({ _tag: "Implement", target: name })}
+    size="sm"
+    variant="outline"
+  >
+    <Code2 />
+    Implement
+  </Button>
+);
+
+/** Removes a component's file, once confirmed. */
+const removeComponent = async (
+  name: string,
+  confirm: { confirmLabel: string; description: string; title: string },
+  done: () => void
+) => {
+  if (!(await confirmDialog(confirm))) {
+    return;
+  }
+  try {
+    await api().request("components.remove", { name });
+    done();
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+const SystemDetail = ({
+  file: saved,
+  meta,
+  name,
+  onBack,
+}: {
+  file: SystemComponentFile | undefined;
+  meta: ComponentMeta | undefined;
+  name: string;
+  onBack: () => void;
+}) => {
+  // Edits not saved yet, on the file as the server had it: one from the server since replaces them.
+  const [edits, setEdits] = useState<{
+    readonly from: SystemComponentFile | undefined;
+    readonly file: SystemComponentFile | undefined;
+  } | null>(null);
+  const file = edits && edits.from === saved ? edits.file : saved;
+  const setFile = (next: SystemComponentFile | undefined) =>
+    setEdits({ file: next, from: saved });
+  const [placeKeyed, setPlace] = useState("base");
+  const [slot, setSlot] = useState(ROOT_SLOT);
+  const parts = partsOf(name);
+
+  const takeOver = async () => {
+    try {
+      const entry = await api().request("components.fromDefault", { name });
+      if (entry.component?.origin === "system") {
+        setFile(entry.component);
+      }
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
+  const header = <DetailHeader name={name} onBack={onBack} />;
+  const fallback = defaultLookOf(name);
+  if (!file) {
     return (
       <div className="flex h-full flex-col">
         {header}
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 font-body">
-          {fallback ? <Matrix meta={listed.meta} spec={fallback} /> : null}
+          {fallback ? <Matrix component={fallback} meta={meta} /> : null}
           <p className="text-muted-foreground">
-            {listed.name} is drawn in its default look, over your tokens. Take
-            it over to change any part of it here; implementing gives your
-            application's own {listed.name} the look.
+            {name} is drawn in its default look, over your tokens. Take it over
+            to change any part of it here; implementing gives your application's
+            own {name} the look.
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <Button
-              disabled={!fallback}
-              onClick={() => read("design")}
-              size="sm"
-            >
+            <Button disabled={!fallback} onClick={takeOver} size="sm">
               Take the look over
             </Button>
           </div>
-          {saved ? <Notes dirty={false} spec={saved} /> : null}
         </div>
       </div>
     );
   }
 
   const place = placeOf(placeKeyed);
-  const axes = axesOf(spec, listed.meta);
+  const axes = axesOf(file, meta);
   const places: { label: string; value: string }[] = [
     { label: "Base", value: "base" },
     ...Object.entries(axes).flatMap(([axis, members]) =>
@@ -599,68 +694,39 @@ const SpecDetail = ({
         value: placeKey({ axis, kind: "variant", member }),
       }))
     ),
-    ...SPEC_STATES.map((state) => ({
+    ...COMPONENT_STATES.map((state) => ({
       label: `State: ${state}`,
       value: placeKey({ kind: "state", state }),
     })),
   ];
-  const dirty = JSON.stringify(spec) !== JSON.stringify(saved);
-
-  const remove = async () => {
-    if (
-      !(await confirmDialog({
-        confirmLabel: spec.draft ? "Delete" : "Reset",
-        description: spec.draft
-          ? `The draft's tree goes with it; pages that use ${spec.component} show it missing.`
-          : `${spec.component} is drawn in its default look again; its behaviour notes go with the spec.`,
-        title: spec.draft
-          ? `Delete the ${spec.component} draft?`
-          : `Reset ${spec.component} to its default look?`,
-      }))
-    ) {
-      return;
-    }
-    try {
-      await api().request("specs.remove", { component: spec.component });
-      onBack();
-    } catch (error) {
-      reportError(error);
-    }
-  };
+  const dirty = JSON.stringify(file) !== JSON.stringify(saved);
 
   return (
     <div className="flex h-full flex-col">
       {header}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 font-body">
         <div className="flex items-center gap-2">
-          {spec.draft ? (
-            <Badge variant="outline">
-              Draft: the code does not have it yet
-            </Badge>
-          ) : null}
+          <ImplementButton name={name} />
           <Button
-            className="ml-auto"
             onClick={() =>
-              startTask({ _tag: "Implement", target: spec.component })
+              removeComponent(
+                name,
+                {
+                  confirmLabel: "Reset",
+                  description: `${name} is drawn in its default look again; its behaviour notes go with its file.`,
+                  title: `Reset ${name} to its default look?`,
+                },
+                onBack
+              )
             }
             size="sm"
-            variant="outline"
+            variant="ghost"
           >
-            <Code2 />
-            Implement
+            <RotateCcw />
+            Reset to default
           </Button>
-          {spec.draft ? (
-            <Button onClick={remove} size="icon-sm" variant="ghost">
-              <Trash2 />
-            </Button>
-          ) : (
-            <Button onClick={remove} size="sm" variant="ghost">
-              <RotateCcw />
-              Reset to default
-            </Button>
-          )}
         </div>
-        <Matrix meta={listed.meta} spec={spec} />
+        <Matrix component={file} meta={meta} />
 
         <div className="grid grid-cols-2 gap-1.5">
           <NativeSelect
@@ -681,24 +747,24 @@ const SpecDetail = ({
             size="sm"
             value={slot}
           >
-            {spec.slots.map((s) => (
+            {parts.map((s) => (
               <NativeSelectOption key={s.name} value={s.name}>
-                {s.label ?? (s.name === ROOT_SLOT ? "The component" : s.name)}
+                {s.name === ROOT_SLOT ? "The component" : s.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>
         </div>
         <SlotFields
-          onChange={(style) => setSpec(withStyle(spec, place, slot, style))}
-          style={styleAt(spec, place, slot)}
+          onChange={(style) => setFile(withStyle(file, place, slot, style))}
+          style={styleAt(file, place, slot)}
         />
         <div className="flex gap-1.5">
           <Button
             disabled={!dirty}
             onClick={async () => {
-              await save(spec);
+              await save(file);
               toast.success(
-                `${spec.component}'s look is saved: implement it to bring the code along.`
+                `${name}'s look is saved: implement it to bring the code along.`
               );
             }}
             size="sm"
@@ -707,7 +773,7 @@ const SpecDetail = ({
           </Button>
           <Button
             disabled={!dirty}
-            onClick={() => setSpec(saved)}
+            onClick={() => setFile(saved)}
             size="sm"
             variant="ghost"
           >
@@ -715,20 +781,108 @@ const SpecDetail = ({
           </Button>
         </div>
 
-        {saved ? <Notes dirty={dirty} spec={saved} /> : null}
+        {saved ? <Notes component={saved} dirty={dirty} parts={parts} /> : null}
       </div>
     </div>
   );
 };
 
+/** What a property is, in a few words. */
+const propertyLine = (p: AppComponentFile["properties"][number]) => {
+  const kind =
+    p.kind === "choice" ? `one of ${(p.members ?? []).join(", ")}` : p.kind;
+  return `${kind}, ${JSON.stringify(p.default)} when not set`;
+};
+
+const AppDetail = ({
+  file,
+  onBack,
+}: {
+  file: AppComponentFile;
+  onBack: () => void;
+}) => (
+  <div className="flex h-full flex-col">
+    <DetailHeader name={file.name} onBack={onBack} />
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 font-body">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline">Your own component</Badge>
+        <ImplementButton name={file.name} />
+        <Button
+          aria-label="Delete the component"
+          onClick={() =>
+            removeComponent(
+              file.name,
+              {
+                confirmLabel: "Delete",
+                description: `Its tree goes with it; pages that use ${file.name} show it missing.`,
+                title: `Delete the ${file.name} component?`,
+              },
+              onBack
+            )
+          }
+          size="icon-sm"
+          variant="ghost"
+        >
+          <Trash2 />
+        </Button>
+      </div>
+      <Matrix component={file} meta={undefined} />
+      {file.description ? (
+        <p className="text-muted-foreground">{file.description}</p>
+      ) : null}
+      <div className="flex flex-col gap-1">
+        <span className="font-medium">Properties</span>
+        {file.properties.length === 0 ? (
+          <p className="text-muted-foreground">
+            None: every instance draws the same. Edit the component on a page to
+            expose a field of it as a property.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {file.properties.map((p) => (
+              <li key={p.name}>
+                {p.name}{" "}
+                <span className="text-muted-foreground">{propertyLine(p)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {file.slots.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Slots</span>
+          <ul className="flex flex-col gap-0.5">
+            {file.slots.map((s) => (
+              <li key={s.name}>
+                {s.label ?? s.name}
+                {s.default ? (
+                  <span className="text-muted-foreground"> (default)</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <Notes
+        component={file}
+        dirty={false}
+        parts={file.slots.map((s) => ({
+          label: s.label ?? s.name,
+          name: s.name,
+        }))}
+      />
+    </div>
+  </div>
+);
+
 export const ComponentsView = ({ q }: { q: string }) => {
   const catalogue = useCatalogue((s) => s.catalogue);
-  const specs = useSpecs((s) => s.specs);
-  const entries = useSpecs((s) => s.entries);
+  const files = useComponents((s) => s.components);
+  const entries = useComponents((s) => s.entries);
   const problems = entries.filter((e) => e.problem !== undefined);
   const byTarget = useImplementation((s) => s.byTarget);
   const [open, setOpen] = useState<string | null>(null);
-  const listed = listedOf(catalogue?.components ?? [], specs).filter(
+  const listed = listedOf(catalogue?.components ?? [], files).filter(
     (l) => !q || l.name.toLowerCase().includes(q)
   );
   const opened = open ? listed.find((l) => l.name === open) : undefined;
@@ -738,7 +892,16 @@ export const ComponentsView = ({ q }: { q: string }) => {
   }, []);
 
   if (opened) {
-    return <SpecDetail listed={opened} onBack={() => setOpen(null)} />;
+    return opened.origin === "app" ? (
+      <AppDetail file={opened.file} onBack={() => setOpen(null)} />
+    ) : (
+      <SystemDetail
+        file={opened.file}
+        meta={opened.meta}
+        name={opened.name}
+        onBack={() => setOpen(null)}
+      />
+    );
   }
   if (listed.length === 0) {
     return <PanelEmpty>No components to show.</PanelEmpty>;
@@ -752,8 +915,8 @@ export const ComponentsView = ({ q }: { q: string }) => {
       ))}
       <ul className="flex flex-col">
         {listed.map((l) => {
-          const look = lookLabel(l.spec);
-          const item = byTarget[specTarget(l.name)];
+          const look = lookLabel(l);
+          const item = byTarget[componentTarget(l.name)];
           return (
             <li key={l.name}>
               <button
@@ -762,11 +925,11 @@ export const ComponentsView = ({ q }: { q: string }) => {
                 type="button"
               >
                 <span className="truncate">{l.name}</span>
-                {l.from === DRAFT_FROM ? null : (
-                  <span className="truncate text-muted-foreground">
-                    {l.meta?.category ?? ""}
-                  </span>
-                )}
+                <span className="truncate text-muted-foreground">
+                  {l.origin === "app"
+                    ? (l.file.category ?? "")
+                    : (l.meta?.category ?? "")}
+                </span>
                 <span className="ml-auto flex shrink-0 items-center gap-1">
                   {item && item.status !== "draft" ? (
                     <span className="text-muted-foreground">

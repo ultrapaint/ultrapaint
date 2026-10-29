@@ -31,9 +31,9 @@ export const Handoff = Tool.make("handoff", {
     action: Schema.Literals(HANDOFF_ACTIONS),
     canvas: opt(Schema.String),
     files: opt(Schema.Array(Schema.String)),
-    /** A page's node, or a spec's slot. */
+    /** A page's node, or a component's part. */
     node: opt(Schema.String),
-    /** A page (URL or file), or a component spec as spec:Button. */
+    /** A page (URL or file), or a component as component:Button. */
     target: opt(Schema.String),
     text: opt(Schema.String),
     /** Token names, `color-primary` or `color-primary@dark` for one theme. */
@@ -114,8 +114,8 @@ export const handoffToolHandlers = Effect.gen(function* () {
   });
 
   /**
-   * A behaviour note on a page or one of its nodes, or on a component's spec (a slot of it,
-   * named as the node): what the code must do that a design cannot show.
+   * A behaviour note on a page or one of its nodes, or on a component (a part of it, named as
+   * the node): what the code must do that a design cannot show.
    */
   const note = Effect.fnUntraced(function* (
     target: DesignTarget,
@@ -129,7 +129,7 @@ export const handoffToolHandlers = Effect.gen(function* () {
       designTargets((d) => d.addNote(target, text, node))
     );
     const on =
-      target._tag === "Spec" ? target.spec.component : target.page.file;
+      target._tag === "Component" ? target.component.name : target.page.file;
     const where = added.nodeId ?? added.element;
     return { text: `Noted on ${on}${where ? ` (${where})` : ""}.` };
   });

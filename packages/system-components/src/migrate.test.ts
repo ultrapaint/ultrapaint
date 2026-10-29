@@ -1,12 +1,13 @@
-import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
   LEGACY_SYSTEM_FROM,
   SYSTEM_FROM,
-} from "@ultrapaint/contracts/spec-names";
+} from "@ultrapaint/contracts/component-names";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { systemComponentOf } from "./catalogue.ts";
 import {
   asSystemComponent,
+  componentOfSpec,
   migrationOf,
   systemComponentFor,
 } from "./migrate.ts";
@@ -189,7 +190,7 @@ describe("migrationOf", () => {
     });
   });
 
-  it("leaves system components and drafts as they are", () => {
+  it("leaves system components and app components as they are", () => {
     const root: DesignNode = {
       children: [
         {
@@ -198,7 +199,7 @@ describe("migrationOf", () => {
           id: "a",
           type: "instance",
         },
-        { component: "Hero", from: "#draft", id: "b", type: "instance" },
+        { component: "Hero", from: "#app", id: "b", type: "instance" },
       ],
       id: "page",
       type: "page",
@@ -249,5 +250,93 @@ describe("migrationOf", () => {
         type: "instance",
       },
     ]);
+  });
+
+  it("makes a draft's instance an app component's, its text the text property's value", () => {
+    const root: DesignNode = {
+      children: [
+        {
+          component: "Promo",
+          from: "#draft",
+          id: "p",
+          text: "Spring sale",
+          type: "instance",
+        },
+      ],
+      id: "page",
+      type: "page",
+    };
+    expect(migrationOf(root).replaced).toEqual([
+      {
+        component: "Promo",
+        from: "#app",
+        id: "p",
+        props: { text: "Spring sale" },
+        type: "instance",
+      },
+    ]);
+  });
+});
+
+describe("componentOfSpec", () => {
+  const spec = {
+    base: { root: { fill: "$color-brand" } },
+    component: "Button",
+    from: LEGACY_SYSTEM_FROM,
+    look: "design" as const,
+    states: {},
+    variants: {},
+  };
+
+  it("makes a spec with the design's look the system component's file, and drops a mirror", () => {
+    expect(componentOfSpec(spec)).toEqual({
+      base: { root: { fill: "$color-brand" } },
+      name: "Button",
+      origin: "system",
+      states: {},
+      variants: {},
+      version: 1,
+    });
+    expect(componentOfSpec({ ...spec, look: "code" })).toBeNull();
+    expect(componentOfSpec({ ...spec, component: "DataTable" })).toBeNull();
+  });
+
+  it("makes a draft an app component, its first text bound to a text property", () => {
+    const app = componentOfSpec({
+      ...spec,
+      component: "Promo",
+      draft: {
+        children: [
+          { id: "t", role: "heading", text: "Sale", type: "text" },
+          {
+            component: "Button",
+            from: LEGACY_SYSTEM_FROM,
+            id: "b",
+            type: "instance",
+          },
+        ],
+        id: "r",
+        type: "column",
+      },
+      from: "#draft",
+    });
+    expect(app).toMatchObject({
+      name: "Promo",
+      origin: "app",
+      properties: [
+        {
+          default: "Sale",
+          kind: "text",
+          name: "text",
+          targets: [{ node: "t" }],
+        },
+      ],
+      slots: [],
+    });
+    expect(
+      app?.origin === "app" && "children" in app.tree
+        ? app.tree.children?.[1]
+        : null
+    ).toMatchObject({ from: SYSTEM_FROM });
   });
 });

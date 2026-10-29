@@ -1,10 +1,12 @@
 /**
- * A design target (ADR 0030): the page or the component spec an agent or a user names to
- * implement, mark or note, by one rule (`designTargetNamed`) for `/implement`, `handoff` and the
- * link to the code, and its behaviour notes, read and added whichever way they are kept: a page's
- * are comments pinned on it (resolved when done), a component's are kept in its spec (deleted
- * when done). It sits above the specs, the comments and the link, which it reads.
+ * A design target (ADR 0030): the page or the component an agent or a user names to implement,
+ * mark or note, by one rule (`designTargetNamed`) for `/implement`, `handoff` and the link to the
+ * code, and its behaviour notes, read and added whichever way they are kept: a page's are
+ * comments pinned on it (resolved when done), a component's are kept in its file (deleted when
+ * done). It sits above the components, the comments and the link, which it reads.
  */
+
+import type { ComponentFile } from "@ultrapaint/contracts/components";
 import {
   BadRequest,
   type Conflict,
@@ -12,35 +14,36 @@ import {
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import {
-  isSpecTarget,
-  specTarget,
+  componentTarget,
+  isComponentTarget,
 } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import { Context, Effect, Layer } from "effect";
 import { CommentsService } from "./comments.ts";
+import { ComponentService } from "./components.ts";
 import { DocumentService } from "./documents.ts";
 import type { EditFailure } from "./edit.ts";
 import {
   commentNote,
+  componentNote,
+  componentNotes,
   type Note,
   pageNotes,
-  specNote,
-  specNotes,
 } from "./implementation.ts";
 import { designTargetNamed, listedAs, pageMissed } from "./page-names.ts";
 import { PagesService } from "./pages.ts";
-import { SpecService } from "./specs.ts";
 
-/** A design a name settled on: a page, maybe one of its nodes, or a component's spec. */
+/** A design a name settled on: a page, maybe one of its nodes, or a component. */
 export type DesignTarget =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: Page }
-  | { readonly _tag: "Spec"; readonly spec: ComponentSpec };
+  | { readonly _tag: "Component"; readonly component: ComponentFile };
 
-/** The target the link to the code keys a design by: a page's id, or `spec:<Component>`. */
+/** The target the link to the code keys a design by: a page's id, or `component:<Name>`. */
 export const targetId = (target: DesignTarget) =>
-  target._tag === "Spec" ? specTarget(target.spec.component) : target.page.id;
+  target._tag === "Component"
+    ? componentTarget(target.component.name)
+    : target.page.id;
 
 export class DesignTargets extends Context.Service<
   DesignTargets,
@@ -57,7 +60,7 @@ export class DesignTargets extends Context.Service<
     readonly notes: (target: DesignTarget) => Effect.Effect<readonly Note[]>;
     /**
      * A behaviour note on a design (one undo step): on a page's node (the target's, or `node`),
-     * or on a spec's slot (`node`) or the whole component. A node reference and another `node`
+     * or on a component's part (`node`) or the whole component. A node reference and another `node`
      * are refused rather than one picked.
      */
     readonly addNote: (
@@ -74,7 +77,7 @@ export class DesignTargets extends Context.Service<
     DesignTargets,
     Effect.gen(function* () {
       const pagesService = yield* PagesService;
-      const specService = yield* SpecService;
+      const componentService = yield* ComponentService;
       const comments = yield* CommentsService;
       const documents = yield* DocumentService;
 
@@ -83,9 +86,9 @@ export class DesignTargets extends Context.Service<
         canvas?: string
       ) {
         const { pages } = yield* pagesService.list;
-        const specs = yield* specService.specs;
-        const named = designTargetNamed(pages, specs, name, canvas);
-        if (named._tag === "Page" || named._tag === "Spec") {
+        const components = yield* componentService.components;
+        const named = designTargetNamed(pages, components, name, canvas);
+        if (named._tag === "Page" || named._tag === "Component") {
           return named satisfies DesignTarget;
         }
         if (named._tag === "Ambiguous") {
@@ -94,14 +97,14 @@ export class DesignTargets extends Context.Service<
           });
         }
         const where = name.trim();
-        if (named.kind === "spec") {
-          const bare = isSpecTarget(where)
+        if (named.kind === "component") {
+          const bare = isComponentTarget(where)
             ? ""
             : " (a page is named by its URL or its file)";
           return yield* new NotFound({
-            message: `no component spec is ${where}${bare}; ${listedAs(
-              specs.map((s) => s.component),
-              "component specs"
+            message: `no component is ${where}${bare}; ${listedAs(
+              components.map((c) => c.name),
+              "components with a file"
             )}`,
           });
         }
@@ -111,8 +114,8 @@ export class DesignTargets extends Context.Service<
       });
 
       const notes = (target: DesignTarget) =>
-        target._tag === "Spec"
-          ? Effect.succeed(specNotes(target.spec))
+        target._tag === "Component"
+          ? Effect.succeed(componentNotes(target.component))
           : comments.list(target.page.canvas).pipe(
               Effect.map(({ comments: all }) => pageNotes(target.page, all)),
               // A comments file that does not read holds no note to carry.
@@ -124,9 +127,9 @@ export class DesignTargets extends Context.Service<
         text: string,
         node?: string
       ) {
-        if (target._tag === "Spec") {
-          return specNote(
-            yield* specService.addNote(target.spec.component, text, node)
+        if (target._tag === "Component") {
+          return componentNote(
+            yield* componentService.addNote(target.component.name, text, node)
           );
         }
         const { nodeId, page } = target;

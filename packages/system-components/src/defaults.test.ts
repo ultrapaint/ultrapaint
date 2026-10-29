@@ -1,19 +1,18 @@
-import { ComponentSpec } from "@ultrapaint/contracts/specs";
+import { SystemComponentFile } from "@ultrapaint/contracts/components";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";
-import { defaultSpecOf, SYSTEM_DEFAULTS } from "./defaults.ts";
+import { defaultLookOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 import { SYSTEM_COMPONENTS_CSS } from "./look.ts";
 
 describe("the default look", () => {
-  it("is a valid design spec for every system component, styling only its parts and axes", () => {
-    expect(SYSTEM_DEFAULTS.map((s) => s.component)).toEqual(
+  it("is a valid system component's file for each, styling only its parts and axes", () => {
+    expect(SYSTEM_DEFAULTS.map((s) => s.name)).toEqual(
       SYSTEM_COMPONENTS.map((p) => p.name)
     );
     for (const meta of SYSTEM_COMPONENTS) {
-      const spec = defaultSpecOf(meta.name);
-      expect(Schema.decodeUnknownSync(ComponentSpec)(spec)).toEqual(spec);
-      expect(spec?.look).toBe("design");
+      const spec = defaultLookOf(meta.name);
+      expect(Schema.decodeUnknownSync(SystemComponentFile)(spec)).toEqual(spec);
       const parts = new Set(meta.slots.map((s) => s.name));
       const styled = [
         ...Object.keys(spec?.base ?? {}),

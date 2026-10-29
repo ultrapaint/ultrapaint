@@ -1,20 +1,21 @@
 /**
- * The system components' default look (ADR 0040), in a layer of its own so that a spec (unlayered, ADR
- * 0029) and a node's own style win over it. What a part looks like is data: each system component's
- * default spec (`defaults.ts`), drawn by `specCss` over the design system's tokens, each with a
- * neutral value of its own for a design that does not set it. What a spec cannot say is written
- * here, after it: layout and positioning, a dialog's sheet on a narrow frame, animations, and what
- * a pointer or a state does to a part.
+ * The system components' default look (ADRs 0040, 0041), in a layer of its own so that the
+ * project's looks (unlayered) and a node's own style win over it. What a part looks like is data:
+ * each system component's default file (`defaults.ts`), drawn by `lookCss` over the design
+ * system's tokens, each with a neutral value of its own for a design that does not set it. What a
+ * file cannot say is written here, after it: layout and positioning, a dialog's sheet on a narrow
+ * frame, animations, and what a pointer or a state does to a part.
  *
  * What a pointer does (`:hover`, Base UI's `data-highlighted`) shows only in a frame that runs:
  * a designed frame is inert and takes no pointer, and a state shows there only when the design
  * pins it (`data-ed-state`). Responsive parts answer the frame's width (`@container ed-frame`),
- * not the window's. A rule here that changes what a spec sets is as specific as the spec's rule,
+ * not the window's. A rule here that changes what a look sets is as specific as the look's rule,
  * which it follows.
  */
+
+import { lookCss } from "@ultrapaint/design-document/component-look";
 import { makeStyleContext } from "@ultrapaint/design-document/css";
-import { specCss } from "@ultrapaint/design-document/spec";
-import { SYSTEM_DEFAULTS } from "./defaults.ts";
+import { looksOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 
 const t = (name: string) => `var(--${name})`;
 
@@ -68,8 +69,8 @@ const DEFAULT_TOKENS = `
   }
 `;
 
-/** The default specs as rules: what each part looks like, over the tokens. */
-const DEFAULT_LOOK = specCss(SYSTEM_DEFAULTS, makeStyleContext(null));
+/** The default looks as rules: what each part looks like, over the tokens. */
+const DEFAULT_LOOK = lookCss(looksOf(SYSTEM_DEFAULTS), makeStyleContext(null));
 
 export const SYSTEM_COMPONENTS_CSS = `
 @layer system-components {

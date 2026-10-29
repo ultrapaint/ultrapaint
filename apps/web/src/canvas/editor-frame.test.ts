@@ -54,7 +54,7 @@ const fakePreview = () => {
 };
 
 const root = { children: [], id: "root", type: "page" as const };
-const look = { specs: [], styles: "" };
+const look = { components: [], styles: "" };
 const page = { designSystem: null, look, mode: "page" as const, root };
 
 /** The module afresh, with no frame opened or parked yet. */

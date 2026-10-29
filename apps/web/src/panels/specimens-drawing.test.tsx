@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
+
+import {
+  emptySystemComponent,
+  type SystemComponentFile,
+} from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import type {
   FrameRuntime,
   Preview,
@@ -9,8 +13,8 @@ import type {
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { useSpecs } from "../state/specs.ts";
 import { Matrix } from "./design-components.tsx";
 
 vi.mock(
@@ -88,17 +92,8 @@ const ds = {
   version: 1,
 } as unknown as DesignSystem;
 
-const specOf = (component: string): ComponentSpec => ({
-  base: {},
-  component,
-  defaults: {},
-  from: "@/components/ui",
-  look: "design",
-  slots: [{ name: "root" }],
-  states: {},
-  variants: {},
-  version: 1,
-});
+const specOf = (component: string): SystemComponentFile =>
+  emptySystemComponent(component);
 
 let root: Root | null = null;
 
@@ -116,7 +111,7 @@ const setPreview = (preview: Preview | null) => act(() => current.set(preview));
 
 beforeEach(() => {
   useDesignSystem.setState({ designSystem: ds });
-  useSpecs.setState({ specs: [] });
+  useComponents.setState({ components: [] });
 });
 
 afterEach(() => {
@@ -127,32 +122,32 @@ afterEach(() => {
 });
 
 describe("a specimen's drawing", () => {
-  it("draws the matrix again when another component's spec changes, and not for nothing", () => {
+  it("draws the matrix again when another component's file changes, and not for nothing", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);
     const button = specOf("Button");
-    show(<Matrix meta={undefined} spec={button} />);
+    show(<Matrix component={button} meta={undefined} />);
     expect(renders).toHaveLength(1);
-    expect(renders[0]?.specs).toEqual([button]);
+    expect(renders[0]?.components).toEqual([button]);
 
     // Drawn again with the same spec: nothing changed, nothing is drawn.
-    show(<Matrix meta={undefined} spec={button} />);
+    show(<Matrix component={button} meta={undefined} />);
     expect(renders).toHaveLength(1);
 
     // A card drawn inside the button looks as its spec says.
     const card = specOf("Card");
-    act(() => useSpecs.setState({ specs: [card] }));
+    act(() => useComponents.setState({ components: [card] }));
     expect(renders).toHaveLength(2);
-    expect(renders[1]?.specs).toEqual([card, button]);
+    expect(renders[1]?.components).toEqual([card, button]);
   });
 
-  it("draws the spec being edited in place of the saved one", () => {
+  it("draws the file being edited in place of the saved one", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);
     const saved = specOf("Button");
-    useSpecs.setState({ specs: [saved] });
+    useComponents.setState({ components: [saved] });
     const edited = { ...saved, base: { root: { fill: "#f00" } } };
-    show(<Matrix meta={undefined} spec={edited} />);
-    expect(renders.at(-1)?.specs).toEqual([edited]);
+    show(<Matrix component={edited} meta={undefined} />);
+    expect(renders.at(-1)?.components).toEqual([edited]);
   });
 });

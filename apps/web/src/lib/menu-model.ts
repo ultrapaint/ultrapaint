@@ -127,7 +127,7 @@ export type NodeAction =
   | { kind: "rename" }
   | { kind: "viewCode" }
   | { kind: "comment" }
-  | { kind: "makeDraft" }
+  | { kind: "makeApp" }
   /** An instance of the repository's drawn as this system component (ADR 0040). */
   | { kind: "toSystem"; name: string }
   /** Leads to a page, by its file, or `back`; `null` takes the link away. */
@@ -234,11 +234,12 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     item({ kind: "rename" }, "Rename…", one),
     item({ kind: "viewCode" }, "View code", one),
     f.onPage && item({ kind: "comment" }, "Comment on this", one),
-    // A part of the page made a component the code does not have yet (ADR 0029).
+    // Part of the page, siblings, made one of the project's own components (ADR 0041).
     f.onPage &&
       !root &&
-      !(node.type === "instance" && node.from === "#draft") &&
-      item({ kind: "makeDraft" }, "Make a draft component…", one),
+      item({ kind: "makeApp" }, "Make an app component…", {
+        disabled: !f.wrappable,
+      }),
     // An instance of a component of the repository's, from before the system components: a stand-in.
     node.type === "instance" &&
       isRepositoryInstance(node) && {

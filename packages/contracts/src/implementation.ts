@@ -1,6 +1,6 @@
 /**
  * The link between a design and the code that implements it (ADR 0030). `implementation.json` in
- * the designs directory keeps, per page and per component spec, whether it is ready to be
+ * the designs directory keeps, per page and per component (ADR 0041), whether it is ready to be
  * implemented and, once it is, the files that implement it with the hashes of both sides then;
  * the design as it was implemented is kept beside it, in `_implemented/`, for the next
  * implementation to be told what changed. Both are committed.
@@ -15,31 +15,36 @@ export const IMPLEMENTATION_FILE = "implementation.json";
 export const IMPLEMENTED_DIR = "_implemented";
 
 /**
- * What a binding is for: a page, by its id (`redesign/orders.page.json`), or a component spec,
- * by its component (`spec:Button`).
+ * What a binding is for: a page, by its id (`redesign/orders.page.json`), or a component, by its
+ * name (`component:Button`).
  */
 export const ImplementationTarget = Schema.String.annotate({
   description:
-    'A page by its id ("orders.page.json", "redesign/orders.page.json") or a component spec as "spec:<Component>".',
+    'A page by its id ("orders.page.json", "redesign/orders.page.json") or a component as "component:<Name>".',
 });
 
-export const SPEC_TARGET_PREFIX = "spec:";
-export const specTarget = (component: string) =>
-  `${SPEC_TARGET_PREFIX}${component}`;
-export const isSpecTarget = (target: string) =>
-  target.startsWith(SPEC_TARGET_PREFIX);
+export const COMPONENT_TARGET_PREFIX = "component:";
+export const componentTarget = (name: string) =>
+  `${COMPONENT_TARGET_PREFIX}${name}`;
+export const isComponentTarget = (target: string) =>
+  target.startsWith(COMPONENT_TARGET_PREFIX);
+/** What a component spec's target was before ADR 0041 (`spec:Button`): the migration renames it. */
+export const LEGACY_SPEC_TARGET_PREFIX = "spec:";
+/** Where the specs as they were implemented were kept before ADR 0041, inside `_implemented/`. */
+export const LEGACY_IMPLEMENTED_SPECS = "specs";
+export const IMPLEMENTED_COMPONENTS = "components";
 
 const PAGE_FILE_RE = /\.page\.json$/;
 
 /**
  * Where the design as it was implemented is kept, inside the designs directory:
  * `_implemented/orders.implemented.json` for `orders.page.json`,
- * `_implemented/specs/Button.implemented.json` for `spec:Button`.
+ * `_implemented/components/Button.implemented.json` for `component:Button`.
  */
 export const implementedFileOf = (target: string) =>
   `${IMPLEMENTED_DIR}/${
-    isSpecTarget(target)
-      ? `specs/${target.slice(SPEC_TARGET_PREFIX.length)}`
+    isComponentTarget(target)
+      ? `${IMPLEMENTED_COMPONENTS}/${target.slice(COMPONENT_TARGET_PREFIX.length)}`
       : target.replace(PAGE_FILE_RE, "")
   }.implemented.json`;
 
@@ -94,7 +99,7 @@ export const ImplementationItem = Schema.Struct({
   designChanged: Schema.Boolean,
   /** The files that implement it. */
   files: Schema.Array(Schema.String),
-  kind: Schema.Literals(["page", "spec"]),
+  kind: Schema.Literals(["page", "component"]),
   /** What the editor calls it: the page's name, the component's. */
   name: Schema.String,
   ready: Schema.Boolean,

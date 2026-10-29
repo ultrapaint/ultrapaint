@@ -140,11 +140,17 @@ export const SyncFacts = Schema.Struct({
    */
   librarySources: Schema.optional(Schema.Number),
   /**
-   * Instances of the repository's components in the pages, from before the canvas drew
-   * system components (ADR 0040), when there are any: how many a system component can draw, how many it cannot.
+   * What the designs hold from before (ADRs 0040, 0041), when there is any: instances to draw as
+   * now (the repository's components a system component can draw, system components and drafts
+   * as they were named), instances of the repository's no system component is like, and specs'
+   * files to make components' of.
    */
   oldInstances: Schema.optional(
-    Schema.Struct({ drawn: Schema.Number, left: Schema.Number })
+    Schema.Struct({
+      drawn: Schema.Number,
+      left: Schema.Number,
+      specs: Schema.optional(Schema.Number),
+    })
   ),
   styleSystem: Schema.String,
   /** The stylesheets the settings name. */

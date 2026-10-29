@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
+
+import {
+  APP_FROM,
+  type AppComponentFile,
+  emptySystemComponent,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
-import { type ComponentSpec, emptySpec } from "@ultrapaint/contracts/specs";
 import type {
   Mounted,
   RenderRequest,
@@ -50,7 +55,7 @@ afterEach(() => {
  */
 const draw = async (
   root: DesignNode,
-  extra: Pick<RenderRequest, "specs" | "styles"> = {}
+  extra: Pick<RenderRequest, "components" | "styles"> = {}
 ) => {
   const canvas = document.createElement("div");
   document.body.append(canvas);
@@ -180,7 +185,7 @@ describe("a system component", () => {
   });
 });
 
-describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
+describe("the design's stylesheet and the system components' looks (ADRs 0028, 0041)", () => {
   it("marks every instance with its component and its variant props", async () => {
     const { at } = await draw(
       column([
@@ -192,13 +197,13 @@ describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
     expect(card?.getAttribute("data-ed-v")).toBe("size:lg variant:outline");
   });
 
-  it("gives the frames the tokens' CSS and the specs' as the design's sheet, the last", async () => {
-    const spec: ComponentSpec = {
-      ...emptySpec("Card", SYSTEM_FROM),
+  it("gives the frames the tokens' CSS and the looks' as the design's sheet, the last", async () => {
+    const look = {
+      ...emptySystemComponent("Card"),
       base: { root: { fill: "#ff0000" } },
     };
     await draw(column([instance("card", "Card")]), {
-      specs: [spec],
+      components: [look],
       styles: ":root { --primary: #123456; }",
     });
     const design = Array.from(adoptedSheets().at(-1)?.cssRules ?? [])
@@ -210,37 +215,145 @@ describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
     expect(design).toContain('[data-ed-c="Card"]');
     expect(design).toContain("background-color: #ff0000");
   });
+});
 
-  it("draws a draft from its tree, only its instance selectable", async () => {
-    const draft: ComponentSpec = {
-      ...emptySpec("Promo", "#draft"),
-      draft: {
-        children: [
-          { id: "d-title", role: "heading", text: "Title", type: "text" },
-          { id: "d-body", role: "paragraph", text: "Body", type: "text" },
-        ],
-        id: "d-root",
-        type: "column",
+describe("an app component (ADR 0041)", () => {
+  const promo: AppComponentFile = {
+    name: "Promo",
+    origin: "app",
+    properties: [
+      {
+        default: "Title",
+        kind: "text",
+        name: "title",
+        targets: [{ node: "d-title" }],
       },
-    };
-    const { at, canvas } = await draw(
-      column([
+      {
+        default: true,
+        kind: "boolean",
+        name: "with body",
+        targets: [{ node: "d-body" }],
+      },
+      {
+        default: "plain",
+        kind: "choice",
+        members: ["plain", "loud"],
+        name: "tone",
+      },
+      {
+        default: "Buy",
+        kind: "text",
+        name: "action",
+        targets: [{ node: "d-go" }],
+      },
+    ],
+    slots: [{ default: true, name: "extra", node: "d-extra" }],
+    tree: {
+      children: [
         {
-          component: "Promo",
-          from: "#draft",
-          id: "promo",
-          text: "Spring sale",
+          at: { "tone=loud": { size: 32 } },
+          id: "d-title",
+          role: "heading",
+          text: "Title",
+          type: "text",
+        },
+        { id: "d-body", role: "paragraph", text: "Body", type: "text" },
+        {
+          component: "Button",
+          from: SYSTEM_FROM,
+          id: "d-go",
+          text: "Go",
           type: "instance",
         },
+        {
+          children: [
+            { id: "d-none", role: "paragraph", text: "Nothing", type: "text" },
+          ],
+          id: "d-extra",
+          type: "column",
+        },
+      ],
+      id: "d-root",
+      type: "column",
+    },
+    version: 1,
+  };
+  const placed = (fields: Partial<Extract<DesignNode, { type: "instance" }>>) =>
+    instance("promo", "Promo", { from: APP_FROM, ...fields });
+
+  it("draws its tree with the instance's properties, only its instance selectable", async () => {
+    const { at, canvas } = await draw(
+      column([
+        placed({
+          props: { action: "Order", title: "Spring sale", "with body": false },
+        }),
       ]),
-      { specs: [draft] }
+      { components: [promo] }
     );
-    const promo = at("promo");
-    expect(promo?.getAttribute("data-ed-c")).toBe("Promo");
-    expect(promo?.textContent).toBe("Spring saleBody");
+    const drawn = at("promo");
+    expect(drawn?.getAttribute("data-ed-c")).toBe("Promo");
     expect(at("d-title")).toBeNull();
+    const node = (id: string) =>
+      canvas.querySelector(`[data-ed-app-node="${id}"]`) as HTMLElement | null;
+    expect(node("d-title")?.textContent).toBe("Spring sale");
+    expect(node("d-body")?.style.display).toBe("none");
+    expect(node("d-go")?.textContent).toBe("Order");
+    expect(node("d-none")?.textContent).toBe("Nothing");
+  });
+
+  it("lays a choice's overrides over its nodes, and puts the instance's children in its slots", async () => {
+    const { at, canvas } = await draw(
+      column([
+        placed({
+          children: [text("mine")],
+          props: { tone: "loud" },
+        }),
+      ]),
+      { components: [promo] }
+    );
+    const title = canvas.querySelector(
+      '[data-ed-app-node="d-title"]'
+    ) as HTMLElement | null;
+    expect(title?.style.fontSize).toBe("32px");
+    // The page's own node is the page's: selectable, in the slot in place of what it held.
     expect(
-      canvas.querySelector('[data-ed-draft-node="d-body"]')?.textContent
-    ).toBe("Body");
+      canvas.querySelector('[data-ed-app-node="d-extra"] [data-ed-node="mine"]')
+    ).not.toBeNull();
+    expect(at("mine")).not.toBeNull();
+    expect(canvas.querySelector('[data-ed-app-node="d-none"]')).toBeNull();
+  });
+
+  it("draws one nested in another, and refuses one drawn inside itself", async () => {
+    const outer: AppComponentFile = {
+      name: "Outer",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [
+          {
+            component: "Promo",
+            from: APP_FROM,
+            id: "o-promo",
+            props: { title: "Inside" },
+            type: "instance",
+          },
+          { component: "Outer", from: APP_FROM, id: "o-me", type: "instance" },
+        ],
+        id: "o-root",
+        type: "row",
+      },
+      version: 1,
+    };
+    const { canvas } = await draw(
+      column([instance("outer", "Outer", { from: APP_FROM })]),
+      { components: [promo, outer] }
+    );
+    expect(
+      canvas.querySelector('[data-ed-app-node="d-title"]')?.textContent
+    ).toBe("Inside");
+    expect(
+      canvas.querySelector('[data-ed-app-node="o-me"]')?.textContent
+    ).toContain("drawn inside itself");
   });
 });

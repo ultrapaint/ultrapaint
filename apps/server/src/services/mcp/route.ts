@@ -84,7 +84,7 @@ const Tools = Layer.mergeAll(
  * how to keep the two linked. An agent in the editor is briefed as well; one outside it reads
  * only this.
  */
-export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, component specs and the design system, in the
+export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, components and the design system, in the
 designs directory. The design is what the UI looks like and which states it has; the code is what
 it does. The design leads, and the code follows it through the ${TOOLS.handoff} tool:
 - Before implementing UI, call ${handoffCall("list")} to see what is ready or changed since it
@@ -95,9 +95,10 @@ it does. The design leads, and the code follows it through the ${TOOLS.handoff} 
 - After implementing a page or a component, call ${TOOLS.handoff} "mark" with the files that implement it.
 - When the code has to do something a design cannot show (a permission, a validation, a call),
   or when you change UI in a way the design does not say, call ${TOOLS.handoff} "note" on the page's node,
-  or on a component's spec (target "spec:Button", node one of its slots).
+  or on a component (target "component:Button", node one of its parts).
 - Change a design only through the tools (${TOOLS.apply_operations}, ${TOOLS.write_design_system}), never by
-  editing its JSON by hand; change token values in the design system, not in the stylesheet.`;
+  editing its JSON by hand (a component's file in components/ is written as a file); change token
+  values in the design system, not in the stylesheet.`;
 
 export const McpRoute = Tools.pipe(
   Layer.provide(

@@ -6,6 +6,7 @@ import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
+import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
@@ -24,7 +25,6 @@ import { SetupService } from "./services/setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Snapshots } from "./services/snapshots.ts";
-import { SpecService } from "./services/specs.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -72,7 +72,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const skills = project.service(SkillsService);
     const catalogue = project.service(CatalogueService);
     const figma = project.service(FigmaImportService);
-    const specs = project.service(SpecService);
+    const components = project.service(ComponentService);
     const implementation = project.service(ImplementationService);
 
     return UltrapaintRpcs.of({
@@ -115,6 +115,17 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.list": ({ canvas }) => comments((c) => c.list(canvas)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
+      "components.addNote": ({ name, slot, text }) =>
+        components((c) => c.addNote(name, text, slot)),
+      "components.fromDefault": ({ name }) =>
+        components((c) => c.fromDefault(name)),
+      "components.list": () => components((c) => c.list),
+      "components.makeApp": ({ id, name, nodeIds }) =>
+        components((c) => c.makeApp(id, nodeIds, name)),
+      "components.migrate": () => components((c) => c.migrate),
+      "components.remove": ({ name }) => components((c) => c.remove(name)),
+      "components.write": ({ component }) =>
+        components((c) => c.write(component)),
       "designSystem.detect": () => designSystem((d) => d.detect),
       "designSystem.get": () => designSystem((d) => d.get),
       "designSystem.placeDocument": () =>
@@ -130,8 +141,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "documents.apply": (input) => documents((d) => d.apply(input)),
       "documents.get": ({ doc }) => documents((d) => d.get(doc)),
       "documents.list": ({ canvas }) => documents((d) => d.list(canvas)),
-      "documents.toSystemComponents": () =>
-        documents((d) => d.toSystemComponents),
       "dsSetup.audit": () => dsSetup.audit,
       "dsSetup.batchPreview": ({ batchId }) => dsSetup.batchPreview(batchId),
       "dsSetup.complete": ({ step }) => dsSetup.complete(step),
@@ -160,6 +169,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.canvas": () => events.subscribe("canvas"),
       "events.checkpoints": () => events.subscribe("checkpoints"),
       "events.comments": () => events.subscribe("comments"),
+      "events.components": () => events.subscribe("components"),
       "events.designSystem": () => events.subscribe("designSystem"),
       "events.document": () => events.subscribe("document"),
       "events.dsSetup": () => events.subscribe("dsSetup"),
@@ -174,7 +184,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.screenshot": () => screenshots.requests,
       "events.skills": () => events.subscribe("skills"),
       "events.snapshots": () => events.subscribe("snapshots"),
-      "events.specs": () => events.subscribe("specs"),
       "events.syncPlan": () => events.subscribe("syncPlan"),
       "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
@@ -264,15 +273,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
-      "specs.addNote": ({ component, slot, text }) =>
-        specs((s) => s.addNote(component, text, slot)),
-      "specs.draftFrom": ({ id, name, nodeId }) =>
-        specs((s) => s.draftFrom(id, nodeId, name)),
-      "specs.fromCode": ({ component, from, look }) =>
-        specs((s) => s.fromCode(component, from, look)),
-      "specs.list": () => specs((s) => s.list),
-      "specs.remove": ({ component }) => specs((s) => s.remove(component)),
-      "specs.write": ({ spec }) => specs((s) => s.write(spec)),
       "sync.apply": ({ decisions, only, source, tokens }) =>
         sync.apply(source, decisions, only, tokens),
       "sync.match": ({ entries, source }) =>

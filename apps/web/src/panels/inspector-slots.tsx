@@ -5,8 +5,8 @@
  * children. A child that names no slot fills the default one.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import {
   type ElementId,
   newElement,

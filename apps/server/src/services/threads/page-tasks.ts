@@ -1,19 +1,21 @@
 /**
- * The tasks that draw or implement pages: implement a page or a component spec in the
+ * The tasks that draw or implement pages: implement a page or a component in the
  * application's code, link pages built already to their code, an uploaded Figma file as pages, a
  * canvas redrawn another way, and a sheet of the design system into a canvas.
  */
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
+import {
+  APP_FROM,
+  type AppComponentFile,
+  type ComponentFile,
+  componentFileOf,
+  SYSTEM_FROM,
+  type SystemComponentFile,
+} from "@ultrapaint/contracts/components";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { specTarget } from "@ultrapaint/contracts/implementation";
+import { componentTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import {
-  type ComponentSpec,
-  SPEC_EXTENSION,
-  SPECS_DIR,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/specs";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import type {
   ComponentsTask,
@@ -26,6 +28,7 @@ import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
+import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignTargets } from "../design-targets.ts";
 import { DocumentService } from "../documents.ts";
@@ -34,7 +37,6 @@ import { ImplementationService, type Note } from "../implementation.ts";
 import { pageEntry, pageNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { SpecService } from "../specs.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
 import { needsTools, pageSchema, taskFailure, userAdds } from "./task-text.ts";
@@ -97,30 +99,42 @@ const pagesOf = (
   return { picked, unknown };
 };
 
-/** What a spec's implementation is: a draft to create, a system component's look, or a component's. */
-const specIntro = (
-  spec: ComponentSpec,
-  notes: readonly Note[],
-  file: string | undefined,
-  libraryDirs: readonly string[]
+/** What a system component's implementation is: its look on the application's own component. */
+const systemIntro = (
+  component: SystemComponentFile,
+  notes: readonly Note[]
 ) => {
-  const specFile = `${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}`;
   const asked = notes.length > 0;
-  if (spec.draft) {
-    return `Implement ${spec.component}, a draft component of the design (${specFile}): the code does not have it
-yet. Create it in the components directory (${libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
-tree, with a prop for what varies, in the shape the other components have.`;
-  }
-  if (spec.from === SYSTEM_FROM) {
-    return `Implement the look of the ${spec.component} system component as its spec says (${specFile}), on the
-application's own ${spec.component}: find the component the application uses for it, whatever library it is
-written with (Base UI, Radix, shadcn, MUI…), and give each of its parts the look of the matching slot,
+  return `Implement the look of the ${component.name} system component as its file says (${componentFileOf(component.name)}),
+on the application's own ${component.name}: find the component the application uses for it, whatever library it
+is written with (Base UI, Radix, shadcn, MUI…), and give each of its parts the look of the matching part,
 in each variant and state, as closely as the library allows. Where the application has none, create
 it, on Base UI when the application has no library of its own. Its behaviour stays the library's${asked ? ", with what its behaviour notes ask" : ""}.`;
-  }
-  return `Implement the look of ${spec.component} as its spec says (${specFile}), in its code${file ? ` (${file})` : ""}.
-Its behaviour stays as it is: only its classes change${asked ? ", and what its behaviour notes ask" : ""}.`;
 };
+
+/** What an app component's implementation is: a component of the application's, from its tree. */
+const appIntro = (
+  component: AppComponentFile,
+  libraryDirs: readonly string[]
+) => `Implement ${component.name}, an app component of the design (${componentFileOf(component.name)}), as a component of
+the application, in the components directory (${libraryDirs.join(", ") || "where the application keeps its components"}) and in the shape the
+other components have: written from its tree, with a prop for each of its properties and a child or a
+named prop for each of its slots. Each system component inside it is the application's own component for it, each
+app component inside it the application's component of that name (implement those first).`;
+
+/** How an app component's file reads, for an agent. */
+const APP_FORMAT = `The file: \`tree\` is what every instance draws, its root the instance; \`properties\` are what an
+instance sets, by name: a text, a boolean (a node shown or not), an image's source, or a choice of
+\`members\` whose overrides the tree's nodes keep in \`at\` under "<property>=<member>" beside the
+breakpoints'; each property's \`targets\` are the nodes it sets (\`prop\`: a property of the component the
+node is). \`slots\` are containers of the tree an instance's children fill (\`default\`: the children that name no slot).`;
+
+/** How a system component's file reads, for an agent. */
+const SYSTEM_FORMAT = `The file: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
+(hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
+\`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,
+\`aria-invalid:\`); a part other than \`root\` is the element with that \`data-slot\`. Values are the
+design system's tokens.`;
 
 /** The components a tree uses, by name. */
 const usedComponents = (root: DesignNode | null | undefined) => {
@@ -172,17 +186,27 @@ ${states.map((p) => `- ${p.state}: ${p.file}`).join("\n")}
 `
     : "";
 
-const ownedSection = (owned: readonly ComponentSpec[]) => {
+const ownedSection = (owned: readonly ComponentFile[]) => {
   if (owned.length === 0) {
     return "";
   }
-  const drafts = owned.some((s) => s.draft)
-    ? 'A draft component (from "#draft") has no code yet: implement it first, or build its tree inline and tell the user.\n'
-    : "";
-  return `
-Components whose look the design owns (ADR 0029): ${owned.map((s) => s.component).join(", ")}. Use
-them as they are; their look is implemented on its own (/implement <Component>), not in this page.
-${drafts}`;
+  const looks = owned.filter((c) => c.origin === "system");
+  const apps = owned.filter((c) => c.origin === "app");
+  return `${
+    looks.length > 0
+      ? `
+System components whose look the design owns (ADR 0041): ${looks.map((c) => c.name).join(", ")}. Use
+them as they are; their look is implemented on its own (/implement <Component>), not in this page.`
+      : ""
+  }${
+    apps.length > 0
+      ? `
+App components (from "${APP_FROM}"): ${apps.map((c) => c.name).join(", ")}. Each is a component of the
+application, implemented on its own (/implement <Component>): use it, with its instance's props as its
+properties and its children in its slots; one the application does not have yet is implemented first.`
+      : ""
+  }
+`;
 };
 
 /**
@@ -224,7 +248,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   const project = yield* ProjectManager;
 
   /**
-   * Implement (ADR 0030): a page or a component spec turned into the application's code. A
+   * Implement (ADR 0030): a page or a component turned into the application's code. A
    * design implemented before is given with what changed since, its behaviour notes and its
    * states; the agent marks it implemented when it is done.
    */
@@ -240,12 +264,18 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
             )
           );
         const notes = yield* designTargets.notes(design);
-        if (design._tag === "Spec") {
-          return yield* implementSpec(design.spec, notes, extra);
+        if (design._tag === "Component") {
+          return yield* implementComponent(design.component, notes, extra);
         }
         const { pages } = yield* (yield* PagesService).list;
-        const specs = yield* (yield* SpecService).specs;
-        return yield* implementPage(design.page, pages, specs, notes, extra);
+        const components = yield* (yield* ComponentService).components;
+        return yield* implementPage(
+          design.page,
+          pages,
+          components,
+          notes,
+          extra
+        );
       })
     );
 
@@ -386,7 +416,7 @@ ${used.map(waitingLine).join("\n")}
   const implementPage = Effect.fnUntraced(function* (
     page: Page,
     pages: readonly Page[],
-    specs: readonly ComponentSpec[],
+    files: readonly ComponentFile[],
     notes: readonly Note[],
     extra: string | undefined
   ) {
@@ -401,9 +431,8 @@ ${used.map(waitingLine).join("\n")}
     const states = familyOf(pages, page).filter(
       (p) => p.state !== undefined && p.id !== page.id
     );
-    const owned = specs.filter(
-      (s) => usedComponents(state?.root).has(s.component) && s.look === "design"
-    );
+    const used = usedComponents(state?.root);
+    const owned = files.filter((c) => used.has(c.name));
     const where = whereOf(page);
     const tokens = yield* tokensFor(page.id);
     return `<ultrapaint-task command="implement">
@@ -437,53 +466,40 @@ ${numbered([
 ${userAdds(extra)}</ultrapaint-task>`;
   });
 
-  const implementSpec = Effect.fnUntraced(function* (
-    spec: ComponentSpec,
+  const implementComponent = Effect.fnUntraced(function* (
+    component: ComponentFile,
     notes: readonly Note[],
     extra: string | undefined
   ) {
-    const target = specTarget(spec.component);
+    const target = componentTarget(component.name);
     const before = yield* since(target);
     const tokens = yield* tokensFor(target);
     const { codeRules } = yield* ProjectStyleSystem;
-    const catalogue = yield* Effect.orElseSucceed(
-      (yield* CatalogueService).get(false),
-      () => null
-    );
-    const meta = catalogue?.components.find(
-      (c) => c.name === spec.component && c.importFrom === spec.from
-    );
     const paths = yield* RepoPaths;
-    const intro = specIntro(
-      spec,
-      notes,
-      meta?.file,
-      paths.settings.libraryDirs
-    );
+    const app = component.origin === "app";
+    const intro = app
+      ? appIntro(component, paths.settings.libraryDirs)
+      : systemIntro(component, notes);
     return `<ultrapaint-task command="implement">
 ${intro}
 
 ${before}
 ${notesSection(notes, "component")}${tokens.section}
-The spec: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
-(hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
-\`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,
-\`aria-invalid:\`); a slot other than \`root\` is the element with that \`data-slot\`. Values are the
-design system's tokens.
-${JSON.stringify(spec, null, 2)}
+${app ? APP_FORMAT : SYSTEM_FORMAT}
+${JSON.stringify(component, null, 2)}
 
 ${codeRules}
 ${numbered([
   tokens.step,
-  spec.draft
-    ? `Write the component, then replace the draft's instances in the pages with it: ${ways.tools ? `${ways.tools.apply_operations}, update` : "in each page's file, change"} from and component of each instance whose from is "#draft".`
-    : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the spec says. Keep its props and behaviour.",
+  app
+    ? "Write the component, its props typed by its properties (a choice as a union of its members, its default the property's), and its slots as children or named props."
+    : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the file says. Keep its props and behaviour.",
   notes.length > 0
     ? "Implement each behaviour note in the component, with the application's own services and data; ask the user where one is unclear rather than inventing it."
     : null,
   "Run the repository's type check and linter on what you changed.",
   `Once it is done, ${ways.markImplemented(named(target))}`,
-  "End with a short summary, and what the spec asked for that the code could not do.",
+  "End with a short summary, and what the design asked for that the code could not do.",
 ])}
 ${userAdds(extra)}</ultrapaint-task>`;
   });

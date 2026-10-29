@@ -103,16 +103,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.notInclude(third, "components:");
 
           // One whose look the project owns writes its root's, a token as a reference.
-          const taken = yield* client["specs.fromCode"]({
-            component: "Button",
+          const taken = yield* client["components.fromDefault"]({
+            name: "Button",
           });
-          const button = taken.spec;
-          assert.isDefined(button);
-          if (!button) {
+          const button = taken.component;
+          assert.strictEqual(button?.origin, "system");
+          if (button?.origin !== "system") {
             return;
           }
-          yield* client["specs.write"]({
-            spec: {
+          yield* client["components.write"]({
+            component: {
               ...button,
               base: {
                 ...button.base,

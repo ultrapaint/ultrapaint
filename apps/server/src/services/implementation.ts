@@ -1,6 +1,6 @@
 /**
  * The link between a design and the code that implements it (ADR 0030). `implementation.json` in
- * the designs directory says, per page and per component spec, whether it is ready and which
+ * the designs directory says, per page and per component (ADR 0041), whether it is ready and which
  * files implement it, with the hashes of both sides when it was implemented; the design as it was
  * then is kept in `_implemented/`, so the next implementation is told what changed. The status is
  * worked out when it is asked for: the design's hash against the binding's, each file's against
@@ -8,6 +8,10 @@
  */
 
 import type { Comment } from "@ultrapaint/contracts/comments";
+import type {
+  ComponentFile,
+  ComponentNote,
+} from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
@@ -17,6 +21,8 @@ import {
 } from "@ultrapaint/contracts/errors";
 import {
   type Binding,
+  COMPONENT_TARGET_PREFIX,
+  componentTarget,
   IMPLEMENTATION_FILE,
   type ImplementationChanges,
   type ImplementationEntry,
@@ -24,12 +30,9 @@ import {
   type ImplementationItem,
   type ImplementationList,
   implementedFileOf,
-  isSpecTarget,
-  SPEC_TARGET_PREFIX,
-  specTarget,
+  isComponentTarget,
 } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { ComponentSpec, SpecNote } from "@ultrapaint/contracts/specs";
 import type { TokenDiff } from "@ultrapaint/contracts/sync";
 import { describeDiff, diffTrees } from "@ultrapaint/design-document/diff";
 import { serialise } from "@ultrapaint/design-document/factories";
@@ -46,32 +49,20 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
-import { hashContent } from "../hash.ts";
+import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
+import { componentsIn, readComponents } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { readSpecs, specsIn } from "./specs.ts";
 import { handoffCall } from "./threads/agent-ways.ts";
 
 const decodeFile = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ImplementationFile)
 );
-
-/** JSON with every object's keys in order: the same design always hashes the same. */
-export const stableJson = (value: unknown): string =>
-  JSON.stringify(value, (_key, v: unknown) =>
-    typeof v === "object" && v !== null && !Array.isArray(v)
-      ? Object.fromEntries(
-          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
-            a.localeCompare(b)
-          )
-        )
-      : v
-  );
 
 /** A behaviour note as the design's hash and an implementation task carry it. */
 export interface Note {
@@ -97,8 +88,8 @@ export const pageNotes = (page: Page, comments: readonly Comment[]): Note[] =>
     )
     .map(commentNote);
 
-/** A component's behaviour note as a page's reads: its slot where a node's name would be. */
-export const specNote = (n: SpecNote): Note => ({
+/** A component's behaviour note as a page's reads: its part where a node's name would be. */
+export const componentNote = (n: ComponentNote): Note => ({
   element: n.slot ?? null,
   id: n.id,
   nodeId: null,
@@ -106,20 +97,20 @@ export const specNote = (n: SpecNote): Note => ({
 });
 
 /**
- * A component's behaviour notes (ADR 0029), kept in its spec. Deleted rather than resolved, so
+ * A component's behaviour notes (ADR 0041), kept in its file. Deleted rather than resolved, so
  * every one is open.
  */
-export const specNotes = (spec: ComponentSpec): Note[] =>
-  (spec.notes ?? []).map(specNote);
+export const componentNotes = (component: ComponentFile): Note[] =>
+  (component.notes ?? []).map(componentNote);
 
-/** What a page was when it was implemented, or a spec. */
+/** What a page was when it was implemented, or a component. */
 export type Implemented =
   | {
       readonly kind: "page";
       readonly notes: readonly Note[];
       readonly root: DesignNode;
     }
-  | { readonly kind: "spec"; readonly spec: ComponentSpec };
+  | { readonly kind: "component"; readonly component: ComponentFile };
 
 /** A design as it is now: what it is, what it hashes to, and what is kept of it once implemented. */
 export interface Current {
@@ -163,17 +154,25 @@ const withEdits = (
 
 /** What telling which tokens a design waits on needs, read once for a whole list. */
 interface TokenContext {
+  readonly components: readonly ComponentFile[];
   readonly designSystem: DesignSystem | null;
-  readonly specs: readonly ComponentSpec[];
   /** The code comparison's tokens whose design value has not reached the code, by name. */
   readonly waiting: ReadonlyMap<string, readonly TokenDiff[]>;
 }
 
-/** The tokens a design relies on (ADR 0028): a page's, with its text styles and owned specs, or a spec's. */
-const usesOf = (snapshot: Implemented, ctx: TokenContext): Set<string> =>
-  snapshot.kind === "spec"
-    ? tokensIn(snapshot.spec)
-    : tokensUsed(snapshot.root, ctx.designSystem, ctx.specs);
+/**
+ * The tokens a design relies on (ADR 0028): a page's, with its text styles and the components it
+ * places, or a component's, the components its tree places included.
+ */
+const usesOf = (snapshot: Implemented, ctx: TokenContext): Set<string> => {
+  if (snapshot.kind === "page") {
+    return tokensUsed(snapshot.root, ctx.designSystem, ctx.components);
+  }
+  const { component } = snapshot;
+  return component.origin === "app"
+    ? tokensUsed(component.tree, ctx.designSystem, ctx.components)
+    : tokensIn(component);
+};
 
 /** The tokens a design relies on that wait for the code, sorted. */
 const waitingOf = (snapshot: Implemented, ctx: TokenContext): string[] =>
@@ -188,18 +187,21 @@ const changedLines = (before: Implemented, now: Implemented): string[] => {
       ...describeNoteChanges(before.notes, now.notes),
     ];
   }
-  if (before.kind === "spec" && now.kind === "spec") {
-    const { notes: _was, ...look } = before.spec;
-    const { notes: _is, ...after } = now.spec;
+  if (before.kind === "component" && now.kind === "component") {
+    const { notes: _was, ...look } = before.component;
+    const { notes: _is, ...after } = now.component;
     return [
-      ...describeSpecChanges(look, after),
-      ...describeNoteChanges(specNotes(before.spec), specNotes(now.spec)),
+      ...describeComponentChanges(look, after),
+      ...describeNoteChanges(
+        componentNotes(before.component),
+        componentNotes(now.component)
+      ),
     ];
   }
   return [];
 };
 
-/** Values by path, nested objects flattened: what a spec's comparison goes through. */
+/** Values by path, nested objects flattened: what a component's comparison goes through. */
 const flatten = (
   value: unknown,
   prefix = "",
@@ -215,10 +217,10 @@ const flatten = (
   return into;
 };
 
-/** What changed in a spec, a line per field. */
-export const describeSpecChanges = (
-  before: Omit<ComponentSpec, "notes">,
-  after: Omit<ComponentSpec, "notes">
+/** What changed in a component's file, a line per field. */
+export const describeComponentChanges = (
+  before: Omit<ComponentFile, "notes">,
+  after: Omit<ComponentFile, "notes">
 ): string[] => {
   const a = flatten(before);
   const b = flatten(after);
@@ -264,7 +266,7 @@ export class ImplementationService extends Context.Service<
     ) => Effect.Effect<ImplementationItem, NotFound>;
     /**
      * A design as it is now, for an implementation task, by its canonical target: a page's id
-     * or `spec:<Component>`. A name an agent or a user wrote is `DesignTargets.resolve`'s.
+     * or `component:<Name>`. A name an agent or a user wrote is `DesignTargets.resolve`'s.
      */
     readonly current: (target: string) => Effect.Effect<Current, NotFound>;
     /** The design as it was implemented, and the binding, when it was. */
@@ -334,10 +336,9 @@ export class ImplementationService extends Context.Service<
       const code = yield* CodeSide;
       const fileAbs = path.join(paths.designsDir, IMPLEMENTATION_FILE);
       const fileRel = paths.relative(fileAbs);
-      // The specs as their files have them; read here, since `SpecService` links a spec it
-      // reads off the code through this service.
-      const specsNow = readSpecs(paths.designsDir).pipe(
-        Effect.map(specsIn),
+      // The components as their files have them; read here, below `ComponentService`.
+      const componentsNow = readComponents(paths.designsDir).pipe(
+        Effect.map(componentsIn),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path)
       );
@@ -384,41 +385,41 @@ export class ImplementationService extends Context.Service<
         return found;
       });
 
-      const specCurrent = (spec: ComponentSpec): Current => ({
-        hash: hashContent(stableJson(spec)),
-        name: spec.component,
-        snapshot: { kind: "spec", spec },
-        target: specTarget(spec.component),
+      const componentCurrent = (component: ComponentFile): Current => ({
+        hash: componentHash(component),
+        name: component.name,
+        snapshot: { component, kind: "component" },
+        target: componentTarget(component.name),
       });
 
       /** Every design there is to implement, as it is now. */
       const everything = Effect.gen(function* () {
         const { pages: all } = yield* pages.list;
         const fromPages = yield* Effect.forEach(all, pageCurrent);
-        const specs = yield* specsNow;
+        const components = yield* componentsNow;
         return [
           ...fromPages.filter((c): c is Current => c !== null),
-          ...specs.map(specCurrent),
+          ...components.map(componentCurrent),
         ];
       });
 
       const current = Effect.fn("ImplementationService.current")(function* (
         target: string
       ) {
-        if (isSpecTarget(target)) {
-          const name = target.slice(SPEC_TARGET_PREFIX.length);
-          const spec = (yield* specsNow).find((s) => s.component === name);
-          if (!spec) {
-            return yield* new NotFound({ message: `no spec for ${name}` });
+        if (isComponentTarget(target)) {
+          const name = target.slice(COMPONENT_TARGET_PREFIX.length);
+          const component = (yield* componentsNow).find((c) => c.name === name);
+          if (!component) {
+            return yield* new NotFound({ message: `no component ${name}` });
           }
-          return specCurrent(spec);
+          return componentCurrent(component);
         }
         const { pages: all } = yield* pages.list;
         const page = all.find((p) => p.id === target);
         const found = page ? yield* pageCurrent(page) : null;
         if (!found) {
           return yield* new NotFound({
-            message: `no page ${target}: name a page by its id, or a spec as spec:<Component>`,
+            message: `no page ${target}: name a page by its id, or a component as component:<Name>`,
           });
         }
         return found;
@@ -432,7 +433,7 @@ export class ImplementationService extends Context.Service<
           )
         );
 
-      /** The design system, the specs and what waits for the code, for a list of designs. */
+      /** The design system, the components and what waits for the code, for a list of designs. */
       const tokenContext: Effect.Effect<TokenContext> = Effect.gen(
         function* () {
           const { designSystem } = yield* designSystems.get;
@@ -447,8 +448,8 @@ export class ImplementationService extends Context.Service<
             }
           }
           return {
+            components: yield* componentsNow,
             designSystem,
-            specs: yield* specsNow,
             waiting,
           };
         }
@@ -461,7 +462,7 @@ export class ImplementationService extends Context.Service<
       ) {
         const binding = entry?.implemented;
         const ready = entry?.ready ?? false;
-        const kind = isSpecTarget(found.target) ? "spec" : "page";
+        const kind = isComponentTarget(found.target) ? "component" : "page";
         const waiting = waitingOf(found.snapshot, ctx);
         const tokens = waiting.length > 0 ? { tokens: waiting } : {};
         if (!binding) {
@@ -781,7 +782,7 @@ export class ImplementationService extends Context.Service<
         } satisfies ImplementationChanges;
       });
 
-      // What the status reads changed: the file, a page, a spec, a comment.
+      // What the status reads changed: the file, a page, a component, a comment.
       const poke = <A, E, R>(stream: Stream.Stream<A, E, R>) =>
         Stream.map(stream, () => undefined);
       yield* Stream.mergeAll(
@@ -793,7 +794,7 @@ export class ImplementationService extends Context.Service<
           ),
           poke(events.subscribe("document")),
           poke(events.subscribe("pages")),
-          poke(events.subscribe("specs")),
+          poke(events.subscribe("components")),
           poke(events.subscribe("comments")),
           // A token exported, or changed in the design: what waits for the code moved.
           poke(events.subscribe("designSystem")),
