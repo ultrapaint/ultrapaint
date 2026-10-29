@@ -31,7 +31,7 @@ export const startApplication = async (options: {
     confirmLabel: "Write and install",
     defaultValue: options.beside ? "app" : ".",
     description:
-      "A Vite, React and Tailwind v4 application with ten components to design with is written there (its theme from your Figma file, when one is imported), then installed with the repository's package manager. `.` is the repository's root.",
+      "A Vite, React and Tailwind v4 application with a component for each of the editor's primitives is written there (its theme from your Figma file, when one is imported), then installed with the repository's package manager. `.` is the repository's root.",
     title: "Start an application",
   });
   if (dir === null || dir.trim() === "") {

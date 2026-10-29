@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { PRIMITIVES } from "@ultrapaint/primitives/catalogue";
 import { afterAll, describe, expect, it } from "vitest";
 import { detect } from "./detect.ts";
 import { scaffold } from "./scaffold.ts";
@@ -133,82 +134,70 @@ describe("a blank application", () => {
 });
 
 describe("its components", () => {
-  it("write their variants in a cva, with the defaults, as shadcn does", () => {
-    for (const [name, axes] of [
-      ["button", ["size", "variant"]],
-      ["badge", ["variant"]],
-    ] as const) {
-      const source = ui(name);
-      expect(source).toContain(
-        'import { cva, type VariantProps } from "class-variance-authority";'
-      );
-      expect(source).toContain(`const ${name}Variants = cva(`);
-      expect(source).toContain("variants: {");
-      expect(source).toContain("defaultVariants: {");
-      for (const axis of axes) {
-        expect(source).toContain(`${axis}: "default",`);
+  /** The primitives built on Base UI, as the starter's components are. */
+  const ON_BASE_UI = new Set([
+    "Avatar",
+    "Checkbox",
+    "Dialog",
+    "Menu",
+    "Popover",
+    "Select",
+    "Separator",
+    "Switch",
+    "Tabs",
+    "Tooltip",
+  ]);
+  const kebab = (name: string) =>
+    name.replace(/(?<!^)([A-Z])/g, "-$1").toLowerCase();
+
+  it("are the primitives one to one, a file each by the same name", () => {
+    expect(
+      Object.keys(app)
+        .filter((f) => f.startsWith("src/components/ui/"))
+        .sort()
+    ).toEqual(
+      PRIMITIVES.map((p) => `src/components/ui/${kebab(p.name)}.tsx`).sort()
+    );
+    for (const meta of PRIMITIVES) {
+      expect(ui(kebab(meta.name))).toContain(`function ${meta.name}(`);
+    }
+  });
+
+  it("mark each part with the primitive's data-slot, the root as root", () => {
+    for (const meta of PRIMITIVES) {
+      const marked = new Set(slotsOf(ui(kebab(meta.name))));
+      expect(
+        meta.slots.map((s) => s.name).filter((slot) => !marked.has(slot))
+      ).toEqual([]);
+    }
+  });
+
+  it("write their variants in a cva by the primitive's axes and members, the first the default", () => {
+    for (const meta of PRIMITIVES) {
+      const source = ui(kebab(meta.name));
+      for (const [axis, members] of Object.entries(meta.variants)) {
+        expect(source).toContain(`${axis}: "${members[0]}",`);
+        for (const member of members) {
+          expect(source).toMatch(new RegExp(`\\b${member}: "`));
+        }
       }
-      expect(source).toContain(`VariantProps<typeof ${name}Variants>`);
-      expect(source).toContain('import { cn } from "@/lib/cn";');
     }
   });
 
-  it("mark every part with data-slot", () => {
-    expect(slotsOf(ui("button"))).toEqual(["button"]);
-    expect(slotsOf(ui("badge"))).toEqual(["badge"]);
-    expect(slotsOf(ui("input"))).toEqual(["input"]);
-    expect(slotsOf(ui("label"))).toEqual(["label"]);
-    expect(slotsOf(ui("textarea"))).toEqual(["textarea"]);
-    expect(slotsOf(ui("card"))).toEqual([
-      "card",
-      "card-header",
-      "card-title",
-      "card-description",
-      "card-content",
-      "card-footer",
-    ]);
-    expect(slotsOf(ui("checkbox"))).toEqual(["checkbox", "checkbox-indicator"]);
-    expect(slotsOf(ui("dialog"))).toEqual(
-      expect.arrayContaining([
-        "dialog",
-        "dialog-trigger",
-        "dialog-overlay",
-        "dialog-content",
-        "dialog-close",
-        "dialog-title",
-        "dialog-description",
-      ])
-    );
-    expect(slotsOf(ui("select"))).toEqual(
-      expect.arrayContaining([
-        "select",
-        "select-trigger",
-        "select-value",
-        "select-content",
-        "select-item",
-      ])
-    );
-    expect(slotsOf(ui("tabs"))).toEqual([
-      "tabs",
-      "tabs-list",
-      "tabs-trigger",
-      "tabs-content",
-    ]);
-  });
-
-  it("build the dialog, select, tabs and checkbox on Base UI", () => {
-    for (const [name, part] of [
-      ["dialog", "Dialog"],
-      ["select", "Select"],
-      ["tabs", "Tabs"],
-      ["checkbox", "Checkbox"],
-    ] as const) {
-      expect(ui(name)).toContain(
-        `import { ${part} as ${part}Primitive } from "@base-ui/react/${name}";`
+  it("are on Base UI where the primitive is", () => {
+    for (const meta of PRIMITIVES) {
+      const source = ui(kebab(meta.name));
+      expect(source.includes(`from "@base-ui/react/${kebab(meta.name)}"`)).toBe(
+        ON_BASE_UI.has(meta.name)
       );
     }
-    expect(ui("checkbox")).toContain("data-checked:bg-primary");
-    expect(ui("select")).toContain("data-highlighted:bg-accent");
-    expect(ui("tabs")).toContain("data-active:bg-background");
+  });
+
+  it("take a primitive's slots as parts among their children", () => {
+    expect(ui("dialog")).toContain(
+      "export { Dialog, DialogFooter, DialogHeader, DialogTrigger, dialogVariants };"
+    );
+    expect(ui("card")).toContain("export { Card, CardFooter, CardHeader };");
+    expect(app["src/lib/parts.ts"]).toContain("export function split(");
   });
 });

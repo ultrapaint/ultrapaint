@@ -66,7 +66,7 @@ export type CreateDesignsResult = typeof CreateDesignsResult.Type;
 
 /** A new application, written where the repository has none (ADR 0025). */
 /**
- * What a new application starts with: `starter`, ten components to design with; `blank`, none,
+ * What a new application starts with: `starter`, a component for each primitive; `blank`, none,
  * and a theme that declares nothing (PLAN-desktop D11).
  */
 export const ScaffoldTemplate = Schema.Literals(["starter", "blank"]);

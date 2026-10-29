@@ -412,6 +412,9 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
+      '@ultrapaint/primitives':
+        specifier: workspace:*
+        version: link:../primitives
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5

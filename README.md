@@ -176,7 +176,9 @@ opened in it, and left running.
 
 **New design**, on the welcome page and in the switcher, starts a design in a folder with no
 code yet: a name, a folder (`~/Ultrapaint/<name>` unless you pick another), a template (**Blank**:
-no components and a theme that declares nothing; **Starter components**: ten to restyle), the
+no components and a theme that declares nothing; **Starter components**: one for each primitive,
+by the same name, props, parts and variants, on Base UI, so a design is implemented onto them one
+to one), the
 code in `app/` or at the folder's root, and whether to keep it in git (off by default; on, it is
 `git init` and a first commit, `Start <name>`). The app writes it step by step, installs it with
 pnpm when it is on your PATH and npm otherwise, adds it to the list and opens it on Sync's
@@ -493,7 +495,7 @@ has a dot while something is waiting.
 
 | You have | Sync does |
 |---|---|
-| nothing yet | starts an application (Vite, React, Tailwind v4, ten components), then defines its design system |
+| nothing yet | starts an application (Vite, React, Tailwind v4, a component for each primitive), then defines its design system |
 | a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
 | an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
 | a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
