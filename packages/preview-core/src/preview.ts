@@ -78,6 +78,11 @@ export interface Look {
 
 /** One thing to draw. */
 export interface RenderRequest {
+  /**
+   * The breakpoint the page is drawn at (ADR 0036), the base when left out: the page comes
+   * resolved at it, and an app component's tree is resolved at it too.
+   */
+  readonly at?: string | undefined;
   /** What the canvas draws every page in: its theme, its fill and its type. */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;

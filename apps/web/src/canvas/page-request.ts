@@ -8,7 +8,10 @@ import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { RenderMode } from "@ultrapaint/contracts/preview";
-import { resolveAt } from "@ultrapaint/design-document/breakpoints";
+import {
+  breakpointAt,
+  resolveAtBreakpoint,
+} from "@ultrapaint/design-document/breakpoints";
 import { breakpointsFor } from "../state/design-system.ts";
 import type { RenderRequest } from "./editor-frame.ts";
 
@@ -67,16 +70,19 @@ export const pageRequest = (page: PageDrawing): RenderRequest => {
     page.width ??
     page.held?.width ??
     (typeof root?.width === "number" ? root.width : 0);
+  const breakpoints = breakpointsFor(designSystem);
+  const breakpoint = breakpointAt(breakpoints, at)?.name;
   let message = page.absent;
   if (message === undefined && page.problem !== undefined) {
     message = `This page cannot be read: ${page.problem}`;
   }
   return {
+    ...(breakpoint !== undefined && { at: breakpoint }),
     defaults: page.defaults,
     designSystem,
     ...(page.isolate && { isolate: page.isolate }),
     mode: page.mode,
-    root: sized && resolveAt(sized, breakpointsFor(designSystem), at),
+    root: sized && resolveAtBreakpoint(sized, breakpoints, breakpoint ?? null),
     ...(message !== undefined && { message }),
   };
 };
