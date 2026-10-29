@@ -35,17 +35,21 @@ fields share a row only when they are one thing: a city and its postcode.
 
 A select inside a row or a sentence ("Can view") is its text and a small chevron: no border, no
 fill, no fixed width. A copy action for a link sits at the field's right end, not as a button
-beside it. A helper action over a column ("Disable all") is a muted link. A switch in a list of
-settings sits at the row's right edge, the label at its left. Only what the user types into gets
-a field's box.
+beside it. A helper action over a column ("Disable all") is a muted link, underlined. A switch in
+a list of settings sits at the row's right edge, the label at its left. Only what the user types
+into gets a field's box.
+
+A field is the system's field component, whatever it holds: its hint is the field's placeholder,
+its icon the field's own icon slot, its chips the field's own. A text node laid in a box of one's
+own reads as typed, and an icon laid over a field drifts off its line.
 
 ## Badges sit at the edge
 
 A change badge (↗ 1.2%) is small, sits on the value's row at the card's far right, and carries
 no caption. A status or plan badge ("Popular", "High risk") goes in its card's
 top-right corner, opposite the title. A badge that only shows a value never opens a menu: no
-chevron on it. A count beside a navigation item is a plain muted number at the row's right end,
-without a pill.
+chevron on it. A count beside a navigation item is quiet, at the row's right end: a plain muted
+number, or the system's small grey count badge; never an outlined or coloured pill.
 
 ## The component the job names
 
@@ -80,6 +84,7 @@ card"). Tell the user it is new: it will need building as a component.
 | An outlined select inside a table row or a sentence | Text and a chevron |
 | A "Copy" button beside a link field | The copy action inside the field's end |
 | A switch in front of its label | Label left, switch at the right edge |
+| A field's hint as text in a box, or an icon laid over a field | The field's placeholder and icon slot |
 | A change badge under its value, or captioned "vs last year" | Small, at the row's far right, no caption |
 | Prev, Today and Next as three separate buttons | One button group |
 | An icon inside a filter button | The word alone |

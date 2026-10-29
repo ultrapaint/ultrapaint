@@ -27,7 +27,8 @@ beside medium or semibold. One stroke width per surface.
 
 ## The colour of its text
 
-An icon takes its label's colour: muted beside muted text, foreground beside foreground. A
+An icon takes its label's colour: muted beside muted text, foreground beside foreground. An icon
+standing alone for a secondary action (an external link, a kebab, a copy) is muted. A
 status icon takes the status colour and sits beside a word. Its image node says the colour in
 `tint` (a colour token): one file per glyph, drawn in any colour, never a copy per colour.
 
@@ -35,7 +36,9 @@ status icon takes the status colour and sits beside a word. Its image node says 
 
 Where the set has both, outline is the resting state and filled marks a chosen one: a saved
 bookmark, a checked option. In navigation the current item is marked by its row's fill. When the
-design system's icons are filled, every icon of a region is filled: one style per region.
+design system's icons are filled, every icon of a region is filled: one style per region. When a
+picture's icons are filled and the system's set has a filled style, use it; when it has none, say
+so rather than mixing sets.
 
 ## A label by default
 
