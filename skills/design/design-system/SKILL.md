@@ -48,6 +48,11 @@ icon tile, a big number and a quiet label. A card is its data, and the card itse
 not a title, a line of grey text and a button. Make the components the product has, under the
 names of what they are: a product with a dropdown menu and no select gets the menu.
 
+A page sets a component's props with plain values: text, numbers, true or false. So a prop that
+shows an icon takes the icon's name from the system's set (`icon="search"`, drawn by the system's
+`Icon` component), never an element: an element prop is one no page can fill, and agents end up
+laying an icon over the component by hand.
+
 A component that wraps its element (a field with an icon, a select with its trigger) puts its
 `className`, its `style` and its `data-` attributes on the outer element, and the element's own
 attributes on the element inside: the editor sizes and marks an instance through them, and a size
@@ -71,3 +76,4 @@ light border, the checked one the weight.
 | A table drawing its own badges or avatars | The Badge and the Avatar |
 | Bold labels on buttons and tabs | The product's weight, usually medium |
 | A wrapping component spreading `style` onto its inner element | `className`, `style`, `data-` on the outer one |
+| An `icon` prop that takes an element | The icon's name, drawn by the system's `Icon` |
