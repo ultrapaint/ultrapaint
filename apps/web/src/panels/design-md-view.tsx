@@ -27,7 +27,7 @@ import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 
 /** The format's sections, in its order (`@ultrapaint/design-md/format`). */
-export const FORMAT_SECTIONS = [
+const FORMAT_SECTIONS = [
   "Overview",
   "Colors",
   "Typography",
@@ -52,7 +52,7 @@ const PURPOSE: Record<(typeof FORMAT_SECTIONS)[number], string> = {
 };
 
 /** The section of the document the format calls `name`, if it has one. */
-export const sectionNamed = (
+const sectionNamed = (
   document: DesignDocument | null,
   name: string
 ): DesignSection | undefined =>

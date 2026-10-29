@@ -19,8 +19,8 @@ export const InitTask = Schema.TaggedStruct("Init", { extra: Extra });
 export type InitTask = typeof InitTask.Type;
 
 /**
- * `/implement`: a page or a component spec turned into the application's code (ADR 0030). The
- * target is a page's URL, file or id, `spec:<Component>` or a component's name; empty names the
+ * `/implement`: a page or a component turned into the application's code (ADR 0030). The
+ * target is a page's URL, file or id, `component:<Name>` or a component's name; empty names the
  * only page there is. A canvas narrows a URL that pages of several canvases serve.
  */
 export const ImplementTask = Schema.TaggedStruct("Implement", {

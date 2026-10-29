@@ -22,7 +22,7 @@ import { makeId } from "../../ids.ts";
 import { answersText, contentOf, questionsOf } from "./elicitation.ts";
 import type { ThreadStore } from "./thread-store.ts";
 
-export const DECLINE: CreateElicitationResponse = { action: "decline" };
+const DECLINE: CreateElicitationResponse = { action: "decline" };
 const CANCEL: CreateElicitationResponse = { action: "cancel" };
 const CANCELLED: RequestPermissionResponse = {
   outcome: { outcome: "cancelled" },

@@ -81,7 +81,7 @@ describe("an overlay", () => {
     );
     const popup = at.shadow.querySelector('[data-slot="dialog"]');
     expect(popup?.getAttribute("data-ed-node")).toBe("d1");
-    // A portal is not the component's root: the specs find its parts as a portal's.
+    // A portal is not the component's root: the looks find its parts as a portal's.
     expect(popup?.getAttribute("data-ed-p")).toBe("Dialog");
     expect(popup?.hasAttribute("data-ed-c")).toBe(false);
     expect(

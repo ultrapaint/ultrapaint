@@ -225,7 +225,7 @@ export const revealed = (
 };
 
 /** Whether a row shows the rows under it: it has some, and is open. */
-export const isExpanded = (item: LayerItem, isOpen: IsOpen) =>
+const isExpanded = (item: LayerItem, isOpen: IsOpen) =>
   item.children.length > 0 && isOpen(item);
 
 /** A row as the panel lists it, in the order it lists them. */

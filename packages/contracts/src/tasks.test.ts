@@ -26,9 +26,9 @@ describe("parseCommand", () => {
       target: "/home",
     });
     expect(requestOf("/implement")).toEqual({ _tag: "Implement", target: "" });
-    expect(requestOf("/implement spec:Button")).toEqual({
+    expect(requestOf("/implement component:Button")).toEqual({
       _tag: "Implement",
-      target: "spec:Button",
+      target: "component:Button",
     });
     expect(requestOf("/import-figma f1 the icons too")).toEqual({
       _tag: "ImportFigma",
@@ -129,7 +129,7 @@ describe("the slash commands", () => {
     Implement: [
       { _tag: "Implement", target: "/settings/billing" },
       { _tag: "Implement", canvas: "marketing", target: "/pricing" },
-      { _tag: "Implement", extra: "with tests", target: "spec:Button" },
+      { _tag: "Implement", extra: "with tests", target: "component:Button" },
     ],
     ImportFigma: [
       { _tag: "ImportFigma" },

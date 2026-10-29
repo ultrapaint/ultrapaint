@@ -31,7 +31,7 @@ export const hasViews = (frame: string) =>
   editedAtOf(frame) !== null || viewsIn(useEditor.getState().frames, frame);
 
 /** The breakpoint what is edited in a frame lands at: null for the node's own fields. */
-export const editingBreakpoint = (frame: string): string | null =>
+const editingBreakpoint = (frame: string): string | null =>
   hasViews(frame) ? frameBreakpoint(frame) : null;
 
 /** `editingBreakpoint` for a component. */

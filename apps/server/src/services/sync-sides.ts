@@ -126,7 +126,7 @@ export const targetTokens = Effect.gen(function* () {
 });
 
 /** The code (ADR 0028): what it changed taken into the design system, the design's written to it. */
-export const codeAdapter: SideAdapter = {
+const codeAdapter: SideAdapter = {
   byName: true,
   missing: () =>
     "There is no design system yet to compare the code with: Sync makes one.",
@@ -193,7 +193,7 @@ const saveFigmaBaseline = Effect.fnUntraced(function* (next: SyncBaseline) {
  * code while there is no design system yet, which is then made from the code. Figma is not
  * written.
  */
-export const figmaAdapter: SideAdapter = {
+const figmaAdapter: SideAdapter = {
   byName: false,
   missing: (doing) => `There is no Figma import to ${doing} tokens from.`,
   read: Effect.gen(function* () {
@@ -361,7 +361,7 @@ const noDocument =
  * design system's names, its references with it, what was left out taken out of it, and what is
  * still unmatched kept. With `codeTokens: auto` the code follows.
  */
-export const designMdAdapter: SideAdapter = {
+const designMdAdapter: SideAdapter = {
   byName: false,
   missing: () => noDocument,
   read: Effect.gen(function* () {

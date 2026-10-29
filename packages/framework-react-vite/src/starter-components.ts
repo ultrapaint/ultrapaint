@@ -1,10 +1,10 @@
 /**
  * The starter's components (ADR 0040): one for each of ultrapaint's system components, by the same
  * name, taking the same props, its parts marked with the system component's `data-slot`s (the root
- * `root`, as a spec names it), its variants in a `cva` whose axes and members are the
+ * `root`, as a look names it), its variants in a `cva` whose axes and members are the
  * system component's, and on Base UI where the system component is. A system component's slots are parts here: a
  * Dialog's footer is a `DialogFooter` among its children, as the Code tab writes it. Implementing
- * a design then gives each its spec's look, part by part.
+ * a design then gives each its component file's look, part by part.
  */
 
 const CHECK_ICON = `<svg

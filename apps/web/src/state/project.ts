@@ -66,7 +66,7 @@ export const useProject = create<ProjectStore>((set, get) => ({
 }));
 
 /** Whether a project is open: what the pages, the documents and the rest belong to. */
-export const projectOpen = () => useProject.getState().info.configured;
+const projectOpen = () => useProject.getState().info.configured;
 
 /** The project's info, with the settings in force: read first at every connection open. */
 const projectData = follow({

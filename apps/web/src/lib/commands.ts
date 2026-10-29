@@ -816,7 +816,7 @@ const selectionTarget = (): MenuTarget | null => {
 };
 
 /** The selection's menu, item by item. */
-export const selectionCommands = (): Command[] => {
+const selectionCommands = (): Command[] => {
   const target = selectionTarget();
   const entries = target ? menuFor(target) : null;
   return entries ? flatten(entries) : [];
@@ -845,7 +845,7 @@ const chatCommand = (thread: Thread): Command => ({
 });
 
 /** The open canvas's pages, the other canvases, and the chats, newest first. */
-export const goToCommands = (): Command[] => {
+const goToCommands = (): Command[] => {
   const { canvas } = editor();
   const { canvases } = useProject.getState();
   return [

@@ -362,7 +362,7 @@ export const openStartCanvas = (): boolean => {
  * The browser went back or forward to an entry: the editor goes where it says, writing no entry
  * of its own. Another canvas is opened at it.
  */
-export const wentTo = (url: UrlState) => {
+const wentTo = (url: UrlState) => {
   if (url.canvas !== null && url.canvas !== useEditor.getState().canvas) {
     goTo({ ...url, canvas: url.canvas });
     return;

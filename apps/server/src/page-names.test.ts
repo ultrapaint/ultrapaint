@@ -161,7 +161,7 @@ describe("pageTargetNamed", () => {
   });
   const pages = [home, orders, sketch, marketing];
 
-  /** A page as a tool names it: a bare name is a page's too, never a spec. */
+  /** A page as a tool names it: a bare name is a page's too, never a component's. */
   it.each([
     ["marketing:/pricing", { _tag: "Page", page: marketing }],
     ["marketing:pricing.page.json", { _tag: "Page", page: marketing }],

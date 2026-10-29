@@ -1,7 +1,7 @@
 /**
  * Which designs are implemented, ready, or changed since (ADR 0030): the Pages panel, the
  * inspector and the Components tab read each design's status from here. The server pushes it
- * whenever a design, a binding or a spec changes; a change to the code is seen when the list is
+ * whenever a design, a binding or a component's file changes; a change to the code is seen when the list is
  * read again, which the panels do when they open.
  */
 import type {
@@ -94,15 +94,5 @@ export const exportTokens = async (names: readonly string[]) => {
     );
   } catch (error) {
     reportError(error);
-  }
-};
-
-/** Runs a change to a binding; what goes wrong is reported. */
-export const implementationRequest = async <A>(run: () => Promise<A>) => {
-  try {
-    return await run();
-  } catch (error) {
-    reportError(error);
-    return null;
   }
 };

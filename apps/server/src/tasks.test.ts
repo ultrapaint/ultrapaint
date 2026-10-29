@@ -384,7 +384,7 @@ describe("the editor's tools in what an agent is told", () => {
 
   /**
    * The tools a text names: every word written the way the tools are named (`ask_user`), and
-   * `handoff`. `focus` is a tool and a state of a component's spec too, so it is not counted.
+   * `handoff`. `focus` is a tool and a state of a component's look too, so it is not counted.
    */
   const toolsNamed = (text: string) => [
     ...new Set([
