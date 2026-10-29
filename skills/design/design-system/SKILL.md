@@ -48,6 +48,11 @@ icon tile, a big number and a quiet label. A card is its data, and the card itse
 not a title, a line of grey text and a button. Make the components the product has, under the
 names of what they are: a product with a dropdown menu and no select gets the menu.
 
+A component that wraps its element (a field with an icon, a select with its trigger) puts its
+`className`, its `style` and its `data-` attributes on the outer element, and the element's own
+attributes on the element inside: the editor sizes and marks an instance through them, and a size
+landing on the inner element leaves the icon centred on the old height.
+
 Components reuse each other: a table's status cell is the Badge, its people the Avatar. An
 avatar group is all photos or all initials, one size, ending in "+N"; people in data never get an
 empty grey disc. An empty field's leading icon has the placeholder's colour; an unchecked box a
@@ -65,3 +70,4 @@ light border, the checked one the weight.
 | A select where the product shows a menu | The menu |
 | A table drawing its own badges or avatars | The Badge and the Avatar |
 | Bold labels on buttons and tabs | The product's weight, usually medium |
+| A wrapping component spreading `style` onto its inner element | `className`, `style`, `data-` on the outer one |
