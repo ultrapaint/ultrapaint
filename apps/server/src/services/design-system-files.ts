@@ -1,6 +1,6 @@
 /**
  * The design system's two files, read and written (ADR 0035): `design-system.json` holds the
- * tokens' names, groups and descriptions, text styles, components and baselines, and
+ * tokens' names, groups and descriptions, text styles and baselines, and
  * `design.tokens.json` beside it every token's value, in the Design Tokens format (`dtcg.ts`).
  * Pure: `DesignSystemService` reads and writes the files, keeps what they read and says who
  * changed them.

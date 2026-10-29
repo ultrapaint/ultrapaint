@@ -3,14 +3,15 @@
 The names this repository's modules are given, for the concepts they own. The decisions behind
 them are in `docs/adr/`; [ADR 0037](docs/adr/0037-deep-modules.md) says why each concept has one
 module, and [ADR 0038](docs/adr/0038-deep-modules-second-review.md) gives the ones it left
-half-done theirs, and [ADR 0039](docs/adr/0039-deep-modules-third-review.md) the ones a third
-review found.
+half-done theirs, [ADR 0039](docs/adr/0039-deep-modules-third-review.md) the ones a third
+review found, and [ADR 0042](docs/adr/0042-deep-modules-fourth-review.md) the ones the system
+components left.
 
 ## Design
 
-- **Design system**: the tokens, typography, components and looks a canvas is drawn with,
-  kept in `design-system.json` (everything but values) and `design.tokens.json` (every token's
-  value) (ADRs 0028, 0035). Read and written by the server's `design-system-files` codec.
+- **Design system**: the tokens and typography a canvas is drawn with, kept in
+  `design-system.json` (everything but values) and `design.tokens.json` (every token's value)
+  (ADRs 0028, 0035); the components' looks are their own files (ADR 0041). Read and written by the server's `design-system-files` codec.
 - **Token**: a named value of the design system (`color-primary`, `text-xl`, `radius-md`), of a
   **kind** its name's prefix says. The **token table** (contracts' `token-table`) says which list
   of the design system holds each kind; the **spacing base** is the token named `spacing`. The
@@ -56,6 +57,11 @@ review found.
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
   variants and states, which are named after it and move and go with it (`familyOf`).
+- **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
+  one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
+  and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
+  from its component by `detachedOf`, or made one of nodes by `appComponentFrom`, both keeping
+  one list of where a node sits).
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
   new frame past every frame and its views, a copy, variant or state beside its page when nothing
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
@@ -108,12 +114,22 @@ review found.
 
 - **Component**: what an instance places (ADR 0041), of two origins, each kept as
   `components/<Name>.component.json` in the designs directory in one envelope (its name, origin,
-  description, category and behaviour notes) with a body of its origin's: contracts' `components`,
-  read and validated by the server's `ComponentService`.
+  description, category and behaviour notes) with a body of its origin's: contracts' `components`.
+  The only home of a component's description (ADR 0042). The server's **component-files** codec
+  reads, writes and checks a file (names unique among its properties, slots and members) and
+  changes it: a **component change** (`ComponentChange`: a property added, set, renamed or taken
+  out, a member renamed, a slot added, taken out or made the default) is made by
+  `ComponentService.change` on the file as it is now, a rename followed into the variants its
+  tree keeps and every instance's props (`instanceOps`), in one undo step.
+- **Catalogue**: what a design can place, the system components then the app components that
+  read (system-components' `catalogueOf`, over the component files; ADR 0042): each entry's props,
+  variant axes, slots and their layout, and the example a new instance starts with. The server
+  gives it to the agents (`ComponentService.catalogue`), the web's components store makes it from
+  the files it holds; `metaOf` finds an instance's entry.
 - **System component**: one of the editor's own components (`packages/system-components`, ADRs
   0040, 0041): Button, Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base
   UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`. Its
-  **catalogue** entry says its props, variant axes, parts (`data-slot`, the optional ones a look
+  entry in the catalogue's source (`SYSTEM_COMPONENTS`) says its props, variant axes, parts (`data-slot`, the optional ones a look
   may leave out), slots, states and **layer**: in the page's flow (`inline`), anchored above it
   (`anchored`) or over it (`blocking`). Its **look** is its file: style fields per part at its
   base, in each variant and state, layout per part, content for a slot given nothing, the
@@ -132,24 +148,36 @@ review found.
   beside the breakpoints', so a change to the component itself lands in every variant.
 - **Slot**: a part of a component that holds nodes (a Dialog's `trigger`, `dialog-header`,
   `dialog-content`, `dialog-footer`; a container of an app component's tree): an instance's child
-  fills the slot it names (`slot`), the rest fill the **default** slot.
+  fills the slot it names (`slot`), the rest fill the **default** slot. **Filling slots** is one
+  rule for both origins (design-document's `fillSlots`): a child naming a slot the component lacks
+  is in the default one, and a slot given nothing holds the component's own **content**. A slot's
+  **layout** is how it lays out what it holds, the catalogue's with a look's `direction` over it
+  in the instance's variant (`slotLayoutOf`): what `fill` and `hug` are relative to on the canvas,
+  in the Code tab and in the fill warnings.
+- **Migration**: what came before ADRs 0040 and 0041 brought up to date in one undo step, Sync's
+  one step (the server's `Migration`, on system-components' pure `migrate.ts`).
 - **Element**: a layout, text or image node, what is not a component, which the Assets panel
   offers above the components (`ELEMENTS`, `newElement`).
-- **Preview**: what draws the editor's frames: preview-core's frames, the renderer, the system
-  components. Nothing of the repository's runs in it.
+- **Preview**: what draws the editor's frames (preview-core's `Preview`): the frames, a renderer
+  mounted through the core's seam `RenderToCanvas` (the React renderer, or the scripted one of the
+  tests), the system components. Nothing of the repository's runs in it.
+- **The design's look**: the project's components and the stylesheet drawn from them and the
+  design system (`designCss`), set once on the preview (`setLook`, which `followLook` keeps
+  current) and shared by every frame; a frame given a look of its own with a request (the
+  Components tab's unsaved one) draws it in a stylesheet of its own.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool
   that parks it (`editor-frame`).
 - **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
-  the design system, the canvas's defaults, the design's look, and what is said in place of a
-  page. `useFrameDrawing` draws it once the frame is open, whenever it changes and in a frame
+  the design system, the canvas's defaults, a look of its own when it has one, and what is said
+  in place of a page; the renderer is told it as a **drawing**, with the look's components. `useFrameDrawing` draws it once the frame is open, whenever it changes and in a frame
   opened anew; a page's, for the canvas and the prototype, is `pageRequest`'s: the page at the
   frame's width, a node on the canvas at the size it is held at.
 - **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
-  places it, the core writes it (`frame-host`). The editor says how the frame is **shown** (class,
-  style, title, input, away). An event is **from a frame** when a host the core drew is on its
+  places it, the core writes it (`frame-host`), its one writer. The editor says how the frame is
+  **shown** (class, style, title, input, away). An event is **from a frame** when a host the core drew is on its
   path. A frame **runs** while it takes input (the prototype, interact mode): its system components
   behave, kept to the frame; designed, it is inert and its overlays are open where the design says.
-- **Page error**: what went wrong drawing a frame's page (framework-api's `PageError`): a part
+- **Page error**: what went wrong drawing a frame's page (preview-core's `PageError`): a part
   threw. The editor frame keeps its latest, whoever listens and on screen or parked, until the
   frame draws again.
 

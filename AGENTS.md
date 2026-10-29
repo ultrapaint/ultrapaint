@@ -32,8 +32,8 @@ and never patch `effect`.
 - Processes are stopped through the handle that spawned them, never by name or pattern.
 - Pure code stays pure: a framework package (`packages/framework-react-vite`: where a
   repository's application is, and a new one written with a component for each system
-  component) is synchronous and free of Effect. The server reaches it only through the
-  `ProjectFramework` service and wraps it at that boundary.
+  component) is synchronous and free of Effect. The server reaches it only through
+  `locateFramework` (the setup's detection and scaffold) and wraps it at that boundary.
 - The storage target (`managed`, `file`, `ephemeral`) is part of `ServerConfig`. Whatever touches
   the state directory asks the `Storage` service for it at the moment of use: saving an
   ephemeral session moves it while the server runs.
