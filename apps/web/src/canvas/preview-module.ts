@@ -4,8 +4,8 @@
  * project with no code at all draws the same.
  */
 
-import type { Preview } from "@ultrapaint/framework-api/browser";
 import { createPreview } from "@ultrapaint/preview-core/frame";
+import type { Preview } from "@ultrapaint/preview-core/preview";
 import { renderToCanvas } from "@ultrapaint/renderer-react/render";
 import { installFrameViewport } from "@ultrapaint/system-components/frame-viewport";
 import { SYSTEM_COMPONENTS_CSS } from "@ultrapaint/system-components/look";
@@ -16,7 +16,7 @@ const ASSET_ROUTE = "/api/asset";
 
 let preview: Preview | null = null;
 
-/** The one preview of the editor's page, made the first time it is asked for. */
+/** The one preview of the editor's page, made the first time it is asked for: what draws outside React (pictures, the look) asks for it here. */
 export const thePreview = (): Preview => {
   if (!preview) {
     installFrameViewport();
@@ -32,7 +32,3 @@ export const thePreview = (): Preview => {
 
 /** The preview the frames draw with. */
 export const usePreview = (): Preview => thePreview();
-
-/** The preview, for what draws outside React: pictures, screenshots. */
-export const previewReady = (): Promise<Preview> =>
-  Promise.resolve(thePreview());

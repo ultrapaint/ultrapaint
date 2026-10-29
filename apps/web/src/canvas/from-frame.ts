@@ -5,7 +5,7 @@
  * hosts); this holds the preview the editor's page loaded, which `preview-module.ts` hands in,
  * without the stores it loads with. None does before the preview has loaded.
  */
-import type { Preview } from "@ultrapaint/framework-api/browser";
+import type { Preview } from "@ultrapaint/preview-core/preview";
 
 let loaded: Preview | null = null;
 

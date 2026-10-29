@@ -8,7 +8,7 @@ import {
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { Mounted } from "@ultrapaint/framework-api/browser";
+import type { Mounted } from "@ultrapaint/preview-core/preview";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToCanvas } from "./render.ts";

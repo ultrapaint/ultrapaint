@@ -8,7 +8,7 @@ import type {
   PreviewSetup,
   RenderFrame,
   RenderSetup,
-} from "@ultrapaint/framework-api/browser";
+} from "./preview.ts";
 
 const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
@@ -43,8 +43,6 @@ export const renderSetup = (
     frame: frame.frame,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: frame.rendered,
-    // A frame is the page's window: what fills the window's height fills the frame's.
-    pageHeight: "100cqh",
-    reportError: (error) => events.error?.({ ...error, source: "page" }),
+    reportError: (error) => events.error?.(error),
   };
 };

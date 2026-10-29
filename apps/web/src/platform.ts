@@ -44,7 +44,7 @@ export type WindowControls = ShellPlatform["windowControls"];
 /**
  * What the editor runs on: the browser's server, and what a shell adds, each part absent in a
  * browser (no agents of this machine, no native folder picker, no projects but the server's
- * folder, no new designs, nothing the shell does for the project, no stuck page it ended) and
+ * folder, no new designs, nothing the shell does for the project) and
  * where the shell does not show it (this machine's agents and notices for a project on another
  * one; the window's buttons where the system draws the frame).
  */

@@ -163,8 +163,7 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
-  // What the page threw and nothing caught (a click's handler, a timer), until it draws again
-  // or its code changes; what the dev server could not compile, until its code changes.
+  // What a part of the page threw and nothing caught, until it draws again.
   const pageError = useFrameError(canvas === null ? null : frameIdOf(canvas));
 
   useEffect(() => {

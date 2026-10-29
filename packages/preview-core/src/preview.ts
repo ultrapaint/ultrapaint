@@ -1,8 +1,10 @@
 /**
- * What a renderer gives the preview, in the editor's page (ADR 0034, 0040). The preview core knows
- * the DOM and nothing about React; drawing a design document is the renderer's, the way
- * Storybook's preview only knows a renderer's `renderToCanvas`. Both are the editor's own: the
- * frames draw the editor's system components, and nothing of the repository's runs in them.
+ * The editor's frames (ADRs 0034, 0040, 0042): the `Preview` the editor draws them with, a frame's
+ * `FrameRuntime`, and the seam inside the core, `RenderToCanvas`, that a renderer is mounted
+ * through. The core knows the DOM and nothing about React; drawing a design document is the
+ * renderer's, the way Storybook's preview only knows a renderer's `renderToCanvas`. The seam has
+ * two adapters: the React renderer (`@ultrapaint/renderer-react`) and the scripted one the tests
+ * draw with (`testing.ts`). Nothing of the repository's runs in a frame.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
@@ -34,9 +36,7 @@ export interface RenderSetup {
   readonly navigate: (route: string) => void;
   /** A render reached the screen. */
   readonly onRendered: (renderId: number) => void;
-  /** The height a page fills at least: its frame's (`100cqh`), as a page fills its window. */
-  readonly pageHeight: string;
-  /** Reports a render error to the editor: the page's. */
+  /** Reports a render error to the editor. */
   readonly reportError: (error: Pick<PageError, "message" | "stack">) => void;
 }
 
@@ -58,7 +58,6 @@ export interface RenderFrame {
  */
 export interface PageError {
   readonly message: string;
-  readonly source: "page";
   readonly stack?: string | undefined;
 }
 
@@ -172,10 +171,7 @@ export interface FrameRuntime {
   readonly watchRects: (nodeIds: readonly string[]) => void;
 }
 
-/**
- * How the editor shows a frame, which the core writes on its host. What the page's code writes to
- * its `<html>` lands on the host too, and is kept apart: neither takes the other's off.
- */
+/** How the editor shows a frame, which the core writes on its host. */
 export interface FrameShown {
   /** Off the screen: kept as it is, and skipped by the browser. */
   readonly away: boolean;

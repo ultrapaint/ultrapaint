@@ -3,14 +3,14 @@ import type {
   FrameEvents,
   FrameRuntime,
   Preview,
-} from "@ultrapaint/framework-api/browser";
+} from "@ultrapaint/preview-core/preview";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { drawSpecimen, pictureKey } from "./specimens.ts";
 
-/** The preview the specimens draw with: none until a test gives one. */
+/** The preview the specimens draw with, the one a test gives. */
 let preview: Preview | null = null;
 vi.mock("./preview-module.ts", () => ({
-  previewReady: () => Promise.resolve(preview),
+  thePreview: () => preview,
 }));
 
 /** A preview whose frame draws on its own turn, as React does, and is captured as `picture`. */
@@ -70,10 +70,6 @@ afterEach(() => {
 });
 
 describe("drawSpecimen", () => {
-  it("draws nothing while the preview is not running", async () => {
-    await expect(drawSpecimen(node, null)).resolves.toBeNull();
-  });
-
   it("draws one picture after the other in the frame nobody sees", async () => {
     const fake = fakePreview("data:image/png;base64,AA");
     preview = fake.value;

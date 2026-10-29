@@ -42,11 +42,11 @@ const HOVER = pointer(":hover", "hover");
 
 /**
  * What every token the system components and a new canvas draw with is until the design says otherwise:
- * a neutral theme, so a project with no design system yet draws as one. The design's own values
- * (unlayered) win over these.
+ * a neutral theme, so a project with no design system yet draws as one, on the frame's root
+ * (`:host`). The design's own values (unlayered) win over these.
  */
 const DEFAULT_TOKENS = `
-  :root {
+  :host {
     --color-background: #ffffff; --color-foreground: #09090b;
     --color-primary: #18181b; --color-primary-foreground: #fafafa;
     --color-secondary: #f4f4f5; --color-secondary-foreground: #18181b;

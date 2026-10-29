@@ -6,7 +6,7 @@
  */
 import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { Look, Preview } from "@ultrapaint/framework-api/browser";
+import type { Look, Preview } from "@ultrapaint/preview-core/preview";
 import { designCss } from "@ultrapaint/system-components/look";
 import { useMemo } from "react";
 import { useComponents } from "./components.ts";
