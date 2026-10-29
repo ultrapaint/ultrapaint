@@ -124,7 +124,7 @@ interface BenchWindow {
       getState: () => { pages: { canvas: string; id: string }[] };
     };
     zoomToFit: () => void;
-    zoomToPage: (page: unknown) => void;
+    zoomToPage: (id: string) => Promise<void>;
   };
 }
 
@@ -757,9 +757,7 @@ const benchZoom = async (page: Page, cdp: CDPSession): Promise<Result> => {
 const benchGoto = async (page: Page): Promise<Result> => {
   const goTo = (pageId: string) =>
     page.evaluate((id) => {
-      const ed = (window as unknown as BenchWindow).__ed;
-      const target = ed.useProject.getState().pages.find((p) => p.id === id);
-      ed.zoomToPage(target);
+      (window as unknown as BenchWindow).__ed.zoomToPage(id);
     }, pageId);
   const ids = await page.evaluate(() => {
     const s = (window as unknown as BenchWindow).__ed.useEditor.getState();

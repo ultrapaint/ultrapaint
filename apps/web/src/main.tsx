@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app.tsx";
 import { frameErrors, frameOf } from "./canvas/editor-frame.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
-import { zoomToPage } from "./lib/page-actions.ts";
+import { pageById, zoomToPage } from "./lib/page-actions.ts";
 import { BillingPage } from "./pages/billing.tsx";
 import { PricingPage } from "./pages/pricing.tsx";
 import { useAgents } from "./state/agents.ts";
@@ -32,7 +32,14 @@ if (import.meta.env.DEV) {
     useEditor,
     useProject,
     zoomToFit,
-    zoomToPage,
+    // A page by its id, as a script has it.
+    zoomToPage: (id: string) => {
+      const page = pageById(id);
+      if (!page) {
+        throw new Error(`zoomToPage: no page ${id}`);
+      }
+      return zoomToPage(page);
+    },
   };
 }
 
