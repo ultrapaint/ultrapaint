@@ -205,12 +205,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "keeps a primitive's behaviour notes in its spec, and tells the implementation of them",
+      "keeps a system component's behaviour notes in its spec, and tells the implementation of them",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
           yield* client["specs.fromCode"]({ component: "Button" });
-          // What implements a primitive's look is the application's own component (ADR 0040).
+          // What implements a system component's look is the application's own component (ADR 0040).
           yield* client["implementation.mark"]({
             files: ["designs/ui/button.tsx"],
             target: "spec:Button",

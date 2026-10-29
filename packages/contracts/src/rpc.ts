@@ -354,10 +354,10 @@ const requestRpcs = [
     success: ApplyResult,
   }),
   /**
-   * Every instance of the repository's components that a primitive can draw, drawn as one in
+   * Every instance of the repository's components that a system component can draw, drawn as one in
    * every document, as one undo step (ADR 0040).
    */
-  Rpc.make("documents.toPrimitives", {
+  Rpc.make("documents.toSystemComponents", {
     error: EditError,
     success: Schema.Struct({ documents: Schema.Number, drawn: Schema.Number }),
   }),
@@ -798,7 +798,7 @@ const requestRpcs = [
     success: SpecEntry,
   }),
   /**
-   * A primitive's look taken over (ADR 0040): its spec started from its default look, saved with
+   * A system component's look taken over (ADR 0040): its spec started from its default look, saved with
    * the look given (`design` when absent), keeping the behaviour notes one there was had.
    */
   Rpc.make("specs.fromCode", {
@@ -810,7 +810,7 @@ const requestRpcs = [
     },
     success: SpecEntry,
   }),
-  /** A component's spec removed: a primitive is drawn in its default look again. */
+  /** A component's spec removed: a system component is drawn in its default look again. */
   Rpc.make("specs.remove", {
     error: EditError,
     payload: { component: Schema.String },

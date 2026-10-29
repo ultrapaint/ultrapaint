@@ -17,11 +17,11 @@ import {
 // biome-ignore lint/performance/noBarrelFile: the names live apart so the preview loads no schema; the specs' users find them here too.
 export {
   DRAFT_FROM,
-  PRIMITIVES_FROM,
   ROOT_SLOT,
   SPEC_EXTENSION,
   SPEC_STATES,
   SPECS_DIR,
+  SYSTEM_FROM,
 } from "./spec-names.ts";
 
 /** The states a spec can style. */

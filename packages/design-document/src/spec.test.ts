@@ -112,7 +112,7 @@ describe("specCss", () => {
 
   it("finds a part in a portal of the component's, a variant or a state on the portal", () => {
     const dialog: ComponentSpec = {
-      ...emptySpec("Dialog", "@ultrapaint/primitives"),
+      ...emptySpec("Dialog", "@ultrapaint/system"),
       defaults: { size: "md" },
       slots: [{ name: "root" }, { name: "dialog" }],
       variants: { size: { lg: { dialog: { width: 640 } } } },

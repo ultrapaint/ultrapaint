@@ -1022,7 +1022,7 @@ const LayerRow = ({
         {node.slot && !renaming ? (
           <span
             className="shrink-0 truncate font-body text-muted-foreground/80"
-            title={`Fills the ${node.slot} slot of its primitive`}
+            title={`Fills the ${node.slot} slot of its system component`}
           >
             {node.slot}
           </span>

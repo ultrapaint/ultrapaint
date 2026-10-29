@@ -21,8 +21,8 @@ import { writesGit } from "@ultrapaint/contracts/settings";
 import {
   type ComponentSpec,
   DRAFT_FROM,
-  PRIMITIVES_FROM,
   SPECS_DIR,
+  SYSTEM_FROM,
 } from "@ultrapaint/contracts/specs";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
@@ -68,7 +68,7 @@ and stashes are the user's${writes ? ", made from the editor" : ""}.`
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
 
-/** A primitive as the agent picks one: its variants, and the slots its children can fill. */
+/** A system component as the agent picks one: its variants, and the slots its children can fill. */
 const componentLine = (component: ComponentMeta) => {
   const variants = Object.entries(component.variants)
     .map(([name, members]) => `${name}: ${members.join("|")}`)
@@ -235,7 +235,7 @@ export class ProjectBriefing extends Context.Service<
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
-its canvas, drawn with ultrapaint's own primitives in this design system's tokens and looks.
+its canvas, drawn with ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
 
 Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
@@ -257,8 +257,8 @@ variant. It holds a tree of nodes, each with an id:
   design system (its size, weight and line height as one thing: prefer this) or its own size,
   weight, lineHeight, font, tracking; and color, align.
 - image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
-- instance: one of ultrapaint's primitives (listed below) — component (its name), from
-  "${PRIMITIVES_FROM}", props, and text or children. A child names the slot of its primitive it
+- instance: one of ultrapaint's system components (listed below) — component (its name), from
+  "${SYSTEM_FROM}", props, and text or children. A child names the slot of its system component it
   fills ("slot": "dialog-footer"); the rest fill the default slot. An overlay (Select, Menu,
   Popover, Tooltip, Dialog, Toast) is drawn open where its props say "open": true; its trigger
   is a slot or its children.
@@ -292,7 +292,7 @@ ${
 }${craft}${conventions}
 ${
   components.length > 0
-    ? `Primitives you can place${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
+    ? `System components you can place${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
 ${components.map(componentLine).join("\n")}`
     : ""
 }

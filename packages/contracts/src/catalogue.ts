@@ -36,7 +36,7 @@ export const ComponentMeta = Schema.Struct({
   name: Schema.String,
   props: Schema.Array(PropMeta),
   /**
-   * Its parts (ADR 0040), the root first: a primitive's, by `data-slot`. A slot that `holds`
+   * Its parts (ADR 0040), the root first: a system component's, by `data-slot`. A slot that `holds`
    * nodes is filled by the instance's children that name it; `default` takes the rest.
    */
   slots: Schema.optional(

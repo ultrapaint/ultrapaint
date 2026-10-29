@@ -1,18 +1,18 @@
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
-import { primitiveComponents } from "@ultrapaint/primitives/catalogue";
+import { systemCatalogue } from "@ultrapaint/system-components/catalogue";
 import { Context, Effect, Layer } from "effect";
 
 /** The catalogue is the editor's own: it is the same for every project, and known at once. */
-const PRIMITIVES: Catalogue = {
+const SYSTEM_COMPONENTS: Catalogue = {
   builtAt: 0,
-  components: primitiveComponents(),
+  components: systemCatalogue(),
   coverage: { total: 0, usable: 0 },
 };
 
 /**
  * What a design is drawn with, for the Assets panel, the props inspector and the agents: the
- * editor's own primitives (ADR 0040). Nothing is read from the repository.
+ * editor's own system components (ADR 0040). Nothing is read from the repository.
  */
 export class CatalogueService extends Context.Service<
   CatalogueService,
@@ -25,10 +25,10 @@ export class CatalogueService extends Context.Service<
     CatalogueService.of({
       get: () =>
         Effect.succeed({
-          ...PRIMITIVES,
+          ...SYSTEM_COMPONENTS,
           coverage: {
-            total: PRIMITIVES.components.length,
-            usable: PRIMITIVES.components.length,
+            total: SYSTEM_COMPONENTS.components.length,
+            usable: SYSTEM_COMPONENTS.components.length,
           },
         }),
     })

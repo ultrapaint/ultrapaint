@@ -388,7 +388,7 @@ export type SpecLike = Pick<
  * The component tokens of the components whose look the project owns (ADR 0027, 0040): a spec
  * with the design's look, its root slot's fields as the format holds them. `button` as it
  * starts, `button-<variant>` for each other member of the variant that changes its colours, and
- * `button-<size>` for each other size, its dimensions alone. A primitive in its default look, or
+ * `button-<size>` for each other size, its dimensions alone. A system component in its default look, or
  * a draft, writes nothing.
  */
 export const specEntries = (

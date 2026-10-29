@@ -1,12 +1,12 @@
 /**
- * A primitive's slots (ADR 0040): every part of it that holds nodes, with the layers that fill it,
+ * A system component's slots (ADR 0040): every part of it that holds nodes, with the layers that fill it,
  * and what to put in it. A Dialog has its trigger, header, content and footer; a node added to the
  * footer is the instance's child that names `dialog-footer`, laid out as the footer lays out its
  * children. A child that names no slot fills the default one.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import {
   type ElementId,
   newElement,
@@ -73,11 +73,11 @@ export const SlotsSection = ({
   const meta = useCatalogue((s) => componentMetaOf(s.catalogue, node));
   const button = useCatalogue((s) =>
     s.catalogue?.components.find(
-      (c) => c.name === "Button" && c.importFrom === PRIMITIVES_FROM
+      (c) => c.name === "Button" && c.importFrom === SYSTEM_FROM
     )
   );
   const slots = (meta?.slots ?? []).filter((slot) => slot.holds);
-  if (node.from !== PRIMITIVES_FROM || slots.length === 0) {
+  if (node.from !== SYSTEM_FROM || slots.length === 0) {
     return null;
   }
   return (

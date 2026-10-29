@@ -8,6 +8,11 @@ the specs)
 and 0030 (`/implement` applies a primitive to the application's own component). The terms are in
 `GLOSSARY.md`.
 
+> Renamed by [0041](0041-system-and-app-components.md), 2026-10-29: the primitives are **system
+> components** (`packages/system-components`, `from: "@ultrapaint/system"`), drafts and widgets
+> are **app components**, and both are kept in one `components/` directory. The decision here
+> stands.
+
 ## Context
 
 The canvas drew pages with the repository's own React components, which made a design look like

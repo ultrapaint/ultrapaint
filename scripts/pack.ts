@@ -2,7 +2,7 @@
  * `pnpm pack:local`: the `ultrapaint` command as a package that runs in any repository without
  * this checkout, written to `dist/ultrapaint-<version>.tgz`. It holds the command bundled as
  * `cli.mjs`, the server's bundle in `server/` and the editor's build in `web/`. Installing it
- * fetches nothing: the canvas draws the editor's own primitives (ADR 0040).
+ * fetches nothing: the canvas draws the editor's system components (ADR 0040).
  *
  * `pnpm add -g ./dist/ultrapaint-<version>.tgz` puts the command on the PATH. The package
  * is private, so it cannot be published by mistake while the name is not chosen.

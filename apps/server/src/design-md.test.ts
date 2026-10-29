@@ -99,7 +99,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const third = yield* fs.readFileString(file);
           assert.include(third, 'ink: "#000000"');
           assert.include(third, "card: 1rem");
-          // A primitive in its default look writes no component tokens.
+          // A system component in its default look writes no component tokens.
           assert.notInclude(third, "components:");
 
           // One whose look the project owns writes its root's, a token as a reference.

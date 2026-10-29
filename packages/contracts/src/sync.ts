@@ -26,7 +26,7 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
-  "primitives",
+  "system",
   "code-tokens",
   "design-md",
   "design-tokens",
@@ -141,7 +141,7 @@ export const SyncFacts = Schema.Struct({
   librarySources: Schema.optional(Schema.Number),
   /**
    * Instances of the repository's components in the pages, from before the canvas drew
-   * primitives (ADR 0040), when there are any: how many a primitive can draw, how many it cannot.
+   * system components (ADR 0040), when there are any: how many a system component can draw, how many it cannot.
    */
   oldInstances: Schema.optional(
     Schema.Struct({ drawn: Schema.Number, left: Schema.Number })

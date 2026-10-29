@@ -207,7 +207,7 @@ const setUp = () => {
             id: "hero",
             type: "column",
           },
-          // An instance of the repository's, from before the primitives.
+          // An instance of the repository's, from before the system components.
           {
             component: "Button",
             from: "@/components/ui/button",
@@ -650,7 +650,7 @@ const EVERY_ACTION = {
     paste: true,
     rename: true,
     selectParent: true,
-    toPrimitive: true,
+    toSystem: true,
     unwrap: true,
     viewCode: true,
     wrap: true,

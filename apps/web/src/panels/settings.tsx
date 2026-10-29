@@ -601,7 +601,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Row>
       </Group>
       <Group
-        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws ultrapaint's primitives, whatever is set here."
+        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws ultrapaint's system components, whatever is set here."
         title="Implementation"
       >
         <Row
@@ -617,7 +617,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Where the application's own components are, relative to the repository, one per line: where an agent applies a primitive's look."
+          description="Where the application's own components are, relative to the repository, one per line: where an agent applies a system component's look."
           htmlFor="settings-libs"
           title="Component directories"
           wide

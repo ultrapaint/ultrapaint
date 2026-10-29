@@ -2,7 +2,7 @@
  * What a renderer gives the preview, in the editor's page (ADR 0034, 0040). The preview core knows
  * the DOM and nothing about React; drawing a design document is the renderer's, the way
  * Storybook's preview only knows a renderer's `renderToCanvas`. Both are the editor's own: the
- * frames draw the editor's primitives, and nothing of the repository's runs in them.
+ * frames draw the editor's system components, and nothing of the repository's runs in them.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -25,7 +25,7 @@ export interface RenderSetup {
   /** URL of an image a node shows: a path inside the canvas, or a URL as it is. */
   readonly assetUrl: (src: string) => string;
   /**
-   * The frame the render draws in (ADR 0040): its body, where the primitives' popups go, its
+   * The frame the render draws in (ADR 0040): its body, where the system components' popups go, its
    * host, and whether it runs (the prototype, interact mode) or is designed.
    */
   readonly frame: RenderFrame;
@@ -58,7 +58,7 @@ export interface RenderFrame {
 }
 
 /**
- * What went wrong drawing a frame's page: a primitive or the renderer threw. The editor keeps a
+ * What went wrong drawing a frame's page: a system component or the renderer threw. The editor keeps a
  * frame's latest one until the frame draws again (`editor-frame.ts`).
  */
 export interface PageError {

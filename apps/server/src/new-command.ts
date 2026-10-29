@@ -73,7 +73,7 @@ export const newCommand = Command.make(
     ),
     template: Flag.Literals("template", ["blank", "starter"]).pipe(
       Flag.withDescription(
-        "blank: no components, a design system defined from nothing; starter: a component for each primitive"
+        "blank: no components, a design system defined from nothing; starter: a component for each system component"
       ),
       Flag.withDefault("blank")
     ),

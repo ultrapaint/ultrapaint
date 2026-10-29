@@ -14,7 +14,7 @@ import type {
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
 import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
 
-/** The elements the Assets panel offers above the primitives (ADR 0040): layout, text, images. */
+/** The elements the Assets panel offers above the system components (ADR 0040): layout, text, images. */
 export const ELEMENTS = [
   { id: "column", name: "Column" },
   { id: "row", name: "Row" },

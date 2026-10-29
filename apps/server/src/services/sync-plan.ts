@@ -171,24 +171,24 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
 };
 
 /**
- * Pages made with the repository's components before the canvas drew primitives (ADR 0040):
- * the instances a primitive can draw are drawn as one, in one step.
+ * Pages made with the repository's components before the canvas drew system components (ADR 0040):
+ * the instances a system component can draw are drawn as one, in one step.
  */
-const primitivesSteps = (facts: SyncFacts): SyncStep[] => {
+const systemSteps = (facts: SyncFacts): SyncStep[] => {
   const old = facts.oldInstances;
   if (!old || old.drawn === 0) {
     return [];
   }
   const left =
     old.left > 0
-      ? ` ${plural(old.left, "instance")} of components no primitive is like ${old.left === 1 ? "stays as it is" : "stay as they are"}.`
+      ? ` ${plural(old.left, "instance")} of components no system component is like ${old.left === 1 ? "stays as it is" : "stay as they are"}.`
       : "";
   return [
     step(
-      "primitives",
-      "Draw your old components as primitives",
+      "system",
+      "Draw your old components as system components",
       "attention",
-      `${plural(old.drawn, "instance")} of your old components can be drawn as primitives, keeping their props, children and text, in one step you can undo.${left}`
+      `${plural(old.drawn, "instance")} of your old components can be drawn as system components, keeping their props, children and text, in one step you can undo.${left}`
     ),
   ];
 };
@@ -335,7 +335,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
   const { drift, facts, figmaSynced, setup } = input;
   const kind = caseOf(facts);
   const figma = kind === "figma" || kind === "figma-code";
-  const head = [...settingsSteps(facts), ...primitivesSteps(facts)];
+  const head = [...settingsSteps(facts), ...systemSteps(facts)];
   if (kind === "maintain") {
     return [
       ...head,

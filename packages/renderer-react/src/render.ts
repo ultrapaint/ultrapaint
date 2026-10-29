@@ -1,12 +1,12 @@
 /**
  * Draws design documents in the editor's frames, with the editor's own React (ADR 0040): a page's
- * nodes as elements, an instance as one of the editor's primitives (on Base UI) or as a draft's
+ * nodes as elements, an instance as one of the editor's system components (on Base UI) or as a draft's
  * tree. Nothing of the repository's is loaded or run.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { DRAFT_FROM, PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { DRAFT_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
   layoutOf,
@@ -32,12 +32,15 @@ import {
   type RenderSetup,
   type RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
-import { primitiveOf, slotFor } from "@ultrapaint/primitives/catalogue";
-import { PRIMITIVE_COMPONENTS } from "@ultrapaint/primitives/components";
 import {
-  type PrimitiveFrame,
-  PrimitiveFrameProvider,
-} from "@ultrapaint/primitives/frame";
+  slotFor,
+  systemComponentOf,
+} from "@ultrapaint/system-components/catalogue";
+import { SYSTEM_COMPONENT_VIEWS } from "@ultrapaint/system-components/components";
+import {
+  type ComponentFrame,
+  ComponentFrameProvider,
+} from "@ultrapaint/system-components/frame";
 import {
   Component,
   createContext,
@@ -175,7 +178,7 @@ const Message = ({ text }: { text: string }) =>
 
 /**
  * Stands in for an instance of nothing the editor has: a component of the repository's from
- * before ADR 0040, or a primitive's name misspelt. It keeps the node's marks and its box.
+ * before ADR 0040, or a system component's name misspelt. It keeps the node's marks and its box.
  */
 const Missing = ({
   onClickCapture,
@@ -310,7 +313,7 @@ const marksOf = (scope: Scope, node: InstanceNode) => ({
 /**
  * A draft component's instance (ADR 0029): the draft's tree drawn in its place, its root carrying
  * the instance's id, marks and box, so the instance is what is selected, and the spec's styles
- * reach it as they reach a primitive. The instance's text replaces the tree's first text.
+ * reach it as they reach a system component. The instance's text replaces the tree's first text.
  */
 const DraftView = ({
   node,
@@ -351,13 +354,13 @@ const DraftView = ({
 };
 
 /**
- * One of the editor's own primitives (ADR 0040). It takes its instance's props, and its children
+ * One of the editor's system components (ADR 0040). It takes its instance's props, and its children
  * by the slot each names: the ones that name none are its children, the others go in `slots`,
  * each laid out as its slot lays out. The node's id, marks and box go on the element the
- * primitive draws as the instance; how its children are laid out is the catalogue's, and the
+ * system component draws as the instance; how its children are laid out is the catalogue's, and the
  * editor is told it.
  */
-const PrimitiveView = ({
+const SystemView = ({
   node,
   style,
 }: {
@@ -365,19 +368,19 @@ const PrimitiveView = ({
   style: Style;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
-  const Primitive = PRIMITIVE_COMPONENTS[node.component];
-  const meta = primitiveOf(node.component);
+  const View = SYSTEM_COMPONENT_VIEWS[node.component];
+  const meta = systemComponentOf(node.component);
   const fallback = meta && slotFor(meta, undefined);
   const layout = fallback?.layout ?? "block";
   useLayoutEffect(() => {
     scope.report(node.id, { layout, wrapped: false });
   }, [scope, node.id, layout]);
   const marks = marksOf(scope, node);
-  if (!(Primitive && meta)) {
+  if (!(View && meta)) {
     return createElement(Missing, {
       ...marks,
       style,
-      text: `${node.component} is not one of the primitives`,
+      text: `${node.component} is not one of the system components`,
     });
   }
   const bySlot = new Map<string, ReactNode[]>();
@@ -408,7 +411,7 @@ const PrimitiveView = ({
     Boundary,
     { label: node.component, nodeId: node.id, resetKeys: [node] },
     createElement(
-      Primitive,
+      View,
       {
         ...(node.props ?? {}),
         ...marks,
@@ -432,13 +435,13 @@ const InstanceView = ({
   if (node.from === DRAFT_FROM) {
     return createElement(DraftView, { node, style });
   }
-  if (node.from === PRIMITIVES_FROM) {
-    return createElement(PrimitiveView, { node, style });
+  if (node.from === SYSTEM_FROM) {
+    return createElement(SystemView, { node, style });
   }
   return createElement(Missing, {
     ...marksOf(scope, node),
     style,
-    text: `${node.component} is a component of the repository's: the canvas draws primitives`,
+    text: `${node.component} is a component of the repository's: the canvas draws system components`,
   });
 };
 
@@ -456,7 +459,7 @@ const Rendered = ({
   return null;
 };
 
-/** The frame the primitives draw in, running or designed as the frame is (ADR 0040). */
+/** The frame the system components draw in, running or designed as the frame is (ADR 0040). */
 const FrameScope = ({
   children,
   frame,
@@ -468,11 +471,11 @@ const FrameScope = ({
     frame.onInteractive,
     frame.interactive
   );
-  const value = useMemo<PrimitiveFrame>(
+  const value = useMemo<ComponentFrame>(
     () => ({ container: frame.container, host: frame.host, interactive }),
     [frame, interactive]
   );
-  return createElement(PrimitiveFrameProvider, { frame: value }, children);
+  return createElement(ComponentFrameProvider, { frame: value }, children);
 };
 
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {

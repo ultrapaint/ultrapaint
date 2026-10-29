@@ -130,8 +130,8 @@ export interface BoxFields {
   /** A shadow token (`"$shadow-md"`) or a CSS box-shadow. */
   readonly shadow?: string | undefined;
   /**
-   * The part of its parent primitive it fills (ADR 0040): a slot's name (`dialog-footer`). A
-   * child that names none fills the primitive's default slot.
+   * The part of its parent system component it fills (ADR 0040): a slot's name (`dialog-footer`). A
+   * child that names none fills the system component's default slot.
    */
   readonly slot?: string | undefined;
   readonly width?: Size | undefined;
@@ -294,7 +294,7 @@ const boxFields = {
   slot: Schema.optional(
     Schema.String.annotate({
       description:
-        "The part of its parent primitive this child fills, by the slot's name (\"dialog-footer\"); a child without one fills the primitive's default slot.",
+        "The part of its parent system component this child fills, by the slot's name (\"dialog-footer\"); a child without one fills the system component's default slot.",
     })
   ),
   width: Schema.optional(Size),

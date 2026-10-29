@@ -1,10 +1,10 @@
 import type { InstanceNode } from "@ultrapaint/contracts/document";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
-import { primitiveComponents } from "@ultrapaint/primitives/catalogue";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
+import { systemCatalogue } from "@ultrapaint/system-components/catalogue";
 import { describe, expect, it } from "vitest";
 import { childrenInSlot } from "./slots.ts";
 
-const dialog = primitiveComponents().find((c) => c.name === "Dialog");
+const dialog = systemCatalogue().find((c) => c.name === "Dialog");
 const slots = (dialog?.slots ?? []).filter((s) => s.holds);
 const slot = (name: string) => {
   const found = slots.find((s) => s.name === name);
@@ -20,19 +20,19 @@ const node: InstanceNode = {
     { id: "lost", role: "paragraph", slot: "nowhere", text: "?", type: "text" },
     {
       component: "Button",
-      from: PRIMITIVES_FROM,
+      from: SYSTEM_FROM,
       id: "ok",
       slot: "dialog-footer",
       type: "instance",
     },
   ],
   component: "Dialog",
-  from: PRIMITIVES_FROM,
+  from: SYSTEM_FROM,
   id: "d",
   type: "instance",
 };
 
-describe("a primitive's slot", () => {
+describe("a system component's slot", () => {
   it("holds the children that name it", () => {
     expect(
       childrenInSlot(node, slot("dialog-footer"), slots).map((c) => c.id)

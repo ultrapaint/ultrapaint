@@ -119,7 +119,7 @@ export class DesignMd extends Context.Service<
     ) => Effect.Effect<DesignDocument | null>;
     /**
      * The front matter a design system comes to (ADR 0027, 0028): its tokens and their values in
-     * the format, and the component tokens of the primitives whose look the project owns, read
+     * the format, and the component tokens of the system components whose look the project owns, read
      * from their specs (ADR 0029, 0040).
      */
     readonly mirror: (

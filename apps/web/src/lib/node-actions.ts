@@ -28,11 +28,11 @@ import {
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import { primitiveOf } from "@ultrapaint/primitives/catalogue";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import {
-  asPrimitive,
+  asSystemComponent,
   isRepositoryInstance,
-} from "@ultrapaint/primitives/migrate";
+} from "@ultrapaint/system-components/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
@@ -540,11 +540,14 @@ export const nodesOf = (targets: readonly Selection[]) => {
 };
 
 /**
- * Instances of the repository's components drawn as a primitive (ADR 0040), each where it was:
- * its props, children and text kept where the primitive has them (`migrate.ts`).
+ * Instances of the repository's components drawn as a system component (ADR 0040), each where it was:
+ * its props, children and text kept where the system component has them (`migrate.ts`).
  */
-export const replaceWithPrimitive = (name: string, target?: Selection) => {
-  const meta = primitiveOf(name);
+export const replaceWithSystemComponent = (
+  name: string,
+  target?: Selection
+) => {
+  const meta = systemComponentOf(name);
   const { docs } = useDocuments.getState();
   const { canvas } = useEditor.getState();
   const byDoc = new Map<string, DocOp[]>();
@@ -560,7 +563,7 @@ export const replaceWithPrimitive = (name: string, target?: Selection) => {
       { id: node.id, op: "remove" },
       {
         index: siblings.findIndex((c) => c.id === node.id),
-        node: asPrimitive(node, meta),
+        node: asSystemComponent(node, meta),
         op: "insert",
         parent: parent?.id ?? null,
       },

@@ -1,21 +1,21 @@
 /**
- * The editor's own primitives (ADR 0040), as data: what each is for, the props a design sets, its
+ * The editor's own system components (ADR 0040), as data: what each is for, the props a design sets, its
  * variant axes, its parts (`data-slot`, which a spec styles and a design fills), the states a spec
  * styles and the layer it draws in. No React here: the server, the agents' briefings and the
  * editor's panels read it without loading a component.
  *
- * A primitive's behaviour is Base UI's, run by the editor; its look is the design's (a spec per
- * primitive, over the default look in `look.ts`). Implementing a design hands the look of each
+ * A system component's behaviour is Base UI's, run by the editor; its look is the design's (a spec per
+ * system component, over the default look in `look.ts`). Implementing a design hands the look of each
  * part in each state to an agent, which applies it to whatever the application uses.
  */
 import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
-import { PRIMITIVES_FROM, ROOT_SLOT } from "@ultrapaint/contracts/spec-names";
+import { ROOT_SLOT, SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 
-/** Where a primitive draws: in the page's flow, anchored to it above the page, or over the page. */
-export type PrimitiveLayer = "inline" | "anchored" | "blocking";
+/** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
+export type ComponentLayer = "inline" | "anchored" | "blocking";
 
-/** A part of a primitive. */
-export interface PrimitiveSlot {
+/** A part of a system component. */
+export interface SystemComponentSlot {
   /**
    * The design puts nodes in it: an instance's children marked with this `slot`. The one marked
    * `default` takes the children that name no slot.
@@ -28,16 +28,16 @@ export interface PrimitiveSlot {
   readonly name: string;
 }
 
-export interface PrimitiveMeta {
+export interface SystemComponentMeta {
   readonly category: string;
   readonly description: string;
   /** The props a new instance starts with. */
   readonly example: Readonly<Record<string, unknown>>;
-  readonly layer: PrimitiveLayer;
+  readonly layer: ComponentLayer;
   readonly name: string;
   readonly props: readonly PropMeta[];
   /** Its parts, the root first. */
-  readonly slots: readonly PrimitiveSlot[];
+  readonly slots: readonly SystemComponentSlot[];
   /** The states its look can be given for (`SPEC_STATES`). */
   readonly states: readonly string[];
   /** The text a new instance shows, for one that shows text. */
@@ -108,7 +108,7 @@ const BUTTON_VARIANTS = [
 ] as const;
 const SIZES = ["md", "sm", "lg"] as const;
 
-export const PRIMITIVES: readonly PrimitiveMeta[] = [
+export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
   {
     category: "Actions",
     description:
@@ -519,17 +519,18 @@ export const PRIMITIVES: readonly PrimitiveMeta[] = [
   },
 ];
 
-const byName = new Map(PRIMITIVES.map((p) => [p.name, p]));
+const byName = new Map(SYSTEM_COMPONENTS.map((p) => [p.name, p]));
 
-/** The primitive named `name`, if there is one. */
-export const primitiveOf = (name: string): PrimitiveMeta | undefined =>
-  byName.get(name);
+/** The system component named `name`, if there is one. */
+export const systemComponentOf = (
+  name: string
+): SystemComponentMeta | undefined => byName.get(name);
 
 /** The slot a child marked `slot` goes in, or the one that takes unmarked children. */
 export const slotFor = (
-  meta: PrimitiveMeta,
+  meta: SystemComponentMeta,
   slot: string | undefined
-): PrimitiveSlot | undefined =>
+): SystemComponentSlot | undefined =>
   slot === undefined
     ? meta.slots.find((s) => s.holds === "default")
     : meta.slots.find((s) => s.name === slot && s.holds !== undefined);
@@ -542,7 +543,7 @@ const attributeOf = (key: string, value: unknown) => {
   return value === true ? key : `${key}={${JSON.stringify(value)}}`;
 };
 
-const snippetOf = (meta: PrimitiveMeta) => {
+const snippetOf = (meta: SystemComponentMeta) => {
   const attributes = Object.entries(meta.example)
     .map(([key, value]) => attributeOf(key, value))
     .join(" ");
@@ -552,13 +553,13 @@ const snippetOf = (meta: PrimitiveMeta) => {
     : `${open}>${meta.text}</${meta.name}>`;
 };
 
-/** A primitive as the catalogue lists a component: what the palette and the inspector read. */
-export const componentMetaOf = (meta: PrimitiveMeta): ComponentMeta => ({
+/** A system component as the catalogue lists a component: what the palette and the inspector read. */
+export const componentMetaOf = (meta: SystemComponentMeta): ComponentMeta => ({
   category: meta.category,
   description: meta.description,
   file: "",
-  group: "Primitives",
-  importFrom: PRIMITIVES_FROM,
+  group: "System components",
+  importFrom: SYSTEM_FROM,
   name: meta.name,
   props: meta.props,
   slots: meta.slots.map((s) => ({
@@ -574,6 +575,6 @@ export const componentMetaOf = (meta: PrimitiveMeta): ComponentMeta => ({
   ),
 });
 
-/** Every primitive as a catalogue's components. */
-export const primitiveComponents = (): ComponentMeta[] =>
-  PRIMITIVES.map(componentMetaOf);
+/** Every system component as a catalogue's components. */
+export const systemCatalogue = (): ComponentMeta[] =>
+  SYSTEM_COMPONENTS.map(componentMetaOf);

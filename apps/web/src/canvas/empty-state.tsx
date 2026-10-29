@@ -163,8 +163,8 @@ const SetupRow = () => (
     <div className="flex flex-1 flex-col gap-0.5 text-left">
       <span className="font-medium">Draw these in your own look</span>
       <span className="font-body text-muted-foreground">
-        An agent reads your colours and type, then every starter and primitive
-        uses them.
+        An agent reads your colours and type, then every starter and system
+        component uses them.
       </span>
     </div>
     <Button onClick={startInit} size="sm">

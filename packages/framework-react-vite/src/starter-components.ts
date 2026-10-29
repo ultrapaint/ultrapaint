@@ -1,8 +1,8 @@
 /**
- * The starter's components (ADR 0040): one for each of ultrapaint's primitives, by the same
- * name, taking the same props, its parts marked with the primitive's `data-slot`s (the root
+ * The starter's components (ADR 0040): one for each of ultrapaint's system components, by the same
+ * name, taking the same props, its parts marked with the system component's `data-slot`s (the root
  * `root`, as a spec names it), its variants in a `cva` whose axes and members are the
- * primitive's, and on Base UI where the primitive is. A primitive's slots are parts here: a
+ * system component's, and on Base UI where the system component is. A system component's slots are parts here: a
  * Dialog's footer is a `DialogFooter` among its children, as the Code tab writes it. Implementing
  * a design then gives each its spec's look, part by part.
  */
@@ -923,7 +923,7 @@ function Toast({
 export { Toast, toastVariants };
 `;
 
-/** The starter's components, one per primitive, by file inside `src/`. */
+/** The starter's components, one per system component, by file inside `src/`. */
 export const STARTER_COMPONENTS: Readonly<Record<string, string>> = {
   "components/ui/avatar.tsx": AVATAR,
   "components/ui/badge.tsx": BADGE,

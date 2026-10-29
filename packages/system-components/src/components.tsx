@@ -1,5 +1,5 @@
 /**
- * The primitives, drawn (ADR 0040): Base UI's behaviour, every part marked with its `data-slot`
+ * The system components, drawn (ADR 0040): Base UI's behaviour, every part marked with its `data-slot`
  * for the look (`look.ts`, then the design's specs) to style. The renderer gives each one the
  * props of its instance, its children (the default slot) and the nodes of its other slots
  * (`slots`), and the node's marks and box (`data-ed-*`, `style`), which go on the element that is
@@ -21,10 +21,10 @@ import { Tabs } from "@base-ui/react/tabs";
 import { Tooltip } from "@base-ui/react/tooltip";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useOverlayOpen, usePrimitiveFrame } from "./frame.ts";
+import { useComponentFrame, useOverlayOpen } from "./frame.ts";
 
-/** What the renderer gives a primitive besides its instance's props. */
-export interface PrimitiveProps {
+/** What the renderer gives a system component besides its instance's props. */
+export interface SystemComponentProps {
   readonly children?: ReactNode;
   readonly onClickCapture?: (event: {
     preventDefault: () => void;
@@ -37,7 +37,7 @@ export interface PrimitiveProps {
 }
 
 /** The marks of the node (`data-*`), its box and a link's handler: what the instance's element carries. */
-const marksOf = (props: PrimitiveProps) => {
+const marksOf = (props: SystemComponentProps) => {
   const marks: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
     if (key.startsWith("data-") && value !== undefined) {
@@ -51,7 +51,7 @@ const marksOf = (props: PrimitiveProps) => {
  * The marks a portalled part carries: the node's (so it is pointed at and measured as the
  * instance), and the component's for the specs as a portal (`data-ed-p`), not as its root.
  */
-const portalMarksOf = (props: PrimitiveProps) => {
+const portalMarksOf = (props: SystemComponentProps) => {
   const { "data-ed-c": component, ...marks } = marksOf(props);
   return component === undefined ? marks : { ...marks, "data-ed-p": component };
 };
@@ -81,27 +81,27 @@ const has = (node: ReactNode) =>
   node !== undefined && node !== null && node !== false;
 
 /** The marks the specs find a portal by: the component as a portal, its variant props, a pinned state. */
-const specMarksOf = (props: PrimitiveProps) => ({
+const specMarksOf = (props: SystemComponentProps) => ({
   "data-ed-p": props["data-ed-c"],
   "data-ed-state": props["data-ed-state"],
   "data-ed-v": props["data-ed-v"],
 });
 
 /** The frame's body, where popups go; nothing without a frame (a test, a picture still building). */
-const usePortal = () => usePrimitiveFrame().container ?? undefined;
+const usePortal = () => useComponentFrame().container ?? undefined;
 
 /* ---------------- Inline ---------------- */
 
-export function Button(props: PrimitiveProps) {
+export function Button(props: SystemComponentProps) {
   const loading = bool(props.loading);
   return (
     <button
       type="button"
       {...marksOf(props)}
       data-loading={loading || undefined}
-      data-primitive="button"
       data-size={str(props.size, "md")}
       data-slot="root"
+      data-system="button"
       data-variant={str(props.variant, "primary")}
       disabled={bool(props.disabled) || loading}
       onClickCapture={props.onClickCapture}
@@ -113,12 +113,12 @@ export function Button(props: PrimitiveProps) {
   );
 }
 
-export function Badge(props: PrimitiveProps) {
+export function Badge(props: SystemComponentProps) {
   return (
     <span
       {...marksOf(props)}
-      data-primitive="badge"
       data-slot="root"
+      data-system="badge"
       data-variant={str(props.variant, "default")}
       onClickCapture={props.onClickCapture}
       style={props.style}
@@ -129,29 +129,29 @@ export function Badge(props: PrimitiveProps) {
 }
 
 /** The button's spinner on its own. */
-export function Spinner(props: PrimitiveProps) {
+export function Spinner(props: SystemComponentProps) {
   return (
     <span
       aria-label="Loading"
       role="status"
       {...marksOf(props)}
-      data-primitive="spinner"
       data-size={str(props.size, "md")}
       data-slot="root"
+      data-system="spinner"
       onClickCapture={props.onClickCapture}
       style={props.style}
     />
   );
 }
 
-export function AvatarPrimitive(props: PrimitiveProps) {
+export function SystemAvatar(props: SystemComponentProps) {
   const src = str(props.src);
   return (
     <Avatar.Root
       {...marksOf(props)}
-      data-primitive="avatar"
       data-size={str(props.size, "md")}
       data-slot="root"
+      data-system="avatar"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -163,7 +163,7 @@ export function AvatarPrimitive(props: PrimitiveProps) {
   );
 }
 
-export function Card(props: PrimitiveProps) {
+export function Card(props: SystemComponentProps) {
   const title = str(props.title);
   const description = str(props.description);
   const header = props.slots?.["card-header"];
@@ -171,8 +171,8 @@ export function Card(props: PrimitiveProps) {
   return (
     <div
       {...marksOf(props)}
-      data-primitive="card"
       data-slot="root"
+      data-system="card"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -196,7 +196,7 @@ export function Card(props: PrimitiveProps) {
   );
 }
 
-export function SeparatorPrimitive(props: PrimitiveProps) {
+export function SystemSeparator(props: SystemComponentProps) {
   const orientation =
     str(props.orientation, "horizontal") === "vertical"
       ? "vertical"
@@ -204,8 +204,8 @@ export function SeparatorPrimitive(props: PrimitiveProps) {
   return (
     <Separator
       {...marksOf(props)}
-      data-primitive="separator"
       data-slot="root"
+      data-system="separator"
       orientation={orientation}
       style={props.style}
     />
@@ -215,12 +215,12 @@ export function SeparatorPrimitive(props: PrimitiveProps) {
 const Label = ({ text }: { readonly text: string }) =>
   text ? <span data-slot="field-label">{text}</span> : null;
 
-export function Input(props: PrimitiveProps) {
+export function Input(props: SystemComponentProps) {
   return (
     <label
       {...marksOf(props)}
-      data-primitive="field"
       data-slot="root"
+      data-system="field"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -239,13 +239,13 @@ export function Input(props: PrimitiveProps) {
   );
 }
 
-export function Textarea(props: PrimitiveProps) {
+export function Textarea(props: SystemComponentProps) {
   const rows = typeof props.rows === "number" ? props.rows : 3;
   return (
     <label
       {...marksOf(props)}
-      data-primitive="field"
       data-slot="root"
+      data-system="field"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -263,14 +263,14 @@ export function Textarea(props: PrimitiveProps) {
   );
 }
 
-export function CheckboxPrimitive(props: PrimitiveProps) {
+export function SystemCheckbox(props: SystemComponentProps) {
   const checked = bool(props.checked);
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI's control, inside the label, is a button with its role
     <label
       {...marksOf(props)}
-      data-primitive="check"
       data-slot="root"
+      data-system="check"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -298,14 +298,14 @@ export function CheckboxPrimitive(props: PrimitiveProps) {
   );
 }
 
-export function SwitchPrimitive(props: PrimitiveProps) {
+export function SystemSwitch(props: SystemComponentProps) {
   const checked = bool(props.checked);
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI's control, inside the label, is a button with its role
     <label
       {...marksOf(props)}
-      data-primitive="check"
       data-slot="root"
+      data-system="check"
       onClickCapture={props.onClickCapture}
       style={props.style}
     >
@@ -324,15 +324,15 @@ export function SwitchPrimitive(props: PrimitiveProps) {
   );
 }
 
-export function TabsPrimitive(props: PrimitiveProps) {
+export function SystemTabs(props: SystemComponentProps) {
   const labels = items(props.items);
   const designed = str(props.value) || labels[0] || "";
-  const { interactive } = usePrimitiveFrame();
+  const { interactive } = useComponentFrame();
   return (
     <Tabs.Root
       {...marksOf(props)}
-      data-primitive="tabs"
       data-slot="root"
+      data-system="tabs"
       // Designed, the design's tab is selected; running, it is where the user starts.
       key={interactive ? `run:${designed}` : "designed"}
       {...(interactive ? { defaultValue: designed } : { value: designed })}
@@ -355,7 +355,7 @@ export function TabsPrimitive(props: PrimitiveProps) {
 
 /* ---------------- Anchored ---------------- */
 
-export function SelectPrimitive(props: PrimitiveProps) {
+export function SystemSelect(props: SystemComponentProps) {
   const options = items(props.items);
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
@@ -376,8 +376,8 @@ export function SelectPrimitive(props: PrimitiveProps) {
     >
       <div
         {...marksOf(props)}
-        data-primitive="field"
         data-slot="root"
+        data-system="field"
         onClickCapture={props.onClickCapture}
         style={props.style}
       >
@@ -403,10 +403,10 @@ export function SelectPrimitive(props: PrimitiveProps) {
           // coordinates, which a frame's containment moves: it opens below instead.
           alignItemWithTrigger={false}
           collisionPadding={0}
-          data-primitive-positioner=""
+          data-system-positioner=""
           sideOffset={6}
         >
-          <Select.Popup data-primitive-popup="" data-slot="select-popup">
+          <Select.Popup data-slot="select-popup" data-system-popup="">
             <Select.List>
               {options.map((label) => (
                 <Select.Item data-slot="select-item" key={label} value={label}>
@@ -424,7 +424,7 @@ export function SelectPrimitive(props: PrimitiveProps) {
   );
 }
 
-export function MenuPrimitive(props: PrimitiveProps) {
+export function SystemMenu(props: SystemComponentProps) {
   const entries = items(props.items);
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
@@ -438,8 +438,8 @@ export function MenuPrimitive(props: PrimitiveProps) {
         render={
           <span
             {...marksOf(props)}
-            data-primitive="trigger"
             data-slot="root"
+            data-system="trigger"
             onClickCapture={props.onClickCapture}
             style={props.style}
           />
@@ -452,10 +452,10 @@ export function MenuPrimitive(props: PrimitiveProps) {
           {...portalMarksOf(props)}
           align={align}
           collisionPadding={0}
-          data-primitive-positioner=""
+          data-system-positioner=""
           sideOffset={6}
         >
-          <Menu.Popup data-primitive-popup="" data-slot="menu-popup">
+          <Menu.Popup data-slot="menu-popup" data-system-popup="">
             {entries.map((label, i) =>
               label === "-" ? (
                 // biome-ignore lint/suspicious/noArrayIndexKey: separators have no other name
@@ -483,7 +483,7 @@ const sideOf = (value: unknown, fallback: "top" | "bottom") => {
     | "right";
 };
 
-export function PopoverPrimitive(props: PrimitiveProps) {
+export function SystemPopover(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined
@@ -496,8 +496,8 @@ export function PopoverPrimitive(props: PrimitiveProps) {
         render={
           <span
             {...marksOf(props)}
-            data-primitive="trigger"
             data-slot="trigger"
+            data-system="trigger"
             onClickCapture={props.onClickCapture}
             style={props.style}
           />
@@ -509,13 +509,13 @@ export function PopoverPrimitive(props: PrimitiveProps) {
         <Popover.Positioner
           {...portalMarksOf(props)}
           collisionPadding={0}
-          data-primitive-positioner=""
+          data-system-positioner=""
           side={sideOf(props.side, "bottom")}
           sideOffset={8}
         >
           <Popover.Popup
-            data-primitive-popup=""
             data-slot="popover"
+            data-system-popup=""
             finalFocus={interactive}
             initialFocus={interactive}
           >
@@ -530,7 +530,7 @@ export function PopoverPrimitive(props: PrimitiveProps) {
   );
 }
 
-export function TooltipPrimitive(props: PrimitiveProps) {
+export function SystemTooltip(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange } = useOverlayOpen(
     props.open as boolean | undefined
@@ -542,8 +542,8 @@ export function TooltipPrimitive(props: PrimitiveProps) {
           render={
             <span
               {...marksOf(props)}
-              data-primitive="trigger"
               data-slot="root"
+              data-system="trigger"
               onClickCapture={props.onClickCapture}
               style={props.style}
             />
@@ -555,7 +555,7 @@ export function TooltipPrimitive(props: PrimitiveProps) {
           <Tooltip.Positioner
             {...portalMarksOf(props)}
             collisionPadding={0}
-            data-primitive-positioner=""
+            data-system-positioner=""
             side={sideOf(props.side, "top")}
             sideOffset={8}
           >
@@ -573,18 +573,18 @@ export function TooltipPrimitive(props: PrimitiveProps) {
  * A notification in the frame's corner. It has no trigger: a design shows it (`open`), as the
  * state of a page after something happened.
  */
-export function Toast(props: PrimitiveProps) {
-  const { container } = usePrimitiveFrame();
+export function Toast(props: SystemComponentProps) {
+  const { container } = useComponentFrame();
   const { open } = useOverlayOpen(props.open as boolean | undefined);
   if (!(open && container)) {
     return null;
   }
   return createPortal(
-    <div data-primitive-toasts="">
+    <div data-system-toasts="">
       <div
         {...marksOf(props)}
-        data-primitive="toast"
         data-slot="root"
+        data-system="toast"
         data-variant={str(props.variant, "default")}
         onClickCapture={props.onClickCapture}
         role="status"
@@ -605,7 +605,7 @@ export function Toast(props: PrimitiveProps) {
 
 /* ---------------- Blocking ---------------- */
 
-export function DialogPrimitive(props: PrimitiveProps) {
+export function SystemDialog(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined
@@ -630,8 +630,8 @@ export function DialogPrimitive(props: PrimitiveProps) {
             <span
               // Closed, the trigger is the instance on the page; open, the dialog is.
               {...(open ? {} : marks)}
-              data-primitive="trigger"
               data-slot="trigger"
+              data-system="trigger"
               onClickCapture={props.onClickCapture}
             />
           }
@@ -642,7 +642,7 @@ export function DialogPrimitive(props: PrimitiveProps) {
       <Dialog.Portal
         container={container}
         {...specMarksOf(props)}
-        data-primitive-dialog=""
+        data-system-dialog=""
       >
         <Dialog.Backdrop data-slot="dialog-backdrop" />
         <Dialog.Popup
@@ -717,25 +717,25 @@ const Cross = () => (
   </svg>
 );
 
-/** Every primitive's component, by the name its instances give. */
-export const PRIMITIVE_COMPONENTS: Readonly<
-  Record<string, (props: PrimitiveProps) => ReactNode>
+/** Every system component's component, by the name its instances give. */
+export const SYSTEM_COMPONENT_VIEWS: Readonly<
+  Record<string, (props: SystemComponentProps) => ReactNode>
 > = {
-  Avatar: AvatarPrimitive,
+  Avatar: SystemAvatar,
   Badge,
   Button,
   Card,
-  Checkbox: CheckboxPrimitive,
-  Dialog: DialogPrimitive,
+  Checkbox: SystemCheckbox,
+  Dialog: SystemDialog,
   Input,
-  Menu: MenuPrimitive,
-  Popover: PopoverPrimitive,
-  Select: SelectPrimitive,
-  Separator: SeparatorPrimitive,
+  Menu: SystemMenu,
+  Popover: SystemPopover,
+  Select: SystemSelect,
+  Separator: SystemSeparator,
   Spinner,
-  Switch: SwitchPrimitive,
-  Tabs: TabsPrimitive,
+  Switch: SystemSwitch,
+  Tabs: SystemTabs,
   Textarea,
   Toast,
-  Tooltip: TooltipPrimitive,
+  Tooltip: SystemTooltip,
 };

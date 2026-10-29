@@ -130,7 +130,7 @@ describe("drift between the design system and the code", () => {
 });
 
 describe("the plan", () => {
-  it("asks for nothing about components: the canvas draws the editor's primitives", () => {
+  it("asks for nothing about components: the canvas draws the editor's system components", () => {
     const steps = planOf({
       drift: emptyDrift,
       facts: { ...facts, components: 0, libraryDirs: [] },
@@ -140,17 +140,17 @@ describe("the plan", () => {
     expect(steps.map((s) => s.kind)).not.toContain("settings");
   });
 
-  it("offers to draw the pages' old instances as primitives, first, while a primitive can draw any", () => {
+  it("offers to draw the pages' old instances as system components, first, while a system component can draw any", () => {
     const steps = planOf({
       drift: emptyDrift,
       facts: { ...facts, oldInstances: { drawn: 9, left: 2 } },
       figmaSynced: false,
       setup: emptySetup(0),
     });
-    expect(steps[0]).toMatchObject({ kind: "primitives", state: "attention" });
+    expect(steps[0]).toMatchObject({ kind: "system", state: "attention" });
     expect(steps[0]?.detail).toContain("9 instances of your old components");
     expect(steps[0]?.detail).toContain(
-      "2 instances of components no primitive"
+      "2 instances of components no system component"
     );
     const none = planOf({
       drift: emptyDrift,
@@ -158,7 +158,7 @@ describe("the plan", () => {
       figmaSynced: false,
       setup: emptySetup(0),
     });
-    expect(none.map((s) => s.kind)).not.toContain("primitives");
+    expect(none.map((s) => s.kind)).not.toContain("system");
   });
 
   it("goes through the setup for code, Figma's tokens first when there is a file", () => {

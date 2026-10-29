@@ -31,10 +31,10 @@ import {
   idsOf,
   isPageFile,
 } from "@ultrapaint/design-document/tree";
-import { migrationOf } from "@ultrapaint/primitives/migrate";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
 import { plural } from "@ultrapaint/shared/text";
+import { migrationOf } from "@ultrapaint/system-components/migrate";
 import {
   Context,
   Effect,
@@ -128,18 +128,18 @@ export class DocumentService extends Context.Service<
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
     /**
      * The instances of the repository's components in every document (ADR 0040): how many a
-     * primitive can draw, and how many no primitive is like and stay stand-ins.
+     * system component can draw, and how many no system component is like and stay stand-ins.
      */
     readonly oldInstances: Effect.Effect<
       { readonly drawn: number; readonly left: number },
       EditFailure
     >;
     /**
-     * Every instance of the repository's components that a primitive can draw, drawn as one
+     * Every instance of the repository's components that a system component can draw, drawn as one
      * (`migrate.ts`), in every document and one undo step. Answers with how many, in how many
      * documents.
      */
-    readonly toPrimitives: Effect.Effect<
+    readonly toSystemComponents: Effect.Effect<
       { readonly documents: number; readonly drawn: number },
       EditFailure | Conflict
     >;
@@ -413,7 +413,7 @@ export class DocumentService extends Context.Service<
         return { drawn, left };
       }).pipe(Effect.withSpan("DocumentService.oldInstances"));
 
-      const toPrimitives = Effect.gen(function* () {
+      const toSystemComponents = Effect.gen(function* () {
         let drawn = 0;
         const edits: DocumentEdit[] = [];
         for (const state of yield* everyDocument) {
@@ -422,7 +422,7 @@ export class DocumentService extends Context.Service<
             continue;
           }
           const migration = migrationOf(tree);
-          // Each instance is put back where it was, as the primitive: what it holds goes with it.
+          // Each instance is put back where it was, as the system component: what it holds goes with it.
           const ops = migration.replaced.flatMap((node): DocOp[] => {
             const parent = findPath(tree, node.id)?.at(-2);
             if (!parent) {
@@ -451,11 +451,11 @@ export class DocumentService extends Context.Service<
         if (edits.length > 0) {
           yield* apply({
             edits,
-            label: `Draw ${plural(drawn, "instance")} as primitives`,
+            label: `Draw ${plural(drawn, "instance")} as system components`,
           });
         }
         return { documents: edits.length, drawn };
-      }).pipe(Effect.withSpan("DocumentService.toPrimitives"));
+      }).pipe(Effect.withSpan("DocumentService.toSystemComponents"));
 
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput
@@ -541,7 +541,7 @@ export class DocumentService extends Context.Service<
         get,
         list,
         oldInstances,
-        toPrimitives,
+        toSystemComponents,
         upload,
       });
     })
