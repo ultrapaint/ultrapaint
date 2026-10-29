@@ -104,7 +104,6 @@ const plan = (at: number): SyncPlan => ({
   drift: emptyDrift,
   facts: {
     app: true,
-    components: 0,
     designSystem: true,
     libraryDirs: [],
     styleSystem: "tailwind-v4",

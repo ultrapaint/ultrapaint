@@ -19,7 +19,6 @@ import {
   toCode,
 } from "@ultrapaint/design-document/code";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
-import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import {
   Context,
   Effect,
@@ -240,27 +239,7 @@ export class DesignSystemService extends Context.Service<
         };
       }).pipe(Effect.withSpan("DesignSystemService.get"));
 
-      const scan = Effect.gen(function* () {
-        const found = yield* code.scan;
-        // Categories are what the catalogue already knows.
-        return {
-          ...found,
-          designSystem: {
-            ...found.designSystem,
-            components: Object.fromEntries(
-              catalogueOf([]).map((c) => [
-                c.name,
-                {
-                  category: c.category,
-                  ...(c.description !== undefined && {
-                    description: c.description,
-                  }),
-                },
-              ])
-            ),
-          },
-        } satisfies DesignSystemScan;
-      }).pipe(Effect.withSpan("DesignSystemService.scan"));
+      const scan = code.scan.pipe(Effect.withSpan("DesignSystemService.scan"));
 
       /**
        * A design system the tool changed itself (a token, a sync) saved as it is, in one undo

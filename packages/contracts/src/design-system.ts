@@ -7,7 +7,6 @@
  * (`--color-primary` in Tailwind v4).
  */
 import { Schema } from "effect";
-import { Json } from "./base.ts";
 import { SyncBaseline } from "./sync.ts";
 import { DEFAULT_SPACING_BASE } from "./token-table.ts";
 
@@ -109,19 +108,6 @@ export const FontFamily = Schema.Struct({
 });
 export type FontFamily = typeof FontFamily.Type;
 
-/** What the tool knows about one component beyond what its types say. */
-export const ComponentNotes = Schema.Struct({
-  category: Schema.optional(Schema.String),
-  description: Schema.optional(Schema.String),
-  /** Props a new instance starts with, and its thumbnail is drawn with. */
-  exampleProps: Schema.optional(Schema.Record(Schema.String, Json)),
-  /** Text a new instance starts with as its children. */
-  exampleText: Schema.optional(Schema.String),
-  /** Module it is imported from, when the name alone is ambiguous. */
-  from: Schema.optional(Schema.String),
-});
-export type ComponentNotes = typeof ComponentNotes.Type;
-
 /**
  * A level of elevation: the surface colour a layer is drawn in, the shadow that goes with it, and
  * where it sits in the stacking order. Most design systems have four: sunken, default, raised
@@ -201,8 +187,6 @@ export const DesignSystem = Schema.Struct({
    */
   codeSync: Schema.optional(DocumentBaseline),
   colors: Schema.Array(TokenGroup),
-  /** Notes by component export name. */
-  components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
   /** What `DESIGN.md` and the design system last agreed on (ADR 0027). */
   designMd: Schema.optional(DocumentBaseline),
   /** Elevation levels, lowest first. */
@@ -211,8 +195,8 @@ export const DesignSystem = Schema.Struct({
   layout: Schema.optional(LayoutTokens),
   motion: Schema.optional(MotionTokens),
   /**
-   * Tokens and components of the code the design system leaves out on purpose, by name: the
-   * sync does not ask for them to be described.
+   * Tokens of the code the design system leaves out on purpose, by name: the sync does not ask
+   * for them to be described.
    */
   omitted: Schema.optional(Schema.Array(Schema.String)),
   radius: Schema.Array(Token),

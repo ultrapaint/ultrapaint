@@ -632,14 +632,12 @@ ${ways.editPages(named(id))}
         if (!canvas) {
           return yield* unknownCanvas("components", id, canvases);
         }
-        const { designSystem } = yield* (yield* DesignSystemService).get;
         const catalogue = yield* (yield* ComponentService).catalogue;
         const known = catalogue.map((c) => {
-          const notes = designSystem?.components?.[c.name];
           const variants = Object.entries(c.variants)
             .map(([name, values]) => `${name}=${values.join("|")}`)
             .join(" ");
-          return `- ${c.name} (${notes?.category ?? c.category})${variants ? `: ${variants}` : ""}`;
+          return `- ${c.name} (${c.category})${variants ? `: ${variants}` : ""}`;
         });
         const sheets = pages
           .filter(

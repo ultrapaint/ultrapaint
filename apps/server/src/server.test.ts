@@ -774,8 +774,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.deepStrictEqual(result.radius, [
             { name: "radius-card", value: "12px" },
           ]);
-          // The catalogue gives every component a category.
-          assert.isString(result.components?.Button?.category);
+          // The components are not the design system's to describe (ADR 0042).
+          assert.notProperty(result, "components");
           assert.strictEqual(
             event._tag === "Some" ? event.value.designSystem?.radius.length : 0,
             1

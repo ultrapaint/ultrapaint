@@ -4,7 +4,6 @@
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { ComponentNotes } from "@ultrapaint/contracts/design-system";
 import type {
   DesignNode,
   InstanceNode,
@@ -90,6 +89,8 @@ export const newElement = (id: ElementId, next: IdGenerator): DesignNode => {
 
 /** What the catalogue knows of a component that a new instance needs. */
 export interface ComponentShape {
+  /** The props a new instance starts with. */
+  readonly example?: Readonly<Record<string, JsonValue>> | undefined;
   readonly importFrom: string;
   readonly name: string;
   readonly props?: readonly {
@@ -100,6 +101,8 @@ export interface ComponentShape {
       readonly members?: readonly string[];
     };
   }[];
+  /** The text a new instance shows. */
+  readonly text?: string | undefined;
 }
 
 /** Values for the props a component requires, when nothing better is known. */
@@ -121,23 +124,20 @@ const requiredProps = (component: ComponentShape) => {
 };
 
 /**
- * A new instance of a component, set up with the examples init wrote for it, or with what its
- * types require and its name as its text when it takes children.
+ * A new instance of a component, as the catalogue's example of it (ADR 0042), or with what its
+ * props require and its name as its text when it takes children.
  */
 export const newInstance = (
   component: ComponentShape,
-  notes: ComponentNotes | undefined,
   next: IdGenerator
 ): InstanceNode => {
-  const props = (notes?.exampleProps ?? requiredProps(component)) as {
-    readonly [name: string]: JsonValue;
-  };
+  const props = component.example ?? requiredProps(component);
   const text =
-    notes?.exampleText ??
+    component.text ??
     (componentTakesChildren(component) ? component.name : undefined);
   return {
     component: component.name,
-    from: notes?.from ?? component.importFrom,
+    from: component.importFrom,
     id: next(idPrefix("instance")),
     ...(Object.keys(props).length > 0 && { props }),
     ...(text !== undefined && { text }),

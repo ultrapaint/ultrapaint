@@ -75,6 +75,18 @@ describe("the design system's files", () => {
     expect(read.designSystem?.colors[0]?.tokens[1]?.value).toBe("#ffffff");
   });
 
+  it("reads a design-system.json that still notes its components, and writes it without them", () => {
+    const { system, tokens } = writeDesignSystem(ds);
+    const old = json({
+      ...JSON.parse(system),
+      components: { Button: { category: "Actions", exampleText: "Go" } },
+    });
+    const read = readDesignSystem({ system: old, tokens }, none);
+    expect(read.problem).toBeNull();
+    expect(read.designSystem).toEqual(ds);
+    expect(writeDesignSystem(ds).system).not.toContain("components");
+  });
+
   it("takes a value neither file has from the code", () => {
     const { system } = writeDesignSystem(ds);
     const read = readDesignSystem(

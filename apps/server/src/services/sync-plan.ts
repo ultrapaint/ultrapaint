@@ -35,7 +35,6 @@ const some = (names: readonly string[], shown = 4) =>
 export const driftOf = (
   ds: DesignSystem | null,
   tokens: readonly SourceToken[],
-  components: readonly string[],
   /** Whether the stylesheets were read at all: without them nothing can be said of tokens. */
   read: boolean
 ): SyncDrift => {
@@ -44,16 +43,7 @@ export const driftOf = (
   }
   const omitted = new Set(ds.omitted ?? []);
   const listed = new Set(listedTokens(ds).map((t) => t.name));
-  const described = new Set(Object.keys(ds.components ?? {}));
-  const have = new Set(components);
   return {
-    componentsGone:
-      components.length === 0
-        ? []
-        : [...described].filter((c) => !(have.has(c) || omitted.has(c))),
-    componentsUndescribed: components.filter(
-      (c) => !(described.has(c) || omitted.has(c))
-    ),
     // A token the code does not declare is waiting for an export, not drift (ADR 0028).
     tokensGone: [],
     tokensUndescribed: read
@@ -233,8 +223,6 @@ const driftParts = (drift: SyncDrift) =>
   [
     [drift.tokensUndescribed, "token", "the design system does not list"],
     [drift.tokensGone, "token", "it lists that the code no longer declares"],
-    [drift.componentsUndescribed, "component", "it says nothing about"],
-    [drift.componentsGone, "component", "it notes that the code no longer has"],
   ]
     .filter(([names]) => (names as readonly string[]).length > 0)
     .map(([names, what, where]) => {

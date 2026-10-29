@@ -53,7 +53,6 @@ const codeChanges = (...args: Parameters<typeof changesOf>) => {
 
 const facts: SyncFacts = {
   app: true,
-  components: 12,
   designSystem: false,
   libraryDirs: ["front/src/components"],
   styleSystem: "tailwind-v4",
@@ -78,7 +77,6 @@ const ds: DesignSystem = {
       ],
     },
   ],
-  components: { Button: {}, Gone: {} },
   omitted: ["color-internal"],
   radius: [],
   shadows: [],
@@ -111,12 +109,9 @@ describe("drift between the design system and the code", () => {
         token("color-internal"),
         token("color-red-500", false),
       ],
-      ["Button", "Card"],
       true
     );
     expect(drift).toEqual({
-      componentsGone: ["Gone"],
-      componentsUndescribed: ["Card"],
       // A token the code does not declare waits for an export (ADR 0028), it is not gone.
       tokensGone: [],
       tokensUndescribed: ["color-new"],
@@ -124,8 +119,8 @@ describe("drift between the design system and the code", () => {
   });
 
   it("says nothing is gone when the stylesheets could not be read", () => {
-    expect(driftOf(ds, [], [], false).tokensGone).toEqual([]);
-    expect(driftOf(null, [token("x")], ["A"], true)).toEqual(emptyDrift);
+    expect(driftOf(ds, [], false).tokensGone).toEqual([]);
+    expect(driftOf(null, [token("x")], true)).toEqual(emptyDrift);
   });
 });
 
@@ -133,7 +128,7 @@ describe("the plan", () => {
   it("asks for nothing about components: the canvas draws the editor's system components", () => {
     const steps = planOf({
       drift: emptyDrift,
-      facts: { ...facts, components: 0, libraryDirs: [] },
+      facts: { ...facts, libraryDirs: [] },
       figmaSynced: false,
       setup: emptySetup(0),
     });

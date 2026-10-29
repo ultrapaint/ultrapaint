@@ -77,42 +77,34 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
           ? `${doc.path} has ${doc.unwritten === SECTIONS.length ? "none of the format's sections written yet" : `${doc.unwritten} of the format's sections with nothing under them`}.`
           : "";
       const nothing =
-        drift.tokensUndescribed.length +
-          drift.tokensGone.length +
-          drift.componentsUndescribed.length +
-          drift.componentsGone.length ===
-          0 && prose === "";
+        drift.tokensUndescribed.length + drift.tokensGone.length === 0 &&
+        prose === "";
       return `<ultrapaint-task command="sync">
 Describe in the design system what the code has that it does not list yet. The design system
 holds the values (ADR 0028) and the code follows it; a token the code declares that the design
-system does not list is taken with the code's value, and what each token and component is for is
-yours to write, here and in DESIGN.md's prose.
-${nothing ? "\nThe design system already lists every token and component of the code, and DESIGN.md's sections are written: say so, and stop.\n" : ""}
+system does not list is taken with the code's value, and what each token is for is yours to
+write, here and in DESIGN.md's prose.
+${nothing ? "\nThe design system already lists every token of the code, and DESIGN.md's sections are written: say so, and stop.\n" : ""}
 ${list(
   "Tokens the code declares that the design system does not list:",
   drift.tokensUndescribed.map((n) => `${n}: ${declaredValue(n)}`)
 )}${list(
   "Tokens the design system lists that the code no longer declares:",
   drift.tokensGone
-)}${list(
-  "Components of the code it says nothing about:",
-  drift.componentsUndescribed
-)}${list("Components it notes that the code no longer has:", drift.componentsGone)}${prose ? `\n${prose}\n` : ""}
+)}${prose ? `\n${prose}\n` : ""}
 1. Read the design system and DESIGN.md: ${ways.readDesignSystem(designsDir)}.
 2. Each new token: find where the code uses it, put it in the group it belongs to and say in
    \`description\` what it is for. A token the product has on purpose but designers should not
    reach for goes into \`omitted\` instead.
 3. Do not take a token out because the code does not declare it: the code is behind, and Sync
    exports it.
-4. Each new component: ${ways.readComponent} for its props; give it a \`category\`, a \`description\` and
-   \`exampleProps\` that make it render something meaningful. Take out the notes of a component gone.
-5. DESIGN.md: say in its prose what changed above, and write what it does not say yet. Prose that
+4. DESIGN.md: say in its prose what changed above, and write what it does not say yet. Prose that
    is not in the format's sections is put in them, keeping what it says; a section the format does
    not know stays, after the others. ${DESIGN_MD_GUIDE}
-6. Where what something is for is the user's to say, ask the user ${ways.askUser}, a few at
+5. Where what something is for is the user's to say, ask the user ${ways.askUser}, a few at
    a time.
-7. ${ways.saveDesignSystem(designsDir)}
-8. End with a short summary of what changed.
+6. ${ways.saveDesignSystem(designsDir)}
+7. End with a short summary of what changed.
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
