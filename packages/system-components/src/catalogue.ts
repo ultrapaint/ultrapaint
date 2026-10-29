@@ -28,6 +28,7 @@ import {
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { componentSlotOf } from "@ultrapaint/design-document/app-components";
 import { findNode } from "@ultrapaint/design-document/tree";
 
 /** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
@@ -546,15 +547,6 @@ export const systemComponentOf = (
   name: string
 ): SystemComponentMeta | undefined => byName.get(name);
 
-/** The slot a child marked `slot` goes in, or the one that takes unmarked children. */
-export const slotFor = (
-  meta: SystemComponentMeta,
-  slot: string | undefined
-): SystemComponentSlot | undefined =>
-  slot === undefined
-    ? meta.slots.find((s) => s.holds === "default")
-    : meta.slots.find((s) => s.name === slot && s.holds !== undefined);
-
 /** How each variant of a look lays a part out, where it says (`direction`), by `<axis>=<member>`. */
 const layoutsIn = (
   look: SystemComponentFile | undefined,
@@ -638,10 +630,8 @@ const appEntryOf = (file: AppComponentFile): ComponentMeta => ({
   name: file.name,
   props: file.properties.map(propOf),
   slots: file.slots.map((s) => ({
-    holds: s.default ? ("default" as const) : ("nodes" as const),
-    label: s.label ?? s.name,
+    ...componentSlotOf(s),
     layout: layoutOfSlot(file.tree, s.node),
-    name: s.name,
   })),
   variants: Object.fromEntries(
     file.properties.flatMap((p) =>

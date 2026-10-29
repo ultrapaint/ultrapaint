@@ -4,7 +4,7 @@
  * as an app component's tree. Nothing of the repository's is loaded or run.
  */
 
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   type AppComponentFile,
@@ -33,7 +33,7 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
-import { slotLayoutOf } from "@ultrapaint/design-document/slots";
+import { fillSlots, slotLayoutOf } from "@ultrapaint/design-document/slots";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
   type Drawing,
@@ -45,8 +45,6 @@ import {
 } from "@ultrapaint/framework-api/browser";
 import {
   catalogueOf,
-  type SystemComponentMeta,
-  slotFor,
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
 import { SYSTEM_COMPONENT_VIEWS } from "@ultrapaint/system-components/components";
@@ -470,9 +468,9 @@ const SystemView = ({
   const scope = useContext(ScopeContext) as Scope;
   const View = SYSTEM_COMPONENT_VIEWS[node.component];
   const meta = systemComponentOf(node.component);
-  const fallback = meta && slotFor(meta, undefined);
   const marks = marksOf(scope, node);
-  if (!(View && meta)) {
+  const entry = metaOf(scope.catalogue, node);
+  if (!(View && meta && entry)) {
     return createElement(Missing, {
       ...marks,
       style,
@@ -480,21 +478,31 @@ const SystemView = ({
     });
   }
   const look = scope.systems.get(node.component);
-  const children = childrenOf(node);
-  const bySlot = childrenBySlot(meta, node, scope.catalogue);
-  if (look?.content) {
-    fillEmptySlots(bySlot, scope, node, look.content, (slot) =>
-      slot === fallback ? node.text === undefined : true
-    );
-  }
+  // Each slot holds what fills it (`fillSlots`); the look's content is not the page's.
   const slots: Record<string, ReactNode> = {};
   let content: ReactNode =
-    children.length === 0 && node.text !== undefined ? node.text : undefined;
-  for (const [name, drawn] of bySlot) {
-    if (name === fallback?.name) {
-      content = drawn;
+    childrenOf(node).length === 0 && node.text !== undefined
+      ? node.text
+      : undefined;
+  for (const [name, fill] of fillSlots(node, entry.slots, look?.content)) {
+    const parent = slotLayoutOf(node, name, scope.catalogue) ?? "block";
+    const drawn = fill.nodes.map((child) =>
+      createElement(NodeView, { key: child.id, node: child, parent })
+    );
+    const held = fill.given
+      ? drawn
+      : createElement(
+          ScopeContext.Provider,
+          {
+            key: `content:${name}`,
+            value: { ...scope, nodeAttribute: APP_NODE_ATTRIBUTE },
+          },
+          drawn
+        );
+    if (entry.slots.find((s) => s.name === name)?.holds === "default") {
+      content = held;
     } else {
-      slots[name] = drawn;
+      slots[name] = held;
     }
   }
   return createElement(
@@ -514,64 +522,6 @@ const SystemView = ({
       content
     )
   );
-};
-
-/** An instance's children drawn, by the slot each fills: the one it names, or the default one. */
-const childrenBySlot = (
-  meta: SystemComponentMeta,
-  node: InstanceNode,
-  catalogue: Catalogue
-): Map<string, ReactNode[]> => {
-  const fallback = slotFor(meta, undefined);
-  const bySlot = new Map<string, ReactNode[]>();
-  for (const child of childrenOf(node)) {
-    const slot = slotFor(meta, child.slot) ?? fallback;
-    if (!slot) {
-      continue;
-    }
-    const drawn = createElement(NodeView, {
-      key: child.id,
-      node: child,
-      parent: slotLayoutOf(node, child.slot, catalogue) ?? "block",
-    });
-    bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
-  }
-  return bySlot;
-};
-
-/**
- * A slot the instance gives nothing holds what the look says it holds (`content`), which is not
- * the page's; `empty` says whether a slot given nothing is empty (a default slot may show text).
- */
-const fillEmptySlots = (
-  bySlot: Map<string, ReactNode[]>,
-  scope: Scope,
-  node: InstanceNode,
-  content: Readonly<Record<string, readonly DesignNode[]>>,
-  empty: (slot: SystemComponentMeta["slots"][number]) => boolean
-) => {
-  for (const slot of systemComponentOf(node.component)?.slots ?? []) {
-    const given = slot.holds === undefined ? undefined : content[slot.name];
-    if (!given || given.length === 0 || bySlot.has(slot.name) || !empty(slot)) {
-      continue;
-    }
-    bySlot.set(slot.name, [
-      createElement(
-        ScopeContext.Provider,
-        {
-          key: `content:${slot.name}`,
-          value: { ...scope, nodeAttribute: APP_NODE_ATTRIBUTE },
-        },
-        given.map((n) =>
-          createElement(NodeView, {
-            key: n.id,
-            node: n,
-            parent: slotLayoutOf(node, slot.name, scope.catalogue) ?? "block",
-          })
-        )
-      ),
-    ]);
-  }
 };
 
 /**
