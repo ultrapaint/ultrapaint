@@ -21,6 +21,8 @@ import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
+import { RepoPaths } from "./services/repo-paths.ts";
+import { writeComponentFile } from "./testing/components.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** The status of a component's link to its code, and the files it is linked to. */
@@ -454,30 +456,31 @@ describe("flows in the services", () => {
           const project = yield* ProjectManager;
           const components = project.service(ComponentService);
           const documents = project.service(DocumentService);
-          yield* components((c) =>
-            c.write({
-              name: "Promo",
-              origin: "app",
-              properties: [
-                {
-                  default: "Sale",
-                  kind: "text",
-                  name: "title",
-                  targets: [{ node: "t" }],
-                },
-              ],
-              slots: [{ name: "extra", node: "x" }],
-              tree: {
-                children: [
-                  { id: "t", role: "heading", text: "Sale", type: "text" },
-                  { children: [], id: "x", type: "row" },
-                ],
-                id: "r",
-                type: "column",
-              },
-              version: 1,
-            })
+          const designsDir = yield* project.service(RepoPaths)((p) =>
+            Effect.succeed(p.designsDir)
           );
+          yield* writeComponentFile(designsDir, {
+            name: "Promo",
+            origin: "app",
+            properties: [
+              {
+                default: "Sale",
+                kind: "text",
+                name: "title",
+                targets: [{ node: "t" }],
+              },
+            ],
+            slots: [{ name: "extra", node: "x" }],
+            tree: {
+              children: [
+                { id: "t", role: "heading", text: "Sale", type: "text" },
+                { children: [], id: "x", type: "row" },
+              ],
+              id: "r",
+              type: "column",
+            },
+            version: 1,
+          });
           const doc = yield* documents((d) => d.get("component:Promo"));
           assert.strictEqual(doc.root?.id, "r");
           yield* documents((d) =>

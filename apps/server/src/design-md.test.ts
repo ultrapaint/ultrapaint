@@ -111,14 +111,19 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           if (button?.origin !== "system") {
             return;
           }
-          yield* client["components.write"]({
-            component: {
-              ...button,
-              base: {
-                ...button.base,
-                root: { ...button.base.root, fill: "$color-brand" },
+          yield* client["components.change"]({
+            change: {
+              look: {
+                base: {
+                  ...button.base,
+                  root: { ...button.base.root, fill: "$color-brand" },
+                },
+                states: button.states,
+                variants: button.variants,
               },
+              op: "setLook",
             },
+            name: "Button",
           });
           yield* client["designSystem.setToken"]({
             name: "radius-card",
