@@ -6,6 +6,9 @@ Plan: `docs/PLAN-design-md.md`.
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the front matter mirrors
 > the design system's values, and DESIGN.md's tokens are compared with the design system's.
 
+> Amended by [0041](0041-system-and-app-components.md), 2026-10-29: the component tokens are
+> read off the files of the system components whose look the project owns.
+
 ## Context
 
 `DESIGN.md` has been free prose in the designs directory since 0015: the agent writes it whole,
