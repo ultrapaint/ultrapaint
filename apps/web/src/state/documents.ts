@@ -147,6 +147,8 @@ const documentsData = follow({
       loaded: true,
     })),
   key: () => useDocuments.getState().canvas,
+  // A change told while the list is read is taken after it: the list may be older.
+  news: ["document"],
   on: {
     document: (change) => {
       const { docs, canvas } = useDocuments.getState();

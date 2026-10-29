@@ -47,8 +47,10 @@ or when the change is about as big as the tree. `documents.apply` answers the ed
 with the same changes. The editor puts a patch into its copy when the copy is at `from`
 (`withChangedNodes`, every node that did not change the object it was, which `shareUnchanged`
 gave before by comparing), and reads the document again otherwise: an event missed or come out of
-order, a copy started from a component's file. What is told while it reads waits for the answer
-and is taken after it. A snapshot on screen holds the events back, as before, and is read again
+order, a copy started from a component's file. What is told while it reads the document, or
+the canvas's documents (a canvas opened, the connection opened again), waits for the answer, which
+the server may have read before the change, and is taken after it (`news` in `server-data.ts`).
+A snapshot on screen holds the events back, as before, and is read again
 when the editor goes back to now.
 
 ## Consequences
