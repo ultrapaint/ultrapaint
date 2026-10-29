@@ -7,6 +7,7 @@
  * WAI-ARIA tree pattern has it: the arrows walk and fold it, Enter selects, F2 renames. Its keys
  * are the command list's (`focusBindings.layersRow`); the tree hosts their scope.
  */
+import { componentDocOf } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
@@ -62,6 +63,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import {
@@ -288,8 +290,13 @@ const emptyText = (canvas: string | null, loaded: boolean, count: number) => {
   return count === 0 ? "Nothing on this canvas yet" : null;
 };
 
-/** A line of the list: a row, or the heading over the nodes placed on the canvas. */
-type Line = { kind: "heading" } | { kind: "row"; row: VisibleRow };
+/**
+ * A line of the list: a row, or the heading over the nodes placed on the canvas, or over the app
+ * component edited in place.
+ */
+type Line =
+  | { kind: "heading"; text: string }
+  | { kind: "row"; row: VisibleRow };
 
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
@@ -297,6 +304,7 @@ export const Layers = () => {
   const pages = allPages.filter((p) => p.canvas === canvas);
   const docs = useDocuments((s) => s.docs);
   const loaded = useDocuments((s) => s.loaded);
+  const isolated = useIsolation((s) => s.isolated);
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
   const [folds, setFolds] = useState<Folds>(NO_FOLDS);
@@ -313,6 +321,16 @@ export const Layers = () => {
   // The tree is built again only when the documents change: a canvas holds thousands of layers,
   // and a selection or a fold changes none of them.
   const { items, nodes } = useMemo(() => {
+    // An app component edited in place is what its frame's selection and edits are in: its tree
+    // is listed alone, as the rest of the canvas is out of reach.
+    const component =
+      isolated && docs[componentDocOf(isolated.component)]?.root;
+    if (isolated && component) {
+      return {
+        items: [looseItem(isolated.frame, component)],
+        nodes: [component],
+      };
+    }
     const placed = canvasNodes(docs, canvas);
     return {
       items: [
@@ -323,7 +341,7 @@ export const Layers = () => {
       ],
       nodes: placed,
     };
-  }, [allPages, canvas, docs]);
+  }, [allPages, canvas, docs, isolated]);
 
   const { query } = folds;
   const shown = useMemo(() => filterLayers(items, query), [items, query]);
@@ -343,7 +361,10 @@ export const Layers = () => {
   for (const row of rows) {
     if (!headed && row.level === 1 && !row.item.page) {
       headed = true;
-      lines.push({ kind: "heading" });
+      lines.push({
+        kind: "heading",
+        text: isolated ? `Editing ${isolated.component}` : "On the canvas",
+      });
       heights.push(HEADING);
     }
     lines.push({ kind: "row", row });
@@ -539,7 +560,7 @@ export const Layers = () => {
                   key="heading"
                   role="presentation"
                 >
-                  On the canvas
+                  {line.text}
                 </div>
               );
             }
