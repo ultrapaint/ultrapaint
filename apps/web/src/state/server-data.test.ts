@@ -1,7 +1,10 @@
 import "../testing/fake-browser.ts";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import { emptySetup } from "@ultrapaint/contracts/design-system-setup";
-import type { DocumentState } from "@ultrapaint/contracts/document";
+import type {
+  DocumentPatch,
+  DocumentState,
+} from "@ultrapaint/contracts/document";
 import type { Checkpoint } from "@ultrapaint/contracts/git";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type {
@@ -362,6 +365,56 @@ describe("following the server", () => {
     answer([checkpoint("cp1")]);
     await reading;
     expect(held().checkpoints).toEqual(["cp8", "cp1"]);
+  });
+
+  describe("a document's news told while the canvas's documents are read", () => {
+    /** The page's change over the state `from`: a heading put on it. */
+    const headed = (from: string, hash: string): DocumentPatch => ({
+      doc: "home.page.json",
+      from,
+      hash,
+      nodes: [
+        { children: ["h"], node: { id: "root", type: "page" } },
+        { node: { id: "h", text: "Hello", type: "text" } },
+      ],
+      rootId: "root",
+    });
+    let answer: (states: DocumentState[]) => void = () => undefined;
+    const listLater = () =>
+      fakeApi.respond(
+        "documents.list",
+        () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          })
+      );
+
+    it("is taken after the list's answer, which the server read before it", async () => {
+      await openEditor();
+      listLater();
+      const opening = useDocuments.getState().load("");
+      fakeApi.emit("document", headed("h1", "h2"));
+      answer([doc("h1")]);
+      await opening;
+      await settle();
+      expect(held().documents).toBe("h2");
+      expect(
+        useDocuments.getState().docs["home.page.json"]?.root
+      ).toMatchObject({ children: [{ id: "h" }] });
+    });
+
+    it("is taken after the answer of the read a connection open makes", async () => {
+      await openEditor();
+      listLater();
+      fakeApi.disconnect();
+      fakeApi.connect();
+      await settle();
+      fakeApi.emit("document", doc("h7"));
+      answer([doc("h1")]);
+      await settle();
+      expect(held().documents).toBe("h7");
+      expect(reported).toEqual([]);
+    });
   });
 
   it("drops an answer older than one taken already", async () => {
