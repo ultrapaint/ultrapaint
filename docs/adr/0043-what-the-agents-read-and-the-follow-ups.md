@@ -1,6 +1,6 @@
 # ADR 0043: What an agent reads, and 0042's follow-ups
 
-Status: accepted, 2026-10-29. Follows 0042. Amends 0041 (an app component's breakpoint overrides
+Status: accepted, 2026-10-29; what an edit tells the editors: amended by 0044. Follows 0042. Amends 0041 (an app component's breakpoint overrides
 are drawn in its instances; the migration's RPC is `migration.run`) and 0042 (a component change
 covers a system component's look and a note taken out; a rename's instance edits are made inside
 its undo step). The terms are in `GLOSSARY.md`.
