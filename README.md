@@ -291,8 +291,8 @@ keeps its login and sessions:
 ## Agents ask the editor
 
 An agent in a thread is told about the project when it starts — where the designs are, how pages
-route, what the system components are — and is given the editor's own MCP server to ask the rest:
-the pages and their routes, a system component's props, variants and slots, the comments left on the canvas. It
+route, what the system and app components are — and is given the editor's own MCP server to ask the rest:
+the pages and their routes, a component's props, variants and slots, the comments left on the canvas. It
 can add and rename pages through it, answer a comment where it was left, say which page it is
 working on so you can watch it, and take a screenshot of a page or a node to check its own work.
 Screenshots are drawn by the editor's preview, so the editor has to be open in a browser. When a
@@ -331,7 +331,7 @@ A design is not code. It is a small tree of nodes, the way a design tool sees it
 | `group` | A plain container that only holds and styles its children |
 | `text` | A heading (level 1–6) or a paragraph |
 | `image` | A picture from the space's `assets/` directory |
-| `instance` | One of ultrapaint's system components, with its props; its children fill its slots |
+| `instance` | A component, a system one of ultrapaint's or an app one of yours, with its props; its children fill its slots |
 
 Sizes are `fill`, `hug` or pixels, and every colour, radius, shadow, spacing and type setting can
 be a token of your design system (`"$color-primary"`, `"$text-lg"`, `"$spacing-4"`), so the
@@ -458,7 +458,9 @@ no, a choice, an image — or **exposes** a field of the node selected as one (i
 shows, its picture, a prop of a component inside it), and makes a container a **slot** that an
 instance's children fill. A choice's members are **variants**: pick one in the banner under the
 canvas and your edits land on it alone. Escape, or **Done**, goes back to the page. An instance's
-properties are its props in the inspector; **Detach** turns it back into plain nodes.
+properties are its props in the inspector; **Detach** turns it back into plain nodes. Renaming a
+property or one of a choice's members, or taking one out, follows into its variants and every
+instance's props, in one step you can undo; two properties, slots or members cannot share a name.
 **Implement** writes an app component as a component of your application, a prop for each
 property and children for its slots.
 
@@ -487,10 +489,10 @@ The design system is two files, both meant to be committed:
 - `design-system.json`, next to the designs: what the format has no place for. That is colours
   by palette and the semantic ones with what each is for, how each text style is built from the
   tokens, fonts, shadows, border widths, elevation levels (a surface, its shadow and its
-  z-index), breakpoints and container widths, motion, the icon set and themes. For each
-  component it keeps a category, a description and the example props its thumbnail is drawn
-  with. It also keeps what Sync last agreed on with Figma, `DESIGN.md`, the code and
-  `design.tokens.json`.
+  z-index), breakpoints and container widths, motion, the icon set and themes. It also keeps
+  what Sync last agreed on with Figma, `DESIGN.md`, the code and `design.tokens.json`. A
+  component's description and category are in its own file (`components/`), and the example a
+  new instance starts with is the catalogue's.
 
 **A token's value lives in the design system** ([ADR 0028](docs/adr/0028-the-design-holds-the-values.md)):
 `design-system.json` holds every value in every theme, and `design.tokens.json` beside it says
@@ -524,7 +526,7 @@ has a dot while something is waiting.
 | a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
 | an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
 | a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
-| a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` or another tool in `design.tokens.json` into the design system; exports what the code is missing and takes in what the code changed alone; lists what drifted (tokens and components the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
+| a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` or another tool in `design.tokens.json` into the design system; exports what the code is missing and takes in what the code changed alone; lists what drifted (tokens the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
 
 Settings that point nowhere (no stylesheet) come first in every case: **Detect and apply** proposes where they are and
 applies them once you have seen it.
@@ -654,7 +656,7 @@ type after it is added to it.
 | Command | What it does |
 |---|---|
 | `/sync` | Opens the Sync view on the steps for your repository's case (no agent turn) |
-| `/sync describe` | An agent describes in the design system what the code has that it does not list: new tokens and components, asking you what they are for |
+| `/sync describe` | An agent describes in the design system what the code has that it does not list: new tokens, asking you what they are for |
 | `/sync figma` | An agent matches the imported Figma file's tokens to the design system's, asking you where the meaning is yours to say; you review and write them in Sync |
 | `/sync design` | An agent matches `DESIGN.md`'s tokens to the design system's and settles its text styles with you; you review and write them in Sync |
 | `/sync code` | An agent brings the code up to the design: exports the tokens waiting for it, and asks you about what the code changed alone or on both sides |
@@ -707,9 +709,10 @@ agents never do.
 
 This project is very early. Expect bugs and breaking changes.
 
-It supports React with Vite and Tailwind v4 today. The preview is split the way Storybook's is, so that another
-framework is a package rather than a rewrite, and styling is an adapter of its own beside it, so
-StyleX or Emotion would be too; neither exists yet. Yarn Plug'n'Play is not supported.
+It supports React with Vite and Tailwind v4 today: the framework says where a repository's
+application is and writes a new one, and styling is an adapter of its own beside it, so StyleX or
+Emotion would be one too; neither exists yet. The canvas draws the editor's own components, so it
+needs neither. Yarn Plug'n'Play is not supported.
 
 ## Documentation
 
@@ -742,12 +745,12 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 [`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
-- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git where there is one, the snapshot store, ACP threads.
+- `apps/server` — local backend on the Effect 4 runtime: settings, pages and canvases, design documents, component files and the design system, undo, git where there is one, the snapshot store, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
-- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a system component's look as CSS, an app component's instance as the nodes it draws, a node's JSX with the classes a style system writes.
-- `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
-- `packages/preview-core` — the frames drawn in the editor's page, given a renderer: shadow roots, what to draw, measuring, hit-testing, pictures, text editing, the prototype's navigation.
-- `packages/system-components` — the editor's own components on Base UI (ADRs 0040, 0041): their catalogue, their components, their default look, each frame's containment, and the migration of what came before.
+- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a system component's look as CSS, an instance's slots (what fills each, how each lays it out), an app component's instance as the nodes it draws, a node's JSX with the classes a style system writes.
+- `packages/framework-api` — what a framework and a style system give the server.
+- `packages/preview-core` — the editor's frames (`Preview`), drawn in its page by a renderer mounted through `RenderToCanvas`: shadow roots, the design's look set once, what to draw, measuring, hit-testing, pictures, text editing, the prototype's navigation.
+- `packages/system-components` — the editor's own components on Base UI (ADRs 0040, 0041): the catalogue over the component files (`catalogueOf`), their components, their default look, each frame's containment, and the conversion of what came before.
 - `packages/renderer-react` — draws design documents with the editor's React: elements, system components and app components (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
 - `packages/framework-react-vite` — the Node side for React + Vite: repository detection and the application a repository can start from.
