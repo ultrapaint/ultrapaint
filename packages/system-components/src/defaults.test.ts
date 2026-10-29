@@ -36,7 +36,59 @@ describe("the default look", () => {
           expect.arrayContaining(Object.keys(members))
         );
       }
+      // A state in a member: of an axis and member it has, a state it has, a part it has.
+      for (const [axis, members] of Object.entries(spec?.variantStates ?? {})) {
+        expect(meta.variants[axis]).toEqual(
+          expect.arrayContaining(Object.keys(members))
+        );
+        for (const states of Object.values(members)) {
+          expect(meta.states).toEqual(
+            expect.arrayContaining(Object.keys(states))
+          );
+          const slots = Object.values(states).flatMap((s) => Object.keys(s));
+          expect(slots.filter((slot) => !parts.has(slot))).toEqual([]);
+        }
+      }
     }
+  });
+
+  it("reads back as it is written, and a file from before states in a member still reads", () => {
+    const button = defaultLookOf("Button") ?? emptySystemComponent("Button");
+    expect(button.variantStates?.variant?.outline?.hover?.root).toEqual({
+      color: "$color-accent-foreground",
+      fill: "$color-accent",
+    });
+    const json = JSON.parse(
+      JSON.stringify(Schema.encodeSync(SystemComponentFile)(button))
+    );
+    expect(Schema.decodeUnknownSync(SystemComponentFile)(json)).toEqual(button);
+    const { variantStates: _, ...older } = json;
+    expect(
+      Schema.decodeUnknownSync(SystemComponentFile)(older).variantStates
+    ).toBeUndefined();
+    expect(() =>
+      Schema.decodeUnknownSync(SystemComponentFile)({
+        ...older,
+        variantStates: {
+          variant: { outline: { hover: { root: { fill: 1 } } } },
+        },
+      })
+    ).toThrow();
+  });
+
+  it("draws each button variant's hover of its own, after the general states, disabled after it", () => {
+    const outlineHover = SYSTEM_COMPONENTS_CSS.indexOf(
+      '[data-ed-c="Button"]:where([data-ed-v~="variant:outline"])'
+    );
+    const disabled = SYSTEM_COMPONENTS_CSS.indexOf(
+      '[data-ed-c="Button"]:disabled'
+    );
+    expect(outlineHover).toBeGreaterThan(-1);
+    expect(disabled).toBeGreaterThan(outlineHover);
+    expect(SYSTEM_COMPONENTS_CSS).toContain(
+      "background-color: color-mix(in oklab, var(--color-primary) 88%, var(--color-background))"
+    );
+    expect(SYSTEM_COMPONENTS_CSS).not.toContain('[data-variant="outline"]');
   });
 
   it("is drawn in the system components' layer, a portalled part found through its portal", () => {

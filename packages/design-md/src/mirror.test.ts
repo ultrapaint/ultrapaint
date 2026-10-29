@@ -139,6 +139,31 @@ describe("component tokens", () => {
     });
   });
 
+  it("gives what each state changes, in each colour variant", () => {
+    expect(
+      componentEntries([
+        {
+          ...button,
+          states: { hover: { root: { color: "$color-ink-strong" } } },
+          variantStates: {
+            variant: {
+              danger: { hover: { root: { fill: "$color-danger-dark" } } },
+              default: { open: { root: { fill: "$color-accent" } } },
+            },
+          },
+        },
+      ])
+    ).toMatchObject({
+      "icon-button-danger-hover": {
+        backgroundColor: "$color-danger-dark",
+        textColor: "$color-ink-strong",
+      },
+      "icon-button-ghost-hover": { textColor: "$color-ink-strong" },
+      "icon-button-hover": { textColor: "$color-ink-strong" },
+      "icon-button-open": { backgroundColor: "$color-accent" },
+    });
+  });
+
   it("writes padding the same on every side as one length, and leaves out one that is not", () => {
     expect(
       componentEntries([

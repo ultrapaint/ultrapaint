@@ -4,7 +4,8 @@
  * each system component's default file (`defaults.ts`), drawn by `lookCss` over the design
  * system's tokens, each with a neutral value of its own for a design that does not set it. What a
  * file cannot say is written here, after it: layout and positioning, a dialog's sheet on a narrow
- * frame, animations, and what a pointer or a state does to a part.
+ * frame, animations and a focus outline. What a state does to a part, in every variant or in one
+ * (a button's hover), is the files'.
  *
  * What a pointer does (`:hover`, Base UI's `data-highlighted`) shows only in a frame that runs:
  * a designed frame is inert and takes no pointer, and a state shows there only when the design
@@ -25,20 +26,8 @@ import { looksOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 
 const t = (name: string) => `var(--${name})`;
 
-const BG = t("color-background");
-const FG = t("color-foreground");
-const PRIMARY = t("color-primary");
-const SECONDARY = t("color-secondary");
-const ACCENT = t("color-accent");
-const ACCENT_FG = t("color-accent-foreground");
-const DESTRUCTIVE = t("color-destructive");
 const RING = t("color-ring");
 const RADIUS_LG = t("radius-lg");
-
-/** A selector for a pointer state: in a running frame, or pinned by the design. */
-const pointer = (state: string, pinned: string) =>
-  `:is([data-ed-live] :is(${state}), [data-ed-state~="${pinned}"])`;
-const HOVER = pointer(":hover", "hover");
 
 /**
  * What every token the system components and a new canvas draw with is until the design says otherwise:
@@ -91,13 +80,7 @@ ${DEFAULT_LOOK}
     line-height: 1; white-space: nowrap; cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
   }
-  [data-system="button"]${HOVER}:not(:disabled) { background: color-mix(in oklab, ${PRIMARY} 88%, ${BG}); }
-  [data-system="button"][data-variant="secondary"]${HOVER}:not(:disabled) { background: color-mix(in oklab, ${SECONDARY} 85%, ${FG}); }
-  [data-system="button"][data-variant="outline"]${HOVER}:not(:disabled) { background: ${ACCENT}; color: ${ACCENT_FG}; }
-  [data-system="button"][data-variant="ghost"]:is(${HOVER}, [data-popup-open]):not(:disabled) { background: ${ACCENT}; color: ${ACCENT_FG}; }
-  [data-system="button"][data-variant="destructive"]${HOVER}:not(:disabled) { background: color-mix(in oklab, ${DESTRUCTIVE} 88%, black); }
   [data-system="button"][data-variant="link"] { text-decoration: underline; text-underline-offset: 4px; }
-  [data-system="button"][data-variant="link"]${HOVER}:not(:disabled) { background: transparent; }
   [data-system="button"]:focus-visible { outline: 2px solid ${RING}; outline-offset: 2px; }
   [data-system="button"]:disabled { cursor: not-allowed; }
   [data-system="button"][data-loading] { opacity: 0.75; cursor: progress; }

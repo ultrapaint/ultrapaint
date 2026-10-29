@@ -385,6 +385,15 @@ export interface LookLike {
   readonly component: string;
   /** The member each variant axis starts in. */
   readonly defaults: Readonly<Record<string, string>>;
+  readonly states?: Readonly<Record<string, PartStyles>> | undefined;
+  readonly variantStates?:
+    | Readonly<
+        Record<
+          string,
+          Readonly<Record<string, Readonly<Record<string, PartStyles>>>>
+        >
+      >
+    | undefined;
   readonly variants: Readonly<
     Record<string, Readonly<Record<string, PartStyles>>>
   >;
@@ -394,7 +403,9 @@ export interface LookLike {
  * The component tokens of the system components whose look the project owns (ADRs 0027, 0041):
  * those with a file, its root part's fields as the format holds them. `button` as it starts,
  * `button-<variant>` for each other member of the variant that changes its colours, and
- * `button-<size>` for each other size, its dimensions alone. A system component in its default
+ * `button-<size>` for each other size, its dimensions alone; `button-<state>` and
+ * `button-<variant>-<state>` for what a state changes (ADR 0044), the state's own fields under its
+ * member's in that state. A system component in its default
  * look has no file and writes nothing, nor does an app component.
  */
 export const componentEntries = (
@@ -407,7 +418,7 @@ export const componentEntries = (
   return out;
 };
 
-/** One look's entries: as it starts, each other colour variant, each other size. */
+/** One look's entries: as it starts, each other colour variant, each state, each other size. */
 const entriesOf = (look: LookLike): Record<string, Record<string, string>> => {
   const key = kebab(look.component);
   /** The root's fields with each axis at its default, or at the member `choice` names. */
@@ -433,12 +444,42 @@ const entriesOf = (look: LookLike): Record<string, Record<string, string>> => {
   const others = (axis: string | undefined) =>
     axis === undefined
       ? []
-      : Object.keys(look.variants[axis] ?? {}).filter(
-          (member) => member !== look.defaults[axis]
-        );
-  const colorAxis = COLOR_AXES.find((a) => look.variants[a]);
+      : [
+          ...new Set([
+            ...Object.keys(look.variants[axis] ?? {}),
+            ...Object.keys(look.variantStates?.[axis] ?? {}),
+          ]),
+        ].filter((member) => member !== look.defaults[axis]);
+  const colorAxis = COLOR_AXES.find(
+    (a) => look.variants[a] ?? look.variantStates?.[a]
+  );
   for (const member of others(colorAxis)) {
     add(`${key}-${kebab(member)}`, rootFor({ [colorAxis ?? ""]: member }));
+  }
+  /** What a state changes in a colour member: the state's root fields, the member's own over them. */
+  const stateFor = (state: string, member: string | undefined) =>
+    tokensOfStyle({
+      ...look.states?.[state]?.[ROOT_SLOT],
+      ...(colorAxis !== undefined && member !== undefined
+        ? look.variantStates?.[colorAxis]?.[member]?.[state]?.[ROOT_SLOT]
+        : {}),
+    });
+  const states = new Set(Object.keys(look.states ?? {}));
+  for (const members of Object.values(
+    colorAxis ? (look.variantStates?.[colorAxis] ?? {}) : {}
+  )) {
+    for (const state of Object.keys(members)) {
+      states.add(state);
+    }
+  }
+  for (const state of states) {
+    add(
+      `${key}-${kebab(state)}`,
+      stateFor(state, colorAxis && look.defaults[colorAxis])
+    );
+    for (const member of others(colorAxis)) {
+      add(`${key}-${kebab(member)}-${kebab(state)}`, stateFor(state, member));
+    }
   }
   for (const member of others(SIZE_AXIS)) {
     add(

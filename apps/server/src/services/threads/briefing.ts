@@ -149,8 +149,10 @@ const componentsOf = (
   return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
 { "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
 - origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
-  (per axis, per member) and "states" (hover, focus, active, highlighted, disabled, open, checked,
-  invalid), each style fields per part (root or a data-slot): fill, color, border, radius, padding
+  (per axis, per member), "states" (hover, focus, active, highlighted, disabled, open, checked,
+  invalid) and "variantStates" (per axis, per member, per state: an outline button's hover; it
+  wins over the state's, which wins over the member's), each style fields per part (root or a
+  data-slot): fill, color, border, radius, padding
   (one or per side), height, width, gap, direction, align, crossAlign, order, fontSize, fontWeight,
   shadow, opacity; "content" (nodes per slot, drawn when an instance gives it none), "hidden"
   (optional parts left out) and, for Select and Menu, "item" ({ tree, label, image }: nodes drawn

@@ -3,8 +3,8 @@
  * the design document's own style fields, over the design system's tokens (`$color-primary`).
  * `look.ts` draws them under the project's files; taking a system component's look over starts
  * the project's file from its default, so the designer edits real values. What a file cannot say
- * stays in `look.ts`: positioning, a dialog's sheet on a narrow frame, animations, a focus
- * outline, and a colour mixed from another as a button's hover is.
+ * stays in `look.ts`: positioning, a dialog's sheet on a narrow frame, animations and a focus
+ * outline. A value may be any CSS, a colour mixed from tokens' variables as a button's hover is.
  */
 import type {
   PartStyle,
@@ -66,8 +66,13 @@ const field: PartStyle = {
 interface Look {
   readonly base: PartStyles;
   readonly states?: SystemComponentFile["states"];
+  readonly variantStates?: SystemComponentFile["variantStates"];
   readonly variants?: SystemComponentFile["variants"];
 }
+
+/** A colour mixed from a token's and another: a fill a little lighter or darker. */
+const mix = (token: string, percent: number, other: string) =>
+  `color-mix(in oklab, var(--${token}) ${percent}%, ${other})`;
 
 /** A field's ring while it has the focus or its popup is open. */
 const RING: PartStyle = {
@@ -76,6 +81,11 @@ const RING: PartStyle = {
 };
 /** An item of a select or a menu while the pointer or the keys are on it. */
 const HIGHLIGHTED: PartStyle = {
+  color: "$color-accent-foreground",
+  fill: "$color-accent",
+};
+/** A quiet button under the pointer or with its popup open. */
+const ACCENTED: PartStyle = {
   color: "$color-accent-foreground",
   fill: "$color-accent",
 };
@@ -158,6 +168,29 @@ const LOOKS: Readonly<Record<string, Look>> = {
       },
     },
     states: { disabled: { root: UNUSABLE } },
+    // Each variant's hover of its own: a filled one a little darker, a quiet one accented, a
+    // link none. A ghost one is accented while its popup is open, as a menu's trigger.
+    variantStates: {
+      variant: {
+        destructive: {
+          hover: { root: { fill: mix("color-destructive", 88, "black") } },
+        },
+        ghost: { hover: { root: ACCENTED }, open: { root: ACCENTED } },
+        outline: { hover: { root: ACCENTED } },
+        primary: {
+          hover: {
+            root: { fill: mix("color-primary", 88, "var(--color-background)") },
+          },
+        },
+        secondary: {
+          hover: {
+            root: {
+              fill: mix("color-secondary", 85, "var(--color-foreground)"),
+            },
+          },
+        },
+      },
+    },
     // The size first: a link's padding and height win over a size's.
     variants: {
       size: {
@@ -453,6 +486,7 @@ const fileOf = (meta: SystemComponentMeta): SystemComponentFile => {
     origin: "system",
     states: look.states ?? {},
     variants: look.variants ?? {},
+    ...(look.variantStates && { variantStates: look.variantStates }),
     version: 1,
   };
 };
@@ -490,6 +524,7 @@ export const lookOf = (
     hidden: file.hidden,
     parts: meta.slots.map((s) => s.name),
     states: file.states,
+    variantStates: file.variantStates,
     variants: file.variants,
   };
 };

@@ -1,8 +1,8 @@
 /**
  * A system component's look drawn over it (ADRs 0029, 0040, 0041). The renderer marks every
  * instance with the component it is and the variant props it was given; a look, the style fields
- * of each part at its base, in each variant and in each state, becomes a stylesheet keyed on
- * those marks, so the component keeps its behaviour and takes the design's look. The project's
+ * of each part at its base, in each variant, in each state and in each state of one variant
+ * (ADR 0044), becomes a stylesheet keyed on those marks, so the component keeps its behaviour and takes the design's look. The project's
  * looks are unlayered and come after the default looks' layer, so they win over it without
  * `!important`, and a property a look does not set stays the default's.
  */
@@ -15,6 +15,7 @@ import type {
   ComponentState,
   PartStyle,
   PartStyles,
+  StateStyles,
 } from "@ultrapaint/contracts/components";
 import type { Border, Padding } from "@ultrapaint/contracts/document";
 import { ITEMS, JUSTIFY, type StyleContext } from "./css.ts";
@@ -31,7 +32,11 @@ export interface ComponentLook {
   /** Its parts, the root first: the order their rules are written in. */
   readonly parts: readonly string[];
   /** Style fields per state, per part. */
-  readonly states: Readonly<Record<string, PartStyles>>;
+  readonly states: StateStyles;
+  /** Style fields per variant axis, per member, per state, per part. */
+  readonly variantStates?:
+    | Readonly<Record<string, Readonly<Record<string, StateStyles>>>>
+    | undefined;
   /** Style fields per variant axis, per member, per part. */
   readonly variants: Readonly<
     Record<string, Readonly<Record<string, PartStyles>>>
@@ -220,11 +225,20 @@ const STATE_SELECTORS: Record<ComponentState, readonly string[]> = {
   ],
 };
 
-/** The states in the order their rules are written: disabled last, so it wins over the rest. */
-const STATE_ORDER: readonly ComponentState[] = [
-  ...COMPONENT_STATES.filter((s) => s !== "disabled"),
-  "disabled",
-];
+/** The states but disabled, in the order their rules are written; disabled comes after them all. */
+const STATES_BUT_DISABLED: readonly ComponentState[] = COMPONENT_STATES.filter(
+  (s) => s !== "disabled"
+);
+
+/**
+ * What the pointer does shows only on a component that can be used: a disabled button keeps its
+ * look when hovered or pressed. Inside `:where()`, so it adds nothing to a rule's specificity.
+ */
+const USABLE = ":where(:not(:disabled, [data-disabled]))";
+const POINTER_STATES: ReadonlySet<ComponentState> = new Set([
+  "hover",
+  "active",
+]);
 
 /**
  * Where a rule matches. `host` is added to the element the renderer marks (the component's root,
@@ -315,32 +329,78 @@ const rulesOf = (
  * the axis: no token of `data-ed-v` starts with `axis:`. Both negations sit in one `:not()`,
  * so the default is exactly as specific as a member named outright, and a state still wins.
  */
-const variantMatches = (
+const variantHosts = (
   axis: string,
   member: string,
   isDefault: boolean
-): Match[] => {
-  const named = {
-    host: attribute(VARIANT_ATTRIBUTE, "~", `${axis}:${member}`),
-    target: "",
-  };
+): string[] => {
+  const named = attribute(VARIANT_ATTRIBUTE, "~", `${axis}:${member}`);
   if (!isDefault) {
     return [named];
   }
-  const unset = `:not(${attribute(VARIANT_ATTRIBUTE, "^", `${axis}:`)}, ${attribute(VARIANT_ATTRIBUTE, "*", ` ${axis}:`)})`;
-  return [named, { host: unset, target: "" }];
+  return [
+    named,
+    `:not(${attribute(VARIANT_ATTRIBUTE, "^", `${axis}:`)}, ${attribute(VARIANT_ATTRIBUTE, "*", ` ${axis}:`)})`,
+  ];
 };
 
 /**
  * A state as its selectors on the component's root, on the part itself, and pinned on the
- * instance.
+ * instance; a pointer's state only on a component that can be used.
  */
-const stateMatches = (state: ComponentState): Match[] => [
-  ...STATE_SELECTORS[state].map((target) => ({ host: "", target })),
-  ...STATE_SELECTORS[state].map((part) => ({ host: "", part, target: "" })),
-  { host: attribute(STATE_ATTRIBUTE, "~", state), target: "" },
-];
+const stateMatches = (state: ComponentState): Match[] => {
+  const usable = POINTER_STATES.has(state) ? USABLE : "";
+  return [
+    ...STATE_SELECTORS[state].map((target) => ({ host: usable, target })),
+    ...STATE_SELECTORS[state].map((part) => ({
+      host: usable,
+      part,
+      target: "",
+    })),
+    { host: `${attribute(STATE_ATTRIBUTE, "~", state)}${usable}`, target: "" },
+  ];
+};
 
+/**
+ * A state in one variant member: the state's matches on an instance in that member, the member
+ * inside `:where()` so the rule is as specific as the state's own and wins over it by coming
+ * after it.
+ */
+const variantStateMatches = (
+  hosts: readonly string[],
+  state: ComponentState
+): Match[] =>
+  hosts.flatMap((variant) =>
+    stateMatches(state).map((m) => ({
+      ...m,
+      host: `:where(${variant})${m.host}`,
+    }))
+  );
+
+/** The rules of every member's style for a state, axis by axis. */
+const variantStateRules = (
+  look: ComponentLook,
+  state: ComponentState,
+  ctx: StyleContext
+): string[] =>
+  Object.entries(look.variantStates ?? {}).flatMap(([axis, members]) =>
+    Object.entries(members).flatMap(([member, states]) =>
+      rulesOf(
+        look,
+        states[state],
+        variantStateMatches(
+          variantHosts(axis, member, look.defaults[axis] === member),
+          state
+        ),
+        ctx
+      )
+    )
+  );
+
+/**
+ * A look's rules, each later one winning over an earlier one as specific: the base, the variant
+ * members, the states, the states in a member, and disabled last, its own in a member after it.
+ */
 const lookRules = (look: ComponentLook, ctx: StyleContext): string[] => [
   ...rulesOf(look, look.base, [{ host: "", target: "" }], ctx),
   ...Object.entries(look.variants).flatMap(([axis, members]) =>
@@ -348,14 +408,21 @@ const lookRules = (look: ComponentLook, ctx: StyleContext): string[] => [
       rulesOf(
         look,
         styles,
-        variantMatches(axis, member, look.defaults[axis] === member),
+        variantHosts(axis, member, look.defaults[axis] === member).map(
+          (host) => ({ host, target: "" })
+        ),
         ctx
       )
     )
   ),
-  ...STATE_ORDER.flatMap((state) =>
+  ...STATES_BUT_DISABLED.flatMap((state) =>
     rulesOf(look, look.states[state], stateMatches(state), ctx)
   ),
+  ...STATES_BUT_DISABLED.flatMap((state) =>
+    variantStateRules(look, state, ctx)
+  ),
+  ...rulesOf(look, look.states.disabled, stateMatches("disabled"), ctx),
+  ...variantStateRules(look, "disabled", ctx),
   ...hiddenRules(look),
 ];
 
@@ -376,7 +443,7 @@ const hiddenRules = (look: ComponentLook): string[] => {
 
 /**
  * The stylesheet that draws looks over their components: base, then each variant axis' members,
- * then the states with disabled last.
+ * then the states, then the states in a member, with disabled last.
  */
 export const lookCss = (
   looks: readonly ComponentLook[],

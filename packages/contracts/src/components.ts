@@ -81,6 +81,10 @@ export const PART_STYLE_FIELDS = Object.keys(
 export const PartStyles = Schema.Record(Schema.String, PartStyle);
 export type PartStyles = typeof PartStyles.Type;
 
+/** Style fields per state, per part. */
+export const StateStyles = Schema.Record(Schema.String, PartStyles);
+export type StateStyles = typeof StateStyles.Type;
+
 /**
  * A behaviour note on a component (ADR 0030): what its code must do that the design cannot show
  * ("closes on Escape and gives the focus back"), about one part (a system component's part, an
@@ -128,7 +132,8 @@ export type ItemTemplate = typeof ItemTemplate.Type;
 
 /**
  * A system component's look as the project's design says it: style fields per part at its base,
- * per variant axis and member, and per state; what each slot holds when an instance gives it
+ * per variant axis and member, per state, and per state in one variant member (ADR 0044); what
+ * each slot holds when an instance gives it
  * nothing; which optional parts it leaves out; and, for a Select or a Menu, what an item draws.
  * Its parts, axes and states are the catalogue's; behaviour is Base UI's, and its behavioural
  * parts are fixed: a component that adds behaviour or removes one of them is an app component
@@ -146,7 +151,15 @@ const lookFields = {
   /** What each item of a Select or a Menu draws. */
   item: Schema.optional(ItemTemplate),
   /** Style fields per state, per part. */
-  states: Schema.Record(Schema.String, PartStyles),
+  states: StateStyles,
+  /**
+   * Style fields per variant axis, per member, per state, per part: a state as one member draws
+   * it (an outline button's hover). It wins over the state's own fields, which win over the
+   * member's, which win over the base; disabled's win over every other state's.
+   */
+  variantStates: Schema.optional(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, StateStyles))
+  ),
   /** Style fields per variant axis, per member, per part. */
   variants: Schema.Record(
     Schema.String,
@@ -158,13 +171,14 @@ const lookFields = {
 export const SystemLook = Schema.Struct(lookFields);
 export type SystemLook = typeof SystemLook.Type;
 
-const { states, variants, ...unordered } = lookFields;
+const { states, variants, variantStates, ...unordered } = lookFields;
 export const SystemComponentFile = Schema.Struct({
   ...envelope,
   // In the order a file has always been written in.
   ...unordered,
   origin: Schema.Literal("system"),
   states,
+  variantStates,
   variants,
 });
 export type SystemComponentFile = typeof SystemComponentFile.Type;
