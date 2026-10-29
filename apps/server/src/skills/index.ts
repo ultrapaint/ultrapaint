@@ -25,6 +25,7 @@ interface BuiltInSkill {
 
 /** The order agents are told them in: what the screen is for first, the details after. */
 const ORDER = [
+  "character",
   "hierarchy",
   "restraint",
   "layout",
@@ -50,7 +51,8 @@ export const SKILL_ORDER: readonly string[] = ORDER;
  * What a skill's markdown says the editor's tools change: "[with the editor's tools: … | without:
  * …]", so the same file reads whole to an agent elsewhere, which has not got them.
  */
-const WAYS_RE = /\[with the editor's tools: ([\s\S]*?) \| without: ([\s\S]*?)\]/g;
+const WAYS_RE =
+  /\[with the editor's tools: ([\s\S]*?) \| without: ([\s\S]*?)\]/g;
 
 /** A skill's text for an agent with the editor's tools or without them. */
 export const withWays = (text: string, tools: ToolNames | null) =>
