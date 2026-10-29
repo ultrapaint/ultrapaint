@@ -544,9 +544,53 @@ export const DocumentState = Schema.Struct({
 });
 export type DocumentState = typeof DocumentState.Type;
 
+/** A node as a document change sends it: its fields but its children, which it names by id. */
+export const ChangedNode = Schema.Struct({
+  /** Its children's ids in order, for a node that holds children. */
+  children: Schema.optional(Schema.Array(Schema.String)),
+  /** Its own fields, its id and type among them. */
+  node: Schema.Record(Schema.String, Json),
+});
+export type ChangedNode = typeof ChangedNode.Type;
+
+/**
+ * The nodes of a document that changed since the state `from` (ADR 0044): each node new or
+ * changed, in its own fields or in which children it holds, the rest as they were; a node no one
+ * names is gone. Only a copy at `from` can take it.
+ */
+export const DocumentPatch = Schema.Struct({
+  doc: DocRef,
+  /** The state the change was made on. */
+  from: Schema.String,
+  hash: Schema.String,
+  nodes: Schema.Array(ChangedNode),
+  /** The root's id. */
+  rootId: Schema.String,
+});
+export type DocumentPatch = typeof DocumentPatch.Type;
+
+/**
+ * A document changed, as the editor is told (ADR 0044): what changed when it can say so, the
+ * whole document when it cannot (the first time, a file that does not read, ids that repeat).
+ */
+export const DocumentChange = Schema.Union([DocumentPatch, DocumentState]);
+export type DocumentChange = typeof DocumentChange.Type;
+
+/** Whether a change is the whole document. */
+export const isWholeDocument = (
+  change: DocumentChange
+): change is DocumentState => !("from" in change);
+
 export const ApplyResult = Schema.Struct({
   /** Ids of the nodes the operations created, in order: inserts, duplicates, wraps. */
   created: Schema.Array(Schema.String),
   documents: Schema.Array(DocumentState),
 });
 export type ApplyResult = typeof ApplyResult.Type;
+
+/** What applying edits gives the editor that asked (ADR 0044): the documents as they changed. */
+export const AppliedChanges = Schema.Struct({
+  changes: Schema.Array(DocumentChange),
+  created: Schema.Array(Schema.String),
+});
+export type AppliedChanges = typeof AppliedChanges.Type;

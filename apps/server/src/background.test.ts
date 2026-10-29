@@ -1,5 +1,6 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
+import { isWholeDocument } from "@ultrapaint/contracts/document";
 import { Effect, FileSystem, Stream } from "effect";
 import { nextEvent, TestEnv, TestServer } from "./testing/harness.ts";
 
@@ -62,8 +63,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             ),
             fs.writeFileString(path.join(designs, "home.page.json"), PAGE)
           );
+          // The first state of a page is told whole.
+          const told = document._tag === "Some" ? document.value : null;
           assert.deepStrictEqual(
-            document._tag === "Some" ? document.value.root : null,
+            told && isWholeDocument(told) ? told.root : null,
             { children: [], id: "root", type: "page" }
           );
 

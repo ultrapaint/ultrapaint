@@ -25,9 +25,10 @@ import {
   UsageMapping,
 } from "./design-system-setup.ts";
 import {
+  AppliedChanges,
   ApplyInput,
-  ApplyResult,
   DesignNode,
+  DocumentChange,
   DocumentState,
 } from "./document.ts";
 import { UndoResult, UndoState } from "./edit.ts";
@@ -344,11 +345,14 @@ const requestRpcs = [
     payload: { doc: Schema.String },
     success: DocumentState,
   }),
-  /** Operations on one or several documents, as one undo step. */
+  /**
+   * Operations on one or several documents, as one undo step; answered with what changed in
+   * each, as the event says it (ADR 0044).
+   */
   Rpc.make("documents.apply", {
     error: EditError,
     payload: ApplyInput,
-    success: ApplyResult,
+    success: AppliedChanges,
   }),
 
   Rpc.make("designSystem.get", {
@@ -887,8 +891,11 @@ export const eventSchemas = {
   /** A component's file changed (ADR 0041). */
   components: ComponentList,
   designSystem: DesignSystemState,
-  /** A document changed: an edit, an undo, an agent, a branch switch. */
-  document: DocumentState,
+  /**
+   * A document changed: an edit, an undo, an agent, a branch switch. What changed when it can be
+   * said, else the whole document (ADR 0044).
+   */
+  document: DocumentChange,
   /** A step of the design-system setup changed. */
   dsSetup: DesignSystemSetup,
   /** The mapping changed: the rules, the agent, the user, or a redo that dropped it. */

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import type {
+  AppliedChanges,
   ApplyInput,
-  ApplyResult,
   DesignNode,
   DocumentState,
 } from "@ultrapaint/contracts/document";
@@ -84,10 +84,12 @@ const thread = {
 } as unknown as Thread;
 
 let ids = 0;
+/** Each state the fake server answers with has a hash of its own. */
+let versions = 0;
 
 /** The server's side of `documents.apply`: the operations applied to the documents the editor has. */
 const serve = () =>
-  fakeApi.respond("documents.apply", (input: ApplyInput): ApplyResult => {
+  fakeApi.respond("documents.apply", (input: ApplyInput): AppliedChanges => {
     const states = new Map<string, DocumentState>();
     const created: string[] = [];
     for (const { doc, ops } of input.edits) {
@@ -103,9 +105,10 @@ const serve = () =>
         },
       });
       created.push(...applied.created);
-      states.set(doc, { doc, hash: `${doc}@${ids}`, root: applied.root });
+      versions += 1;
+      states.set(doc, { doc, hash: `${doc}@${versions}`, root: applied.root });
     }
-    return { created, documents: [...states.values()] };
+    return { changes: [...states.values()], created };
   });
 
 /** The requests of a method, their inputs in order. */
