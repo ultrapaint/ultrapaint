@@ -23,9 +23,9 @@ components (a dialog is a root, a trigger, a popup, a footer…) were hard to pl
 
 ## Decision
 
-**The editor ships its primitives** (`packages/primitives`): Button, Badge, Avatar, Card,
-Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu, Popover, Tooltip, Dialog and
-Toast, built on Base UI and run by the editor's own React in every frame. Their catalogue
+**The editor ships its primitives** (`packages/primitives`): Button, Badge, Spinner, Avatar,
+Card, Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu, Popover, Tooltip, Dialog
+and Toast, built on Base UI and run by the editor's own React in every frame. Their catalogue
 (`catalogue.ts`, no React) says each one's props, variant axes, parts by `data-slot`, the slots
 that hold nodes, the states its look can be given for, and its layer: in the page's flow, anchored
 above it, or blocking it. An instance names one with `from: "@ultrapaint/primitives"`.
@@ -52,7 +52,8 @@ the editor closes nothing of it.
 editor bundle, the component registry, the catalogue's TypeScript extractor, preview-core's
 sandbox, the renderer's registry and the watchdogs go. The frames take every token's value from
 the design system (`designTokenCss`) and a canvas's images from the server's `/api/asset`. An
-instance of a repository component from before is drawn as a stand-in that says so.
+instance of a repository component from before is drawn as a stand-in that says so, until it is
+drawn as the primitive its name says (`migrate.ts`, offered by Sync and by the stand-in's menu).
 
 **Implementing applies the design to the application's components.** `/implement` writes each
 primitive as the application's own component for it, its slots as that component's parts, and a

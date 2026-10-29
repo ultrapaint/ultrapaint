@@ -106,11 +106,14 @@ ${DEFAULT_TOKENS}
   [data-primitive="button"]:focus-visible { outline: 2px solid ${RING}; outline-offset: 2px; }
   [data-primitive="button"]:disabled { opacity: 0.5; cursor: not-allowed; }
   [data-primitive="button"][data-loading] { opacity: 0.75; cursor: progress; }
-  [data-slot="button-spinner"] {
-    width: 0.875rem; height: 0.875rem; border-radius: 50%; flex: none;
+  [data-slot="button-spinner"], [data-primitive="spinner"] {
+    display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 50%; flex: none;
     border: 2px solid currentColor; border-right-color: transparent;
     animation: ed-primitive-spin 0.7s linear infinite;
   }
+  [data-primitive="spinner"] { width: 1rem; height: 1rem; }
+  [data-primitive="spinner"][data-size="sm"] { width: 0.75rem; height: 0.75rem; border-width: 1.5px; }
+  [data-primitive="spinner"][data-size="lg"] { width: 1.5rem; height: 1.5rem; }
   @keyframes ed-primitive-spin { to { rotate: 360deg; } }
 
   /* ---- Badge, Avatar, Separator, Card ---- */

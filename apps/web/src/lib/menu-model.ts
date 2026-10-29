@@ -11,6 +11,11 @@ import {
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
+import { PRIMITIVES } from "@ultrapaint/primitives/catalogue";
+import {
+  isRepositoryInstance,
+  primitiveFor,
+} from "@ultrapaint/primitives/migrate";
 import type { MenuTokenKind } from "../state/context-menu.ts";
 import type { Arrangement, Wrapper } from "./node-actions.ts";
 import { viewportPresets } from "./presets.ts";
@@ -38,6 +43,7 @@ export type SubmenuId =
   | "preset"
   | "send"
   | "state"
+  | "toPrimitive"
   | "variant"
   | "wrap";
 
@@ -122,6 +128,8 @@ export type NodeAction =
   | { kind: "viewCode" }
   | { kind: "comment" }
   | { kind: "makeDraft" }
+  /** An instance of the repository's drawn as this primitive (ADR 0040). */
+  | { kind: "toPrimitive"; name: string }
   /** Leads to a page, by its file, or `back`; `null` takes the link away. */
   | { kind: "link"; to: string | null }
   /** Asks for a URL or another site to lead to. */
@@ -231,6 +239,19 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
       !root &&
       !(node.type === "instance" && node.from === "#draft") &&
       item({ kind: "makeDraft" }, "Make a draft component…", one),
+    // An instance of a component of the repository's, from before the primitives: a stand-in.
+    node.type === "instance" &&
+      isRepositoryInstance(node) && {
+        disabled: several,
+        entries: PRIMITIVES.map((p) =>
+          item<NodeAction>({ kind: "toPrimitive", name: p.name }, p.name, {
+            checked: primitiveFor(node.component) === p,
+          })
+        ),
+        id: "toPrimitive",
+        kind: "submenu",
+        label: "Replace with a primitive",
+      },
     linkEntries(f),
     f.parentSelectable &&
       item({ kind: "selectParent" }, "Select parent", {

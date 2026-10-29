@@ -156,6 +156,17 @@ export const PRIMITIVES: readonly PrimitiveMeta[] = [
   },
   {
     category: "Display",
+    description: "A spinner: something is under way.",
+    example: {},
+    layer: "inline",
+    name: "Spinner",
+    props: [choice("size", SIZES, "How big it is.")],
+    slots: [{ label: "Spinner", name: ROOT_SLOT }],
+    states: [],
+    variants: { size: SIZES },
+  },
+  {
+    category: "Display",
     description: "A picture of a person, or their initials when there is none.",
     example: { fallback: "AL" },
     layer: "inline",

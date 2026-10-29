@@ -207,6 +207,14 @@ const setUp = () => {
             id: "hero",
             type: "column",
           },
+          // An instance of the repository's, from before the primitives.
+          {
+            component: "Button",
+            from: "@/components/ui/button",
+            id: "old",
+            text: "Go",
+            type: "instance",
+          },
         ],
         id: "home",
         type: "page",
@@ -642,6 +650,7 @@ const EVERY_ACTION = {
     paste: true,
     rename: true,
     selectParent: true,
+    toPrimitive: true,
     unwrap: true,
     viewCode: true,
     wrap: true,
@@ -679,6 +688,7 @@ const EVERY_ACTION = {
 const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
   nodeAt(HOME, "hero"),
+  nodeAt(HOME, "old"),
   homePage,
   { kind: "page", pageId: ABOUT },
   { kind: "page", pageId: BOLD },

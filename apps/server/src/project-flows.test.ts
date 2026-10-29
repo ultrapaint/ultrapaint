@@ -1,11 +1,14 @@
 import { assert, describe, layer } from "@effect/vitest";
 import { specTarget } from "@ultrapaint/contracts/implementation";
+import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { findNode } from "@ultrapaint/design-document/tree";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
 import { ProjectManager } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
+import { DocumentService } from "./services/documents.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
@@ -72,6 +75,75 @@ describe("flows in the services", () => {
             gone.map((p) => p.file),
             ["designs/pricing.page.json", "designs/pricing@bold.page.json"]
           );
+        })
+    );
+
+    it.effect(
+      "draws the pages' instances of the repository's components as primitives, in one step",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const pages = project.service(PagesService);
+          const documents = project.service(DocumentService);
+          const orders = yield* pages((p) =>
+            p.create("", { name: "Orders", route: "/orders" }, "blank")
+          );
+          const { root } = yield* documents((d) => d.get(orders.id));
+          yield* documents((d) =>
+            d.apply({
+              edits: [
+                {
+                  doc: orders.id,
+                  ops: [
+                    {
+                      node: {
+                        component: "Button",
+                        from: "@/components/ui/button",
+                        id: "new-order",
+                        props: { size: "default", variant: "default" },
+                        text: "New order",
+                        type: "instance",
+                      },
+                      op: "insert",
+                      parent: root?.id ?? null,
+                    },
+                    {
+                      node: {
+                        component: "RevenueChart",
+                        from: "@/components/revenue-chart",
+                        id: "chart",
+                        type: "instance",
+                      },
+                      op: "insert",
+                      parent: root?.id ?? null,
+                    },
+                  ],
+                },
+              ],
+            })
+          );
+          assert.deepStrictEqual(yield* documents((d) => d.oldInstances), {
+            drawn: 1,
+            left: 1,
+          });
+          assert.deepStrictEqual(yield* documents((d) => d.toPrimitives), {
+            documents: 1,
+            drawn: 1,
+          });
+          const after = yield* documents((d) => d.get(orders.id));
+          const button = after.root && findNode(after.root, "new-order");
+          assert.deepStrictEqual(button, {
+            component: "Button",
+            from: PRIMITIVES_FROM,
+            id: "new-order",
+            props: { size: "md", variant: "primary" },
+            text: "New order",
+            type: "instance",
+          });
+          assert.deepStrictEqual(yield* documents((d) => d.oldInstances), {
+            drawn: 0,
+            left: 1,
+          });
         })
     );
 

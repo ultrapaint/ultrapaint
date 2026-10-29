@@ -2,6 +2,8 @@ import {
   type ApplyInput,
   type ApplyResult,
   DesignNode,
+  type DocOp,
+  type DocumentEdit,
   type DocumentState,
   PageDocument,
 } from "@ultrapaint/contracts/document";
@@ -19,16 +21,20 @@ import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import {
+  CANVAS_ROOT_ID,
   canvasDocOf,
   canvasOfDoc,
   canvasRoot,
   childrenOf,
   DOCUMENT_VERSION,
+  findPath,
   idsOf,
   isPageFile,
 } from "@ultrapaint/design-document/tree";
+import { migrationOf } from "@ultrapaint/primitives/migrate";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Context,
   Effect,
@@ -120,6 +126,23 @@ export class DocumentService extends Context.Service<
     readonly list: (
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
+    /**
+     * The instances of the repository's components in every document (ADR 0040): how many a
+     * primitive can draw, and how many no primitive is like and stay stand-ins.
+     */
+    readonly oldInstances: Effect.Effect<
+      { readonly drawn: number; readonly left: number },
+      EditFailure
+    >;
+    /**
+     * Every instance of the repository's components that a primitive can draw, drawn as one
+     * (`migrate.ts`), in every document and one undo step. Answers with how many, in how many
+     * documents.
+     */
+    readonly toPrimitives: Effect.Effect<
+      { readonly documents: number; readonly drawn: number },
+      EditFailure | Conflict
+    >;
     /** Saves an image into the shared assets; answers with the path a node shows it by. */
     readonly upload: (
       input: UploadAssetInput
@@ -373,6 +396,67 @@ export class DocumentService extends Context.Service<
         return { created, documents } satisfies ApplyResult;
       });
 
+      /** Every document of every canvas, as it is saved now. */
+      const everyDocument = Effect.gen(function* () {
+        const { canvases } = yield* pages.list;
+        return (yield* Effect.forEach(canvases, (c) => list(c.id))).flat();
+      });
+
+      const oldInstances = Effect.map(everyDocument, (docs) => {
+        let drawn = 0;
+        let left = 0;
+        for (const { root: tree } of docs) {
+          const migration = tree ? migrationOf(tree) : null;
+          drawn += migration?.drawn ?? 0;
+          left += migration?.left.length ?? 0;
+        }
+        return { drawn, left };
+      }).pipe(Effect.withSpan("DocumentService.oldInstances"));
+
+      const toPrimitives = Effect.gen(function* () {
+        let drawn = 0;
+        const edits: DocumentEdit[] = [];
+        for (const state of yield* everyDocument) {
+          const tree = state.root;
+          if (!tree) {
+            continue;
+          }
+          const migration = migrationOf(tree);
+          // Each instance is put back where it was, as the primitive: what it holds goes with it.
+          const ops = migration.replaced.flatMap((node): DocOp[] => {
+            const parent = findPath(tree, node.id)?.at(-2);
+            if (!parent) {
+              return [];
+            }
+            const index = childrenOf(parent).findIndex((c) => c.id === node.id);
+            return [
+              { id: node.id, op: "remove" },
+              {
+                index,
+                node,
+                op: "insert",
+                parent:
+                  parent.id === CANVAS_ROOT_ID &&
+                  canvasOfDoc(state.doc) !== null
+                    ? null
+                    : parent.id,
+              },
+            ];
+          });
+          if (ops.length > 0) {
+            drawn += migration.drawn;
+            edits.push({ doc: state.doc, expectedHash: state.hash, ops });
+          }
+        }
+        if (edits.length > 0) {
+          yield* apply({
+            edits,
+            label: `Draw ${plural(drawn, "instance")} as primitives`,
+          });
+        }
+        return { documents: edits.length, drawn };
+      }).pipe(Effect.withSpan("DocumentService.toPrimitives"));
+
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput
       ) {
@@ -456,6 +540,8 @@ export class DocumentService extends Context.Service<
         apply,
         get,
         list,
+        oldInstances,
+        toPrimitives,
         upload,
       });
     })

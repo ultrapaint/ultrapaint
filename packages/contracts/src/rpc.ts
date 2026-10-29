@@ -353,6 +353,14 @@ const requestRpcs = [
     payload: ApplyInput,
     success: ApplyResult,
   }),
+  /**
+   * Every instance of the repository's components that a primitive can draw, drawn as one in
+   * every document, as one undo step (ADR 0040).
+   */
+  Rpc.make("documents.toPrimitives", {
+    error: EditError,
+    success: Schema.Struct({ documents: Schema.Number, drawn: Schema.Number }),
+  }),
 
   Rpc.make("designSystem.get", {
     error: NotConfigured,

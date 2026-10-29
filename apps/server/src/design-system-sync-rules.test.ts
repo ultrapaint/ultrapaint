@@ -140,6 +140,27 @@ describe("the plan", () => {
     expect(steps.map((s) => s.kind)).not.toContain("settings");
   });
 
+  it("offers to draw the pages' old instances as primitives, first, while a primitive can draw any", () => {
+    const steps = planOf({
+      drift: emptyDrift,
+      facts: { ...facts, oldInstances: { drawn: 9, left: 2 } },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(steps[0]).toMatchObject({ kind: "primitives", state: "attention" });
+    expect(steps[0]?.detail).toContain("9 instances of your old components");
+    expect(steps[0]?.detail).toContain(
+      "2 instances of components no primitive"
+    );
+    const none = planOf({
+      drift: emptyDrift,
+      facts: { ...facts, oldInstances: { drawn: 0, left: 2 } },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(none.map((s) => s.kind)).not.toContain("primitives");
+  });
+
   it("goes through the setup for code, Figma's tokens first when there is a file", () => {
     const code = planOf({
       drift: emptyDrift,
