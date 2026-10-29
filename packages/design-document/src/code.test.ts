@@ -204,6 +204,31 @@ describe("breakpoints", () => {
 });
 
 describe("a system component in the Code tab", () => {
+  const catalogue: Catalogue = [
+    {
+      category: "Overlay",
+      importFrom: SYSTEM_FROM,
+      name: "Dialog",
+      props: [],
+      slots: [
+        { label: "Dialog", name: "root" },
+        { holds: "nodes", label: "Trigger", layout: "row", name: "trigger" },
+        {
+          holds: "default",
+          label: "Content",
+          layout: "column",
+          name: "dialog-content",
+        },
+        {
+          holds: "nodes",
+          label: "Footer",
+          layout: "row",
+          name: "dialog-footer",
+        },
+      ],
+      variants: {},
+    },
+  ];
   const dialog: DesignNode = {
     children: [
       {
@@ -215,6 +240,13 @@ describe("a system component in the Code tab", () => {
         type: "instance",
       },
       { id: "p", role: "paragraph", text: "For good.", type: "text" },
+      {
+        id: "lost",
+        role: "paragraph",
+        slot: "nowhere",
+        text: "Gone with it.",
+        type: "text",
+      },
       {
         component: "Button",
         from: SYSTEM_FROM,
@@ -240,9 +272,10 @@ describe("a system component in the Code tab", () => {
     type: "instance",
   };
 
-  it("is the application's component, its slots that component's parts", () => {
+  it("is the application's component, its slots that component's parts, as the canvas fills them", () => {
     const none: ClassWriter = { classes: () => [] };
-    expect(toCode(dialog, none)).toBe(
+    // A child naming a slot the component lacks is in the default one, as on the canvas.
+    expect(toCode(dialog, none, { catalogue })).toBe(
       `import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 
@@ -251,6 +284,7 @@ import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
     <Button>Delete</Button>
   </DialogTrigger>
   <p>For good.</p>
+  <p>Gone with it.</p>
   <DialogFooter>
     <Button variant="outline">Cancel</Button>
     <Button>Delete</Button>
@@ -258,7 +292,7 @@ import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 </Dialog>`
     );
     expect(
-      toCode(dialog, none, { componentsFrom: "@/ui" }).split("\n")[0]
+      toCode(dialog, none, { catalogue, componentsFrom: "@/ui" }).split("\n")[0]
     ).toBe('import { Button } from "@/ui/button";');
   });
 

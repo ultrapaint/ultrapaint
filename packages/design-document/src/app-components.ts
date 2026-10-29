@@ -8,6 +8,7 @@
  * Pure, and free of the catalogue: the server, the renderer and the editor share it.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import type { ComponentSlot } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   isVariantKey,
@@ -15,10 +16,12 @@ import {
 } from "@ultrapaint/contracts/component-names";
 import type {
   AppComponentFile,
+  AppSlot,
   ComponentProperty,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { type IdGenerator, idPrefix } from "./ids.ts";
+import { fillSlots } from "./slots.ts";
 import { childrenOf } from "./tree.ts";
 
 type Fields = Record<string, unknown>;
@@ -113,6 +116,13 @@ const setOn = (
   }
 };
 
+/** An app component's slot as the catalogue lists a slot (ADR 0042). */
+export const componentSlotOf = (slot: AppSlot): ComponentSlot => ({
+  holds: slot.default ? "default" : "nodes",
+  label: slot.label ?? slot.name,
+  name: slot.name,
+});
+
 /** What drawing an instance comes to. */
 export interface Expanded {
   /** The ids of the instance's own children put in its slots: the page's nodes, not the component's. */
@@ -147,22 +157,15 @@ export const expandAppInstance = (
       ]);
     }
   }
-  const given = instance.children ?? [];
-  const named = new Set(file.slots.map((s) => s.name));
-  const fallback = file.slots.find((s) => s.default);
+  // The slots' containers, by id, hold the children that fill them (`fillSlots`).
   const fills = new Map<string, DesignNode[]>();
+  const bySlot = fillSlots(instance, file.slots.map(componentSlotOf));
   for (const slot of file.slots) {
-    const held = given.filter((child) =>
-      slot === fallback
-        ? child.slot === undefined ||
-          child.slot === slot.name ||
-          !named.has(child.slot)
-        : child.slot === slot.name
-    );
-    if (held.length > 0) {
+    const fill = bySlot.get(slot.name);
+    if (fill?.given) {
       fills.set(
         slot.node,
-        held.map(({ slot: _slot, ...child }) => child as DesignNode)
+        fill.nodes.map(({ slot: _slot, ...child }) => child as DesignNode)
       );
     }
   }

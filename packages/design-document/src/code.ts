@@ -12,7 +12,7 @@
  * application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -34,7 +34,7 @@ import {
   type StyleContext,
   tagOf,
 } from "./css.ts";
-import { slotLayoutOf } from "./slots.ts";
+import { fillSlots, slotLayoutOf } from "./slots.ts";
 import { childrenOf, nodeLabel, walk } from "./tree.ts";
 
 const INDENT = "  ";
@@ -136,9 +136,10 @@ export const componentsImportBase = (settings: {
 
 /**
  * A tree with each system component written as the application's component for it (ADR 0040): imported
- * from `base`'s file of its name (`@/components/ui/dialog`), the children of each named slot in
- * that component's part (`DialogFooter` for `dialog-footer`, `DialogTrigger` for `trigger`), where
- * the first of them was. How the slot each instance's child fills lays it out goes in `inSlots`.
+ * from `base`'s file of its name (`@/components/ui/dialog`), the children that fill each named
+ * slot (`fillSlots`, as the canvas draws them) in that component's part (`DialogFooter` for
+ * `dialog-footer`, `DialogTrigger` for `trigger`), in the component's order. How the slot each
+ * instance's child fills lays it out goes in `inSlots`.
  */
 const asApplicationCode = (
   node: DesignNode,
@@ -168,35 +169,51 @@ const asApplicationCode = (
   if (node.from !== SYSTEM_FROM) {
     return node.children ? { ...node, children } : node;
   }
+  return asSystemComponentCode(node, children, base, catalogue);
+};
+
+/**
+ * A system component's instance as the application's component for it, its children written
+ * already (`children`, by id), each named slot's in that component's part.
+ */
+const asSystemComponentCode = (
+  node: InstanceNode,
+  children: readonly DesignNode[],
+  base: string,
+  catalogue: Catalogue
+): DesignNode => {
   const own = kebabOf(node.component);
   const from = `${base}/${own}`;
-  const parts = new Map<string, DesignNode[]>();
-  const written: DesignNode[] = [];
-  for (const child of children) {
-    if (child.slot === undefined) {
-      written.push(child);
-      continue;
-    }
-    const { slot, ...unslotted } = child;
-    const part = parts.get(slot);
-    if (part) {
-      part.push(unslotted as DesignNode);
-      continue;
-    }
-    const held = [unslotted as DesignNode];
-    parts.set(slot, held);
-    written.push({
-      children: held,
-      component: pascalOf(slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`),
-      from,
-      id: `${node.id}-${slot}`,
-      type: "instance",
-    });
+  const entry = metaOf(catalogue, node);
+  if (!(entry && node.children)) {
+    return { ...node, from, ...(node.children && { children }) };
   }
+  const written = new Map(
+    children.map((c) => {
+      const { slot: _slot, ...unslotted } = c;
+      return [c.id, unslotted as DesignNode] as const;
+    })
+  );
   return {
     ...node,
+    children: [...fillSlots(node, entry.slots)].flatMap(([slot, fill]) => {
+      const held = fill.nodes.flatMap((c) => written.get(c.id) ?? []);
+      if (entry.slots.find((s) => s.name === slot)?.holds === "default") {
+        return held;
+      }
+      return [
+        {
+          children: held,
+          component: pascalOf(
+            slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`
+          ),
+          from,
+          id: `${node.id}-${slot}`,
+          type: "instance",
+        } as DesignNode,
+      ];
+    }),
     from,
-    ...(node.children && { children: written }),
   };
 };
 

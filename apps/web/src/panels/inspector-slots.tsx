@@ -4,7 +4,11 @@
  * footer is the instance's child that names `dialog-footer`, laid out as the footer lays out its
  * children. A child that names no slot fills the default one.
  */
-import { type ComponentMeta, metaOf } from "@ultrapaint/contracts/catalogue";
+import {
+  type ComponentMeta,
+  type ComponentSlot,
+  metaOf,
+} from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
@@ -13,6 +17,7 @@ import {
   newInstance,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { fillSlots } from "@ultrapaint/design-document/slots";
 import { Plus } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,7 +27,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Row, Section } from "../components/panel.tsx";
 import { insertNodesAt } from "../lib/node-actions.ts";
-import { childrenInSlot, type Slot } from "../lib/slots.ts";
 import { useComponents } from "../state/components.ts";
 import { useEditor } from "../state/editor.ts";
 
@@ -40,7 +44,7 @@ const ADDITIONS: readonly {
 const addTo = (
   frame: string,
   node: InstanceNode,
-  slot: Slot,
+  slot: ComponentSlot,
   id: ElementId | "button",
   button: ComponentMeta | undefined
 ) => {
@@ -75,6 +79,7 @@ export const SlotsSection = ({
     s.catalogue.find((c) => c.name === "Button" && c.importFrom === SYSTEM_FROM)
   );
   const slots = (meta?.slots ?? []).filter((slot) => slot.holds);
+  const fills = fillSlots(node, meta?.slots ?? []);
   if (
     !(node.from === SYSTEM_FROM || node.from === APP_FROM) ||
     slots.length === 0
@@ -84,7 +89,7 @@ export const SlotsSection = ({
   return (
     <Section title="Slots">
       {slots.map((slot) => {
-        const filling = childrenInSlot(node, slot, slots);
+        const filling = fills.get(slot.name)?.nodes ?? [];
         const [first] = filling;
         return (
           <Row key={slot.name} label={slot.label}>

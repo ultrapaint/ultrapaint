@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { SYSTEM_COMPONENTS, slotFor, systemComponentOf } from "./catalogue.ts";
+import { SYSTEM_COMPONENTS } from "./catalogue.ts";
 import { SYSTEM_COMPONENT_VIEWS } from "./components.tsx";
 import { type ComponentFrame, ComponentFrameProvider } from "./frame.ts";
 
@@ -26,16 +26,6 @@ describe("the catalogue", () => {
         meta.slots.length
       );
     }
-  });
-
-  it("puts a child that names no slot in the default one, and a named one in its own", () => {
-    const dialog = systemComponentOf("Dialog");
-    expect(dialog && slotFor(dialog, undefined)?.name).toBe("dialog-content");
-    expect(dialog && slotFor(dialog, "dialog-footer")?.name).toBe(
-      "dialog-footer"
-    );
-    // A part that holds no nodes is no slot to fill.
-    expect(dialog && slotFor(dialog, "dialog-title")).toBeUndefined();
   });
 });
 
