@@ -798,9 +798,8 @@ const requestRpcs = [
     success: SpecEntry,
   }),
   /**
-   * A component's spec read off its code (its cva classes) through the style system, saved
-   * with the look given (`code` when absent): a mirror until someone takes the look over. It
-   * is linked to its component's file as implemented, unless it keeps behaviour notes (ADR 0030).
+   * A primitive's look taken over (ADR 0040): its spec started from its default look, saved with
+   * the look given (`design` when absent), keeping the behaviour notes one there was had.
    */
   Rpc.make("specs.fromCode", {
     error: EditError,
@@ -811,16 +810,7 @@ const requestRpcs = [
     },
     success: SpecEntry,
   }),
-  /**
-   * A spec read off the code for every component with classes to read and no spec yet, each
-   * linked to its component's file as implemented (ADR 0029, 0030): how a project whose
-   * components are built already comes in. `look` is `code` when absent.
-   */
-  Rpc.make("specs.fromCodeAll", {
-    error: EditError,
-    payload: { look: Schema.optional(SpecLook) },
-    success: Schema.Struct({ linked: Schema.Number, read: Schema.Number }),
-  }),
+  /** A component's spec removed: a primitive is drawn in its default look again. */
   Rpc.make("specs.remove", {
     error: EditError,
     payload: { component: Schema.String },

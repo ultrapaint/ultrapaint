@@ -17,29 +17,6 @@ const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * A spec for every component of a new application whose classes are read, its look the design's
- * (ADR 0029): the project is restyled in the editor and the code follows when it is implemented.
- */
-export const adoptLooks = async () => {
-  const catalogue = await api().request("catalogue.get", { refresh: true });
-  const { specs } = await api().request("specs.list", undefined);
-  const known = new Set(
-    specs.flatMap((e) => (e.spec ? [e.spec.component] : []))
-  );
-  await Promise.all(
-    catalogue.components
-      .filter((c) => c.styles && !known.has(c.name))
-      .map((c) =>
-        api().request("specs.fromCode", {
-          component: c.name,
-          from: c.importFrom,
-          look: "design",
-        })
-      )
-  );
-};
-
-/**
  * Asks where, writes and installs, and applies the settings; true when the project is set up
  * on the new application.
  */
@@ -75,8 +52,6 @@ export const startApplication = async (options: {
       toast.error(problems.join(" "), { id });
       return false;
     }
-    // The new application's components are restyled in the editor (ADR 0029).
-    adoptLooks().catch(() => undefined);
     if (made.installed) {
       toast.success(
         `${made.created.length} files written and installed with ${made.packageManager}.`,

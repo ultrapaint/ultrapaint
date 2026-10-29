@@ -78,7 +78,7 @@ export const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
   // names, with its behaviour notes in a spec or in comments (ADR 0030).
   Layer.mergeAll(PagePngs.layer, DesignTargets.layer).pipe(
-    // A spec read off the code is linked to its component's file (ADR 0029).
+    // The specs: a primitive's look as the design says it (ADR 0029, 0040).
     Layer.provideMerge(SpecService.layer),
     // The link to the code reads the pages, their documents and the specs (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),

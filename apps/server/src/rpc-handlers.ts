@@ -269,7 +269,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         specs((s) => s.draftFrom(id, nodeId, name)),
       "specs.fromCode": ({ component, from, look }) =>
         specs((s) => s.fromCode(component, from, look)),
-      "specs.fromCodeAll": ({ look }) => specs((s) => s.fromCodeAll(look)),
       "specs.list": () => specs((s) => s.list),
       "specs.remove": ({ component }) => specs((s) => s.remove(component)),
       "specs.write": ({ spec }) => specs((s) => s.write(spec)),

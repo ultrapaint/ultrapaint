@@ -452,6 +452,9 @@ importers:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@ultrapaint/design-document':
+        specifier: workspace:*
+        version: link:../design-document
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
@@ -462,6 +465,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
+      effect:
+        specifier: 4.0.0
+        version: 4.0.0
       happy-dom:
         specifier: ^20.14.5
         version: 20.14.5

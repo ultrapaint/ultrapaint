@@ -2,9 +2,7 @@
  * A design the desktop app has just written from nothing (PLAN-desktop D11) opens on Sync's
  * define step, as the scratch case of ADR 0025 does once its application is started: the app
  * loads the editor with `?new-design=<template>`. Its code is a template there is nothing to read
- * in yet, so the setup's first step, reading what the code uses, is run and gone past at once;
- * the starter's components get their specs with the design's look (ADR 0029), as an application
- * started from Sync does.
+ * in yet, so the setup's first step, reading what the code uses, is run and gone past at once.
  */
 import {
   showSetup as showSync,
@@ -12,7 +10,6 @@ import {
 } from "../state/design-system-setup.ts";
 import { reportError } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
-import { adoptLooks } from "./scaffold.ts";
 
 /** The parameter the desktop app opens a new design with. */
 export const NEW_DESIGN_PARAM = "new-design";
@@ -37,9 +34,6 @@ export const openNewDesignOnSync = async () => {
   }
   showSync();
   try {
-    if (template === "starter") {
-      await adoptLooks();
-    }
     const setup = useDesignSystemSetup.getState();
     await setup.load();
     const inventory = useDesignSystemSetup

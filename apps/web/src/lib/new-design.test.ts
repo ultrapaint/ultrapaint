@@ -1,5 +1,4 @@
 import "../testing/fake-browser.ts";
-import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   type DesignSystemSetup,
   emptySetup,
@@ -37,24 +36,6 @@ const withInventory = (
   };
 };
 
-/** A component of the catalogue, with its `cva` classes when it has them. */
-const component = (
-  name: string,
-  importFrom: string,
-  styles?: ComponentMeta["styles"]
-): ComponentMeta => ({
-  category: "ui",
-  file: `src/components/ui/${name.toLowerCase()}.tsx`,
-  group: "ui",
-  importFrom,
-  name,
-  props: [],
-  snippet: `<${name} />`,
-  storyIds: [],
-  variants: {},
-  ...(styles && { styles }),
-});
-
 const answerSetup = () => {
   fakeApi.respond("dsSetup.get", () => withInventory("todo"));
   fakeApi.respond("dsSetup.inventory", () => null);
@@ -66,19 +47,6 @@ const answerSetup = () => {
     threadId: null,
   }));
   fakeApi.respond("dsSetup.complete", () => withInventory("done"));
-  fakeApi.respond("catalogue.get", () => ({
-    builtAt: 0,
-    components: [
-      component("Button", "@/components/ui/button", {
-        base: "",
-        classes: {},
-        defaults: {},
-      }),
-      component("Card", "@/components/ui/card"),
-    ],
-    coverage: { total: 2, usable: 2 },
-  }));
-  fakeApi.respond("specs.list", () => ({ specs: [] }));
 };
 
 const methods = () => fakeApi.calls.map((c) => c.method);
@@ -100,23 +68,15 @@ describe("a design the desktop app has just written", () => {
     ).toEqual({ step: "inventory" });
     expect(methods()).toContain("dsSetup.complete");
     expect(methods()).toContain("sync.plan");
-    // A blank design has no components to give specs.
-    expect(methods()).not.toContain("specs.fromCode");
     // Taken off the address: a reload is not a new design.
     expect(replaced).toEqual(["/"]);
   });
 
-  it("gives the starter's components their specs, the look the design's", async () => {
+  it("gives the starter's primitives no spec: they are drawn in their default look", async () => {
     openedWith("?new-design=starter");
     answerSetup();
     await openNewDesignOnSync();
-    expect(
-      fakeApi.calls
-        .filter((c) => c.method === "specs.fromCode")
-        .map((c) => c.input)
-    ).toEqual([
-      { component: "Button", from: "@/components/ui/button", look: "design" },
-    ]);
+    expect(methods()).not.toContain("specs.fromCode");
   });
 
   it("leaves any other opening of the editor as it is", async () => {

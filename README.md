@@ -427,9 +427,11 @@ open where its `open` prop says, and nothing in the frame takes the pointer; in 
 with the interact tool the primitives behave (a menu opens, items take the hover, Escape and a
 click outside close it), each in its own frame.
 
-A primitive's look is yours. The Design system panel's **Components** tab lists them: open one
-to **take the look over**, and the panel draws it live in each variant and state (hover, focus,
-disabled, open, checked…) while the fields set any part of it in your tokens. **Implement** has an
+A primitive's look is yours. The Design system panel's **Components** tab lists them, each in
+its **default look** (over your tokens) or **your look**: open one to **take the look over**, which
+starts your spec from the default's values, and the panel draws it live in each variant and state
+(hover, focus, disabled, open, checked…) while the fields set any part of it in your tokens.
+**Reset to default** removes your spec. **Implement** has an
 agent give your application's own component that look, in whatever library it is written with. A
 part of a page can also be made a **draft component** (its menu): a component of your own, made of
 primitives, used on pages until it is implemented.

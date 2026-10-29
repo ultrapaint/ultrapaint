@@ -20,6 +20,11 @@ import type { StyleContext } from "./css.ts";
 export const COMPONENT_ATTRIBUTE = "data-ed-c";
 export const VARIANT_ATTRIBUTE = "data-ed-v";
 export const STATE_ATTRIBUTE = "data-ed-state";
+/**
+ * What a primitive's part outside its instance's element carries (ADR 0040): an overlay's popup,
+ * portalled into the frame's body, is the component's as a portal, not as its root.
+ */
+export const PORTAL_ATTRIBUTE = "data-ed-p";
 /** The div the renderer draws around a component that does not forward its props (0015). */
 const WRAPPER_ATTRIBUTE = "data-ed-wrapper";
 
@@ -189,18 +194,30 @@ interface Match {
   readonly target: string;
 }
 
-/** The selectors of a slot under one match: the root as drawn bare and as wrapped. */
+/**
+ * The selectors of a slot under one match: the root as drawn bare and as wrapped. A part is also
+ * found in a portal of the component's (an overlay's popup), inside it or as the portalled
+ * element itself.
+ */
 const selectorsOf = (
   component: string,
   slot: string,
   { host, target }: Match
 ): string[] => {
   const marked = attribute(COMPONENT_ATTRIBUTE, "", component);
-  const descendant =
-    slot === ROOT_SLOT ? "" : ` ${attribute("data-slot", "", slot)}`;
+  if (slot === ROOT_SLOT) {
+    return [
+      `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target}`,
+      `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${target}`,
+    ];
+  }
+  const part = attribute("data-slot", "", slot);
+  const portal = attribute(PORTAL_ATTRIBUTE, "", component);
   return [
-    `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target}${descendant}`,
-    `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${target}${descendant}`,
+    `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target} ${part}`,
+    `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${target} ${part}`,
+    `${portal}${host}${target} ${part}`,
+    `${portal}${host}${target}${part}`,
   ];
 };
 

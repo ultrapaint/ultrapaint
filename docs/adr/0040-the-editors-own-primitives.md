@@ -34,10 +34,15 @@ above it, or blocking it. An instance names one with `from: "@ultrapaint/primiti
 of every node: `"dialog-footer"`); the rest fill the default slot. The inspector lists a selected
 primitive's slots, with what fills each and a menu to add to it; Layers shows a child's slot.
 
-**A primitive's look is the design's.** A default look over the design system's tokens
-(`look.ts`, a layer of its own, with a neutral theme for a project with no design system yet) is
-drawn under the specs (0029), which style any part in any variant and state; a portalled part is
-marked for the specs as a portal (`data-ed-p`).
+**A primitive's look is the design's.** Each primitive's default look is data: a spec (0029) in
+the design document's own fields over the design system's tokens (`defaults.ts`), drawn by the
+same `specCss` as a project's specs, in a layer of its own under them, with a neutral theme for a
+project with no design system yet (`look.ts`). What a spec cannot say stays written by hand in
+that layer: layout and positioning, a dialog's sheet on a narrow frame, animations, and what a
+pointer or a state does to a part. Taking a primitive's look over starts the project's spec from
+its default, so the designer edits real values; removing the spec resets it. A spec styles any
+part in any variant and state; a portalled part is marked for the specs as a portal
+(`data-ed-p`), and a part's rule finds it through the portal.
 
 **Each frame is a viewport.** A popup is portalled into its frame's body, so a dialog's backdrop
 covers its page only; Floating UI's viewport is the frame and its edge margin is in the frame's
