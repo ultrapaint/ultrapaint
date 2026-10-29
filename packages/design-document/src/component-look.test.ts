@@ -27,8 +27,7 @@ const ds = {
 };
 const ctx = makeStyleContext(ds);
 
-const ROOT =
-  '[data-ed-c="Button"]:not([data-ed-wrapper]),\n[data-ed-c="Button"][data-ed-wrapper] > *';
+const ROOT = '[data-ed-c="Button"]';
 
 const button = (look: Partial<ComponentLook>): ComponentLook => ({
   ...emptyLook("Button"),
@@ -102,7 +101,7 @@ describe("partStyleCss", () => {
 });
 
 describe("lookCss", () => {
-  it("styles the root, bare or wrapped, and the slots inside it", () => {
+  it("styles the root and the slots inside it", () => {
     const css = lookCss(
       [
         button({
@@ -117,8 +116,7 @@ describe("lookCss", () => {
     );
     expect(css).toBe(
       `${ROOT} {\n  background-color: var(--color-primary, #123456);\n}\n\n` +
-        '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="icon"],\n' +
-        '[data-ed-c="Button"][data-ed-wrapper] > * [data-slot="icon"],\n' +
+        '[data-ed-c="Button"] [data-slot="icon"],\n' +
         '[data-ed-p="Button"] [data-slot="icon"],\n' +
         '[data-ed-p="Button"][data-slot="icon"] {\n  width: 16px;\n}\n'
     );
@@ -132,8 +130,7 @@ describe("lookCss", () => {
       variants: { size: { lg: { dialog: { width: 640 } } } },
     };
     expect(selectorsOf(lookCss([dialog], ctx))[0]).toEqual([
-      '[data-ed-c="Dialog"]:not([data-ed-wrapper])[data-ed-v~="size:lg"] [data-slot="dialog"]',
-      '[data-ed-c="Dialog"][data-ed-wrapper][data-ed-v~="size:lg"] > * [data-slot="dialog"]',
+      '[data-ed-c="Dialog"][data-ed-v~="size:lg"] [data-slot="dialog"]',
       '[data-ed-p="Dialog"][data-ed-v~="size:lg"] [data-slot="dialog"]',
       '[data-ed-p="Dialog"][data-ed-v~="size:lg"][data-slot="dialog"]',
     ]);
@@ -156,15 +153,10 @@ describe("lookCss", () => {
     );
     expect(selectorsOf(css)).toEqual([
       [
-        '[data-ed-c="Button"]:not([data-ed-wrapper])[data-ed-v~="size:md"]',
-        '[data-ed-c="Button"][data-ed-wrapper][data-ed-v~="size:md"] > *',
-        '[data-ed-c="Button"]:not([data-ed-wrapper]):not([data-ed-v^="size:"], [data-ed-v*=" size:"])',
-        '[data-ed-c="Button"][data-ed-wrapper]:not([data-ed-v^="size:"], [data-ed-v*=" size:"]) > *',
+        '[data-ed-c="Button"][data-ed-v~="size:md"]',
+        '[data-ed-c="Button"]:not([data-ed-v^="size:"], [data-ed-v*=" size:"])',
       ],
-      [
-        '[data-ed-c="Button"]:not([data-ed-wrapper])[data-ed-v~="size:sm"]',
-        '[data-ed-c="Button"][data-ed-wrapper][data-ed-v~="size:sm"] > *',
-      ],
+      ['[data-ed-c="Button"][data-ed-v~="size:sm"]'],
     ]);
   });
 
@@ -183,22 +175,17 @@ describe("lookCss", () => {
     );
     const rules = selectorsOf(css);
     expect(rules.map((r) => r[0])).toEqual([
-      '[data-ed-c="Button"]:not([data-ed-wrapper])[data-ed-v~="variant:ghost"]',
-      '[data-ed-c="Button"]:not([data-ed-wrapper]):hover',
-      '[data-ed-c="Button"]:not([data-ed-wrapper]):hover [data-slot="label"]',
-      '[data-ed-c="Button"]:not([data-ed-wrapper]):disabled',
+      '[data-ed-c="Button"][data-ed-v~="variant:ghost"]',
+      '[data-ed-c="Button"]:hover',
+      '[data-ed-c="Button"]:hover [data-slot="label"]',
+      '[data-ed-c="Button"]:disabled',
     ]);
     expect(rules[1]).toEqual([
-      '[data-ed-c="Button"]:not([data-ed-wrapper]):hover',
-      '[data-ed-c="Button"][data-ed-wrapper] > *:hover',
-      '[data-ed-c="Button"]:not([data-ed-wrapper])[data-hovered]',
-      '[data-ed-c="Button"][data-ed-wrapper] > *[data-hovered]',
-      '[data-ed-c="Button"]:not([data-ed-wrapper])[data-ed-state~="hover"]',
-      '[data-ed-c="Button"][data-ed-wrapper][data-ed-state~="hover"] > *',
+      '[data-ed-c="Button"]:hover',
+      '[data-ed-c="Button"][data-hovered]',
+      '[data-ed-c="Button"][data-ed-state~="hover"]',
     ]);
-    expect(rules[3]).toContain(
-      '[data-ed-c="Button"]:not([data-ed-wrapper])[aria-disabled="true"]'
-    );
+    expect(rules[3]).toContain('[data-ed-c="Button"][aria-disabled="true"]');
   });
 
   it("escapes names and values for attribute selectors", () => {
@@ -211,9 +198,7 @@ describe("lookCss", () => {
       ],
       ctx
     );
-    expect(css).toContain(
-      '[data-ed-c="Odd\\"Name\\\\"]:not([data-ed-wrapper]) [data-slot="a\\"b"]'
-    );
+    expect(css).toContain('[data-ed-c="Odd\\"Name\\\\"] [data-slot="a\\"b"]');
   });
 
   it("draws nothing for a look that sets nothing", () => {
@@ -239,7 +224,7 @@ describe("lookCss", () => {
     );
     expect(css).toContain("order: 2;");
     expect(css).toContain(
-      '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="icon"],\n[data-ed-c="Button"][data-ed-wrapper] > * [data-slot="icon"],\n[data-ed-p="Button"] [data-slot="icon"],\n[data-ed-p="Button"][data-slot="icon"] {\n  display: none;\n}'
+      '[data-ed-c="Button"] [data-slot="icon"],\n[data-ed-p="Button"] [data-slot="icon"],\n[data-ed-p="Button"][data-slot="icon"] {\n  display: none;\n}'
     );
   });
 
@@ -250,10 +235,10 @@ describe("lookCss", () => {
     );
     const [rule] = selectorsOf(css);
     expect(rule).toContain(
-      '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="box"][data-checked]'
+      '[data-ed-c="Button"] [data-slot="box"][data-checked]'
     );
     expect(rule).toContain(
-      '[data-ed-c="Button"]:not([data-ed-wrapper])[data-checked] [data-slot="box"]'
+      '[data-ed-c="Button"][data-checked] [data-slot="box"]'
     );
     expect(rule).toContain(
       '[data-ed-p="Button"] [data-slot="box"][data-checked]'

@@ -32,11 +32,16 @@ export const typeText = (type: PropType): string =>
  * slot. A slot that `holds` nodes is filled by the instance's children that name it; `default`
  * takes the rest.
  */
+export const SlotLayout = Schema.Literals(["row", "column", "block"]);
+export type SlotLayout = typeof SlotLayout.Type;
+
 export const ComponentSlot = Schema.Struct({
   holds: Schema.optional(Schema.Literals(["nodes", "default"])),
   label: Schema.String,
-  /** How it lays out what it holds: the catalogue's, a look's `direction` over it. */
-  layout: Schema.optional(Schema.Literals(["row", "column", "block"])),
+  /** How it lays out what it holds: the catalogue's, a look's `direction` at its base over it. */
+  layout: Schema.optional(SlotLayout),
+  /** How it lays them out in a variant whose look sets a `direction`, by `<axis>=<member>`. */
+  layoutIn: Schema.optional(Schema.Record(Schema.String, SlotLayout)),
   name: Schema.String,
 });
 export type ComponentSlot = typeof ComponentSlot.Type;

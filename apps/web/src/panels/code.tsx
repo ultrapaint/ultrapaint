@@ -7,9 +7,9 @@
  */
 
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { pageComponentName } from "@ultrapaint/design-document/code";
 import { layoutOf, type ParentLayout } from "@ultrapaint/design-document/css";
+import { slotLayoutOf } from "@ultrapaint/design-document/slots";
 import {
   findPath,
   nodeKind,
@@ -19,11 +19,11 @@ import { routeOf } from "@ultrapaint/shared/route";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useInstances } from "../state/instances.ts";
 import { useProject } from "../state/project.ts";
 
 const BACKTICKS_RE = /`+/g;
@@ -71,13 +71,13 @@ const useSubject = () => {
  */
 const useWritten = (request: {
   readonly component: string | undefined;
-  readonly instances: Readonly<Record<string, InstanceDrawn>>;
   readonly node: DesignNode | undefined;
   readonly parent: ParentLayout;
 }) => {
-  const { component, instances, node, parent } = request;
-  // A token's value changed: its class may be another.
+  const { component, node, parent } = request;
+  // A token's value changed: its class may be another; a component's file, its slots' layout.
   const designSystem = useDesignSystem((s) => s.designSystem);
+  const components = useComponents((s) => s.components);
   const [code, setCode] = useState<string | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the server writes with the design system it holds, so a change to it writes the code again.
   useEffect(() => {
@@ -88,7 +88,6 @@ const useWritten = (request: {
     api()
       .request("code.write", {
         ...(component !== undefined && { component }),
-        instances,
         node,
         parent,
       })
@@ -101,13 +100,13 @@ const useWritten = (request: {
     return () => {
       live = false;
     };
-  }, [component, instances, node, parent, designSystem]);
+  }, [component, node, parent, designSystem, components]);
   return code;
 };
 
 export const CodePanel = () => {
   const subject = useSubject();
-  const instances = useInstances((s) => s.drawn);
+  const catalogue = useComponents((s) => s.catalogue);
   const node = subject?.node;
   const parent = subject?.parent;
   const route = subject?.route;
@@ -115,16 +114,15 @@ export const CodePanel = () => {
     node?.type === "page" && route !== undefined
       ? pageComponentName(route)
       : undefined;
-  // Inside an instance, a node is sized against the layout its component was drawn with.
+  // Inside an instance, a node is sized against the layout of the slot it fills.
   let parentLayout: ParentLayout = "free";
-  if (parent?.type === "instance") {
-    parentLayout = instances[parent.id]?.layout ?? "block";
+  if (parent?.type === "instance" && node) {
+    parentLayout = slotLayoutOf(parent, node.slot, catalogue) ?? "block";
   } else if (parent) {
     parentLayout = layoutOf(parent);
   }
   const code = useWritten({
     component,
-    instances,
     node,
     parent: parentLayout,
   });

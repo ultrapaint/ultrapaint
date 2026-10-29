@@ -1,3 +1,4 @@
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { fillWarnings } from "./sizing.ts";
@@ -12,8 +13,30 @@ const page = (children: DesignNode[]): DesignNode => ({
   type: "page",
 });
 
-const warned = (root: DesignNode, instances = {}) =>
-  fillWarnings(root, instances).map((w) => `${w.nodeId}.${w.axis}`);
+const warned = (root: DesignNode, catalogue: Catalogue = []) =>
+  fillWarnings(root, catalogue).map((w) => `${w.nodeId}.${w.axis}`);
+
+/** A card whose body is a column, its footer a row, and a row in its `size=lg` variant. */
+const CARDS: Catalogue = [
+  {
+    category: "Layout",
+    importFrom: "@ultrapaint/system",
+    name: "Card",
+    props: [],
+    slots: [
+      { label: "Card", name: "root" },
+      {
+        holds: "default",
+        label: "Body",
+        layout: "column",
+        layoutIn: { "size=lg": "row" },
+        name: "card-content",
+      },
+      { holds: "nodes", label: "Footer", layout: "row", name: "card-footer" },
+    ],
+    variants: { size: ["md", "lg"] },
+  },
+];
 
 describe("fillWarnings", () => {
   it("takes a page's own height as room to fill", () => {
@@ -120,19 +143,28 @@ describe("fillWarnings", () => {
     expect(warned(canvas)).toEqual(["b.height"]);
   });
 
-  it("judges an instance's children by the layout its component was drawn with", () => {
-    const root = page([
-      {
-        children: [text("t", { height: "fill" })],
-        component: "Card",
-        from: "@acme/ui",
-        id: "card",
-        type: "instance",
-      },
+  it("judges an instance's children by the layout of the slot each fills, in its variant", () => {
+    const card = (props?: Record<string, string>): DesignNode => ({
+      children: [
+        text("body", { height: "fill" }),
+        text("foot", { height: "fill", slot: "card-footer" }),
+        text("lost", { height: "fill", slot: "no-such-slot" }),
+      ],
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+      ...(props && { props }),
+    });
+    // A component the catalogue does not know is left alone.
+    expect(warned(page([card()]))).toEqual([]);
+    // The body is a column that hugs; the footer a row, which stretches its items across; a slot
+    // the component does not have is its default one.
+    expect(warned(page([card()]), CARDS)).toEqual([
+      "body.height",
+      "lost.height",
     ]);
-    expect(warned(root)).toEqual([]);
-    expect(warned(root, { card: { layout: "block", wrapped: false } })).toEqual(
-      ["t.height"]
-    );
+    // In its large variant the look lays the body out as a row.
+    expect(warned(page([card({ size: "lg" })]), CARDS)).toEqual([]);
   });
 });

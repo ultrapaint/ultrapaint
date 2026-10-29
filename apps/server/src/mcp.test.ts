@@ -8,6 +8,10 @@ import {
 } from "./testing/harness.ts";
 import { callMcp, initializeLegacy, toolCaller } from "./testing/mcp.ts";
 
+/** What an agent is told of a fill in a card's body, whose height follows its content. */
+const FILL_IN_CARD =
+  /^t_\w+: Fill height takes the room the component leaves, and it leaves none/;
+
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "the editor's MCP server",
   (it) => {
@@ -443,6 +447,34 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             nowhere.result.content[0]?.text ?? "",
             "tv is not a breakpoint"
           );
+          // A fill with no room to take is said inside a system component too, by the slot it
+          // fills (ADR 0042): a card's body is a column whose height follows its content.
+          const card = yield* tool("apply_operations", {
+            ops: [
+              {
+                node: {
+                  children: [
+                    {
+                      height: "fill",
+                      role: "paragraph",
+                      text: "Body",
+                      type: "text",
+                    },
+                  ],
+                  component: "Card",
+                  from: "@ultrapaint/system",
+                  type: "instance",
+                },
+                op: "insert",
+                parent: null,
+              },
+            ],
+            route: "/pricing",
+          });
+          assert.isNotTrue(card.result.isError);
+          const warnings = card.result.structuredContent.warnings as string[];
+          assert.lengthOf(warnings, 1);
+          assert.match(warnings[0] ?? "", FILL_IN_CARD);
 
           // The design system is validated before it is saved.
           const invalid = yield* tool("write_design_system", {

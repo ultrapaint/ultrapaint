@@ -17,12 +17,15 @@ import {
   APP_FROM,
   ROOT_SLOT,
   SYSTEM_FROM,
+  variantKey,
 } from "@ultrapaint/contracts/component-names";
 import {
   type AppComponentFile,
   appComponentsIn,
   type ComponentFile,
   type ComponentProperty,
+  type SystemComponentFile,
+  systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { findNode } from "@ultrapaint/design-document/tree";
@@ -552,19 +555,46 @@ export const slotFor = (
     ? meta.slots.find((s) => s.holds === "default")
     : meta.slots.find((s) => s.name === slot && s.holds !== undefined);
 
-/** A system component as the catalogue lists a component. */
-const systemEntryOf = (meta: SystemComponentMeta): ComponentMeta => ({
+/** How each variant of a look lays a part out, where it says (`direction`), by `<axis>=<member>`. */
+const layoutsIn = (
+  look: SystemComponentFile | undefined,
+  part: string
+): Record<string, "row" | "column"> =>
+  Object.fromEntries(
+    Object.entries(look?.variants ?? {}).flatMap(([axis, members]) =>
+      Object.entries(members).flatMap(([member, styles]) => {
+        const direction = styles[part]?.direction;
+        return direction
+          ? [[variantKey(axis, member), direction] as const]
+          : [];
+      })
+    )
+  );
+
+/**
+ * A system component as the catalogue lists a component, its slots laid out as the project's look
+ * says (`direction`, at its base and in each variant) over the catalogue's own layout.
+ */
+const systemEntryOf = (
+  meta: SystemComponentMeta,
+  look: SystemComponentFile | undefined
+): ComponentMeta => ({
   category: meta.category,
   description: meta.description,
   importFrom: SYSTEM_FROM,
   name: meta.name,
   props: meta.props,
-  slots: meta.slots.map((s) => ({
-    label: s.label,
-    name: s.name,
-    ...(s.holds && { holds: s.holds }),
-    ...(s.layout && { layout: s.layout }),
-  })),
+  slots: meta.slots.map((s) => {
+    const layout = look?.base[s.name]?.direction ?? s.layout;
+    const layoutIn = s.holds ? layoutsIn(look, s.name) : {};
+    return {
+      label: s.label,
+      name: s.name,
+      ...(s.holds && { holds: s.holds }),
+      ...(layout && { layout }),
+      ...(Object.keys(layoutIn).length > 0 && { layoutIn }),
+    };
+  }),
   variants: Object.fromEntries(
     Object.entries(meta.variants).map(([axis, members]) => [axis, [...members]])
   ),
@@ -622,10 +652,16 @@ const appEntryOf = (file: AppComponentFile): ComponentMeta => ({
 
 /**
  * The catalogue (ADR 0042): what a design can place, over the project's component files. The
- * system components, each as the editor ships it, then the app components that read; the server
- * gives it to the agents and the web to its panels, from the same files.
+ * system components, each as the editor ships it laid out as its look says, then the app
+ * components that read; the server gives it to the agents and the web to its panels, from the
+ * same files.
  */
-export const catalogueOf = (files: readonly ComponentFile[]): Catalogue => [
-  ...SYSTEM_COMPONENTS.map(systemEntryOf),
-  ...appComponentsIn(files).map(appEntryOf),
-];
+export const catalogueOf = (files: readonly ComponentFile[]): Catalogue => {
+  const looks = new Map(systemComponentsIn(files).map((f) => [f.name, f]));
+  return [
+    ...SYSTEM_COMPONENTS.map((meta) =>
+      systemEntryOf(meta, looks.get(meta.name))
+    ),
+    ...appComponentsIn(files).map(appEntryOf),
+  ];
+};

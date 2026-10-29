@@ -8,12 +8,13 @@
  *
  * The rules are the browser's, as far as they can be read off the document: a parent sized in
  * pixels, set to fill, or stretched across a row has a size of its own; one that hugs, or is
- * left to its content, does not. A node inside an instance is judged by the layout the preview
- * saw the component use, and left alone when that is not known.
+ * left to its content, does not. A node inside an instance is judged by the layout of the slot it
+ * fills, as the catalogue says (`slotLayoutOf`), and left alone when that is not known.
  */
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { layoutOf, type ParentLayout } from "./css.ts";
+import { slotLayoutOf } from "./slots.ts";
 import { CANVAS_ROOT_ID, childrenOf } from "./tree.ts";
 
 export type Axis = "width" | "height";
@@ -24,17 +25,18 @@ export interface FillWarning {
   readonly nodeId: string;
 }
 
-/** How a node lays out its children, or null when that is not known. */
+/** How a node lays out one of its children, or null when that is not known. */
 const layoutFor = (
   node: DesignNode,
-  instances: Readonly<Record<string, InstanceDrawn>>
+  child: DesignNode,
+  catalogue: Catalogue
 ): ParentLayout | null => {
   if (node.id === CANVAS_ROOT_ID) {
     // The canvas's loose nodes are each drawn on their own.
     return "free";
   }
   if (node.type === "instance") {
-    return instances[node.id]?.layout ?? null;
+    return slotLayoutOf(node, child.slot, catalogue);
   }
   return layoutOf(node);
 };
@@ -117,12 +119,12 @@ const fillProblem = (
 /** Every node under the root whose `fill` has no room to take, with why. */
 export const fillWarnings = (
   root: DesignNode,
-  instances: Readonly<Record<string, InstanceDrawn>> = {}
+  catalogue: Catalogue = []
 ): FillWarning[] => {
   const out: FillWarning[] = [];
   const visit = (node: DesignNode, place: Place) => {
-    const layout = layoutFor(node, instances);
     for (const child of childrenOf(node)) {
+      const layout = layoutFor(node, child, catalogue);
       for (const axis of ["width", "height"] as const) {
         const message =
           child[axis] === "fill" && layout !== null && layout !== "free"

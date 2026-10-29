@@ -97,11 +97,11 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
 
       "code.write": ({ node, ...options }) =>
-        designSystem((d) =>
-          Effect.map(d.codeOf(node, options), (code) => ({
-            code,
-            language: "tsx",
-          }))
+        components((c) => c.catalogue).pipe(
+          Effect.flatMap((catalogue) =>
+            designSystem((d) => d.codeOf(node, { ...options, catalogue }))
+          ),
+          Effect.map((code) => ({ code, language: "tsx" }))
         ),
       "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),

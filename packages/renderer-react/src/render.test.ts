@@ -8,7 +8,6 @@ import {
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import type { Mounted } from "@ultrapaint/framework-api/browser";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
 import { afterEach, describe, expect, it } from "vitest";
@@ -56,7 +55,6 @@ const draw = async (
 ) => {
   const canvas = document.createElement("div");
   document.body.append(canvas);
-  const reports: Record<string, InstanceDrawn> = {};
   const navigated: string[] = [];
   const waiting = new Map<number, () => void>();
   const rendered = new Promise<void>((resolve) => {
@@ -65,7 +63,6 @@ const draw = async (
       {
         canvas: "",
         events: {
-          instances: (instances) => Object.assign(reports, instances),
           navigateTo: (route) => navigated.push(route),
         },
       },
@@ -109,7 +106,7 @@ const draw = async (
     });
     await done;
   };
-  return { at, canvas, navigated, redraw, reports };
+  return { at, canvas, navigated, redraw };
 };
 
 describe("a system component", () => {
@@ -153,12 +150,22 @@ describe("a system component", () => {
     );
   });
 
-  it("tells the editor how its default slot lays its children out", async () => {
-    const { reports } = await draw(
-      column([instance("card", "Card"), instance("go", "Button")])
-    );
-    expect(reports.card).toEqual({ layout: "column", wrapped: false });
-    expect(reports.go).toEqual({ layout: "row", wrapped: false });
+  it("lays a child out as the slot it fills does, in the look's direction", async () => {
+    const card = instance("card", "Card", {
+      children: [text("body", { height: "fill" })],
+    });
+    const plain = await draw(column([card]));
+    // The card's body is a column: a child that fills its height grows along it.
+    expect(plain.at("body")?.style.flexGrow).toBe("1");
+    plain.canvas.remove();
+    const look = {
+      ...emptySystemComponent("Card"),
+      base: { "card-content": { direction: "row" as const } },
+    };
+    const turned = await draw(column([card]), { components: [look] });
+    // A look that lays it out as a row stretches the child across instead.
+    expect(turned.at("body")?.style.flexGrow).toBe("");
+    expect(turned.at("body")?.style.alignSelf).toBe("stretch");
   });
 
   it("stands in for an instance of the repository's, and for a name no system component has", async () => {

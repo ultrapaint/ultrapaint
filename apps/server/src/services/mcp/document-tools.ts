@@ -14,6 +14,7 @@ import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
+import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { designSystemSchema, pageSchema } from "../threads/task-text.ts";
@@ -202,6 +203,11 @@ export const documentToolHandlers = Effect.gen(function* () {
     }
   });
 
+  /** What a design can place: how an instance's slots lay out what they hold (ADR 0042). */
+  const catalogue = reported(
+    project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
+  );
+
   /** How the design maps to code, in the open project's style system. */
   const codeRulesOf = reported(
     project.use(Effect.map(ProjectStyleSystem, (s) => s.codeRules))
@@ -269,7 +275,9 @@ export const documentToolHandlers = Effect.gen(function* () {
         });
       }
       const warnings = after.root
-        ? fillWarnings(after.root).map((w) => `${w.nodeId}: ${w.message}`)
+        ? fillWarnings(after.root, yield* catalogue).map(
+            (w) => `${w.nodeId}: ${w.message}`
+          )
         : [];
       return {
         created: result.created,

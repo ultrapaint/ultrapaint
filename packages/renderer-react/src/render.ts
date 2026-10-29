@@ -3,6 +3,8 @@
  * page's nodes as elements, an instance as one of the editor's system components (on Base UI) or
  * as an app component's tree. Nothing of the repository's is loaded or run.
  */
+
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   type AppComponentFile,
@@ -15,7 +17,6 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { expandAppInstance } from "@ultrapaint/design-document/app-components";
 import {
   COMPONENT_ATTRIBUTE,
@@ -32,6 +33,7 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
+import { slotLayoutOf } from "@ultrapaint/design-document/slots";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
   type Drawing,
@@ -42,6 +44,7 @@ import {
   type RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import {
+  catalogueOf,
   type SystemComponentMeta,
   slotFor,
   systemComponentOf,
@@ -117,6 +120,8 @@ interface Scope {
   /** The app components (ADR 0041), by name. */
   readonly apps: ReadonlyMap<string, AppComponentFile>;
   readonly assetUrl: (src: string) => string;
+  /** What a design can place (ADR 0042): how each slot of an instance lays out what it holds. */
+  readonly catalogue: Catalogue;
   /** The app components whose tree is being drawn, outermost first: one inside itself is refused. */
   readonly drawing: readonly string[];
   /** The page's nodes among an app component's tree: an instance's children in its slots. */
@@ -131,8 +136,6 @@ interface Scope {
   readonly nodeAttribute: string;
   /** What the page's own nodes are written in: the page's attribute, or, editing in place, not. */
   readonly pageAttribute: string;
-  /** Tells the editor how an instance lays its children out, once it is drawn. */
-  readonly report: (nodeId: string, drawn: InstanceDrawn) => void;
   readonly styles: Omit<StyleContext, "parent">;
   /** The looks of the system components the project owns (ADR 0041), by name. */
   readonly systems: ReadonlyMap<string, SystemComponentFile>;
@@ -454,9 +457,8 @@ const IsolatedView = ({
 /**
  * One of the editor's own system components (ADR 0040). It takes its instance's props, and its children
  * by the slot each names: the ones that name none are its children, the others go in `slots`,
- * each laid out as its slot lays out. The node's id, marks and box go on the element the
- * system component draws as the instance; how its children are laid out is the catalogue's, and the
- * editor is told it.
+ * each laid out as its slot lays out (`slotLayoutOf`). The node's id, marks and box go on the
+ * element the system component draws as the instance.
  */
 const SystemView = ({
   node,
@@ -469,10 +471,6 @@ const SystemView = ({
   const View = SYSTEM_COMPONENT_VIEWS[node.component];
   const meta = systemComponentOf(node.component);
   const fallback = meta && slotFor(meta, undefined);
-  const layout = fallback?.layout ?? "block";
-  useLayoutEffect(() => {
-    scope.report(node.id, { layout, wrapped: false });
-  }, [scope, node.id, layout]);
   const marks = marksOf(scope, node);
   if (!(View && meta)) {
     return createElement(Missing, {
@@ -483,9 +481,9 @@ const SystemView = ({
   }
   const look = scope.systems.get(node.component);
   const children = childrenOf(node);
-  const bySlot = childrenBySlot(meta, children);
+  const bySlot = childrenBySlot(meta, node, scope.catalogue);
   if (look?.content) {
-    fillEmptySlots(bySlot, scope, meta.slots, look.content, (slot) =>
+    fillEmptySlots(bySlot, scope, node, look.content, (slot) =>
       slot === fallback ? node.text === undefined : true
     );
   }
@@ -521,11 +519,12 @@ const SystemView = ({
 /** An instance's children drawn, by the slot each fills: the one it names, or the default one. */
 const childrenBySlot = (
   meta: SystemComponentMeta,
-  children: readonly DesignNode[]
+  node: InstanceNode,
+  catalogue: Catalogue
 ): Map<string, ReactNode[]> => {
   const fallback = slotFor(meta, undefined);
   const bySlot = new Map<string, ReactNode[]>();
-  for (const child of children) {
+  for (const child of childrenOf(node)) {
     const slot = slotFor(meta, child.slot) ?? fallback;
     if (!slot) {
       continue;
@@ -533,7 +532,7 @@ const childrenBySlot = (
     const drawn = createElement(NodeView, {
       key: child.id,
       node: child,
-      parent: slot.layout ?? "block",
+      parent: slotLayoutOf(node, child.slot, catalogue) ?? "block",
     });
     bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
   }
@@ -547,11 +546,11 @@ const childrenBySlot = (
 const fillEmptySlots = (
   bySlot: Map<string, ReactNode[]>,
   scope: Scope,
-  slots: SystemComponentMeta["slots"],
+  node: InstanceNode,
   content: Readonly<Record<string, readonly DesignNode[]>>,
   empty: (slot: SystemComponentMeta["slots"][number]) => boolean
 ) => {
-  for (const slot of slots) {
+  for (const slot of systemComponentOf(node.component)?.slots ?? []) {
     const given = slot.holds === undefined ? undefined : content[slot.name];
     if (!given || given.length === 0 || bySlot.has(slot.name) || !empty(slot)) {
       continue;
@@ -567,7 +566,7 @@ const fillEmptySlots = (
           createElement(NodeView, {
             key: n.id,
             node: n,
-            parent: slot.layout ?? "block",
+            parent: slotLayoutOf(node, slot.name, scope.catalogue) ?? "block",
           })
         )
       ),
@@ -667,32 +666,10 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   let styles = makeStyleContext(null);
   let components: readonly ComponentFile[] = [];
   let apps: ReadonlyMap<string, AppComponentFile> = new Map();
+  let catalogue = catalogueOf([]);
   let systems: ReadonlyMap<string, SystemComponentFile> = new Map();
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
-
-  // How instances lay out their children goes to the editor once a frame, and only what changed.
-  const told = new Map<string, InstanceDrawn>();
-  let unsent: Record<string, InstanceDrawn> = {};
-  let sendScheduled = false;
-  const sendInstances = () => {
-    sendScheduled = false;
-    const drawn = unsent;
-    unsent = {};
-    setup.reportInstances(drawn);
-  };
-  const report = (nodeId: string, drawn: InstanceDrawn) => {
-    const before = told.get(nodeId);
-    if (before?.layout === drawn.layout && before.wrapped === drawn.wrapped) {
-      return;
-    }
-    told.set(nodeId, drawn);
-    unsent[nodeId] = drawn;
-    if (!sendScheduled) {
-      sendScheduled = true;
-      requestAnimationFrame(sendInstances);
-    }
-  };
 
   let first = true;
   /** What the drawing changes of the design system and the components. */
@@ -703,6 +680,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     }
     if (drawing.components !== components) {
       ({ components } = drawing);
+      catalogue = catalogueOf(components);
       apps = new Map(appComponentsIn(components).map((c) => [c.name, c]));
       systems = new Map(systemComponentsIn(components).map((c) => [c.name, c]));
     }
@@ -715,12 +693,12 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     const scope: Scope = {
       apps,
       assetUrl: setup.assetUrl,
+      catalogue,
       drawing: [],
       isolating: request.isolate,
       navigate: setup.navigate,
       nodeAttribute: pageAttribute,
       pageAttribute,
-      report,
       styles,
       systems,
     };

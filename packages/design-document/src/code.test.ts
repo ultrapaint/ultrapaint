@@ -1,3 +1,4 @@
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
@@ -61,24 +62,72 @@ export default function HomePage() {
     );
   });
 
-  it("puts the classes of a component that keeps its props on the column around it", () => {
-    const node: DesignNode = {
+  it("sizes an instance's child against the slot it fills, a look's direction and an app component's slots", () => {
+    const fill = (id: string, slot?: string): DesignNode =>
+      ({
+        height: "fill",
+        id,
+        role: "paragraph",
+        text: id,
+        type: "text",
+        ...(slot !== undefined && { slot }),
+      }) as DesignNode;
+    const catalogue: Catalogue = [
+      {
+        category: "Layout",
+        importFrom: "@ultrapaint/system",
+        name: "Card",
+        props: [],
+        slots: [
+          { label: "Card", name: "root" },
+          {
+            holds: "default",
+            label: "Body",
+            layout: "column",
+            layoutIn: { "size=lg": "row" },
+            name: "card-content",
+          },
+          { holds: "nodes", label: "Footer", name: "card-footer" },
+        ],
+        variants: { size: ["md", "lg"] },
+      },
+      {
+        category: "App",
+        importFrom: "#app",
+        name: "Plan",
+        props: [],
+        slots: [
+          { holds: "default", label: "body", layout: "column", name: "body" },
+        ],
+        variants: {},
+      },
+    ];
+    const card = (props?: Record<string, string>): DesignNode => ({
+      children: [fill("body"), fill("foot", "card-footer")],
       component: "Card",
-      from: "@acme/ui/card",
+      from: "@ultrapaint/system",
       id: "card",
       type: "instance",
-      width: 320,
+      ...(props && { props }),
+    });
+    const code = toCode(card(), writer, { catalogue });
+    const GROWS = "flexBasis:0% flexGrow:1 flexShrink:1 minHeight:0";
+    expect(code).toContain(`<p className="${GROWS}">body</p>`);
+    expect(code).toContain(`<p className="height:100%">foot</p>`);
+    // In its large variant the look lays the body out as a row, which stretches it across.
+    expect(toCode(card({ size: "lg" }), writer, { catalogue })).toContain(
+      `<p className="alignSelf:stretch">body</p>`
+    );
+    const plan: DesignNode = {
+      children: [fill("mine")],
+      component: "Plan",
+      from: "#app",
+      id: "plan",
+      type: "instance",
     };
-    expect(
-      toCode(node, writer, {
-        instances: { card: { layout: "block", wrapped: true } },
-        parent: "column",
-      })
-    ).toBe(`import { Card } from "@acme/ui/card";
-
-<div className="display:flex flexDirection:column width:320">
-  <Card />
-</div>`);
+    expect(toCode(plan, writer, { catalogue })).toContain(
+      `<p className="${GROWS}">mine</p>`
+    );
   });
 });
 

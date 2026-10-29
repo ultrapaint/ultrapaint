@@ -9,7 +9,7 @@ import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
-import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
+import type { RenderMode } from "@ultrapaint/contracts/preview";
 
 /** Attribute the renderer writes on every node it draws: the node's id in the document. */
 export const NODE_ATTRIBUTE = "data-ed-node";
@@ -38,10 +38,6 @@ export interface RenderSetup {
   readonly pageHeight: string;
   /** Reports a render error to the editor: the page's. */
   readonly reportError: (error: Pick<PageError, "message" | "stack">) => void;
-  /** How instances were drawn, by node id: the ones that changed since the last report. */
-  readonly reportInstances: (
-    instances: Readonly<Record<string, InstanceDrawn>>
-  ) => void;
 }
 
 /** The frame a render draws in, as its renderer sees it. */
@@ -133,10 +129,6 @@ export interface FrameRect {
 /** What a frame tells the editor (ADR 0034): called directly, in the editor's own page. */
 export interface FrameEvents {
   readonly error?: (error: PageError) => void;
-  /** How instances were drawn, by node id: the ones that changed since the last call. */
-  readonly instances?: (
-    instances: Readonly<Record<string, InstanceDrawn>>
-  ) => void;
   /** A node with a link was pressed; the frame does not move. */
   readonly navigateTo?: (route: string, replace: boolean) => void;
   /** A click while the frame takes input: the nodes under it, outermost first. */

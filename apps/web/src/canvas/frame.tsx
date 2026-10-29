@@ -30,7 +30,6 @@ import {
   viewOfFrame,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useInstances } from "../state/instances.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
@@ -161,7 +160,6 @@ export const Frame = memo(
     // What the frame says, heard while it is on screen and drawn. Its error the frame keeps,
     // whoever listens (`Highlights`).
     useFrameEvents(drawn ? frameId : null, {
-      instances: (instances) => useInstances.getState().report(instances),
       // The frame keeps its page; the canvas brings the page the link leads to into view.
       navigateTo: (route) => focusLink(route),
       rects: (rects) => useEditor.getState().setRects(frameId, rects),
