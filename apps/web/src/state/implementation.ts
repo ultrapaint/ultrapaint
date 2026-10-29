@@ -38,6 +38,7 @@ const implementationData = follow({
   apply: take,
   on: { implementation: take },
   read: () => api().request("implementation.list", undefined),
+  whole: ["implementation"],
 });
 
 const statusWords = (item: ImplementationItem): string => {

@@ -474,6 +474,8 @@ const layoutData = follow({
   apply: (layout: CanvasLayout, canvas: string) =>
     useEditor.getState().applyLayout(canvas, layout),
   key: () => useEditor.getState().canvas,
+  // Every canvas's layout is told; one told while a read is on its way waits for its answer.
+  news: ["canvas"],
   on: {
     canvas: ({ canvas, layout }) =>
       useEditor.getState().applyLayout(canvas, layout),

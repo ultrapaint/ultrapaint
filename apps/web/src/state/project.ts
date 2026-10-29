@@ -109,6 +109,7 @@ const pagesData = follow({
   on: { pages: takePages },
   read: () => api().request("pages.list", undefined),
   snapshot: (view) => ({ canvases: view.canvases, pages: view.pages }),
+  whole: ["pages"],
 });
 
 /** The server's log and where the undo history stands. */
