@@ -161,9 +161,9 @@ const SetupRow = () => (
       <Palette className="size-4" />
     </span>
     <div className="flex flex-1 flex-col gap-0.5 text-left">
-      <span className="font-medium">Draw these with your own components</span>
+      <span className="font-medium">Draw these in your own look</span>
       <span className="font-body text-muted-foreground">
-        An agent reads your colours, type and components, then every starter
+        An agent reads your colours and type, then every starter and primitive
         uses them.
       </span>
     </div>
