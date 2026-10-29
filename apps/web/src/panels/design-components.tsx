@@ -44,6 +44,16 @@ import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { ValueField } from "../components/value-field.tsx";
+import {
+  fallbacksOf,
+  type Inherited,
+  inheritedAt,
+  type Member,
+  type Place,
+  placeLabel,
+  styleAt,
+  withStyle,
+} from "../lib/look-places.ts";
 import { allSelected, nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import {
@@ -130,6 +140,7 @@ const lookOf = (file: SystemComponentFile): SystemLook => ({
   ...(file.item && { item: file.item }),
   states: file.states,
   variants: file.variants,
+  ...(file.variantStates && { variantStates: file.variantStates }),
 });
 
 /** A system component's parts, the root first, as the catalogue names them. */
@@ -138,77 +149,6 @@ const partsOf = (name: string) =>
     label: s.label,
     name: s.name,
   })) ?? [{ label: "The component", name: ROOT_SLOT }];
-
-/** Where a field of a look is set: the base, a variant's member, or a state, and which part. */
-type Place =
-  | { readonly kind: "base" }
-  | { readonly axis: string; readonly kind: "variant"; readonly member: string }
-  | { readonly kind: "state"; readonly state: ComponentState };
-
-const styleAt = (
-  spec: SystemComponentFile,
-  place: Place,
-  slot: string
-): PartStyle => {
-  if (place.kind === "base") {
-    return spec.base[slot] ?? {};
-  }
-  if (place.kind === "variant") {
-    return spec.variants[place.axis]?.[place.member]?.[slot] ?? {};
-  }
-  return spec.states[place.state]?.[slot] ?? {};
-};
-
-/** The look with one part's style at a place replaced; empty styles are taken out. */
-const withStyle = (
-  spec: SystemComponentFile,
-  place: Place,
-  slot: string,
-  style: PartStyle
-): SystemComponentFile => {
-  const empty = Object.keys(style).length === 0;
-  const slots = (current: Readonly<Record<string, PartStyle>> | undefined) => {
-    const { [slot]: _old, ...rest } = current ?? {};
-    return empty ? rest : { ...rest, [slot]: style };
-  };
-  if (place.kind === "base") {
-    return { ...spec, base: slots(spec.base) };
-  }
-  if (place.kind === "variant") {
-    const axis = spec.variants[place.axis] ?? {};
-    return {
-      ...spec,
-      variants: {
-        ...spec.variants,
-        [place.axis]: { ...axis, [place.member]: slots(axis[place.member]) },
-      },
-    };
-  }
-  return {
-    ...spec,
-    states: { ...spec.states, [place.state]: slots(spec.states[place.state]) },
-  };
-};
-
-const placeKey = (place: Place) => {
-  if (place.kind === "base") {
-    return "base";
-  }
-  return place.kind === "variant"
-    ? `variant:${place.axis}:${place.member}`
-    : `state:${place.state}`;
-};
-
-const placeOf = (key: string): Place => {
-  const [kind, a = "", b = ""] = key.split(":");
-  if (kind === "variant") {
-    return { axis: a, kind: "variant", member: b };
-  }
-  if (kind === "state") {
-    return { kind: "state", state: a as ComponentState };
-  }
-  return { kind: "base" };
-};
 
 /** The axes and members a look is drawn in: the catalogue's, and its own besides. */
 const axesOf = (spec: SystemComponentFile, meta: ComponentMeta | undefined) => {
@@ -222,15 +162,47 @@ const axesOf = (spec: SystemComponentFile, meta: ComponentMeta | undefined) => {
   return axes;
 };
 
+/** The axis the matrix draws a row per member of: the one asked for, else one a state is set in a member of, else the first. */
+const rowAxisOf = (
+  component: SystemComponentFile,
+  axes: Readonly<Record<string, readonly string[]>>,
+  asked: string | undefined
+) => {
+  const names = Object.keys(axes);
+  if (asked && names.includes(asked)) {
+    return asked;
+  }
+  return (
+    names.find((a) => component.variantStates?.[a] !== undefined) ?? names[0]
+  );
+};
+
+/** The states a look is drawn in: those it sets, in every member or in one, and the usual three. */
+const drawnStates = (component: SystemComponentFile): ComponentState[] => {
+  const set = new Set<string>(Object.keys(component.states));
+  for (const members of Object.values(component.variantStates ?? {})) {
+    for (const states of Object.values(members)) {
+      for (const s of Object.keys(states)) {
+        set.add(s);
+      }
+    }
+  }
+  return COMPONENT_STATES.filter(
+    (s) => set.has(s) || ["hover", "focus", "disabled"].includes(s)
+  );
+};
+
 /**
- * The matrix the preview draws: a row per member of the first axis (the default alone when there
- * is none), a column for the base and each state, every cell the real component pinned in it. An
- * app component is drawn once, as an instance with its properties' defaults.
+ * The matrix the preview draws: a row per member of an axis (the default alone when there is
+ * none), a column for the base and each state, every cell the real component pinned in it, so
+ * each member shows each state with its own values. An app component is drawn once, as an
+ * instance with its properties' defaults.
  */
 const matrixOf = (
   component: ComponentFile,
   meta: ComponentMeta | undefined,
-  pageWidth: number
+  pageWidth: number,
+  rowAxis: string | undefined
 ): DesignNode => {
   if (component.origin === "app") {
     // At its own width when it has one, else as wide as a page: a header that fills a page is
@@ -252,16 +224,9 @@ const matrixOf = (
     };
   }
   const axes = axesOf(component, meta);
-  const [axis] = Object.keys(axes);
+  const axis = rowAxisOf(component, axes, rowAxis);
   const members = axis ? (axes[axis] ?? []) : [];
-  const states: (ComponentState | null)[] = [
-    null,
-    ...COMPONENT_STATES.filter(
-      (s) =>
-        component.states[s] !== undefined ||
-        ["hover", "focus", "disabled"].includes(s)
-    ),
-  ];
+  const states: (ComponentState | null)[] = [null, ...drawnStates(component)];
   const rows = (members.length > 0 ? members : [null]).map(
     (member, r): DesignNode => ({
       children: states.map(
@@ -355,9 +320,12 @@ const ScaledPicture = ({ frame, title }: { frame: string; title: string }) => {
 export const Matrix = ({
   component,
   meta,
+  rowAxis,
 }: {
   component: ComponentFile;
   meta: ComponentMeta | undefined;
+  /** The axis drawn a row per member of, when the look has several. */
+  rowAxis?: string | undefined;
 }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const { components } = useDesignLook();
@@ -379,9 +347,9 @@ export const Matrix = ({
         designSystem: ds,
         look,
         mode: "fit" as const,
-        root: matrixOf(component, meta, pageWidth),
+        root: matrixOf(component, meta, pageWidth, rowAxis),
       }),
-      [ds, meta, component, look, pageWidth]
+      [ds, meta, component, look, pageWidth, rowAxis]
     )
   );
   if (component.origin === "app") {
@@ -405,13 +373,19 @@ export const Matrix = ({
   );
 };
 
+/** What a field left empty shows: the value it takes, and where from. */
+const inheritedText = (inherited: Inherited | undefined) =>
+  inherited ? `${String(inherited.value)} (${inherited.from})` : "Not set";
+
 /** One style field of a slot, over the design system's tokens. */
 const Field = ({
+  inherited,
   kind,
   label,
   onChange,
   value,
 }: {
+  inherited?: Inherited | undefined;
   kind: FieldTokenKind | "opacity";
   label: string;
   onChange: (value: JsonValue) => void;
@@ -429,8 +403,12 @@ const Field = ({
         })}
         onChange={onChange}
         options={kind === "opacity" ? [] : options}
-        placeholder="Not set"
-        title={label}
+        placeholder={inheritedText(inherited)}
+        title={
+          inherited && value === undefined
+            ? `${label}: ${inheritedText(inherited)}`
+            : label
+        }
         value={value}
       />
     </div>
@@ -467,11 +445,13 @@ const withSide = (
 
 /** One field of a part that takes one of a few words. */
 const Choice = ({
+  inherited,
   label,
   onChange,
   options,
   value,
 }: {
+  inherited?: Inherited | undefined;
   label: string;
   onChange: (value: JsonValue) => void;
   options: readonly string[];
@@ -486,7 +466,9 @@ const Choice = ({
       size="sm"
       value={value ?? ""}
     >
-      <NativeSelectOption value="">Not set</NativeSelectOption>
+      <NativeSelectOption value="">
+        {inheritedText(inherited)}
+      </NativeSelectOption>
       {options.map((o) => (
         <NativeSelectOption key={o} value={o}>
           {o}
@@ -496,11 +478,13 @@ const Choice = ({
   </div>
 );
 
-/** The fields of one part at one place. */
+/** The fields of one part at one place, each left empty showing what it takes from where. */
 const SlotFields = ({
+  inherited,
   onChange,
   style,
 }: {
+  inherited: Readonly<Record<string, Inherited>>;
   onChange: (style: PartStyle) => void;
   style: PartStyle;
 }) => {
@@ -526,36 +510,42 @@ const SlotFields = ({
   return (
     <div className="flex flex-col gap-1.5">
       <Field
+        inherited={inherited.fill}
         kind="color"
         label="Fill"
         onChange={set("fill")}
         value={style.fill}
       />
       <Field
+        inherited={inherited.color}
         kind="color"
         label="Text"
         onChange={set("color")}
         value={style.color}
       />
       <Field
+        inherited={inherited["border.color"]}
         kind="color"
         label="Border"
         onChange={border("color")}
         value={style.border?.color}
       />
       <Field
+        inherited={inherited["border.width"]}
         kind="borderWidth"
         label="Border width"
         onChange={border("width")}
         value={style.border?.width}
       />
       <Field
+        inherited={inherited.radius}
         kind="radius"
         label="Radius"
         onChange={set("radius")}
         value={style.radius}
       />
       <Field
+        inherited={inherited.padding}
         kind="spacing"
         label="Padding"
         onChange={set("padding")}
@@ -563,6 +553,7 @@ const SlotFields = ({
       />
       {SIDES.map((side) => (
         <Field
+          inherited={inherited[`padding.${side}`]}
           key={side}
           kind="spacing"
           label={`Padding ${side}`}
@@ -571,24 +562,28 @@ const SlotFields = ({
         />
       ))}
       <Choice
+        inherited={inherited.direction}
         label="Direction"
         onChange={set("direction")}
         options={["row", "column"]}
         value={style.direction}
       />
       <Choice
+        inherited={inherited.align}
         label="Align"
         onChange={set("align")}
         options={["start", "center", "end", "between", "around"]}
         value={style.align}
       />
       <Choice
+        inherited={inherited.crossAlign}
         label="Cross align"
         onChange={set("crossAlign")}
         options={["start", "center", "end", "stretch", "baseline"]}
         value={style.crossAlign}
       />
       <Field
+        inherited={inherited.order}
         kind="opacity"
         label="Order"
         onChange={(v) =>
@@ -597,36 +592,42 @@ const SlotFields = ({
         value={style.order}
       />
       <Field
+        inherited={inherited.height}
         kind="spacing"
         label="Height"
         onChange={set("height")}
         value={style.height}
       />
       <Field
+        inherited={inherited.gap}
         kind="spacing"
         label="Gap"
         onChange={set("gap")}
         value={style.gap}
       />
       <Field
+        inherited={inherited.fontSize}
         kind="fontSize"
         label="Text size"
         onChange={set("fontSize")}
         value={style.fontSize}
       />
       <Field
+        inherited={inherited.fontWeight}
         kind="fontWeight"
         label="Weight"
         onChange={set("fontWeight")}
         value={style.fontWeight}
       />
       <Field
+        inherited={inherited.shadow}
         kind="shadow"
         label="Shadow"
         onChange={set("shadow")}
         value={style.shadow}
       />
       <Field
+        inherited={inherited.opacity}
         kind="opacity"
         label="Opacity"
         onChange={(v) =>
@@ -1010,7 +1011,9 @@ const SystemDetail = ({
   const file = edits && edits.from === saved ? edits.file : saved;
   const setFile = (next: SystemComponentFile | undefined) =>
     setEdits({ file: next, from: saved });
-  const [placeKeyed, setPlace] = useState("base");
+  // The member and the state edited: both together edit that state in that member.
+  const [variant, setVariant] = useState<Member | null>(null);
+  const [state, setState] = useState<ComponentState | null>(null);
   const [slot, setSlot] = useState(ROOT_SLOT);
   const parts = partsOf(name);
 
@@ -1048,21 +1051,12 @@ const SystemDetail = ({
     );
   }
 
-  const place = placeOf(placeKeyed);
+  const place: Place = { state, variant };
   const axes = axesOf(file, meta);
-  const places: { label: string; value: string }[] = [
-    { label: "Base", value: "base" },
-    ...Object.entries(axes).flatMap(([axis, members]) =>
-      members.map((member) => ({
-        label: `${axis}: ${member}`,
-        value: placeKey({ axis, kind: "variant", member }),
-      }))
-    ),
-    ...COMPONENT_STATES.map((state) => ({
-      label: `State: ${state}`,
-      value: placeKey({ kind: "state", state }),
-    })),
-  ];
+  const members = Object.entries(axes).flatMap(([axis, names]) =>
+    names.map((member) => ({ axis, member }))
+  );
+  const fallbacks = fallbacksOf(place).map(placeLabel);
   const dirty = JSON.stringify(file) !== JSON.stringify(saved);
 
   return (
@@ -1090,35 +1084,73 @@ const SystemDetail = ({
             Reset to default
           </Button>
         </div>
-        <Matrix component={file} meta={meta} />
+        <Matrix component={file} meta={meta} rowAxis={variant?.axis} />
 
         <div className="grid grid-cols-2 gap-1.5">
           <NativeSelect
-            aria-label="Where"
-            onChange={(e) => setPlace(e.target.value)}
+            aria-label="Variant"
+            onChange={(e) => {
+              const [axis = "", member = ""] = e.target.value.split("=");
+              setVariant(e.target.value === "" ? null : { axis, member });
+            }}
             size="sm"
-            value={placeKeyed}
+            value={variant ? `${variant.axis}=${variant.member}` : ""}
           >
-            {places.map((p) => (
-              <NativeSelectOption key={p.value} value={p.value}>
-                {p.label}
+            <NativeSelectOption value="">Every variant</NativeSelectOption>
+            {members.map((m) => (
+              <NativeSelectOption
+                key={`${m.axis}=${m.member}`}
+                value={`${m.axis}=${m.member}`}
+              >
+                {m.axis}: {m.member}
               </NativeSelectOption>
             ))}
           </NativeSelect>
           <NativeSelect
-            aria-label="Part"
-            onChange={(e) => setSlot(e.target.value)}
+            aria-label="State"
+            onChange={(e) =>
+              setState(
+                e.target.value === ""
+                  ? null
+                  : (e.target.value as ComponentState)
+              )
+            }
             size="sm"
-            value={slot}
+            value={state ?? ""}
           >
-            {parts.map((s) => (
-              <NativeSelectOption key={s.name} value={s.name}>
-                {s.name === ROOT_SLOT ? "The component" : s.label}
+            <NativeSelectOption value="">No state</NativeSelectOption>
+            {COMPONENT_STATES.map((s) => (
+              <NativeSelectOption key={s} value={s}>
+                State: {s}
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          <div className="col-span-2">
+            <NativeSelect
+              aria-label="Part"
+              className="w-full"
+              onChange={(e) => setSlot(e.target.value)}
+              size="sm"
+              value={slot}
+            >
+              {parts.map((s) => (
+                <NativeSelectOption key={s.name} value={s.name}>
+                  {s.name === ROOT_SLOT ? "The component" : s.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
+        <p className="text-muted-foreground">
+          {variant && state
+            ? `${state} as ${variant.member} draws it, over ${state} in every variant.`
+            : `Editing ${placeLabel(place)}.`}
+          {fallbacks.length > 0
+            ? ` A field left empty takes ${fallbacks.join(", then ")}.`
+            : ""}
+        </p>
         <SlotFields
+          inherited={inheritedAt(file, fallback, place, slot)}
           onChange={(style) => setFile(withStyle(file, place, slot, style))}
           style={styleAt(file, place, slot)}
         />

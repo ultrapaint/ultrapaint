@@ -146,7 +146,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { holds: "default", label: "Button", layout: "row", name: ROOT_SLOT },
       { label: "Spinner", name: "button-spinner" },
     ],
-    states: ["hover", "focus", "active", "disabled"],
+    states: ["hover", "focus", "active", "disabled", "open"],
     text: "Button",
     variants: { size: [...SIZES, "icon"], variant: BUTTON_VARIANTS },
   },

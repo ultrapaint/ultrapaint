@@ -28,6 +28,8 @@ const ds = {
 const ctx = makeStyleContext(ds);
 
 const ROOT = '[data-ed-c="Button"]';
+/** What a pointer's state adds: it shows only on a component that can be used. */
+const USABLE = ":where(:not(:disabled, [data-disabled]))";
 
 const button = (look: Partial<ComponentLook>): ComponentLook => ({
   ...emptyLook("Button"),
@@ -176,16 +178,57 @@ describe("lookCss", () => {
     const rules = selectorsOf(css);
     expect(rules.map((r) => r[0])).toEqual([
       '[data-ed-c="Button"][data-ed-v~="variant:ghost"]',
-      '[data-ed-c="Button"]:hover',
-      '[data-ed-c="Button"]:hover [data-slot="label"]',
+      `[data-ed-c="Button"]${USABLE}:hover`,
+      `[data-ed-c="Button"]${USABLE}:hover [data-slot="label"]`,
       '[data-ed-c="Button"]:disabled',
     ]);
     expect(rules[1]).toEqual([
-      '[data-ed-c="Button"]:hover',
-      '[data-ed-c="Button"][data-hovered]',
-      '[data-ed-c="Button"][data-ed-state~="hover"]',
+      `[data-ed-c="Button"]${USABLE}:hover`,
+      `[data-ed-c="Button"]${USABLE}[data-hovered]`,
+      `[data-ed-c="Button"][data-ed-state~="hover"]${USABLE}`,
     ]);
     expect(rules[3]).toContain('[data-ed-c="Button"][aria-disabled="true"]');
+  });
+
+  it("writes a state in a member after the states, as specific, and disabled after them all", () => {
+    const css = lookCss(
+      [
+        button({
+          defaults: { variant: "primary" },
+          states: {
+            disabled: { root: { opacity: 0.5 } },
+            hover: { root: { fill: "blue" } },
+          },
+          variantStates: {
+            variant: {
+              outline: {
+                disabled: { root: { opacity: 0.4 } },
+                hover: { root: { fill: "gray" } },
+              },
+              primary: { open: { root: { fill: "navy" } } },
+            },
+          },
+          variants: { variant: { outline: { root: { fill: "white" } } } },
+        }),
+      ],
+      ctx
+    );
+    const rules = selectorsOf(css);
+    expect(rules.map((r) => r[0])).toEqual([
+      '[data-ed-c="Button"][data-ed-v~="variant:outline"]',
+      `[data-ed-c="Button"]${USABLE}:hover`,
+      `[data-ed-c="Button"]:where([data-ed-v~="variant:outline"])${USABLE}:hover`,
+      '[data-ed-c="Button"]:where([data-ed-v~="variant:primary"])[data-open]',
+      '[data-ed-c="Button"]:disabled',
+      '[data-ed-c="Button"]:where([data-ed-v~="variant:outline"]):disabled',
+    ]);
+    // The default member's state also matches an instance that does not set the axis, pinned too.
+    expect(rules[3]).toContain(
+      '[data-ed-c="Button"]:where(:not([data-ed-v^="variant:"], [data-ed-v*=" variant:"]))[data-ed-state~="open"]'
+    );
+    expect(rules[2]).toContain(
+      `[data-ed-c="Button"]:where([data-ed-v~="variant:outline"])[data-ed-state~="hover"]${USABLE}`
+    );
   });
 
   it("escapes names and values for attribute selectors", () => {

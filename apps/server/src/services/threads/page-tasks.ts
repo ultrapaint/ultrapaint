@@ -132,11 +132,14 @@ node is). \`slots\` are containers of the tree an instance's children fill (\`de
 const SYSTEM_FORMAT = `The file: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
 (hover, focus, active, highlighted, disabled, open, checked, invalid) are the state classes (\`hover:\`,
 \`focus-visible:\`, \`active:\` or \`data-active:\`, \`data-highlighted:\`, \`disabled:\`, \`data-open:\` or
-\`data-[state=open]:\`, \`data-checked:\`, \`aria-invalid:\`), on the part itself or on the root; a part other
+\`data-[state=open]:\`, \`data-checked:\`, \`aria-invalid:\`), on the part itself or on the root; \`variantStates\`
+are a state in one variant's value (an outline button's \`hover:\` classes in that variant's), winning over the
+state's own, which win over the variant's; disabled wins over every other state. A part other
 than \`root\` is the element with that \`data-slot\`; \`direction\`, \`align\`, \`crossAlign\` and \`order\` are the
 part's flex layout. \`content\` is what a slot holds when an instance gives it nothing, \`hidden\` the
 optional parts the component leaves out, and \`item\` what a Select's or a Menu's item draws (\`label\`
-and \`image\` the nodes showing the item's). Values are the design system's tokens.`;
+and \`image\` the nodes showing the item's). Values are the design system's tokens, or CSS over their
+variables (a hover's \`color-mix()\`).`;
 
 /** The components a tree uses, by name. */
 const usedComponents = (root: DesignNode | null | undefined) => {
