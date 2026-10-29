@@ -55,7 +55,7 @@ import { CommentsService } from "./comments.ts";
 import { componentsIn, readComponents } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
-import { type EditFailure, EditService } from "./edit.ts";
+import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { handoffCall } from "./threads/agent-ways.ts";
@@ -124,7 +124,7 @@ export interface Current {
 const emptyFile = (): ImplementationFile => ({ items: {}, version: 1 });
 
 /** A change to one entry of `implementation.json`, and the snapshot written or taken with it. */
-interface EntryEdit {
+export interface EntryEdit {
   readonly snapshot?: {
     readonly rel: string;
     /** Null takes the snapshot away. */
@@ -319,6 +319,16 @@ export class ImplementationService extends Context.Service<
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
+    /**
+     * Entries changed inside another action, in its undo step (the migration's): `edits` gives
+     * the changes from the entries as they are in it.
+     */
+    readonly editIn: (
+      tx: EditTransaction,
+      edits: (
+        items: Readonly<Record<string, ImplementationEntry>>
+      ) => readonly EntryEdit[]
+    ) => Effect.Effect<void, EditFailure>;
   }
 >()("ultrapaint/server/ImplementationService") {
   static readonly layer = Layer.effect(
@@ -541,28 +551,38 @@ export class ImplementationService extends Context.Service<
         events.publish("implementation", l)
       );
 
+      /** `implementation.json` with entries changed inside an action, read in it. */
+      const editIn = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        editsOf: (
+          items: Readonly<Record<string, ImplementationEntry>>
+        ) => readonly EntryEdit[]
+      ) {
+        // Read in the action, so a change made meanwhile is kept.
+        const file = yield* readFile;
+        const edits = editsOf(file.items);
+        if (edits.length === 0) {
+          return;
+        }
+        yield* tx.write(
+          fileRel,
+          serialise({ items: withEdits(file.items, edits), version: 1 })
+        );
+        for (const { snapshot } of edits) {
+          if (snapshot) {
+            yield* snapshot.text === null
+              ? tx.remove(snapshot.rel)
+              : tx.write(snapshot.rel, snapshot.text);
+          }
+        }
+      });
+
       /** `implementation.json` with entries changed, and the files to write with them: one undo step. */
       const writeEntries = Effect.fnUntraced(function* (
         label: string,
         edits: readonly EntryEdit[]
       ) {
-        yield* edit.transaction(label, (tx) =>
-          Effect.gen(function* () {
-            // Read in the action, so a change made meanwhile is kept.
-            const file = yield* readFile;
-            yield* tx.write(
-              fileRel,
-              serialise({ items: withEdits(file.items, edits), version: 1 })
-            );
-            for (const { snapshot } of edits) {
-              if (snapshot) {
-                yield* snapshot.text === null
-                  ? tx.remove(snapshot.rel)
-                  : tx.write(snapshot.rel, snapshot.text);
-              }
-            }
-          })
-        );
+        yield* edit.transaction(label, (tx) => editIn(tx, () => edits));
         yield* publish;
       });
 
@@ -809,6 +829,7 @@ export class ImplementationService extends Context.Service<
       return ImplementationService.of({
         changes,
         current,
+        editIn,
         implemented,
         item,
         list,

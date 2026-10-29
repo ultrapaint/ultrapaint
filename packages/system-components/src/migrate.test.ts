@@ -1,13 +1,11 @@
-import {
-  LEGACY_SYSTEM_FROM,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/component-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { systemComponentOf } from "./catalogue.ts";
 import {
   asSystemComponent,
   componentOfSpec,
+  LEGACY_SYSTEM_FROM,
   migrationOf,
   systemComponentFor,
 } from "./migrate.ts";

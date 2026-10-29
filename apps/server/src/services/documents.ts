@@ -9,8 +9,6 @@ import {
   type ApplyInput,
   type ApplyResult,
   DesignNode,
-  type DocOp,
-  type DocumentEdit,
   type DocumentState,
   PageDocument,
 } from "@ultrapaint/contracts/document";
@@ -28,19 +26,16 @@ import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import {
-  CANVAS_ROOT_ID,
   canvasDocOf,
   canvasOfDoc,
   canvasRoot,
   childrenOf,
   DOCUMENT_VERSION,
-  findPath,
   idsOf,
   isPageFile,
 } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
-import { migrationOf } from "@ultrapaint/system-components/migrate";
 import {
   Context,
   Effect,
@@ -145,25 +140,6 @@ export class DocumentService extends Context.Service<
     readonly list: (
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
-    /**
-     * The instances from before in every document (ADRs 0040, 0041): how many are drawn as now
-     * once migrated (the repository's components a system component can draw, and the instances
-     * of system components and drafts as they were named), and how many of the repository's no
-     * system component is like and stay stand-ins.
-     */
-    readonly oldInstances: Effect.Effect<
-      { readonly drawn: number; readonly left: number },
-      EditFailure
-    >;
-    /**
-     * The edits that migrate every instance from before (`migrate.ts`), in every document, and
-     * how many instances they draw as now: what `ComponentService.migrate` applies, with the
-     * components' files, in one undo step.
-     */
-    readonly migrationEdits: Effect.Effect<
-      { readonly drawn: number; readonly edits: readonly DocumentEdit[] },
-      EditFailure
-    >;
     /** Saves an image into the shared assets; answers with the path a node shows it by. */
     readonly upload: (
       input: UploadAssetInput
@@ -470,55 +446,6 @@ export class DocumentService extends Context.Service<
         return (yield* Effect.forEach(canvases, (c) => list(c.id))).flat();
       }).pipe(Effect.withSpan("DocumentService.all"));
 
-      const oldInstances = Effect.map(all, (docs) => {
-        let drawn = 0;
-        let left = 0;
-        for (const { root: tree } of docs) {
-          const migration = tree ? migrationOf(tree) : null;
-          drawn += migration?.drawn ?? 0;
-          left += migration?.left.length ?? 0;
-        }
-        return { drawn, left };
-      }).pipe(Effect.withSpan("DocumentService.oldInstances"));
-
-      const migrationEdits = Effect.gen(function* () {
-        let drawn = 0;
-        const edits: DocumentEdit[] = [];
-        for (const state of yield* all) {
-          const tree = state.root;
-          if (!tree) {
-            continue;
-          }
-          const migration = migrationOf(tree);
-          // Each instance is put back where it was, as it is drawn now: what it holds goes with it.
-          const ops = migration.replaced.flatMap((node): DocOp[] => {
-            const parent = findPath(tree, node.id)?.at(-2);
-            if (!parent) {
-              return [];
-            }
-            const index = childrenOf(parent).findIndex((c) => c.id === node.id);
-            return [
-              { id: node.id, op: "remove" },
-              {
-                index,
-                node,
-                op: "insert",
-                parent:
-                  parent.id === CANVAS_ROOT_ID &&
-                  canvasOfDoc(state.doc) !== null
-                    ? null
-                    : parent.id,
-              },
-            ];
-          });
-          if (ops.length > 0) {
-            drawn += migration.drawn;
-            edits.push({ doc: state.doc, expectedHash: state.hash, ops });
-          }
-        }
-        return { drawn, edits };
-      }).pipe(Effect.withSpan("DocumentService.migrationEdits"));
-
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput
       ) {
@@ -610,8 +537,6 @@ export class DocumentService extends Context.Service<
         apply,
         get,
         list,
-        migrationEdits,
-        oldInstances,
         upload,
       });
     })

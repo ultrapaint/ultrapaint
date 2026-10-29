@@ -15,12 +15,12 @@
     "@base-ui/react": "^1.8.0",
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
-    "@floating-ui/dom": "^1.8.0"
+    "@floating-ui/dom": "^1.8.0",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "effect": "catalog:",
     "happy-dom": "^20.14.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

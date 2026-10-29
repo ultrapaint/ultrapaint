@@ -28,6 +28,7 @@ import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
+import { Migration } from "./services/migration.ts";
 import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
@@ -77,10 +78,12 @@ export const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
   // names, with its behaviour notes in a component's file or in comments (ADR 0030).
   // Figma's import maps a frame's components to the catalogue's.
+  // Sync's one step brings what came before ADR 0041 up to date (`Migration`).
   Layer.mergeAll(
     PagePngs.layer,
     DesignTargets.layer,
-    FigmaImportService.layer
+    FigmaImportService.layer,
+    Migration.layer
   ).pipe(
     // The components: a system component's look as the design says it, an app component's tree
     // (ADR 0041).
