@@ -5,7 +5,8 @@ them are in `docs/adr/`; [ADR 0037](docs/adr/0037-deep-modules.md) says why each
 module, and [ADR 0038](docs/adr/0038-deep-modules-second-review.md) gives the ones it left
 half-done theirs, [ADR 0039](docs/adr/0039-deep-modules-third-review.md) the ones a third
 review found, and [ADR 0042](docs/adr/0042-deep-modules-fourth-review.md) the ones the system
-components left.
+components left, with [ADR 0043](docs/adr/0043-what-the-agents-read-and-the-follow-ups.md)'s
+follow-ups.
 
 ## Design
 
@@ -61,7 +62,10 @@ components left.
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
   from its component by `detachedOf`, or made one of nodes by `appComponentFrom`, both keeping
-  one list of where a node sits).
+  one list of where a node sits). The editor keeps the nodes a document comes back with unchanged
+  as the objects it had (`shareUnchanged`), so what is drawn of them is not drawn again. A tree's
+  **outline** is it shown some levels down, a node at the last counting its children
+  (`outlineOf`): how an agent reads a big page first.
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
   new frame past every frame and its views, a copy, variant or state beside its page when nothing
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
@@ -106,7 +110,9 @@ components left.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`): each capability worded both ways (ask the user, save the
   design system, mark a design implemented), and the tools by their own names (`tools`, none
-  without the server). A text names a tool only through them.
+  without the server). A text names a tool only through them. What an agent reads says each thing
+  once, compactly (ADR 0043): a component in one line (`componentLine`), a schema compacted
+  (`compactSchema`), a tool's schema without JSON Schema's defaults (`leanSchema`).
 - **Setup step**: one of the design system's five set-up steps (ADR 0023), run with its thread
   by `SetupSteps`.
 
@@ -118,9 +124,10 @@ components left.
   The only home of a component's description (ADR 0042). The server's **component-files** codec
   reads, writes and checks a file (names unique among its properties, slots and members) and
   changes it: a **component change** (`ComponentChange`: a property added, set, renamed or taken
-  out, a member renamed, a slot added, taken out or made the default) is made by
-  `ComponentService.change` on the file as it is now, a rename followed into the variants its
-  tree keeps and every instance's props (`instanceOps`), in one undo step.
+  out, a member renamed, a slot added, taken out or made the default, a system component's look
+  set, a note taken out) is made by `ComponentService.change` on the file as it is now, a rename
+  followed into the variants its tree keeps and every instance's props (`instanceOps`, of the
+  documents as they are in the step), in one undo step.
 - **Catalogue**: what a design can place, the system components then the app components that
   read (system-components' `catalogueOf`, over the component files; ADR 0042): each entry's props,
   variant axes, slots and their layout, and the example a new instance starts with. The server
@@ -151,11 +158,13 @@ components left.
   fills the slot it names (`slot`), the rest fill the **default** slot. **Filling slots** is one
   rule for both origins (design-document's `fillSlots`): a child naming a slot the component lacks
   is in the default one, and a slot given nothing holds the component's own **content**. A slot's
-  **layout** is how it lays out what it holds, the catalogue's with a look's `direction` over it
-  in the instance's variant (`slotLayoutOf`): what `fill` and `hug` are relative to on the canvas,
+  **layout** is how it lays out what it holds, the catalogue's with a look's `direction`, or an
+  app component's container turned in a member or at a breakpoint, over it in the instance's
+  variant and at the breakpoints that hold where it is drawn (`slotLayoutOf`): what `fill` and `hug` are relative to on the canvas,
   in the Code tab and in the fill warnings.
 - **Migration**: what came before ADRs 0040 and 0041 brought up to date in one undo step, Sync's
-  one step (the server's `Migration`, on system-components' pure `migrate.ts`).
+  one step (the server's `Migration` and its `migration.run`, on system-components' pure
+  `migrate.ts`).
 - **Element**: a layout, text or image node, what is not a component, which the Assets panel
   offers above the components (`ELEMENTS`, `newElement`).
 - **Preview**: what draws the editor's frames (preview-core's `Preview`): the frames, a renderer

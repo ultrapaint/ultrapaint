@@ -292,7 +292,8 @@ keeps its login and sessions:
 
 An agent in a thread is told about the project when it starts — where the designs are, how pages
 route, what the system and app components are — and is given the editor's own MCP server to ask the rest:
-the pages and their routes, a component's props, variants and slots, the comments left on the canvas. It
+the pages and their routes, a component's props, variants and slots, the comments left on the canvas
+(a big page as an outline first, then a part at a time). It
 can add and rename pages through it, answer a comment where it was left, say which page it is
 working on so you can watch it, and take a screenshot of a page or a node to check its own work.
 Screenshots are drawn by the editor's preview, so the editor has to be open in a browser. When a
@@ -457,12 +458,15 @@ component's, and every instance follows. There the inspector adds **properties**
 no, a choice, an image — or **exposes** a field of the node selected as one (its text, whether it
 shows, its picture, a prop of a component inside it), and makes a container a **slot** that an
 instance's children fill. A choice's members are **variants**: pick one in the banner under the
-canvas and your edits land on it alone. Escape, or **Done**, goes back to the page. An instance's
+canvas and your edits land on it alone, and an edit made in a view of another width lands at its
+breakpoint, which every instance shows at that width. Layers lists the component's tree while
+you edit it. Escape, or **Done**, goes back to the page. An instance's
 properties are its props in the inspector; **Detach** turns it back into plain nodes. Renaming a
 property or one of a choice's members, or taking one out, follows into its variants and every
 instance's props, in one step you can undo; two properties, slots or members cannot share a name.
 **Implement** writes an app component as a component of your application, a prop for each
-property and children for its slots.
+property and children for its slots. The Components tab draws one at its own width, or a page's,
+scaled to the panel.
 
 A page made before, with your application's own components, draws each of them as a stand-in.
 **Sync** offers to bring the designs up to date in one step you can undo: a component is matched
