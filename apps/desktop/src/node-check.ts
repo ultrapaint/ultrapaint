@@ -1,7 +1,8 @@
 /**
- * The user's Node (PLAN-desktop D7): a new application's packages are installed with it, and its
- * dev server runs with it. The app does not bring one; a missing or too old Node is said up
- * front, with how to install it, rather than as an install that fails.
+ * The user's Node (PLAN-desktop D7): a new application's packages are installed with it, and the
+ * application runs with it. The editor itself needs none (its server is the app's own Node, and
+ * the canvas draws the editor's components). A missing or too old Node is said up front, with how
+ * to install it, rather than as an install that fails.
  */
 
 import type { ShellNotice } from "@ultrapaint/contracts/shell-bridge";
@@ -68,7 +69,7 @@ export const checkNode = Effect.fnUntraced(function* (searchPath: string) {
   } as NodeStatus;
 });
 
-/** A notice for the editor's banner, when Node is not what the preview needs. */
+/** A notice for the editor's banner, when Node is not what a new application needs. */
 export const nodeNotice = (
   status: NodeStatus,
   platform: NodeJS.Platform
@@ -79,7 +80,7 @@ export const nodeNotice = (
   return Option.some({
     ...(platform === "darwin" ? { command: "brew install node" } : {}),
     detail:
-      "The preview runs your project's components with Node.js 22.12 or newer, and installs its packages with it. Install it, then restart Ultrapaint.",
+      "Making a new application installs its packages and runs it with Node.js 22.12 or newer. Install it, then restart Ultrapaint.",
     id: "node",
     link: { label: "Download Node.js", url: "https://nodejs.org/en/download" },
     title:

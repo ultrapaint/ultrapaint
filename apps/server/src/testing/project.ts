@@ -1,7 +1,7 @@
 /**
  * The server's services in-process, a project open on a fixture: what `server.ts` serves, built
- * by the same composition root with the tests' adapters. The preview is never started
- * (`HostManager.layerTest`) and the agents are the ones a test plays (`ScriptedAgents`). No
+ * by the same composition root with the tests' adapters. The agents are the ones a test plays
+ * (`ScriptedAgents`). No
  * HTTP server and no socket: a test asks a service for what it wants, and calls the editor's MCP
  * tools as an agent's call reaches them, with `callTool`. The server says it listens on
  * `TEST_PORT`, so a thread's MCP address is known and its prompts reach the scripted agent.

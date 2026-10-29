@@ -528,10 +528,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const componentPackages = list(e.target.value);
     setDraft((d) => ({ ...d, componentPackages }));
   };
-  const onStorybookUrl = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const storybookUrl = e.target.value || undefined;
-    setDraft((d) => ({ ...d, storybookUrl }));
-  };
   const onPagePngs = (on: boolean) =>
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onGit = (on: boolean) =>
@@ -739,20 +735,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Row>
       </Group>
       <SendKeyGroup />
-      <Group title="Previews">
-        <Row
-          description="Optional. The Assets panel's previews use running stories."
-          htmlFor="settings-storybook"
-          title="Storybook URL"
-        >
-          <Input
-            id="settings-storybook"
-            onChange={onStorybookUrl}
-            placeholder="http://localhost:6006"
-            value={draft.storybookUrl ?? ""}
-          />
-        </Row>
-      </Group>
     </>
   );
 

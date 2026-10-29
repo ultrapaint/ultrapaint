@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { RepoRelativePath } from "./base.ts";
-import { DEFAULT_DESIGNS_DIR, FrameworkId, type Settings } from "./settings.ts";
+import { DEFAULT_DESIGNS_DIR, type Settings } from "./settings.ts";
 import { StyleSystemId } from "./tokens.ts";
 
 /** A package of the repository the screens could resolve their imports from. */
@@ -36,7 +36,6 @@ export const SetupSuggestions = Schema.Struct({
   cssEntries: Schema.Array(RepoRelativePath),
   /** Directories that already hold screens. */
   designsDirs: Schema.Array(RepoRelativePath),
-  framework: FrameworkId,
   libraries: Schema.Array(LibrarySuggestion),
   repoName: Schema.String,
   /** The repository's root has a package.json: a new application goes in a directory of it. */
@@ -168,7 +167,6 @@ export const applySuggestions = (
     ...settings,
     componentPackages: library && !library.inApp ? [library.name] : [],
     designsDir,
-    framework: found.framework,
     ...(found.styleSystem && { styleSystem: found.styleSystem }),
     hostCss: css ? [hostCssFor(designsDir, css)] : [],
     libraryDirs: library ? [library.sourceDir] : [],

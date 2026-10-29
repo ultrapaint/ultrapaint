@@ -11,7 +11,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const path = yield* Path.Path;
         const found = yield* client["setup.detect"]({ repoPath: repo });
         assert.strictEqual(found.repoName, path.basename(repo));
-        assert.strictEqual(found.framework, "react-vite");
         // Nothing in the fixture depends on React, so nothing is proposed.
         assert.deepStrictEqual(found.anchors, []);
         assert.strictEqual(found.tailwind, "none");

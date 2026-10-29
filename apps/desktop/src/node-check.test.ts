@@ -16,7 +16,7 @@ const fakeNode = (version: string) =>
   });
 
 describe("the user's Node", () => {
-  it("is supported where the preview's Vite runs", () => {
+  it("is supported where a new application's Vite runs", () => {
     assert.isTrue(supportedNode("v24.1.0"));
     assert.isTrue(supportedNode("v22.12.0"));
     assert.isTrue(supportedNode("v20.19.2"));

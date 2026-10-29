@@ -15,7 +15,6 @@ const found: SetupSuggestions = {
   ],
   cssEntries: ["apps/web/src/app.css"],
   designsDirs: [],
-  framework: "react-vite",
   libraries: [
     { dir: "packages/ui", name: "@acme/ui", sourceDir: "packages/ui/src" },
   ],
