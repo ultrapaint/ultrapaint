@@ -433,7 +433,8 @@ describe("the editor's tools in what an agent is told", () => {
 
   /**
    * Everything a task tells of: a design system read from the code with DESIGN.md beside it, a
-   * token changed on each side, a Figma file, an app component, and Map under way.
+   * token changed on each side, a Figma file, an app component, and Map under way. Answers the
+   * Figma import's id, which a task names and which is no tool's name however it is made.
    */
   const everythingThere = Effect.gen(function* () {
     yield* withDesignSystem;
@@ -445,12 +446,16 @@ describe("the editor's tools in what an agent is told", () => {
       THEME.replace("#111827", "#222222")
     );
     yield* fs.writeFileString(path.join(repo, "DESIGN.md"), DESIGN_MD);
-    yield* Effect.flatMap(ProjectManager, (opened) =>
+    const imported = yield* Effect.flatMap(ProjectManager, (opened) =>
       opened.use(
         Effect.gen(function* () {
           yield* (yield* DesignSystemService).refresh;
-          yield* (yield* FigmaImportService).create("login.fig", figmaFile());
+          const figma = yield* (yield* FigmaImportService).create(
+            "login.fig",
+            figmaFile()
+          );
           yield* (yield* ComponentService).write(PRICING_CARD);
+          return figma.id;
         })
       )
     );
@@ -460,6 +465,7 @@ describe("the editor's tools in what an agent is told", () => {
     yield* setup.start("define", { threadId: "define" });
     yield* setup.complete("define");
     yield* setup.start("map", { threadId: "map" });
+    return imported;
   });
 
   /** What the server refuses, by request, once everything is there. */
@@ -496,7 +502,7 @@ describe("the editor's tools in what an agent is told", () => {
     it.effect("names only the tools the server offers, by their names", () =>
       Effect.gen(function* () {
         const before = yield* everything;
-        yield* everythingThere;
+        const imported = yield* everythingThere;
         const after = yield* everything;
         assert.deepStrictEqual(refused(after), ["/design-system inventory"]);
         // What an agent outside the editor is told when it connects.
@@ -505,8 +511,12 @@ describe("the editor's tools in what an agent is told", () => {
           task: true,
           text: MCP_INSTRUCTIONS,
         };
+        // An id the server made (`fig_mvtovaeg_jzlna`) reads as a tool's name when it has no digit.
         const named = [...before, ...after, instructions].flatMap((r) =>
-          toolsNamed(r.text).map((tool) => ({ of: r.of, tool }))
+          toolsNamed(r.text.replaceAll(imported, "")).map((tool) => ({
+            of: r.of,
+            tool,
+          }))
         );
         assert.deepStrictEqual(
           named
@@ -536,7 +546,7 @@ describe("the editor's tools in what an agent is told", () => {
     it.effect("names no tool when the server offers none", () =>
       Effect.gen(function* () {
         const before = yield* everything;
-        yield* everythingThere;
+        const imported = yield* everythingThere;
         const after = yield* everything;
         // What only the tools can do is refused, and said so.
         assert.deepStrictEqual(refused(after), [
@@ -549,7 +559,9 @@ describe("the editor's tools in what an agent is told", () => {
         ]);
         assert.deepStrictEqual(
           [...before, ...after].flatMap((r) =>
-            toolsNamed(r.text).map((tool) => `${r.of} names ${tool}`)
+            toolsNamed(r.text.replaceAll(imported, "")).map(
+              (tool) => `${r.of} names ${tool}`
+            )
           ),
           []
         );
