@@ -123,7 +123,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "components.list": () => components((c) => c.list),
       "components.makeApp": ({ id, name, nodeIds }) =>
         components((c) => c.makeApp(id, nodeIds, name)),
-      "components.migrate": () => migration((m) => m.run),
       "components.remove": ({ name }) => components((c) => c.remove(name)),
       "components.write": ({ component }) =>
         components((c) => c.write(component)),
@@ -229,6 +228,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
             url,
           })
         ),
+      "migration.run": () => migration((m) => m.run),
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>
