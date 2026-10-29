@@ -401,6 +401,127 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
+      "changes an app component on its file as it is now, its variants and instances following, in one undo step",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          yield* client["components.write"]({
+            component: {
+              name: "Plan",
+              origin: "app",
+              properties: [
+                {
+                  default: "plain",
+                  kind: "choice",
+                  members: ["plain", "loud"],
+                  name: "tone",
+                },
+              ],
+              slots: [],
+              tree: {
+                children: [
+                  {
+                    at: { "tone=loud": { color: "#ff0000" } },
+                    id: "t",
+                    role: "heading",
+                    text: "Pro",
+                    type: "text",
+                  },
+                ],
+                id: "root",
+                type: "column",
+              },
+              version: 1,
+            },
+          });
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: HOME,
+                ops: [
+                  {
+                    node: {
+                      component: "Plan",
+                      from: "#app",
+                      id: "plan",
+                      props: { tone: "loud" },
+                      type: "instance",
+                    },
+                    op: "insert",
+                    parent: null,
+                  },
+                ],
+              },
+            ],
+          });
+          // The tree edited in place; the inspector's change comes after, from its older copy.
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: "component:Plan",
+                ops: [{ id: "t", op: "update", set: { text: "Max" } }],
+              },
+            ],
+          });
+          yield* client["components.change"]({
+            change: { name: "tone", op: "renameProperty", to: "mood" },
+            name: "Plan",
+          });
+          const read = () =>
+            Effect.map(
+              fs.readFileString(
+                path.join(repo, "designs/components/Plan.component.json")
+              ),
+              (text) =>
+                JSON.parse(text) as {
+                  properties: { name: string }[];
+                  tree: { children: { at?: object; text: string }[] };
+                }
+            );
+          const plan = () =>
+            Effect.map(client["documents.get"]({ doc: HOME }), (page) =>
+              (
+                page.root as unknown as {
+                  children: { id: string; props?: object }[];
+                }
+              ).children.find((c) => c.id === "plan")
+            );
+          const file = yield* read();
+          assert.deepStrictEqual(
+            file.properties.map((p) => p.name),
+            ["mood"]
+          );
+          assert.strictEqual(file.tree.children[0]?.text, "Max");
+          assert.deepStrictEqual(file.tree.children[0]?.at, {
+            "mood=loud": { color: "#ff0000" },
+          });
+          assert.deepStrictEqual((yield* plan())?.props, { mood: "loud" });
+          const refused = yield* Effect.flip(
+            client["components.change"]({
+              change: {
+                op: "addProperty",
+                property: { default: "", kind: "text", name: "mood" },
+              },
+              name: "Plan",
+            })
+          );
+          assert.include(refused.message, "two properties are named mood");
+
+          // One step back takes the file and the instance back together.
+          yield* client["edit.undo"]();
+          assert.deepStrictEqual((yield* plan())?.props, { tone: "loud" });
+          const before = yield* read();
+          assert.deepStrictEqual(
+            before.properties.map((p) => p.name),
+            ["tone"]
+          );
+          assert.strictEqual(before.tree.children[0]?.text, "Max");
+        }),
+      60_000
+    );
+
+    it.effect(
       "lets a design thread write its designs only, and an implement thread the repository",
       () =>
         Effect.gen(function* () {

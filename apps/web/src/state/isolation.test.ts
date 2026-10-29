@@ -107,6 +107,28 @@ describe("an app component edited in place", () => {
     expect(frameBreakpoint(HOME)).toBeNull();
   });
 
+  it("keeps the tree an edit gave it while the components' news is on its way", () => {
+    isolate(HOME, PROMO);
+    const doc = "component:Promo";
+    const edited: DesignNode = {
+      children: [{ ...TITLE, text: "Big sale" }],
+      id: "p-root",
+      type: "column",
+    };
+    // The edit's answer comes first; the file the components list has is still the old one.
+    useDocuments.getState().put({ doc, hash: "h1", root: edited });
+    expect(useDocuments.getState().docs[doc]?.root).toBe(edited);
+    useComponents.setState({
+      components: [...useComponents.getState().components],
+    });
+    expect(useDocuments.getState().docs[doc]?.root).toBe(edited);
+    // A canvas read again starts it from the file once more.
+    useDocuments.setState({ docs: {} });
+    expect(nodeIn(useDocuments.getState().docs, "", HOME, "title")).toEqual(
+      TITLE
+    );
+  });
+
   it("is no node but an app component's instance's", () => {
     expect(isolate(HOME, { ...PROMO, from: "@ultrapaint/system" })).toBe(
       false

@@ -4,6 +4,10 @@
  * to the component's tree, a document of its own (`component:<Name>`), so every instance follows
  * as it changes. Edits land on the component's own fields, or on one member of one of its choices
  * (`size=lg`), which records an override as a view records a breakpoint's. Escape, or Done, leaves.
+ *
+ * The tree edited is the document's, which the server publishes whenever the component's file
+ * changes, whoever changes it (ADR 0042): its file only starts it, so an edit is never shown
+ * undone while the components' news is on its way.
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
@@ -41,7 +45,7 @@ const fileOf = (name: string) => {
   return file?.origin === "app" ? file : undefined;
 };
 
-/** The component's tree in the documents, as its file has it now. */
+/** The component's tree in the documents, started from its file when they do not have it yet. */
 const showTree = () => {
   const { isolated } = useIsolation.getState();
   if (!isolated) {
@@ -54,11 +58,8 @@ const showTree = () => {
     return;
   }
   const doc = componentDocOf(isolated.component);
-  const known = useDocuments.getState().docs[doc];
-  if (known?.root !== file.tree) {
-    useDocuments
-      .getState()
-      .put({ doc, hash: known?.hash ?? "", root: file.tree });
+  if (!useDocuments.getState().docs[doc]) {
+    useDocuments.getState().put({ doc, hash: "", root: file.tree });
   }
 };
 
@@ -127,7 +128,7 @@ useEditor.subscribe((now, before) => {
   }
 });
 
-// The tree follows its file, whoever changes it; a canvas read again puts it back.
+// A file gone leaves the component; a canvas read again puts its tree back.
 useComponents.subscribe(showTree);
 useDocuments.subscribe((now, before) => {
   if (now.docs !== before.docs) {

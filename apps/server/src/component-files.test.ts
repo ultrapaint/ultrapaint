@@ -1,0 +1,251 @@
+import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { describe, expect, it } from "vitest";
+import {
+  changedComponent,
+  componentText,
+  instanceOps,
+  problemOf,
+  readComponentFile,
+  withTree,
+} from "./services/component-files.ts";
+
+const PLAN: AppComponentFile = {
+  name: "Plan",
+  origin: "app",
+  properties: [
+    { default: "Pro", kind: "text", name: "title", targets: [{ node: "t" }] },
+    {
+      default: "plain",
+      kind: "choice",
+      members: ["plain", "loud"],
+      name: "tone",
+    },
+  ],
+  slots: [{ default: true, name: "body", node: "s" }],
+  tree: {
+    children: [
+      {
+        at: { md: { size: 24 }, "tone=loud": { color: "red" } },
+        id: "t",
+        role: "heading",
+        text: "Pro",
+        type: "text",
+      },
+      { children: [], id: "s", type: "column" },
+    ],
+    id: "root",
+    type: "column",
+  },
+  version: 1,
+};
+
+const changed = (change: Parameters<typeof changedComponent>[1]) => {
+  const next = changedComponent(PLAN, change);
+  if ("problem" in next) {
+    throw new Error(next.problem);
+  }
+  return next;
+};
+
+const atOf = (file: AppComponentFile) =>
+  (file.tree as unknown as { children: { at?: Record<string, unknown> }[] })
+    .children[0]?.at;
+
+describe("a component's file", () => {
+  it("reads back what it writes, and says why a file does not read", () => {
+    expect(
+      readComponentFile(componentText(PLAN), "components/Plan.component.json")
+    ).toEqual({ component: PLAN });
+    expect(readComponentFile("{", undefined)).toMatchObject({
+      problem: expect.stringContaining("not JSON"),
+    });
+    expect(
+      readComponentFile(componentText(PLAN), "components/Card.component.json")
+    ).toEqual({
+      problem: "the file of Plan is components/Plan.component.json",
+    });
+  });
+
+  it("gives properties, slots and a choice's members names of their own", () => {
+    expect(problemOf(PLAN, [])).toBeUndefined();
+    const [title] = PLAN.properties;
+    expect(
+      problemOf(
+        {
+          ...PLAN,
+          properties: [...PLAN.properties, { ...title, default: "" } as never],
+        },
+        []
+      )
+    ).toBe("two properties are named title");
+    expect(
+      problemOf(
+        { ...PLAN, slots: [...PLAN.slots, { name: "body", node: "root" }] },
+        []
+      )
+    ).toBe("two slots are named body");
+    expect(
+      problemOf(
+        changed({
+          members: ["plain", "plain"],
+          name: "tone",
+          op: "setProperty",
+        }),
+        []
+      )
+    ).toBe("the choice tone has plain twice");
+  });
+});
+
+describe("a change to an app component", () => {
+  it("renames a property, the variants its tree keeps for it with it", () => {
+    const next = changed({ name: "tone", op: "renameProperty", to: "mood" });
+    expect(next.properties.map((p) => p.name)).toEqual(["title", "mood"]);
+    expect(atOf(next)).toEqual({
+      md: { size: 24 },
+      "mood=loud": { color: "red" },
+    });
+  });
+
+  it("renames a member, its default and its overrides with it", () => {
+    const next = changed({
+      member: "loud",
+      op: "renameMember",
+      property: "tone",
+      to: "bold",
+    });
+    expect(next.properties[1]?.members).toEqual(["plain", "bold"]);
+    expect(atOf(next)).toEqual({
+      md: { size: 24 },
+      "tone=bold": { color: "red" },
+    });
+    const fromDefault = changed({
+      member: "plain",
+      op: "renameMember",
+      property: "tone",
+      to: "calm",
+    });
+    expect(fromDefault.properties[1]?.default).toBe("calm");
+  });
+
+  it("takes a property or a member out with its overrides", () => {
+    expect(atOf(changed({ name: "tone", op: "removeProperty" }))).toEqual({
+      md: { size: 24 },
+    });
+    const fewer = changed({
+      members: ["plain"],
+      name: "tone",
+      op: "setProperty",
+    });
+    expect(atOf(fewer)).toEqual({ md: { size: 24 } });
+    expect(
+      changedComponent(PLAN, { name: "size", op: "removeProperty" })
+    ).toEqual({
+      problem: "Plan has no property size",
+    });
+  });
+
+  it("makes one slot the default, or none", () => {
+    const two = changed({
+      op: "addSlot",
+      slot: { name: "aside", node: "root" },
+    });
+    const moved = changedComponent(two, { name: "aside", op: "defaultSlot" });
+    expect("problem" in moved ? [] : moved.slots).toEqual([
+      { name: "body", node: "s" },
+      { default: true, name: "aside", node: "root" },
+    ]);
+    const none = changedComponent(two, { name: null, op: "defaultSlot" });
+    expect("problem" in none ? [] : none.slots.some((s) => s.default)).toBe(
+      false
+    );
+  });
+
+  it("follows a text edited in place into its property's default, and forgets nodes gone", () => {
+    const tree: DesignNode = {
+      children: [{ id: "t", role: "heading", text: "Max", type: "text" }],
+      id: "root",
+      type: "column",
+    };
+    const next = withTree(PLAN, tree);
+    expect(next.properties[0]?.default).toBe("Max");
+    expect(next.slots).toEqual([]);
+  });
+});
+
+describe("the instances of a changed component", () => {
+  const page: DesignNode = {
+    children: [
+      {
+        at: { md: { props: { tone: "loud" } } },
+        component: "Plan",
+        from: "#app",
+        id: "a",
+        props: { title: "Team", tone: "loud" },
+        type: "instance",
+      },
+      {
+        component: "Plan",
+        from: "#app",
+        id: "b",
+        props: { title: "Solo" },
+        type: "instance",
+      },
+      {
+        component: "Plan",
+        from: "@ultrapaint/system",
+        id: "other",
+        props: { tone: "loud" },
+        type: "instance",
+      },
+    ],
+    id: "page",
+    type: "page",
+  };
+
+  it("set their props as the property or member is now named, at every breakpoint", () => {
+    expect(
+      instanceOps(page, "Plan", {
+        name: "tone",
+        op: "renameProperty",
+        to: "mood",
+      })
+    ).toEqual([
+      { id: "a", op: "setProps", props: { mood: "loud", tone: null } },
+      {
+        at: "md",
+        id: "a",
+        op: "setProps",
+        props: { mood: "loud", tone: null },
+      },
+    ]);
+    expect(
+      instanceOps(page, "Plan", {
+        member: "loud",
+        op: "renameMember",
+        property: "tone",
+        to: "bold",
+      })
+    ).toEqual([
+      { id: "a", op: "setProps", props: { tone: "bold" } },
+      { at: "md", id: "a", op: "setProps", props: { tone: "bold" } },
+    ]);
+    expect(
+      instanceOps(page, "Plan", { name: "title", op: "removeProperty" })
+    ).toEqual([
+      { id: "a", op: "setProps", props: { title: null } },
+      { id: "b", op: "setProps", props: { title: null } },
+    ]);
+    expect(
+      instanceOps(page, "Plan", {
+        members: ["plain"],
+        name: "tone",
+        op: "setProperty",
+      })
+    ).toEqual([
+      { id: "a", op: "setProps", props: { tone: null } },
+      { at: "md", id: "a", op: "setProps", props: { tone: null } },
+    ]);
+  });
+});

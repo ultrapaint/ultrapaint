@@ -8,6 +8,7 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import { metaOf, type PropMeta } from "@ultrapaint/contracts/catalogue";
 import type {
   AppComponentFile,
+  ComponentChange,
   ComponentProperty,
   PropertyKind,
   PropertyTarget,
@@ -36,13 +37,40 @@ import { api } from "../state/connection.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { reportError } from "../state/project.ts";
 
-/** Saves the component's file; what the server refuses is said. */
-const save = async (file: AppComponentFile) => {
+/**
+ * Changes the component's file on the server, as it is there now (ADR 0042); what the server
+ * refuses is said.
+ */
+const changeFile = async (file: AppComponentFile, change: ComponentChange) => {
   try {
-    await api().request("components.write", { component: file });
+    await api().request("components.change", { change, name: file.name });
   } catch (error) {
     reportError(error);
   }
+};
+
+/** A members list edited as text: one member renamed, or the list as it now is. */
+const membersChange = (
+  property: ComponentProperty,
+  members: readonly string[]
+): ComponentChange => {
+  const was = property.members ?? [];
+  const changed = members.flatMap((m, i) => (m === was[i] ? [] : [i]));
+  const [at] = changed;
+  if (
+    members.length === was.length &&
+    changed.length === 1 &&
+    at !== undefined &&
+    !was.includes(members[at] ?? "")
+  ) {
+    return {
+      member: was[at] ?? "",
+      op: "renameMember",
+      property: property.name,
+      to: members[at] ?? "",
+    };
+  }
+  return { members, name: property.name, op: "setProperty" };
 };
 
 /** A name no property has yet: `base`, else `base 2`, `base 3`… */
@@ -85,20 +113,6 @@ const newProperty = (
       return { default: "", kind, name: freeName(file, "text") };
   }
 };
-
-const withProperty = (
-  file: AppComponentFile,
-  name: string,
-  next: ComponentProperty | null
-): AppComponentFile => ({
-  ...file,
-  properties: file.properties.flatMap((p) => {
-    if (p.name !== name) {
-      return [p];
-    }
-    return next ? [next] : [];
-  }),
-});
 
 /** A property's value as it starts, edited as its kind is. */
 const DefaultField = ({
@@ -169,15 +183,17 @@ const PropertyRow = ({
   property: ComponentProperty;
 }) => {
   const [name, setName] = useState(property.name);
-  const change = (next: ComponentProperty | null) =>
-    save(withProperty(file, property.name, next));
   const rename = () => {
     const trimmed = name.trim();
     if (trimmed === "" || trimmed === property.name) {
       setName(property.name);
       return;
     }
-    change({ ...property, name: trimmed });
+    changeFile(file, {
+      name: property.name,
+      op: "renameProperty",
+      to: trimmed,
+    });
   };
   return (
     <div className="flex flex-col gap-1 rounded-md border px-2 py-1.5">
@@ -199,7 +215,9 @@ const PropertyRow = ({
         </span>
         <Button
           aria-label={`Take ${property.name} out`}
-          onClick={() => change(null)}
+          onClick={() =>
+            changeFile(file, { name: property.name, op: "removeProperty" })
+          }
           size="icon-xs"
           variant="ghost"
         >
@@ -219,13 +237,7 @@ const PropertyRow = ({
                 .map((m) => m.trim())
                 .filter(Boolean);
               if (members.length > 0) {
-                change({
-                  ...property,
-                  default: members.includes(String(property.default))
-                    ? property.default
-                    : (members[0] ?? ""),
-                  members,
-                });
+                changeFile(file, membersChange(property, members));
               }
             }}
           />
@@ -233,7 +245,13 @@ const PropertyRow = ({
       ) : null}
       <Row label="When not set">
         <DefaultField
-          onChange={(value) => change({ ...property, default: value })}
+          onChange={(value) =>
+            changeFile(file, {
+              default: value,
+              name: property.name,
+              op: "setProperty",
+            })
+          }
           property={property}
         />
       </Row>
@@ -356,18 +374,15 @@ const boundTo = (file: AppComponentFile, field: Exposable) =>
   );
 
 const expose = (file: AppComponentFile, field: Exposable) =>
-  save({
-    ...file,
-    properties: [
-      ...file.properties,
-      {
-        default: field.default,
-        kind: field.kind,
-        name: freeName(file, field.name),
-        ...(field.members && { members: field.members }),
-        targets: [field.target],
-      },
-    ],
+  changeFile(file, {
+    op: "addProperty",
+    property: {
+      default: field.default,
+      kind: field.kind,
+      name: freeName(file, field.name),
+      ...(field.members && { members: field.members }),
+      targets: [field.target],
+    },
   });
 
 const unbind = (
@@ -375,14 +390,13 @@ const unbind = (
   property: ComponentProperty,
   field: Exposable
 ) =>
-  save(
-    withProperty(file, property.name, {
-      ...property,
-      targets: (property.targets ?? []).filter(
-        (t) => !sameTarget(t, field.target)
-      ),
-    })
-  );
+  changeFile(file, {
+    name: property.name,
+    op: "setProperty",
+    targets: (property.targets ?? []).filter(
+      (t) => !sameTarget(t, field.target)
+    ),
+  });
 
 /** What the node selected can give the component: a property, or a slot. */
 const NodeSection = ({
@@ -404,16 +418,13 @@ const NodeSection = ({
       title: "A slot",
     });
     if (name?.trim()) {
-      await save({
-        ...file,
-        slots: [
-          ...file.slots,
-          {
-            ...(file.slots.length === 0 && { default: true }),
-            name: name.trim(),
-            node: node.id,
-          },
-        ],
+      await changeFile(file, {
+        op: "addSlot",
+        slot: {
+          ...(file.slots.length === 0 && { default: true }),
+          name: name.trim(),
+          node: node.id,
+        },
       });
     }
   };
@@ -467,15 +478,9 @@ const NodeSection = ({
             <Checkbox
               checked={slot.default === true}
               onCheckedChange={(checked) =>
-                save({
-                  ...file,
-                  slots: file.slots.map((s) => {
-                    const { default: _old, ...rest } = s;
-                    if (s.name === slot.name) {
-                      return checked ? { ...rest, default: true } : rest;
-                    }
-                    return checked ? rest : s;
-                  }),
+                changeFile(file, {
+                  name: checked ? slot.name : null,
+                  op: "defaultSlot",
                 })
               }
             />
@@ -484,10 +489,7 @@ const NodeSection = ({
           <Button
             aria-label={`Take the slot ${slot.name} out`}
             onClick={() =>
-              save({
-                ...file,
-                slots: file.slots.filter((s) => s.name !== slot.name),
-              })
+              changeFile(file, { name: slot.name, op: "removeSlot" })
             }
             size="icon-xs"
             variant="ghost"
@@ -537,9 +539,9 @@ export const IsolatedComponent = ({
                 <DropdownMenuItem
                   key={kind}
                   onClick={() =>
-                    save({
-                      ...file,
-                      properties: [...file.properties, newProperty(file, kind)],
+                    changeFile(file, {
+                      op: "addProperty",
+                      property: newProperty(file, kind),
                     })
                   }
                 >

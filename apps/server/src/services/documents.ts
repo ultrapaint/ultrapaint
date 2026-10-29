@@ -1,7 +1,7 @@
-import type { JsonValue } from "@ultrapaint/contracts/base";
 import {
-  AppComponentFile,
-  type ComponentProperty,
+  COMPONENT_EXTENSION,
+  COMPONENTS_DIR,
+  componentDocOf,
   componentFileOf,
   componentOfDoc,
 } from "@ultrapaint/contracts/components";
@@ -24,7 +24,6 @@ import {
   ASSETS_DIR,
   type UploadAssetInput,
 } from "@ultrapaint/contracts/pages";
-import { serialise } from "@ultrapaint/design-document/factories";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
@@ -35,7 +34,6 @@ import {
   canvasRoot,
   childrenOf,
   DOCUMENT_VERSION,
-  findNode,
   findPath,
   idsOf,
   isPageFile,
@@ -56,6 +54,11 @@ import {
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import {
+  componentText,
+  readComponentFile,
+  withTree,
+} from "./component-files.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { parseCanvas } from "./pages-layout.ts";
@@ -64,73 +67,6 @@ import { RepoPaths } from "./repo-paths.ts";
 const decodePage = Schema.decodeUnknownEffect(PageDocument);
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
 const decodeNode = Schema.decodeUnknownEffect(DesignNode);
-const decodeAppComponent = Schema.decodeUnknownEffect(AppComponentFile);
-
-/** What a node shows of a property's kind, which the property's default stands for. */
-const shownBy = (
-  node: DesignNode | null,
-  kind: string
-): JsonValue | undefined => {
-  if (!node) {
-    return undefined;
-  }
-  if (kind === "boolean") {
-    return node.hidden !== true;
-  }
-  if (kind === "image") {
-    return node.type === "image" ? node.src : undefined;
-  }
-  return kind === "text" && (node.type === "text" || node.type === "instance")
-    ? node.text
-    : undefined;
-};
-
-/**
- * A property whose node was edited in the tree (ADR 0041): its default is what the node shows
- * now, so a text edited in place is the text every instance that sets none draws.
- */
-const followTree = (
-  property: ComponentProperty,
-  before: DesignNode,
-  after: DesignNode
-): ComponentProperty => {
-  for (const target of property.targets ?? []) {
-    if (target.prop !== undefined) {
-      continue;
-    }
-    const was = shownBy(findNode(before, target.node), property.kind);
-    const now = shownBy(findNode(after, target.node), property.kind);
-    if (now !== undefined && now !== was) {
-      return { ...property, default: now };
-    }
-  }
-  return property;
-};
-
-/**
- * An app component's file with its tree edited: a property whose node changed what it shows starts
- * from it, and the properties and slots that named a node gone from it no longer name it.
- */
-const withTree = (
-  file: AppComponentFile,
-  tree: DesignNode
-): AppComponentFile => {
-  const ids = idsOf(tree);
-  return {
-    ...file,
-    properties: file.properties.map((p) => {
-      const followed = followTree(p, file.tree, tree);
-      return followed.targets
-        ? {
-            ...followed,
-            targets: followed.targets.filter((t) => ids.has(t.node)),
-          }
-        : followed;
-    }),
-    slots: file.slots.filter((s) => ids.has(s.node)),
-    tree,
-  };
-};
 
 /** What a document's text holds, with whether ids had to be filled in, or what is wrong with it. */
 export const parseDocument = (
@@ -201,6 +137,8 @@ export class DocumentService extends Context.Service<
       input: ApplyInput,
       alongside?: (tx: EditTransaction) => Effect.Effect<void, EditFailure>
     ) => Effect.Effect<ApplyResult, EditFailure | Conflict>;
+    /** Every page and canvas of every canvas, as each is saved now. */
+    readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
@@ -268,25 +206,18 @@ export class DocumentService extends Context.Service<
       });
 
       /** An app component's file as the document of its tree (ADR 0041), or why it is not one. */
-      const componentLoaded = (text: string) =>
-        Effect.try(() => JSON.parse(text) as unknown).pipe(
-          Effect.flatMap(decodeAppComponent),
-          Effect.map(
-            (file): Loaded => ({
-              hash: hashContent(text),
-              root: file.tree,
-              text,
-            })
-          ),
-          Effect.catch((error) =>
-            Effect.succeed<Loaded>({
-              hash: hashContent(text),
-              problem: `not an app component: ${problemOf(error)}`,
-              root: null,
-              text,
-            })
-          )
-        );
+      const componentLoaded = (text: string): Loaded => {
+        const read = readComponentFile(text);
+        if ("component" in read && read.component.origin === "app") {
+          return { hash: hashContent(text), root: read.component.tree, text };
+        }
+        return {
+          hash: hashContent(text),
+          problem: `not an app component: ${"problem" in read ? read.problem : `${read.component.name} is a system component's look`}`,
+          root: null,
+          text,
+        };
+      };
 
       /** What a document's text is as a document, or why it is not one. */
       const loadedFrom = Effect.fnUntraced(function* (
@@ -329,7 +260,7 @@ export class DocumentService extends Context.Service<
         );
         const canvas = canvasOfDoc(doc) !== null;
         if (text !== null && componentOfDoc(doc) !== null) {
-          return yield* componentLoaded(text);
+          return componentLoaded(text);
         }
         if (text === null) {
           const missing: Loaded = {
@@ -442,14 +373,17 @@ export class DocumentService extends Context.Service<
         const canvas = canvasOfDoc(doc);
         if (componentOfDoc(doc) !== null) {
           const tree = yield* decodeNode(edited).pipe(Effect.mapError(invalid));
-          const json = yield* Effect.try({
-            catch: (error) => invalid({ message: problemOf(error) }),
-            try: () => JSON.parse(loaded.text ?? "{}") as unknown,
-          });
-          const file = yield* decodeAppComponent(json).pipe(
-            Effect.mapError(invalid)
+          const read = readComponentFile(loaded.text ?? "");
+          if (!("component" in read && read.component.origin === "app")) {
+            return yield* invalid({
+              message:
+                "problem" in read ? read.problem : "not an app component",
+            });
+          }
+          yield* tx.write(
+            yield* fileOf(doc),
+            componentText(withTree(read.component, tree))
           );
-          yield* tx.write(yield* fileOf(doc), serialise(withTree(file, tree)));
         } else if (canvas === null) {
           const document = yield* decodePage({
             root: edited,
@@ -531,13 +465,12 @@ export class DocumentService extends Context.Service<
         return { created, documents } satisfies ApplyResult;
       });
 
-      /** Every document of every canvas, as it is saved now. */
-      const everyDocument = Effect.gen(function* () {
+      const all = Effect.gen(function* () {
         const { canvases } = yield* pages.list;
         return (yield* Effect.forEach(canvases, (c) => list(c.id))).flat();
-      });
+      }).pipe(Effect.withSpan("DocumentService.all"));
 
-      const oldInstances = Effect.map(everyDocument, (docs) => {
+      const oldInstances = Effect.map(all, (docs) => {
         let drawn = 0;
         let left = 0;
         for (const { root: tree } of docs) {
@@ -551,7 +484,7 @@ export class DocumentService extends Context.Service<
       const migrationEdits = Effect.gen(function* () {
         let drawn = 0;
         const edits: DocumentEdit[] = [];
-        for (const state of yield* everyDocument) {
+        for (const state of yield* all) {
           const tree = state.root;
           if (!tree) {
             continue;
@@ -643,6 +576,13 @@ export class DocumentService extends Context.Service<
           const dir = toPosix(path.dirname(rel));
           return canvasDocOf(dir === "." ? ROOT_CANVAS : dir);
         }
+        // An app component's tree is a document too: one edited in place follows its file.
+        if (
+          toPosix(path.dirname(rel)) === COMPONENTS_DIR &&
+          rel.endsWith(COMPONENT_EXTENSION)
+        ) {
+          return componentDocOf(path.basename(rel, COMPONENT_EXTENSION));
+        }
         return isPageFile(rel) ? rel : null;
       };
 
@@ -666,6 +606,7 @@ export class DocumentService extends Context.Service<
       );
 
       return DocumentService.of({
+        all,
         apply,
         get,
         list,

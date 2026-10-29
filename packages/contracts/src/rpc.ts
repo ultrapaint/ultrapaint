@@ -9,6 +9,7 @@ import {
   UpdateCommentInput,
 } from "./comments.ts";
 import {
+  ComponentChange,
   ComponentEntry,
   ComponentFile,
   ComponentList,
@@ -777,6 +778,15 @@ const requestRpcs = [
   Rpc.make("components.write", {
     error: EditError,
     payload: { component: ComponentFile },
+    success: ComponentEntry,
+  }),
+  /**
+   * A change to an app component's properties or slots (ADR 0042), made on its file as it is
+   * now; a rename follows into its variants and its instances' props. One undo step.
+   */
+  Rpc.make("components.change", {
+    error: EditError,
+    payload: { change: ComponentChange, name: Schema.String },
     success: ComponentEntry,
   }),
   /**
