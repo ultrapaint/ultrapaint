@@ -50,7 +50,8 @@ padding look heavy, as in a button with a trailing icon, give the icon's side `2
 
 Filled or outlined controls side by side sit `8–12px` apart. Borderless text and icon buttons
 need more, around `16–24px`, because the space is their only edge. Dense toolbars go tighter as
-long as each target keeps its own area.
+long as each target keeps its own area. A row of icon buttons and an avatar in a header shares one
+gap and one centre line.
 
 ## Vertical rhythm wins
 

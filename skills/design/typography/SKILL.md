@@ -26,10 +26,13 @@ A page's title is large only on a page that is about one thing. The title of a t
 a small form ("Settings", "Reset your password") is body size, one weight step up: semibold at a
 modest size, never bold and large. A key figure is large, and its weight may stay regular.
 Navigation items, tabs and buttons share one weight, usually medium, never bold; navigation items
-are in the muted colour, and the current one takes the foreground and its row's fill. The label of
-a field and the first line of a checkbox or switch row are one step heavier than the description
-under them, `500` or `600`. A link inside a sentence stays in the sentence, at its weight,
-underlined.
+are in the muted colour, and the current one takes the foreground and its row's fill. A link
+inside a sentence stays in the sentence, at its weight, underlined.
+
+Labels are one text style wherever a label sits: a field's label, the first line of a checkbox or
+switch row, a group's label, a table's row label. Semibold, `600`, in the foreground colour, a
+clear step heavier than the description under it. In a control that shows a label and its value
+("View · Daily"), the label is muted and the value takes the foreground.
 
 A placeholder is muted and shows an example. One set in the foreground makes a field look filled.
 
@@ -87,7 +90,8 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | A level 3 heading larger than its level 2 | A smaller style for the lower level |
 | A `28px` bold title in a top bar or over a small form | Body size, one weight up |
 | Navigation labels in bold, or all in the foreground colour | One weight, usually medium, muted; the current one in the foreground |
-| A label at the same weight as its description | One step heavier |
+| A label at the same weight as its description, or muted | Semibold, the foreground |
+| Labels of fields, checkboxes, groups and table rows in different styles | One label style for all |
 | A placeholder in the foreground colour | Muted |
 | A link bold, or on its own line after its sentence | In the sentence, underlined |
 | A paragraph wider than about 75 characters | `maxWidth` on it or its column |

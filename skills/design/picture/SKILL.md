@@ -14,7 +14,8 @@ words of the request decide what it says.
 Before placing a node, name the picture's regions (a sidebar, a header, the main column, a
 footer) and what each holds, down to its edges: a sidebar's footer with its user row and its
 "What's new" card, a banner, a search field. Build region by region, and compare each with the
-picture as it is done.
+picture as it is done. Before finishing, check each region's last item is in the screenshot: the
+user row and the card at the foot of a sidebar are the ones most often dropped.
 
 ## Nothing missing, nothing added
 
@@ -41,6 +42,8 @@ drag handle at the top right, filters below the title or on its line as the pict
 - Fills: every strong fill is kept, a selected item in the brand colour, a dark featured card, a
   coloured button. None becomes a white card with a hairline.
 - Badges: the same kind, solid, tinted, outlined, neutral with a coloured dot, or a bare number.
+- Colours that tell things apart: each tag's hue, each step of a stepper, each category. None
+  flattens to one grey.
 - Text: each role keeps its size, weight and colour. What is muted in the picture is muted.
 - The typeface: the picture's, loaded; a fallback sans changes every line.
 
