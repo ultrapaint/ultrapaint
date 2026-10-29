@@ -395,14 +395,12 @@ but it keeps the link between the two:
   design, and marks the page implemented with the files it wrote.
 - **Behaviour notes.** A comment can be a behaviour note: what the code must do that a design
   cannot show ("only admins can delete", "disabled until the form is valid"). It is pinned to its
-  element and goes to the code with the page. A component has its own, in its spec (the
+  element and goes to the code with the page. A component has its own, in its file (the
   Components tab's **Behaviour**), and they go to the code when it is implemented.
 - **Bringing a project in.** Pages built before the project came into the editor start as
   drafts. Pick several in the Pages panel (⌘ or Shift) to **Mark them ready** at once, or **Find
   their code with an agent** (`/implement --adopt`, also in a canvas's menu): an agent finds the
-  files that already draw each page and links them, changing no code. The Components tab's **Read
-  every spec from the code** reads a spec for every component with classes and links each to its
-  file.
+  files that already draw each page and links them, changing no code.
 - **States.** **Draw a state** (in a page's menu) draws the page again empty, loading, with an
   error or a dialog open (`orders@empty.page.json`); a link can open it, and implementing the
   page implements it as that state of the same screen.
@@ -414,35 +412,62 @@ but it keeps the link between the two:
   implemented, writing a behaviour note on a page or a component, and exporting the design's
   token values to the code (or importing the code's).
 
-### System components: the editor's components, your look
+### Components: the editor's and your own
 
-The canvas draws ultrapaint's system components ([ADR 0040](docs/adr/0040-the-editors-own-primitives.md)):
-Button, Badge, Spinner, Avatar, Card, Separator, Input, Textarea, Checkbox, Switch, Tabs, Select,
-Menu, Popover, Tooltip, Dialog and Toast, on Base UI. Select one and the inspector lists its props and
-its **slots** — a Dialog's trigger, header, content and footer — with what fills each and a **+**
-that adds a text, a row, a column or a button to it; Layers shows the slot each child fills. A
-row in a dialog's footer, aligned right, with two buttons, is a standard footer.
+Everything you place is a component ([ADR 0041](docs/adr/0041-system-and-app-components.md)), of
+two origins, each kept as a file of the designs directory, `components/<Name>.component.json`:
+
+- **System components** are ultrapaint's own, on Base UI
+  ([ADR 0040](docs/adr/0040-the-editors-own-primitives.md)): Button, Badge, Spinner, Avatar, Card,
+  Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu, Popover, Tooltip, Dialog and
+  Toast. Their behaviour is fixed; their look is your design system's.
+- **App components** are yours, built from system components and other app components: a
+  pricing card, a site header.
+
+Layout, text and image nodes are **elements**. The Assets panel lists the elements, then the
+System and the App components.
+
+Select a component and the inspector lists its props and its **slots** — a Dialog's trigger,
+header, content and footer — with what fills each and a **+** that adds a text, a row, a column
+or a button to it; Layers shows the slot each child fills. A row in a dialog's footer, aligned
+right, with two buttons, is a standard footer.
 
 Each frame is a page of its own: a select opens inside it, a dialog's backdrop covers it alone,
 and a dialog is a sheet at the bottom of a narrow frame. While you design, an overlay is drawn
 open where its `open` prop says, and nothing in the frame takes the pointer; in the prototype and
-with the interact tool the system components behave (a menu opens, items take the hover, Escape and a
-click outside close it), each in its own frame.
+with the interact tool the system components behave (a menu opens, items take the hover, Escape
+and a click outside close it), each in its own frame.
 
-A system component's look is yours. The Design system panel's **Components** tab lists them, each in
-its **default look** (over your tokens) or **your look**: open one to **take the look over**, which
-starts your spec from the default's values, and the panel draws it live in each variant and state
-(hover, focus, disabled, open, checked…) while the fields set any part of it in your tokens.
-**Reset to default** removes your spec. **Implement** has an
-agent give your application's own component that look, in whatever library it is written with. A
-part of a page can also be made a **draft component** (its menu): a component of your own, made of
-system components, used on pages until it is implemented.
+**A system component's look is yours.** The Design system panel's **Components** tab lists them,
+each in its **default look** (over your tokens) or **your look**: open one to **take the look
+over**, which starts its file from the default's values, and the panel draws it live in each
+variant and state (hover, focus, disabled, open, checked, highlighted…) while the fields set any
+part of it in your tokens: its fill, text, border, radius, padding (per side), size, gap, shadow,
+and how it lays out what it holds (direction, alignment, order). It can leave out an optional
+part (a dialog's close, a card's description), give a slot content for when an instance gives it
+none, and draw a Select's or a Menu's items from nodes of yours (**Use selection**). **Reset to
+default** removes the file. **Implement** has an agent give your application's own component that
+look, in whatever library it is written with. A component that adds behaviour, or takes away a
+trigger, a popup or an item, is an app component built on the system one.
 
-A page made before the system components, with your application's own components, draws each of them as
-a stand-in. **Sync** offers to draw them as system components in one step you can undo: a component is
-matched by its name (shadcn's `DropdownMenu` is the Menu), its variants, children and text are
-kept, and a compound component's parts (`DialogFooter`, `CardHeader`) fill the system component's slots.
-A stand-in's menu has **Replace with a system component** for one at a time.
+**App components.** Select part of a page and choose **Make an app component…** in its menu: it
+becomes a component, and an instance of it takes its place. Double-click an instance (or **Edit
+component**) to edit it in place: the rest of the page dims, what you select and change is the
+component's, and every instance follows. There the inspector adds **properties** — a text, yes or
+no, a choice, an image — or **exposes** a field of the node selected as one (its text, whether it
+shows, its picture, a prop of a component inside it), and makes a container a **slot** that an
+instance's children fill. A choice's members are **variants**: pick one in the banner under the
+canvas and your edits land on it alone. Escape, or **Done**, goes back to the page. An instance's
+properties are its props in the inspector; **Detach** turns it back into plain nodes.
+**Implement** writes an app component as a component of your application, a prop for each
+property and children for its slots.
+
+A page made before, with your application's own components, draws each of them as a stand-in.
+**Sync** offers to bring the designs up to date in one step you can undo: a component is matched
+by its name (shadcn's `DropdownMenu` is the Menu), its variants, children and text are kept, and a
+compound component's parts (`DialogFooter`, `CardHeader`) fill the system component's slots; specs
+and draft components from before become component files. A stand-in's menu has **Replace with a
+system component** for one at a time.
 
 ## The design system
 
@@ -452,7 +477,7 @@ The design system is two files, both meant to be committed:
   [DESIGN.md format](https://github.com/google-labs-code/design.md) that coding agents and design
   tools read and write ([ADR 0027](docs/adr/0027-design-md.md)):
   - its front matter holds the tokens (`colors`, `typography`, `rounded`, `spacing`), kept in
-    step with the design system, and the `components` whose look you took over, from their specs;
+    step with the design system, and the `components` whose look you took over, from their files;
   - its body says, in the format's sections, what the product is, which colours mean what,
     which component to use for what, and what to always or never do.
 
@@ -635,7 +660,7 @@ type after it is added to it.
 | `/sync code` | An agent brings the code up to the design: exports the tokens waiting for it, and asks you about what the code changed alone or on both sides |
 | `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` in the format's sections |
 | `/import-figma [import]` | An agent maps an imported Figma file's components to yours and writes its frames as pages |
-| `/implement <page>` | An agent writes a page (by URL or file), or a component's spec (`/implement Button`), in your application, with your components and conventions |
+| `/implement <page>` | An agent writes a page (by URL or file), or a component (`/implement Button`), in your application, with your components and conventions |
 | `/implement --adopt [canvas or pages]` | An agent links pages already built in your application to the files that implement them, changing no code |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
 | `/components <canvas>` | Draws a sheet of the system components, in each of their variants, into a canvas |
@@ -719,11 +744,11 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git where there is one, the snapshot store, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
-- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a node's JSX with the classes a style system writes.
+- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a system component's look as CSS, an app component's instance as the nodes it draws, a node's JSX with the classes a style system writes.
 - `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
 - `packages/preview-core` — the frames drawn in the editor's page, given a renderer: shadow roots, what to draw, measuring, hit-testing, pictures, text editing, the prototype's navigation.
-- `packages/system-components` — the editor's own components on Base UI (ADR 0040): their catalogue, their components, their default look and each frame's containment.
-- `packages/renderer-react` — draws design documents with the editor's React: nodes, drafts and system components (`renderToCanvas`).
+- `packages/system-components` — the editor's own components on Base UI (ADRs 0040, 0041): their catalogue, their components, their default look, each frame's containment, and the migration of what came before.
+- `packages/renderer-react` — draws design documents with the editor's React: elements, system components and app components (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
 - `packages/framework-react-vite` — the Node side for React + Vite: repository detection and the application a repository can start from.
 - `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet, a node's utilities for the Code tab.

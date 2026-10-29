@@ -15,6 +15,10 @@ Status: accepted, 2026-10-25. Builds on 0015 (instances render the repository's 
 > editor's primitives, whose specs start from their parts over a default look; nothing is read off
 > cva classes, and a primitive's spec is implemented on the application's own component.
 
+> Replaced by [0041](0041-system-and-app-components.md), 2026-10-29: specs and drafts are
+> components' files, `components/<Name>.component.json`: a system component's look, or an app
+> component with properties, slots and variants. Sync migrates them.
+
 ## Context
 
 Pages are drawn with the repository's real components, which is what makes a design look like

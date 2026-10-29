@@ -49,7 +49,7 @@ review found.
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
   variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its
   type), the steps of Tailwind's default scales, and the keywords each utility takes as Tailwind
-  compiles them, both ways (`w-full` is `100%`; a gap takes none, `gap-[100%]`). What a class means stays the reader's: a spec's field, DESIGN.md's
+  compiles them, both ways (`w-full` is `100%`; a gap takes none, `gap-[100%]`). What a class means stays the reader's: a look's field, DESIGN.md's
   token, the usage inventory's kind.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
@@ -89,14 +89,14 @@ review found.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
   by a typed **task request**; a **slash command** is a request written as text.
 - **Design target**: what `/implement` and `handoff` name a design by (the server's
-  `design-targets`, by `designTargetNamed` beside `pageNamed`): `spec:Button`, or a bare component
-  name, is a component's spec; anything else is a page by the page rule, a canvas written first
+  `design-targets`, by `designTargetNamed` beside `pageNamed`): `component:Button`, or a bare
+  component name, is a component's file; anything else is a page by the page rule, a canvas written first
   (`marketing:/pricing`), a node reference's node kept (`/orders#c_8`). A miss says which kind it
   looked for and lists that kind. The other tools name a page by the page half of the rule
   (`pageTargetNamed`), a miss worded the same (`pageMissed`). The link to the code keys it by its **canonical target**, a
-  page's id or `spec:<Component>`. A design's **behaviour notes** (ADR 0030) are read and added
+  page's id or `component:<Name>`. A design's **behaviour notes** (ADR 0030) are read and added
   through it whichever way they are kept: a page's are comments pinned on it, resolved when done;
-  a component's are in its spec, deleted when done.
+  a component's are in its file, deleted when done.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`): each capability worded both ways (ask the user, save the
   design system, mark a design implemented), and the tools by their own names (`tools`, none
@@ -106,17 +106,35 @@ review found.
 
 ## Preview
 
+- **Component**: what an instance places (ADR 0041), of two origins, each kept as
+  `components/<Name>.component.json` in the designs directory in one envelope (its name, origin,
+  description, category and behaviour notes) with a body of its origin's: contracts' `components`,
+  read and validated by the server's `ComponentService`.
 - **System component**: one of the editor's own components (`packages/system-components`, ADRs
   0040, 0041): Button, Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base
-  UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`. Its **catalogue**
-  entry says its props, variant axes, parts (`data-slot`), slots, states and **layer**: in the
-  page's flow (`inline`), anchored above it (`anchored`) or over it (`blocking`). Its look is its
-  default look (a spec of its own, `defaults.ts`, drawn by `look.ts`) under the project's spec (0029).
-- **Slot**: a part of a system component that holds nodes (a Dialog's `trigger`, `dialog-header`,
-  `dialog-content`, `dialog-footer`): an instance's child fills the slot it names (`slot`), the
-  rest fill the **default** slot.
-- **Element**: a layout, text or image node the Assets panel offers above the system components
-  (`ELEMENTS`, `newElement`).
+  UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`. Its
+  **catalogue** entry says its props, variant axes, parts (`data-slot`, the optional ones a look
+  may leave out), slots, states and **layer**: in the page's flow (`inline`), anchored above it
+  (`anchored`) or over it (`blocking`). Its **look** is its file: style fields per part at its
+  base, in each variant and state, layout per part, content for a slot given nothing, the
+  optional parts left out, a Select's or a Menu's item template; without a file, its default look
+  (`defaults.ts`, drawn by `look.ts` through `lookCss`). Its behavioural parts are fixed.
+- **App component**: one of the project's own components (ADR 0041), built from system
+  components and other app components; an instance names one with `from: "#app"`. Its file is a
+  **tree**, its **properties** and its **slots**, drawn in an instance's place by
+  `expandAppInstance`. Edited **in place** (`isolation.ts`), its tree is a document of its own,
+  `component:<Name>`, that the frame's selection and edits go to.
+- **Property**: what an instance of an app component sets, by name (its `props`): a text, a
+  boolean, an image or a choice of members, with a default, set on the nodes it **targets**, a
+  node's own field for its kind or a prop of the instance a node is.
+- **Variant**: a member of a system component's axis (`variant`, `size`), or of an app
+  component's choice, whose overrides its nodes keep in their `at` under `<property>=<member>`,
+  beside the breakpoints', so a change to the component itself lands in every variant.
+- **Slot**: a part of a component that holds nodes (a Dialog's `trigger`, `dialog-header`,
+  `dialog-content`, `dialog-footer`; a container of an app component's tree): an instance's child
+  fills the slot it names (`slot`), the rest fill the **default** slot.
+- **Element**: a layout, text or image node, what is not a component, which the Assets panel
+  offers above the components (`ELEMENTS`, `newElement`).
 - **Preview**: what draws the editor's frames: preview-core's frames, the renderer, the system
   components. Nothing of the repository's runs in it.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool

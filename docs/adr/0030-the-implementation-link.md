@@ -8,6 +8,10 @@ the server's instructions), 0015 (`/implement`), 0019 (page states beside varian
 > copy starts without one; pages built already are brought in in bulk; components have behaviour
 > notes; `handoff` also exports and imports tokens (0028).
 
+> Amended by [0041](0041-system-and-app-components.md), 2026-10-29: a component is bound as
+> `component:<Name>`, its design as implemented kept in `_implemented/components/`, and its
+> behaviour notes are in its file.
+
 ## Context
 
 `/implement` put a page's whole tree in a prompt and kept nothing: the next change to the design
