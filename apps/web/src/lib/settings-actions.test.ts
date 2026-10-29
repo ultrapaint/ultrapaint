@@ -164,7 +164,6 @@ describe("saving the settings", () => {
     expect(fakeApi.calls[1]?.input).toEqual({
       designsDir: "docs/designs",
       repoPath: REPO,
-      resolveFrom: undefined,
     });
     expect(useProject.getState().settings).toEqual(server.settings);
     expect(useProject.getState().info.configured).toBe(true);

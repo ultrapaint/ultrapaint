@@ -29,7 +29,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const result = yield* client["setup.createDesigns"]({
           designsDir: "docs/screens",
           repoPath: repo,
-          resolveFrom: "designs",
         });
         assert.deepStrictEqual(result.created, ["docs/screens"]);
         assert.deepStrictEqual(
@@ -49,23 +48,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const again = yield* client["setup.createDesigns"]({
           designsDir: "docs/screens",
           repoPath: repo,
-          resolveFrom: "designs",
         });
         assert.deepStrictEqual(again.created, []);
       })
     );
 
-    it.effect("refuses an anchor that is not a package", () =>
+    it.effect("refuses settings whose application is not a package", () =>
       Effect.gen(function* () {
-        const { client, repo, settings } = yield* TestEnv;
-        const error = yield* Effect.flip(
-          client["setup.createDesigns"]({
-            designsDir: "docs/other",
-            repoPath: repo,
-            resolveFrom: "ui",
-          })
-        );
-        assert.strictEqual(error._tag, "BadRequest");
+        const { client, settings } = yield* TestEnv;
         const validation = yield* client["settings.validate"]({
           ...settings,
           resolveFrom: "ui",

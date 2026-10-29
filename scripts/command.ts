@@ -55,6 +55,16 @@ const webDist = packaged ? path.join(root, "web") : path.join(webDir, "dist");
 // The server is TypeScript that imports workspace packages as TypeScript; tsx runs it as it is.
 const tsx = () =>
   createRequire(path.join(serverDir, "package.json")).resolve("tsx/cli");
+/**
+ * A development process under its guard (`dev-guard.ts`), which takes it down with what it started
+ * when the runner goes away without stopping it.
+ */
+const guarded = (args: readonly string[]) => [
+  "--experimental-strip-types",
+  path.join(root, "scripts", "dev-guard.ts"),
+  process.execPath,
+  ...args,
+];
 // Vite does not export its bin; its package.json says where it is.
 const vite = () => {
   const vitePackage = createRequire(path.join(webDir, "package.json")).resolve(
@@ -399,9 +409,10 @@ export const main = (args: readonly string[]): void => {
     });
 
   /**
-   * The server under `tsx watch` and the editor under Vite, side by side. `tsx watch` restarts
-   * the server whenever a source changes; an unsaved session lives in a directory of the
-   * command's scope so that it survives those restarts. Neither ends on its own, so the first to
+   * The server under `tsx watch` and the editor under Vite, side by side, each under a guard that
+   * stops it should the runner be killed. `tsx watch` restarts the server whenever a source
+   * changes; an unsaved session lives in a directory of the command's scope so that it survives
+   * those restarts. Neither ends on its own, so the first to
    * end (Vite on a taken port, say) ends the session: each runs in a scope of its own, and the
    * other is stopped by closing it. The returned code is the command's.
    */
@@ -420,7 +431,7 @@ export const main = (args: readonly string[]): void => {
       Effect.scoped(
         run(
           process.execPath,
-          [
+          guarded([
             tsx(),
             "watch",
             "--clear-screen=false",
@@ -433,13 +444,13 @@ export const main = (args: readonly string[]): void => {
             String(serverPort),
             ...session,
             ...serverArgs,
-          ],
+          ]),
           cwd,
           { name: "server" }
         )
       ).pipe(Effect.map((exit) => ["server", Number(exit)] as const)),
       Effect.scoped(
-        run(process.execPath, [vite()], webDir, {
+        run(process.execPath, guarded([vite()]), webDir, {
           env: {
             // Vite checks the Host of a request itself, before its proxy reaches the server.
             ULTRAPAINT_ALLOWED_HOSTS: flagValues(
