@@ -202,6 +202,30 @@ export const applyOps = (
     created.push(node.id);
   };
 
+  const replaceOp = (op: Extract<DocOp, { op: "replace" }>) => {
+    const found = op.ids.map(locate);
+    const [first] = found;
+    if (!first || found.some((f) => f.parent !== first.parent)) {
+      return fail(
+        "only nodes side by side in the same parent can be replaced together"
+      );
+    }
+    const { node: was, parent, siblings } = first;
+    // Where the first of them was, counting the siblings left before it.
+    const at = Math.min(...found.map((f) => f.index));
+    for (const id of op.ids) {
+      siblings.splice(
+        siblings.findIndex((c) => c.id === id),
+        1
+      );
+    }
+    // Taken out first: the node may keep an id of one it replaces.
+    const node = fresh(op.node);
+    place(node, parent, { x: Number(was.x ?? 0), y: Number(was.y ?? 0) });
+    siblings.splice(at, 0, node);
+    created.push(node.id);
+  };
+
   const removeOp = (op: Extract<DocOp, { op: "remove" }>) => {
     const { parent, siblings, index } = locate(op.id);
     siblings.splice(index, 1);
@@ -380,6 +404,9 @@ export const applyOps = (
         break;
       case "duplicate":
         duplicateOp(op);
+        break;
+      case "replace":
+        replaceOp(op);
         break;
       default:
         break;

@@ -503,6 +503,16 @@ export const DocOp = Schema.Union([
   Schema.Struct({ id: Schema.String, op: Schema.Literal("unwrap") }),
   /** Puts a copy right after the node, with new ids throughout. */
   Schema.Struct({ id: Schema.String, op: Schema.Literal("duplicate") }),
+  /**
+   * Puts a node in place of others, siblings (ADR 0042): where the first of them was, at its
+   * position on the canvas when the node gives none. An instance drawn as now, detached from its
+   * component, or made one.
+   */
+  Schema.Struct({
+    ids: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
+    node: DesignNode,
+    op: Schema.Literal("replace"),
+  }),
 ]);
 export type DocOp = typeof DocOp.Type;
 

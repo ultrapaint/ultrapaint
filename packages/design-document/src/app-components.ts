@@ -193,7 +193,10 @@ export const expandAppInstance = (
   return { filled, tree: visit(file.tree) };
 };
 
-/** What an instance says of where it sits, which the nodes detached from it keep. */
+/**
+ * What a node says of where it sits on its page, and what it is called there: what the instance
+ * made of nodes keeps of them, and the nodes detached from an instance keep of it.
+ */
 const PLACEMENT = [
   "height",
   "hidden",
@@ -230,13 +233,66 @@ export const detachedOf = (
   const { tree } = expandAppInstance(file, instance, (id) =>
     next(idPrefix(types.get(id) ?? "n"))
   );
-  const placement = Object.fromEntries(
+  return { ...tree, ...placementOf(instance) } as DesignNode;
+};
+
+/** Where a node sits, as `PLACEMENT` says. */
+const placementOf = (node: DesignNode): Fields =>
+  Object.fromEntries(
     PLACEMENT.flatMap((field) => {
-      const value = (instance as unknown as Fields)[field];
+      const value = (node as unknown as Fields)[field];
       return value === undefined ? [] : [[field, value] as const];
     })
   );
-  return { ...tree, ...placement } as DesignNode;
+
+/** A node without where it sits: what a component's tree keeps of it. */
+const unplaced = (node: DesignNode): DesignNode =>
+  Object.fromEntries(
+    Object.entries(node).filter(
+      ([key]) => !(PLACEMENT as readonly string[]).includes(key)
+    )
+  ) as unknown as DesignNode;
+
+/**
+ * Sibling nodes of a page made an app component named `name` (ADR 0041), as `detachedOf` undoes:
+ * its tree is the one node without where it sits, or several in a row or a column as `container`
+ * lays them out; the instance that takes their place keeps where the one node sat, and its id.
+ */
+export const appComponentFrom = (
+  name: string,
+  nodes: readonly DesignNode[],
+  container: DesignNode,
+  next: IdGenerator
+): { readonly file: AppComponentFile; readonly instance: InstanceNode } => {
+  const [only, ...more] = nodes;
+  const one = only && more.length === 0 ? only : undefined;
+  const type = container.type === "row" ? "row" : "column";
+  const tree: DesignNode = one
+    ? unplaced(one)
+    : ({
+        // Each keeps its size in the new container; the slot it filled was the page's.
+        children: nodes.map(({ slot: _slot, ...node }) => node as DesignNode),
+        gap: 8,
+        id: next(idPrefix(type)),
+        type,
+      } as DesignNode);
+  return {
+    file: {
+      name,
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree,
+      version: 1,
+    },
+    instance: {
+      ...(one && placementOf(one)),
+      component: name,
+      from: APP_FROM,
+      id: one?.id ?? next(idPrefix("instance")),
+      type: "instance",
+    } as InstanceNode,
+  };
 };
 
 /** The app components a tree places, by name, nested ones not included. */
