@@ -93,7 +93,7 @@ ${DEFAULT_LOOK}
   [data-system="button"][data-variant="link"] { text-decoration: underline; text-underline-offset: 4px; }
   [data-system="button"][data-variant="link"]${HOVER}:not(:disabled) { background: transparent; }
   [data-system="button"]:focus-visible { outline: 2px solid ${RING}; outline-offset: 2px; }
-  [data-system="button"]:disabled { opacity: 0.5; cursor: not-allowed; }
+  [data-system="button"]:disabled { cursor: not-allowed; }
   [data-system="button"][data-loading] { opacity: 0.75; cursor: progress; }
   [data-slot="button-spinner"], [data-system="spinner"] {
     display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 50%; flex: none;
@@ -125,12 +125,8 @@ ${DEFAULT_LOOK}
   }
   [data-slot="textarea"] { resize: vertical; min-height: 4rem; }
   :is([data-slot="input"], [data-slot="textarea"])::placeholder { color: var(--color-muted-foreground); }
-  [data-system="field"] :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):is(:focus-visible, [data-popup-open]) {
-    border-color: ${RING}; box-shadow: 0 0 0 3px color-mix(in oklab, ${RING} 35%, transparent);
-  }
-  [data-system="field"] :is([data-slot="input"], [data-slot="textarea"])[aria-invalid="true"] { border-color: ${DESTRUCTIVE}; }
   :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):disabled,
-  [data-slot="select-trigger"][data-disabled] { opacity: 0.5; cursor: not-allowed; }
+  [data-slot="select-trigger"][data-disabled] { cursor: not-allowed; }
 
   [data-slot="select-trigger"] { display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-align: left; }
   [data-slot="select-value"][data-placeholder] { color: var(--color-muted-foreground); }
@@ -139,23 +135,20 @@ ${DEFAULT_LOOK}
 
   [data-system="check"] { display: inline-flex; align-items: center; cursor: pointer; }
   [data-slot="checkbox"] { display: inline-grid; place-items: center; padding: 0; flex: none; cursor: pointer; }
-  [data-system="check"] [data-slot="checkbox"][data-checked] { background-color: ${PRIMARY}; border-color: ${PRIMARY}; }
   [data-slot="checkbox-indicator"] { display: flex; }
   [data-slot="checkbox-indicator"] svg { width: 0.75rem; height: 0.75rem; }
   [data-slot="switch"] {
     position: relative; display: inline-flex; align-items: center; flex: none;
     border: 0; cursor: pointer; transition: background-color 0.15s;
   }
-  [data-system="check"] [data-slot="switch"][data-checked] { background-color: ${PRIMARY}; }
   [data-slot="switch-thumb"] { display: block; transition: translate 0.15s; }
   [data-slot="switch-thumb"][data-checked] { translate: 1rem 0; }
-  :is([data-slot="checkbox"], [data-slot="switch"])[data-disabled] { opacity: 0.5; cursor: not-allowed; }
+  :is([data-slot="checkbox"], [data-slot="switch"])[data-disabled] { cursor: not-allowed; }
 
   /* ---- Tabs ---- */
   [data-system="tabs"] { display: flex; flex-direction: column; }
   [data-slot="tabs-list"] { position: relative; display: flex; }
   [data-slot="tab"] { border: 0; background: none; font: inherit; cursor: pointer; }
-  [data-system="tabs"] [data-slot="tab"]:is(${HOVER}, [data-active]) { color: ${FG}; }
   [data-slot="tabs-indicator"] {
     position: absolute; bottom: -1px; left: var(--active-tab-left); width: var(--active-tab-width);
     transition: left 0.2s, width 0.2s;
@@ -172,9 +165,6 @@ ${DEFAULT_LOOK}
   [data-system-popup]:is([data-starting-style], [data-ending-style]) { opacity: 0; scale: 0.96; }
   :is([data-slot="select-item"], [data-slot="menu-item"]) {
     display: flex; align-items: center; cursor: default; outline: 0; user-select: none; position: relative;
-  }
-  [data-system-positioner] :is([data-slot="select-item"], [data-slot="menu-item"]):is([data-ed-live] [data-highlighted], [data-ed-state~="highlighted"]) {
-    background: ${ACCENT}; color: ${ACCENT_FG};
   }
   [data-slot="select-item-indicator"] { position: absolute; left: 0.5rem; display: flex; }
   [data-slot="menu-separator"] { margin: 0.25rem -0.25rem; }
@@ -217,7 +207,6 @@ ${DEFAULT_LOOK}
     padding: 0; border: 0; cursor: pointer;
   }
   [data-slot="dialog-close"] svg { width: 1rem; height: 1rem; }
-  [data-system-dialog] [data-slot="dialog-close"]${HOVER} { background: ${ACCENT}; color: ${ACCENT_FG}; }
   @container ed-frame (max-width: 640px) {
     [data-system-dialog] [data-slot="dialog"], [data-system-dialog] [data-slot="dialog"]:is([data-size="sm"], [data-size="lg"]) {
       top: auto; bottom: 0; left: 0; translate: 0 0; width: 100%; max-height: calc(100% - 2.5rem);

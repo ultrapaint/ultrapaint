@@ -8,7 +8,9 @@ import {
   type AppComponentFile,
   appComponentsIn,
   type ComponentFile,
+  type ItemTemplate,
   SYSTEM_FROM,
+  type SystemComponentFile,
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
@@ -40,6 +42,7 @@ import {
   type RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import {
+  type SystemComponentMeta,
   slotFor,
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
@@ -121,6 +124,8 @@ interface Scope {
   /** Tells the editor how an instance lays its children out, once it is drawn. */
   readonly report: (nodeId: string, drawn: InstanceDrawn) => void;
   readonly styles: Omit<StyleContext, "parent">;
+  /** The looks of the system components the project owns (ADR 0041), by name. */
+  readonly systems: ReadonlyMap<string, SystemComponentFile>;
 }
 
 const ScopeContext = createContext<Scope | null>(null);
@@ -400,19 +405,13 @@ const SystemView = ({
       text: `${node.component} is not one of the system components`,
     });
   }
-  const bySlot = new Map<string, ReactNode[]>();
+  const look = scope.systems.get(node.component);
   const children = childrenOf(node);
-  for (const child of children) {
-    const slot = slotFor(meta, child.slot) ?? fallback;
-    if (!slot) {
-      continue;
-    }
-    const drawn = createElement(NodeView, {
-      key: child.id,
-      node: child,
-      parent: slot.layout ?? "block",
-    });
-    bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
+  const bySlot = childrenBySlot(meta, children);
+  if (look?.content) {
+    fillEmptySlots(bySlot, scope, meta.slots, look.content, (slot) =>
+      slot === fallback ? node.text === undefined : true
+    );
   }
   const slots: Record<string, ReactNode> = {};
   let content: ReactNode =
@@ -435,11 +434,96 @@ const SystemView = ({
         ...(node.link && { onClickCapture: onLink(scope, node.link) }),
         slots,
         ...(setsAnything(style) && { style }),
+        ...(meta.templatedItems &&
+          look?.item && { drawItem: itemDrawer(scope, look.item) }),
       },
       content
     )
   );
 };
+
+/** An instance's children drawn, by the slot each fills: the one it names, or the default one. */
+const childrenBySlot = (
+  meta: SystemComponentMeta,
+  children: readonly DesignNode[]
+): Map<string, ReactNode[]> => {
+  const fallback = slotFor(meta, undefined);
+  const bySlot = new Map<string, ReactNode[]>();
+  for (const child of children) {
+    const slot = slotFor(meta, child.slot) ?? fallback;
+    if (!slot) {
+      continue;
+    }
+    const drawn = createElement(NodeView, {
+      key: child.id,
+      node: child,
+      parent: slot.layout ?? "block",
+    });
+    bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
+  }
+  return bySlot;
+};
+
+/**
+ * A slot the instance gives nothing holds what the look says it holds (`content`), which is not
+ * the page's; `empty` says whether a slot given nothing is empty (a default slot may show text).
+ */
+const fillEmptySlots = (
+  bySlot: Map<string, ReactNode[]>,
+  scope: Scope,
+  slots: SystemComponentMeta["slots"],
+  content: Readonly<Record<string, readonly DesignNode[]>>,
+  empty: (slot: SystemComponentMeta["slots"][number]) => boolean
+) => {
+  for (const slot of slots) {
+    const given = slot.holds === undefined ? undefined : content[slot.name];
+    if (!given || given.length === 0 || bySlot.has(slot.name) || !empty(slot)) {
+      continue;
+    }
+    bySlot.set(slot.name, [
+      createElement(
+        ScopeContext.Provider,
+        {
+          key: `content:${slot.name}`,
+          value: { ...scope, nodeAttribute: APP_NODE_ATTRIBUTE },
+        },
+        given.map((n) =>
+          createElement(NodeView, {
+            key: n.id,
+            node: n,
+            parent: slot.layout ?? "block",
+          })
+        )
+      ),
+    ]);
+  }
+};
+
+/**
+ * What draws an item of a Select or a Menu from a look's template (ADR 0041): its tree, the
+ * item's label in the text node `label` names and its picture in the image `image` names. The
+ * template's nodes are the look's, not the page's.
+ */
+const itemDrawer =
+  (scope: Scope, template: ItemTemplate) =>
+  (item: { readonly image?: string | undefined; readonly label: string }) => {
+    const bind = (n: DesignNode): DesignNode => {
+      if (n.id === template.label && n.type === "text") {
+        return { ...n, text: item.label };
+      }
+      if (n.id === template.image && n.type === "image") {
+        return item.image ? { ...n, src: item.image } : { ...n, hidden: true };
+      }
+      return "children" in n && n.children
+        ? ({ ...n, children: n.children.map(bind) } as DesignNode)
+        : n;
+    };
+    return createElement(
+      ScopeContext.Provider,
+      { value: { ...scope, nodeAttribute: APP_NODE_ATTRIBUTE } },
+      createElement(NodeView, { node: bind(template.tree), parent: "row" })
+    );
+  };
 
 const InstanceView = ({
   node,
@@ -507,6 +591,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   let styles = makeStyleContext(null);
   let components: readonly ComponentFile[] | undefined;
   let apps: ReadonlyMap<string, AppComponentFile> = new Map();
+  let systems: ReadonlyMap<string, SystemComponentFile> = new Map();
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
 
@@ -548,6 +633,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     if (request.components !== components) {
       ({ components } = request);
       apps = new Map(appComponentsIn(components ?? []).map((c) => [c.name, c]));
+      systems = new Map(
+        systemComponentsIn(components ?? []).map((c) => [c.name, c])
+      );
     }
     tokenCss = request.styles;
     // The design's own stylesheet (ADRs 0028, 0041): every token's value and the looks of the
@@ -574,6 +662,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       nodeAttribute: NODE_ATTRIBUTE,
       report,
       styles,
+      systems,
     };
     const { root: node } = request;
     let body: ReactNode;

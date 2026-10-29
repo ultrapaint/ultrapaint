@@ -17,7 +17,7 @@ import type {
   PartStyles,
 } from "@ultrapaint/contracts/components";
 import type { Border, Padding } from "@ultrapaint/contracts/document";
-import type { StyleContext } from "./css.ts";
+import { ITEMS, JUSTIFY, type StyleContext } from "./css.ts";
 
 /** A system component's look as it is drawn: its file's fields, with what the catalogue says of it. */
 export interface ComponentLook {
@@ -26,6 +26,8 @@ export interface ComponentLook {
   readonly component: string;
   /** The member each variant axis starts in when an instance does not say. */
   readonly defaults: Readonly<Record<string, string>>;
+  /** The optional parts it leaves out. */
+  readonly hidden?: readonly string[] | undefined;
   /** Its parts, the root first: the order their rules are written in. */
   readonly parts: readonly string[];
   /** Style fields per state, per part. */
@@ -171,6 +173,26 @@ export const partStyleCss = (
         ? String(style.fontWeight)
         : css(style.fontWeight);
   }
+  Object.assign(out, layoutCss(style));
+  return out;
+};
+
+/** How a part lays out what it holds, and where it goes among its siblings. */
+const layoutCss = (style: PartStyle): Record<string, string> => {
+  const out: Record<string, string> = {};
+  if (style.direction !== undefined) {
+    out.display = "flex";
+    out["flex-direction"] = style.direction;
+  }
+  if (style.align !== undefined) {
+    out["justify-content"] = JUSTIFY[style.align] ?? "flex-start";
+  }
+  if (style.crossAlign !== undefined) {
+    out["align-items"] = ITEMS[style.crossAlign] ?? "stretch";
+  }
+  if (style.order !== undefined) {
+    out.order = String(style.order);
+  }
   return out;
 };
 
@@ -179,7 +201,8 @@ export const partStyleCss = (
  * (Base UI, Radix, React Aria). `data-ed-state` pins it on the instance for the look's matrix.
  */
 const STATE_SELECTORS: Record<ComponentState, readonly string[]> = {
-  active: [":active", "[data-pressed]"],
+  // A tab that is the selected one is active, as Base UI marks it.
+  active: [":active", "[data-pressed]", "[data-active]"],
   checked: [
     "[data-checked]",
     '[data-state="checked"]',
@@ -188,6 +211,7 @@ const STATE_SELECTORS: Record<ComponentState, readonly string[]> = {
   ],
   disabled: [":disabled", "[data-disabled]", '[aria-disabled="true"]'],
   focus: [":focus-visible", "[data-focus-visible]"],
+  highlighted: ["[data-highlighted]"],
   hover: [":hover", "[data-hovered]"],
   invalid: ['[aria-invalid="true"]', "[data-invalid]"],
   open: [
@@ -207,10 +231,13 @@ const STATE_ORDER: readonly ComponentState[] = [
 /**
  * Where a rule matches. `host` is added to the element the renderer marks (the component's root,
  * or the wrapper drawn around it); `target` to the component's own root element, where its
- * pseudo-classes and the headless libraries' attributes are.
+ * pseudo-classes and the headless libraries' attributes are; `part` to the part itself, where
+ * Base UI puts a part's own state (a checkbox's `data-checked`, a tab's `data-active`, an item's
+ * `data-highlighted`).
  */
 interface Match {
   readonly host: string;
+  readonly part?: string;
   readonly target: string;
 }
 
@@ -222,16 +249,18 @@ interface Match {
 const selectorsOf = (
   component: string,
   slot: string,
-  { host, target }: Match
+  { host, part: onPart = "", target }: Match
 ): string[] => {
   const marked = attribute(COMPONENT_ATTRIBUTE, "", component);
   if (slot === ROOT_SLOT) {
+    // The root is the part: a state on it is the root's.
+    const own = `${target}${onPart}`;
     return [
-      `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target}`,
-      `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${target}`,
+      `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${own}`,
+      `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${own}`,
     ];
   }
-  const part = attribute("data-slot", "", slot);
+  const part = `${attribute("data-slot", "", slot)}${onPart}`;
   const portal = attribute(PORTAL_ATTRIBUTE, "", component);
   return [
     `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target} ${part}`,
@@ -276,7 +305,11 @@ const rulesOf = (
     const rule =
       style &&
       ruleOf(
-        matches.flatMap((m) => selectorsOf(look.component, slot, m)),
+        [
+          ...new Set(
+            matches.flatMap((m) => selectorsOf(look.component, slot, m))
+          ),
+        ],
         partStyleCss(style, ctx)
       );
     return rule ? [rule] : [];
@@ -304,9 +337,13 @@ const variantMatches = (
   return [named, { host: unset, target: "" }];
 };
 
-/** A state as its selectors on the component, and pinned on the instance. */
+/**
+ * A state as its selectors on the component's root, on the part itself, and pinned on the
+ * instance.
+ */
 const stateMatches = (state: ComponentState): Match[] => [
   ...STATE_SELECTORS[state].map((target) => ({ host: "", target })),
+  ...STATE_SELECTORS[state].map((part) => ({ host: "", part, target: "" })),
   { host: attribute(STATE_ATTRIBUTE, "~", state), target: "" },
 ];
 
@@ -325,7 +362,23 @@ const lookRules = (look: ComponentLook, ctx: StyleContext): string[] => [
   ...STATE_ORDER.flatMap((state) =>
     rulesOf(look, look.states[state], stateMatches(state), ctx)
   ),
+  ...hiddenRules(look),
 ];
+
+/** The optional parts a look leaves out, drawn as nothing. */
+const hiddenRules = (look: ComponentLook): string[] => {
+  const parts = (look.hidden ?? []).filter((p) => p !== ROOT_SLOT);
+  if (parts.length === 0) {
+    return [];
+  }
+  const rule = ruleOf(
+    parts.flatMap((p) =>
+      selectorsOf(look.component, p, { host: "", target: "" })
+    ),
+    { display: "none" }
+  );
+  return rule ? [rule] : [];
+};
 
 /**
  * The stylesheet that draws looks over their components: base, then each variant axis' members,

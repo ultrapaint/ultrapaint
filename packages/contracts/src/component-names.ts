@@ -25,6 +25,7 @@ export const COMPONENT_STATES = [
   "hover",
   "focus",
   "active",
+  "highlighted",
   "disabled",
   "open",
   "checked",

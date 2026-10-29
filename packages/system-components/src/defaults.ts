@@ -3,8 +3,8 @@
  * the design document's own style fields, over the design system's tokens (`$color-primary`).
  * `look.ts` draws them under the project's files; taking a system component's look over starts
  * the project's file from its default, so the designer edits real values. What a file cannot say
- * stays in `look.ts`: positioning, a dialog's sheet on a narrow frame, animations, and what a
- * pointer does to a part.
+ * stays in `look.ts`: positioning, a dialog's sheet on a narrow frame, animations, a focus
+ * outline, and a colour mixed from another as a button's hover is.
  */
 import type {
   PartStyle,
@@ -65,8 +65,24 @@ const field: PartStyle = {
 
 interface Look {
   readonly base: PartStyles;
+  readonly states?: SystemComponentFile["states"];
   readonly variants?: SystemComponentFile["variants"];
 }
+
+/** A field's ring while it has the focus or its popup is open. */
+const RING: PartStyle = {
+  border: { color: "$color-ring" },
+  shadow: "0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent)",
+};
+/** An item of a select or a menu while the pointer or the keys are on it. */
+const HIGHLIGHTED: PartStyle = {
+  color: "$color-accent-foreground",
+  fill: "$color-accent",
+};
+/** A field that cannot be used. */
+const UNUSABLE: PartStyle = { opacity: 0.5 };
+/** A field drawn as wrong. */
+const WRONG: PartStyle = { border: { color: "$color-destructive" } };
 
 const LOOKS: Readonly<Record<string, Look>> = {
   Avatar: {
@@ -141,6 +157,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
         radius: "$radius-md",
       },
     },
+    states: { disabled: { root: UNUSABLE } },
     // The size first: a link's padding and height win over a size's.
     variants: {
       size: {
@@ -225,6 +242,15 @@ const LOOKS: Readonly<Record<string, Look>> = {
       },
       root: { fontSize: "0.875rem", gap: "0.5rem" },
     },
+    states: {
+      checked: {
+        checkbox: {
+          border: { color: "$color-primary" },
+          fill: "$color-primary",
+        },
+      },
+      disabled: { checkbox: UNUSABLE },
+    },
   },
   Dialog: {
     base: {
@@ -254,12 +280,18 @@ const LOOKS: Readonly<Record<string, Look>> = {
       "dialog-header": { gap: "0.5rem" },
       "dialog-title": { fontSize: "1.125rem", fontWeight: 600 },
     },
+    states: { hover: { "dialog-close": HIGHLIGHTED } },
   },
   Input: {
     base: {
       "field-label": label,
       input: { ...field, height: "2.25rem", padding: pad(0, "0.75rem") },
       root: { gap: "0.375rem" },
+    },
+    states: {
+      disabled: { input: UNUSABLE },
+      focus: { input: RING },
+      invalid: { input: WRONG },
     },
     variants: {
       size: {
@@ -274,6 +306,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
       "menu-popup": { ...popup, padding: "0.25rem" },
       "menu-separator": { fill: "$color-border", height: "1px" },
     },
+    states: { highlighted: { "menu-item": HIGHLIGHTED } },
   },
   Popover: {
     base: {
@@ -297,6 +330,12 @@ const LOOKS: Readonly<Record<string, Look>> = {
         height: "2.25rem",
         padding: pad(0, "0.75rem"),
       },
+    },
+    states: {
+      disabled: { "select-trigger": UNUSABLE },
+      focus: { "select-trigger": RING },
+      highlighted: { "select-item": HIGHLIGHTED },
+      open: { "select-trigger": RING },
     },
   },
   Separator: { base: { root: { fill: "$color-border" } } },
@@ -327,6 +366,10 @@ const LOOKS: Readonly<Record<string, Look>> = {
         width: "1rem",
       },
     },
+    states: {
+      checked: { switch: { fill: "$color-primary" } },
+      disabled: { switch: UNUSABLE },
+    },
   },
   Tabs: {
     base: {
@@ -344,12 +387,21 @@ const LOOKS: Readonly<Record<string, Look>> = {
         gap: "0.25rem",
       },
     },
+    states: {
+      active: { tab: { color: "$color-foreground" } },
+      hover: { tab: { color: "$color-foreground" } },
+    },
   },
   Textarea: {
     base: {
       "field-label": label,
       root: { gap: "0.375rem" },
       textarea: { ...field, padding: pad("0.5rem", "0.75rem") },
+    },
+    states: {
+      disabled: { textarea: UNUSABLE },
+      focus: { textarea: RING },
+      invalid: { textarea: WRONG },
     },
   },
   Toast: {
@@ -399,7 +451,7 @@ const fileOf = (meta: SystemComponentMeta): SystemComponentFile => {
     base: look.base,
     name: meta.name,
     origin: "system",
-    states: {},
+    states: look.states ?? {},
     variants: look.variants ?? {},
     version: 1,
   };
@@ -435,6 +487,7 @@ export const lookOf = (
         members[0] === undefined ? [] : [[axis, members[0]]]
       )
     ),
+    hidden: file.hidden,
     parts: meta.slots.map((s) => s.name),
     states: file.states,
     variants: file.variants,

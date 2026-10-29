@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
@@ -39,6 +40,7 @@ import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { ValueField } from "../components/value-field.tsx";
+import { allSelected, nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import {
   type FieldTokenKind,
@@ -350,6 +352,65 @@ const Field = ({
   );
 };
 
+const SIDES = ["top", "right", "bottom", "left"] as const;
+type Side = (typeof SIDES)[number];
+
+/** One side's padding: its own, or what every side has. */
+const sideOf = (padding: PartStyle["padding"], side: Side) =>
+  typeof padding === "object" ? padding[side] : padding;
+
+/** The style with one side's padding set (`null` takes it off), the others kept as they are. */
+const withSide = (
+  style: PartStyle,
+  side: Side,
+  value: JsonValue
+): PartStyle => {
+  const { padding, ...rest } = style;
+  const kept = Object.fromEntries(
+    SIDES.flatMap((s) => {
+      const v = s === side ? undefined : sideOf(padding, s);
+      return v === undefined ? [] : [[s, v]];
+    })
+  );
+  const given =
+    (typeof value === "string" && value !== "") || typeof value === "number";
+  const sides = given ? { ...kept, [side]: value } : kept;
+  return Object.keys(sides).length === 0
+    ? rest
+    : ({ ...rest, padding: sides } as PartStyle);
+};
+
+/** One field of a part that takes one of a few words. */
+const Choice = ({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: JsonValue) => void;
+  options: readonly string[];
+  value: string | undefined;
+}) => (
+  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
+    <span className="truncate text-muted-foreground">{label}</span>
+    <NativeSelect
+      aria-label={label}
+      className="w-full"
+      onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+      size="sm"
+      value={value ?? ""}
+    >
+      <NativeSelectOption value="">Not set</NativeSelectOption>
+      {options.map((o) => (
+        <NativeSelectOption key={o} value={o}>
+          {o}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
+  </div>
+);
+
 /** The fields of one part at one place. */
 const SlotFields = ({
   onChange,
@@ -415,6 +476,41 @@ const SlotFields = ({
         onChange={set("padding")}
         value={typeof style.padding === "object" ? undefined : style.padding}
       />
+      {SIDES.map((side) => (
+        <Field
+          key={side}
+          kind="spacing"
+          label={`Padding ${side}`}
+          onChange={(value) => onChange(withSide(style, side, value))}
+          value={sideOf(style.padding, side)}
+        />
+      ))}
+      <Choice
+        label="Direction"
+        onChange={set("direction")}
+        options={["row", "column"]}
+        value={style.direction}
+      />
+      <Choice
+        label="Align"
+        onChange={set("align")}
+        options={["start", "center", "end", "between", "around"]}
+        value={style.align}
+      />
+      <Choice
+        label="Cross align"
+        onChange={set("crossAlign")}
+        options={["start", "center", "end", "stretch", "baseline"]}
+        value={style.crossAlign}
+      />
+      <Field
+        kind="opacity"
+        label="Order"
+        onChange={(v) =>
+          set("order")(typeof v === "string" && v !== "" ? Number(v) : v)
+        }
+        value={style.order}
+      />
       <Field
         kind="spacing"
         label="Height"
@@ -455,6 +551,189 @@ const SlotFields = ({
         }
         value={style.opacity}
       />
+    </div>
+  );
+};
+
+/** The nodes selected on the canvas, copied without the slot each fills: what a look can take. */
+const selectedNodes = (): DesignNode[] =>
+  nodesOf(allSelected()).map(
+    ({ node: { slot: _slot, ...node } }) => node as DesignNode
+  );
+
+/** The first node of a tree of a type, by id. */
+const firstOf = (
+  node: DesignNode,
+  type: DesignNode["type"]
+): string | undefined => {
+  if (node.type === type) {
+    return node.id;
+  }
+  for (const child of "children" in node ? (node.children ?? []) : []) {
+    const found = firstOf(child, type);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+};
+
+/**
+ * What a look says beyond its parts' style (ADR 0041): the optional parts it shows, what each slot
+ * holds when an instance gives it nothing, and what a Select's or a Menu's item draws. Content and
+ * templates are taken from the selection on the canvas.
+ */
+const LookExtras = ({
+  file,
+  onChange,
+}: {
+  file: SystemComponentFile;
+  onChange: (file: SystemComponentFile) => void;
+}) => {
+  const meta = systemComponentOf(file.name);
+  if (!meta) {
+    return null;
+  }
+  const optional = meta.slots.filter((s) => s.optional);
+  const holding = meta.slots.filter((s) => s.holds !== undefined);
+  const hidden = new Set(file.hidden ?? []);
+  const show = (part: string, shown: boolean) => {
+    const next = shown
+      ? [...hidden].filter((p) => p !== part)
+      : [...hidden, part];
+    const { hidden: _old, ...rest } = file;
+    onChange(next.length === 0 ? rest : { ...rest, hidden: next });
+  };
+  const setContent = (slot: string, nodes: readonly DesignNode[]) => {
+    const { [slot]: _old, ...others } = file.content ?? {};
+    const content = nodes.length === 0 ? others : { ...others, [slot]: nodes };
+    const { content: _content, ...rest } = file;
+    onChange(Object.keys(content).length === 0 ? rest : { ...rest, content });
+  };
+  const setItem = (tree: DesignNode | null) => {
+    const { item: _old, ...rest } = file;
+    if (!tree) {
+      onChange(rest);
+      return;
+    }
+    const label = firstOf(tree, "text");
+    const image = firstOf(tree, "image");
+    onChange({
+      ...rest,
+      item: {
+        tree,
+        ...(label !== undefined && { label }),
+        ...(image !== undefined && { image }),
+      },
+    });
+  };
+  const fromSelection = (use: (nodes: DesignNode[]) => void) => {
+    const nodes = selectedNodes();
+    if (nodes.length === 0) {
+      toast.message("Select the nodes on the canvas first.");
+      return;
+    }
+    use(nodes);
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      {optional.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Optional parts</span>
+          {optional.map((part) => (
+            // biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button
+            <label className="flex items-center gap-2" key={part.name}>
+              <Checkbox
+                checked={!hidden.has(part.name)}
+                onCheckedChange={(shown) => show(part.name, shown)}
+              />
+              {part.label}
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {holding.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Content when empty</span>
+          {holding.map((slot) => {
+            const held = file.content?.[slot.name] ?? [];
+            return (
+              <div className="flex items-center gap-1.5" key={slot.name}>
+                <span className="min-w-0 flex-1 truncate">
+                  {slot.label}{" "}
+                  <span className="text-muted-foreground">
+                    {held.length === 0
+                      ? "nothing"
+                      : `${held.length} node${held.length === 1 ? "" : "s"}`}
+                  </span>
+                </span>
+                <Button
+                  onClick={() =>
+                    fromSelection((nodes) => setContent(slot.name, nodes))
+                  }
+                  size="xs"
+                  variant="outline"
+                >
+                  Use selection
+                </Button>
+                {held.length > 0 ? (
+                  <Button
+                    aria-label={`Clear what ${slot.label} holds`}
+                    onClick={() => setContent(slot.name, [])}
+                    size="icon-xs"
+                    variant="ghost"
+                  >
+                    <X />
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      {meta.templatedItems ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Item</span>
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+              {file.item
+                ? "Drawn from your nodes: the first text is the label, the first image its picture."
+                : "Its label alone."}
+            </span>
+            <Button
+              onClick={() =>
+                fromSelection(([first, ...more]) =>
+                  setItem(
+                    more.length === 0 && first
+                      ? first
+                      : ({
+                          children: [first, ...more],
+                          crossAlign: "center",
+                          gap: 8,
+                          id: "item",
+                          type: "row",
+                        } as DesignNode)
+                  )
+                )
+              }
+              size="xs"
+              variant="outline"
+            >
+              Use selection
+            </Button>
+            {file.item ? (
+              <Button
+                aria-label="Draw items by their label alone"
+                onClick={() => setItem(null)}
+                size="icon-xs"
+                variant="ghost"
+              >
+                <X />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -758,6 +1037,7 @@ const SystemDetail = ({
           onChange={(style) => setFile(withStyle(file, place, slot, style))}
           style={styleAt(file, place, slot)}
         />
+        <LookExtras file={file} onChange={setFile} />
         <div className="flex gap-1.5">
           <Button
             disabled={!dirty}

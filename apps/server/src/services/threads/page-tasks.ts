@@ -131,10 +131,13 @@ node is). \`slots\` are containers of the tree an instance's children fill (\`de
 
 /** How a system component's file reads, for an agent. */
 const SYSTEM_FORMAT = `The file: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
-(hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
-\`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,
-\`aria-invalid:\`); a part other than \`root\` is the element with that \`data-slot\`. Values are the
-design system's tokens.`;
+(hover, focus, active, highlighted, disabled, open, checked, invalid) are the state classes (\`hover:\`,
+\`focus-visible:\`, \`active:\` or \`data-active:\`, \`data-highlighted:\`, \`disabled:\`, \`data-open:\` or
+\`data-[state=open]:\`, \`data-checked:\`, \`aria-invalid:\`), on the part itself or on the root; a part other
+than \`root\` is the element with that \`data-slot\`; \`direction\`, \`align\`, \`crossAlign\` and \`order\` are the
+part's flex layout. \`content\` is what a slot holds when an instance gives it nothing, \`hidden\` the
+optional parts the component leaves out, and \`item\` what a Select's or a Menu's item draws (\`label\`
+and \`image\` the nodes showing the item's). Values are the design system's tokens.`;
 
 /** The components a tree uses, by name. */
 const usedComponents = (root: DesignNode | null | undefined) => {

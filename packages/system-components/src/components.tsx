@@ -23,9 +23,17 @@ import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useComponentFrame, useOverlayOpen } from "./frame.ts";
 
+/** An item of a Select or a Menu: its label, and the picture a template may show (ADR 0041). */
+export interface ListItem {
+  readonly image?: string | undefined;
+  readonly label: string;
+}
+
 /** What the renderer gives a system component besides its instance's props. */
 export interface SystemComponentProps {
   readonly children?: ReactNode;
+  /** Draws an item of a Select or a Menu from the look's template; its label alone without one. */
+  readonly drawItem?: ((item: ListItem) => ReactNode) | undefined;
   readonly onClickCapture?: (event: {
     preventDefault: () => void;
     stopPropagation: () => void;
@@ -63,16 +71,30 @@ const str = (value: unknown, fallback = ""): string => {
   return typeof value === "number" ? String(value) : fallback;
 };
 const bool = (value: unknown) => value === true;
-/** A list prop: an array, or a string of comma-separated items as a person might type it. */
-const items = (value: unknown): string[] => {
+/**
+ * A list prop: an array of labels or of `{ label, image }`, or a string of comma-separated items
+ * as a person might type it.
+ */
+const items = (value: unknown): ListItem[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => str(item)).filter((item) => item !== "");
+    return value
+      .map((item): ListItem => {
+        if (typeof item === "object" && item !== null && "label" in item) {
+          const { image, label } = item as Record<string, unknown>;
+          return {
+            label: str(label),
+            ...(typeof image === "string" && image !== "" && { image }),
+          };
+        }
+        return { label: str(item) };
+      })
+      .filter((item) => item.label !== "");
   }
   if (typeof value === "string") {
     return value
       .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+      .map((item) => ({ label: item.trim() }))
+      .filter((item) => item.label !== "");
   }
   return [];
 };
@@ -325,7 +347,7 @@ export function SystemSwitch(props: SystemComponentProps) {
 }
 
 export function SystemTabs(props: SystemComponentProps) {
-  const labels = items(props.items);
+  const labels = items(props.items).map((item) => item.label);
   const designed = str(props.value) || labels[0] || "";
   const { interactive } = useComponentFrame();
   return (
@@ -357,6 +379,7 @@ export function SystemTabs(props: SystemComponentProps) {
 
 export function SystemSelect(props: SystemComponentProps) {
   const options = items(props.items);
+  const { drawItem } = props;
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined
@@ -364,7 +387,7 @@ export function SystemSelect(props: SystemComponentProps) {
   const value = str(props.value);
   return (
     <Select.Root
-      items={options.map((label) => ({ label, value: label }))}
+      items={options.map(({ label }) => ({ label, value: label }))}
       key={interactive ? `run:${value}` : "designed"}
       {...(interactive
         ? { defaultValue: value || null }
@@ -408,12 +431,18 @@ export function SystemSelect(props: SystemComponentProps) {
         >
           <Select.Popup data-slot="select-popup" data-system-popup="">
             <Select.List>
-              {options.map((label) => (
-                <Select.Item data-slot="select-item" key={label} value={label}>
+              {options.map((option) => (
+                <Select.Item
+                  data-slot="select-item"
+                  key={option.label}
+                  value={option.label}
+                >
                   <Select.ItemIndicator data-slot="select-item-indicator">
                     <Check />
                   </Select.ItemIndicator>
-                  <Select.ItemText>{label}</Select.ItemText>
+                  <Select.ItemText>
+                    {drawItem ? drawItem(option) : option.label}
+                  </Select.ItemText>
                 </Select.Item>
               ))}
             </Select.List>
@@ -426,6 +455,7 @@ export function SystemSelect(props: SystemComponentProps) {
 
 export function SystemMenu(props: SystemComponentProps) {
   const entries = items(props.items);
+  const { drawItem } = props;
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined
@@ -456,13 +486,13 @@ export function SystemMenu(props: SystemComponentProps) {
           sideOffset={6}
         >
           <Menu.Popup data-slot="menu-popup" data-system-popup="">
-            {entries.map((label, i) =>
-              label === "-" ? (
+            {entries.map((entry, i) =>
+              entry.label === "-" ? (
                 // biome-ignore lint/suspicious/noArrayIndexKey: separators have no other name
                 <Menu.Separator data-slot="menu-separator" key={`-${i}`} />
               ) : (
-                <Menu.Item data-slot="menu-item" key={label}>
-                  {label}
+                <Menu.Item data-slot="menu-item" key={entry.label}>
+                  {drawItem ? drawItem(entry) : entry.label}
                 </Menu.Item>
               )
             )}

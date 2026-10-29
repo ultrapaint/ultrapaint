@@ -217,6 +217,70 @@ describe("the design's stylesheet and the system components' looks (ADRs 0028, 0
   });
 });
 
+describe("a system component's look beyond its style (ADR 0041)", () => {
+  it("fills a slot the instance gives nothing with the look's content, not the page's", async () => {
+    const look = {
+      ...emptySystemComponent("Card"),
+      content: {
+        "card-footer": [text("c-note", { text: "Billed yearly" })],
+      },
+    };
+    const { canvas } = await draw(
+      column([
+        instance("plain", "Card", { props: { title: "Plan" } }),
+        instance("own", "Card", {
+          children: [instance("ok", "Button", { slot: "card-footer" })],
+        }),
+      ]),
+      { components: [look] }
+    );
+    const footers = canvas.querySelectorAll('[data-slot="card-footer"]');
+    expect(footers).toHaveLength(2);
+    expect(footers[0]?.textContent).toBe("Billed yearly");
+    expect(
+      footers[0]?.querySelector('[data-ed-app-node="c-note"]')
+    ).not.toBeNull();
+    expect(footers[1]?.querySelector('[data-ed-node="ok"]')).not.toBeNull();
+  });
+
+  it("draws a menu's items from the look's template, each with its label and picture", async () => {
+    const look = {
+      ...emptySystemComponent("Menu"),
+      item: {
+        image: "i-pic",
+        label: "i-label",
+        tree: {
+          children: [
+            { id: "i-pic", src: "assets/x.svg", type: "image" as const },
+            text("i-label"),
+          ],
+          id: "i-row",
+          type: "row" as const,
+        },
+      },
+    };
+    const { canvas } = await draw(
+      column([
+        instance("menu", "Menu", {
+          props: {
+            items: [{ image: "assets/me.png", label: "Profile" }, "Sign out"],
+            open: true,
+          },
+          text: "Open",
+        }),
+      ]),
+      { components: [look] }
+    );
+    const items = [...canvas.querySelectorAll('[data-slot="menu-item"]')];
+    expect(items.map((i) => i.textContent)).toEqual(["Profile", "Sign out"]);
+    const pictures = items.map((i) =>
+      i.querySelector('[data-ed-app-node="i-pic"]')
+    );
+    expect(pictures[0]?.getAttribute("src")).toContain("assets%2Fme.png");
+    expect((pictures[1] as HTMLElement | null)?.style.display).toBe("none");
+  });
+});
+
 describe("an app component (ADR 0041)", () => {
   const promo: AppComponentFile = {
     name: "Promo",

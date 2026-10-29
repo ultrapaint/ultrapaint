@@ -167,9 +167,12 @@ const componentsOf = (
   return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
 { "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
 - origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
-  (per axis, per member) and "states" (hover, focus, active, disabled, open, checked, invalid),
-  each style fields per part (root or a data-slot): fill, color, border, radius, padding, height,
-  width, gap, fontSize, fontWeight, shadow, opacity. Without a file it has its default look.
+  (per axis, per member) and "states" (hover, focus, active, highlighted, disabled, open, checked,
+  invalid), each style fields per part (root or a data-slot): fill, color, border, radius, padding
+  (one or per side), height, width, gap, direction, align, crossAlign, order, fontSize, fontWeight,
+  shadow, opacity; "content" (nodes per slot, drawn when an instance gives it none), "hidden"
+  (optional parts left out) and, for Select and Menu, "item" ({ tree, label, image }: nodes drawn
+  per item, label and image the ids showing them). Without a file it has its default look.
 - origin "app": the project's own component, placed with from "${APP_FROM}": "tree" (a node, its
   root the instance), "properties" ([{ name, kind: text|boolean|choice|image, default, members?,
   targets?: [{ node, prop? }] }]: what an instance's props set, a text's text, a node shown, an
