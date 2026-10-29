@@ -556,25 +556,14 @@ export const replaceWithSystemComponent = (
   target?: Selection
 ) => {
   const meta = systemComponentOf(name);
-  const { docs } = useDocuments.getState();
-  const { canvas } = useEditor.getState();
   const byDoc = new Map<string, DocOp[]>();
-  for (const { doc, frame, node } of nodesOf(outermost(actedOn(target)))) {
+  for (const { doc, node } of nodesOf(outermost(actedOn(target)))) {
     if (!(meta && isRepositoryInstance(node))) {
       continue;
     }
-    // A node on the canvas is the root of its own frame: its siblings are the canvas's.
-    const parent = pathIn(docs, canvas, frame, node.id)?.at(-2) ?? null;
-    const siblings = parent ? childrenOf(parent) : canvasNodes(docs, canvas);
     byDoc.set(doc, [
       ...(byDoc.get(doc) ?? []),
-      { id: node.id, op: "remove" },
-      {
-        index: siblings.findIndex((c) => c.id === node.id),
-        node: asSystemComponent(node, meta),
-        op: "insert",
-        parent: parent?.id ?? null,
-      },
+      { ids: [node.id], node: asSystemComponent(node, meta), op: "replace" },
     ]);
   }
   const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
@@ -601,18 +590,10 @@ export const detachInstances = (target?: Selection) => {
       continue;
     }
     const root = rootOfFrame(docs, canvas, frame);
-    const parent = pathIn(docs, canvas, frame, node.id)?.at(-2) ?? null;
-    const siblings = parent ? childrenOf(parent) : canvasNodes(docs, canvas);
     const next = makeIdGenerator(root ? idsOf(root) : []);
     byDoc.set(doc, [
       ...(byDoc.get(doc) ?? []),
-      { id: node.id, op: "remove" },
-      {
-        index: siblings.findIndex((c) => c.id === node.id),
-        node: detachedOf(file, node, next),
-        op: "insert",
-        parent: parent?.id ?? null,
-      },
+      { ids: [node.id], node: detachedOf(file, node, next), op: "replace" },
     ]);
   }
   const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));

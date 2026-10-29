@@ -11,7 +11,6 @@
 
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import {
-  APP_FROM,
   type AppComponentFile,
   appComponentsIn,
   COMPONENT_EXTENSION,
@@ -25,17 +24,14 @@ import {
   componentFileOf,
   ROOT_SLOT,
 } from "@ultrapaint/contracts/components";
-import type {
-  DesignNode,
-  DocumentEdit,
-  InstanceNode,
-} from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
   type Conflict,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import { serialise } from "@ultrapaint/design-document/factories";
+import { appComponentFrom } from "@ultrapaint/design-document/app-components";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { childrenOf, findPath, idsOf } from "@ultrapaint/design-document/tree";
 import {
   catalogueOf,
@@ -59,23 +55,6 @@ import { RepoPaths } from "./repo-paths.ts";
 
 const COMPONENT_NAME_RE = /^[A-Z][A-Za-z0-9]*$/;
 const SPACED_WORD_RE = /\s+(\w)/g;
-/** The fields an app component's instance takes over from the node it replaces: where it sits. */
-const PLACEMENT_FIELDS = [
-  "height",
-  "hidden",
-  "link",
-  "locked",
-  "margin",
-  "maxHeight",
-  "maxWidth",
-  "minHeight",
-  "minWidth",
-  "slot",
-  "width",
-  "x",
-  "y",
-] as const;
-
 /** The name a new app component takes from what was typed (`Hero title` is `HeroTitle`), or what is wrong with it. */
 const appNameOf = (
   given: string,
@@ -108,7 +87,6 @@ const siblingsOf = (
   nodeIds: readonly string[]
 ):
   | {
-      readonly index: number;
       readonly nodes: readonly DesignNode[];
       readonly parent: DesignNode;
     }
@@ -129,27 +107,8 @@ const siblingsOf = (
       problem: "the nodes of a component are siblings, in one container",
     };
   }
-  const index = siblings.findIndex((c) => c.id === nodes[0]?.id);
-  return { index, nodes, parent };
+  return { nodes, parent };
 };
-
-/** Where a node sits, which an instance that takes its place keeps. */
-const placementOf = (node: DesignNode): Record<string, unknown> =>
-  Object.fromEntries(
-    PLACEMENT_FIELDS.flatMap((field) => {
-      const value = (node as unknown as Record<string, unknown>)[field];
-      return value === undefined ? [] : [[field, value] as const];
-    })
-  );
-
-/** A node without where it sits: what an app component's tree keeps of it. */
-const unplaced = (node: DesignNode): DesignNode =>
-  Object.fromEntries(
-    Object.entries(node).filter(
-      ([key]) =>
-        !(PLACEMENT_FIELDS as readonly string[]).includes(key) && key !== "name"
-    )
-  ) as unknown as DesignNode;
 
 /**
  * The components in a designs directory, each read and validated, or the problem with it: the
@@ -475,34 +434,13 @@ export class ComponentService extends Context.Service<
         if ("problem" in found) {
           return yield* new BadRequest({ message: found.problem });
         }
-        const { index, nodes, parent } = found;
-        const only = nodes.length === 1 ? nodes[0] : undefined;
-        const placement = only ? placementOf(only) : {};
-        const tree: DesignNode = only
-          ? unplaced(only)
-          : ({
-              children: nodes.map(
-                ({ slot: _slot, ...node }) => node as DesignNode
-              ),
-              gap: 8,
-              id: yield* makeId("c"),
-              type: parent.type === "row" ? "row" : "column",
-            } as DesignNode);
-        const instance: InstanceNode = {
-          ...placement,
-          component: name,
-          from: APP_FROM,
-          id: only?.id ?? (yield* makeId("c")),
-          type: "instance",
-        };
-        const component: AppComponentFile = {
+        const { nodes, parent } = found;
+        const { file: component, instance } = appComponentFrom(
           name,
-          origin: "app",
-          properties: [],
-          slots: [],
-          tree,
-          version: 1,
-        };
+          nodes,
+          parent,
+          makeIdGenerator(root ? idsOf(root) : [])
+        );
         const file = componentFileOf(name);
         yield* documents.apply(
           {
@@ -510,19 +448,17 @@ export class ComponentService extends Context.Service<
               {
                 doc: page,
                 ops: [
-                  ...nodes.map((n) => ({ id: n.id, op: "remove" as const })),
                   {
-                    index,
+                    ids: nodes.map((n) => n.id),
                     node: instance,
-                    op: "insert",
-                    parent: parent.id,
+                    op: "replace",
                   },
                 ],
               },
             ],
             label: `Make ${name} an app component`,
           },
-          (tx) => tx.write(repoOf(file), serialise(component))
+          (tx) => tx.write(repoOf(file), componentText(component))
         );
         yield* publish;
         return { component, file } satisfies ComponentEntry;

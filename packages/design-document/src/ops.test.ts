@@ -142,6 +142,39 @@ describe("applyOps", () => {
     ).toThrow(DocumentOpError);
   });
 
+  it("replaces nodes in place, siblings, keeping an id of one it replaces", () => {
+    const { created, root } = applyOps(
+      page(),
+      [{ ids: ["b", "c"], node: card(undefined, "b"), op: "replace" }],
+      options()
+    );
+    expect(ids(findNode(root, "row"))).toEqual(["a", "b"]);
+    expect(findNode(root, "b")).toMatchObject({ type: "instance" });
+    expect(created).toEqual(["b"]);
+    expect(() =>
+      applyOps(
+        page(),
+        [{ ids: ["a", "d"], node: text("x"), op: "replace" }],
+        options()
+      )
+    ).toThrow(DocumentOpError);
+  });
+
+  it("replaces a node on the canvas at its position, unless the node gives its own", () => {
+    const canvas = canvasRoot([{ ...text("free"), x: 10, y: 20 }]);
+    const opts = { canvas: true, next: makeIdGenerator() };
+    const { root } = applyOps(
+      canvas,
+      [{ ids: ["free"], node: card(undefined, "free"), op: "replace" }],
+      opts
+    );
+    expect(findNode(root, "free")).toMatchObject({
+      type: "instance",
+      x: 10,
+      y: 20,
+    });
+  });
+
   it("duplicates with new ids right after the original", () => {
     const { created, root } = applyOps(
       page(),

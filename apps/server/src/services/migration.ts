@@ -23,12 +23,6 @@ import {
 } from "@ultrapaint/contracts/implementation";
 import { serialise } from "@ultrapaint/design-document/factories";
 import {
-  CANVAS_ROOT_ID,
-  canvasOfDoc,
-  childrenOf,
-  findPath,
-} from "@ultrapaint/design-document/tree";
-import {
   componentOfSpec,
   LEGACY_SPEC_EXTENSION,
   LEGACY_SPECS_DIR,
@@ -139,26 +133,9 @@ export class Migration extends Context.Service<
           const migration = migrationOf(tree);
           left += migration.left.length;
           // What an instance holds goes with it.
-          const ops = migration.replaced.flatMap((node): DocOp[] => {
-            const parent = findPath(tree, node.id)?.at(-2);
-            if (!parent) {
-              return [];
-            }
-            const index = childrenOf(parent).findIndex((c) => c.id === node.id);
-            return [
-              { id: node.id, op: "remove" },
-              {
-                index,
-                node,
-                op: "insert",
-                parent:
-                  parent.id === CANVAS_ROOT_ID &&
-                  canvasOfDoc(state.doc) !== null
-                    ? null
-                    : parent.id,
-              },
-            ];
-          });
+          const ops = migration.replaced.map(
+            (node): DocOp => ({ ids: [node.id], node, op: "replace" })
+          );
           if (ops.length > 0) {
             drawn += migration.drawn;
             edits.push({ doc: state.doc, expectedHash: state.hash, ops });
