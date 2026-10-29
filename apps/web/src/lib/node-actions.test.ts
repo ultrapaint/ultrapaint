@@ -1,7 +1,7 @@
 import "../testing/fake-browser.ts";
 import type {
+  AppliedChanges,
   ApplyInput,
-  ApplyResult,
   DesignNode,
   DocumentState,
 } from "@ultrapaint/contracts/document";
@@ -58,10 +58,12 @@ const stateOf = (doc: string, root: DesignNode): DocumentState => ({
 });
 
 let ids = 0;
+/** Each state the fake server answers with has a hash of its own. */
+let versions = 0;
 
 /** The server's side of `documents.apply`: the operations applied to the documents the editor has. */
 const serve = () =>
-  fakeApi.respond("documents.apply", (input: ApplyInput): ApplyResult => {
+  fakeApi.respond("documents.apply", (input: ApplyInput): AppliedChanges => {
     const states = new Map<string, DocumentState>();
     const created: string[] = [];
     for (const { doc, ops } of input.edits) {
@@ -77,9 +79,10 @@ const serve = () =>
         },
       });
       created.push(...applied.created);
-      states.set(doc, { doc, hash: `${doc}@${ids}`, root: applied.root });
+      versions += 1;
+      states.set(doc, { doc, hash: `${doc}@${versions}`, root: applied.root });
     }
-    return { created, documents: [...states.values()] };
+    return { changes: [...states.values()], created };
   });
 
 /** The requests sent to the server to change documents: one each is one undo step. */

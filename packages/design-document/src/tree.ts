@@ -191,7 +191,7 @@ export const canvasRoot = (nodes: readonly DesignNode[]): GroupNode => ({
 });
 
 /** Whether two JSON values are the same value. */
-const sameJson = (a: unknown, b: unknown): boolean => {
+export const sameJson = (a: unknown, b: unknown): boolean => {
   if (a === b) {
     return true;
   }

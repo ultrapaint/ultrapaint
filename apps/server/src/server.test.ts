@@ -1,10 +1,18 @@
 import { request } from "node:http";
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
-import type { DesignNode } from "@ultrapaint/contracts/document";
-import { slashCommands } from "@ultrapaint/contracts/tasks";
-import { Effect, FileSystem, Stream } from "effect";
 import {
+  type DesignNode,
+  type DocumentChange,
+  type DocumentState,
+  isWholeDocument,
+} from "@ultrapaint/contracts/document";
+import { slashCommands } from "@ultrapaint/contracts/tasks";
+import { withChangedNodes } from "@ultrapaint/design-document/patch";
+import { childrenOf } from "@ultrapaint/design-document/tree";
+import { Effect, Fiber, FileSystem, Stream } from "effect";
+import {
+  anotherClient,
   nextEvent,
   subscribed,
   TestEnv,
@@ -442,12 +450,18 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             event._tag === "Some" ? event.value.doc : "",
             "log-in.page.json"
           );
-          const [node] =
-            event._tag === "Some" &&
-            event.value.root &&
-            "children" in event.value.root
-              ? (event.value.root.children ?? [])
-              : [];
+          // The new node, in the whole page or among the nodes that changed.
+          const told = event._tag === "Some" ? event.value : undefined;
+          let nodes: readonly {
+            readonly id?: unknown;
+            readonly text?: unknown;
+          }[] = [];
+          if (told && isWholeDocument(told)) {
+            nodes = told.root ? childrenOf(told.root) : [];
+          } else if (told) {
+            nodes = told.nodes.map((n) => n.node);
+          }
+          const node = nodes.find((n) => n.text === "By hand");
           assert.isString(node?.id);
           // The id is written back, so the file says what the editor calls the node.
           const saved = JSON.parse(yield* fs.readFileString(file));
@@ -515,11 +529,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           })
         );
         assert.deepStrictEqual(applied.created, ["row"]);
-        const [state] = applied.documents;
-        assert.deepStrictEqual(childIds(state?.root), ["heading", "row"]);
+        const state = yield* client["documents.get"]({ doc: HOME });
+        assert.deepStrictEqual(childIds(state.root), ["heading", "row"]);
+        assert.strictEqual(applied.changes[0]?.hash, state.hash);
         assert.strictEqual(
           event._tag === "Some" ? event.value.hash : "",
-          state?.hash
+          state.hash
         );
         const saved = JSON.parse(
           yield* fs.readFileString(path.join(repo, HOME_FILE))
@@ -544,9 +559,81 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         yield* client["edit.redo"]();
         assert.strictEqual(
           (yield* client["documents.get"]({ doc: HOME })).hash,
-          state?.hash
+          state.hash
         );
       })
+    );
+
+    it.effect(
+      "tells every editor what an edit changed, which each puts into its copy, an undo too",
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const { client } = yield* TestEnv;
+            const other = yield* anotherClient;
+            const before = yield* other["documents.get"]({ doc: HOME });
+            const copyOf = (
+              copy: DocumentState,
+              next: DocumentChange | undefined
+            ): DocumentState | null => {
+              if (!next || isWholeDocument(next)) {
+                return next ?? null;
+              }
+              assert.strictEqual(next.from, copy.hash);
+              const root =
+                copy.root &&
+                withChangedNodes(copy.root, next.rootId, next.nodes);
+              return { doc: next.doc, hash: next.hash, root };
+            };
+            const heard = yield* Effect.forkScoped(
+              other["events.document"]().pipe(
+                Stream.filter((e) => e.doc === HOME),
+                Stream.take(2),
+                Stream.runCollect,
+                Effect.timeout("20 seconds")
+              ),
+              { startImmediately: true }
+            );
+            // Answered once the subscription before it is the server's.
+            yield* other.health();
+            const applied = yield* client["documents.apply"]({
+              edits: [
+                {
+                  doc: HOME,
+                  ops: [
+                    {
+                      id: "heading",
+                      op: "update",
+                      set: { text: "Two editors" },
+                    },
+                  ],
+                },
+              ],
+            });
+            const edited = yield* client["documents.get"]({ doc: HOME });
+            const [change] = applied.changes;
+            // The editor that asked is answered with the one node that changed.
+            assert.isFalse(change === undefined || isWholeDocument(change));
+            assert.deepStrictEqual(
+              change && !isWholeDocument(change)
+                ? change.nodes.map((n) => n.node.id)
+                : [],
+              ["heading"]
+            );
+            assert.deepStrictEqual(copyOf(before, change), edited);
+            yield* client["edit.undo"]();
+            const [told, undone] = Array.from(yield* Fiber.join(heard));
+            // The other editor hears the edit and its undo, each over its copy.
+            const afterEdit = copyOf(before, told);
+            assert.deepStrictEqual(afterEdit, edited);
+            assert.deepStrictEqual(
+              afterEdit && copyOf(afterEdit, undone),
+              yield* client["documents.get"]({ doc: HOME })
+            );
+            assert.strictEqual(undone?.hash, before.hash);
+          })
+        ),
+      30_000
     );
 
     it.effect("refuses operations made against an outdated hash", () =>

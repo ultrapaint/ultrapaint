@@ -111,6 +111,21 @@ export class TestEnv extends Context.Service<
  * the desktop app starts it: a port picked beforehand and let go of could be taken by another
  * test's server before this one listens.
  */
+/** The RPC protocol over a WebSocket of its own to the server on `port`, as an editor has. */
+const socketProtocol = (port: number) =>
+  RpcClient.layerProtocolSocket().pipe(
+    Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`)),
+    Layer.provide(Socket.layerWebSocketConstructorGlobal),
+    Layer.provide(RpcSerialization.layerJson)
+  );
+
+/** Another editor on the test's server: a client over a socket of its own, open while the scope is. */
+export const anotherClient = Effect.gen(function* () {
+  const { port } = yield* TestEnv;
+  const context = yield* Layer.build(socketProtocol(port));
+  return yield* RpcClient.make(UltrapaintRpcs).pipe(Effect.provide(context));
+});
+
 export const makeTestServer = (
   /** Runs before the server starts, so it can also put a configuration file in place. */
   storageFor: (dirs: {
@@ -172,16 +187,7 @@ export const makeTestServer = (
       );
       /** The port the server listens on, once it does. */
       const listening = Effect.flatMap(ListenPort, (port) => port.get);
-      const protocol = Layer.unwrap(
-        Effect.map(listening, (port) =>
-          RpcClient.layerProtocolSocket().pipe(
-            Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`))
-          )
-        )
-      ).pipe(
-        Layer.provide(Socket.layerWebSocketConstructorGlobal),
-        Layer.provide(RpcSerialization.layerJson)
-      );
+      const protocol = Layer.unwrap(Effect.map(listening, socketProtocol));
       const env = Layer.effect(
         TestEnv,
         Effect.map(

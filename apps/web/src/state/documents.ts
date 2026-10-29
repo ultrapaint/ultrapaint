@@ -4,11 +4,14 @@
  * to the server as operations and comes back as the documents it produced, so there is one
  * truth, and an undo or an agent's edit reaches the editor the same way.
  */
-import type {
-  DesignNode,
-  DocumentEdit,
-  DocumentState,
+import {
+  type DesignNode,
+  type DocumentChange,
+  type DocumentEdit,
+  type DocumentState,
+  isWholeDocument,
 } from "@ultrapaint/contracts/document";
+import { withChangedNodes } from "@ultrapaint/design-document/patch";
 import {
   canvasDocOf,
   canvasOfDoc,
@@ -23,6 +26,7 @@ import { api } from "./connection.ts";
 import { reportError, useProject } from "./project.ts";
 import { follow } from "./server-data.ts";
 import { ensureEditable } from "./setup.ts";
+import { viewedSnapshot } from "./snapshot-view.ts";
 
 interface DocumentsStore {
   canvas: string | null;
@@ -33,6 +37,11 @@ interface DocumentsStore {
   load: (canvas: string) => Promise<void>;
   loaded: boolean;
   put: (state: DocumentState) => void;
+  /**
+   * Takes a change the server reports (ADR 0044): the whole document, or its changed nodes put
+   * into the copy they were made over; a copy at another state reads the document again.
+   */
+  take: (change: DocumentChange) => void;
 }
 
 export const useDocuments = create<DocumentsStore>((set) => ({
@@ -52,7 +61,68 @@ export const useDocuments = create<DocumentsStore>((set) => ({
       }
       return { docs: { ...s.docs, [state.doc]: sharedWith(s.docs, state) } };
     }),
+  take: (change) => {
+    const { docs, put } = useDocuments.getState();
+    const known = docs[change.doc];
+    if (known?.hash === change.hash) {
+      return;
+    }
+    if (isWholeDocument(change)) {
+      put(change);
+      return;
+    }
+    const waiting = reading.get(change.doc);
+    if (waiting) {
+      waiting.push(change);
+      return;
+    }
+    const root =
+      known?.hash === change.from && known.root && known.problem === undefined
+        ? withChangedNodes(known.root, change.rootId, change.nodes)
+        : null;
+    if (root) {
+      useDocuments.setState((s) => ({
+        docs: {
+          ...s.docs,
+          [change.doc]: { doc: change.doc, hash: change.hash, root },
+        },
+      }));
+      return;
+    }
+    readAgain(change.doc);
+  },
 }));
+
+/** The documents being read again, with the changes reported while they are. */
+const reading = new Map<string, DocumentChange[]>();
+
+/**
+ * A document read again, its copy having missed a change: what was reported while it was read is
+ * taken after it, so nothing reported meanwhile is lost. A snapshot on screen reads every
+ * document again when the editor goes back to now.
+ */
+const readAgain = (doc: string) => {
+  if (reading.has(doc) || viewedSnapshot()) {
+    return;
+  }
+  reading.set(doc, []);
+  api()
+    .request("documents.get", { doc })
+    .then(
+      (state) => {
+        const waiting = reading.get(doc) ?? [];
+        reading.delete(doc);
+        useDocuments.getState().put(state);
+        for (const change of waiting) {
+          useDocuments.getState().take(change);
+        }
+      },
+      (error: unknown) => {
+        reading.delete(doc);
+        reportError(error);
+      }
+    );
+};
 
 /**
  * A document as the server sent it, the nodes that did not change kept as they were
@@ -78,15 +148,11 @@ const documentsData = follow({
     })),
   key: () => useDocuments.getState().canvas,
   on: {
-    document: (state) => {
+    document: (change) => {
       const { docs, canvas } = useDocuments.getState();
-      const known = docs[state.doc];
       // A page of another canvas is not ours to show; one we already have is.
-      if (known?.hash === state.hash) {
-        return;
-      }
-      if (known || belongsTo(state.doc, canvas)) {
-        useDocuments.getState().put(state);
+      if (docs[change.doc] || belongsTo(change.doc, canvas)) {
+        useDocuments.getState().take(change);
       }
     },
   },
@@ -124,8 +190,8 @@ export const applyEdits = async (
       edits,
       ...(label !== undefined && { label }),
     });
-    for (const state of result.documents) {
-      useDocuments.getState().put(state);
+    for (const change of result.changes) {
+      useDocuments.getState().take(change);
     }
     return result;
   } catch (error) {

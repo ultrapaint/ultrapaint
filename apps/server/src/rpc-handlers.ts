@@ -136,7 +136,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         designMd((m) => m.setSection(name, text)),
       "designSystem.setToken": (change) =>
         designSystem((d) => d.setToken(change)),
-      "documents.apply": (input) => documents((d) => d.apply(input)),
+      "documents.apply": (input) =>
+        documents((d) =>
+          Effect.map(d.apply(input), ({ created, documents: changed }) => ({
+            changes: changed.map(d.changeOf),
+            created,
+          }))
+        ),
       "documents.get": ({ doc }) => documents((d) => d.get(doc)),
       "documents.list": ({ canvas }) => documents((d) => d.list(canvas)),
       "dsSetup.audit": () => dsSetup.audit,

@@ -9,6 +9,7 @@ import {
   type ApplyInput,
   type ApplyResult,
   DesignNode,
+  type DocumentChange,
   type DocumentEdit,
   type DocumentState,
   PageDocument,
@@ -26,6 +27,7 @@ import {
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
+import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
   canvasDocOf,
   canvasOfDoc,
@@ -153,6 +155,11 @@ export class DocumentService extends Context.Service<
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
+    /**
+     * A document's state as the editor is told it (ADR 0044): the change last published to it
+     * when that is the state, else the whole document.
+     */
+    readonly changeOf: (state: DocumentState) => DocumentChange;
     readonly list: (
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
@@ -387,16 +394,51 @@ export class DocumentService extends Context.Service<
       const stateIn = (doc: string) =>
         Effect.map(load(doc, false), (loaded) => stateOf(doc, loaded));
 
-      /** Every published state, so an event is sent once per change whoever caused it. */
-      const published = new Map<string, string>();
+      /**
+       * Every published state and the change it was told as, so an event is sent once per change
+       * whoever caused it, and says what changed since the state published before.
+       */
+      const published = new Map<
+        string,
+        { readonly change: DocumentChange; readonly state: DocumentState }
+      >();
+      const changeSince = (
+        before: DocumentState | undefined,
+        state: DocumentState
+      ): DocumentChange => {
+        if (
+          before?.root &&
+          state.root &&
+          before.problem === undefined &&
+          state.problem === undefined
+        ) {
+          const nodes = changedNodes(before.root, state.root);
+          if (nodes) {
+            return {
+              doc: state.doc,
+              from: before.hash,
+              hash: state.hash,
+              nodes,
+              rootId: state.root.id,
+            };
+          }
+        }
+        return state;
+      };
       const publish = (state: DocumentState) =>
         Effect.suspend(() => {
-          if (published.get(state.doc) === state.hash) {
+          const before = published.get(state.doc);
+          if (before?.state.hash === state.hash) {
             return Effect.void;
           }
-          published.set(state.doc, state.hash);
-          return events.publish("document", state);
+          const change = changeSince(before?.state, state);
+          published.set(state.doc, { change, state });
+          return events.publish("document", change);
         });
+      const changeOf = (state: DocumentState): DocumentChange => {
+        const last = published.get(state.doc);
+        return last?.state.hash === state.hash ? last.change : state;
+      };
 
       /** A document's edited tree written to its file: a page's, a canvas's, a component's. */
       const writeDocument = Effect.fnUntraced(function* (
@@ -607,6 +649,7 @@ export class DocumentService extends Context.Service<
       return DocumentService.of({
         all,
         apply,
+        changeOf,
         get,
         list,
         upload,

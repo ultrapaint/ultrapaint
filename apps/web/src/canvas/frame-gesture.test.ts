@@ -220,7 +220,7 @@ describe("a frame gesture", () => {
     stubWindow();
     fakeApi.reset();
     fakeApi.respond("canvas.set", () => undefined);
-    fakeApi.respond("documents.apply", () => ({ created: [], documents: [] }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
     useCanvasGrid.setState({ visible: false });
     useProject.setState({
       canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
