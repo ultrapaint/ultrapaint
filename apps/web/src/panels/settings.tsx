@@ -566,7 +566,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           description={
             repoFromFile
               ? "Given by where the configuration file is."
-              : "Absolute path to the project's folder, a git repository or not. Its root needs no package.json: the pages import from the package named below."
+              : "Absolute path to the project's folder, a git repository or not. It needs no package.json: the canvas runs none of its code."
           }
           htmlFor="settings-repo"
           title="Repository path"
@@ -599,16 +599,47 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             value={draft.designsDir}
           />
         </Row>
+      </Group>
+      <Group
+        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws ultrapaint's primitives, whatever is set here."
+        title="Implementation"
+      >
         <Row
-          description="A package of the repository that already depends on React and the design system. Screens import what that package can import, so nothing has to be installed for them. Leave empty when the designs directory is a package of its own."
+          description="The package of the repository that is your application: where designs are implemented, and what its stylesheets' imports resolve from. Empty when the designs directory is a package of its own."
           htmlFor="settings-resolve"
-          title="Resolve imports from"
+          title="Application"
         >
           <Input
             id="settings-resolve"
             onChange={onResolveFrom}
             placeholder="apps/web"
             value={draft.resolveFrom ?? ""}
+          />
+        </Row>
+        <Row
+          description="Where the application's own components are, relative to the repository, one per line: where an agent applies a primitive's look."
+          htmlFor="settings-libs"
+          title="Component directories"
+          wide
+        >
+          <Textarea
+            className="min-h-14 font-code"
+            id="settings-libs"
+            onChange={onLibraryDirs}
+            value={draft.libraryDirs.join("\n")}
+          />
+        </Row>
+        <Row
+          description="Packages of components the application uses (a component library), one per line."
+          htmlFor="settings-packages"
+          title="Component packages"
+          wide
+        >
+          <Textarea
+            className="min-h-14 font-code"
+            id="settings-packages"
+            onChange={onComponentPackages}
+            value={draft.componentPackages.join("\n")}
           />
         </Row>
       </Group>
@@ -650,7 +681,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       </Group>
       <Group title="Detection">
         <Row
-          description="Reads the repository and fills in the designs directory, the stylesheets and the component packages it finds. What you typed is replaced."
+          description="Reads the repository and fills in the designs directory and the stylesheets it finds, with the hints for implementing. What you typed is replaced."
           title="Detect from repository"
         >
           <div className="flex justify-end">
@@ -671,13 +702,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const designSystem = (
     <>
       <Group
-        description="Where the design system is read from: the preview loads these, and the Assets panel is catalogued from them."
+        description="Where the code's tokens are: Sync reads the design system from them and writes the design's values back."
         title="Sources"
       >
         <Row
-          description="One per line, resolved from the directory the preview is generated into. Include the Tailwind v4 entry of the design system and its fonts: the design system is read from them."
+          description="One per line, as the setup writes them (relative to the designs directory's .ultrapaint folder): the Tailwind v4 entry with its theme, and its fonts."
           htmlFor="settings-css"
-          title="Host CSS imports"
+          title="Stylesheets"
           wide
         >
           <Textarea
@@ -685,32 +716,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             id="settings-css"
             onChange={onHostCss}
             value={draft.hostCss.join("\n")}
-          />
-        </Row>
-        <Row
-          description="Catalogued for the Assets panel. Relative to the repository, one per line."
-          htmlFor="settings-libs"
-          title="Source directories"
-          wide
-        >
-          <Textarea
-            className="min-h-14 font-code"
-            id="settings-libs"
-            onChange={onLibraryDirs}
-            value={draft.libraryDirs.join("\n")}
-          />
-        </Row>
-        <Row
-          description="Package names whose exports form the Assets panel, one per line."
-          htmlFor="settings-packages"
-          title="Component packages"
-          wide
-        >
-          <Textarea
-            className="min-h-14 font-code"
-            id="settings-packages"
-            onChange={onComponentPackages}
-            value={draft.componentPackages.join("\n")}
           />
         </Row>
       </Group>

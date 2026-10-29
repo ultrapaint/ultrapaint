@@ -5,6 +5,7 @@
  * describing what changed, Figma's tokens and frames, a new application — around them.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
+import { stylesheetOf } from "@ultrapaint/contracts/setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
 import { cn } from "cn";
@@ -105,8 +106,8 @@ const SyncCard = ({
 );
 
 /**
- * Detection run again and its proposal shown before anything is applied: where the components,
- * the stylesheets and the package the pages resolve from are. The designs directory stays.
+ * Detection run again and its proposal shown before anything is applied: where the stylesheets
+ * and the application are. The designs directory stays.
  */
 const applyDetected = async () => {
   const { settings } = useProject.getState();
@@ -118,10 +119,12 @@ const applyDetected = async () => {
       keepDesignsDir: true,
     });
     const next = detection.onto(settings);
+    const stylesheets = next.hostCss.map((spec) =>
+      stylesheetOf(next.designsDir, spec)
+    );
     const lines = [
-      `Components: ${next.libraryDirs.join(", ") || "none found"}`,
-      `Stylesheets: ${next.hostCss.join(", ") || "none found"}`,
-      `Imports resolved from: ${next.resolveFrom ?? settings.designsDir}`,
+      `Stylesheets: ${stylesheets.join(", ") || "none found"}`,
+      `Application: ${next.resolveFrom ?? settings.designsDir}`,
     ];
     const ok = await confirmDialog({
       confirmLabel: "Apply",

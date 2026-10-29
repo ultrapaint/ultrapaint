@@ -48,8 +48,8 @@ export const saveToFile = async (
 export interface Detection {
   readonly found: SetupSuggestions;
   /**
-   * `draft` with where the components, the stylesheets and the package the pages resolve from
-   * are, and where the pages go unless `keepDesignsDir`; every other field as `draft` has it.
+   * `draft` with where the stylesheets and the application are, the hints for implementing, and
+   * where the pages go unless `keepDesignsDir`; every other field as `draft` has it.
    * Given the draft as it is when detection answers, it keeps what was typed meanwhile, and is a
    * state updater as it is.
    */

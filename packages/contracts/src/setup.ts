@@ -123,10 +123,39 @@ export const relativePosix = (fromDir: string, toFile: string): string => {
   return [...from.slice(shared).map(() => ".."), ...to.slice(shared)].join("/");
 };
 
+/** A stylesheet of the repository (`apps/web/src/app.css`) as the settings name it. */
+export const hostCssFor = (designsDir: string, file: string): string =>
+  relativePosix(`${designsDir}/${GENERATED_DIR}`, file);
+
+/**
+ * The file of the repository a stylesheet the settings name is (`hostCssFor` undone); a package's
+ * stylesheet (`@acme/ui/styles.css`) is named as it is.
+ */
+export const stylesheetOf = (designsDir: string, spec: string): string => {
+  if (!spec.startsWith(".")) {
+    return spec;
+  }
+  const parts: string[] = [];
+  for (const segment of `${designsDir}/${GENERATED_DIR}/${spec}`.split("/")) {
+    if (segment === ".." && parts.length > 0) {
+      parts.pop();
+    } else if (segment !== "" && segment !== "." && segment !== "..") {
+      parts.push(segment);
+    }
+  }
+  return parts.join("/");
+};
+
+/** The stylesheet detection proposes: one of the designs directory itself wins, it was written for the pages. */
+const stylesheetIn = (found: SetupSuggestions, designsDir: string) =>
+  found.cssEntries.find((file) => file.startsWith(`${designsDir}/`)) ??
+  found.cssEntries[0];
+
 /**
  * The settings the first-run setup proposes for a repository: an existing designs directory or
- * the default one, the best anchor, the first component library and its stylesheet. Every
- * value stays editable in the form.
+ * the default one, and the application's stylesheet, which is all it asks about. The best
+ * anchor and the first component library are filled in too, as hints for the agents that
+ * implement (ADR 0040). Every value stays editable in the settings.
  */
 export const applySuggestions = (
   settings: Settings,
@@ -135,37 +164,29 @@ export const applySuggestions = (
   const designsDir = found.designsDirs[0] ?? DEFAULT_DESIGNS_DIR;
   const [anchor] = found.anchors;
   const [library] = found.libraries;
-  // A stylesheet of the designs directory itself wins: it was written for the pages.
-  const css =
-    found.cssEntries.find((file) => file.startsWith(`${designsDir}/`)) ??
-    found.cssEntries[0];
+  const css = stylesheetIn(found, designsDir);
   return {
     ...settings,
     componentPackages: library && !library.inApp ? [library.name] : [],
     designsDir,
     framework: found.framework,
     ...(found.styleSystem && { styleSystem: found.styleSystem }),
-    hostCss: css ? [relativePosix(`${designsDir}/${GENERATED_DIR}`, css)] : [],
+    hostCss: css ? [hostCssFor(designsDir, css)] : [],
     libraryDirs: library ? [library.sourceDir] : [],
     // A designs directory that is a package resolves its own imports.
     resolveFrom: anchor && anchor.dir !== designsDir ? anchor.dir : undefined,
   };
 };
 
-/** What the form shows about a detection, in one sentence. */
+/** What the form shows about a detection, in one sentence: where the pages and the stylesheet are. */
 export const describeSuggestions = (found: SetupSuggestions): string => {
-  const [anchor] = found.anchors;
-  const [library] = found.libraries;
-  if (!(anchor || library)) {
-    return `Nothing in ${found.repoName} looks like a React package. Fill the fields in by hand.`;
-  }
+  const [designsDir] = found.designsDirs;
+  const css = stylesheetIn(found, designsDir ?? DEFAULT_DESIGNS_DIR);
   const parts = [
-    library?.inApp ? `components in ${library.sourceDir}` : null,
-    library && !library.inApp ? `component library ${library.name}` : null,
-    anchor ? `imports resolved from ${anchor.name} (${anchor.reason})` : null,
-    found.designsDirs[0]
-      ? `pages in ${found.designsDirs[0]}`
+    designsDir
+      ? `pages in ${designsDir}`
       : `no designs directory yet, proposing ${DEFAULT_DESIGNS_DIR}`,
-  ].filter(Boolean);
+    css ? `the stylesheet ${css}` : "no stylesheet",
+  ];
   return `Found in ${found.repoName}: ${parts.join("; ")}.`;
 };

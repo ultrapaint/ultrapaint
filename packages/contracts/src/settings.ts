@@ -37,11 +37,10 @@ const common = {
    * its frame or the design system changes. Off when absent.
    */
   pagePngs: Schema.optional(Schema.Boolean),
-  /** Optional module (relative to designsDir) whose default export wraps every screen. */
-  providersModule: Schema.optional(Schema.String),
   /**
-   * Package (relative to the repository) the screens resolve their imports from, as if they
-   * were files of it. Absent means the designs directory is itself a package.
+   * The application (a package, relative to the repository): what the stylesheets' imports
+   * resolve from, and a hint for the agents that implement. Absent means the designs directory
+   * is itself a package.
    */
   resolveFrom: Schema.optional(RepoRelativePath),
   /** Which design skills agents are not told; all of them apply when absent. */
@@ -55,13 +54,16 @@ const common = {
 /** The settings the server runs with and the editor edits. Every path is resolved. */
 export const Settings = Schema.Struct({
   ...common,
-  /** Package names whose exports form the Assets panel. */
+  /** Packages of components the application uses: a hint for the agents that implement. */
   componentPackages: Schema.Array(Schema.String),
   /** Directory holding the screens, relative to the repository. */
   designsDir: RepoRelativePath,
-  /** CSS imports for the preview host entry, resolved from the designs directory. */
+  /** The stylesheets the code's tokens are in, which Sync reads and writes (ADR 0028). */
   hostCss: Schema.Array(Schema.String),
-  /** Directories (relative to repo) whose JSX is stamped with source locations and catalogued. */
+  /**
+   * Where the application's components are (relative to the repository): a hint for the agents
+   * that implement (ADR 0040).
+   */
   libraryDirs: Schema.Array(RepoRelativePath),
   /** Absolute path of the target repository. */
   repoPath: Schema.String,
@@ -74,7 +76,8 @@ export type Settings = typeof Settings.Type;
  * The same settings as they are written to disk: `ultrapaint.config.json` in a repository, or the
  * `settings.json` of a home directory. A file that lives in the repository is shared, so its
  * `repoPath` is relative to the file's directory and may be left out when it is that directory.
- * Everything with an obvious default may be left out of a hand-written file.
+ * Everything with an obvious default may be left out of a hand-written file. A field that is no
+ * setting any more (`providersModule`, which nothing draws since ADR 0040) is dropped as it is read.
  */
 export const ProjectConfig = Schema.Struct({
   ...common,

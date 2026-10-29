@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { defaultSettings } from "./settings.ts";
 import {
   applySuggestions,
+  describeSuggestions,
+  hostCssFor,
   relativePosix,
   type SetupSuggestions,
+  stylesheetOf,
 } from "./setup.ts";
 
 const found: SetupSuggestions = {
@@ -72,5 +75,19 @@ describe("first-run suggestions", () => {
       libraryDirs: ["front/src/components"],
       resolveFrom: "front",
     });
+  });
+
+  it("names a stylesheet by its file, and back", () => {
+    const spec = hostCssFor("docs/designs", "apps/web/src/app.css");
+    expect(stylesheetOf("docs/designs", spec)).toBe("apps/web/src/app.css");
+    expect(stylesheetOf("docs/designs", "@acme/ui/styles.css")).toBe(
+      "@acme/ui/styles.css"
+    );
+  });
+
+  it("says where the pages and the stylesheet are, and nothing of components", () => {
+    expect(describeSuggestions(found)).toBe(
+      "Found in acme: no designs directory yet, proposing docs/designs; the stylesheet apps/web/src/app.css."
+    );
   });
 });
