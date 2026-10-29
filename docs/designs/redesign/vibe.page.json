@@ -116,7 +116,7 @@
                 {"type": "image", "id": "img_bovt7u", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                 {"type": "text", "id": "t_k64ecb", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Orders table · /orders", "width": "fill"},
                 {"type": "row", "id": "r_g1459z", "crossAlign": "center", "gap": 5, "children": [
-                  {"type": "instance", "id": "i_dwhdja", "component": "Spinner", "from": "@ultrapaint/primitives", "height": 11, "width": 11},
+                  {"type": "instance", "id": "i_dwhdja", "component": "Spinner", "from": "@ultrapaint/system", "height": 11, "width": 11},
                   {"type": "text", "id": "t_3b0iaa", "color": "#f9a8d4", "role": "paragraph", "size": 11, "text": "Working", "weight": 500}
                 ]}
               ]}
