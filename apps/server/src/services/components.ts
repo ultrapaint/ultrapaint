@@ -5,13 +5,13 @@
  * over starts the file from that default, and removing the file goes back to it. An app
  * component's file is its tree, its properties and its slots, made from nodes of a page or written
  * by an agent. Every file is read and validated by the `component-files` codec, whoever writes it,
- * and an app component's properties and slots are changed on its file as it is now (`change`),
- * its instances following a rename in the same undo step.
+ * and what the editor changes of a file (a look, properties and slots, notes) is changed on it as
+ * it is now (`change`, `addNote`), an app component's instances following a rename in the same
+ * undo step.
  */
 
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import {
-  type AppComponentFile,
   appComponentsIn,
   COMPONENT_EXTENSION,
   COMPONENTS_DIR,
@@ -49,7 +49,7 @@ import {
   problemOf,
   readComponentFile,
 } from "./component-files.ts";
-import { DocumentService } from "./documents.ts";
+import { type ApplyStep, DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -164,9 +164,10 @@ export class ComponentService extends Context.Service<
       component: unknown
     ) => Effect.Effect<ComponentEntry, EditFailure>;
     /**
-     * A change to an app component's properties or slots, made on its file as it is now; a
-     * property or a member renamed or taken out follows into the variants its tree keeps and every
-     * instance's props, in every document. One undo step.
+     * A change to a component's file made on it as it is now: an app component's properties or
+     * slots, a system component's look, a note taken out. A property or a member renamed or taken
+     * out follows into the variants its tree keeps and every instance's props, in every document
+     * as it is in the same undo step.
      */
     readonly change: (
       name: string,
@@ -256,17 +257,18 @@ export class ComponentService extends Context.Service<
 
       /**
        * The documents' operations that bring the instances of `name` along with a change: every
-       * page and canvas, and every other app component's tree.
+       * page and canvas, and every other app component's tree, as they are in the step.
        */
       const instanceEdits = Effect.fnUntraced(function* (
+        step: ApplyStep,
         name: string,
         made: ComponentChange
       ) {
         const trees = [
-          ...(yield* documents.all),
+          ...(yield* step.all),
           ...(yield* Effect.forEach(
             appComponentsIn(yield* components).filter((c) => c.name !== name),
-            (c) => documents.get(componentDocOf(c.name))
+            (c) => step.get(componentDocOf(c.name))
           )),
         ];
         return trees.flatMap((state): DocumentEdit[] => {
@@ -275,8 +277,8 @@ export class ComponentService extends Context.Service<
         });
       });
 
-      /** An app component's file as it is on disk now. */
-      const appFileNow = Effect.fnUntraced(function* (name: string) {
+      /** A component's file as it is on disk now. */
+      const fileNow = Effect.fnUntraced(function* (name: string) {
         const file = componentFileOf(name);
         const text = yield* fs
           .readFileString(path.join(paths.designsDir, file))
@@ -284,43 +286,60 @@ export class ComponentService extends Context.Service<
         const read = text === null ? null : readComponentFile(text, file);
         if (!(read && "component" in read)) {
           return yield* new NotFound({
-            message: `no app component ${name}${read ? `: ${read.problem}` : ""}`,
-          });
-        }
-        if (read.component.origin !== "app") {
-          return yield* new BadRequest({
-            message: `${name} is a system component's look: it has no properties or slots`,
+            message: systemComponentOf(name)
+              ? `${name} has no file: take its look over first`
+              : `no component ${name}${read ? `: ${read.problem}` : ""}`,
           });
         }
         return read.component;
       });
 
-      const change = Effect.fn("ComponentService.change")(function* (
+      /**
+       * A component's file changed as it is under the journal, so a change made since the editor
+       * read it stays (a tree edited in place, a note added); with `follow`, the instances of the
+       * component in every document follow it in the same step, read in it too.
+       */
+      const changeFile = Effect.fnUntraced(function* (
         name: string,
-        made: ComponentChange
+        label: string,
+        next: (file: ComponentFile) => ComponentFile | { problem: string },
+        follow?: ComponentChange
       ) {
         const file = componentFileOf(name);
-        const edits = yield* instanceEdits(name, made);
-        let saved: AppComponentFile | undefined;
-        // Made on the file as it is under the journal: a change made since the editor read it stays.
-        yield* documents.apply(
-          { edits, label: `Change the ${name} component` },
-          (tx) =>
-            Effect.gen(function* () {
-              const next = changedComponent(yield* appFileNow(name), made);
-              if ("problem" in next) {
-                return yield* new BadRequest({ message: next.problem });
-              }
-              yield* checked(next);
-              yield* tx.write(repoOf(file), componentText(next));
-              saved = next;
-            })
+        let saved: ComponentFile | undefined;
+        yield* documents.apply({ edits: [], label }, (step) =>
+          Effect.gen(function* () {
+            const changed = next(yield* fileNow(name));
+            if ("problem" in changed) {
+              return yield* new BadRequest({ message: changed.problem });
+            }
+            yield* checked(changed);
+            yield* step.tx.write(repoOf(file), componentText(changed));
+            saved = changed;
+            return follow && changed.origin === "app"
+              ? yield* instanceEdits(step, name, follow)
+              : undefined;
+          })
         );
         yield* publish;
         return {
           ...(saved && { component: saved }),
           file,
         } satisfies ComponentEntry;
+      });
+
+      const change = Effect.fn("ComponentService.change")(function* (
+        name: string,
+        made: ComponentChange
+      ) {
+        return yield* changeFile(
+          name,
+          made.op === "setLook"
+            ? `Change ${name}'s look`
+            : `Change the ${name} component`,
+          (file) => changedComponent(file, made),
+          made
+        );
       });
 
       const write = Effect.fn("ComponentService.write")(function* (
@@ -383,23 +402,9 @@ export class ComponentService extends Context.Service<
         text: string,
         slot?: string
       ) {
-        const component = (yield* components).find((c) => c.name === name);
-        if (!component) {
-          return yield* new NotFound({
-            message: systemComponentOf(name)
-              ? `${name} has no file: take its look over first`
-              : `no component ${name}`,
-          });
-        }
         if (text.trim() === "") {
           return yield* new BadRequest({
             message: "say what the component must do",
-          });
-        }
-        const parts = partsOf(component);
-        if (slot !== undefined && !parts.includes(slot)) {
-          return yield* new NotFound({
-            message: `${name} has no part ${slot}; its parts are ${parts.join(", ")}`,
           });
         }
         const note: ComponentNote = {
@@ -407,10 +412,14 @@ export class ComponentService extends Context.Service<
           ...(slot !== undefined && slot !== ROOT_SLOT && { slot }),
           text: text.trim(),
         };
-        yield* save(
-          { ...component, notes: [...(component.notes ?? []), note] },
-          `Note how ${name} behaves`
-        );
+        yield* changeFile(name, `Note how ${name} behaves`, (component) => {
+          const parts = partsOf(component);
+          return slot !== undefined && !parts.includes(slot)
+            ? {
+                problem: `${name} has no part ${slot}; its parts are ${parts.join(", ")}`,
+              }
+            : { ...component, notes: [...(component.notes ?? []), note] };
+        });
         return note;
       });
 
@@ -458,7 +467,11 @@ export class ComponentService extends Context.Service<
             ],
             label: `Make ${name} an app component`,
           },
-          (tx) => tx.write(repoOf(file), componentText(component))
+          ({ tx }) =>
+            Effect.as(
+              tx.write(repoOf(file), componentText(component)),
+              undefined
+            )
         );
         yield* publish;
         return { component, file } satisfies ComponentEntry;

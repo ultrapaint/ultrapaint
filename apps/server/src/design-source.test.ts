@@ -522,6 +522,53 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
+      "saves a system component's look and takes a note out on the file as it is now",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const taken = yield* client["components.fromDefault"]({
+            name: "Badge",
+          });
+          const look = taken.component;
+          assert(look?.origin === "system");
+          // A note added after the Components tab read the file, which saves its look after.
+          const note = yield* client["components.addNote"]({
+            name: "Badge",
+            text: "Reads its count aloud",
+          });
+          const saved = yield* client["components.change"]({
+            change: {
+              look: {
+                base: { ...look.base, root: { radius: 2 } },
+                states: look.states,
+                variants: look.variants,
+              },
+              op: "setLook",
+            },
+            name: "Badge",
+          });
+          assert(saved.component?.origin === "system");
+          assert.deepStrictEqual(saved.component.base.root, { radius: 2 });
+          assert.deepStrictEqual(
+            saved.component.notes?.map((n) => n.id),
+            [note.id]
+          );
+          const without = yield* client["components.change"]({
+            change: { id: note.id, op: "removeNote" },
+            name: "Badge",
+          });
+          assert.deepStrictEqual(without.component?.notes, []);
+          assert.deepStrictEqual(
+            without.component?.origin === "system" &&
+              without.component.base.root,
+            { radius: 2 }
+          );
+          yield* client["components.remove"]({ name: "Badge" });
+        }),
+      60_000
+    );
+
+    it.effect(
       "lets a design thread write its designs only, and an implement thread the repository",
       () =>
         Effect.gen(function* () {
