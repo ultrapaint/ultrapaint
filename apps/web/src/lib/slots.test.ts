@@ -1,5 +1,5 @@
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import { systemCatalogue } from "@ultrapaint/system-components/catalogue";
 import { describe, expect, it } from "vitest";
 import { childrenInSlot } from "./slots.ts";

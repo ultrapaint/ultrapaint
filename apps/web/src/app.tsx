@@ -49,6 +49,7 @@ import { Threads } from "./panels/threads.tsx";
 import { setView } from "./state/camera.ts";
 import { useCatalogue } from "./state/catalogue.ts";
 import { useComments } from "./state/comments.ts";
+import { useComponents } from "./state/components.ts";
 import { useDesignSystem } from "./state/design-system.ts";
 import {
   canvasDefaults,
@@ -68,7 +69,6 @@ import { usePanels } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { followServer } from "./state/server-data.ts";
-import { useSpecs } from "./state/specs.ts";
 import { useSync } from "./state/sync.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
@@ -323,7 +323,7 @@ export const App = () => {
     if (configured) {
       useDesignSystem.getState().load();
       useCatalogue.getState().load();
-      useSpecs.getState().load();
+      useComponents.getState().load();
       useImplementation.getState().load();
       provideDesignLook(designLook);
       provideCanvasDefaults(canvasDefaults);

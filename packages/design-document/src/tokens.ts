@@ -5,9 +5,14 @@
  * so a variable Tailwind left out of the stylesheet still shows; the utility it becomes in code
  * follows from the same name.
  */
+
+import {
+  APP_FROM,
+  type ComponentFile,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
   allTokens,
   lineHeightName,
@@ -111,13 +116,14 @@ export const tokensIn = (
 
 /**
  * The tokens a design relies on (ADR 0028): those its nodes name, those of the text styles its
- * texts are set in, and those of the specs whose look the design owns that it places, a draft's
- * tree included. What the code's own classes use is the code's.
+ * texts are set in, those of the system components' looks the project owns that it places, and
+ * those of the app components it places, their trees included. What the code's own classes use is
+ * the code's.
  */
 export const tokensUsed = (
   root: DesignNode | null | undefined,
   ds: DesignSystem | null | undefined,
-  specs: readonly ComponentSpec[] = []
+  components: readonly ComponentFile[] = []
 ): Set<string> => {
   const used = tokensIn(root);
   if (!root) {
@@ -126,17 +132,30 @@ export const tokensUsed = (
   const styles = new Map(
     (ds?.typography.styles ?? []).map((s) => [s.name, s] as const)
   );
-  const owned = new Map(
-    specs
-      .filter((s) => s.look === "design" || s.draft)
-      .map((s) => [`${s.from}\0${s.component}`, s] as const)
+  const byKind = new Map<string, ComponentFile>(
+    components.map(
+      (c) =>
+        [
+          `${c.origin === "app" ? APP_FROM : SYSTEM_FROM}\0${c.name}`,
+          c,
+        ] as const
+    )
   );
+  const seen = new Set<string>();
   const visit = (node: DesignNode) => {
     if (node.type === "text" && node.textStyle) {
       tokensIn(styles.get(node.textStyle), used);
     }
     if (node.type === "instance") {
-      tokensIn(owned.get(`${node.from}\0${node.component}`), used);
+      const key = `${node.from}\0${node.component}`;
+      const file = byKind.get(key);
+      if (file && !seen.has(key)) {
+        seen.add(key);
+        tokensIn(file, used);
+        if (file.origin === "app") {
+          visit(file.tree);
+        }
+      }
     }
     for (const child of childrenOf(node)) {
       visit(child);

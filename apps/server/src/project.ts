@@ -32,6 +32,7 @@ import { EventBus } from "./events.ts";
 import type { CatalogueService } from "./services/catalogue.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
+import type { ComponentService } from "./services/components.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DesignTargets } from "./services/design-targets.ts";
@@ -50,7 +51,6 @@ import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import type { SkillsService } from "./services/skills.ts";
-import type { SpecService } from "./services/specs.ts";
 import { Storage } from "./services/storage.ts";
 import type { ProjectStyleSystem } from "./services/style-system.ts";
 import type { Thumbnails } from "./services/thumbnails.ts";
@@ -61,6 +61,7 @@ export type ProjectServices =
   | CatalogueService
   | CodeSide
   | CommentsService
+  | ComponentService
   | DesignMd
   | DesignSystemService
   | DesignTargets
@@ -76,7 +77,6 @@ export type ProjectServices =
   | RepoPaths
   | PagesService
   | SkillsService
-  | SpecService
   | Thumbnails
   | WorkingTree;
 

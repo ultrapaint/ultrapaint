@@ -9,6 +9,8 @@
  * The design system service reads and writes the document through this one; Sync's adapter for
  * DESIGN.md is in `sync-sides.ts`.
  */
+
+import { systemComponentsIn } from "@ultrapaint/contracts/components";
 import {
   DESIGN_MD_FILE,
   DESIGN_NOTES_FILE,
@@ -27,9 +29,10 @@ import {
   resolvedValues,
   valuesOf,
 } from "@ultrapaint/design-md/merge";
-import { mirrorOf, specEntries } from "@ultrapaint/design-md/mirror";
+import { componentEntries, mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
+import { looksOf } from "@ultrapaint/system-components/defaults";
 import {
   Clock,
   Context,
@@ -42,11 +45,11 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
+import { componentsIn, readComponents } from "./components.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
 import { withAgreement } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { readSpecs, specsIn } from "./specs.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
 
 /** DESIGN.md as it was found: at the root, or in the designs directory (`legacy`). */
@@ -119,8 +122,8 @@ export class DesignMd extends Context.Service<
     ) => Effect.Effect<DesignDocument | null>;
     /**
      * The front matter a design system comes to (ADR 0027, 0028): its tokens and their values in
-     * the format, and the component tokens of the system components whose look the project owns, read
-     * from their specs (ADR 0029, 0040).
+     * the format, and the component tokens of the system components whose look the project
+     * owns, read from their files (ADR 0041).
      */
     readonly mirror: (
       ds: DesignSystem,
@@ -244,11 +247,12 @@ export class DesignMd extends Context.Service<
         ds: DesignSystem,
         _text: string | null
       ) {
-        const specs = yield* readSpecs(paths.designsDir).pipe(
+        const list = yield* readComponents(paths.designsDir).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path)
         );
-        return mirrorOf(ds, specEntries(specsIn(specs))).groups;
+        const looks = looksOf(systemComponentsIn(componentsIn(list)));
+        return mirrorOf(ds, componentEntries(looks)).groups;
       });
 
       const document = Effect.fnUntraced(function* (ds: DesignSystem | null) {

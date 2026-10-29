@@ -1,5 +1,10 @@
 /**
- * An instance of a repository's component from before ADR 0040, drawn as a system component: the
+ * What came before ADRs 0040 and 0041, as it is now. An instance that names a system component
+ * as before (`@ultrapaint/primitives`) names it as now; a draft's (`#draft`) is an app
+ * component's (`#app`), its text the value of the app component's text property; and a spec's
+ * file is a component's (`componentOfSpec`).
+ *
+ * An instance of a repository's component from before ADR 0040 is drawn as a system component: the
  * component's name says which (case aside, shadcn's names: `DropdownMenu` is the Menu, `Sonner`
  * the Toast), its props are kept where the system component has them (a variant `default` is the axis's
  * first member, a member the system component lacks is dropped), and its children and text are kept.
@@ -10,16 +15,23 @@
  *
  * Pure: the server migrates whole pages with it, the editor one instance.
  */
+
+import {
+  APP_FROM,
+  LEGACY_DRAFT_FROM,
+  LEGACY_SYSTEM_FROM,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/component-names";
+import type {
+  ComponentFile,
+  ComponentProperty,
+  LegacyComponentSpec,
+} from "@ultrapaint/contracts/components";
 import type {
   DesignNode,
   InstanceNode,
   TextNode,
 } from "@ultrapaint/contracts/document";
-import {
-  DRAFT_FROM,
-  LEGACY_SYSTEM_FROM,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/spec-names";
 import {
   SYSTEM_COMPONENTS,
   type SystemComponentMeta,
@@ -48,12 +60,23 @@ const RENAMED: Readonly<Record<string, string>> = {
 const isLegacySystemInstance = (node: InstanceNode): boolean =>
   node.from === LEGACY_SYSTEM_FROM;
 
-/** An instance of a component of the repository's: neither a system component nor a draft. */
+/** An instance of a draft from before ADR 0041 (`#draft`): an app component's now. */
+const isLegacyDraftInstance = (node: InstanceNode): boolean =>
+  node.from === LEGACY_DRAFT_FROM;
+
+/** An instance of a component of the repository's: neither a system component nor an app one. */
 export const isRepositoryInstance = (node: DesignNode): node is InstanceNode =>
   node.type === "instance" &&
   node.from !== SYSTEM_FROM &&
   node.from !== LEGACY_SYSTEM_FROM &&
-  node.from !== DRAFT_FROM;
+  node.from !== APP_FROM &&
+  node.from !== LEGACY_DRAFT_FROM;
+
+/**
+ * The property a draft's instance text becomes (ADR 0041): a draft drew the instance's text in
+ * place of its tree's first text, which an app component says with a text property bound to it.
+ */
+export const DRAFT_TEXT_PROPERTY = "text";
 
 /** The system component a component of the repository's is drawn as, by its name. */
 export const systemComponentFor = (
@@ -123,6 +146,10 @@ const migrateNode = (node: DesignNode, count: () => void): DesignNode => {
     count();
     return renamed(node, count);
   }
+  if (node.type === "instance" && isLegacyDraftInstance(node)) {
+    count();
+    return asAppInstance(node, count);
+  }
   if (isRepositoryInstance(node)) {
     const meta = systemComponentFor(node.component);
     if (meta) {
@@ -147,6 +174,23 @@ const renamed = (node: InstanceNode, count: () => void): InstanceNode => ({
     children: node.children.map((child) => migrateNode(child, count)),
   }),
 });
+
+/** A draft's instance as an app component's: its text the text property's value. */
+const asAppInstance = (node: InstanceNode, count: () => void): InstanceNode => {
+  const { text, ...rest } = node;
+  const props =
+    text === undefined
+      ? node.props
+      : { ...node.props, [DRAFT_TEXT_PROPERTY]: text };
+  return {
+    ...rest,
+    from: APP_FROM,
+    ...(props && { props }),
+    ...(node.children && {
+      children: node.children.map((child) => migrateNode(child, count)),
+    }),
+  };
+};
 
 /** The part of a compound component a node is (`footer` for `DialogFooter`), if it is one. */
 const partOf = (base: string, node: DesignNode): string | undefined =>
@@ -319,6 +363,11 @@ export const migrationOf = (root: DesignNode): SystemMigration => {
       replaced.push(renamed(node, count));
       return;
     }
+    if (node.type === "instance" && isLegacyDraftInstance(node)) {
+      count();
+      replaced.push(asAppInstance(node, count));
+      return;
+    }
     if (isRepositoryInstance(node)) {
       const meta = systemComponentFor(node.component);
       if (meta) {
@@ -336,4 +385,65 @@ export const migrationOf = (root: DesignNode): SystemMigration => {
   };
   visit(root);
   return { drawn, left, replaced };
+};
+
+/** The first text node of a tree, the one a draft's instance text replaced. */
+const firstTextOf = (node: DesignNode): TextNode | undefined => {
+  if (node.type === "text") {
+    return node;
+  }
+  for (const child of "children" in node ? (node.children ?? []) : []) {
+    const found = firstTextOf(child);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+};
+
+/** The instances of a tree from before as they are now: a draft's tree places them too. */
+const migratedTree = (tree: DesignNode): DesignNode =>
+  migrateNode(tree, () => undefined);
+
+/**
+ * A spec's file from before ADR 0041 as a component's: a draft is an app component, its first
+ * text bound to a text property (`DRAFT_TEXT_PROPERTY`); a spec with the design's look is the
+ * system component's file; one that mirrored the code drew nothing and is none (`null`), as is a
+ * spec of no system component.
+ */
+export const componentOfSpec = (
+  spec: LegacyComponentSpec
+): ComponentFile | null => {
+  const envelope = {
+    name: spec.component,
+    ...(spec.description !== undefined && { description: spec.description }),
+    ...(spec.notes && spec.notes.length > 0 && { notes: spec.notes }),
+    version: 1 as const,
+  };
+  if (spec.draft) {
+    const text = firstTextOf(spec.draft);
+    const property: ComponentProperty | undefined = text && {
+      default: text.text,
+      kind: "text",
+      name: DRAFT_TEXT_PROPERTY,
+      targets: [{ node: text.id }],
+    };
+    return {
+      ...envelope,
+      origin: "app",
+      properties: property ? [property] : [],
+      slots: [],
+      tree: migratedTree(spec.draft),
+    };
+  }
+  if (spec.look !== "design" || !systemComponentOf(spec.component)) {
+    return null;
+  }
+  return {
+    ...envelope,
+    base: spec.base,
+    origin: "system",
+    states: spec.states,
+    variants: spec.variants,
+  };
 };

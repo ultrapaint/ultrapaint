@@ -7,9 +7,12 @@
  * breakpoint (`css.ts`) are the same whatever the style system; the classes are its own, through
  * a `ClassWriter` (ADR 0024): Tailwind v4's is `@ultrapaint/style-tailwind-v4/node-classes`.
  * A system component is written as the application's own component for it, its slots as that
- * component's parts (ADR 0040): a sketch an implementing agent adapts to what the application has.
+ * component's parts (ADR 0040), and an app component as the application's component of its name,
+ * its properties as props (ADR 0041): a sketch an implementing agent adapts to what the
+ * application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type {
@@ -17,7 +20,6 @@ import type {
   Declarations,
 } from "@ultrapaint/contracts/node-style";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import {
   type Breakpoint,
   breakpointsUsed,
@@ -100,6 +102,8 @@ interface Writing {
 
 const DEFAULT_COMPONENTS_FROM = "@/components/ui";
 const UPPER_RE = /([a-z0-9])([A-Z])/g;
+const PROPERTY_WORD_RE = /[\s_-]+(\w)/g;
+const FIRST_UPPER_RE = /^[A-Z]/;
 
 const kebabOf = (name: string) => name.replace(UPPER_RE, "$1-$2").toLowerCase();
 const pascalOf = (kebab: string) =>
@@ -147,6 +151,9 @@ const asApplicationCode = (node: DesignNode, base: string): DesignNode => {
       : node;
   }
   const children = (node.children ?? []).map((c) => asApplicationCode(c, base));
+  if (node.from === APP_FROM) {
+    return asAppComponentCode(node, children, base);
+  }
   if (node.from !== SYSTEM_FROM) {
     return node.children ? { ...node, children } : node;
   }
@@ -179,6 +186,40 @@ const asApplicationCode = (node: DesignNode, base: string): DesignNode => {
     ...node,
     from,
     ...(node.children && { children: written }),
+  };
+};
+
+/** A property's name as a prop: `confirm label` is `confirmLabel`. */
+const propNameOf = (name: string) =>
+  name
+    .trim()
+    .replace(PROPERTY_WORD_RE, (_, c: string) => c.toUpperCase())
+    .replace(FIRST_UPPER_RE, (c) => c.toLowerCase());
+
+/**
+ * An app component's instance (ADR 0041) as the application's component of its name, beside the
+ * system components' (`@/components/order-summary` for `@/components/ui`): its property values
+ * as props, its children as they fill its slots.
+ */
+const asAppComponentCode = (
+  node: InstanceNode,
+  children: DesignNode[],
+  base: string
+): DesignNode => {
+  const parent = base.endsWith("/ui") ? base.slice(0, -3) : base;
+  const props = node.props
+    ? Object.fromEntries(
+        Object.entries(node.props).map(([name, value]) => [
+          propNameOf(name),
+          value,
+        ])
+      )
+    : undefined;
+  return {
+    ...node,
+    from: `${parent}/${kebabOf(node.component)}`,
+    ...(props && { props }),
+    ...(node.children && { children }),
   };
 };
 

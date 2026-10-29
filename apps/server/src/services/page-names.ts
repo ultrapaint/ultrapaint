@@ -1,7 +1,7 @@
 /**
  * Which page a name means, the one rule for an agent's tool (`mcp/lookup.ts`, by
  * `pageTargetNamed`) and for a task (`threads/page-tasks.ts`), and which design
- * (`designTargetNamed`): a page or a component spec; and what a miss of a page says
+ * (`designTargetNamed`): a page or a component; and what a miss of a page says
  * (`pageMissed`). Pure.
  *
  * - A URL names the base page that serves it in its canvas's prototype: not a variant's page,
@@ -14,7 +14,7 @@
  * A canvas narrows the pages to its own. Without one, a name that pages of several canvases
  * answer to (`/` in each) is ambiguous, rather than whichever was listed first.
  */
-import { SPEC_TARGET_PREFIX } from "@ultrapaint/contracts/implementation";
+import { COMPONENT_TARGET_PREFIX } from "@ultrapaint/contracts/implementation";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
@@ -106,17 +106,17 @@ export const pageTargetNamed = <P extends NamedPage>(
     : { _tag: "Page", page: found.page };
 };
 
-/** What a design target names: a page, maybe one of its nodes, or a component's spec. */
-export type DesignTargetNamed<P, S> =
+/** What a design target names: a page, maybe one of its nodes, or a component. */
+export type DesignTargetNamed<P, C> =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
-  | { readonly _tag: "Spec"; readonly spec: S }
+  | { readonly _tag: "Component"; readonly component: C }
   /**
    * Nothing answers to it, of the kind the name is read as; `route` is the URL a page's name was
-   * read as, null for a file, nothing or a spec.
+   * read as, null for a file, nothing or a component.
    */
   | {
       readonly _tag: "Missing";
-      readonly kind: "page" | "spec";
+      readonly kind: "page" | "component";
       readonly route: string | null;
     }
   /** Pages of several canvases answer to it, by canvas. */
@@ -125,38 +125,38 @@ export type DesignTargetNamed<P, S> =
 /**
  * Which design a name means, for `/implement`, `handoff` and the link to the code (ADR 0030):
  *
- * - `spec:Button`, or a name no page could have (`Button`: no `/`, `#` or `.page.json`), names
- *   the component's spec;
+ * - `component:Button`, or a name no page could have (`Button`: no `/`, `#` or `.page.json`),
+ *   names the component, by its file (a system component without one has nothing to implement);
  * - anything else is a page, by `pageTargetNamed`'s rule: a canvas written first included
  *   (`marketing:/pricing`), a node reference (`/orders#c_8`) naming its page and keeping its
  *   node.
  *
- * Pages are named by URL or file and specs by component, so the two never answer to one name.
+ * Pages are named by URL or file and components by name, so the two never answer to one name.
  * The canvas given narrows the pages, over one the name says.
  */
 export const designTargetNamed = <
   P extends NamedPage,
-  S extends { readonly component: string },
+  C extends { readonly name: string },
 >(
   pages: readonly P[],
-  specs: readonly S[],
+  components: readonly C[],
   name: string,
   canvas?: string
-): DesignTargetNamed<P, S> => {
+): DesignTargetNamed<P, C> => {
   const where = name.trim();
   const isPage =
     parseNodeRef(where) !== null ||
     where === "" ||
     where.includes("/") ||
     where.endsWith(".page.json");
-  if (where.startsWith(SPEC_TARGET_PREFIX) || !isPage) {
-    const component = where.startsWith(SPEC_TARGET_PREFIX)
-      ? where.slice(SPEC_TARGET_PREFIX.length)
+  if (where.startsWith(COMPONENT_TARGET_PREFIX) || !isPage) {
+    const named = where.startsWith(COMPONENT_TARGET_PREFIX)
+      ? where.slice(COMPONENT_TARGET_PREFIX.length)
       : where;
-    const spec = specs.find((s) => s.component === component);
-    return spec
-      ? { _tag: "Spec", spec }
-      : { _tag: "Missing", kind: "spec", route: null };
+    const component = components.find((c) => c.name === named);
+    return component
+      ? { _tag: "Component", component }
+      : { _tag: "Missing", kind: "component", route: null };
   }
   const found = pageTargetNamed(pages, where, canvas);
   if (found._tag === "Loose") {

@@ -3,7 +3,7 @@ import {
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import { describe, expect, it } from "vitest";
-import { mirrorOf, type SpecLike, specEntries } from "./mirror.ts";
+import { componentEntries, type LookLike, mirrorOf } from "./mirror.ts";
 
 /** A shadcn theme on Tailwind v4, as the service hands it over: the code's values merged in. */
 const shadcn = (): DesignSystem => {
@@ -102,14 +102,13 @@ describe("mirrorOf", () => {
 });
 
 describe("component tokens", () => {
-  const button: SpecLike = {
+  const button: LookLike = {
     base: {
       icon: { fill: "$color-muted" },
       root: { color: "$color-ink", fontSize: 14, height: 32 },
     },
     component: "IconButton",
     defaults: { size: "sm", variant: "default" },
-    look: "design",
     variants: {
       size: {
         lg: { root: { height: "48px", padding: { left: 16, right: 12 } } },
@@ -124,17 +123,7 @@ describe("component tokens", () => {
   };
 
   it("gives the component as it starts, each colour variant, and each size's dimensions", () => {
-    expect(
-      specEntries([
-        button,
-        { ...button, component: "Card", look: "code" },
-        {
-          ...button,
-          component: "Hero",
-          draft: { children: [], id: "h", type: "group" },
-        },
-      ])
-    ).toEqual({
+    expect(componentEntries([button])).toEqual({
       "icon-button": {
         backgroundColor: "$color-primary",
         height: "32px",
@@ -152,7 +141,7 @@ describe("component tokens", () => {
 
   it("writes padding the same on every side as one length, and leaves out one that is not", () => {
     expect(
-      specEntries([
+      componentEntries([
         {
           ...button,
           base: { root: { padding: { bottom: 8, left: 8, right: 8, top: 8 } } },

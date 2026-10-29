@@ -1,6 +1,11 @@
+import {
+  APP_FROM,
+  type AppComponentFile,
+  emptySystemComponent,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/components";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { PageNode } from "@ultrapaint/contracts/document";
-import { emptySpec } from "@ultrapaint/contracts/specs";
 import { describe, expect, it } from "vitest";
 import { tokensIn, tokensUsed } from "./tokens.ts";
 
@@ -23,7 +28,7 @@ describe("the tokens a design relies on", () => {
     expect([...tokensIn("$spacing-2.5")]).toEqual(["spacing-2.5", "spacing"]);
   });
 
-  it("takes in the text styles its texts are set in and the specs whose look it owns", () => {
+  it("takes in the text styles its texts are set in, the looks it owns and its app components' trees", () => {
     const page: PageNode = {
       children: [
         {
@@ -33,8 +38,9 @@ describe("the tokens a design relies on", () => {
           textStyle: "Title",
           type: "text",
         },
-        { component: "Button", from: "@ui/button", id: "b", type: "instance" },
-        { component: "Badge", from: "@ui/badge", id: "c", type: "instance" },
+        { component: "Button", from: SYSTEM_FROM, id: "b", type: "instance" },
+        { component: "Badge", from: SYSTEM_FROM, id: "c", type: "instance" },
+        { component: "Plan", from: APP_FROM, id: "p", type: "instance" },
       ],
       fill: "$color-surface",
       id: "root",
@@ -55,18 +61,35 @@ describe("the tokens a design relies on", () => {
       },
     };
     const button = {
-      ...emptySpec("Button", "@ui/button", "design"),
+      ...emptySystemComponent("Button"),
       base: { root: { fill: "$color-brand" } },
     };
-    // A spec that mirrors the code says what the code's classes use: the code's own.
-    const badge = {
-      ...emptySpec("Badge", "@ui/badge", "code"),
-      base: { root: { fill: "$color-muted" } },
+    // An app component's tree, and the looks of what it places.
+    const plan: AppComponentFile = {
+      name: "Plan",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [
+          { component: "Card", from: SYSTEM_FROM, id: "k", type: "instance" },
+        ],
+        gap: "$spacing-gap",
+        id: "r",
+        type: "row",
+      },
+      version: 1,
     };
-    expect([...tokensUsed(page, ds, [button, badge])].sort()).toEqual([
+    const card = {
+      ...emptySystemComponent("Card"),
+      base: { root: { radius: "$radius-xl" } },
+    };
+    expect([...tokensUsed(page, ds, [button, plan, card])].sort()).toEqual([
       "color-brand",
       "color-surface",
       "font-weight-bold",
+      "radius-xl",
+      "spacing-gap",
       "text-2xl",
     ]);
   });

@@ -1,6 +1,6 @@
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import { describe, expect, it } from "vitest";
 import { componentsImportBase, pageComponentName, toCode } from "./code.ts";
 

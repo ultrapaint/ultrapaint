@@ -414,32 +414,35 @@ const askLink = async (sel: Selection) => {
 };
 
 /**
- * A node of a page made a draft component (ADR 0029): its subtree becomes the spec's tree, and it
- * an instance of it, which pages can use until the code has the component.
+ * Nodes of a page, siblings, made an app component (ADR 0041): they become its tree, and an
+ * instance of it takes their place, which other pages can place too.
  */
-const makeDraftOf = async (sel: Selection) => {
+const makeAppOf = async (sel: Selection) => {
   const node = selected(nodeContext(sel))?.node;
   if (!(node && ensureEditable())) {
     return;
   }
+  const nodeIds = actedOn(sel)
+    .filter((s) => s.frame === sel.frame)
+    .map((s) => s.nodeId);
   const name = await promptDialog({
     confirmLabel: "Make component",
-    defaultValue: node.name ?? "",
+    defaultValue: nodeIds.length === 1 ? (node.name ?? "") : "",
     description:
-      "Its look is the design's; the code gets it when it is implemented (the Components tab). Until then pages use it as it is drawn.",
+      "One of your own components, placed from the Assets panel like the system ones. Every instance draws its tree; implementing it writes it as your application's component.",
     placeholder: "Pricing card",
-    title: "A draft component",
+    title: "An app component",
   });
   if (!name?.trim()) {
     return;
   }
   try {
-    const entry = await api().request("specs.draftFrom", {
+    const entry = await api().request("components.makeApp", {
       id: sel.frame,
       name: name.trim(),
-      nodeId: node.id,
+      nodeIds,
     });
-    toast.success(`${entry.spec?.component ?? name} is a draft component.`);
+    toast.success(`${entry.component?.name ?? name} is an app component.`);
   } catch (error) {
     reportError(error);
   }
@@ -469,8 +472,8 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       return select(sel);
     case "comment":
       return commentOn(sel, target.at);
-    case "makeDraft":
-      return makeDraftOf(sel);
+    case "makeApp":
+      return makeAppOf(sel);
     case "toSystem":
       return ensureEditable() && replaceWithSystemComponent(act.name, sel);
     case "link":

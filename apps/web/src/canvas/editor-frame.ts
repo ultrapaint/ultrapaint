@@ -119,6 +119,7 @@ interface Mount {
 
 /** What the frame was last told to draw, by which runtime. */
 interface Shown {
+  readonly components: DesignLook["components"];
   readonly defaults: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   readonly message: string | undefined;
@@ -126,7 +127,6 @@ interface Shown {
   readonly renderId: number;
   readonly root: DesignNode | null;
   readonly runtime: FrameRuntime;
-  readonly specs: DesignLook["specs"];
   readonly styles: DesignLook["styles"];
 }
 
@@ -134,7 +134,7 @@ interface Shown {
  * Where the design's look comes from when a render does not say: the app hands it the stores'
  * at startup, which keeps the frames free of them.
  */
-const NO_LOOK: DesignLook = { specs: [], styles: "" };
+const NO_LOOK: DesignLook = { components: [], styles: "" };
 let currentLook = (): DesignLook => NO_LOOK;
 export const provideDesignLook = (look: () => DesignLook) => {
   currentLook = look;
@@ -480,7 +480,7 @@ export class EditorFrame {
       shown.root === request.root &&
       shown.mode === request.mode &&
       shown.message === request.message &&
-      shown.specs === look.specs &&
+      shown.components === look.components &&
       shown.styles === look.styles
     ) {
       return shown.renderId;
@@ -491,6 +491,7 @@ export class EditorFrame {
       return renders;
     }
     this.shown = {
+      components: look.components,
       defaults: request.defaults,
       designSystem: request.designSystem,
       message: request.message,
@@ -498,16 +499,15 @@ export class EditorFrame {
       renderId: renders,
       root: request.root,
       runtime,
-      specs: look.specs,
       styles: look.styles,
     };
     runtime.render({
+      ...(look.components.length > 0 && { components: look.components }),
       defaults: request.defaults,
       designSystem: request.designSystem,
       mode: request.mode,
       renderId: renders,
       root: request.root,
-      ...(look.specs.length > 0 && { specs: look.specs }),
       ...(look.styles && { styles: look.styles }),
       ...(request.message !== undefined && { message: request.message }),
     });

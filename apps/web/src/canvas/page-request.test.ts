@@ -38,7 +38,7 @@ const designSystem = {
   version: 1,
 } as DesignSystem;
 
-const look = { specs: [], styles: ":host{}" };
+const look = { components: [], styles: ":host{}" };
 const defaults = { font: "Inter" };
 
 const drawn = (over: Partial<Parameters<typeof pageRequest>[0]>) =>

@@ -180,10 +180,10 @@ const useThumbnails = (
 ) => {
   const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const designSystem = useDesignSystem((s) => s.designSystem);
-  // The design's look over the code's draws them too (ADR 0028, 0029).
-  const { specs, styles } = useDesignLook();
+  // The project's looks draw them too (ADRs 0028, 0041).
+  const { components: files, styles } = useDesignLook();
   const key = hashOf(
-    `${builtAt}:${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(specs)}`
+    `${builtAt}:${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(files)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);

@@ -1,15 +1,15 @@
 /**
  * The editor's own system components (ADR 0040), as data: what each is for, the props a design sets, its
- * variant axes, its parts (`data-slot`, which a spec styles and a design fills), the states a spec
+ * variant axes, its parts (`data-slot`, which a look styles and a design fills), the states a look
  * styles and the layer it draws in. No React here: the server, the agents' briefings and the
  * editor's panels read it without loading a component.
  *
- * A system component's behaviour is Base UI's, run by the editor; its look is the design's (a spec per
+ * A system component's behaviour is Base UI's, run by the editor; its look is the design's (a file per
  * system component, over the default look in `look.ts`). Implementing a design hands the look of each
  * part in each state to an agent, which applies it to whatever the application uses.
  */
 import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
-import { ROOT_SLOT, SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
+import { ROOT_SLOT, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 
 /** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
 export type ComponentLayer = "inline" | "anchored" | "blocking";

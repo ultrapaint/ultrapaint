@@ -19,6 +19,7 @@ import { fakeApi } from "../testing/fake-api.ts";
 import { useAgents } from "./agents.ts";
 import { useCatalogue } from "./catalogue.ts";
 import { useComments } from "./comments.ts";
+import { useComponents } from "./components.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
@@ -30,7 +31,6 @@ import { followServer, viewSnapshot } from "./server-data.ts";
 import { useSkills } from "./skills.ts";
 import { useSlashCommands } from "./slash-commands.ts";
 import { useSnapshotView } from "./snapshot-view.ts";
-import { useSpecs } from "./specs.ts";
 import { useSync } from "./sync.ts";
 
 vi.mock(
@@ -179,8 +179,8 @@ const answerAll = () => {
     components: [],
     coverage: { total: 0, usable: 0 },
   }));
-  fakeApi.respond("specs.list", () => ({
-    specs: [{ file: `v${v()}.spec.json` }],
+  fakeApi.respond("components.list", () => ({
+    components: [{ file: `v${v()}.component.json` }],
   }));
   fakeApi.respond("implementation.list", () => ({ items: [item(`t${v()}`)] }));
   fakeApi.respond("sync.plan", () => plan(v()));
@@ -206,6 +206,7 @@ const held = () => ({
   checkpoints: useKept.getState().checkpoints?.map((c) => c.id),
   commands: useSlashCommands.getState().commands.length,
   comments: useComments.getState().comments.map((c) => c.text),
+  components: useComponents.getState().entries.map((e) => e.file),
   designSystem: useDesignSystem.getState().problem,
   documents: useDocuments.getState().docs["home.page.json"]?.hash,
   implementation: Object.keys(useImplementation.getState().byTarget),
@@ -216,7 +217,6 @@ const held = () => ({
   setup: useDesignSystemSetup.getState().setup?.updatedAt,
   skills: useSkills.getState().dir,
   snapshots: useKept.getState().snapshots?.map((s) => s.id),
-  specs: useSpecs.getState().entries.map((e) => e.file),
   sync: useSync.getState().plan?.at,
   undo: useProject.getState().undo.canUndo,
 });
@@ -227,6 +227,7 @@ const heldAt = (v: number) => ({
   checkpoints: [`cp${v}`],
   commands: v,
   comments: [`c${v}`],
+  components: [`v${v}.component.json`],
   designSystem: `css ${v}`,
   documents: `h${v}`,
   implementation: [`t${v}`],
@@ -237,7 +238,6 @@ const heldAt = (v: number) => ({
   setup: v,
   skills: `skills ${v}`,
   snapshots: [`sn${v}`],
-  specs: [`v${v}.spec.json`],
   sync: v,
   undo: v > 1,
 });
@@ -249,7 +249,7 @@ const openEditor = async () => {
   await Promise.all([
     useDesignSystem.getState().load(),
     useCatalogue.getState().load(),
-    useSpecs.getState().load(),
+    useComponents.getState().load(),
     useImplementation.getState().load(),
     useSync.getState().load(),
     useAgents.getState().load(),

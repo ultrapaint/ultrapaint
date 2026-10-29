@@ -3,14 +3,15 @@
  * text styles, with its values in the default theme, written as the format holds them. Other
  * themes stay in the design system; the body says how they differ.
  */
+
+import { ROOT_SLOT } from "@ultrapaint/contracts/component-names";
+import type { PartStyle, PartStyles } from "@ultrapaint/contracts/components";
 import type {
   DesignSystem,
   TextStyle,
   Token,
 } from "@ultrapaint/contracts/design-system";
 import type { Padding } from "@ultrapaint/contracts/document";
-import { ROOT_SLOT } from "@ultrapaint/contracts/spec-names";
-import type { ComponentSpec, SpecStyle } from "@ultrapaint/contracts/specs";
 import {
   formatNumber,
   isColor,
@@ -352,8 +353,8 @@ const paddingCss = (padding: Padding): string | null => {
   return new Set(sides).size === 1 ? (sides[0] ?? null) : null;
 };
 
-/** A slot's style fields as DESIGN.md's component tokens hold them: what the format has a name for. */
-const tokensOfStyle = (style: SpecStyle): Record<string, string> => {
+/** A part's style fields as DESIGN.md's component tokens hold them: what the format has a name for. */
+const tokensOfStyle = (style: PartStyle): Record<string, string> => {
   const out: Record<string, string> = {};
   if (style.fill !== undefined) {
     out.backgroundColor = style.fill;
@@ -378,43 +379,46 @@ const tokensOfStyle = (style: SpecStyle): Record<string, string> => {
   return out;
 };
 
-/** A component spec as DESIGN.md's component tokens are read from it (ADR 0027, 0029). */
-export type SpecLike = Pick<
-  ComponentSpec,
-  "base" | "component" | "defaults" | "draft" | "look" | "variants"
->;
+/** A system component's look as DESIGN.md's component tokens are read from it (ADRs 0027, 0041). */
+export interface LookLike {
+  readonly base: PartStyles;
+  readonly component: string;
+  /** The member each variant axis starts in. */
+  readonly defaults: Readonly<Record<string, string>>;
+  readonly variants: Readonly<
+    Record<string, Readonly<Record<string, PartStyles>>>
+  >;
+}
 
 /**
- * The component tokens of the components whose look the project owns (ADR 0027, 0040): a spec
- * with the design's look, its root slot's fields as the format holds them. `button` as it
- * starts, `button-<variant>` for each other member of the variant that changes its colours, and
- * `button-<size>` for each other size, its dimensions alone. A system component in its default look, or
- * a draft, writes nothing.
+ * The component tokens of the system components whose look the project owns (ADRs 0027, 0041):
+ * those with a file, its root part's fields as the format holds them. `button` as it starts,
+ * `button-<variant>` for each other member of the variant that changes its colours, and
+ * `button-<size>` for each other size, its dimensions alone. A system component in its default
+ * look has no file and writes nothing, nor does an app component.
  */
-export const specEntries = (
-  specs: readonly SpecLike[]
+export const componentEntries = (
+  looks: readonly LookLike[]
 ): Record<string, Record<string, string>> => {
   const out: Record<string, Record<string, string>> = {};
-  for (const spec of specs) {
-    if (spec.look === "design" && spec.draft === undefined) {
-      Object.assign(out, entriesOf(spec));
-    }
+  for (const look of looks) {
+    Object.assign(out, entriesOf(look));
   }
   return out;
 };
 
-/** One spec's entries: as it starts, each other colour variant, each other size. */
-const entriesOf = (spec: SpecLike): Record<string, Record<string, string>> => {
-  const key = kebab(spec.component);
+/** One look's entries: as it starts, each other colour variant, each other size. */
+const entriesOf = (look: LookLike): Record<string, Record<string, string>> => {
+  const key = kebab(look.component);
   /** The root's fields with each axis at its default, or at the member `choice` names. */
   const rootFor = (choice: Readonly<Record<string, string>>) =>
     tokensOfStyle(
       Object.assign(
         {},
-        spec.base[ROOT_SLOT],
-        ...Object.entries(spec.variants).map(
+        look.base[ROOT_SLOT],
+        ...Object.entries(look.variants).map(
           ([axis, members]) =>
-            members[choice[axis] ?? spec.defaults[axis] ?? ""]?.[ROOT_SLOT]
+            members[choice[axis] ?? look.defaults[axis] ?? ""]?.[ROOT_SLOT]
         )
       )
     );
@@ -429,10 +433,10 @@ const entriesOf = (spec: SpecLike): Record<string, Record<string, string>> => {
   const others = (axis: string | undefined) =>
     axis === undefined
       ? []
-      : Object.keys(spec.variants[axis] ?? {}).filter(
-          (member) => member !== spec.defaults[axis]
+      : Object.keys(look.variants[axis] ?? {}).filter(
+          (member) => member !== look.defaults[axis]
         );
-  const colorAxis = COLOR_AXES.find((a) => spec.variants[a]);
+  const colorAxis = COLOR_AXES.find((a) => look.variants[a]);
   for (const member of others(colorAxis)) {
     add(`${key}-${kebab(member)}`, rootFor({ [colorAxis ?? ""]: member }));
   }

@@ -4,11 +4,11 @@
  * Storybook's preview only knows a renderer's `renderToCanvas`. Both are the editor's own: the
  * frames draw the editor's system components, and nothing of the repository's runs in them.
  */
+import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 
 /** Attribute the renderer writes on every node it draws: the node's id in the document. */
 export const NODE_ATTRIBUTE = "data-ed-node";
@@ -69,6 +69,11 @@ export interface PageError {
 
 /** One thing to draw. */
 export interface RenderRequest {
+  /**
+   * The project's components (ADR 0041): a system component's look drawn over it, an app
+   * component's tree in its instances' place.
+   */
+  readonly components?: readonly ComponentFile[] | undefined;
   /** What the canvas draws every page in: its theme, its fill and its type. */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
@@ -77,8 +82,6 @@ export interface RenderRequest {
   readonly mode: RenderMode;
   readonly renderId: number;
   readonly root: DesignNode | null;
-  /** The component specs (ADR 0029): drawn over their components, drafts in their instances' place. */
-  readonly specs?: readonly ComponentSpec[] | undefined;
   /** The design's own stylesheet: every token's value, in every theme (ADR 0028, 0040). */
   readonly styles?: string | undefined;
 }

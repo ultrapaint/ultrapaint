@@ -1,13 +1,26 @@
 /**
- * Draws design documents in the editor's frames, with the editor's own React (ADR 0040): a page's
- * nodes as elements, an instance as one of the editor's system components (on Base UI) or as a draft's
- * tree. Nothing of the repository's is loaded or run.
+ * Draws design documents in the editor's frames, with the editor's own React (ADRs 0040, 0041): a
+ * page's nodes as elements, an instance as one of the editor's system components (on Base UI) or
+ * as an app component's tree. Nothing of the repository's is loaded or run.
  */
+import {
+  APP_FROM,
+  type AppComponentFile,
+  appComponentsIn,
+  type ComponentFile,
+  SYSTEM_FROM,
+  systemComponentsIn,
+} from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { DRAFT_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
+import { expandAppInstance } from "@ultrapaint/design-document/app-components";
+import {
+  COMPONENT_ATTRIBUTE,
+  lookCss,
+  VARIANT_ATTRIBUTE,
+  variantAttributeOf,
+} from "@ultrapaint/design-document/component-look";
 import {
   layoutOf,
   makeStyleContext,
@@ -18,12 +31,6 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
-import {
-  COMPONENT_ATTRIBUTE,
-  specCss,
-  VARIANT_ATTRIBUTE,
-  variantAttributeOf,
-} from "@ultrapaint/design-document/spec";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
   type Mounted,
@@ -37,6 +44,7 @@ import {
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
 import { SYSTEM_COMPONENT_VIEWS } from "@ultrapaint/system-components/components";
+import { looksOf } from "@ultrapaint/system-components/defaults";
 import {
   type ComponentFrame,
   ComponentFrameProvider,
@@ -89,18 +97,25 @@ const MESSAGE_STYLE = {
   minHeight: "100cqh",
 } as const;
 
-/** The attribute the nodes of a draft's tree are marked with: not the page's, so not selectable. */
-const DRAFT_NODE_ATTRIBUTE = "data-ed-draft-node";
+/**
+ * The attribute the nodes of an app component's tree are marked with: not the page's, so only
+ * the instance is selected.
+ */
+export const APP_NODE_ATTRIBUTE = "data-ed-app-node";
 
 /** What every node of one render needs, handed down without threading it through props. */
 interface Scope {
+  /** The app components (ADR 0041), by name. */
+  readonly apps: ReadonlyMap<string, AppComponentFile>;
   readonly assetUrl: (src: string) => string;
-  /** The trees of the draft components (ADR 0029), by component name. */
-  readonly drafts: ReadonlyMap<string, DesignNode>;
+  /** The app components whose tree is being drawn, outermost first: one inside itself is refused. */
+  readonly drawing: readonly string[];
+  /** The page's nodes among an app component's tree: an instance's children in its slots. */
+  readonly filled?: ReadonlySet<string> | undefined;
   readonly navigate: (route: string) => void;
   /**
-   * What a node's id is written in: the page's attribute, or, inside a draft's tree, one the
-   * editor does not read, so only the draft's instance can be selected.
+   * What a node's id is written in: the page's attribute, or, inside an app component's tree,
+   * one the editor does not read, so only the instance can be selected.
    */
   readonly nodeAttribute: string;
   /** Tells the editor how an instance lays its children out, once it is drawn. */
@@ -216,7 +231,7 @@ const onLink = (scope: Scope, link: string | undefined) =>
       }
     : undefined;
 
-/** What a draft's instance gives the root of the draft's tree: its id, its marks, its box. */
+/** What an app component's instance gives the root of its tree: its id, its marks, its box. */
 interface RootOverride {
   readonly attributes: Readonly<Record<string, unknown>>;
   readonly style: Style;
@@ -228,11 +243,21 @@ const NodeView = ({
   parent,
 }: {
   node: DesignNode;
-  /** Set on a draft's root, which stands for the instance on the page. */
+  /** Set on an app component's root, which stands for the instance on the page. */
   own?: RootOverride | undefined;
   parent: ParentLayout;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
+  if (scope.filled?.has(node.id)) {
+    // A node of the page's in an app component's slot: selectable as the page's again.
+    return createElement(
+      ScopeContext.Provider,
+      {
+        value: { ...scope, filled: undefined, nodeAttribute: NODE_ATTRIBUTE },
+      },
+      createElement(NodeView, { node, parent })
+    );
+  }
   const drawn = nodeStyle(node, { ...scope.styles, parent });
   const style = own ? { ...drawn, ...own.style } : drawn;
   const common: Record<string, unknown> = own
@@ -280,29 +305,7 @@ const NodeView = ({
   );
 };
 
-/** A tree with its first text node's text replaced. */
-const withFirstText = (tree: DesignNode, text: string): DesignNode => {
-  let done = false;
-  const visit = (node: DesignNode): DesignNode => {
-    if (done) {
-      return node;
-    }
-    if (node.type === "text") {
-      done = true;
-      return { ...node, text };
-    }
-    if ("children" in node && node.children) {
-      return {
-        ...node,
-        children: node.children.map(visit),
-      } as DesignNode;
-    }
-    return node;
-  };
-  return visit(tree);
-};
-
-/** The marks every instance's element carries: its id, and what a spec finds it by. */
+/** The marks every instance's element carries: its id, and what a look finds it by. */
 const marksOf = (scope: Scope, node: InstanceNode) => ({
   [scope.nodeAttribute]: node.id,
   [COMPONENT_ATTRIBUTE]: node.component,
@@ -311,11 +314,12 @@ const marksOf = (scope: Scope, node: InstanceNode) => ({
 });
 
 /**
- * A draft component's instance (ADR 0029): the draft's tree drawn in its place, its root carrying
- * the instance's id, marks and box, so the instance is what is selected, and the spec's styles
- * reach it as they reach a system component. The instance's text replaces the tree's first text.
+ * An app component's instance (ADR 0041): its tree drawn in its place, with the instance's
+ * property values, its choices' overrides and its children in their slots (`expandAppInstance`).
+ * The root carries the instance's id, marks and box, so the instance is what is selected; the
+ * tree's own nodes are not the page's, and an app component drawn inside itself is refused.
  */
-const DraftView = ({
+const AppView = ({
   node,
   style,
 }: {
@@ -323,22 +327,35 @@ const DraftView = ({
   style: Style;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
-  const tree = scope.drafts.get(node.component);
+  const file = scope.apps.get(node.component);
   const marks = marksOf(scope, node);
-  if (!tree) {
+  if (!file) {
     return createElement(Missing, {
       ...marks,
       style,
-      text: `${node.component} is not a draft component`,
+      text: `${node.component} is not an app component`,
     });
   }
-  const filled =
-    node.text === undefined ? tree : withFirstText(tree, node.text);
+  if (scope.drawing.includes(node.component)) {
+    return createElement(Missing, {
+      ...marks,
+      style,
+      text: `${node.component} is drawn inside itself`,
+    });
+  }
+  const { filled, tree } = expandAppInstance(file, node);
   return createElement(
     ScopeContext.Provider,
-    { value: { ...scope, nodeAttribute: DRAFT_NODE_ATTRIBUTE } },
+    {
+      value: {
+        ...scope,
+        drawing: [...scope.drawing, node.component],
+        filled,
+        nodeAttribute: APP_NODE_ATTRIBUTE,
+      },
+    },
     createElement(NodeView, {
-      node: filled,
+      node: tree,
       own: {
         attributes: {
           ...marks,
@@ -432,8 +449,8 @@ const InstanceView = ({
   style: Style;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
-  if (node.from === DRAFT_FROM) {
-    return createElement(DraftView, { node, style });
+  if (node.from === APP_FROM) {
+    return createElement(AppView, { node, style });
   }
   if (node.from === SYSTEM_FROM) {
     return createElement(SystemView, { node, style });
@@ -488,8 +505,8 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   });
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
-  let specs: readonly ComponentSpec[] | undefined;
-  let drafts: ReadonlyMap<string, DesignNode> = new Map();
+  let components: readonly ComponentFile[] | undefined;
+  let apps: ReadonlyMap<string, AppComponentFile> = new Map();
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
 
@@ -517,31 +534,30 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   };
 
   let first = true;
-  /** What the request changes of the design system, the specs and the design's stylesheet. */
+  /** What the request changes of the design system, the components and the design's stylesheet. */
   let tokenCss: string | undefined;
   const restyle = (request: RenderRequest) => {
     const restyled =
       request.designSystem !== designSystem ||
-      request.specs !== specs ||
+      request.components !== components ||
       request.styles !== tokenCss;
     if (request.designSystem !== designSystem) {
       ({ designSystem } = request);
       styles = makeStyleContext(designSystem);
     }
-    if (request.specs !== specs) {
-      ({ specs } = request);
-      drafts = new Map(
-        (specs ?? []).flatMap((spec) =>
-          spec.draft ? [[spec.component, spec.draft] as const] : []
-        )
-      );
+    if (request.components !== components) {
+      ({ components } = request);
+      apps = new Map(appComponentsIn(components ?? []).map((c) => [c.name, c]));
     }
     tokenCss = request.styles;
-    // The design's own stylesheet (ADR 0028, 0029): every token's value and the component specs,
-    // which the core puts after every other sheet of the frames.
+    // The design's own stylesheet (ADRs 0028, 0041): every token's value and the looks of the
+    // system components the project owns, which the core puts after every other sheet of the frames.
     if (restyled) {
       setup.setDesignCss(
-        [tokenCss ?? "", specCss(specs ?? [], styles)]
+        [
+          tokenCss ?? "",
+          lookCss(looksOf(systemComponentsIn(components ?? [])), styles),
+        ]
           .filter(Boolean)
           .join("\n\n")
       );
@@ -551,8 +567,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const draw = (request: RenderRequest) => {
     restyle(request);
     const scope: Scope = {
+      apps,
       assetUrl: setup.assetUrl,
-      drafts,
+      drawing: [],
       navigate: setup.navigate,
       nodeAttribute: NODE_ATTRIBUTE,
       report,

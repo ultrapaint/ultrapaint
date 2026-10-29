@@ -33,7 +33,6 @@ import {
 } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
-import { plural } from "@ultrapaint/shared/text";
 import { migrationOf } from "@ultrapaint/system-components/migrate";
 import {
   Context,
@@ -48,7 +47,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
-import { type EditFailure, EditService } from "./edit.ts";
+import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { parseCanvas } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -117,8 +116,13 @@ const problemOf = (error: unknown) =>
 export class DocumentService extends Context.Service<
   DocumentService,
   {
+    /**
+     * Applies the edits as one undo step; `alongside` changes other files of the designs in the
+     * same step (a component's file written as an instance of it takes a node's place).
+     */
     readonly apply: (
-      input: ApplyInput
+      input: ApplyInput,
+      alongside?: (tx: EditTransaction) => Effect.Effect<void, EditFailure>
     ) => Effect.Effect<ApplyResult, EditFailure | Conflict>;
     readonly get: (
       doc: string
@@ -127,21 +131,23 @@ export class DocumentService extends Context.Service<
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
     /**
-     * The instances of the repository's components in every document (ADR 0040): how many a
-     * system component can draw, and how many no system component is like and stay stand-ins.
+     * The instances from before in every document (ADRs 0040, 0041): how many are drawn as now
+     * once migrated (the repository's components a system component can draw, and the instances
+     * of system components and drafts as they were named), and how many of the repository's no
+     * system component is like and stay stand-ins.
      */
     readonly oldInstances: Effect.Effect<
       { readonly drawn: number; readonly left: number },
       EditFailure
     >;
     /**
-     * Every instance of the repository's components that a system component can draw, drawn as one
-     * (`migrate.ts`), in every document and one undo step. Answers with how many, in how many
-     * documents.
+     * The edits that migrate every instance from before (`migrate.ts`), in every document, and
+     * how many instances they draw as now: what `ComponentService.migrate` applies, with the
+     * components' files, in one undo step.
      */
-    readonly toSystemComponents: Effect.Effect<
-      { readonly documents: number; readonly drawn: number },
-      EditFailure | Conflict
+    readonly migrationEdits: Effect.Effect<
+      { readonly drawn: number; readonly edits: readonly DocumentEdit[] },
+      EditFailure
     >;
     /** Saves an image into the shared assets; answers with the path a node shows it by. */
     readonly upload: (
@@ -316,7 +322,8 @@ export class DocumentService extends Context.Service<
         });
 
       const apply = Effect.fn("DocumentService.apply")(function* (
-        input: ApplyInput
+        input: ApplyInput,
+        alongside?: (tx: EditTransaction) => Effect.Effect<void, EditFailure>
       ) {
         const created: string[] = [];
         const touched: string[] = [];
@@ -330,63 +337,66 @@ export class DocumentService extends Context.Service<
           discard: true,
         });
         yield* edit.transaction(label, (tx) =>
-          Effect.forEach(
-            input.edits,
-            Effect.fnUntraced(function* (change) {
-              const loaded = yield* load(change.doc, false);
-              if (loaded.problem !== undefined || loaded.root === null) {
-                return yield* new BadRequest({
-                  message: `${change.doc} cannot be edited: ${loaded.problem ?? "it does not exist"}`,
+          Effect.andThen(
+            Effect.forEach(
+              input.edits,
+              Effect.fnUntraced(function* (change) {
+                const loaded = yield* load(change.doc, false);
+                if (loaded.problem !== undefined || loaded.root === null) {
+                  return yield* new BadRequest({
+                    message: `${change.doc} cannot be edited: ${loaded.problem ?? "it does not exist"}`,
+                  });
+                }
+                if (
+                  change.expectedHash !== undefined &&
+                  change.expectedHash !== loaded.hash
+                ) {
+                  return yield* new Stale({
+                    message: `${change.doc} changed since you last saw it; reloading`,
+                  });
+                }
+                const canvas = canvasOfDoc(change.doc);
+                const result = yield* Effect.try({
+                  catch: (error) =>
+                    new BadRequest({
+                      message:
+                        error instanceof DocumentOpError
+                          ? error.message
+                          : `the operations could not be applied: ${problemOf(error)}`,
+                    }),
+                  try: () =>
+                    applyOps(loaded.root as DesignNode, change.ops, {
+                      canvas: canvas !== null,
+                      next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
+                    }),
                 });
-              }
-              if (
-                change.expectedHash !== undefined &&
-                change.expectedHash !== loaded.hash
-              ) {
-                return yield* new Stale({
-                  message: `${change.doc} changed since you last saw it; reloading`,
-                });
-              }
-              const canvas = canvasOfDoc(change.doc);
-              const result = yield* Effect.try({
-                catch: (error) =>
+                const invalid = (error: { message: string }) =>
                   new BadRequest({
-                    message:
-                      error instanceof DocumentOpError
-                        ? error.message
-                        : `the operations could not be applied: ${problemOf(error)}`,
-                  }),
-                try: () =>
-                  applyOps(loaded.root as DesignNode, change.ops, {
-                    canvas: canvas !== null,
-                    next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
-                  }),
-              });
-              const invalid = (error: { message: string }) =>
-                new BadRequest({
-                  message: `the result is not a valid document: ${error.message}`,
-                });
-              if (canvas === null) {
-                const document = yield* decodePage({
-                  root: result.root,
-                  version: DOCUMENT_VERSION,
-                }).pipe(Effect.mapError(invalid));
-                yield* tx.write(
-                  yield* fileOf(change.doc),
-                  serialiseDocument(document)
-                );
-              } else {
-                const nodes = yield* decodeNodes(childrenOf(result.root)).pipe(
-                  Effect.mapError(invalid)
-                );
-                yield* pages.updateCanvas(tx, canvas, (layout) => ({
-                  ...layout,
-                  nodes,
-                }));
-              }
-              created.push(...result.created);
-              touched.push(change.doc);
-            })
+                    message: `the result is not a valid document: ${error.message}`,
+                  });
+                if (canvas === null) {
+                  const document = yield* decodePage({
+                    root: result.root,
+                    version: DOCUMENT_VERSION,
+                  }).pipe(Effect.mapError(invalid));
+                  yield* tx.write(
+                    yield* fileOf(change.doc),
+                    serialiseDocument(document)
+                  );
+                } else {
+                  const nodes = yield* decodeNodes(
+                    childrenOf(result.root)
+                  ).pipe(Effect.mapError(invalid));
+                  yield* pages.updateCanvas(tx, canvas, (layout) => ({
+                    ...layout,
+                    nodes,
+                  }));
+                }
+                created.push(...result.created);
+                touched.push(change.doc);
+              })
+            ),
+            alongside ? alongside(tx) : Effect.void
           )
         );
         const documents = yield* Effect.forEach(touched, (doc) =>
@@ -413,7 +423,7 @@ export class DocumentService extends Context.Service<
         return { drawn, left };
       }).pipe(Effect.withSpan("DocumentService.oldInstances"));
 
-      const toSystemComponents = Effect.gen(function* () {
+      const migrationEdits = Effect.gen(function* () {
         let drawn = 0;
         const edits: DocumentEdit[] = [];
         for (const state of yield* everyDocument) {
@@ -422,7 +432,7 @@ export class DocumentService extends Context.Service<
             continue;
           }
           const migration = migrationOf(tree);
-          // Each instance is put back where it was, as the system component: what it holds goes with it.
+          // Each instance is put back where it was, as it is drawn now: what it holds goes with it.
           const ops = migration.replaced.flatMap((node): DocOp[] => {
             const parent = findPath(tree, node.id)?.at(-2);
             if (!parent) {
@@ -448,14 +458,8 @@ export class DocumentService extends Context.Service<
             edits.push({ doc: state.doc, expectedHash: state.hash, ops });
           }
         }
-        if (edits.length > 0) {
-          yield* apply({
-            edits,
-            label: `Draw ${plural(drawn, "instance")} as system components`,
-          });
-        }
-        return { documents: edits.length, drawn };
-      }).pipe(Effect.withSpan("DocumentService.toSystemComponents"));
+        return { drawn, edits };
+      }).pipe(Effect.withSpan("DocumentService.migrationEdits"));
 
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput
@@ -540,8 +544,8 @@ export class DocumentService extends Context.Service<
         apply,
         get,
         list,
+        migrationEdits,
         oldInstances,
-        toSystemComponents,
         upload,
       });
     })

@@ -1,8 +1,22 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
-import { type ComponentSpec, emptySpec } from "@ultrapaint/contracts/specs";
 import { describe, expect, it } from "vitest";
+import {
+  type ComponentLook,
+  lookCss,
+  partStyleCss,
+  variantAttributeOf,
+} from "./component-look.ts";
 import { makeStyleContext } from "./css.ts";
-import { specCss, specStyleCss, variantAttributeOf } from "./spec.ts";
+
+/** A look that sets nothing. */
+const emptyLook = (component: string): ComponentLook => ({
+  base: {},
+  component,
+  defaults: {},
+  parts: [],
+  states: {},
+  variants: {},
+});
 
 const ds = {
   ...emptyDesignSystem(),
@@ -16,9 +30,9 @@ const ctx = makeStyleContext(ds);
 const ROOT =
   '[data-ed-c="Button"]:not([data-ed-wrapper]),\n[data-ed-c="Button"][data-ed-wrapper] > *';
 
-const button = (spec: Partial<ComponentSpec>): ComponentSpec => ({
-  ...emptySpec("Button", "@/components/ui/button"),
-  ...spec,
+const button = (look: Partial<ComponentLook>): ComponentLook => ({
+  ...emptyLook("Button"),
+  ...look,
 });
 
 /** The selector lists of a sheet, rule by rule. */
@@ -44,10 +58,10 @@ describe("variantAttributeOf", () => {
   });
 });
 
-describe("specStyleCss", () => {
+describe("partStyleCss", () => {
   it("resolves tokens the way nodes do", () => {
     expect(
-      specStyleCss(
+      partStyleCss(
         {
           border: { color: "$color-primary", width: 2 },
           fill: "$color-primary",
@@ -79,7 +93,7 @@ describe("specStyleCss", () => {
 
   it("recolours a border without drawing one, and works without a design system", () => {
     expect(
-      specStyleCss(
+      partStyleCss(
         { border: { color: "$color-border" }, padding: 8 },
         makeStyleContext(null)
       )
@@ -87,16 +101,16 @@ describe("specStyleCss", () => {
   });
 });
 
-describe("specCss", () => {
+describe("lookCss", () => {
   it("styles the root, bare or wrapped, and the slots inside it", () => {
-    const css = specCss(
+    const css = lookCss(
       [
         button({
           base: {
             icon: { width: 16 },
             root: { fill: "$color-primary" },
           },
-          slots: [{ name: "root" }, { name: "icon" }],
+          parts: ["root", "icon"],
         }),
       ],
       ctx
@@ -111,13 +125,13 @@ describe("specCss", () => {
   });
 
   it("finds a part in a portal of the component's, a variant or a state on the portal", () => {
-    const dialog: ComponentSpec = {
-      ...emptySpec("Dialog", "@ultrapaint/system"),
+    const dialog: ComponentLook = {
+      ...emptyLook("Dialog"),
       defaults: { size: "md" },
-      slots: [{ name: "root" }, { name: "dialog" }],
+      parts: ["root", "dialog"],
       variants: { size: { lg: { dialog: { width: 640 } } } },
     };
-    expect(selectorsOf(specCss([dialog], ctx))[0]).toEqual([
+    expect(selectorsOf(lookCss([dialog], ctx))[0]).toEqual([
       '[data-ed-c="Dialog"]:not([data-ed-wrapper])[data-ed-v~="size:lg"] [data-slot="dialog"]',
       '[data-ed-c="Dialog"][data-ed-wrapper][data-ed-v~="size:lg"] > * [data-slot="dialog"]',
       '[data-ed-p="Dialog"][data-ed-v~="size:lg"] [data-slot="dialog"]',
@@ -126,7 +140,7 @@ describe("specCss", () => {
   });
 
   it("matches a member, and the default when the instance does not set its axis", () => {
-    const css = specCss(
+    const css = lookCss(
       [
         button({
           defaults: { size: "md" },
@@ -155,7 +169,7 @@ describe("specCss", () => {
   });
 
   it("writes the states after the variants, disabled last, pinned or live", () => {
-    const css = specCss(
+    const css = lookCss(
       [
         button({
           states: {
@@ -188,10 +202,10 @@ describe("specCss", () => {
   });
 
   it("escapes names and values for attribute selectors", () => {
-    const css = specCss(
+    const css = lookCss(
       [
         {
-          ...emptySpec('Odd"Name\\', "x"),
+          ...emptyLook('Odd"Name\\'),
           base: { 'a"b': { opacity: 1 } },
         },
       ],
@@ -202,27 +216,8 @@ describe("specCss", () => {
     );
   });
 
-  it("draws nothing for a spec that mirrors the code, or sets nothing", () => {
-    expect(
-      specCss(
-        [
-          button({ base: { root: { fill: "red" } }, look: "code" }),
-          button({ base: { root: {} } }),
-        ],
-        ctx
-      )
-    ).toBe("");
-    expect(specCss([], ctx)).toBe("");
-  });
-
-  it("draws a draft over its instance as a component", () => {
-    const draft = {
-      ...emptySpec("Rating", "#draft"),
-      base: { root: { gap: 4 } },
-      draft: { children: [], id: "d", type: "row" as const },
-    };
-    expect(specCss([draft], ctx)).toContain(
-      '[data-ed-c="Rating"]:not([data-ed-wrapper]),'
-    );
+  it("draws nothing for a look that sets nothing", () => {
+    expect(lookCss([button({ base: { root: {} } })], ctx)).toBe("");
+    expect(lookCss([], ctx)).toBe("");
   });
 });

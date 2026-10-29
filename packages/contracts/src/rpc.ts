@@ -9,6 +9,12 @@ import {
   ReplyInput,
   UpdateCommentInput,
 } from "./comments.ts";
+import {
+  ComponentEntry,
+  ComponentFile,
+  ComponentList,
+  ComponentNote,
+} from "./components.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
 import {
   DefineMode,
@@ -77,13 +83,6 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
-import {
-  ComponentSpec,
-  SpecEntry,
-  SpecList,
-  SpecLook,
-  SpecNote,
-} from "./specs.ts";
 import {
   SyncPlan,
   TokenComparison,
@@ -352,14 +351,6 @@ const requestRpcs = [
     error: EditError,
     payload: ApplyInput,
     success: ApplyResult,
-  }),
-  /**
-   * Every instance of the repository's components that a system component can draw, drawn as one in
-   * every document, as one undo step (ADR 0040).
-   */
-  Rpc.make("documents.toSystemComponents", {
-    error: EditError,
-    success: Schema.Struct({ documents: Schema.Number, drawn: Schema.Number }),
   }),
 
   Rpc.make("designSystem.get", {
@@ -789,57 +780,66 @@ const requestRpcs = [
     success: Schema.Struct({ code: Schema.String, language: Schema.String }),
   }),
 
-  /** The component specs of the designs directory (ADR 0029), each read or with its problem. */
-  Rpc.make("specs.list", { error: NotConfigured, success: SpecList }),
-  /** A spec saved as given, validated: one undo step. */
-  Rpc.make("specs.write", {
+  /** The components of the designs directory (ADR 0041), each read or with its problem. */
+  Rpc.make("components.list", { error: NotConfigured, success: ComponentList }),
+  /** A component's file saved as given, validated: one undo step. */
+  Rpc.make("components.write", {
     error: EditError,
-    payload: { spec: ComponentSpec },
-    success: SpecEntry,
+    payload: { component: ComponentFile },
+    success: ComponentEntry,
   }),
   /**
-   * A system component's look taken over (ADR 0040): its spec started from its default look, saved with
-   * the look given (`design` when absent), keeping the behaviour notes one there was had.
+   * A system component's look taken over (ADRs 0040, 0041): its file started from its default
+   * look, keeping the behaviour notes one there was had.
    */
-  Rpc.make("specs.fromCode", {
+  Rpc.make("components.fromDefault", {
+    error: EditError,
+    payload: { name: Schema.String },
+    success: ComponentEntry,
+  }),
+  /**
+   * Everything from before brought up to date, as one undo step (ADRs 0040, 0041): instances of
+   * the repository's components, of system components and drafts as they were named, and the
+   * specs' files, with their implementations.
+   */
+  Rpc.make("components.migrate", {
+    error: EditError,
+    success: Schema.Struct({
+      components: Schema.Number,
+      documents: Schema.Number,
+      drawn: Schema.Number,
+    }),
+  }),
+  /** A component's file removed: a system component is drawn in its default look again. */
+  Rpc.make("components.remove", {
+    error: EditError,
+    payload: { name: Schema.String },
+  }),
+  /** A behaviour note added to a component, about a part or the whole of it (ADR 0030). */
+  Rpc.make("components.addNote", {
     error: EditError,
     payload: {
-      component: Schema.String,
-      from: Schema.optional(Schema.String),
-      look: Schema.optional(SpecLook),
-    },
-    success: SpecEntry,
-  }),
-  /** A component's spec removed: a system component is drawn in its default look again. */
-  Rpc.make("specs.remove", {
-    error: EditError,
-    payload: { component: Schema.String },
-  }),
-  /** A behaviour note added to a component's spec, about a slot or the whole of it (ADR 0030). */
-  Rpc.make("specs.addNote", {
-    error: EditError,
-    payload: {
-      component: Schema.String,
+      name: Schema.String,
       slot: Schema.optional(Schema.String),
       text: Schema.String,
     },
-    success: SpecNote,
+    success: ComponentNote,
   }),
   /**
-   * A node made a draft component: its subtree becomes the spec's tree, and the node an
-   * instance of it. One undo step.
+   * Nodes of a page made an app component (ADR 0041): they become its tree, and an instance of it
+   * takes their place. One undo step.
    */
-  Rpc.make("specs.draftFrom", {
+  Rpc.make("components.makeApp", {
     error: EditError,
     payload: {
       id: Schema.String,
       name: Schema.String,
-      nodeId: Schema.String,
+      nodeIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
     },
-    success: SpecEntry,
+    success: ComponentEntry,
   }),
 
-  /** Every page and spec, with whether it is ready, implemented, or changed since (ADR 0030). */
+  /** Every page and component, with whether it is ready, implemented, or changed since (ADR 0030). */
   Rpc.make("implementation.list", {
     error: NotConfigured,
     success: ImplementationList,
@@ -890,6 +890,8 @@ export const eventSchemas = {
   /** The open repository's agent turn checkpoints, newest first: one taken, or let go of. */
   checkpoints: Schema.Array(Checkpoint),
   comments: Schema.Struct({ canvas: Schema.String, list: CommentList }),
+  /** A component's file changed (ADR 0041). */
+  components: ComponentList,
   designSystem: DesignSystemState,
   /** A document changed: an edit, an undo, an agent, a branch switch. */
   document: DocumentState,
@@ -911,8 +913,6 @@ export const eventSchemas = {
   skills: SkillList,
   /** The open repository's named snapshots, newest first: one saved, or deleted. */
   snapshots: Schema.Array(Snapshot),
-  /** A spec file changed (ADR 0029). */
-  specs: SpecList,
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,
 } as const;
@@ -978,7 +978,10 @@ const eventRpcs = [
     stream: true,
     success: eventSchemas.syncPlan,
   }),
-  Rpc.make("events.specs", { stream: true, success: eventSchemas.specs }),
+  Rpc.make("events.components", {
+    stream: true,
+    success: eventSchemas.components,
+  }),
   Rpc.make("events.implementation", {
     stream: true,
     success: eventSchemas.implementation,

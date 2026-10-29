@@ -4,6 +4,7 @@ import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
 import { ProjectManager } from "./project.ts";
+import { ComponentService } from "./services/components.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -14,7 +15,6 @@ import { GetScreenshot } from "./services/mcp/screenshot.ts";
 import { SetupTools } from "./services/mcp/setup-tools.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
-import { SpecService } from "./services/specs.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
@@ -63,16 +63,12 @@ A fixture.
 `;
 
 /** A component the code does not have yet, drawn in the design. */
-const DRAFT_CARD = {
-  base: {},
-  component: "Card",
-  defaults: {},
-  draft: { children: [], id: "card", type: "group" },
-  from: "#draft",
-  look: "design",
+const PRICING_CARD = {
+  name: "PricingCard",
+  origin: "app",
+  properties: [],
   slots: [],
-  states: {},
-  variants: {},
+  tree: { children: [], id: "card", type: "group" },
   version: 1,
 };
 
@@ -158,9 +154,9 @@ describe("tasks, with the editor's MCP server", () => {
             }
           );
           assert.strictEqual(
-            (yield* failureOf({ _tag: "Implement", target: "spec:Nope" }))
+            (yield* failureOf({ _tag: "Implement", target: "component:Nope" }))
               .message,
-            "no component spec is spec:Nope; there are no component specs"
+            "no component is component:Nope; there are no components with a file"
           );
           assert.deepStrictEqual(
             yield* failureOf({ _tag: "Redraw", canvas: "nowhere" }),
@@ -356,7 +352,7 @@ describe("the editor's tools in what an agent is told", () => {
     Components: [{ _tag: "Components", canvas: "" }],
     Implement: [
       { _tag: "Implement", target: "/home" },
-      { _tag: "Implement", target: "spec:Card" },
+      { _tag: "Implement", target: "component:PricingCard" },
     ],
     ImportFigma: [{ _tag: "ImportFigma" }],
     Init: [{ _tag: "Init" }],
@@ -437,7 +433,7 @@ describe("the editor's tools in what an agent is told", () => {
 
   /**
    * Everything a task tells of: a design system read from the code with DESIGN.md beside it, a
-   * token changed on each side, a Figma file, a draft component, and Map under way.
+   * token changed on each side, a Figma file, an app component, and Map under way.
    */
   const everythingThere = Effect.gen(function* () {
     yield* withDesignSystem;
@@ -454,7 +450,7 @@ describe("the editor's tools in what an agent is told", () => {
         Effect.gen(function* () {
           yield* (yield* DesignSystemService).refresh;
           yield* (yield* FigmaImportService).create("login.fig", figmaFile());
-          yield* (yield* SpecService).write(DRAFT_CARD);
+          yield* (yield* ComponentService).write(PRICING_CARD);
         })
       )
     );

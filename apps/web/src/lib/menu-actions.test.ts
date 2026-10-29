@@ -452,12 +452,12 @@ describe("a node's menu", () => {
     ]);
   });
 
-  it("beside the pages, has no comment, link or draft component", async () => {
+  it("beside the pages, has no comment, link or app component", async () => {
     const note = nodeAt("node:note", "note");
     const kinds = itemsOf(menuFor(note) ?? []).map((e) =>
       e.kind === "item" ? e.action.act.kind : e.kind
     );
-    for (const kind of ["comment", "link", "linkUrl", "makeDraft"]) {
+    for (const kind of ["comment", "link", "linkUrl", "makeApp"]) {
       expect(kinds).not.toContain(kind);
     }
     await choose(note, { kind: "hide" });
@@ -646,7 +646,7 @@ const EVERY_ACTION = {
     link: true,
     linkUrl: true,
     lock: true,
-    makeDraft: true,
+    makeApp: true,
     paste: true,
     rename: true,
     selectParent: true,
