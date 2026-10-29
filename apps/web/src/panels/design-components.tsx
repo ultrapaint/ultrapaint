@@ -23,12 +23,13 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
+import { presetSize } from "@ultrapaint/contracts/pages";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { designCss } from "@ultrapaint/system-components/look";
 import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ import {
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { useEditor } from "../state/editor.ts";
 import { statusLabel, useImplementation } from "../state/implementation.ts";
 import { useDesignLook } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
@@ -227,9 +229,13 @@ const axesOf = (spec: SystemComponentFile, meta: ComponentMeta | undefined) => {
  */
 const matrixOf = (
   component: ComponentFile,
-  meta: ComponentMeta | undefined
+  meta: ComponentMeta | undefined,
+  pageWidth: number
 ): DesignNode => {
   if (component.origin === "app") {
+    // At its own width when it has one, else as wide as a page: a header that fills a page is
+    // not squeezed into the panel, the picture is scaled down to it instead.
+    const { width } = component.tree;
     return {
       children: [
         {
@@ -242,7 +248,7 @@ const matrixOf = (
       id: "matrix",
       padding: 12,
       type: "column",
-      width: "fill",
+      width: typeof width === "number" ? width + 24 : pageWidth,
     };
   }
   const axes = axesOf(component, meta);
@@ -290,6 +296,61 @@ const matrixOf = (
   };
 };
 
+/** How wide a page is drawn: the selected page's frame, else the canvas's widest, else a desktop's. */
+const usePageWidth = () =>
+  useEditor((s) => {
+    const selected = s.selectedPage ? s.frames[s.selectedPage] : undefined;
+    const widths = Object.values(s.frames).map((f) => f.width);
+    return (
+      selected?.width ??
+      (widths.length > 0 ? Math.max(...widths) : presetSize.desktop.width)
+    );
+  });
+
+/**
+ * A frame drawn at its own size and scaled down to the panel's width, never up: what is drawn as
+ * wide as a page is seen whole.
+ */
+const ScaledPicture = ({ frame, title }: { frame: string; title: string }) => {
+  const [size, setSize] = useState<{ height: number; width: number } | null>(
+    null
+  );
+  const [room, setRoom] = useState(0);
+  const outer = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = outer.current;
+    if (!el) {
+      return;
+    }
+    const observer = new ResizeObserver(() => setRoom(el.clientWidth));
+    observer.observe(el);
+    setRoom(el.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+  const listeners = useMemo(() => ({ size: setSize }), []);
+  const scale =
+    size && room > 0 && size.width > 0 ? Math.min(1, room / size.width) : 1;
+  return (
+    <div
+      className="shrink-0 overflow-hidden rounded-md border bg-white"
+      ref={outer}
+      style={size ? { height: Math.ceil(size.height * scale) } : undefined}
+    >
+      <PreviewSurface
+        frameId={frame}
+        hostClassName="block"
+        listeners={listeners}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          width: size?.width,
+        }}
+        title={title}
+      />
+    </div>
+  );
+};
+
 /** A component drawn live, with the edits not saved yet. */
 export const Matrix = ({
   component,
@@ -300,6 +361,7 @@ export const Matrix = ({
 }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const { components } = useDesignLook();
+  const pageWidth = usePageWidth();
   const frame = "design-system:components";
   // The file being edited stands in for the saved one, in a look of the matrix's own: the
   // canvas's frames keep the saved look (ADR 0042).
@@ -317,11 +379,19 @@ export const Matrix = ({
         designSystem: ds,
         look,
         mode: "fit" as const,
-        root: matrixOf(component, meta),
+        root: matrixOf(component, meta, pageWidth),
       }),
-      [ds, meta, component, look]
+      [ds, meta, component, look, pageWidth]
     )
   );
+  if (component.origin === "app") {
+    return (
+      <ScaledPicture
+        frame={frame}
+        title={`${component.name} as an instance draws it`}
+      />
+    );
+  }
   return (
     // A look with many fields and notes overflows the panel: the matrix keeps its height.
     <div className="shrink-0 overflow-hidden rounded-md border bg-white">
@@ -329,11 +399,7 @@ export const Matrix = ({
         className="w-full"
         frameId={frame}
         hostClassName="block w-full"
-        title={
-          component.origin === "app"
-            ? `${component.name} as an instance draws it`
-            : `${component.name} in its variants and states`
-        }
+        title={`${component.name} in its variants and states`}
       />
     </div>
   );
