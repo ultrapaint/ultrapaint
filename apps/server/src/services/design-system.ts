@@ -10,7 +10,11 @@ import { SPEC_EXTENSION, SPECS_DIR } from "@ultrapaint/contracts/spec-names";
 import { withTokenChanges } from "@ultrapaint/contracts/token-table";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
-import { type CodeOptions, toCode } from "@ultrapaint/design-document/code";
+import {
+  type CodeOptions,
+  primitivesImportBase,
+  toCode,
+} from "@ultrapaint/design-document/code";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
   Context,
@@ -439,6 +443,7 @@ export class DesignSystemService extends Context.Service<
         codeOf: (node, options) =>
           Effect.map(get, ({ designSystem: ds }) =>
             toCode(node, styleSystem.nodeClasses(ds), {
+              primitivesFrom: primitivesImportBase(paths.settings),
               ...options,
               breakpoints: breakpointsOf(ds),
               designSystem: ds,

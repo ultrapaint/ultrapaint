@@ -1,7 +1,8 @@
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
+import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
 import { describe, expect, it } from "vitest";
-import { pageComponentName, toCode } from "./code.ts";
+import { pageComponentName, primitivesImportBase, toCode } from "./code.ts";
 
 /** A style system that writes each declaration as a class, to see what it is given. */
 const writer: ClassWriter = {
@@ -149,6 +150,80 @@ describe("breakpoints", () => {
     expect(toCode(node, writer, { breakpoints })).toBe(
       `<p className="md/display:none">Narrow</p>
 <p className="display:none">Wide</p>`
+    );
+  });
+});
+
+describe("a primitive in the Code tab", () => {
+  const dialog: DesignNode = {
+    children: [
+      {
+        component: "Button",
+        from: PRIMITIVES_FROM,
+        id: "open",
+        slot: "trigger",
+        text: "Delete",
+        type: "instance",
+      },
+      { id: "p", role: "paragraph", text: "For good.", type: "text" },
+      {
+        component: "Button",
+        from: PRIMITIVES_FROM,
+        id: "cancel",
+        props: { variant: "outline" },
+        slot: "dialog-footer",
+        text: "Cancel",
+        type: "instance",
+      },
+      {
+        component: "Button",
+        from: PRIMITIVES_FROM,
+        id: "ok",
+        slot: "dialog-footer",
+        text: "Delete",
+        type: "instance",
+      },
+    ],
+    component: "Dialog",
+    from: PRIMITIVES_FROM,
+    id: "d",
+    props: { title: "Delete it?" },
+    type: "instance",
+  };
+
+  it("is the application's component, its slots that component's parts", () => {
+    const none: ClassWriter = { classes: () => [] };
+    expect(toCode(dialog, none)).toBe(
+      `import { Button } from "@/components/ui/button";
+import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+
+<Dialog title="Delete it?">
+  <DialogTrigger>
+    <Button>Delete</Button>
+  </DialogTrigger>
+  <p>For good.</p>
+  <DialogFooter>
+    <Button variant="outline">Cancel</Button>
+    <Button>Delete</Button>
+  </DialogFooter>
+</Dialog>`
+    );
+    expect(
+      toCode(dialog, none, { primitivesFrom: "@/ui" }).split("\n")[0]
+    ).toBe('import { Button } from "@/ui/button";');
+  });
+
+  it("is imported from the first component directory's ui/, `src/` as the `@/` alias", () => {
+    expect(primitivesImportBase({ libraryDirs: [] })).toBe("@/components/ui");
+    expect(
+      primitivesImportBase({
+        libraryDirs: ["apps/web/src/components"],
+        resolveFrom: "apps/web",
+      })
+    ).toBe("@/components/ui");
+    expect(primitivesImportBase({ libraryDirs: ["src/lib"] })).toBe("@/lib/ui");
+    expect(primitivesImportBase({ libraryDirs: ["packages/ui/src"] })).toBe(
+      "packages/ui/src/ui"
     );
   });
 });
