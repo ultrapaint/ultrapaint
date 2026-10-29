@@ -1,6 +1,6 @@
 /**
  * `configure`: no project is open. A project with no design system is no reason to wait: the
- * canvas draws on the primitives' neutral theme (ADR 0040), and Sync offers to make one.
+ * canvas draws on the system components' neutral theme (ADR 0040), and Sync offers to make one.
  */
 export type SetupNeed = "configure";
 

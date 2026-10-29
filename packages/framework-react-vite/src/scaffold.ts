@@ -1,8 +1,8 @@
 /**
  * A new application for a repository that has none (ADR 0025): Vite, React, TypeScript and
- * Tailwind v4, with a component for each of ultrapaint's primitives (`starter-components.ts`,
+ * Tailwind v4, with a component for each of ultrapaint's system components (`starter-components.ts`,
  * ADR 0040): the same names, props, parts (`data-slot`) and variant axes, on Base UI where the
- * primitive is, so a design implemented there maps one to one. The theme's `@theme` starts from
+ * system component is, so a design implemented there maps one to one. The theme's `@theme` starts from
  * the tokens the caller gives (a Figma file's), else from a neutral set; the components use only
  * the colours the neutral set names. A blank application (PLAN-desktop D11) has none of the
  * components and a theme that declares nothing, for a design system defined from nothing; its

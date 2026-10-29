@@ -12,7 +12,7 @@ import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import {
   type CodeOptions,
-  primitivesImportBase,
+  componentsImportBase,
   toCode,
 } from "@ultrapaint/design-document/code";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
@@ -443,7 +443,7 @@ export class DesignSystemService extends Context.Service<
         codeOf: (node, options) =>
           Effect.map(get, ({ designSystem: ds }) =>
             toCode(node, styleSystem.nodeClasses(ds), {
-              primitivesFrom: primitivesImportBase(paths.settings),
+              componentsFrom: componentsImportBase(paths.settings),
               ...options,
               breakpoints: breakpointsOf(ds),
               designSystem: ds,

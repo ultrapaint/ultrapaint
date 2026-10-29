@@ -1,8 +1,8 @@
 /**
- * The Design system panel's Components tab (ADR 0029, 0040): every primitive and every draft,
+ * The Design system panel's Components tab (ADR 0029, 0040): every system component and every draft,
  * each in its default look or in the project's. Opening one shows its look as a live matrix of
- * its variants and states, drawn by the preview with the primitive itself, and the fields of one
- * slot in the base, a variant or a state. Taking a primitive's look over starts the project's
+ * its variants and states, drawn by the preview with the system component itself, and the fields of one
+ * slot in the base, a variant or a state. Taking a system component's look over starts the project's
  * spec from its default, so the fields hold real values; resetting it removes the spec.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -18,7 +18,7 @@ import {
   type SpecStyle,
 } from "@ultrapaint/contracts/specs";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
-import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
+import { defaultSpecOf } from "@ultrapaint/system-components/defaults";
 import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

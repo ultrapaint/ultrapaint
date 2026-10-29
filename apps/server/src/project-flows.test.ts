@@ -1,9 +1,9 @@
 import { assert, describe, layer } from "@effect/vitest";
 import { specTarget } from "@ultrapaint/contracts/implementation";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
-import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
+import { defaultSpecOf } from "@ultrapaint/system-components/defaults";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
@@ -39,7 +39,7 @@ const nextEvent = <A, E, R>(name: "git", effect: Effect.Effect<A, E, R>) =>
 describe("flows in the services", () => {
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
     it.effect(
-      "starts a primitive's spec from its default look, linked to no file until it is implemented",
+      "starts a system component's spec from its default look, linked to no file until it is implemented",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
@@ -55,7 +55,7 @@ describe("flows in the services", () => {
             (yield* linkOf("Button")).status,
             "implemented"
           );
-          // Only a primitive has a default look to start from.
+          // Only a system component has a default look to start from.
           const missing = yield* Effect.flip(
             spec((s) => s.fromCode("PricingCard", undefined))
           );
@@ -84,7 +84,7 @@ describe("flows in the services", () => {
     );
 
     it.effect(
-      "draws the pages' instances of the repository's components as primitives, in one step",
+      "draws the pages' instances of the repository's components as system components, in one step",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
@@ -131,15 +131,18 @@ describe("flows in the services", () => {
             drawn: 1,
             left: 1,
           });
-          assert.deepStrictEqual(yield* documents((d) => d.toPrimitives), {
-            documents: 1,
-            drawn: 1,
-          });
+          assert.deepStrictEqual(
+            yield* documents((d) => d.toSystemComponents),
+            {
+              documents: 1,
+              drawn: 1,
+            }
+          );
           const after = yield* documents((d) => d.get(orders.id));
           const button = after.root && findNode(after.root, "new-order");
           assert.deepStrictEqual(button, {
             component: "Button",
-            from: PRIMITIVES_FROM,
+            from: SYSTEM_FROM,
             id: "new-order",
             props: { size: "md", variant: "primary" },
             text: "New order",

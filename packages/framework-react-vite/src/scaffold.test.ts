@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { PRIMITIVES } from "@ultrapaint/primitives/catalogue";
+import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
 import { afterAll, describe, expect, it } from "vitest";
 import { detect } from "./detect.ts";
 import { scaffold } from "./scaffold.ts";
@@ -134,7 +134,7 @@ describe("a blank application", () => {
 });
 
 describe("its components", () => {
-  /** The primitives built on Base UI, as the starter's components are. */
+  /** The system components built on Base UI, as the starter's components are. */
   const ON_BASE_UI = new Set([
     "Avatar",
     "Checkbox",
@@ -150,21 +150,23 @@ describe("its components", () => {
   const kebab = (name: string) =>
     name.replace(/(?<!^)([A-Z])/g, "-$1").toLowerCase();
 
-  it("are the primitives one to one, a file each by the same name", () => {
+  it("are the system components one to one, a file each by the same name", () => {
     expect(
       Object.keys(app)
         .filter((f) => f.startsWith("src/components/ui/"))
         .sort()
     ).toEqual(
-      PRIMITIVES.map((p) => `src/components/ui/${kebab(p.name)}.tsx`).sort()
+      SYSTEM_COMPONENTS.map(
+        (p) => `src/components/ui/${kebab(p.name)}.tsx`
+      ).sort()
     );
-    for (const meta of PRIMITIVES) {
+    for (const meta of SYSTEM_COMPONENTS) {
       expect(ui(kebab(meta.name))).toContain(`function ${meta.name}(`);
     }
   });
 
-  it("mark each part with the primitive's data-slot, the root as root", () => {
-    for (const meta of PRIMITIVES) {
+  it("mark each part with the system component's data-slot, the root as root", () => {
+    for (const meta of SYSTEM_COMPONENTS) {
       const marked = new Set(slotsOf(ui(kebab(meta.name))));
       expect(
         meta.slots.map((s) => s.name).filter((slot) => !marked.has(slot))
@@ -172,8 +174,8 @@ describe("its components", () => {
     }
   });
 
-  it("write their variants in a cva by the primitive's axes and members, the first the default", () => {
-    for (const meta of PRIMITIVES) {
+  it("write their variants in a cva by the system component's axes and members, the first the default", () => {
+    for (const meta of SYSTEM_COMPONENTS) {
       const source = ui(kebab(meta.name));
       for (const [axis, members] of Object.entries(meta.variants)) {
         expect(source).toContain(`${axis}: "${members[0]}",`);
@@ -184,8 +186,8 @@ describe("its components", () => {
     }
   });
 
-  it("are on Base UI where the primitive is", () => {
-    for (const meta of PRIMITIVES) {
+  it("are on Base UI where the system component is", () => {
+    for (const meta of SYSTEM_COMPONENTS) {
       const source = ui(kebab(meta.name));
       expect(source.includes(`from "@base-ui/react/${kebab(meta.name)}"`)).toBe(
         ON_BASE_UI.has(meta.name)
@@ -193,7 +195,7 @@ describe("its components", () => {
     }
   });
 
-  it("take a primitive's slots as parts among their children", () => {
+  it("take a system component's slots as parts among their children", () => {
     expect(ui("dialog")).toContain(
       "export { Dialog, DialogFooter, DialogHeader, DialogTrigger, dialogVariants };"
     );

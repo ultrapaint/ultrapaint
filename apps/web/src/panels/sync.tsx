@@ -163,15 +163,15 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
   </SyncCard>
 );
 
-/** Draws the pages' old instances as primitives, in one undo step (ADR 0040). */
-const drawAsPrimitives = async () => {
+/** Draws the pages' old instances as system components, in one undo step (ADR 0040). */
+const drawAsSystemComponents = async () => {
   try {
     const { documents, drawn } = await api().request(
-      "documents.toPrimitives",
+      "documents.toSystemComponents",
       undefined
     );
     toast.success(
-      `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as ${drawn === 1 ? "a primitive" : "primitives"}.`
+      `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as ${drawn === 1 ? "a system component" : "system components"}.`
     );
   } catch (error) {
     reportError(error);
@@ -179,12 +179,18 @@ const drawAsPrimitives = async () => {
   useSync.getState().load();
 };
 
-const PrimitivesStep = ({ index, step }: { index: number; step: SyncStep }) => (
+const SystemComponentsStep = ({
+  index,
+  step,
+}: {
+  index: number;
+  step: SyncStep;
+}) => (
   <SyncCard index={index} step={step}>
     <div className="flex flex-wrap gap-1.5">
-      <Button onClick={drawAsPrimitives} size="sm">
+      <Button onClick={drawAsSystemComponents} size="sm">
         <Wand2 />
-        Draw them as primitives
+        Draw them as system components
       </Button>
     </div>
   </SyncCard>
@@ -285,8 +291,8 @@ const PlanStep = ({
   if (step.kind === "settings") {
     return <SettingsStep index={index} step={step} />;
   }
-  if (step.kind === "primitives") {
-    return <PrimitivesStep index={index} step={step} />;
+  if (step.kind === "system") {
+    return <SystemComponentsStep index={index} step={step} />;
   }
   if (step.kind === "describe") {
     return <DescribeStep index={index} step={step} />;

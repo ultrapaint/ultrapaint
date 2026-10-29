@@ -1,9 +1,9 @@
 /**
  * Component specs (ADR 0029): `specs/<Component>.spec.json` in the designs directory, what a
- * primitive looks like as the design says it (ADR 0040). A primitive without one is drawn in its
+ * system component looks like as the design says it (ADR 0040). A system component without one is drawn in its
  * default look (`defaults.ts`); taking its look over starts the project's spec from that default,
  * and removing the spec goes back to it. A spec is written as given and validated, started from a
- * primitive's default, or made from a node of a page as a draft, which the code does not have yet.
+ * system component's default, or made from a node of a page as a draft, which the code does not have yet.
  */
 
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -31,7 +31,7 @@ import {
   findNode,
   findPath,
 } from "@ultrapaint/design-document/tree";
-import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
+import { defaultSpecOf } from "@ultrapaint/system-components/defaults";
 import {
   Context,
   Effect,
@@ -118,7 +118,7 @@ export class SpecService extends Context.Service<
     readonly specs: Effect.Effect<readonly ComponentSpec[]>;
     readonly write: (spec: unknown) => Effect.Effect<SpecEntry, EditFailure>;
     /**
-     * A primitive's spec started from its default look (ADR 0040), saved with the look given
+     * A system component's spec started from its default look (ADR 0040), saved with the look given
      * (`design` when none), so the design edits real values. One there was keeps its behaviour
      * notes, which are not the look.
      */
@@ -127,7 +127,7 @@ export class SpecService extends Context.Service<
       from: string | undefined,
       look?: SpecLook
     ) => Effect.Effect<SpecEntry, EditFailure>;
-    /** Removes a component's spec: a primitive is drawn in its default look again. */
+    /** Removes a component's spec: a system component is drawn in its default look again. */
     readonly remove: (
       component: string
     ) => Effect.Effect<void, EditFailure | NotFound>;
@@ -213,7 +213,7 @@ export class SpecService extends Context.Service<
         const start = defaultSpecOf(component);
         if (!start) {
           return yield* new NotFound({
-            message: `${component} is no primitive: only a primitive has a default look to start from`,
+            message: `${component} is no system component: only a system component has a default look to start from`,
           });
         }
         // Started again, a spec keeps its behaviour notes: they are not the look.

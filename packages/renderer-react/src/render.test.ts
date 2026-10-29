@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import { type ComponentSpec, emptySpec } from "@ultrapaint/contracts/specs";
 import type {
   Mounted,
@@ -18,7 +18,7 @@ const instance = (
   fields: Partial<Extract<DesignNode, { type: "instance" }>> = {}
 ): DesignNode => ({
   component,
-  from: PRIMITIVES_FROM,
+  from: SYSTEM_FROM,
   id,
   type: "instance",
   ...fields,
@@ -109,7 +109,7 @@ const draw = async (
   return { at, canvas, navigated, redraw, reports };
 };
 
-describe("a primitive", () => {
+describe("a system component", () => {
   it("is drawn with the node's id, marks and box on the element that is the instance", async () => {
     const { at } = await draw(
       column([
@@ -158,7 +158,7 @@ describe("a primitive", () => {
     expect(reports.go).toEqual({ layout: "row", wrapped: false });
   });
 
-  it("stands in for an instance of the repository's, and for a name no primitive has", async () => {
+  it("stands in for an instance of the repository's, and for a name no system component has", async () => {
     const { at } = await draw(
       column([
         instance("old", "Button", { from: "@/components/ui/button" }),
@@ -166,7 +166,9 @@ describe("a primitive", () => {
       ])
     );
     expect(at("old")?.textContent).toContain("component of the repository's");
-    expect(at("typo")?.textContent).toContain("not one of the primitives");
+    expect(at("typo")?.textContent).toContain(
+      "not one of the system components"
+    );
   });
 
   it("follows its link", async () => {
@@ -192,7 +194,7 @@ describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
 
   it("gives the frames the tokens' CSS and the specs' as the design's sheet, the last", async () => {
     const spec: ComponentSpec = {
-      ...emptySpec("Card", PRIMITIVES_FROM),
+      ...emptySpec("Card", SYSTEM_FROM),
       base: { root: { fill: "#ff0000" } },
     };
     await draw(column([instance("card", "Card")]), {

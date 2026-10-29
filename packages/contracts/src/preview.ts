@@ -17,8 +17,8 @@ export interface Rect {
 
 /**
  * How the preview drew an instance. `layout` is how the element holding the instance's children
- * lays them out, which their `fill` and `hug` are relative to: a primitive whose default slot is
- * a column grows a child that fills its height. `wrapped` is false for every primitive, which
+ * lays them out, which their `fill` and `hug` are relative to: a system component whose default slot is
+ * a column grows a child that fills its height. `wrapped` is false for every system component, which
  * takes its box on its own element (ADR 0040).
  */
 export const InstanceDrawn = Schema.Struct({

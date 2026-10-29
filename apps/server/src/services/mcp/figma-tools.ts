@@ -108,7 +108,7 @@ const ReadFigmaComponent = Tool.make("read_figma_component", {
 
 const MapFigmaComponent = Tool.make("map_figma_component", {
   description: `Decide what every instance of a Figma component becomes; mapping is one of:
-- {kind:"component", component, from?, props?, propMap?, text?}: one of ultrapaint's primitives by name. props go to every instance. propMap maps Figma properties: {"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}, {"Disabled":{prop:"disabled"}}. text is "children" for the text the instance shows, or a text property's name.
+- {kind:"component", component, from?, props?, propMap?, text?}: one of ultrapaint's system components by name. props go to every instance. propMap maps Figma properties: {"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}, {"Disabled":{prop:"disabled"}}. text is "children" for the text the instance shows, or a text property's name.
 - {kind:"expand"}: kept as it is, built from rows, columns, text and images.
 - {kind:"skip"}: left out.
 null forgets the decision.`,

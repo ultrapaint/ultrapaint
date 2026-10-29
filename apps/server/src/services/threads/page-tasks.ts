@@ -10,9 +10,9 @@ import { specTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   type ComponentSpec,
-  PRIMITIVES_FROM,
   SPEC_EXTENSION,
   SPECS_DIR,
+  SYSTEM_FROM,
 } from "@ultrapaint/contracts/specs";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import type {
@@ -97,7 +97,7 @@ const pagesOf = (
   return { picked, unknown };
 };
 
-/** What a spec's implementation is: a draft to create, a primitive's look, or a component's. */
+/** What a spec's implementation is: a draft to create, a system component's look, or a component's. */
 const specIntro = (
   spec: ComponentSpec,
   notes: readonly Note[],
@@ -111,8 +111,8 @@ const specIntro = (
 yet. Create it in the components directory (${libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
 tree, with a prop for what varies, in the shape the other components have.`;
   }
-  if (spec.from === PRIMITIVES_FROM) {
-    return `Implement the look of the ${spec.component} primitive as its spec says (${specFile}), on the
+  if (spec.from === SYSTEM_FROM) {
+    return `Implement the look of the ${spec.component} system component as its spec says (${specFile}), on the
 application's own ${spec.component}: find the component the application uses for it, whatever library it is
 written with (Base UI, Radix, shadcn, MUI…), and give each of its parts the look of the matching slot,
 in each variant and state, as closely as the library allows. Where the application has none, create
@@ -425,7 +425,7 @@ ${numbered([
   tokens.step,
   `Write the page with the application's own components and existing layouts; do not copy the
    design node by node where a component already does the job. Each instance is one of
-   ultrapaint's primitives (from "${PRIMITIVES_FROM}"): write it as the application's own component
+   ultrapaint's system components (from "${SYSTEM_FROM}"): write it as the application's own component
    for it, its slots as that component's parts (a Dialog's "dialog-footer" is its footer), and
    where the application has none, write one in its component library's way.`,
   `Implement each behaviour note with the application's own services, guards and data; ask the
@@ -527,17 +527,17 @@ ${userAdds(extra)}</ultrapaint-task>`;
               }${
                 c.candidates.length > 0
                   ? `; might be ${c.candidates.map((k) => k.name).join(" or ")}`
-                  : "; no primitive of a similar name"
+                  : "; no system component of a similar name"
               }`
           );
         return `<ultrapaint-task command="import-figma">
 Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with
-ultrapaint's primitives where they fit.
+ultrapaint's system components where they fit.
 
 Through the ultrapaint MCP server: ${tools.read_figma_import} (the file: frames, components, candidates, the
 mapping so far), ${tools.read_figma_component} and ${tools.read_figma_frame} (one of them, with an outline of its layers),
 ${tools.map_figma_component} (what a Figma component becomes), ${tools.write_figma_frame} (a frame as a page), ${tools.ask_user}
-(a question card for the user), ${tools.list_components} and ${tools.get_component} (ultrapaint's primitives).
+(a question card for the user), ${tools.list_components} and ${tools.get_component} (ultrapaint's system components).
 
 The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
 Its components, most used first:
@@ -549,10 +549,10 @@ ${
     : `There is no design system yet; components come from ${tools.list_components}. Afterwards, point the user to Sync in the Design system panel, which makes one.`
 }
 
-1. Read the import (${tools.read_figma_import}) and the primitives (${tools.list_components}). For each Figma
+1. Read the import (${tools.read_figma_import}) and the system components (${tools.list_components}). For each Figma
    component, most used first, decide what it becomes:
-   - It is one of the primitives when the name and the variants say so (a Button with
- Size and Type variants is the Button primitive). Read the primitive with
+   - It is one of the system components when the name and the variants say so (a Button with
+ Size and Type variants is the Button system component). Read the system component with
  ${tools.get_component} for its props, then map it with ${tools.map_figma_component}: the variants and text
  properties to its props (propMap), constants to props, the label to text.
    - It is custom when nothing here does the job: map it as {kind:"expand"} and its layers are kept.

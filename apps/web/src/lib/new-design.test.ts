@@ -72,7 +72,7 @@ describe("a design the desktop app has just written", () => {
     expect(replaced).toEqual(["/"]);
   });
 
-  it("gives the starter's primitives no spec: they are drawn in their default look", async () => {
+  it("gives the starter's system components no spec: they are drawn in their default look", async () => {
     openedWith("?new-design=starter");
     answerSetup();
     await openNewDesignOnSync();

@@ -1,12 +1,12 @@
 /**
- * The frame a primitive is drawn in, as the primitives see it: where their popups go (the frame's
+ * The frame a system component is drawn in, as the system components see it: where their popups go (the frame's
  * body, inside its shadow root, so a dialog's backdrop covers this page only), the frame's host
  * (what an event from inside it carries on its path) and whether the frame runs (the prototype,
  * interact mode) or is designed.
  *
  * Designing, what is open is the design's (an overlay's `open` prop) and nothing the user does
  * changes it; the frame is inert besides, so nothing in it takes focus or the pointer. Running,
- * a primitive starts from what the design says and its behaviour is Base UI's, kept to its own
+ * a system component starts from what the design says and its behaviour is Base UI's, kept to its own
  * frame: a press, a focus or an Escape from another frame or from the editor closes nothing.
  */
 import {
@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-export interface PrimitiveFrame {
+export interface ComponentFrame {
   /** Where popups are portalled: the frame's body. */
   readonly container: HTMLElement | null;
   /** The frame's host: an event from inside the frame has it on its path. */
@@ -28,23 +28,23 @@ export interface PrimitiveFrame {
   readonly interactive: boolean;
 }
 
-const NO_FRAME: PrimitiveFrame = {
+const NO_FRAME: ComponentFrame = {
   container: null,
   host: null,
   interactive: false,
 };
 
-const FrameContext = createContext<PrimitiveFrame>(NO_FRAME);
+const FrameContext = createContext<ComponentFrame>(NO_FRAME);
 
-export const PrimitiveFrameProvider = ({
+export const ComponentFrameProvider = ({
   children,
   frame,
 }: {
   readonly children?: ReactNode;
-  readonly frame: PrimitiveFrame;
+  readonly frame: ComponentFrame;
 }) => createElement(FrameContext.Provider, { value: frame }, children);
 
-export const usePrimitiveFrame = () => useContext(FrameContext);
+export const useComponentFrame = () => useContext(FrameContext);
 
 /** The attribute every frame's host carries (preview-core's `data-ed-frame-host`). */
 const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
@@ -117,10 +117,10 @@ const fromOutside = (host: HTMLElement, details: ChangeDetails) => {
 
 /**
  * An overlay's open state. Designed, it is the design's `open`. Running, it starts from it, the
- * primitive's own from then on, and only what happens in its frame closes it.
+ * system component's own from then on, and only what happens in its frame closes it.
  */
 export const useOverlayOpen = (designed: boolean | undefined) => {
-  const { host, interactive } = usePrimitiveFrame();
+  const { host, interactive } = useComponentFrame();
   const wanted = designed === true;
   const [open, setOpen] = useState(wanted);
   useEffect(() => {

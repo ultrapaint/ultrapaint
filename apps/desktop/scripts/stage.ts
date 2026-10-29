@@ -1,7 +1,7 @@
 /**
  * `build/app` as the installers package it (D14): the app's own code, the adapters, the editor,
  * and the server bundled into `server/`. Nothing is installed beside them: the canvas draws the
- * editor's own primitives (ADR 0040). As `pnpm pack:local` packs the command, without touching
+ * editor's own system components (ADR 0040). As `pnpm pack:local` packs the command, without touching
  * the checkout's own builds.
  */
 import { execFileSync } from "node:child_process";

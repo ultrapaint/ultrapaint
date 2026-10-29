@@ -1,7 +1,7 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
@@ -265,18 +265,18 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "starts a primitive's spec from its default look, and makes a draft of a node",
+      "starts a system component's spec from its default look, and makes a draft of a node",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          // A primitive (ADR 0040): nothing of the repository's is read, its parts are the
-          // catalogue's, and its look starts as the primitive's default.
+          // A system component (ADR 0040): nothing of the repository's is read, its parts are the
+          // catalogue's, and its look starts as the system component's default.
           const read = yield* client["specs.fromCode"]({ component: "Button" });
           const { spec } = read;
           assert.strictEqual(read.file, "specs/Button.spec.json");
           assert.strictEqual(spec?.look, "design");
-          assert.strictEqual(spec?.from, PRIMITIVES_FROM);
+          assert.strictEqual(spec?.from, SYSTEM_FROM);
           assert.deepStrictEqual(
             spec?.slots.map((s) => s.name),
             ["root", "button-spinner"]

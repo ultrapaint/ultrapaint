@@ -1,8 +1,8 @@
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import { describe, expect, it } from "vitest";
-import { pageComponentName, primitivesImportBase, toCode } from "./code.ts";
+import { componentsImportBase, pageComponentName, toCode } from "./code.ts";
 
 /** A style system that writes each declaration as a class, to see what it is given. */
 const writer: ClassWriter = {
@@ -154,12 +154,12 @@ describe("breakpoints", () => {
   });
 });
 
-describe("a primitive in the Code tab", () => {
+describe("a system component in the Code tab", () => {
   const dialog: DesignNode = {
     children: [
       {
         component: "Button",
-        from: PRIMITIVES_FROM,
+        from: SYSTEM_FROM,
         id: "open",
         slot: "trigger",
         text: "Delete",
@@ -168,7 +168,7 @@ describe("a primitive in the Code tab", () => {
       { id: "p", role: "paragraph", text: "For good.", type: "text" },
       {
         component: "Button",
-        from: PRIMITIVES_FROM,
+        from: SYSTEM_FROM,
         id: "cancel",
         props: { variant: "outline" },
         slot: "dialog-footer",
@@ -177,7 +177,7 @@ describe("a primitive in the Code tab", () => {
       },
       {
         component: "Button",
-        from: PRIMITIVES_FROM,
+        from: SYSTEM_FROM,
         id: "ok",
         slot: "dialog-footer",
         text: "Delete",
@@ -185,7 +185,7 @@ describe("a primitive in the Code tab", () => {
       },
     ],
     component: "Dialog",
-    from: PRIMITIVES_FROM,
+    from: SYSTEM_FROM,
     id: "d",
     props: { title: "Delete it?" },
     type: "instance",
@@ -209,20 +209,20 @@ import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 </Dialog>`
     );
     expect(
-      toCode(dialog, none, { primitivesFrom: "@/ui" }).split("\n")[0]
+      toCode(dialog, none, { componentsFrom: "@/ui" }).split("\n")[0]
     ).toBe('import { Button } from "@/ui/button";');
   });
 
   it("is imported from the first component directory's ui/, `src/` as the `@/` alias", () => {
-    expect(primitivesImportBase({ libraryDirs: [] })).toBe("@/components/ui");
+    expect(componentsImportBase({ libraryDirs: [] })).toBe("@/components/ui");
     expect(
-      primitivesImportBase({
+      componentsImportBase({
         libraryDirs: ["apps/web/src/components"],
         resolveFrom: "apps/web",
       })
     ).toBe("@/components/ui");
-    expect(primitivesImportBase({ libraryDirs: ["src/lib"] })).toBe("@/lib/ui");
-    expect(primitivesImportBase({ libraryDirs: ["packages/ui/src"] })).toBe(
+    expect(componentsImportBase({ libraryDirs: ["src/lib"] })).toBe("@/lib/ui");
+    expect(componentsImportBase({ libraryDirs: ["packages/ui/src"] })).toBe(
       "packages/ui/src/ui"
     );
   });

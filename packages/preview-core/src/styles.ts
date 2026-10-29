@@ -1,6 +1,6 @@
 /**
  * The stylesheets every frame of the editor's page adopts (ADR 0034, 0040): the frame's own base,
- * the components' look (the primitives'), and the design's (every token's value and the component
+ * the components' look (the system components'), and the design's (every token's value and the component
  * specs, ADR 0028 and 0029). Each is parsed once and shared by every frame.
  */
 import {
@@ -12,7 +12,7 @@ import {
 
 const sheets: {
   base: CSSStyleSheet | null;
-  /** The components' own look: the primitives' (ADR 0040). */
+  /** The components' own look: the system components' (ADR 0040). */
   components: CSSStyleSheet | null;
   design: CSSStyleSheet | null;
 } = { base: null, components: null, design: null };
@@ -46,7 +46,7 @@ img[data-ed-skeleton] { opacity: 0.35; }
  * what it draws.
  *
  * The reset is a layer of its own, the frames' first: every later rule on the page's root (the
- * primitives' layer, the design's tokens) wins over it as it would over the browser's defaults.
+ * system components' layer, the design's tokens) wins over it as it would over the browser's defaults.
  */
 const BASE_CSS = `
 @layer ed-frame {

@@ -106,19 +106,19 @@ review found.
 
 ## Preview
 
-- **Primitive**: one of the editor's own components (`packages/primitives`, ADR 0040): Button,
-  Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base UI, run by the
-  editor's React. An instance names one with `from: "@ultrapaint/primitives"`. Its **catalogue**
+- **System component**: one of the editor's own components (`packages/system-components`, ADRs
+  0040, 0041): Button, Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base
+  UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`. Its **catalogue**
   entry says its props, variant axes, parts (`data-slot`), slots, states and **layer**: in the
   page's flow (`inline`), anchored above it (`anchored`) or over it (`blocking`). Its look is its
   default look (a spec of its own, `defaults.ts`, drawn by `look.ts`) under the project's spec (0029).
-- **Slot**: a part of a primitive that holds nodes (a Dialog's `trigger`, `dialog-header`,
+- **Slot**: a part of a system component that holds nodes (a Dialog's `trigger`, `dialog-header`,
   `dialog-content`, `dialog-footer`): an instance's child fills the slot it names (`slot`), the
   rest fill the **default** slot.
-- **Element**: a layout, text or image node the Assets panel offers above the primitives
+- **Element**: a layout, text or image node the Assets panel offers above the system components
   (`ELEMENTS`, `newElement`).
-- **Preview**: what draws the editor's frames: preview-core's frames, the renderer, the primitives.
-  Nothing of the repository's runs in it.
+- **Preview**: what draws the editor's frames: preview-core's frames, the renderer, the system
+  components. Nothing of the repository's runs in it.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool
   that parks it (`editor-frame`).
 - **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
@@ -129,7 +129,7 @@ review found.
 - **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
   places it, the core writes it (`frame-host`). The editor says how the frame is **shown** (class,
   style, title, input, away). An event is **from a frame** when a host the core drew is on its
-  path. A frame **runs** while it takes input (the prototype, interact mode): its primitives
+  path. A frame **runs** while it takes input (the prototype, interact mode): its system components
   behave, kept to the frame; designed, it is inert and its overlays are open where the design says.
 - **Page error**: what went wrong drawing a frame's page (framework-api's `PageError`): a part
   threw. The editor frame keeps its latest, whoever listens and on screen or parked, until the

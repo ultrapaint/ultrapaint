@@ -2,23 +2,23 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { PRIMITIVES, primitiveOf, slotFor } from "./catalogue.ts";
-import { PRIMITIVE_COMPONENTS } from "./components.tsx";
-import { type PrimitiveFrame, PrimitiveFrameProvider } from "./frame.ts";
+import { SYSTEM_COMPONENTS, slotFor, systemComponentOf } from "./catalogue.ts";
+import { SYSTEM_COMPONENT_VIEWS } from "./components.tsx";
+import { type ComponentFrame, ComponentFrameProvider } from "./frame.ts";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("the catalogue", () => {
-  it("names a component for every primitive, and a primitive for every component", () => {
-    expect(PRIMITIVES.map((p) => p.name).sort()).toEqual(
-      Object.keys(PRIMITIVE_COMPONENTS).sort()
+  it("names a component for every system component, and a system component for every component", () => {
+    expect(SYSTEM_COMPONENTS.map((p) => p.name).sort()).toEqual(
+      Object.keys(SYSTEM_COMPONENT_VIEWS).sort()
     );
   });
 
-  it("gives every primitive one root and at most one default slot", () => {
-    for (const meta of PRIMITIVES) {
+  it("gives every system component one root and at most one default slot", () => {
+    for (const meta of SYSTEM_COMPONENTS) {
       expect(
         meta.slots.filter((s) => s.holds === "default").length
       ).toBeLessThanOrEqual(1);
@@ -29,7 +29,7 @@ describe("the catalogue", () => {
   });
 
   it("puts a child that names no slot in the default one, and a named one in its own", () => {
-    const dialog = primitiveOf("Dialog");
+    const dialog = systemComponentOf("Dialog");
     expect(dialog && slotFor(dialog, undefined)?.name).toBe("dialog-content");
     expect(dialog && slotFor(dialog, "dialog-footer")?.name).toBe(
       "dialog-footer"
@@ -64,7 +64,7 @@ const draw = (
   interactive: boolean,
   element: React.ReactNode
 ) => {
-  const value: PrimitiveFrame = {
+  const value: ComponentFrame = {
     container: at.body,
     host: at.host,
     interactive,
@@ -72,12 +72,12 @@ const draw = (
   root ??= createRoot(at.canvas);
   act(() =>
     root?.render(
-      <PrimitiveFrameProvider frame={value}>{element}</PrimitiveFrameProvider>
+      <ComponentFrameProvider frame={value}>{element}</ComponentFrameProvider>
     )
   );
 };
 
-const Dialog = PRIMITIVE_COMPONENTS.Dialog as (
+const Dialog = SYSTEM_COMPONENT_VIEWS.Dialog as (
   props: Record<string, unknown>
 ) => React.ReactNode;
 

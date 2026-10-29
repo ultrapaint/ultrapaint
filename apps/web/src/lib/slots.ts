@@ -1,6 +1,6 @@
 /**
- * A primitive's slots as its children fill them (ADR 0040): a child names the slot it fills, and
- * one that names none, or names no slot the primitive has, fills the default one.
+ * A system component's slots as its children fill them (ADR 0040): a child names the slot it fills, and
+ * one that names none, or names no slot the system component has, fills the default one.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";

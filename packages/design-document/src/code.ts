@@ -6,7 +6,7 @@
  * writes it. The markup, the imports, the names and each element's declarations at every
  * breakpoint (`css.ts`) are the same whatever the style system; the classes are its own, through
  * a `ClassWriter` (ADR 0024): Tailwind v4's is `@ultrapaint/style-tailwind-v4/node-classes`.
- * A primitive is written as the application's own component for it, its slots as that
+ * A system component is written as the application's own component for it, its slots as that
  * component's parts (ADR 0040): a sketch an implementing agent adapts to what the application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -17,7 +17,7 @@ import type {
   Declarations,
 } from "@ultrapaint/contracts/node-style";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import {
   type Breakpoint,
   breakpointsUsed,
@@ -58,6 +58,11 @@ export interface CodeOptions {
    * Left out, the page is written as its markup alone.
    */
   readonly component?: string | undefined;
+  /**
+   * Where the application's own components for the system components are imported from
+   * (`componentsImportBase`); `@/components/ui` when left out.
+   */
+  readonly componentsFrom?: string | undefined;
   /** The design system the node is drawn with, whose text styles a text is set in. */
   readonly designSystem?: DesignSystem | null | undefined;
   /**
@@ -74,11 +79,6 @@ export interface CodeOptions {
   readonly instances?: Readonly<Record<string, InstanceDrawn>> | undefined;
   /** How the node's parent lays it out, which `fill` and `hug` are relative to. */
   readonly parent?: ParentLayout | undefined;
-  /**
-   * Where the application's own components for the primitives are imported from
-   * (`primitivesImportBase`); `@/components/ui` when left out.
-   */
-  readonly primitivesFrom?: string | undefined;
 }
 
 /** What writing every node of one call needs. */
@@ -96,9 +96,9 @@ interface Writing {
   readonly styles: StyleContext;
 }
 
-// ---- Primitives as the application's components ----
+// ---- System components as the application's components ----
 
-const DEFAULT_PRIMITIVES_FROM = "@/components/ui";
+const DEFAULT_COMPONENTS_FROM = "@/components/ui";
 const UPPER_RE = /([a-z0-9])([A-Z])/g;
 
 const kebabOf = (name: string) => name.replace(UPPER_RE, "$1-$2").toLowerCase();
@@ -109,18 +109,18 @@ const pascalOf = (kebab: string) =>
     .join("");
 
 /**
- * Where the application's own component for a primitive is imported from (ADR 0040): the first
+ * Where the application's own component for a system component is imported from (ADR 0040): the first
  * component directory's `ui/`, a `src/` in it (inside the application) written as the `@/`
  * alias Vite and shadcn applications set up; `@/components/ui` without one. A sketch, as the
  * whole Code tab is: the implementing agent finds where the application's components are.
  */
-export const primitivesImportBase = (settings: {
+export const componentsImportBase = (settings: {
   readonly libraryDirs: readonly string[];
   readonly resolveFrom?: string | undefined;
 }): string => {
   const [dir] = settings.libraryDirs;
   if (dir === undefined) {
-    return DEFAULT_PRIMITIVES_FROM;
+    return DEFAULT_COMPONENTS_FROM;
   }
   const app = settings.resolveFrom;
   const inApp =
@@ -132,7 +132,7 @@ export const primitivesImportBase = (settings: {
 };
 
 /**
- * A tree with each primitive written as the application's component for it (ADR 0040): imported
+ * A tree with each system component written as the application's component for it (ADR 0040): imported
  * from `base`'s file of its name (`@/components/ui/dialog`), the children of each named slot in
  * that component's part (`DialogFooter` for `dialog-footer`, `DialogTrigger` for `trigger`), where
  * the first of them was.
@@ -147,7 +147,7 @@ const asApplicationCode = (node: DesignNode, base: string): DesignNode => {
       : node;
   }
   const children = (node.children ?? []).map((c) => asApplicationCode(c, base));
-  if (node.from !== PRIMITIVES_FROM) {
+  if (node.from !== SYSTEM_FROM) {
     return node.children ? { ...node, children } : node;
   }
   const own = kebabOf(node.component);
@@ -616,7 +616,7 @@ export const toCode = (
 ): string => {
   const node = asApplicationCode(
     given,
-    options.primitivesFrom ?? DEFAULT_PRIMITIVES_FROM
+    options.componentsFrom ?? DEFAULT_COMPONENTS_FROM
   );
   const parent = options.parent ?? "free";
   const asComponent = node.type === "page" && options.component !== undefined;

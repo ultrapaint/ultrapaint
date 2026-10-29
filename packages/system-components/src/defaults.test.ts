@@ -1,16 +1,16 @@
 import { ComponentSpec } from "@ultrapaint/contracts/specs";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { PRIMITIVES } from "./catalogue.ts";
-import { defaultSpecOf, PRIMITIVE_DEFAULTS } from "./defaults.ts";
-import { PRIMITIVES_CSS } from "./look.ts";
+import { SYSTEM_COMPONENTS } from "./catalogue.ts";
+import { defaultSpecOf, SYSTEM_DEFAULTS } from "./defaults.ts";
+import { SYSTEM_COMPONENTS_CSS } from "./look.ts";
 
 describe("the default look", () => {
-  it("is a valid design spec for every primitive, styling only its parts and axes", () => {
-    expect(PRIMITIVE_DEFAULTS.map((s) => s.component)).toEqual(
-      PRIMITIVES.map((p) => p.name)
+  it("is a valid design spec for every system component, styling only its parts and axes", () => {
+    expect(SYSTEM_DEFAULTS.map((s) => s.component)).toEqual(
+      SYSTEM_COMPONENTS.map((p) => p.name)
     );
-    for (const meta of PRIMITIVES) {
+    for (const meta of SYSTEM_COMPONENTS) {
       const spec = defaultSpecOf(meta.name);
       expect(Schema.decodeUnknownSync(ComponentSpec)(spec)).toEqual(spec);
       expect(spec?.look).toBe("design");
@@ -30,10 +30,12 @@ describe("the default look", () => {
     }
   });
 
-  it("is drawn in the primitives' layer, a portalled part found through its portal", () => {
-    expect(PRIMITIVES_CSS).toContain(
+  it("is drawn in the system components' layer, a portalled part found through its portal", () => {
+    expect(SYSTEM_COMPONENTS_CSS).toContain(
       '[data-ed-p="Dialog"] [data-slot="dialog"]'
     );
-    expect(PRIMITIVES_CSS).toContain("background-color: var(--color-primary)");
+    expect(SYSTEM_COMPONENTS_CSS).toContain(
+      "background-color: var(--color-primary)"
+    );
   });
 });

@@ -1,19 +1,19 @@
 /**
- * Each primitive's default look as data (ADR 0040): a component spec (ADR 0029) in the design
+ * Each system component's default look as data (ADR 0040): a component spec (ADR 0029) in the design
  * document's own style fields, over the design system's tokens (`$color-primary`). `look.ts`
- * draws them under the project's specs; taking a primitive's look over starts the project's spec
+ * draws them under the project's specs; taking a system component's look over starts the project's spec
  * from its default, so the designer edits real values. What a spec cannot say stays in `look.ts`:
  * layout, positioning, a dialog's sheet on a narrow frame, animations, and what a pointer or a
  * state does to a part.
  */
 import type { Sides } from "@ultrapaint/contracts/document";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/spec-names";
 import type {
   ComponentSpec,
   SlotStyles,
   SpecStyle,
 } from "@ultrapaint/contracts/specs";
-import { PRIMITIVES, type PrimitiveMeta } from "./catalogue.ts";
+import { SYSTEM_COMPONENTS, type SystemComponentMeta } from "./catalogue.ts";
 
 /** The same length above and below, and the same on either side. */
 const pad = (block: string | number, inline: string | number): Sides => ({
@@ -389,7 +389,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
   },
 };
 
-const specOf = (meta: PrimitiveMeta): ComponentSpec => {
+const specOf = (meta: SystemComponentMeta): ComponentSpec => {
   const look = LOOKS[meta.name] ?? { base: {} };
   return {
     base: look.base,
@@ -400,7 +400,7 @@ const specOf = (meta: PrimitiveMeta): ComponentSpec => {
       )
     ),
     description: meta.description,
-    from: PRIMITIVES_FROM,
+    from: SYSTEM_FROM,
     look: "design",
     slots: meta.slots.map((s) => ({ label: s.label, name: s.name })),
     states: {},
@@ -409,12 +409,12 @@ const specOf = (meta: PrimitiveMeta): ComponentSpec => {
   };
 };
 
-/** Every primitive's default look, as a spec. */
-export const PRIMITIVE_DEFAULTS: readonly ComponentSpec[] =
-  PRIMITIVES.map(specOf);
+/** Every system component's default look, as a spec. */
+export const SYSTEM_DEFAULTS: readonly ComponentSpec[] =
+  SYSTEM_COMPONENTS.map(specOf);
 
-const byName = new Map(PRIMITIVE_DEFAULTS.map((s) => [s.component, s]));
+const byName = new Map(SYSTEM_DEFAULTS.map((s) => [s.component, s]));
 
-/** A primitive's default look, as a spec; undefined for a name that is no primitive. */
+/** A system component's default look, as a spec; undefined for a name that is no system component. */
 export const defaultSpecOf = (component: string): ComponentSpec | undefined =>
   byName.get(component);

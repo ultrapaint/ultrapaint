@@ -1,8 +1,15 @@
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import {
+  LEGACY_SYSTEM_FROM,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/spec-names";
 import { describe, expect, it } from "vitest";
-import { primitiveOf } from "./catalogue.ts";
-import { asPrimitive, migrationOf, primitiveFor } from "./migrate.ts";
+import { systemComponentOf } from "./catalogue.ts";
+import {
+  asSystemComponent,
+  migrationOf,
+  systemComponentFor,
+} from "./migrate.ts";
 
 const instance = (
   id: string,
@@ -16,20 +23,20 @@ const instance = (
   ...extra,
 });
 
-describe("primitiveFor", () => {
-  it("finds a primitive by a component's name, case aside, and by shadcn's names", () => {
-    expect(primitiveFor("button")?.name).toBe("Button");
-    expect(primitiveFor("DropdownMenu")?.name).toBe("Menu");
-    expect(primitiveFor("Sonner")?.name).toBe("Toast");
-    expect(primitiveFor("Spinner")?.name).toBe("Spinner");
-    expect(primitiveFor("DataTable")).toBeUndefined();
+describe("systemComponentFor", () => {
+  it("finds a system component by a component's name, case aside, and by shadcn's names", () => {
+    expect(systemComponentFor("button")?.name).toBe("Button");
+    expect(systemComponentFor("DropdownMenu")?.name).toBe("Menu");
+    expect(systemComponentFor("Sonner")?.name).toBe("Toast");
+    expect(systemComponentFor("Spinner")?.name).toBe("Spinner");
+    expect(systemComponentFor("DataTable")).toBeUndefined();
   });
 });
 
-describe("asPrimitive", () => {
-  it("maps shadcn's variant values onto the primitive's axes, keeping its text", () => {
+describe("asSystemComponent", () => {
+  it("maps shadcn's variant values onto the system component's axes, keeping its text", () => {
     expect(
-      asPrimitive(
+      asSystemComponent(
         instance("b", "Button", {
           props: { onClick: "x", size: "default", variant: "default" },
           text: "New order",
@@ -38,7 +45,7 @@ describe("asPrimitive", () => {
       )
     ).toEqual({
       component: "Button",
-      from: PRIMITIVES_FROM,
+      from: SYSTEM_FROM,
       id: "b",
       props: { size: "md", variant: "primary" },
       text: "New order",
@@ -47,9 +54,9 @@ describe("asPrimitive", () => {
     });
   });
 
-  it("keeps a member the primitive has and drops one it lacks", () => {
+  it("keeps a member the system component has and drops one it lacks", () => {
     expect(
-      asPrimitive(
+      asSystemComponent(
         instance("b", "Button", {
           props: { size: "icon-xs", variant: "outline" },
         })
@@ -59,13 +66,13 @@ describe("asPrimitive", () => {
 
   it("maps props set at a breakpoint too", () => {
     expect(
-      asPrimitive(
+      asSystemComponent(
         instance("b", "Button", { at: { md: { props: { size: "default" } } } })
       ).at
     ).toEqual({ md: { props: { size: "md" } } });
   });
 
-  it("takes a compound component apart into the primitive's slots and props", () => {
+  it("takes a compound component apart into the system component's slots and props", () => {
     const dialog = instance("d", "Dialog", {
       children: [
         instance("t", "DialogTrigger", {
@@ -97,7 +104,7 @@ describe("asPrimitive", () => {
       ],
       props: { open: true },
     });
-    const drawn = asPrimitive(dialog);
+    const drawn = asSystemComponent(dialog);
     expect(drawn.props).toEqual({
       description: "For good.",
       open: true,
@@ -110,14 +117,14 @@ describe("asPrimitive", () => {
         c.type === "instance" && c.from,
       ])
     ).toEqual([
-      ["open", "trigger", PRIMITIVES_FROM],
+      ["open", "trigger", SYSTEM_FROM],
       ["p", undefined, false],
-      ["ok", "dialog-footer", PRIMITIVES_FROM],
+      ["ok", "dialog-footer", SYSTEM_FROM],
     ]);
   });
 
   it("makes a menu's items its list, and a part with text and no slot a text node", () => {
-    const menu = asPrimitive(
+    const menu = asSystemComponent(
       instance("m", "DropdownMenu", {
         children: [
           instance("tr", "DropdownMenuTrigger", { text: "Open" }),
@@ -138,20 +145,20 @@ describe("asPrimitive", () => {
     ]);
   });
 
-  it("draws an instance as the primitive it is given", () => {
-    const meta = primitiveOf("Badge");
+  it("draws an instance as the system component it is given", () => {
+    const meta = systemComponentOf("Badge");
     expect(
-      asPrimitive(instance("x", "StatusPill", { text: "Paid" }), meta)
+      asSystemComponent(instance("x", "StatusPill", { text: "Paid" }), meta)
     ).toMatchObject({
       component: "Badge",
-      from: PRIMITIVES_FROM,
+      from: SYSTEM_FROM,
       text: "Paid",
     });
   });
 });
 
 describe("migrationOf", () => {
-  it("replaces the outermost instances a primitive draws and counts those inside them", () => {
+  it("replaces the outermost instances a system component draws and counts those inside them", () => {
     const root: DesignNode = {
       children: [
         instance("card", "Card", {
@@ -176,18 +183,18 @@ describe("migrationOf", () => {
     expect(migration.replaced.map((n) => n.id)).toEqual(["card", "sp"]);
     expect(migration.replaced[0]?.children?.[0]).toMatchObject({
       component: "Button",
-      from: PRIMITIVES_FROM,
+      from: SYSTEM_FROM,
       id: "b",
       slot: "card-footer",
     });
   });
 
-  it("leaves primitives and drafts as they are", () => {
+  it("leaves system components and drafts as they are", () => {
     const root: DesignNode = {
       children: [
         {
           component: "Button",
-          from: PRIMITIVES_FROM,
+          from: SYSTEM_FROM,
           id: "a",
           type: "instance",
         },
@@ -197,5 +204,50 @@ describe("migrationOf", () => {
       type: "page",
     };
     expect(migrationOf(root)).toEqual({ drawn: 0, left: [], replaced: [] });
+  });
+
+  it("names a system component's instance from before ADR 0041 as now, keeping what it holds", () => {
+    const root: DesignNode = {
+      children: [
+        {
+          children: [
+            {
+              component: "Button",
+              from: LEGACY_SYSTEM_FROM,
+              id: "ok",
+              slot: "card-footer",
+              type: "instance",
+            },
+          ],
+          component: "Card",
+          from: LEGACY_SYSTEM_FROM,
+          id: "card",
+          props: { title: "Plan" },
+          type: "instance",
+        },
+      ],
+      id: "page",
+      type: "page",
+    };
+    const migration = migrationOf(root);
+    expect(migration.drawn).toBe(2);
+    expect(migration.replaced).toEqual([
+      {
+        children: [
+          {
+            component: "Button",
+            from: SYSTEM_FROM,
+            id: "ok",
+            slot: "card-footer",
+            type: "instance",
+          },
+        ],
+        component: "Card",
+        from: SYSTEM_FROM,
+        id: "card",
+        props: { title: "Plan" },
+        type: "instance",
+      },
+    ]);
   });
 });

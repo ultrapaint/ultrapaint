@@ -21,7 +21,7 @@ export const COMPONENT_ATTRIBUTE = "data-ed-c";
 export const VARIANT_ATTRIBUTE = "data-ed-v";
 export const STATE_ATTRIBUTE = "data-ed-state";
 /**
- * What a primitive's part outside its instance's element carries (ADR 0040): an overlay's popup,
+ * What a system component's part outside its instance's element carries (ADR 0040): an overlay's popup,
  * portalled into the frame's body, is the component's as a portal, not as its root.
  */
 export const PORTAL_ATTRIBUTE = "data-ed-p";

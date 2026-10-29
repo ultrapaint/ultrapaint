@@ -744,14 +744,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "answers the catalogue with the editor's primitives, whatever the repository holds",
+      "answers the catalogue with the editor's system components, whatever the repository holds",
       () =>
         Effect.gen(function* () {
           const { client, settings } = yield* TestEnv;
           yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
           const catalogue = yield* client["catalogue.get"]({ refresh: true });
           const button = catalogue.components.find((c) => c.name === "Button");
-          assert.strictEqual(button?.importFrom, "@ultrapaint/primitives");
+          assert.strictEqual(button?.importFrom, "@ultrapaint/system");
           assert.deepStrictEqual(
             button?.props.map((p) => [p.name, p.type.kind]),
             [

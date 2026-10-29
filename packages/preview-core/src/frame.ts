@@ -1,6 +1,6 @@
 /**
  * The frames of the editor's own page (ADR 0034, 0040). Every frame of the canvas is a shadow
- * root, drawn by the editor's renderer with the editor's primitives: no iframe, no document of
+ * root, drawn by the editor's renderer with the editor's system components: no iframe, no document of
  * its own, no message to wait for, and nothing of the repository's running. What a frame is asked
  * (where things are, what is under a point, a picture) it answers from the DOM as it is.
  *
@@ -227,7 +227,7 @@ const mountFrame = (
     }
   };
 
-  /** Who hears the frame start or stop running: the primitives, which run only then. */
+  /** Who hears the frame start or stop running: the system components, which run only then. */
   const interactiveListeners = new Set<() => void>();
   const setup = renderSetup(input, options, {
     frame: {
@@ -320,7 +320,7 @@ const mountFrame = (
     } else {
       body.setAttribute(INERT, "");
     }
-    // What a pointer does shows only in a frame that runs (the primitives' look, ADR 0040).
+    // What a pointer does shows only in a frame that runs (the system components' look, ADR 0040).
     body.toggleAttribute(LIVE, shown.interactive);
   };
 

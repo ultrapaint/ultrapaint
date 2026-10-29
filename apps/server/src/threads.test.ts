@@ -261,7 +261,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const threadId = yield* startThread;
           yield* prompt(threadId, "/init");
           const init = yield* waitForThread(threadId, turnEnded);
-          // The fixture configures no components, which the primitives make no matter.
+          // The fixture configures no components, which the system components make no matter.
           assert.include(
             said(init.items).join("\n"),
             "task:init Import this repository's design system"
