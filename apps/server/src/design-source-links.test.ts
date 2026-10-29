@@ -69,9 +69,6 @@ const setUp = Effect.gen(function* () {
     libraryDirs: ["designs/ui"],
   });
   yield* client["designSystem.detect"]();
-  yield* waitFor(client["catalogue.get"]({ refresh: false }), (c) =>
-    c.components.some((m) => m.name === "Button")
-  );
 });
 
 layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(

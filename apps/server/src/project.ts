@@ -29,7 +29,6 @@ import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import type { CatalogueService } from "./services/catalogue.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
@@ -58,7 +57,6 @@ import type { WorkingTree } from "./services/working-tree.ts";
 
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
-  | CatalogueService
   | CodeSide
   | CommentsService
   | ComponentService

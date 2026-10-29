@@ -14,7 +14,7 @@ import {
 import { tokenValues } from "@ultrapaint/design-document/tokens";
 import { cn } from "cn";
 import { ChevronDown, RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +24,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
-import { useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 
@@ -278,18 +278,13 @@ const MappingRow = ({
 export const MappingView = () => {
   const mapping = useDesignSystemSetup((s) => s.mapping);
   const designSystem = useDesignSystem((s) => s.designSystem);
-  const catalogue = useCatalogue((s) => s.catalogue);
+  const catalogue = useComponents((s) => s.catalogue);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [all, setAll] = useState(false);
-  useEffect(() => {
-    if (!useCatalogue.getState().catalogue) {
-      useCatalogue.getState().load();
-    }
-  }, []);
   if (!mapping) {
     return null;
   }
-  const components = (catalogue?.components ?? []).map((c) => c.name);
+  const components = catalogue.map((c) => c.name);
   const open = mapping.entries.filter((e) => e.target === undefined && !e.keep);
   const shown = filter === "open" ? open : mapping.entries;
   const listed = all ? shown : shown.slice(0, FIRST_ENTRIES);

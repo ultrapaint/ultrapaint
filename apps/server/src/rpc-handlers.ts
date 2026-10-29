@@ -4,7 +4,6 @@ import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
-import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
@@ -70,7 +69,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const designMd = project.service(DesignMd);
     const thumbnails = project.service(Thumbnails);
     const skills = project.service(SkillsService);
-    const catalogue = project.service(CatalogueService);
     const figma = project.service(FigmaImportService);
     const components = project.service(ComponentService);
     const implementation = project.service(ImplementationService);
@@ -92,7 +90,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.reorder": ({ order }) => pages((s) => s.reorderCanvases(order)),
       "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
-      "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),

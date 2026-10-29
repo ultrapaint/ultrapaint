@@ -48,7 +48,6 @@ import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { setView } from "./state/camera.ts";
-import { useCatalogue } from "./state/catalogue.ts";
 import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
 import { useDesignSystem } from "./state/design-system.ts";
@@ -323,7 +322,6 @@ export const App = () => {
   useEffect(() => {
     if (configured) {
       useDesignSystem.getState().load();
-      useCatalogue.getState().load();
       useComponents.getState().load();
       useImplementation.getState().load();
       provideDesignLook(designLook);

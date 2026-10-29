@@ -5,6 +5,8 @@
  * menu it opens says which prop or token it sets. Design keeps the plain selection and the
  * inspector instead.
  */
+
+import { metaOf } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import type { Thread } from "@ultrapaint/contracts/threads";
@@ -33,7 +35,7 @@ import { controlsOf } from "../lib/element-controls.ts";
 import { areSiblings, wrapNodes } from "../lib/node-actions.ts";
 import { openChat, stopThread } from "../lib/thread-actions.ts";
 import { useAgents } from "../state/agents.ts";
-import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { type MenuTarget, showMenu } from "../state/context-menu.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
@@ -57,11 +59,11 @@ export const Divider = () => (
 );
 
 const Controls = ({ node }: { node: DesignNode }) => {
-  const meta = useCatalogue((s) =>
-    node.type === "instance" ? componentMetaOf(s.catalogue, node) : undefined
+  const meta = useComponents((s) =>
+    node.type === "instance" ? metaOf(s.catalogue, node) : undefined
   );
   const { more, shown } = controlsOf(node, meta?.variants);
-  const source = meta?.file.split("/").at(-1) ?? "props";
+  const source = meta?.name ?? "props";
   return (
     <>
       {shown.map((control) => {

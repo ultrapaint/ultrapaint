@@ -101,7 +101,15 @@ describe("drawSpecimen", () => {
 });
 
 describe("pictureKey", () => {
-  const drawnIn = { builtAt: 1, canvas: "c_1", designSystem: null };
+  const drawnIn = { canvas: "c_1", components: [], designSystem: null };
+  const look = {
+    base: { root: { radius: 4 } },
+    name: "Button",
+    origin: "system",
+    states: {},
+    variants: {},
+    version: 1,
+  } as const;
   const ds = { colors: [{ name: "Brand", tokens: [] }] } as never;
 
   it("is the same for the same node drawn in the same design system, code and canvas", () => {
@@ -110,13 +118,13 @@ describe("pictureKey", () => {
     );
   });
 
-  it("changes with the design system, the components' code and the canvas", () => {
+  it("changes with the design system, the components and the canvas", () => {
     const key = pictureKey(["Button", "primary"], drawnIn);
     expect(
       pictureKey(["Button", "primary"], { ...drawnIn, designSystem: ds })
     ).not.toBe(key);
     expect(
-      pictureKey(["Button", "primary"], { ...drawnIn, builtAt: 2 })
+      pictureKey(["Button", "primary"], { ...drawnIn, components: [look] })
     ).not.toBe(key);
     expect(
       pictureKey(["Button", "primary"], { ...drawnIn, canvas: "c_2" })

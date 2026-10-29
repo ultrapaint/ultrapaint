@@ -11,6 +11,7 @@
  * they were named, specs' files, their implementations' snapshots and targets, in one undo step.
  */
 
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   type AppComponentFile,
@@ -51,6 +52,7 @@ import {
   idsOf,
 } from "@ultrapaint/design-document/tree";
 import {
+  catalogueOf,
   type SystemComponentMeta,
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
@@ -347,6 +349,8 @@ export class ComponentService extends Context.Service<
     readonly list: Effect.Effect<ComponentList>;
     /** The components that read: what the preview and the briefing use. */
     readonly components: Effect.Effect<readonly ComponentFile[]>;
+    /** What a design can place, system and app (ADR 0042): what the agents are told of. */
+    readonly catalogue: Effect.Effect<Catalogue>;
     readonly write: (
       component: unknown
     ) => Effect.Effect<ComponentEntry, EditFailure>;
@@ -420,6 +424,7 @@ export class ComponentService extends Context.Service<
       );
 
       const components = Effect.map(list, componentsIn);
+      const catalogue = Effect.map(components, catalogueOf);
 
       const publish = Effect.flatMap(list, (l) =>
         events.publish("components", l)
@@ -780,6 +785,7 @@ export class ComponentService extends Context.Service<
 
       return ComponentService.of({
         addNote,
+        catalogue,
         components,
         fromDefault,
         legacy,

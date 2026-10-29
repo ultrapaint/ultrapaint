@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { CanvasId, FileId } from "./base.ts";
-import { Catalogue } from "./catalogue.ts";
 import {
   Comment,
   CommentList,
@@ -596,12 +595,6 @@ const requestRpcs = [
     success: Schema.NullOr(UndoResult),
   }),
   Rpc.make("edit.state", { error: NotConfigured, success: UndoState }),
-
-  Rpc.make("catalogue.get", {
-    error: Schema.Union([NotConfigured, ForbiddenPath]),
-    payload: { refresh: Schema.Boolean },
-    success: Catalogue,
-  }),
 
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
   /** The options each agent's sessions offer, for the agents that have run here before. */

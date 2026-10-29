@@ -35,7 +35,6 @@ import {
 import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
-import { CatalogueService } from "./catalogue.ts";
 import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
@@ -192,10 +191,8 @@ export class DesignSystemSyncService extends Context.Service<
           const paths = yield* RepoPaths;
           const styleSystem = yield* ProjectStyleSystem;
           const { settings } = paths;
-          const components = yield* (yield* CatalogueService).get(false).pipe(
-            Effect.map((c) => c.components.map((component) => component.name)),
-            // A catalogue that cannot be built reads as no components, which the plan says.
-            Effect.orElseSucceed((): string[] => [])
+          const components = (yield* (yield* ComponentService).catalogue).map(
+            (c) => c.name
           );
           const code = yield* CodeSide;
           const source = yield* code.tokens;

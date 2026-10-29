@@ -19,6 +19,7 @@ import {
   toCode,
 } from "@ultrapaint/design-document/code";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import {
   Context,
   Effect,
@@ -30,7 +31,6 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
-import { CatalogueService } from "./catalogue.ts";
 import { CodeSide } from "./code-side.ts";
 import { DesignMd } from "./design-md.ts";
 import {
@@ -134,7 +134,6 @@ export class DesignSystemService extends Context.Service<
       const designMd = yield* DesignMd;
       const figma = yield* FigmaBaseline;
       const styleSystem = yield* ProjectStyleSystem;
-      const catalogue = yield* CatalogueService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -243,21 +242,13 @@ export class DesignSystemService extends Context.Service<
 
       const scan = Effect.gen(function* () {
         const found = yield* code.scan;
-        // Categories are what the catalogue already knows; a catalogue not built yet only
-        // leaves them to the agent.
-        const components = yield* Effect.orElseSucceed(
-          Effect.map(catalogue.get(false), (c) => c.components),
-          () => []
-        );
-        if (components.length === 0) {
-          return found;
-        }
+        // Categories are what the catalogue already knows.
         return {
           ...found,
           designSystem: {
             ...found.designSystem,
             components: Object.fromEntries(
-              components.map((c) => [
+              catalogueOf([]).map((c) => [
                 c.name,
                 {
                   category: c.category,

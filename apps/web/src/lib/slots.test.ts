@@ -1,10 +1,10 @@
 import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
-import { systemCatalogue } from "@ultrapaint/system-components/catalogue";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { describe, expect, it } from "vitest";
 import { childrenInSlot } from "./slots.ts";
 
-const dialog = systemCatalogue().find((c) => c.name === "Dialog");
+const dialog = catalogueOf([]).find((c) => c.name === "Dialog");
 const slots = (dialog?.slots ?? []).filter((s) => s.holds);
 const slot = (name: string) => {
   const found = slots.find((s) => s.name === name);

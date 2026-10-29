@@ -1,5 +1,10 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
+import {
+  type ComponentMeta,
+  metaOf,
+  type PropMeta,
+  typeText,
+} from "@ultrapaint/contracts/catalogue";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
 import type * as React from "react";
 import { useState } from "react";
@@ -8,14 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
-import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 
 const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
 const NONE: ReadonlySet<string> = new Set();
 
-/** The catalogue's entry for an instance: the same export from the same module. */
+/** The catalogue's entry for an instance. */
 const useComponentMeta = (node: InstanceNode) =>
-  useCatalogue((s) => componentMetaOf(s.catalogue, node));
+  useComponents((s) => metaOf(s.catalogue, node));
 
 /**
  * Editable props of an instance of the design system. The catalogue says what the component
@@ -322,16 +327,15 @@ const PropControl = ({
       />
     );
   }
-  if (kind === "node" || kind === "function" || kind === "object") {
-    let shown =
-      value === null ? (meta?.type.raw ?? kind) : JSON.stringify(value);
+  if (kind === "list") {
+    let shown = value === null ? "list" : JSON.stringify(value);
     if (mixed) {
       shown = MIXED;
     }
     return (
       <span
         className="truncate font-code text-muted-foreground"
-        title={meta?.type.raw}
+        title={meta && typeText(meta.type)}
       >
         {shown}
       </span>

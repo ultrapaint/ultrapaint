@@ -8,8 +8,24 @@
  * system component, over the default look in `look.ts`). Implementing a design hands the look of each
  * part in each state to an agent, which applies it to whatever the application uses.
  */
-import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
-import { ROOT_SLOT, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
+import type {
+  Catalogue,
+  ComponentMeta,
+  PropMeta,
+} from "@ultrapaint/contracts/catalogue";
+import {
+  APP_FROM,
+  ROOT_SLOT,
+  SYSTEM_FROM,
+} from "@ultrapaint/contracts/component-names";
+import {
+  type AppComponentFile,
+  appComponentsIn,
+  type ComponentFile,
+  type ComponentProperty,
+} from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { findNode } from "@ultrapaint/design-document/tree";
 
 /** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
 export type ComponentLayer = "inline" | "anchored" | "blocking";
@@ -43,7 +59,7 @@ export interface SystemComponentMeta {
   readonly props: readonly PropMeta[];
   /** Its parts, the root first. */
   readonly slots: readonly SystemComponentSlot[];
-  /** The states its look can be given for (`SPEC_STATES`). */
+  /** The states its look can be given for (`COMPONENT_STATES`). */
   readonly states: readonly string[];
   /** Its items can be drawn by a template of design nodes (`item`): a Select's, a Menu's. */
   readonly templatedItems?: true;
@@ -56,7 +72,6 @@ export interface SystemComponentMeta {
 const prop = (
   name: string,
   kind: PropMeta["type"]["kind"],
-  raw: string,
   description: string,
   extra: Partial<Omit<PropMeta, "name" | "type" | "description">> & {
     readonly members?: readonly string[];
@@ -67,7 +82,6 @@ const prop = (
   required: extra.required ?? false,
   type: {
     kind,
-    raw,
     ...(extra.members && { members: extra.members }),
   },
   ...(extra.defaultValue !== undefined && {
@@ -76,28 +90,18 @@ const prop = (
 });
 
 const text = (name: string, description: string, defaultValue?: string) =>
-  prop(name, "string", "string", description, {
+  prop(name, "string", description, {
     ...(defaultValue !== undefined && { defaultValue }),
   });
 const flag = (name: string, description: string) =>
-  prop(name, "boolean", "boolean", description, { defaultValue: false });
+  prop(name, "boolean", description, { defaultValue: false });
 const choice = (
   name: string,
   members: readonly string[],
   description: string
-) =>
-  prop(
-    name,
-    "enum",
-    members.map((m) => JSON.stringify(m)).join(" | "),
-    description,
-    {
-      defaultValue: members[0],
-      members,
-    }
-  );
+) => prop(name, "enum", description, { defaultValue: members[0], members });
 const list = (name: string, description: string) =>
-  prop(name, "object", "string[]", description);
+  prop(name, "list", description);
 
 const OPEN = flag(
   "open",
@@ -274,7 +278,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       text("label", "The label above the field."),
       text("placeholder", "What the empty field says."),
       text("value", "The text in the field."),
-      prop("rows", "number", "number", "How many lines it shows.", {
+      prop("rows", "number", "How many lines it shows.", {
         defaultValue: 3,
       }),
       DISABLED,
@@ -548,30 +552,10 @@ export const slotFor = (
     ? meta.slots.find((s) => s.holds === "default")
     : meta.slots.find((s) => s.name === slot && s.holds !== undefined);
 
-/** A prop as JSX writes it. */
-const attributeOf = (key: string, value: unknown) => {
-  if (typeof value === "string") {
-    return `${key}=${JSON.stringify(value)}`;
-  }
-  return value === true ? key : `${key}={${JSON.stringify(value)}}`;
-};
-
-const snippetOf = (meta: SystemComponentMeta) => {
-  const attributes = Object.entries(meta.example)
-    .map(([key, value]) => attributeOf(key, value))
-    .join(" ");
-  const open = `<${meta.name}${attributes ? ` ${attributes}` : ""}`;
-  return meta.text === undefined
-    ? `${open} />`
-    : `${open}>${meta.text}</${meta.name}>`;
-};
-
-/** A system component as the catalogue lists a component: what the palette and the inspector read. */
-export const componentMetaOf = (meta: SystemComponentMeta): ComponentMeta => ({
+/** A system component as the catalogue lists a component. */
+const systemEntryOf = (meta: SystemComponentMeta): ComponentMeta => ({
   category: meta.category,
   description: meta.description,
-  file: "",
-  group: "System components",
   importFrom: SYSTEM_FROM,
   name: meta.name,
   props: meta.props,
@@ -581,13 +565,67 @@ export const componentMetaOf = (meta: SystemComponentMeta): ComponentMeta => ({
     ...(s.holds && { holds: s.holds }),
     ...(s.layout && { layout: s.layout }),
   })),
-  snippet: snippetOf(meta),
-  storyIds: [],
   variants: Object.fromEntries(
     Object.entries(meta.variants).map(([axis, members]) => [axis, [...members]])
   ),
 });
 
-/** Every system component as a catalogue's components. */
-export const systemCatalogue = (): ComponentMeta[] =>
-  SYSTEM_COMPONENTS.map(componentMetaOf);
+/** A property as a catalogue's prop: what the inspector edits and an agent reads. */
+const propOf = (property: ComponentProperty): PropMeta => ({
+  defaultValue: property.default,
+  description:
+    property.kind === "image"
+      ? "An image's source: a path in the canvas or a URL."
+      : `The ${property.kind} the component shows.`,
+  name: property.name,
+  required: false,
+  type:
+    property.kind === "choice"
+      ? { kind: "enum", members: property.members ?? [] }
+      : { kind: property.kind === "boolean" ? "boolean" : "string" },
+});
+
+/** How a slot's container lays out what it holds. */
+const layoutOfSlot = (
+  tree: DesignNode,
+  id: string
+): "row" | "column" | "block" => {
+  const node = findNode(tree, id);
+  if (node?.type === "row" || node?.type === "column") {
+    return node.type;
+  }
+  return node?.type === "page" ? "column" : "block";
+};
+
+/**
+ * An app component as the catalogue lists a component (ADR 0041): its properties as props, its
+ * choices as variant axes, its slots as a system component's are, placed with `from: "#app"`.
+ */
+const appEntryOf = (file: AppComponentFile): ComponentMeta => ({
+  category: file.category ?? "App",
+  ...(file.description !== undefined && { description: file.description }),
+  importFrom: APP_FROM,
+  name: file.name,
+  props: file.properties.map(propOf),
+  slots: file.slots.map((s) => ({
+    holds: s.default ? ("default" as const) : ("nodes" as const),
+    label: s.label ?? s.name,
+    layout: layoutOfSlot(file.tree, s.node),
+    name: s.name,
+  })),
+  variants: Object.fromEntries(
+    file.properties.flatMap((p) =>
+      p.kind === "choice" ? [[p.name, [...(p.members ?? [])]]] : []
+    )
+  ),
+});
+
+/**
+ * The catalogue (ADR 0042): what a design can place, over the project's component files. The
+ * system components, each as the editor ships it, then the app components that read; the server
+ * gives it to the agents and the web to its panels, from the same files.
+ */
+export const catalogueOf = (files: readonly ComponentFile[]): Catalogue => [
+  ...SYSTEM_COMPONENTS.map(systemEntryOf),
+  ...appComponentsIn(files).map(appEntryOf),
+];

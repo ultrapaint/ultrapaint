@@ -27,10 +27,10 @@ import { writesGit } from "@ultrapaint/contracts/settings";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
-import { CatalogueService } from "../catalogue.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
@@ -68,12 +68,12 @@ and stashes are the user's${writes ? ", made from the editor" : ""}.`
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
 
-/** A system component as the agent picks one: its variants, and the slots its children can fill. */
+/** A component as the agent picks one: its variants, and the slots its children can fill. */
 const componentLine = (component: ComponentMeta) => {
   const variants = Object.entries(component.variants)
     .map(([name, members]) => `${name}: ${members.join("|")}`)
     .join(", ");
-  const slots = (component.slots ?? [])
+  const slots = component.slots
     .filter((slot) => slot.holds !== undefined)
     .map((slot) =>
       slot.holds === "default" ? `${slot.name} (default)` : slot.name
@@ -82,7 +82,8 @@ const componentLine = (component: ComponentMeta) => {
   const about = [variants, slots && `slots: ${slots}`]
     .filter(Boolean)
     .join("; ");
-  return `- ${component.name}${about ? ` — ${about}` : ""}`;
+  const origin = component.importFrom === APP_FROM ? " (app)" : "";
+  return `- ${component.name}${origin}${about ? ` — ${about}` : ""}`;
 };
 
 /** Enough of the tokens to design with; the agent reads the rest from the design system. */
@@ -163,7 +164,6 @@ const componentsOf = (
   components: readonly ComponentFile[]
 ) => {
   const looks = components.filter((c) => c.origin === "system");
-  const apps = components.filter((c) => c.origin === "app");
   return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
 { "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
 - origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
@@ -179,7 +179,7 @@ const componentsOf = (
   image's src, or a prop of the component the node is; a choice's member overrides a node's fields
   in its at under "<property>=<member>") and "slots" ([{ name, node, default? }]: containers its
   children fill, as a system component's). It cannot take a system component's name or place itself.
-${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}${apps.length > 0 ? `App components: ${apps.map((c) => c.name).join(", ")}.\n` : ""}
+${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}
 `;
 };
 
@@ -205,20 +205,9 @@ export class ProjectBriefing extends Context.Service<
       const build = Effect.fnUntraced(function* (purpose: ThreadPurpose) {
         const paths = yield* RepoPaths;
         const pages = yield* (yield* PagesService).list;
-        // A catalogue that is not built yet is not worth waiting for: the agent can read the
-        // component directory itself, and the next session will have it.
-        const catalogue = yield* Effect.orElseSucceed(
-          Effect.flatMap(CatalogueService, (service) => service.get(false)),
-          () => undefined
-        );
         const { settings } = paths;
         // A folder without git has no .git to tell the agent about.
         const gitRepository = yield* (yield* GitService).repository;
-        const components = (catalogue?.components ?? []).slice(
-          0,
-          COMPONENT_LIMIT
-        );
-        const more = (catalogue?.components.length ?? 0) - components.length;
 
         const system = yield* Effect.orElseSucceed(
           Effect.flatMap(DesignSystemService, (service) => service.get),
@@ -236,6 +225,9 @@ export class ProjectBriefing extends Context.Service<
           Effect.flatMap(ComponentService, (service) => service.components),
           (): readonly ComponentFile[] => []
         );
+        const catalogue = catalogueOf(files);
+        const components = catalogue.slice(0, COMPONENT_LIMIT);
+        const more = catalogue.length - components.length;
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
@@ -261,9 +253,9 @@ variant. It holds a tree of nodes, each with an id:
   design system (its size, weight and line height as one thing: prefer this) or its own size,
   weight, lineHeight, font, tracking; and color, align.
 - image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
-- instance: one of ultrapaint's system components (listed below) — component (its name), from
-  "${SYSTEM_FROM}", props, and text or children. A child names the slot of its system component it
-  fills ("slot": "dialog-footer"); the rest fill the default slot. An overlay (Select, Menu,
+- instance: a component (listed below) — component (its name), from "${SYSTEM_FROM}" for
+  ultrapaint's system components or "${APP_FROM}" for the project's app components, props, and
+  text or children. A child names the slot of its component it fills ("slot": "dialog-footer"); the rest fill the default slot. An overlay (Select, Menu,
   Popover, Tooltip, Dialog, Toast) is drawn open where its props say "open": true; its trigger
   is a slot or its children.
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill
@@ -296,7 +288,7 @@ ${
 }${craft}${conventions}
 ${
   components.length > 0
-    ? `System components you can place${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
+    ? `Components you can place, the project's own marked (app)${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
 ${components.map(componentLine).join("\n")}`
     : ""
 }
