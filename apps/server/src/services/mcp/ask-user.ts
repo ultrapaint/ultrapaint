@@ -18,7 +18,7 @@ import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadSessions } from "../threads/thread-session.ts";
 import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
-import { opt } from "./tool-helpers.ts";
+import { leanSchema, opt } from "./tool-helpers.ts";
 
 /** The key the answers come back under, on the agent's second call. */
 const ANSWERS = "answers";
@@ -40,7 +40,7 @@ const AskQuestion = Schema.Struct({
 
 export const AskUser = Tool.make("ask_user", {
   description:
-    "Ask the user one to four questions when a decision is theirs: options to pick from (short labels, your pick first), allowOther for an answer of their own. The answers are the result; if it says the questions were shown instead, end your turn: they come as the next message.",
+    "Ask the user up to four questions when a decision is theirs: options (short labels, your pick first), allowOther for their own. The result is the answers; if it says they were shown, end your turn.",
   parameters: Schema.Struct({
     questions: Schema.Array(AskQuestion).check(
       Schema.isMinLength(1),
@@ -152,7 +152,9 @@ export const AskUserToolLive = Layer.effectDiscard(
       handle: ask,
       tool: new McpSchema.Tool({
         description: Tool.getDescription(AskUser),
-        inputSchema: Tool.getJsonSchema(AskUser) as McpSchema.ToolJson,
+        inputSchema: leanSchema(
+          Tool.getJsonSchema(AskUser) as McpSchema.ToolJson
+        ),
         name: AskUser.name,
       }),
     });

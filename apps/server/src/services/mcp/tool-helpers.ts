@@ -18,12 +18,6 @@ export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
 ) {}
 
 /**
- * How a tool takes a page: its URL, or its file when it has none. Every tool repeats it, and an
- * agent reads every tool's schema, so it is kept short; the briefing says the rest.
- */
-export const PAGE_PARAMETER = "URL or file of the page";
-
-/**
  * A parameter an agent may leave out. `optionalKey`, not `optional`: the latter also takes
  * `undefined`, which JSON Schema can only say as `null`, and every optional field of every
  * tool would carry an `anyOf` the agent pays for and never needs.
@@ -57,3 +51,23 @@ export const missing = (message: string) =>
 
 /** Documents and the design system are JSON through and through; their types only say more. */
 export const asJson = (value: unknown) => value as JsonValue;
+
+/**
+ * A tool's input schema without what JSON Schema says anyway: `additionalProperties: true` is its
+ * default, and the schema generator writes it on every object.
+ */
+export const leanSchema = <S>(schema: S): S => {
+  if (Array.isArray(schema)) {
+    return schema.map(leanSchema) as S;
+  }
+  if (typeof schema !== "object" || schema === null) {
+    return schema;
+  }
+  return Object.fromEntries(
+    Object.entries(schema).flatMap(([key, value]) =>
+      key === "additionalProperties" && value === true
+        ? []
+        : [[key, leanSchema(value)]]
+    )
+  ) as S;
+};

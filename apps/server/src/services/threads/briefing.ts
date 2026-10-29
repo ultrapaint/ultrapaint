@@ -9,7 +9,7 @@
  * It is plain text sent with the first prompt of a session, so it works with any ACP agent
  * rather than only those with a system prompt to append to.
  */
-import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import { componentLine } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   COMPONENTS_DIR,
@@ -67,24 +67,6 @@ and stashes are the user's${writes ? ", made from the editor" : ""}.`
 
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
-
-/** A component as the agent picks one: its variants, and the slots its children can fill. */
-const componentLine = (component: ComponentMeta) => {
-  const variants = Object.entries(component.variants)
-    .map(([name, members]) => `${name}: ${members.join("|")}`)
-    .join(", ");
-  const slots = component.slots
-    .filter((slot) => slot.holds !== undefined)
-    .map((slot) =>
-      slot.holds === "default" ? `${slot.name} (default)` : slot.name
-    )
-    .join(", ");
-  const about = [variants, slots && `slots: ${slots}`]
-    .filter(Boolean)
-    .join("; ");
-  const origin = component.importFrom === APP_FROM ? " (app)" : "";
-  return `- ${component.name}${origin}${about ? ` — ${about}` : ""}`;
-};
 
 /** Enough of the tokens to design with; the agent reads the rest from the design system. */
 const TOKEN_LIMIT = 80;
@@ -288,8 +270,8 @@ ${
 }${craft}${conventions}
 ${
   components.length > 0
-    ? `Components you can place, the project's own marked (app)${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
-${components.map(componentLine).join("\n")}`
+    ? `Components you can place, the project's own marked (app), a default slot *${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
+${components.map((c) => `- ${componentLine(c)}`).join("\n")}`
     : ""
 }
 

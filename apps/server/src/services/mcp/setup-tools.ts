@@ -55,7 +55,7 @@ const MapValues = Tool.make("map_values", {
 
 const NextBatch = Tool.make("next_batch", {
   description:
-    "Migrate: ends the batch under way with done (a line on it), rewrites the next and returns what is left in its files; batch is null when none is.",
+    "Migrate: ends the batch under way with done (a line on it), rewrites the next and returns what is left in its files; batch null when none is.",
   failure: Failure,
   parameters: Schema.Struct({ done: opt(Schema.String) }),
   success: Schema.Struct({

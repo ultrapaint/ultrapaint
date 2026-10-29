@@ -38,7 +38,7 @@ const importRef = {
 
 const ListFigmaImports = Tool.make("list_figma_imports", {
   description:
-    "The Figma files brought into the project, newest first; the other figma tools take the newest unless given import.",
+    "The Figma files brought in, newest first; the figma tools take the newest without import.",
   failure: Failure,
   success: Schema.Struct({
     imports: Schema.Array(
@@ -56,7 +56,7 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
 
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
-    "A Figma file: its pages and frames (the screens to turn into pages), its components with variants, properties, uses and this repository's candidates, and the mapping so far. Start here.",
+    "A Figma file: its frames (the screens), components with variants, properties, uses and candidates, and the mapping so far. Start here.",
   failure: Failure,
   parameters: Schema.Struct(importRef),
   success: Schema.Struct({
@@ -71,7 +71,7 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
 
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
-    "One frame, by id (12:345) or name: its layers as an outline, each component instance and whether it is mapped, and the page document it converts to now (unmapped instances expanded).",
+    "One frame, by id (12:345) or name: its layers, its instances, mapped or not, and the page it makes now.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -90,7 +90,7 @@ const ReadFigmaFrame = Tool.make("read_figma_frame", {
 
 const ReadFigmaComponent = Tool.make("read_figma_component", {
   description:
-    "One Figma component, by key: its variants and properties, candidates, the frames using it, its layers, and what it converts to when kept as it is. Read it before mapping it.",
+    "One Figma component, by key: variants, properties, candidates, the frames using it, its layers and what expanding makes.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -107,11 +107,10 @@ const ReadFigmaComponent = Tool.make("read_figma_component", {
 }).annotate(Tool.Readonly, true);
 
 const MapFigmaComponent = Tool.make("map_figma_component", {
-  description: `Decide what every instance of a Figma component becomes; mapping is one of:
-- {kind:"component", component, from?, props?, propMap?, text?}: one of ultrapaint's system components by name. props go to every instance. propMap maps Figma properties: {"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}, {"Disabled":{prop:"disabled"}}. text is "children" for the text the instance shows, or a text property's name.
-- {kind:"expand"}: kept as it is, built from rows, columns, text and images.
-- {kind:"skip"}: left out.
-null forgets the decision.`,
+  description: `What every instance of a Figma component becomes; mapping, or null to forget it:
+{kind:"component", component, from?, props?, propMap?, text?}: a component by name, props on every instance; propMap maps Figma properties ({"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}); text is "children" or a text property's name
+{kind:"expand"}: built from rows, columns, text and images
+{kind:"skip"}: left out`,
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -129,7 +128,7 @@ null forgets the decision.`,
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
-    "Write a frame as a page named after it, converted with the mapping so far, its images copied to assets. Give it a URL when it is a screen of the application. Map the components first; what is unmapped is expanded and reported.",
+    "Write a frame as a page named after it, with the mapping so far and its images; route for a screen. Unmapped components are expanded and reported.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,

@@ -13,19 +13,13 @@ import { Tool, Toolkit } from "effect/ai";
 import type { CopyTarget } from "../pages.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import {
-  missing,
-  opt,
-  PAGE_PARAMETER,
-  reported,
-  ToolFailure,
-} from "./tool-helpers.ts";
+import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const Failure = ToolFailure;
 
 export const CopyPages = Tool.make("copy_pages", {
   description:
-    "Copy or move pages, with their variants, into another canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes their comments along. Refused when the target already has one of the files or URLs.",
+    "Copy or move pages with variants into a canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes comments too.",
   failure: Failure,
   parameters: Schema.Struct({
     /** The canvas the pages are in; needed only when the project has several. */
@@ -52,8 +46,7 @@ export const CopyPages = Tool.make("copy_pages", {
 });
 
 export const CreateCanvas = Tool.make("create_canvas", {
-  description:
-    "Make an empty canvas, with its own pages, URLs and prototype. Its id, which canvas takes, is its name made safe.",
+  description: "Make an empty canvas, its id its name made safe.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({ id: Schema.String, name: Schema.String }),
@@ -61,12 +54,12 @@ export const CreateCanvas = Tool.make("create_canvas", {
 
 export const SetHome = Tool.make("set_home", {
   description:
-    "Choose the page the canvas's prototype opens on; it must serve a URL.",
+    "Choose the page, one with a URL, the canvas's prototype opens on.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({ canvas: Schema.String, home: Schema.String }),
 });
@@ -86,7 +79,7 @@ const LinkSummary = Schema.Struct({
 
 export const ListLinks = Tool.make("list_links", {
   description:
-    'Every node of a canvas that links somewhere, its page and where it leads, broken ones said so. Run it after changing URLs or deleting or moving pages; fix a link by updating the node\'s "link".',
+    "Every linking node of a canvas, its page and target, broken ones marked: run it after changing URLs or deleting or moving pages.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Only the links that lead nowhere. */

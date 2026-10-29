@@ -23,7 +23,7 @@ import type {
   ImportFigmaTask,
   RedrawTask,
 } from "@ultrapaint/contracts/tasks";
-import { walk } from "@ultrapaint/design-document/tree";
+import { outlineOf, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
@@ -215,6 +215,28 @@ properties and its children in its slots; one the application does not have yet 
  * How `/components` draws its sheet: through the tools, or by writing the pages' files, which
  * the user sizes on the canvas.
  */
+/** Past this many characters a page's design is given as an outline, read in parts with the tools. */
+const DESIGN_INLINE_LIMIT = 40_000;
+/** How deep the outline of a page too big to give whole goes. */
+const OUTLINE_DEPTH = 3;
+
+/**
+ * A page's design as a task gives it: its tree as compact JSON, or, too big for that and with the
+ * tools there to read it in parts, its outline and how to read the rest.
+ */
+const designOf = (
+  root: DesignNode | null,
+  ways: AgentWays,
+  page: Page
+): string => {
+  const whole = JSON.stringify(root);
+  if (!(root && ways.tools && whole.length > DESIGN_INLINE_LIMIT)) {
+    return `The design, as the editor holds it:\n${whole}`;
+  }
+  return `The design is large: its outline, ${OUTLINE_DEPTH} levels down (a node there counts its children). Read each part with ${ways.tools.read_page} (route "${page.file}", node its id) as you write it:
+${JSON.stringify(outlineOf(root, OUTLINE_DEPTH))}`;
+};
+
 const sheetSteps = (ways: AgentWays, canvas: string, designsDir: string) => {
   const { tools } = ways;
   const create = tools
@@ -445,8 +467,7 @@ validation, what a button calls) is the code's, and the behaviour notes below sa
 
 ${before}
 ${notesSection(notes)}${statesSection(states)}${ownedSection(owned)}${tokens.section}
-The design, as the editor holds it:
-${JSON.stringify(state?.root ?? null, null, 2)}
+${designOf(state?.root ?? null, ways, page)}
 
 ${codeRules}
 ${textStyles(styles)}
@@ -488,7 +509,7 @@ ${intro}
 ${before}
 ${notesSection(notes, "component")}${tokens.section}
 ${app ? APP_FORMAT : SYSTEM_FORMAT}
-${JSON.stringify(component, null, 2)}
+${JSON.stringify(component)}
 
 ${codeRules}
 ${numbered([

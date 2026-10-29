@@ -155,27 +155,14 @@ export interface AgentWays {
 
 const withTools: AgentWays = {
   askUser: `with ${TOOLS.ask_user}`,
-  changingDesigns: `The "ultrapaint" MCP server is the editor itself. Change designs through it: ${TOOLS.read_page}
-and ${TOOLS.read_canvas} return a document with its ids, ${TOOLS.apply_operations} changes it (insert, remove,
-move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
-undoable by the user. ${TOOLS.create_page} adds a page (from a template of ${TOOLS.list_templates}), ${TOOLS.rename_page}
-renames it, ${TOOLS.duplicate_page} copies it, ${TOOLS.delete_page} deletes it with its variants, ${TOOLS.set_page_url} sets
-or takes off its URL, and ${TOOLS.set_frame} sizes its frame on the canvas (a long page needs a tall one to
-be seen whole). ${TOOLS.create_canvas} makes a canvas, ${TOOLS.copy_pages} copies or moves pages into another,
-${TOOLS.set_home} says which URL its prototype opens on, and ${TOOLS.list_links} finds the links that lead
-nowhere — run it after changing URLs or deleting pages. Ask
-${TOOLS.get_component} for a component's props and an instance to start from, ${TOOLS.get_document_format} for
-the whole format. ${TOOLS.list_comments}, ${TOOLS.reply_to_comment} and ${TOOLS.resolve_comment} answer the user where
-they asked, and ${TOOLS.focus} tells the canvas which page you are on so the user can watch you work;
-before changing nodes, pass their ids to ${TOOLS.focus} as nodes with a few words as action, and the
-canvas shows your work on them. Tools name a page by its URL, or by its file when it has none.
-A node reference such as /orders#c_8x2k1q (or drafts.page.json#c_8x2k1q), which the user may
-paste, is a page and a node id.
-After a change, ${TOOLS.get_screenshot} shows you the page or a node as it draws: look, and fix what is off.
-When a decision is the user's, ${TOOLS.ask_user} puts your questions to them as a card with answers to
-pick, and its result is their answers. Only if it says the questions were shown instead, end your
-turn: the answers come as the next message.
-Prefer these to editing the JSON files yourself; if you do write a file, keep it valid.`,
+  changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs with its tools, validated, shown on
+the canvas at once and undoable by the user, rather than by editing the JSON (a file you write
+must stay valid). Tools name a page by its URL, or its file when it has none; a node reference the
+user pastes (/orders#c_8x2k1q, drafts.page.json#c_8x2k1q) is a page and a node id. Before changing
+nodes, pass their ids to ${TOOLS.focus} with a few words as action, so the user watches you work;
+after, look with ${TOOLS.get_screenshot} and fix what is off. ${TOOLS.read_page} reads a big page an outline
+first (depth) and a part at a time (node). A decision that is the user's goes to ${TOOLS.ask_user}: its
+result is their answers, unless it says they were shown, when you end your turn.`,
   editPages: (
     canvas
   ) => `Through the ultrapaint MCP server, always passing canvas: ${canvas}: ${TOOLS.read_page} and

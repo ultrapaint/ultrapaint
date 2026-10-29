@@ -25,7 +25,7 @@ import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 export const Handoff = Tool.make("handoff", {
   description:
-    'Designs and their code. action "list": what is ready or changed; "read": target\'s task; "mark": target implemented by files; "note": what target (its node) must do that a design cannot show (text); "export"/"import": token values design→code/code→design, the tokens named or all changed on one side.',
+    'Designs and their code. action "list": ready or changed; "read": target\'s task; "mark": target implemented by files; "note": what target (node) must do that a design cannot show (text); "export"/"import": token values design→code/code→design, those named or all changed.',
   failure: ToolFailure,
   parameters: Schema.Struct({
     action: Schema.Literals(HANDOFF_ACTIONS),

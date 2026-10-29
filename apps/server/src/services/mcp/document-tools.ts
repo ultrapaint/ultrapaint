@@ -4,12 +4,17 @@
  * step at a time, and the focus that shows the user where an agent works.
  */
 import { Json } from "@ultrapaint/contracts/base";
-import { DocOp } from "@ultrapaint/contracts/document";
+import { type DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  findNode,
+  outlineOf,
+  walk,
+} from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
@@ -22,9 +27,9 @@ import { CallingThread } from "./access.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   asJson,
+  finite,
   missing,
   opt,
-  PAGE_PARAMETER,
   reported,
   ToolFailure,
 } from "./tool-helpers.ts";
@@ -69,14 +74,16 @@ const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 
 export const ReadPage = Tool.make("read_page", {
   description:
-    "A page's design document: its tree of nodes with their ids, or with node only that node's subtree, and a hash for apply_operations' expectedHash. A node reference the user copied (/orders#c_8x2k1q) names the page too.",
+    "A page's nodes with ids, and a hash for apply_operations. node: its subtree only; depth: levels shown, deeper ones counted. A node reference (/orders#c_8x2k1q) names page and node.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
+    /** Levels below the node or the root shown; a node at the last keeps a count of its children. */
+    depth: opt(finite(0, 50)),
     /** Only this node and what is inside it: a big page costs less to read in parts. */
     node: opt(Schema.String),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({
     document: Json,
@@ -87,7 +94,7 @@ export const ReadPage = Tool.make("read_page", {
 
 export const ReadCanvas = Tool.make("read_canvas", {
   description:
-    "The loose nodes placed on a canvas beside its pages, with their x and y. Change them with apply_operations and loose: true.",
+    "The loose nodes beside a canvas's pages, with x and y; change them with apply_operations, loose: true.",
   failure: Failure,
   parameters: Schema.Struct({ canvas: opt(Schema.String) }),
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
@@ -95,7 +102,7 @@ export const ReadCanvas = Tool.make("read_canvas", {
 
 export const GetDocumentFormat = Tool.make("get_document_format", {
   description:
-    'The JSON Schema of a page document, or with kind "design-system" of design-system.json, and how the format maps to code. Read it before writing either by hand.',
+    'The JSON Schema of a page, or with kind "design-system" of design-system.json, and how it maps to code.',
   failure: Failure,
   parameters: Schema.Struct({
     kind: opt(Schema.Literals(["page", "design-system"])),
@@ -104,16 +111,16 @@ export const GetDocumentFormat = Tool.make("get_document_format", {
 }).annotate(Tool.Readonly, true);
 
 export const ApplyOperations = Tool.make("apply_operations", {
-  description: `Change a page, or with loose: true the nodes beside the pages, as one undo step. ops, in order (an id may be a node reference, /orders#c_8x2k1q):
-- {op:"insert", parent, index?, node}: parent a node id, or null for the top level; node may leave out ids
-- {op:"remove", id}
-- {op:"move", id, parent, index?}: index among the siblings without the moved node
-- {op:"update", id, set:{field: value}}: null removes a field; a group, row or column may change "type"
-- {op:"setProps", id, props:{name: value}}: null removes a prop
-(both take at:"md": from that breakpoint up)
-- {op:"wrap", ids:[...], type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
-Inserting into an instance showing "text" makes that text its first child.
-Values: numbers are pixels, "$name" a design token, anything else CSS. Size an instance with width, height and padding, never a className prop. expectedHash (from read_page) refuses the call if the page changed since. "warnings" names fills that have no room to take.`,
+  description: `Change a page (loose: true the nodes beside the pages) as one undo step. ops in order, ids or node references:
+{op:"insert", parent, index?, node}: parent null at the top; node may leave out ids
+{op:"remove", id}
+{op:"move", id, parent, index?}: index among siblings without it
+{op:"update", id, set:{field: value}}: null removes; a group, row or column may change "type"
+{op:"setProps", id, props:{name: value}}: null removes
+(both take at:"md", from that breakpoint up)
+{op:"wrap", ids, type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
+{op:"replace", ids, node}: node where the siblings were
+Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room.`,
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
@@ -127,7 +134,7 @@ Values: numbers are pixels, "$name" a design token, anything else CSS. Size an i
     /** Checked once the ids a new node leaves out are filled in. */
     ops: Schema.Array(AnyObject),
     /** URL or file of the page; leave out with `loose: true`. */
-    route: opt(Schema.String.annotate({ description: PAGE_PARAMETER })),
+    route: opt(Schema.String),
   }),
   success: Schema.Struct({
     created: Schema.Array(Schema.String),
@@ -139,7 +146,7 @@ Values: numbers are pixels, "$name" a design token, anything else CSS. Size an i
 
 export const Focus = Tool.make("focus", {
   description:
-    'Show the user which page you are on, and before changing nodes, which ones and how: their ids as nodes and a few words as action ("formatting the dates"). Call it when you move to another page.',
+    'Show the user the page you are on and, before changing nodes, their ids and what you do (action: "formatting the dates").',
   failure: Failure,
   parameters: Schema.Struct({
     /** A few words on what you are doing to the nodes. */
@@ -148,7 +155,7 @@ export const Focus = Tool.make("focus", {
     canvas: opt(Schema.String),
     /** Ids of the nodes of the page you are about to change. */
     nodes: opt(Schema.Array(Schema.String)),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
 }).annotate(Tool.Readonly, true);
@@ -344,8 +351,11 @@ export const documentToolHandlers = Effect.gen(function* () {
     read_page: Effect.fn("EditorTools.read_page")(function* ({
       route,
       canvas,
+      depth,
       node,
     }) {
+      const shown = (tree: DesignNode) =>
+        depth === undefined ? tree : outlineOf(tree, Math.floor(depth));
       const page = yield* pageAt(route, canvas);
       const state = yield* documents((d) => d.get(page.id));
       if (state.problem !== undefined) {
@@ -361,10 +371,17 @@ export const documentToolHandlers = Effect.gen(function* () {
             `no node ${id} in ${page.file}; read the page without node to see its ids`
           );
         }
-        return { document: asJson(found), file: page.file, hash: state.hash };
+        return {
+          document: asJson(shown(found)),
+          file: page.file,
+          hash: state.hash,
+        };
       }
       return {
-        document: asJson({ root: state.root, version: 1 }),
+        document: asJson({
+          root: state.root && shown(state.root),
+          version: 1,
+        }),
         file: page.file,
         hash: state.hash,
       };

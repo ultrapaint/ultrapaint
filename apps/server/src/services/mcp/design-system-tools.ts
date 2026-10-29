@@ -3,7 +3,7 @@
  * the stylesheets or written, and the catalogue's components with an instance to start from.
  */
 import { Json } from "@ultrapaint/contracts/base";
-import { typeText } from "@ultrapaint/contracts/catalogue";
+import { componentLine, typeText } from "@ultrapaint/contracts/catalogue";
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
@@ -28,16 +28,9 @@ const Failure = ToolFailure;
 const findingLine = (f: DesignFinding) =>
   `${f.severity}: ${f.path ? `${f.path}: ` : ""}${f.message}`;
 
-const ComponentSummary = Schema.Struct({
-  importFrom: Schema.String,
-  name: Schema.String,
-  props: Schema.Array(Schema.String),
-  variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-});
-
 export const ScanDesignSystem = Tool.make("scan_design_system", {
   description:
-    "A first design-system.json, read by fixed rules from the code's tokens, with the files read and notes on what it could not interpret. The start of /init.",
+    "A first design-system.json read from the code's tokens, with the files read and what it could not place. /init starts here.",
   failure: Failure,
   success: Schema.Struct({
     designSystem: Json,
@@ -48,7 +41,7 @@ export const ScanDesignSystem = Tool.make("scan_design_system", {
 
 export const ReadDesignSystem = Tool.make("read_design_system", {
   description:
-    "The design system: design-system.json (tokens, text styles, component notes) and DESIGN.md; null when never imported.",
+    "design-system.json (tokens, text styles) and DESIGN.md; null when never imported.",
   failure: Failure,
   success: Schema.Struct({
     designMd: Schema.NullOr(Schema.String),
@@ -61,7 +54,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
-    'Save the design system with every token\'s value, and DESIGN.md when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is named without dashes ("color-primary"); a text style refers to it as "$color-primary".',
+    "Save the design system, every token with its value, and DESIGN.md with designMd; refused with why when invalid. A token is color-primary; a text style says $color-primary.",
   failure: Failure,
   parameters: Schema.Struct({
     /** The whole of DESIGN.md. */
@@ -77,21 +70,23 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
 
 export const ListComponents = Tool.make("list_components", {
   description:
-    "The system and app components, their variants and slots; match narrows the list. Prefer them to plain HTML.",
+    "Every component, one line each: variants, props, slots (* the default). match narrows. Prefer them to plain HTML.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Narrows the list; leave empty for all of them. */
     match: opt(Schema.String),
   }),
-  success: Schema.Struct({ components: Schema.Array(ComponentSummary) }),
+  /** `Dialog — size: md|sm|lg; props: title; slots: trigger, dialog-content*` (`componentLine`). */
+  success: Schema.Struct({ components: Schema.Array(Schema.String) }),
 }).annotate(Tool.Readonly, true);
 
 export const GetComponent = Tool.make("get_component", {
   description:
-    "One component in full: every prop with its type, its variants, its slots and an instance node to start from.",
+    "One component: what it is for, props with types, variants, slots and an instance node to start from.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({
+    description: Schema.optional(Schema.String),
     /** An instance node that uses it, ready for apply_operations. */
     example: Json,
     importFrom: Schema.String,
@@ -103,6 +98,8 @@ export const GetComponent = Tool.make("get_component", {
         type: Schema.String,
       })
     ),
+    /** The parts its children fill, by name (`*` the default), and how each lays them out. */
+    slots: Schema.Array(Schema.String),
     variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
   }),
 }).annotate(Tool.Readonly, true);
@@ -135,6 +132,9 @@ export const designSystemToolHandlers = Effect.gen(function* () {
       }
       const example = newInstance(component, makeIdGenerator());
       return {
+        ...(component.description !== undefined && {
+          description: component.description,
+        }),
         example: asJson(example),
         importFrom: component.importFrom,
         name: component.name,
@@ -143,6 +143,13 @@ export const designSystemToolHandlers = Effect.gen(function* () {
           required: prop.required,
           type: typeText(prop.type),
         })),
+        slots: component.slots.flatMap((slot) =>
+          slot.holds === undefined
+            ? []
+            : [
+                `${slot.name}${slot.holds === "default" ? "*" : ""} (${slot.layout ?? "block"})`,
+              ]
+        ),
         variants: component.variants,
       };
     }),
@@ -157,21 +164,23 @@ export const designSystemToolHandlers = Effect.gen(function* () {
             (component) =>
               !needle || component.name.toLowerCase().includes(needle)
           )
-          .map((component) => ({
-            importFrom: component.importFrom,
-            name: component.name,
-            props: component.props.map((prop) => prop.name),
-            variants: component.variants,
-          })),
+          .map((component) => componentLine(component, { props: true })),
       };
     }),
 
     read_design_system: Effect.fn("EditorTools.read_design_system")(
       function* () {
         const state = yield* designSystem((d) => d.get);
+        // The sync's baselines are the tool's, and a write keeps them: an agent needs none.
+        const {
+          codeSync: _c,
+          designMd: _d,
+          sync: _s,
+          ...ownFields
+        } = state.designSystem ?? {};
         return {
           designMd: state.document?.text ?? null,
-          designSystem: asJson(state.designSystem),
+          designSystem: asJson(state.designSystem ? ownFields : null),
           findings: (state.document?.findings ?? [])
             .filter((f) => f.severity !== "info")
             .map(findingLine),
