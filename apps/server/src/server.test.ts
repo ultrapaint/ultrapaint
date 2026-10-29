@@ -715,8 +715,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
+          const after = "after-defect.page.json";
+          // The news of the page made after the defect: the watcher may tell of the directory
+          // made and taken away first.
           const { event, result } = yield* nextEvent(
-            client["events.pages"](),
+            client["events.pages"]().pipe(
+              Stream.filter((e) => e.pages.some((p) => p.id === after))
+            ),
             Effect.gen(function* () {
               const fs = yield* FileSystem.FileSystem;
               const { repo } = yield* TestEnv;
@@ -736,9 +741,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             })
           );
           assert.strictEqual(result._tag, "Failure");
-          const ids =
-            event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
-          assert.include(ids, "after-defect.page.json");
+          assert.strictEqual(event._tag, "Some");
           assert.isTrue((yield* client.health()).ok);
         })
     );
