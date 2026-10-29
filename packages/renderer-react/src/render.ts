@@ -19,6 +19,12 @@ import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { expandAppInstance } from "@ultrapaint/design-document/app-components";
 import {
+  type Breakpoint,
+  breakpointsOf,
+  resolveAtBreakpoint,
+  upTo,
+} from "@ultrapaint/design-document/breakpoints";
+import {
   COMPONENT_ATTRIBUTE,
   VARIANT_ATTRIBUTE,
   variantAttributeOf,
@@ -118,12 +124,17 @@ interface Scope {
   /** The app components (ADR 0041), by name. */
   readonly apps: ReadonlyMap<string, AppComponentFile>;
   readonly assetUrl: (src: string) => string;
+  /** The breakpoint the page is drawn at, and the design system's: what an app component's tree is resolved at. */
+  readonly at: string | null;
+  readonly breakpoints: readonly Breakpoint[];
   /** What a design can place (ADR 0042): how each slot of an instance lays out what it holds. */
   readonly catalogue: Catalogue;
   /** The app components whose tree is being drawn, outermost first: one inside itself is refused. */
   readonly drawing: readonly string[];
   /** The page's nodes among an app component's tree: an instance's children in its slots. */
   readonly filled?: ReadonlySet<string> | undefined;
+  /** The breakpoints that hold at `at`, smallest first: what a slot's layout turns at. */
+  readonly holding: readonly string[];
   /** The instance edited in place, with the props it is drawn with, when one is (ADR 0041). */
   readonly isolating?: RenderRequest["isolate"];
   readonly navigate: (route: string) => void;
@@ -364,11 +375,14 @@ const AppView = ({
     });
   }
   const editing = scope.isolating?.instance === node.id;
-  // Edited in place, it draws the component's own values, at the variant being edited.
-  const { filled, tree } = expandAppInstance(
+  // Edited in place, it draws the component's own values, at the variant being edited; its tree
+  // at the page's breakpoint, as the page is.
+  const expanded = expandAppInstance(
     file,
     editing ? { ...node, props: scope.isolating?.props ?? {} } : node
   );
+  const { filled } = expanded;
+  const tree = resolveAtBreakpoint(expanded.tree, scope.breakpoints, scope.at);
   if (editing) {
     return createElement(IsolatedView, { file, filled, node, style, tree });
   }
@@ -485,7 +499,8 @@ const SystemView = ({
       ? node.text
       : undefined;
   for (const [name, fill] of fillSlots(node, entry.slots, look?.content)) {
-    const parent = slotLayoutOf(node, name, scope.catalogue) ?? "block";
+    const parent =
+      slotLayoutOf(node, name, scope.catalogue, scope.holding) ?? "block";
     const drawn = fill.nodes.map((child) =>
       createElement(NodeView, { key: child.id, node: child, parent })
     );
@@ -614,6 +629,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   });
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
+  let breakpoints = breakpointsOf(null);
   let components: readonly ComponentFile[] = [];
   let apps: ReadonlyMap<string, AppComponentFile> = new Map();
   let catalogue = catalogueOf([]);
@@ -627,6 +643,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     if (drawing.designSystem !== designSystem) {
       ({ designSystem } = drawing);
       styles = makeStyleContext(designSystem);
+      breakpoints = breakpointsOf(designSystem);
     }
     if (drawing.components !== components) {
       ({ components } = drawing);
@@ -640,11 +657,15 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     restyle(request);
     const pageAttribute =
       request.isolate === undefined ? NODE_ATTRIBUTE : OUTSIDE_ATTRIBUTE;
+    const at = request.at ?? null;
     const scope: Scope = {
       apps,
       assetUrl: setup.assetUrl,
+      at,
+      breakpoints,
       catalogue,
       drawing: [],
+      holding: upTo(breakpoints, at),
       isolating: request.isolate,
       navigate: setup.navigate,
       nodeAttribute: pageAttribute,

@@ -11,8 +11,9 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { RenderMode } from "@ultrapaint/contracts/preview";
 import {
+  breakpointAt,
   breakpointsOf,
-  resolveAt,
+  resolveAtBreakpoint,
 } from "@ultrapaint/design-document/breakpoints";
 import { frameOf, type OpenedFrame } from "./editor-frame.ts";
 import { thePreview } from "./preview-module.ts";
@@ -125,16 +126,15 @@ export const drawSpecimen = (
     } catch {
       defaults = undefined;
     }
+    // As the page is at the window's width: its breakpoints' values (ADR 0036).
+    const breakpoints = breakpointsOf(designSystem);
+    const at = breakpointAt(breakpoints, options.width ?? WIDTH)?.name;
     const id = frameOf(FRAME).render({
+      ...(at !== undefined && { at }),
       defaults,
       designSystem,
       mode: options.mode ?? "fit",
-      // As the page is at the window's width: its breakpoints' values (ADR 0036).
-      root: resolveAt(
-        node,
-        breakpointsOf(designSystem),
-        options.width ?? WIDTH
-      ),
+      root: resolveAtBreakpoint(node, breakpoints, at ?? null),
     });
     if (!(await rendered(id, 8000))) {
       return null;

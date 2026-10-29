@@ -51,7 +51,10 @@ afterEach(() => {
  */
 const draw = async (
   root: DesignNode,
-  extra: { readonly components?: readonly ComponentFile[] } = {}
+  extra: {
+    readonly at?: string;
+    readonly components?: readonly ComponentFile[];
+  } = {}
 ) => {
   const canvas = document.createElement("div");
   document.body.append(canvas);
@@ -81,6 +84,7 @@ const draw = async (
     );
     mounted = renderToCanvas(setup, canvas);
     mounted.render({
+      ...(extra.at !== undefined && { at: extra.at }),
       components: extra.components ?? [],
       designSystem: null,
       mode: "page",
@@ -301,7 +305,7 @@ describe("an app component (ADR 0041)", () => {
     tree: {
       children: [
         {
-          at: { "tone=loud": { size: 32 } },
+          at: { lg: { size: 40 }, md: { size: 24 }, "tone=loud": { size: 32 } },
           id: "d-title",
           role: "heading",
           text: "Title",
@@ -371,6 +375,28 @@ describe("an app component (ADR 0041)", () => {
     ).not.toBeNull();
     expect(at("mine")).not.toBeNull();
     expect(canvas.querySelector('[data-ed-app-node="d-none"]')).toBeNull();
+  });
+
+  it("draws its tree at the page's breakpoint, over the choice's overrides", async () => {
+    const title = async (at: string | undefined, tone: string) => {
+      const { canvas } = await draw(column([placed({ props: { tone } })]), {
+        components: [promo],
+        ...(at !== undefined && { at }),
+      });
+      const size = (
+        canvas.querySelector(
+          '[data-ed-app-node="d-title"]'
+        ) as HTMLElement | null
+      )?.style.fontSize;
+      mounted?.unmount();
+      mounted = null;
+      document.body.innerHTML = "";
+      return size;
+    };
+    expect(await title(undefined, "plain")).toBe("");
+    expect(await title("md", "plain")).toBe("24px");
+    expect(await title("lg", "plain")).toBe("40px");
+    expect(await title("md", "loud")).toBe("24px");
   });
 
   it("draws one nested in another, and refuses one drawn inside itself", async () => {
