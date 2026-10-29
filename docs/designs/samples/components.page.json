@@ -2,8 +2,8 @@
   "root": {"type": "page", "id": "root", "fill": "$color-background", "gap": 0, "children": [
     {"type": "column", "id": "c_hrvpgg", "fill": "#fafafa", "gap": 24, "height": "fill", "padding": 40, "width": "fill", "children": [
       {"type": "row", "id": "r_h0hvpg", "crossAlign": "center", "gap": 12, "children": [
-        {"type": "instance", "id": "i_x1o7ul", "name": "New order", "component": "Button", "from": "@ultrapaint/primitives", "props": {"variant": "primary", "size": "md"}, "text": "New order"},
-        {"type": "instance", "id": "i_7358zp", "name": "Export", "component": "Button", "from": "@ultrapaint/primitives", "props": {"variant": "outline"}, "text": "Export"}
+        {"type": "instance", "id": "i_x1o7ul", "name": "New order", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "primary", "size": "md"}, "text": "New order"},
+        {"type": "instance", "id": "i_7358zp", "name": "Export", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline"}, "text": "Export"}
       ]},
       {"type": "text", "id": "t_xwqqts", "name": "Heading", "color": "#18181b", "level": 2, "role": "heading", "size": 22, "text": "Orders", "weight": 700}
     ]}
