@@ -1,10 +1,10 @@
 import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
+import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
 import { ProjectManager } from "./project.ts";
-import { ComponentService } from "./services/components.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -15,9 +15,11 @@ import { GetScreenshot } from "./services/mcp/screenshot.ts";
 import { SetupTools } from "./services/mcp/setup-tools.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
+import { RepoPaths } from "./services/repo-paths.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
+import { writeComponentFile } from "./testing/components.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
@@ -63,7 +65,7 @@ A fixture.
 `;
 
 /** A component the code does not have yet, drawn in the design. */
-const PRICING_CARD = {
+const PRICING_CARD: AppComponentFile = {
   name: "PricingCard",
   origin: "app",
   properties: [],
@@ -454,18 +456,18 @@ describe("the editor's tools in what an agent is told", () => {
             "login.fig",
             figmaFile()
           );
-          yield* (yield* ComponentService).write(PRICING_CARD);
-          return figma.id;
+          return { designsDir: (yield* RepoPaths).designsDir, id: figma.id };
         })
       )
     );
+    yield* writeComponentFile(imported.designsDir, PRICING_CARD);
     const setup = yield* DesignSystemSetupService;
     yield* setup.start("inventory", {});
     yield* setup.complete("inventory");
     yield* setup.start("define", { threadId: "define" });
     yield* setup.complete("define");
     yield* setup.start("map", { threadId: "map" });
-    return imported;
+    return imported.id;
   });
 
   /** What the server refuses, by request, once everything is there. */

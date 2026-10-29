@@ -43,7 +43,6 @@ import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 import {
   changedComponent,
-  componentOf,
   componentText,
   instanceOps,
   problemOf,
@@ -160,9 +159,6 @@ export class ComponentService extends Context.Service<
     readonly components: Effect.Effect<readonly ComponentFile[]>;
     /** What a design can place, system and app (ADR 0042): what the agents are told of. */
     readonly catalogue: Effect.Effect<Catalogue>;
-    readonly write: (
-      component: unknown
-    ) => Effect.Effect<ComponentEntry, EditFailure>;
     /**
      * A change to a component's file made on it as it is now: an app component's properties or
      * slots, a system component's look, a note taken out. A property or a member renamed or taken
@@ -342,22 +338,6 @@ export class ComponentService extends Context.Service<
         );
       });
 
-      const write = Effect.fn("ComponentService.write")(function* (
-        input: unknown
-      ) {
-        const read = componentOf(input);
-        if ("problem" in read) {
-          return yield* new BadRequest({
-            message: `the component is not valid: ${read.problem}`,
-          });
-        }
-        const { component } = read;
-        return yield* save(
-          yield* checked(component),
-          `Change the ${component.name} component`
-        );
-      });
-
       const fromDefault = Effect.fn("ComponentService.fromDefault")(function* (
         name: string
       ) {
@@ -498,7 +478,6 @@ export class ComponentService extends Context.Service<
         list,
         makeApp,
         remove,
-        write,
       });
     })
   );

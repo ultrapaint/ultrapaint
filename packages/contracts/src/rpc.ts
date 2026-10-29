@@ -11,7 +11,6 @@ import {
 import {
   ComponentChange,
   ComponentEntry,
-  ComponentFile,
   ComponentList,
   ComponentNote,
 } from "./components.ts";
@@ -774,12 +773,6 @@ const requestRpcs = [
 
   /** The components of the designs directory (ADR 0041), each read or with its problem. */
   Rpc.make("components.list", { error: NotConfigured, success: ComponentList }),
-  /** A component's file saved as given, validated: one undo step. */
-  Rpc.make("components.write", {
-    error: EditError,
-    payload: { component: ComponentFile },
-    success: ComponentEntry,
-  }),
   /**
    * A change to an app component's properties or slots (ADR 0042), made on its file as it is
    * now; a rename follows into its variants and its instances' props. One undo step.

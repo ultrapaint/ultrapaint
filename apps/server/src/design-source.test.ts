@@ -3,6 +3,7 @@ import { assert, layer } from "@effect/vitest";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
+import { writeComponentFile } from "./testing/components.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 import { callMcp, initializeLegacy } from "./testing/mcp.ts";
 import { waitFor } from "./testing/wait-for.ts";
@@ -283,8 +284,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(file.base.root?.fill, "$color-primary");
 
           // The design changes the look.
-          yield* client["components.write"]({
-            component: { ...file, base: { root: { fill: "#ff0000" } } },
+          const look = {
+            base: { root: { fill: "#ff0000" } },
+            states: file.states,
+            variants: file.variants,
+          };
+          yield* client["components.change"]({
+            change: { look, op: "setLook" },
+            name: "Button",
           });
           const listed = yield* client["components.list"]();
           assert.strictEqual(listed.components[0]?.component?.origin, "system");
@@ -293,63 +300,71 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             statusOf(bound.items, "component:Button")?.kind,
             "component"
           );
+          // A new app component takes a name in PascalCase, and no system component's.
           const refused = yield* Effect.flip(
-            client["components.write"]({
-              component: { ...file, name: "not-a-name" },
+            client["components.makeApp"]({
+              id: HOME,
+              name: "not a-name",
+              nodeIds: ["heading"],
             })
           );
           assert.include(refused.message, "PascalCase");
-          // An app component takes no system component's name, and cannot place itself.
           const clash = yield* Effect.flip(
-            client["components.write"]({
-              component: {
-                name: "Card",
-                origin: "app",
-                properties: [],
-                slots: [],
-                tree: { children: [], id: "r", type: "row" },
-                version: 1,
-              },
+            client["components.makeApp"]({
+              id: HOME,
+              name: "Card",
+              nodeIds: ["heading"],
             })
           );
           assert.include(clash.message, "a system component's name");
-          const itself = yield* Effect.flip(
-            client["components.write"]({
-              component: {
-                name: "Loop",
-                origin: "app",
-                properties: [],
-                slots: [],
-                tree: {
-                  children: [
-                    {
-                      component: "Loop",
-                      from: "#app",
-                      id: "again",
-                      type: "instance",
-                    },
-                  ],
-                  id: "r",
-                  type: "row",
+          // A file an agent writes that places itself is listed with what is wrong with it.
+          yield* writeComponentFile(path.join(repo, "designs"), {
+            name: "Loop",
+            origin: "app",
+            properties: [],
+            slots: [],
+            tree: {
+              children: [
+                {
+                  component: "Loop",
+                  from: "#app",
+                  id: "again",
+                  type: "instance",
                 },
-                version: 1,
-              },
-            })
+              ],
+              id: "r",
+              type: "row",
+            },
+            version: 1,
+          });
+          const loop = (yield* client["components.list"]()).components.find(
+            (c) => c.file === "components/Loop.component.json"
           );
-          assert.include(itself.message, "Loop places Loop");
+          assert.include(loop?.problem, "Loop places Loop");
+          yield* fs.remove(
+            path.join(repo, "designs/components/Loop.component.json")
+          );
           // A system component's look leaves out only an optional part, and templates only items.
           const fixedPart = yield* Effect.flip(
-            client["components.write"]({
-              component: { ...file, hidden: ["root"] },
+            client["components.change"]({
+              change: {
+                look: { ...look, hidden: ["root"] },
+                op: "setLook",
+              },
+              name: "Button",
             })
           );
           assert.include(fixedPart.message, "Button cannot leave out root");
           const noItems = yield* Effect.flip(
-            client["components.write"]({
-              component: {
-                ...file,
-                item: { tree: { children: [], id: "i", type: "row" } },
+            client["components.change"]({
+              change: {
+                look: {
+                  ...look,
+                  item: { tree: { children: [], id: "i", type: "row" } },
+                },
+                op: "setLook",
               },
+              name: "Button",
             })
           );
           assert.include(noItems.message, "has no items to draw");
@@ -406,34 +421,32 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          yield* client["components.write"]({
-            component: {
-              name: "Plan",
-              origin: "app",
-              properties: [
+          yield* writeComponentFile(path.join(repo, "designs"), {
+            name: "Plan",
+            origin: "app",
+            properties: [
+              {
+                default: "plain",
+                kind: "choice",
+                members: ["plain", "loud"],
+                name: "tone",
+              },
+            ],
+            slots: [],
+            tree: {
+              children: [
                 {
-                  default: "plain",
-                  kind: "choice",
-                  members: ["plain", "loud"],
-                  name: "tone",
+                  at: { "tone=loud": { color: "#ff0000" } },
+                  id: "t",
+                  role: "heading",
+                  text: "Pro",
+                  type: "text",
                 },
               ],
-              slots: [],
-              tree: {
-                children: [
-                  {
-                    at: { "tone=loud": { color: "#ff0000" } },
-                    id: "t",
-                    role: "heading",
-                    text: "Pro",
-                    type: "text",
-                  },
-                ],
-                id: "root",
-                type: "column",
-              },
-              version: 1,
+              id: "root",
+              type: "column",
             },
+            version: 1,
           });
           yield* client["documents.apply"]({
             edits: [
