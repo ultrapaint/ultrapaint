@@ -13,8 +13,14 @@
  * which it follows.
  */
 
+import {
+  type ComponentFile,
+  systemComponentsIn,
+} from "@ultrapaint/contracts/components";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { lookCss } from "@ultrapaint/design-document/component-look";
 import { makeStyleContext } from "@ultrapaint/design-document/css";
+import { designTokenCss } from "@ultrapaint/design-document/tokens";
 import { looksOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 
 const t = (name: string) => `var(--${name})`;
@@ -219,3 +225,22 @@ ${DEFAULT_LOOK}
   }
 }
 `;
+
+/**
+ * The design's stylesheet (ADRs 0028, 0041): every token's value in every theme, and the looks of
+ * the system components the project owns, unlayered over the default ones. Made once per look
+ * (`Preview.setLook`), not per frame.
+ */
+export const designCss = (
+  components: readonly ComponentFile[],
+  designSystem: DesignSystem | null
+): string =>
+  [
+    designTokenCss(designSystem),
+    lookCss(
+      looksOf(systemComponentsIn(components)),
+      makeStyleContext(designSystem)
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n\n");

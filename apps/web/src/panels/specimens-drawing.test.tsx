@@ -74,6 +74,7 @@ const fakePreview = () => {
         unmount: () => undefined,
         watchRects: () => undefined,
       }) satisfies FrameRuntime,
+    setLook: () => undefined,
   } satisfies Preview;
   return { preview, renders };
 };
@@ -128,7 +129,7 @@ describe("a specimen's drawing", () => {
     const button = specOf("Button");
     show(<Matrix component={button} meta={undefined} />);
     expect(renders).toHaveLength(1);
-    expect(renders[0]?.components).toEqual([button]);
+    expect(renders[0]?.look?.components).toEqual([button]);
 
     // Drawn again with the same spec: nothing changed, nothing is drawn.
     show(<Matrix component={button} meta={undefined} />);
@@ -138,16 +139,18 @@ describe("a specimen's drawing", () => {
     const card = specOf("Card");
     act(() => useComponents.setState({ components: [card] }));
     expect(renders).toHaveLength(2);
-    expect(renders[1]?.components).toEqual([card, button]);
+    expect(renders[1]?.look?.components).toEqual([card, button]);
   });
 
-  it("draws the file being edited in place of the saved one", () => {
+  it("draws the file being edited in place of the saved one, in a look of its own", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);
     const saved = specOf("Button");
     useComponents.setState({ components: [saved] });
     const edited = { ...saved, base: { root: { fill: "#f00" } } };
     show(<Matrix component={edited} meta={undefined} />);
-    expect(renders.at(-1)?.components).toEqual([edited]);
+    const look = renders.at(-1)?.look;
+    expect(look?.components).toEqual([edited]);
+    expect(look?.css).toContain("background-color: #f00");
   });
 });

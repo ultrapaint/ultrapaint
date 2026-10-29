@@ -1,9 +1,13 @@
-import { SystemComponentFile } from "@ultrapaint/contracts/components";
+import {
+  emptySystemComponent,
+  SystemComponentFile,
+} from "@ultrapaint/contracts/components";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";
 import { defaultLookOf, SYSTEM_DEFAULTS } from "./defaults.ts";
-import { SYSTEM_COMPONENTS_CSS } from "./look.ts";
+import { designCss, SYSTEM_COMPONENTS_CSS } from "./look.ts";
 
 describe("the default look", () => {
   it("is a valid system component's file for each, styling only its parts and axes", () => {
@@ -50,6 +54,39 @@ describe("the default look", () => {
     );
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       '[data-ed-p="Menu"] [data-slot="menu-item"][data-highlighted]'
+    );
+  });
+});
+
+describe("the design's stylesheet", () => {
+  it("is the tokens' values, then the looks the project owns, and nothing for a design with neither", () => {
+    expect(designCss([], null)).toBe("");
+    const ds = {
+      colors: [
+        {
+          name: "Brand",
+          tokens: [{ name: "color-primary", value: "#123456" }],
+        },
+      ],
+      radius: [],
+      shadows: [],
+      spacing: { base: "0.25rem" },
+      typography: { fonts: [], sizes: [], styles: [], weights: [] },
+      version: 1,
+    } as unknown as DesignSystem;
+    const css = designCss(
+      [
+        {
+          ...emptySystemComponent("Card"),
+          base: { root: { fill: "#ff0000" } },
+        },
+      ],
+      ds
+    );
+    expect(css).toContain("--color-primary: #123456");
+    expect(css).toContain('[data-ed-c="Card"]');
+    expect(css.indexOf("--color-primary")).toBeLessThan(
+      css.indexOf('[data-ed-c="Card"]')
     );
   });
 });

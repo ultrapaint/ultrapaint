@@ -49,13 +49,13 @@ const fakePreview = () => {
       drawn.push({ events: options.events, host, options, runtime });
       return runtime;
     },
+    setLook: vi.fn(),
   };
   return { drawn, preview };
 };
 
 const root = { children: [], id: "root", type: "page" as const };
-const look = { components: [], styles: "" };
-const page = { designSystem: null, look, mode: "page" as const, root };
+const page = { designSystem: null, mode: "page" as const, root };
 
 /** The module afresh, with no frame opened or parked yet. */
 const load = async () => {

@@ -64,7 +64,6 @@ import {
 } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
-import { useDesignLook } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { ComponentsView } from "./design-components.tsx";
@@ -264,17 +263,15 @@ const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
 export const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   const ref = useRef<HTMLDivElement>(null);
   const frame = "design-system:typography";
-  const look = useDesignLook();
   useFrameDrawing(
     frame,
     useMemo(
       () => ({
         designSystem: ds,
-        look,
         mode: "fit" as const,
         root: typeSpecimen(ds, q),
       }),
-      [ds, look, q]
+      [ds, q]
     )
   );
   // The samples are one picture: which one was right-clicked is asked of the preview.

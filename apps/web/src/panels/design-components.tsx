@@ -24,6 +24,7 @@ import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
+import { designCss } from "@ultrapaint/system-components/look";
 import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -281,25 +282,27 @@ export const Matrix = ({
   meta: ComponentMeta | undefined;
 }) => {
   const ds = useDesignSystem((s) => s.designSystem);
-  const { components, styles } = useDesignLook();
+  const { components } = useDesignLook();
   const frame = "design-system:components";
+  // The file being edited stands in for the saved one, in a look of the matrix's own: the
+  // canvas's frames keep the saved look (ADR 0042).
+  const look = useMemo(() => {
+    const edited = [
+      ...components.filter((c) => c.name !== component.name),
+      component,
+    ];
+    return { components: edited, css: designCss(edited, ds) };
+  }, [components, component, ds]);
   useFrameDrawing(
     frame,
     useMemo(
       () => ({
         designSystem: ds,
-        look: {
-          // The file being edited stands in for the saved one.
-          components: [
-            ...components.filter((c) => c.name !== component.name),
-            component,
-          ],
-          styles,
-        },
+        look,
         mode: "fit" as const,
         root: matrixOf(component, meta),
       }),
-      [ds, meta, component, components, styles]
+      [ds, meta, component, look]
     )
   );
   return (

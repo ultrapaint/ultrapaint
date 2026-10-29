@@ -3,17 +3,14 @@
 import {
   APP_FROM,
   type AppComponentFile,
+  type ComponentFile,
   emptySystemComponent,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import type {
-  Mounted,
-  RenderRequest,
-} from "@ultrapaint/framework-api/browser";
+import type { Mounted } from "@ultrapaint/framework-api/browser";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
-import { adoptedSheets } from "@ultrapaint/preview-core/styles";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToCanvas } from "./render.ts";
 
@@ -55,7 +52,7 @@ afterEach(() => {
  */
 const draw = async (
   root: DesignNode,
-  extra: Pick<RenderRequest, "components" | "styles"> = {}
+  extra: { readonly components?: readonly ComponentFile[] } = {}
 ) => {
   const canvas = document.createElement("div");
   document.body.append(canvas);
@@ -87,11 +84,11 @@ const draw = async (
     );
     mounted = renderToCanvas(setup, canvas);
     mounted.render({
+      components: extra.components ?? [],
       designSystem: null,
       mode: "page",
       renderId: 1,
       root,
-      ...extra,
     });
   });
   await rendered;
@@ -104,6 +101,7 @@ const draw = async (
     // The render is a transition: wait until it is the one on the screen.
     const done = new Promise<void>((resolve) => waiting.set(2, resolve));
     mounted?.render({
+      components: extra.components ?? [],
       designSystem: null,
       mode: "page",
       renderId: 2,
@@ -195,25 +193,6 @@ describe("the design's stylesheet and the system components' looks (ADRs 0028, 0
     const card = at("card");
     expect(card?.getAttribute("data-ed-c")).toBe("Card");
     expect(card?.getAttribute("data-ed-v")).toBe("size:lg variant:outline");
-  });
-
-  it("gives the frames the tokens' CSS and the looks' as the design's sheet, the last", async () => {
-    const look = {
-      ...emptySystemComponent("Card"),
-      base: { root: { fill: "#ff0000" } },
-    };
-    await draw(column([instance("card", "Card")]), {
-      components: [look],
-      styles: ":root { --primary: #123456; }",
-    });
-    const design = Array.from(adoptedSheets().at(-1)?.cssRules ?? [])
-      .map((rule) => rule.cssText)
-      .join("\n");
-    // The document's root is the frame's host.
-    expect(design).toContain(":host");
-    expect(design).toContain("--primary: #123456");
-    expect(design).toContain('[data-ed-c="Card"]');
-    expect(design).toContain("background-color: #ff0000");
   });
 });
 

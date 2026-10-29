@@ -9,7 +9,6 @@ import type {
   RenderFrame,
   RenderSetup,
 } from "@ultrapaint/framework-api/browser";
-import { setDesignCss } from "./styles.ts";
 
 const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
@@ -48,6 +47,5 @@ export const renderSetup = (
     pageHeight: "100cqh",
     reportError: (error) => events.error?.({ ...error, source: "page" }),
     reportInstances: (instances) => events.instances?.(instances),
-    setDesignCss,
   };
 };

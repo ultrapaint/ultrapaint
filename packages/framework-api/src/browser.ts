@@ -42,8 +42,6 @@ export interface RenderSetup {
   readonly reportInstances: (
     instances: Readonly<Record<string, InstanceDrawn>>
   ) => void;
-  /** The design's own stylesheet (ADR 0028, 0029), which the core keeps for every frame. */
-  readonly setDesignCss: (css: string) => void;
 }
 
 /** The frame a render draws in, as its renderer sees it. */
@@ -68,13 +66,23 @@ export interface PageError {
   readonly stack?: string | undefined;
 }
 
-/** One thing to draw. */
-export interface RenderRequest {
+/**
+ * The design's look (ADRs 0028, 0041, 0042): what the frames draw the components with. The editor
+ * sets it once on the preview (`setLook`), which writes its stylesheet for every frame; a frame
+ * that draws another (a component's unsaved look) is given its own with its render.
+ */
+export interface Look {
   /**
-   * The project's components (ADR 0041): a system component's look drawn over it, an app
+   * The project's components: a system component's look drawn over its default, an app
    * component's tree in its instances' place.
    */
-  readonly components?: readonly ComponentFile[] | undefined;
+  readonly components: readonly ComponentFile[];
+  /** Its stylesheet: every token's value in every theme, and the system components' looks. */
+  readonly css: string;
+}
+
+/** One thing to draw. */
+export interface RenderRequest {
   /** What the canvas draws every page in: its theme, its fill and its type. */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
@@ -89,18 +97,23 @@ export interface RenderRequest {
         readonly props?: Readonly<Record<string, JsonValue>> | undefined;
       }
     | undefined;
+  /** A look of its own, in a stylesheet of the frame's; the preview's when left out. */
+  readonly look?: Look | undefined;
   /** Shown instead of a node. */
   readonly message?: string | undefined;
   readonly mode: RenderMode;
   readonly renderId: number;
   readonly root: DesignNode | null;
-  /** The design's own stylesheet: every token's value, in every theme (ADR 0028, 0040). */
-  readonly styles?: string | undefined;
+}
+
+/** What a renderer is told to draw: a request, with the components of the look it is drawn in. */
+export interface Drawing extends Omit<RenderRequest, "look"> {
+  readonly components: Look["components"];
 }
 
 /** A mounted canvas, drawn again on request. */
 export interface Mounted {
-  readonly render: (request: RenderRequest) => void;
+  readonly render: (drawing: Drawing) => void;
   readonly unmount: () => void;
 }
 
@@ -225,4 +238,9 @@ export interface Preview {
     host: HTMLElement,
     options: MountFrameOptions
   ) => FrameRuntime;
+  /**
+   * The design's look from now on, for every frame that is not given one of its own: its
+   * stylesheet written once, and every frame drawn again with its components.
+   */
+  readonly setLook: (look: Look) => void;
 }

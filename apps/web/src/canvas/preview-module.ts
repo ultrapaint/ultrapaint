@@ -17,7 +17,7 @@ const ASSET_ROUTE = "/api/asset";
 let preview: Preview | null = null;
 
 /** The one preview of the editor's page, made the first time it is asked for. */
-const thePreview = (): Preview => {
+export const thePreview = (): Preview => {
   if (!preview) {
     installFrameViewport();
     preview = createPreview(renderToCanvas, {

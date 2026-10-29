@@ -11,8 +11,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Canvas } from "./canvas/canvas.tsx";
-import { provideDesignLook } from "./canvas/editor-frame.ts";
 import { IsolationBanner } from "./canvas/isolation-banner.tsx";
+import { thePreview } from "./canvas/preview-module.ts";
 import {
   NoUrlWarning,
   Prototype,
@@ -64,7 +64,7 @@ import {
   openStartCanvas,
   pagesChanged,
 } from "./state/location.ts";
-import { designLook } from "./state/look.ts";
+import { followLook } from "./state/look.ts";
 import { usePanels } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
@@ -324,7 +324,6 @@ export const App = () => {
       useDesignSystem.getState().load();
       useComponents.getState().load();
       useImplementation.getState().load();
-      provideDesignLook(designLook);
       provideCanvasDefaults(canvasDefaults);
       // The rail's Design system button says when the sync has something waiting.
       useSync.getState().load();
@@ -332,6 +331,12 @@ export const App = () => {
       openNewDesignOnSync();
     }
   }, [configured]);
+
+  // The design's look, set once on the preview whenever it changes (ADR 0042).
+  useEffect(
+    () => (configured ? followLook(thePreview()) : undefined),
+    [configured]
+  );
 
   // Comments are kept per canvas: opening another canvas reads its own.
   useEffect(() => {
