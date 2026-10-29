@@ -11,6 +11,7 @@ const EXTENDED_COLOUR_RE =
   /semantic tokens[\s\S]*Blue is the brand; never use it for status\.\n$/;
 
 const SHIPPED = [
+  "character",
   "hierarchy",
   "restraint",
   "layout",
@@ -54,8 +55,8 @@ describe("design skills", () => {
           SHIPPED.map((name) => [name, "built-in", true])
         );
         const [first] = shipped.skills;
-        assert.strictEqual(first?.title, "Hierarchy");
-        assert.include(first?.summary, "one thing it is for");
+        assert.strictEqual(first?.title, "Character");
+        assert.include(first?.summary, "Every product has a character");
         assert.isUndefined(first?.file);
 
         const dir = path.join(repo, "designs", "skills");
