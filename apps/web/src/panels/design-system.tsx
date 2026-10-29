@@ -688,6 +688,10 @@ export const DesignSystemPanel = () => {
             {problem ??
               "Start from a Figma file, and its variables and styles become your tokens. Or sync from the code: it reads your theme and components, and makes one from what the code uses."}
           </span>
+          <span className="font-body text-muted-foreground">
+            Until then the canvas draws on a neutral theme, and you can design
+            already.
+          </span>
         </div>
         {figma ? (
           <Button onClick={() => showSetup(true)} size="sm">

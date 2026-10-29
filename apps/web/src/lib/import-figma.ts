@@ -31,7 +31,7 @@ const upload = async (file: File): Promise<FigmaImport> => {
 
 /** Reads the file on the server, then opens a thread to convert it. */
 export const importFigma = async (file: File) => {
-  if (!ensureEditable({ designSystem: false })) {
+  if (!ensureEditable()) {
     return;
   }
   // Checked here: the server refuses a larger body by closing the connection before it has

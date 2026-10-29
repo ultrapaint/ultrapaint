@@ -37,7 +37,7 @@ import { startApplication } from "../lib/scaffold.ts";
 import { detect, setUpDesigns } from "../lib/settings-actions.ts";
 import { showSetup as showSync } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
-import { dismissInit, useSetup } from "../state/setup.ts";
+import { useSetup } from "../state/setup.ts";
 
 const close = () => useSetup.getState().close();
 const onOpenChange = (open: boolean) => {
@@ -54,7 +54,7 @@ const openSync = () => {
   close();
   showSync();
 };
-export const openSetup = () => useSetup.getState().open("configure");
+export const openSetup = () => useSetup.getState().open();
 
 /** A repository with no application: one is started, then the Sync view takes over. */
 const startNew = async (found: SetupSuggestions, repoPath: string) => {
@@ -67,43 +67,19 @@ const startNew = async (found: SetupSuggestions, repoPath: string) => {
 };
 
 /**
- * Asked at the first edit: set the repository up, or import its design system. The editor is
- * usable without either; only changing a design needs them.
+ * Asked at the first edit when no project is open: set the repository up. The editor is usable
+ * without it; only changing a design needs it.
  */
 export const SetupDialog = () => {
   const shown = useSetup((s) => s.shown);
-  const need = useSetup((s) => s.need);
   return (
     <Dialog onOpenChange={onOpenChange} open={shown}>
       <DialogContent className="sm:max-w-lg">
-        {need === "configure" ? <ConfigureForm /> : <InitPrompt />}
+        <ConfigureForm />
       </DialogContent>
     </Dialog>
   );
 };
-
-const InitPrompt = () => (
-  <>
-    <DialogHeader>
-      <DialogTitle>Set up the design system?</DialogTitle>
-      <DialogDescription>
-        There is no design system yet, so agents and the inspector do not know
-        your tokens, text styles or conventions. Sync works out what you have —
-        a Figma file, your code's theme and components — and takes you through
-        making one from it.
-      </DialogDescription>
-    </DialogHeader>
-    <DialogFooter>
-      <Button onClick={dismissInit} variant="outline">
-        Not now
-      </Button>
-      <Button onClick={openSync}>
-        <RefreshCw />
-        Open Sync
-      </Button>
-    </DialogFooter>
-  </>
-);
 
 /** Mounted with the dialog, so every open reads the repository again. */
 const ConfigureForm = () => {
