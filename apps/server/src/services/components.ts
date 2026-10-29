@@ -4,8 +4,9 @@
  * (ADR 0040); one without a file is drawn in its default look (`defaults.ts`), taking its look
  * over starts the file from that default, and removing the file goes back to it. An app
  * component's file is its tree, its properties and its slots, made from nodes of a page or written
- * by an agent. Every file is validated whoever writes it: an app component takes no system
- * component's name, names nodes its tree has, and places no app component that places it.
+ * by an agent. Every file is read and validated by the `component-files` codec, whoever writes it,
+ * and an app component's properties and slots are changed on its file as it is now (`change`),
+ * its instances following a rename in the same undo step.
  *
  * Migrating brings what came before into this: instances of system components and drafts as
  * they were named, specs' files, their implementations' snapshots and targets, in one undo step.
@@ -15,20 +16,26 @@ import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   type AppComponentFile,
+  appComponentsIn,
   COMPONENT_EXTENSION,
   COMPONENTS_DIR,
+  type ComponentChange,
   type ComponentEntry,
-  ComponentFile,
+  type ComponentFile,
   type ComponentList,
   type ComponentNote,
+  componentDocOf,
   componentFileOf,
   LEGACY_SPEC_EXTENSION,
   LEGACY_SPECS_DIR,
   LegacyComponentSpec,
   ROOT_SLOT,
-  type SystemComponentFile,
 } from "@ultrapaint/contracts/components";
-import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocumentEdit,
+  InstanceNode,
+} from "@ultrapaint/contracts/document";
 import {
   BadRequest,
   type Conflict,
@@ -43,17 +50,10 @@ import {
   LEGACY_IMPLEMENTED_SPECS,
   LEGACY_SPEC_TARGET_PREFIX,
 } from "@ultrapaint/contracts/implementation";
-import { appComponentCycle } from "@ultrapaint/design-document/app-components";
 import { serialise } from "@ultrapaint/design-document/factories";
-import {
-  childrenOf,
-  findNode,
-  findPath,
-  idsOf,
-} from "@ultrapaint/design-document/tree";
+import { childrenOf, findPath, idsOf } from "@ultrapaint/design-document/tree";
 import {
   catalogueOf,
-  type SystemComponentMeta,
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
@@ -70,11 +70,18 @@ import {
 import { EventBus } from "../events.ts";
 import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { makeId } from "../ids.ts";
+import {
+  changedComponent,
+  componentOf,
+  componentText,
+  instanceOps,
+  problemOf,
+  readComponentFile,
+} from "./component-files.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const decodeComponent = Schema.decodeUnknownEffect(ComponentFile);
 const decodeSpec = Schema.decodeUnknownEffect(LegacyComponentSpec);
 const decodeImplementation = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ImplementationFile)
@@ -98,108 +105,6 @@ const PLACEMENT_FIELDS = [
   "x",
   "y",
 ] as const;
-
-/** What is wrong with an app component's tree, its slots and its properties, or nothing. */
-const appProblemOf = (component: AppComponentFile): string | undefined => {
-  const ids = idsOf(component.tree);
-  for (const slot of component.slots) {
-    const node = findNode(component.tree, slot.node);
-    if (!node) {
-      return `the slot ${slot.name} is node ${slot.node}, which the tree does not have`;
-    }
-    if (!("children" in node)) {
-      return `the slot ${slot.name} is node ${slot.node}, which holds no nodes`;
-    }
-  }
-  if (component.slots.filter((s) => s.default).length > 1) {
-    return "only one slot is the default";
-  }
-  for (const property of component.properties) {
-    const missing = (property.targets ?? []).find((t) => !ids.has(t.node));
-    if (missing) {
-      return `the property ${property.name} sets node ${missing.node}, which the tree does not have`;
-    }
-    const members = property.members ?? [];
-    if (
-      property.kind === "choice" &&
-      !(
-        typeof property.default === "string" &&
-        members.includes(property.default)
-      )
-    ) {
-      return `the choice ${property.name} starts in a member it has: ${members.join(", ") || "it has none"}`;
-    }
-  }
-  return undefined;
-};
-
-/**
- * What is wrong with a system component's look against its catalogue entry, or nothing: it leaves
- * out only optional parts, gives content only to slots, and a template only to a Select's or a
- * Menu's items.
- */
-const systemProblemOf = (
-  component: SystemComponentFile,
-  meta: SystemComponentMeta
-): string | undefined => {
-  const parts = new Map(meta.slots.map((s) => [s.name, s]));
-  const fixed = (component.hidden ?? []).find((p) => !parts.get(p)?.optional);
-  if (fixed !== undefined) {
-    const optional = meta.slots.filter((s) => s.optional).map((s) => s.name);
-    return `${component.name} cannot leave out ${fixed}: ${optional.length > 0 ? `its optional parts are ${optional.join(", ")}` : "it has no optional part"}`;
-  }
-  const notSlot = Object.keys(component.content ?? {}).find(
-    (slot) => parts.get(slot)?.holds === undefined
-  );
-  if (notSlot !== undefined) {
-    return `${component.name} has no slot ${notSlot} to give content: its slots are ${meta.slots.flatMap((s) => (s.holds ? [s.name] : [])).join(", ") || "none"}`;
-  }
-  const { item } = component;
-  if (item && !meta.templatedItems) {
-    return `${component.name} has no items to draw with a template: a Select's and a Menu's have`;
-  }
-  const ids = item ? idsOf(item.tree) : new Set<string>();
-  const unbound = [item?.label, item?.image].find(
-    (id) => id !== undefined && !ids.has(id)
-  );
-  return unbound === undefined
-    ? undefined
-    : `the item template shows the item in node ${unbound}, which its tree does not have`;
-};
-
-/** What is wrong with a component's file among the others, or nothing. */
-export const problemOf = (
-  component: ComponentFile,
-  others: readonly ComponentFile[]
-): string | undefined => {
-  if (!COMPONENT_NAME_RE.test(component.name)) {
-    return `a component is named in PascalCase, letters and digits: ${component.name}`;
-  }
-  const system = systemComponentOf(component.name);
-  if (component.origin === "system") {
-    return system
-      ? systemProblemOf(component, system)
-      : `${component.name} is no system component: an app component's file says origin "app"`;
-  }
-  if (system) {
-    return `${component.name} is a system component's name: an app component takes another`;
-  }
-  const own = appProblemOf(component);
-  if (own) {
-    return own;
-  }
-  const apps = [
-    ...others.filter(
-      (c): c is AppComponentFile =>
-        c.origin === "app" && c.name !== component.name
-    ),
-    component,
-  ];
-  const cycle = appComponentCycle(apps);
-  return cycle?.includes(component.name)
-    ? `${cycle.join(" places ")}: a component cannot place itself`
-    : undefined;
-};
 
 /** The name a new app component takes from what was typed (`Hero title` is `HeroTitle`), or what is wrong with it. */
 const appNameOf = (
@@ -286,32 +191,17 @@ export const readComponents = (designsDir: string) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const dir = path.join(designsDir, COMPONENTS_DIR);
-    const readEntry = (name: string) =>
-      Effect.gen(function* () {
-        const file = `${COMPONENTS_DIR}/${name}`;
-        const text = yield* fs.readFileString(path.join(dir, name));
-        const json = yield* Effect.try({
-          catch: (error) => `not JSON: ${String(error)}`,
-          try: () => JSON.parse(text) as unknown,
-        });
-        const component = yield* decodeComponent(json).pipe(
-          Effect.mapError((error) => error.message)
-        );
-        if (`${component.name}${COMPONENT_EXTENSION}` !== name) {
-          return {
-            file,
-            problem: `the file of ${component.name} is ${componentFileOf(component.name)}`,
-          } satisfies ComponentEntry;
-        }
-        return { component, file } satisfies ComponentEntry;
-      }).pipe(
-        Effect.catch((problem) =>
-          Effect.succeed({
-            file: `${COMPONENTS_DIR}/${name}`,
-            problem: typeof problem === "string" ? problem : problem.message,
-          } satisfies ComponentEntry)
+    const readEntry = (name: string) => {
+      const file = `${COMPONENTS_DIR}/${name}`;
+      return fs.readFileString(path.join(dir, name)).pipe(
+        Effect.map(
+          (text): ComponentEntry => ({ file, ...readComponentFile(text, file) })
+        ),
+        Effect.catch((error) =>
+          Effect.succeed<ComponentEntry>({ file, problem: error.message })
         )
       );
+    };
     const names = yield* fs.readDirectory(dir).pipe(
       // No components yet: the directory comes with the first.
       Effect.orElseSucceed((): string[] => [])
@@ -354,6 +244,15 @@ export class ComponentService extends Context.Service<
     readonly write: (
       component: unknown
     ) => Effect.Effect<ComponentEntry, EditFailure>;
+    /**
+     * A change to an app component's properties or slots, made on its file as it is now; a
+     * property or a member renamed or taken out follows into the variants its tree keeps and every
+     * instance's props, in every document. One undo step.
+     */
+    readonly change: (
+      name: string,
+      change: ComponentChange
+    ) => Effect.Effect<ComponentEntry, EditFailure | Conflict>;
     /**
      * A system component's file started from its default look (ADR 0040), so the design edits
      * real values. One there was keeps its behaviour notes, which are not the look.
@@ -445,23 +344,91 @@ export class ComponentService extends Context.Service<
       ) {
         const file = componentFileOf(component.name);
         yield* edit.transaction(label, (tx) =>
-          tx.write(repoOf(file), serialise(component))
+          tx.write(repoOf(file), componentText(component))
         );
         yield* publish;
         return { component, file } satisfies ComponentEntry;
       });
 
+      /**
+       * The documents' operations that bring the instances of `name` along with a change: every
+       * page and canvas, and every other app component's tree.
+       */
+      const instanceEdits = Effect.fnUntraced(function* (
+        name: string,
+        made: ComponentChange
+      ) {
+        const trees = [
+          ...(yield* documents.all),
+          ...(yield* Effect.forEach(
+            appComponentsIn(yield* components).filter((c) => c.name !== name),
+            (c) => documents.get(componentDocOf(c.name))
+          )),
+        ];
+        return trees.flatMap((state): DocumentEdit[] => {
+          const ops = state.root ? instanceOps(state.root, name, made) : [];
+          return ops.length > 0 ? [{ doc: state.doc, ops }] : [];
+        });
+      });
+
+      /** An app component's file as it is on disk now. */
+      const appFileNow = Effect.fnUntraced(function* (name: string) {
+        const file = componentFileOf(name);
+        const text = yield* fs
+          .readFileString(path.join(paths.designsDir, file))
+          .pipe(Effect.orElseSucceed(() => null));
+        const read = text === null ? null : readComponentFile(text, file);
+        if (!(read && "component" in read)) {
+          return yield* new NotFound({
+            message: `no app component ${name}${read ? `: ${read.problem}` : ""}`,
+          });
+        }
+        if (read.component.origin !== "app") {
+          return yield* new BadRequest({
+            message: `${name} is a system component's look: it has no properties or slots`,
+          });
+        }
+        return read.component;
+      });
+
+      const change = Effect.fn("ComponentService.change")(function* (
+        name: string,
+        made: ComponentChange
+      ) {
+        const file = componentFileOf(name);
+        const edits = yield* instanceEdits(name, made);
+        let saved: AppComponentFile | undefined;
+        // Made on the file as it is under the journal: a change made since the editor read it stays.
+        yield* documents.apply(
+          { edits, label: `Change the ${name} component` },
+          (tx) =>
+            Effect.gen(function* () {
+              const next = changedComponent(yield* appFileNow(name), made);
+              if ("problem" in next) {
+                return yield* new BadRequest({ message: next.problem });
+              }
+              yield* checked(next);
+              yield* tx.write(repoOf(file), componentText(next));
+              saved = next;
+            })
+        );
+        yield* publish;
+        return {
+          ...(saved && { component: saved }),
+          file,
+        } satisfies ComponentEntry;
+      });
+
       const write = Effect.fn("ComponentService.write")(function* (
         input: unknown
       ) {
-        const component = yield* decodeComponent(input).pipe(
-          Effect.mapError(
-            (error) =>
-              new BadRequest({
-                message: `the component is not valid: ${error.message}`,
-              })
-          )
-        );
+        const read = componentOf(input);
+        if ("problem" in read) {
+          return yield* new BadRequest({
+            message: `the component is not valid: ${read.problem}`,
+          });
+        }
+        const { component } = read;
         return yield* save(
           yield* checked(component),
           `Change the ${component.name} component`
@@ -786,6 +753,7 @@ export class ComponentService extends Context.Service<
       return ComponentService.of({
         addNote,
         catalogue,
+        change,
         components,
         fromDefault,
         legacy,

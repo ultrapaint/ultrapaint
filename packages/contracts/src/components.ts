@@ -228,6 +228,47 @@ export const ComponentFile = Schema.Union([
 ]);
 export type ComponentFile = typeof ComponentFile.Type;
 
+/**
+ * A change to an app component's properties or slots (ADR 0042), made on the file as it is when
+ * the server applies it, so a change made meanwhile (a tree edited in place) is not lost. A
+ * property or a member renamed or taken out is followed by the variants its tree keeps
+ * (`at["size=lg"]`) and by every instance's props, in one undo step.
+ */
+export const ComponentChange = Schema.Union([
+  Schema.Struct({
+    op: Schema.Literal("addProperty"),
+    property: ComponentProperty,
+  }),
+  /** What it starts as, a choice's members, the nodes it sets: what is given, the rest kept. */
+  Schema.Struct({
+    default: Schema.optional(Json),
+    members: Schema.optional(Schema.Array(Schema.String)),
+    name: Schema.String,
+    op: Schema.Literal("setProperty"),
+    targets: Schema.optional(Schema.Array(PropertyTarget)),
+  }),
+  Schema.Struct({
+    name: Schema.String,
+    op: Schema.Literal("renameProperty"),
+    to: Schema.String,
+  }),
+  Schema.Struct({ name: Schema.String, op: Schema.Literal("removeProperty") }),
+  Schema.Struct({
+    member: Schema.String,
+    op: Schema.Literal("renameMember"),
+    property: Schema.String,
+    to: Schema.String,
+  }),
+  Schema.Struct({ op: Schema.Literal("addSlot"), slot: AppSlot }),
+  Schema.Struct({ name: Schema.String, op: Schema.Literal("removeSlot") }),
+  /** The slot that takes the children naming none; none with null. */
+  Schema.Struct({
+    name: Schema.NullOr(Schema.String),
+    op: Schema.Literal("defaultSlot"),
+  }),
+]);
+export type ComponentChange = typeof ComponentChange.Type;
+
 /** A component's file as the editor lists it: where it is, and the component when it reads. */
 export const ComponentEntry = Schema.Struct({
   component: Schema.optional(ComponentFile),
