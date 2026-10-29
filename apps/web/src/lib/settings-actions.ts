@@ -84,7 +84,6 @@ export const setUpDesigns = async (
   await api().request("setup.createDesigns", {
     designsDir: next.designsDir,
     repoPath: next.repoPath,
-    resolveFrom: next.resolveFrom,
   });
   return await save(next);
 };

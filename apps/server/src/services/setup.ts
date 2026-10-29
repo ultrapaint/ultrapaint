@@ -129,18 +129,10 @@ export class SetupService extends Context.Service<
         const inside = (abs: string) =>
           abs === root || abs.startsWith(root + path.sep);
         const designs = path.resolve(root, input.designsDir);
-        const anchor =
-          input.resolveFrom === undefined
-            ? null
-            : path.resolve(root, input.resolveFrom);
-        if (!(inside(designs) && (anchor === null || inside(anchor)))) {
+        // Pages import nothing (ADR 0040): the directory is all a design needs.
+        if (!inside(designs)) {
           return yield* new ForbiddenPath({
             message: "the designs directory must be inside the repository",
-          });
-        }
-        if (anchor && !(yield* exists(path.join(anchor, "package.json")))) {
-          return yield* new BadRequest({
-            message: `${input.resolveFrom} has no package.json`,
           });
         }
 

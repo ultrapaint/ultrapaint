@@ -54,7 +54,6 @@ export type SetupSuggestions = typeof SetupSuggestions.Type;
 export const CreateDesignsInput = Schema.Struct({
   designsDir: RepoRelativePath,
   repoPath: Schema.String,
-  resolveFrom: Schema.optional(RepoRelativePath),
 });
 export type CreateDesignsInput = typeof CreateDesignsInput.Type;
 
