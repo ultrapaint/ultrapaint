@@ -35,10 +35,10 @@ import {
 import { EventBus } from "../events.ts";
 import { ProjectManager } from "../project.ts";
 import { CodeSide } from "./code-side.ts";
-import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import { FigmaImportService } from "./figma-import.ts";
+import { Migration } from "./migration.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 import {
@@ -178,7 +178,7 @@ export class DesignSystemSyncService extends Context.Service<
           const source = yield* code.tokens;
           const state = yield* (yield* DesignSystemService).get;
           const latest = yield* (yield* FigmaImportService).latest;
-          const old = yield* (yield* ComponentService).legacy.pipe(
+          const old = yield* (yield* Migration).left.pipe(
             // Pages that cannot be read say nothing of what they hold.
             Effect.orElseSucceed(() => ({ drawn: 0, left: 0, specs: 0 }))
           );

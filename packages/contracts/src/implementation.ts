@@ -28,10 +28,6 @@ export const componentTarget = (name: string) =>
   `${COMPONENT_TARGET_PREFIX}${name}`;
 export const isComponentTarget = (target: string) =>
   target.startsWith(COMPONENT_TARGET_PREFIX);
-/** What a component spec's target was before ADR 0041 (`spec:Button`): the migration renames it. */
-export const LEGACY_SPEC_TARGET_PREFIX = "spec:";
-/** Where the specs as they were implemented were kept before ADR 0041, inside `_implemented/`. */
-export const LEGACY_IMPLEMENTED_SPECS = "specs";
 export const IMPLEMENTED_COMPONENTS = "components";
 
 const PAGE_FILE_RE = /\.page\.json$/;

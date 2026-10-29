@@ -16,27 +16,54 @@
  * Pure: the server migrates whole pages with it, the editor one instance.
  */
 
+import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import {
-  APP_FROM,
-  LEGACY_DRAFT_FROM,
-  LEGACY_SYSTEM_FROM,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/component-names";
-import type {
-  ComponentFile,
-  ComponentProperty,
-  LegacyComponentSpec,
+  type ComponentFile,
+  ComponentNote,
+  type ComponentProperty,
+  PartStyles,
 } from "@ultrapaint/contracts/components";
-import type {
+import {
   DesignNode,
-  InstanceNode,
-  TextNode,
+  type InstanceNode,
+  type TextNode,
 } from "@ultrapaint/contracts/document";
+import { Schema } from "effect";
 import {
   SYSTEM_COMPONENTS,
   type SystemComponentMeta,
   systemComponentOf,
 } from "./catalogue.ts";
+
+/** What a system component's instance named as `from` before ADR 0041. */
+export const LEGACY_SYSTEM_FROM = "@ultrapaint/primitives";
+/** What a draft component's instance named as `from` before ADR 0041: an app component's now. */
+export const LEGACY_DRAFT_FROM = "#draft";
+/** Where specs and drafts were kept before ADR 0041, inside the designs directory. */
+export const LEGACY_SPECS_DIR = "specs";
+export const LEGACY_SPEC_EXTENSION = ".spec.json";
+
+/**
+ * A component spec as it was kept before ADR 0041 (`specs/<Component>.spec.json`): what the
+ * migration reads to write the component's file. A draft (`draft`) becomes an app component, a
+ * spec with the design's look a system component's file; a spec that mirrored the code
+ * (`look: "code"`) drew nothing and is dropped.
+ */
+export const LegacyComponentSpec = Schema.Struct({
+  base: PartStyles,
+  component: Schema.String,
+  description: Schema.optional(Schema.String),
+  draft: Schema.optional(DesignNode),
+  from: Schema.String,
+  look: Schema.Literals(["design", "code"]),
+  notes: Schema.optional(Schema.Array(ComponentNote)),
+  states: Schema.Record(Schema.String, PartStyles),
+  variants: Schema.Record(
+    Schema.String,
+    Schema.Record(Schema.String, PartStyles)
+  ),
+});
+export type LegacyComponentSpec = typeof LegacyComponentSpec.Type;
 
 type JsonValue = NonNullable<InstanceNode["props"]>[string];
 type Props = Record<string, JsonValue>;

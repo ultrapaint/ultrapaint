@@ -11,13 +11,6 @@ export const COMPONENT_EXTENSION = ".component.json";
 export const SYSTEM_FROM = "@ultrapaint/system";
 /** What an instance of one of the project's app components names as `from` (ADR 0041). */
 export const APP_FROM = "#app";
-/** What a system component's instance named as `from` before ADR 0041: the migration renames it. */
-export const LEGACY_SYSTEM_FROM = "@ultrapaint/primitives";
-/** What a draft component's instance named as `from` before ADR 0041: an app component's now. */
-export const LEGACY_DRAFT_FROM = "#draft";
-/** Where specs and drafts were kept before ADR 0041, inside the designs directory. */
-export const LEGACY_SPECS_DIR = "specs";
-export const LEGACY_SPEC_EXTENSION = ".spec.json";
 /** The part every system component has: the element it renders at its root. */
 export const ROOT_SLOT = "root";
 /** The states a system component's look can be given for. */

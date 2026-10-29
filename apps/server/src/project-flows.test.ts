@@ -1,14 +1,13 @@
 import { assert, describe, layer } from "@effect/vitest";
-import {
-  APP_FROM,
-  LEGACY_DRAFT_FROM,
-  LEGACY_SYSTEM_FROM,
-  SYSTEM_FROM,
-} from "@ultrapaint/contracts/component-names";
+import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
+import {
+  LEGACY_DRAFT_FROM,
+  LEGACY_SYSTEM_FROM,
+} from "@ultrapaint/system-components/migrate";
 import { Effect, Fiber, FileSystem, Option, Path, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
@@ -20,6 +19,7 @@ import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
+import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
@@ -178,14 +178,17 @@ describe("flows in the services", () => {
               ],
             })
           );
-          assert.deepStrictEqual(yield* documents((d) => d.oldInstances), {
+          const migration = project.service(Migration);
+          assert.deepStrictEqual(yield* migration((m) => m.left), {
             drawn: 1,
             left: 1,
+            specs: 0,
           });
-          assert.deepStrictEqual(
-            yield* project.service(ComponentService)((c) => c.migrate),
-            { components: 0, documents: 1, drawn: 1 }
-          );
+          assert.deepStrictEqual(yield* migration((m) => m.run), {
+            components: 0,
+            documents: 1,
+            drawn: 1,
+          });
           const after = yield* documents((d) => d.get(orders.id));
           const button = after.root && findNode(after.root, "new-order");
           assert.deepStrictEqual(button, {
@@ -196,9 +199,10 @@ describe("flows in the services", () => {
             text: "New order",
             type: "instance",
           });
-          assert.deepStrictEqual(yield* documents((d) => d.oldInstances), {
+          assert.deepStrictEqual(yield* migration((m) => m.left), {
             drawn: 0,
             left: 1,
+            specs: 0,
           });
         })
     );
@@ -373,13 +377,14 @@ describe("flows in the services", () => {
                 ],
               })
             );
-            assert.deepStrictEqual(yield* components((c) => c.legacy), {
+            const migration = project.service(Migration);
+            assert.deepStrictEqual(yield* migration((m) => m.left), {
               drawn: 2,
               left: 0,
               specs: 3,
             });
 
-            assert.deepStrictEqual(yield* components((c) => c.migrate), {
+            assert.deepStrictEqual(yield* migration((m) => m.run), {
               components: 2,
               documents: 1,
               drawn: 2,

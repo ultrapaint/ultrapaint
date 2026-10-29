@@ -34,10 +34,6 @@ export {
   componentDocOf,
   componentOfDoc,
   isVariantKey,
-  LEGACY_DRAFT_FROM,
-  LEGACY_SPEC_EXTENSION,
-  LEGACY_SPECS_DIR,
-  LEGACY_SYSTEM_FROM,
   ROOT_SLOT,
   SYSTEM_FROM,
   variantKey,
@@ -309,25 +305,3 @@ export const systemComponentsIn = (
   components: readonly ComponentFile[]
 ): SystemComponentFile[] =>
   components.flatMap((c) => (c.origin === "system" ? [c] : []));
-
-/**
- * A component spec as it was kept before ADR 0041 (`specs/<Component>.spec.json`): what the
- * migration reads to write the component's file. A draft (`draft`) becomes an app component, a
- * spec with the design's look a system component's file; a spec that mirrored the code
- * (`look: "code"`) drew nothing and is dropped.
- */
-export const LegacyComponentSpec = Schema.Struct({
-  base: PartStyles,
-  component: Schema.String,
-  description: Schema.optional(Schema.String),
-  draft: Schema.optional(DesignNode),
-  from: Schema.String,
-  look: Schema.Literals(["design", "code"]),
-  notes: Schema.optional(Schema.Array(ComponentNote)),
-  states: Schema.Record(Schema.String, PartStyles),
-  variants: Schema.Record(
-    Schema.String,
-    Schema.Record(Schema.String, PartStyles)
-  ),
-});
-export type LegacyComponentSpec = typeof LegacyComponentSpec.Type;

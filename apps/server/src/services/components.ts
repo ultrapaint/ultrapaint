@@ -7,9 +7,6 @@
  * by an agent. Every file is read and validated by the `component-files` codec, whoever writes it,
  * and an app component's properties and slots are changed on its file as it is now (`change`),
  * its instances following a rename in the same undo step.
- *
- * Migrating brings what came before into this: instances of system components and drafts as
- * they were named, specs' files, their implementations' snapshots and targets, in one undo step.
  */
 
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
@@ -26,9 +23,6 @@ import {
   type ComponentNote,
   componentDocOf,
   componentFileOf,
-  LEGACY_SPEC_EXTENSION,
-  LEGACY_SPECS_DIR,
-  LegacyComponentSpec,
   ROOT_SLOT,
 } from "@ultrapaint/contracts/components";
 import type {
@@ -41,15 +35,6 @@ import {
   type Conflict,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import {
-  COMPONENT_TARGET_PREFIX,
-  IMPLEMENTATION_FILE,
-  IMPLEMENTED_COMPONENTS,
-  IMPLEMENTED_DIR,
-  ImplementationFile,
-  LEGACY_IMPLEMENTED_SPECS,
-  LEGACY_SPEC_TARGET_PREFIX,
-} from "@ultrapaint/contracts/implementation";
 import { serialise } from "@ultrapaint/design-document/factories";
 import { childrenOf, findPath, idsOf } from "@ultrapaint/design-document/tree";
 import {
@@ -57,18 +42,8 @@ import {
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import { componentOfSpec } from "@ultrapaint/system-components/migrate";
-import {
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Path,
-  Schema,
-  Stream,
-} from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
-import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { makeId } from "../ids.ts";
 import {
   changedComponent,
@@ -79,13 +54,8 @@ import {
   readComponentFile,
 } from "./component-files.ts";
 import { DocumentService } from "./documents.ts";
-import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
+import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
-
-const decodeSpec = Schema.decodeUnknownEffect(LegacyComponentSpec);
-const decodeImplementation = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(ImplementationFile)
-);
 
 const COMPONENT_NAME_RE = /^[A-Z][A-Za-z0-9]*$/;
 const SPACED_WORD_RE = /\s+(\w)/g;
@@ -223,16 +193,6 @@ export const readComponents = (designsDir: string) =>
 export const componentsIn = (list: ComponentList): ComponentFile[] =>
   list.components.flatMap((e) => (e.component ? [e.component] : []));
 
-/** What is left from before ADR 0041 to migrate. */
-export interface Legacy {
-  /** Instances drawn as now once migrated. */
-  readonly drawn: number;
-  /** Instances of the repository's components no system component is like. */
-  readonly left: number;
-  /** Specs' files, each a component's once migrated. */
-  readonly specs: number;
-}
-
 export class ComponentService extends Context.Service<
   ComponentService,
   {
@@ -283,21 +243,6 @@ export class ComponentService extends Context.Service<
       nodeIds: readonly string[],
       name: string
     ) => Effect.Effect<ComponentEntry, EditFailure | NotFound | Conflict>;
-    /** What is left from before ADR 0041 to migrate. */
-    readonly legacy: Effect.Effect<Legacy, EditFailure>;
-    /**
-     * Everything from before brought up to date, in one undo step: the instances (`migrate.ts`),
-     * each spec's file as a component's, their implementations' snapshots and targets. Answers
-     * with how many instances, in how many documents, and how many components.
-     */
-    readonly migrate: Effect.Effect<
-      {
-        readonly components: number;
-        readonly documents: number;
-        readonly drawn: number;
-      },
-      EditFailure | Conflict
-    >;
   }
 >()("ultrapaint/server/ComponentService") {
   static readonly layer = Layer.effect(
@@ -583,161 +528,6 @@ export class ComponentService extends Context.Service<
         return { component, file } satisfies ComponentEntry;
       });
 
-      /** The specs' files from before, each read, or left out when it does not read. */
-      const legacySpecs = Effect.gen(function* () {
-        const specsDir = path.join(paths.designsDir, LEGACY_SPECS_DIR);
-        const names = yield* fs
-          .readDirectory(specsDir)
-          .pipe(Effect.orElseSucceed((): string[] => []));
-        return yield* Effect.forEach(
-          names.filter((n) => n.endsWith(LEGACY_SPEC_EXTENSION)).sort(),
-          (name) =>
-            fs.readFileString(path.join(specsDir, name)).pipe(
-              Effect.flatMap((text) =>
-                Effect.try({
-                  catch: (error) => String(error),
-                  try: () => JSON.parse(text) as unknown,
-                })
-              ),
-              Effect.flatMap((raw) =>
-                Effect.map(decodeSpec(raw), (spec) => ({
-                  file: name,
-                  raw,
-                  spec,
-                }))
-              ),
-              Effect.option
-            )
-        ).pipe(
-          Effect.map((read) =>
-            read.flatMap((o) => (o._tag === "Some" ? [o.value] : []))
-          )
-        );
-      });
-
-      const legacy = Effect.gen(function* () {
-        const old = yield* documents.oldInstances;
-        const specs = yield* legacySpecs;
-        return { ...old, specs: specs.length };
-      }).pipe(Effect.withSpan("ComponentService.legacy"));
-
-      /**
-       * The specs' files moved to components', their implementations' snapshots with them and
-       * `implementation.json`'s targets renamed, each binding's design hash that of the component.
-       */
-      const migrateFiles = (
-        tx: EditTransaction,
-        specs: readonly {
-          readonly file: string;
-          readonly raw: unknown;
-          readonly spec: LegacyComponentSpec;
-        }[]
-      ) =>
-        Effect.gen(function* () {
-          /** By component: its hash now, and what its spec hashed to, as a binding has it. */
-          const now = new Map<string, { hash: string; was: string }>();
-          /** By component: the hash of its design as it was implemented, from its snapshot. */
-          const implementedHash = new Map<string, string>();
-          for (const { file, raw, spec } of specs) {
-            const component = componentOfSpec(spec);
-            yield* tx.remove(repoOf(`${LEGACY_SPECS_DIR}/${file}`));
-            if (component) {
-              now.set(spec.component, {
-                hash: componentHash(component),
-                was: hashContent(stableJson(raw)),
-              });
-              yield* tx.write(
-                repoOf(componentFileOf(component.name)),
-                serialise(component)
-              );
-            }
-          }
-          const implementedDir = `${IMPLEMENTED_DIR}/${LEGACY_IMPLEMENTED_SPECS}`;
-          const snapshots = yield* fs
-            .readDirectory(path.join(paths.designsDir, implementedDir))
-            .pipe(Effect.orElseSucceed((): string[] => []));
-          for (const name of snapshots) {
-            const rel = repoOf(`${implementedDir}/${name}`);
-            const text = yield* fs
-              .readFileString(path.join(paths.designsDir, implementedDir, name))
-              .pipe(Effect.orElseSucceed(() => ""));
-            const snapshot = yield* Effect.try(
-              () => JSON.parse(text) as { kind?: unknown; spec?: unknown }
-            ).pipe(
-              Effect.flatMap((json) => decodeSpec(json.spec)),
-              Effect.map(componentOfSpec),
-              Effect.orElseSucceed(() => null)
-            );
-            yield* tx.remove(rel);
-            if (snapshot) {
-              implementedHash.set(snapshot.name, componentHash(snapshot));
-              yield* tx.write(
-                repoOf(`${IMPLEMENTED_DIR}/${IMPLEMENTED_COMPONENTS}/${name}`),
-                serialise({ component: snapshot, kind: "component" })
-              );
-            }
-          }
-          const implementation = yield* fs
-            .readFileString(path.join(paths.designsDir, IMPLEMENTATION_FILE))
-            .pipe(
-              Effect.flatMap(decodeImplementation),
-              Effect.orElseSucceed(() => null)
-            );
-          if (
-            implementation &&
-            Object.keys(implementation.items).some((k) =>
-              k.startsWith(LEGACY_SPEC_TARGET_PREFIX)
-            )
-          ) {
-            const items = Object.fromEntries(
-              Object.entries(implementation.items)
-                .map(([target, entry]) => {
-                  if (!target.startsWith(LEGACY_SPEC_TARGET_PREFIX)) {
-                    return [target, entry] as const;
-                  }
-                  const name = target.slice(LEGACY_SPEC_TARGET_PREFIX.length);
-                  // The design as implemented, as a component; or, without its snapshot, the
-                  // component now when the spec had not changed since.
-                  const component = now.get(name);
-                  const hash =
-                    implementedHash.get(name) ??
-                    (component && entry.implemented?.design === component.was
-                      ? component.hash
-                      : undefined);
-                  return [
-                    `${COMPONENT_TARGET_PREFIX}${name}`,
-                    entry.implemented && hash
-                      ? {
-                          ...entry,
-                          implemented: { ...entry.implemented, design: hash },
-                        }
-                      : entry,
-                  ] as const;
-                })
-                .sort(([a], [b]) => a.localeCompare(b))
-            );
-            yield* tx.write(
-              repoOf(IMPLEMENTATION_FILE),
-              serialise({ ...implementation, items })
-            );
-          }
-        });
-
-      const migrate = Effect.gen(function* () {
-        const { drawn, edits } = yield* documents.migrationEdits;
-        const specs = yield* legacySpecs;
-        const made = specs.filter(({ spec }) => componentOfSpec(spec)).length;
-        if (edits.length === 0 && specs.length === 0) {
-          return { components: 0, documents: 0, drawn: 0 };
-        }
-        yield* documents.apply(
-          { edits, label: "Bring the designs up to date" },
-          (tx) => migrateFiles(tx, specs)
-        );
-        yield* publish;
-        return { components: made, documents: edits.length, drawn };
-      }).pipe(Effect.withSpan("ComponentService.migrate"));
-
       // Whoever changes the files — an undo, an agent, a checkout — the editor hears of it.
       const prefix = `${paths.relative(dir)}/`;
       yield* events.subscribe("file.changed").pipe(
@@ -756,10 +546,8 @@ export class ComponentService extends Context.Service<
         change,
         components,
         fromDefault,
-        legacy,
         list,
         makeApp,
-        migrate,
         remove,
         write,
       });
