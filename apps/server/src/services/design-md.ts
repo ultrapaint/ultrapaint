@@ -27,13 +27,8 @@ import {
   resolvedValues,
   valuesOf,
 } from "@ultrapaint/design-md/merge";
-import {
-  type ComponentClasses,
-  componentEntries,
-  mirrorOf,
-} from "@ultrapaint/design-md/mirror";
+import { mirrorOf, specEntries } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
-import { groupsOf } from "@ultrapaint/design-md/tokens";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import {
   Clock,
@@ -47,13 +42,11 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
-import { CatalogueService } from "./catalogue.ts";
-import { CodeSide } from "./code-side.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
 import { withAgreement } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { ProjectStyleSystem } from "./style-system.ts";
+import { readSpecs, specsIn } from "./specs.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
 
 /** DESIGN.md as it was found: at the root, or in the designs directory (`legacy`). */
@@ -126,8 +119,8 @@ export class DesignMd extends Context.Service<
     ) => Effect.Effect<DesignDocument | null>;
     /**
      * The front matter a design system comes to (ADR 0027, 0028): its tokens and their values in
-     * the format, its components' tokens read from their classes. `text`, the document, stands
-     * in for the components while the catalogue has not been read.
+     * the format, and the component tokens of the primitives whose look the project owns, read
+     * from their specs (ADR 0029, 0040).
      */
     readonly mirror: (
       ds: DesignSystem,
@@ -176,8 +169,6 @@ export class DesignMd extends Context.Service<
       name: string,
       text: string
     ) => Effect.Effect<void, EditFailure>;
-    /** The components' classes read again from the catalogue: their tokens are mirrored. */
-    readonly refresh: Effect.Effect<void>;
     /** Each time the document may have changed, whoever changed it. */
     readonly changes: Stream.Stream<void>;
   }
@@ -187,9 +178,6 @@ export class DesignMd extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
-      const code = yield* CodeSide;
-      const styleSystem = yield* ProjectStyleSystem;
-      const catalogue = yield* CatalogueService;
       const events = yield* EventBus;
       const linter = yield* DesignMdLint;
       const fs = yield* FileSystem.FileSystem;
@@ -252,46 +240,15 @@ export class DesignMd extends Context.Service<
         return findings;
       });
 
-      /**
-       * The catalogue's components, once it has been read: their classes are what the
-       * component tokens come from. Read in the background, and again on a refresh; until then
-       * the document's own component tokens stand.
-       */
-      let catalogued: readonly ComponentClasses[] | null = null;
-      const refresh = Effect.map(
-        Effect.option(catalogue.get(false)),
-        (read) => {
-          if (read._tag === "Some") {
-            catalogued = read.value.components;
-          }
-        }
-      );
-
       const mirror = Effect.fnUntraced(function* (
         ds: DesignSystem,
-        text: string | null
+        _text: string | null
       ) {
-        const known = catalogued;
-        if (known === null) {
-          const own = text ? groupsOf(parse(text)).groups.components : {};
-          return mirrorOf(ds, own).groups;
-        }
-        const { tokens } = yield* code.tokens;
-        return mirrorOf(
-          ds,
-          componentEntries(
-            known,
-            new Set(Object.keys(ds.components ?? {})),
-            (classes) =>
-              Object.fromEntries(
-                Object.entries(
-                  styleSystem.componentStyle(classes, tokens)
-                ).filter(
-                  (entry): entry is [string, string] => entry[1] !== undefined
-                )
-              )
-          )
-        ).groups;
+        const specs = yield* readSpecs(paths.designsDir).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path)
+        );
+        return mirrorOf(ds, specEntries(specsIn(specs))).groups;
       });
 
       const document = Effect.fnUntraced(function* (ds: DesignSystem | null) {
@@ -495,7 +452,6 @@ export class DesignMd extends Context.Service<
         follow,
         mirror,
         place,
-        refresh,
         setSection,
         toWrite,
       });

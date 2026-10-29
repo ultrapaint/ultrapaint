@@ -8,6 +8,9 @@ import type {
   TextStyle,
   Token,
 } from "@ultrapaint/contracts/design-system";
+import type { Padding } from "@ultrapaint/contracts/document";
+import { ROOT_SLOT } from "@ultrapaint/contracts/spec-names";
+import type { ComponentSpec, SpecStyle } from "@ultrapaint/contracts/specs";
 import {
   formatNumber,
   isColor,
@@ -325,18 +328,6 @@ const componentValue = (
   return isDimension(given) ? given : null;
 };
 
-/** A component's classes as the catalogue keeps them (`ComponentMeta.styles`). */
-export interface ComponentClasses {
-  readonly name: string;
-  readonly styles?: {
-    readonly base: string;
-    readonly classes: Readonly<
-      Record<string, Readonly<Record<string, string>>>
-    >;
-    readonly defaults: Readonly<Record<string, string>>;
-  };
-}
-
 /** The variant that changes a component's colours, by the names libraries give it. */
 const COLOR_AXES = ["variant", "intent", "color", "tone", "appearance"];
 const SIZE_AXIS = "size";
@@ -346,70 +337,112 @@ const UPPER_RE = /([a-z0-9])([A-Z])/g;
 /** `DropdownMenuItem` → `dropdown-menu-item`. */
 const kebab = (name: string) => tokenKeyOf(name.replace(UPPER_RE, "$1-$2"));
 
+/** A length as CSS: a number is pixels, as the design document has it. */
+const lengthCss = (value: string | number) =>
+  typeof value === "number" ? `${value}px` : value;
+
+/** Padding as one value: the same on every side, or the four sides as CSS writes them. */
+const paddingCss = (padding: Padding): string | null => {
+  if (typeof padding === "number" || typeof padding === "string") {
+    return lengthCss(padding);
+  }
+  const sides = [padding.top, padding.right, padding.bottom, padding.left].map(
+    (side) => lengthCss(side ?? 0)
+  );
+  return new Set(sides).size === 1 ? (sides[0] ?? null) : null;
+};
+
+/** A slot's style fields as DESIGN.md's component tokens hold them: what the format has a name for. */
+const tokensOfStyle = (style: SpecStyle): Record<string, string> => {
+  const out: Record<string, string> = {};
+  if (style.fill !== undefined) {
+    out.backgroundColor = style.fill;
+  }
+  if (style.color !== undefined) {
+    out.textColor = style.color;
+  }
+  if (style.radius !== undefined) {
+    out.rounded = lengthCss(style.radius);
+  }
+  const padding =
+    style.padding === undefined ? null : paddingCss(style.padding);
+  if (padding !== null) {
+    out.padding = padding;
+  }
+  if (style.height !== undefined) {
+    out.height = lengthCss(style.height);
+  }
+  if (style.width !== undefined) {
+    out.width = lengthCss(style.width);
+  }
+  return out;
+};
+
+/** A component spec as DESIGN.md's component tokens are read from it (ADR 0027, 0029). */
+export type SpecLike = Pick<
+  ComponentSpec,
+  "base" | "component" | "defaults" | "draft" | "look" | "variants"
+>;
+
 /**
- * The component tokens a design system's components come to (ADR 0027), from their classes:
- * `button` as it starts, `button-<variant>` for each other member of the variant that changes
- * its colours, and `button-<size>` for each other size, its dimensions alone. `read` is the style
- * system's reading of a list of classes. Only the components the design system notes.
+ * The component tokens of the components whose look the project owns (ADR 0027, 0040): a spec
+ * with the design's look, its root slot's fields as the format holds them. `button` as it
+ * starts, `button-<variant>` for each other member of the variant that changes its colours, and
+ * `button-<size>` for each other size, its dimensions alone. A primitive in its default look, or
+ * a draft, writes nothing.
  */
-export const componentEntries = (
-  components: readonly ComponentClasses[],
-  listed: ReadonlySet<string>,
-  read: (classes: string) => Readonly<Record<string, string>>
+export const specEntries = (
+  specs: readonly SpecLike[]
 ): Record<string, Record<string, string>> => {
   const out: Record<string, Record<string, string>> = {};
-  for (const component of components) {
-    if (component.styles && listed.has(component.name)) {
-      Object.assign(
-        out,
-        entriesOf(kebab(component.name), component.styles, read)
-      );
+  for (const spec of specs) {
+    if (spec.look === "design" && spec.draft === undefined) {
+      Object.assign(out, entriesOf(spec));
     }
   }
   return out;
 };
 
-/** One component's entries: as it starts, each other colour variant, each other size. */
-const entriesOf = (
-  key: string,
-  styles: NonNullable<ComponentClasses["styles"]>,
-  read: (classes: string) => Readonly<Record<string, string>>
-): Record<string, Record<string, string>> => {
-  const classesFor = (choice: Readonly<Record<string, string>>) =>
-    [
-      styles.base,
-      ...Object.entries(styles.classes).map(
-        ([axis, members]) =>
-          members[choice[axis] ?? styles.defaults[axis] ?? ""] ?? ""
-      ),
-    ].join(" ");
+/** One spec's entries: as it starts, each other colour variant, each other size. */
+const entriesOf = (spec: SpecLike): Record<string, Record<string, string>> => {
+  const key = kebab(spec.component);
+  /** The root's fields with each axis at its default, or at the member `choice` names. */
+  const rootFor = (choice: Readonly<Record<string, string>>) =>
+    tokensOfStyle(
+      Object.assign(
+        {},
+        spec.base[ROOT_SLOT],
+        ...Object.entries(spec.variants).map(
+          ([axis, members]) =>
+            members[choice[axis] ?? spec.defaults[axis] ?? ""]?.[ROOT_SLOT]
+        )
+      )
+    );
   const out: Record<string, Record<string, string>> = {};
   const add = (name: string, entry: Readonly<Record<string, string>>) => {
     if (Object.keys(entry).length > 0) {
       out[name] = { ...entry };
     }
   };
-  add(key, read(classesFor({})));
+  add(key, rootFor({}));
   /** The members of an axis other than the one it starts with. */
   const others = (axis: string | undefined) =>
     axis === undefined
       ? []
-      : Object.keys(styles.classes[axis] ?? {}).filter(
-          (member) => member !== styles.defaults[axis]
+      : Object.keys(spec.variants[axis] ?? {}).filter(
+          (member) => member !== spec.defaults[axis]
         );
-  const colorAxis = COLOR_AXES.find((a) => styles.classes[a]);
+  const colorAxis = COLOR_AXES.find((a) => spec.variants[a]);
   for (const member of others(colorAxis)) {
-    add(
-      `${key}-${kebab(member)}`,
-      read(classesFor({ [colorAxis ?? ""]: member }))
-    );
+    add(`${key}-${kebab(member)}`, rootFor({ [colorAxis ?? ""]: member }));
   }
   for (const member of others(SIZE_AXIS)) {
-    const sized = read(classesFor({ [SIZE_AXIS]: member }));
     add(
       `${key}-${kebab(member)}`,
       Object.fromEntries(
-        Object.entries(sized).filter(([prop]) => SIZE_PROPS.has(prop))
+        Object.entries(rootFor({ [SIZE_AXIS]: member })).filter(([prop]) =>
+          SIZE_PROPS.has(prop)
+        )
       )
     );
   }

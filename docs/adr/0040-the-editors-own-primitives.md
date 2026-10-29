@@ -3,7 +3,8 @@
 Status: accepted, 2026-10-28. Supersedes the repository's components on the canvas of 0015 and
 0034 (the frames stay shadow roots of the editor's page) and the sandbox of
 `docs/PLAN-preview-sandbox.md`. Amends 0007 (the catalogue is the primitives), 0011 (no framework
-package builds or serves a preview), 0029 (a primitive's look is its spec; nothing is read off cva)
+package builds or serves a preview), 0029 (a primitive's look is its spec; nothing is read off cva), 0027 (component tokens come from
+the specs)
 and 0030 (`/implement` applies a primitive to the application's own component). The terms are in
 `GLOSSARY.md`.
 
@@ -74,7 +75,8 @@ UI, Radix, shadcn, MUI), created on Base UI where there is none.
   between a design and the code is the implementation link's (0030) to report.
 - A primitive's behaviour is Base UI's, which the application's library may not match exactly;
   implementing says so where it cannot follow.
-- DESIGN.md's component tokens, read off cva classes (0027), have nothing to read until they are
-  read off the specs.
+- DESIGN.md's component tokens (0027) are read off the specs, not cva classes: a primitive whose
+  look the project owns writes its root's fields, as it starts and in each colour variant and
+  size; one in its default look writes nothing.
 - Widgets (reusable compositions of primitives, a project's own components) are drafts (0029)
   until they get a name and a panel of their own.

@@ -99,6 +99,34 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const third = yield* fs.readFileString(file);
           assert.include(third, 'ink: "#000000"');
           assert.include(third, "card: 1rem");
+          // A primitive in its default look writes no component tokens.
+          assert.notInclude(third, "components:");
+
+          // One whose look the project owns writes its root's, a token as a reference.
+          const taken = yield* client["specs.fromCode"]({ component: "Button" });
+          const button = taken.spec;
+          assert.isDefined(button);
+          if (!button) {
+            return;
+          }
+          yield* client["specs.write"]({
+            spec: {
+              ...button,
+              base: {
+                ...button.base,
+                root: { ...button.base.root, fill: "$color-brand" },
+              },
+            },
+          });
+          yield* client["designSystem.setToken"]({
+            name: "radius-card",
+            value: "0.75rem",
+          });
+          const fourth = yield* fs.readFileString(file);
+          assert.include(fourth, "components:\n  button:\n");
+          assert.include(fourth, 'backgroundColor: "{colors.brand}"');
+          assert.include(fourth, "button-secondary:");
+          assert.include(fourth, "button-lg:");
         }),
       30_000
     );

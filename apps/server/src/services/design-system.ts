@@ -6,6 +6,7 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
+import { SPEC_EXTENSION, SPECS_DIR } from "@ultrapaint/contracts/spec-names";
 import { withTokenChanges } from "@ultrapaint/contracts/token-table";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
@@ -134,6 +135,7 @@ export class DesignSystemService extends Context.Service<
       const systemRel = paths.relative(systemFile);
       const tokensFile = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
       const tokensRel = paths.relative(tokensFile);
+      const specsPrefix = `${paths.relative(path.join(paths.designsDir, SPECS_DIR))}/`;
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -410,7 +412,11 @@ export class DesignSystemService extends Context.Service<
         [
           events.subscribe("file.changed").pipe(
             Stream.filter(
-              ({ file }) => file === systemRel || file === tokensRel
+              ({ file }) =>
+                file === systemRel ||
+                file === tokensRel ||
+                // A spec's look is DESIGN.md's component tokens (ADR 0027, 0029).
+                (file.startsWith(specsPrefix) && file.endsWith(SPEC_EXTENSION))
             ),
             Stream.as(undefined)
           ),
@@ -429,13 +435,6 @@ export class DesignSystemService extends Context.Service<
         Effect.forkScoped
       );
 
-      // The components' classes, as soon as the catalogue is read: DESIGN.md gets their tokens,
-      // and the editor hears of it when the document is written.
-      yield* designMd.refresh.pipe(
-        Effect.andThen(serially(mirror)),
-        Effect.forkScoped
-      );
-
       return DesignSystemService.of({
         codeOf: (node, options) =>
           Effect.map(get, ({ designSystem: ds }) =>
@@ -448,7 +447,6 @@ export class DesignSystemService extends Context.Service<
         detect,
         get,
         refresh: code.refresh.pipe(
-          Effect.andThen(designMd.refresh),
           Effect.andThen(serially(mirror)),
           Effect.andThen(get)
         ),
