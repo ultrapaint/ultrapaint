@@ -54,6 +54,7 @@ const componentsData = follow({
   apply: take,
   on: { components: take },
   read: () => api().request("components.list", undefined),
+  whole: ["components"],
 });
 
 /** An app component's file, by name. */

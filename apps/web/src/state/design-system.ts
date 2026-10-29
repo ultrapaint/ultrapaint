@@ -56,6 +56,7 @@ const designSystemData = follow({
   apply: take,
   on: { designSystem: take },
   read: () => api().request("designSystem.get", undefined),
+  whole: ["designSystem"],
 });
 
 const breakpointCache = new WeakMap<DesignSystem, readonly Breakpoint[]>();

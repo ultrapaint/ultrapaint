@@ -38,6 +38,7 @@ const syncData = follow({
   apply: take,
   on: { syncPlan: take },
   read: () => api().request("sync.plan", undefined),
+  whole: ["syncPlan"],
 });
 
 /** Whether the plan has something the user should look at: what the rail's dot says. */

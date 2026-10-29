@@ -72,6 +72,8 @@ export const useComments = create<CommentsStore>((set, get) => ({
 const commentsData = follow({
   apply: ({ comments }: CommentList) => useComments.setState({ comments }),
   key: () => useComments.getState().canvas,
+  // Every canvas's comments are told; one told while a read is on its way waits for its answer.
+  news: ["comments"],
   on: {
     comments: ({ list, canvas }) => {
       if (canvas === useComments.getState().canvas) {

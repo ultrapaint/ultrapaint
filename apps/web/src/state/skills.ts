@@ -40,4 +40,5 @@ const skillsData = follow({
   apply: take,
   on: { skills: take },
   read: () => api().request("skills.list", undefined),
+  whole: ["skills"],
 });
