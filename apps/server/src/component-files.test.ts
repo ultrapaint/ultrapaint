@@ -1,4 +1,7 @@
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type {
+  AppComponentFile,
+  SystemComponentFile,
+} from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
@@ -40,13 +43,18 @@ const PLAN: AppComponentFile = {
   version: 1,
 };
 
-const changed = (change: Parameters<typeof changedComponent>[1]) => {
-  const next = changedComponent(PLAN, change);
+const appOf = (next: ReturnType<typeof changedComponent>) => {
   if ("problem" in next) {
     throw new Error(next.problem);
   }
+  if (next.origin !== "app") {
+    throw new Error(`${next.name} is no app component`);
+  }
   return next;
 };
+
+const changed = (change: Parameters<typeof changedComponent>[1]) =>
+  appOf(changedComponent(PLAN, change));
 
 const atOf = (file: AppComponentFile) =>
   (file.tree as unknown as { children: { at?: Record<string, unknown> }[] })
@@ -151,15 +159,17 @@ describe("a change to an app component", () => {
       op: "addSlot",
       slot: { name: "aside", node: "root" },
     });
-    const moved = changedComponent(two, { name: "aside", op: "defaultSlot" });
-    expect("problem" in moved ? [] : moved.slots).toEqual([
+    const moved = appOf(
+      changedComponent(two, { name: "aside", op: "defaultSlot" })
+    );
+    expect(moved.slots).toEqual([
       { name: "body", node: "s" },
       { default: true, name: "aside", node: "root" },
     ]);
-    const none = changedComponent(two, { name: null, op: "defaultSlot" });
-    expect("problem" in none ? [] : none.slots.some((s) => s.default)).toBe(
-      false
+    const none = appOf(
+      changedComponent(two, { name: null, op: "defaultSlot" })
     );
+    expect(none.slots.some((s) => s.default)).toBe(false);
   });
 
   it("follows a text edited in place into its property's default, and forgets nodes gone", () => {
@@ -247,5 +257,60 @@ describe("the instances of a changed component", () => {
       { id: "a", op: "setProps", props: { tone: null } },
       { at: "md", id: "a", op: "setProps", props: { tone: null } },
     ]);
+  });
+});
+
+describe("a change to any component's file", () => {
+  const BUTTON: SystemComponentFile = {
+    base: { root: { radius: 4 } },
+    content: { root: [] },
+    description: "Starts an action",
+    name: "Button",
+    notes: [{ id: "n1", text: "Submits on Enter" }],
+    origin: "system",
+    states: {},
+    variants: {},
+    version: 1,
+  };
+
+  it("sets a system component's look, its notes and description kept", () => {
+    const next = changedComponent(BUTTON, {
+      look: { base: { root: { radius: 8 } }, states: {}, variants: {} },
+      op: "setLook",
+    });
+    expect(next).toEqual({
+      base: { root: { radius: 8 } },
+      description: "Starts an action",
+      name: "Button",
+      notes: [{ id: "n1", text: "Submits on Enter" }],
+      origin: "system",
+      states: {},
+      variants: {},
+      version: 1,
+    });
+    expect(
+      changedComponent(PLAN, {
+        look: { base: {}, states: {}, variants: {} },
+        op: "setLook",
+      })
+    ).toEqual({ problem: "Plan is an app component: it has no look" });
+  });
+
+  it("takes a note out of either origin, and says when there is none", () => {
+    expect(
+      changedComponent(BUTTON, { id: "n1", op: "removeNote" })
+    ).toMatchObject({ notes: [] });
+    expect(changedComponent(PLAN, { id: "n1", op: "removeNote" })).toEqual({
+      problem: "Plan has no note n1",
+    });
+  });
+
+  it("refuses properties of a system component", () => {
+    expect(
+      changedComponent(BUTTON, { name: "x", op: "removeProperty" })
+    ).toEqual({
+      problem:
+        "Button is a system component's look: it has no properties or slots",
+    });
   });
 });

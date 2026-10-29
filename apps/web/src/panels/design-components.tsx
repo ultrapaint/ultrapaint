@@ -12,12 +12,14 @@ import {
   APP_FROM,
   type AppComponentFile,
   COMPONENT_STATES,
+  type ComponentChange,
   type ComponentFile,
   type ComponentState,
   type PartStyle,
   ROOT_SLOT,
   SYSTEM_FROM,
   type SystemComponentFile,
+  type SystemLook,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
@@ -104,14 +106,29 @@ const lookLabel = (listed: Listed) => {
   return listed.file ? "your look" : "default look";
 };
 
-/** Saves a component's file; what the server refuses is said. */
-const save = async (component: ComponentFile) => {
+/**
+ * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
+ * stays; what the server refuses is said. True when it went through.
+ */
+const change = async (name: string, made: ComponentChange) => {
   try {
-    await api().request("components.write", { component });
+    await api().request("components.change", { change: made, name });
+    return true;
   } catch (error) {
     reportError(error);
+    return false;
   }
 };
+
+/** A system component's look: its file but the envelope. */
+const lookOf = (file: SystemComponentFile): SystemLook => ({
+  base: file.base,
+  ...(file.content && { content: file.content }),
+  ...(file.hidden && { hidden: file.hidden }),
+  ...(file.item && { item: file.item }),
+  states: file.states,
+  variants: file.variants,
+});
 
 /** A system component's parts, the root first, as the catalogue names them. */
 const partsOf = (name: string) =>
@@ -743,7 +760,7 @@ const LookExtras = ({
 /**
  * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
  * about one part or the whole of it. They go with the component to `/implement`. Added and taken
- * out on the file as saved, so a look being edited is not saved with them.
+ * out on the server, on the file as it is there, so a look being edited is not saved with them.
  */
 const Notes = ({
   component,
@@ -773,7 +790,7 @@ const Notes = ({
     }
   };
   const remove = (id: string) =>
-    save({ ...component, notes: notes.filter((n) => n.id !== id) });
+    change(component.name, { id, op: "removeNote" });
   const partOf = (name: string | undefined) =>
     parts.find((s) => s.name === name)?.label ?? name;
   const choices = [
@@ -1044,10 +1061,11 @@ const SystemDetail = ({
           <Button
             disabled={!dirty}
             onClick={async () => {
-              await save(file);
-              toast.success(
-                `${name}'s look is saved: implement it to bring the code along.`
-              );
+              if (await change(name, { look: lookOf(file), op: "setLook" })) {
+                toast.success(
+                  `${name}'s look is saved: implement it to bring the code along.`
+                );
+              }
             }}
             size="sm"
           >

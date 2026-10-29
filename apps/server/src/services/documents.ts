@@ -9,6 +9,7 @@ import {
   type ApplyInput,
   type ApplyResult,
   DesignNode,
+  type DocumentEdit,
   type DocumentState,
   PageDocument,
 } from "@ultrapaint/contracts/document";
@@ -115,6 +116,17 @@ interface Loaded {
 const problemOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
+/** What `apply`'s `alongside` works with: the step's files, and the documents as they are in it. */
+export interface ApplyStep {
+  /** Every page and canvas of every canvas. */
+  readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
+  readonly get: (doc: string) => Effect.Effect<DocumentState, EditFailure>;
+  readonly tx: EditTransaction;
+}
+
+/** What `alongside` adds to the step: more edits, or nothing but its files. */
+type Alongside = readonly DocumentEdit[] | undefined;
+
 /**
  * The design documents of the open project: every page (`<route>.page.json`) and every canvas's
  * canvas (the nodes of `canvas.json`). Reads them, applies operations to them as one undo step
@@ -126,11 +138,13 @@ export class DocumentService extends Context.Service<
   {
     /**
      * Applies the edits as one undo step; `alongside` changes other files of the designs in the
-     * same step (a component's file written as an instance of it takes a node's place).
+     * same step (a component's file written as an instance of it takes a node's place), and may
+     * give edits of its own, made of the documents as they are under the journal (`step.all`,
+     * `step.get`), so no edit made meanwhile fails or is lost.
      */
     readonly apply: (
       input: ApplyInput,
-      alongside?: (tx: EditTransaction) => Effect.Effect<void, EditFailure>
+      alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
     ) => Effect.Effect<ApplyResult, EditFailure | Conflict>;
     /** Every page and canvas of every canvas, as each is saved now. */
     readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
@@ -309,8 +323,10 @@ export class DocumentService extends Context.Service<
         return stateOf(doc, loaded);
       });
 
-      const list = Effect.fn("DocumentService.list")(function* (
-        canvas: string
+      /** The documents of a canvas, read and, outside a step (`persist`), their ids written. */
+      const listed = Effect.fnUntraced(function* (
+        canvas: string,
+        persist = true
       ) {
         const { pages: all } = yield* pages.list;
         const docs = [
@@ -319,10 +335,29 @@ export class DocumentService extends Context.Service<
         ];
         return yield* Effect.forEach(
           docs,
-          (doc) => Effect.map(load(doc), (loaded) => stateOf(doc, loaded)),
+          (doc) =>
+            Effect.map(load(doc, persist), (loaded) => stateOf(doc, loaded)),
           { concurrency: 8 }
         );
       });
+      const list = Effect.fn("DocumentService.list")(function* (
+        canvas: string
+      ) {
+        return yield* listed(canvas);
+      });
+
+      /** Every document of every canvas, read and, outside a step, their ids written. */
+      const allOf = (persist: boolean) =>
+        Effect.gen(function* () {
+          const { canvases } = yield* pages.list;
+          return (yield* Effect.forEach(canvases, (c) =>
+            listed(c.id, persist)
+          )).flat();
+        });
+      // Inside a step, which holds the journal: nothing is written but by the step.
+      const allIn = allOf(false);
+      const stateIn = (doc: string) =>
+        Effect.map(load(doc, false), (loaded) => stateOf(doc, loaded));
 
       /** Every published state, so an event is sent once per change whoever caused it. */
       const published = new Map<string, string>();
@@ -379,7 +414,7 @@ export class DocumentService extends Context.Service<
 
       const apply = Effect.fn("DocumentService.apply")(function* (
         input: ApplyInput,
-        alongside?: (tx: EditTransaction) => Effect.Effect<void, EditFailure>
+        alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
       ) {
         const created: string[] = [];
         const touched: string[] = [];
@@ -392,47 +427,54 @@ export class DocumentService extends Context.Service<
         yield* Effect.forEach(input.edits, (change) => load(change.doc), {
           discard: true,
         });
+        const editIn = (tx: EditTransaction) =>
+          Effect.fnUntraced(function* (change: DocumentEdit) {
+            const loaded = yield* load(change.doc, false);
+            if (loaded.problem !== undefined || loaded.root === null) {
+              return yield* new BadRequest({
+                message: `${change.doc} cannot be edited: ${loaded.problem ?? "it does not exist"}`,
+              });
+            }
+            if (
+              change.expectedHash !== undefined &&
+              change.expectedHash !== loaded.hash
+            ) {
+              return yield* new Stale({
+                message: `${change.doc} changed since you last saw it; reloading`,
+              });
+            }
+            const canvas = canvasOfDoc(change.doc);
+            const result = yield* Effect.try({
+              catch: (error) =>
+                new BadRequest({
+                  message:
+                    error instanceof DocumentOpError
+                      ? error.message
+                      : `the operations could not be applied: ${problemOf(error)}`,
+                }),
+              try: () =>
+                applyOps(loaded.root as DesignNode, change.ops, {
+                  canvas: canvas !== null,
+                  next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
+                }),
+            });
+            yield* writeDocument(tx, change.doc, loaded, result.root);
+            created.push(...result.created);
+            touched.push(change.doc);
+          });
         yield* edit.transaction(label, (tx) =>
-          Effect.andThen(
-            Effect.forEach(
-              input.edits,
-              Effect.fnUntraced(function* (change) {
-                const loaded = yield* load(change.doc, false);
-                if (loaded.problem !== undefined || loaded.root === null) {
-                  return yield* new BadRequest({
-                    message: `${change.doc} cannot be edited: ${loaded.problem ?? "it does not exist"}`,
-                  });
-                }
-                if (
-                  change.expectedHash !== undefined &&
-                  change.expectedHash !== loaded.hash
-                ) {
-                  return yield* new Stale({
-                    message: `${change.doc} changed since you last saw it; reloading`,
-                  });
-                }
-                const canvas = canvasOfDoc(change.doc);
-                const result = yield* Effect.try({
-                  catch: (error) =>
-                    new BadRequest({
-                      message:
-                        error instanceof DocumentOpError
-                          ? error.message
-                          : `the operations could not be applied: ${problemOf(error)}`,
-                    }),
-                  try: () =>
-                    applyOps(loaded.root as DesignNode, change.ops, {
-                      canvas: canvas !== null,
-                      next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
-                    }),
-                });
-                yield* writeDocument(tx, change.doc, loaded, result.root);
-                created.push(...result.created);
-                touched.push(change.doc);
-              })
-            ),
-            alongside ? alongside(tx) : Effect.void
-          )
+          Effect.gen(function* () {
+            const more = alongside
+              ? yield* alongside({ all: allIn, get: stateIn, tx })
+              : undefined;
+            yield* Effect.forEach(
+              [...input.edits, ...(more ?? [])],
+              editIn(tx),
+              {
+                discard: true,
+              }
+            );
+          })
         );
         const documents = yield* Effect.forEach(touched, (doc) =>
           Effect.map(load(doc), (loaded) => stateOf(doc, loaded))
@@ -441,10 +483,7 @@ export class DocumentService extends Context.Service<
         return { created, documents } satisfies ApplyResult;
       });
 
-      const all = Effect.gen(function* () {
-        const { canvases } = yield* pages.list;
-        return (yield* Effect.forEach(canvases, (c) => list(c.id))).flat();
-      }).pipe(Effect.withSpan("DocumentService.all"));
+      const all = allOf(true).pipe(Effect.withSpan("DocumentService.all"));
 
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput

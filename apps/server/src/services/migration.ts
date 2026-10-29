@@ -285,7 +285,7 @@ export class Migration extends Context.Service<
         const kept = yield* snapshots;
         yield* documents.apply(
           { edits, label: "Bring the designs up to date" },
-          (tx) =>
+          ({ tx }) =>
             Effect.all(
               [
                 files(tx, made),
@@ -293,7 +293,7 @@ export class Migration extends Context.Service<
                 implementation.editIn(tx, entries(made, kept)),
               ],
               { discard: true }
-            )
+            ).pipe(Effect.as(undefined))
         );
         return {
           components: made.filter(({ spec }) => componentOfSpec(spec)).length,

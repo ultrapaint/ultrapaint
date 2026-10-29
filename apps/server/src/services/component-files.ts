@@ -404,24 +404,53 @@ export const removeProperty = (
   };
 };
 
+type Changed<F> = F | { readonly problem: string };
+
+const missing = (file: ComponentFile, what: string, name: string) => ({
+  problem: `${file.name} has no ${what} ${name}`,
+});
+
 /**
- * An app component's file with a change made, or why it cannot be: a property or a slot it does
- * not have. What the result is checked for is `problemOf`'s.
+ * A component's file with a change made, or why it cannot be: a property, a slot or a note it
+ * does not have, a look asked of an app component or properties of a system one. What the result
+ * is checked for is `problemOf`'s.
  */
 export const changedComponent = (
-  file: AppComponentFile,
+  file: ComponentFile,
   change: ComponentChange
-): AppComponentFile | { readonly problem: string } => {
-  const missing = (what: string, name: string) => ({
-    problem: `${file.name} has no ${what} ${name}`,
-  });
+): Changed<ComponentFile> => {
+  if (change.op === "removeNote") {
+    const notes = file.notes ?? [];
+    return notes.some((n) => n.id === change.id)
+      ? { ...file, notes: notes.filter((n) => n.id !== change.id) }
+      : missing(file, "note", change.id);
+  }
+  if (change.op === "setLook") {
+    if (file.origin !== "system") {
+      return { problem: `${file.name} is an app component: it has no look` };
+    }
+    const { content: _c, hidden: _h, item: _i, ...envelope } = file;
+    return { ...envelope, ...change.look };
+  }
+  if (file.origin !== "app") {
+    return {
+      problem: `${file.name} is a system component's look: it has no properties or slots`,
+    };
+  }
+  return changedApp(file, change);
+};
+
+const changedApp = (
+  file: AppComponentFile,
+  change: Exclude<ComponentChange, { op: "removeNote" | "setLook" }>
+): Changed<AppComponentFile> => {
   switch (change.op) {
     case "addProperty":
       return { ...file, properties: [...file.properties, change.property] };
     case "setProperty": {
       const property = propertyIn(file, change.name);
       if (!property) {
-        return missing("property", change.name);
+        return missing(file, "property", change.name);
       }
       const set: ComponentProperty = {
         ...property,
@@ -436,27 +465,27 @@ export const changedComponent = (
     case "renameProperty":
       return propertyIn(file, change.name)
         ? renameProperty(file, change.name, change.to.trim())
-        : missing("property", change.name);
+        : missing(file, "property", change.name);
     case "removeProperty":
       return propertyIn(file, change.name)
         ? removeProperty(file, change.name)
-        : missing("property", change.name);
+        : missing(file, "property", change.name);
     case "renameMember":
       return propertyIn(file, change.property)?.members?.includes(change.member)
         ? renameMember(file, change.property, change.member, change.to.trim())
-        : missing(`member of ${change.property}`, change.member);
+        : missing(file, `member of ${change.property}`, change.member);
     case "addSlot":
       return { ...file, slots: [...file.slots, change.slot] };
     case "removeSlot":
       return file.slots.some((s) => s.name === change.name)
         ? { ...file, slots: file.slots.filter((s) => s.name !== change.name) }
-        : missing("slot", change.name);
+        : missing(file, "slot", change.name);
     default:
       if (
         change.name !== null &&
         !file.slots.some((s) => s.name === change.name)
       ) {
-        return missing("slot", change.name);
+        return missing(file, "slot", change.name);
       }
       return {
         ...file,

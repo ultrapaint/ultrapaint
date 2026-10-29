@@ -134,8 +134,7 @@ export type ItemTemplate = typeof ItemTemplate.Type;
  * parts are fixed: a component that adds behaviour or removes one of them is an app component
  * built on it.
  */
-export const SystemComponentFile = Schema.Struct({
-  ...envelope,
+const lookFields = {
   /** Style fields every instance starts from, per part. */
   base: PartStyles,
   /** What each slot holds when an instance gives it nothing, by the slot's name. */
@@ -146,7 +145,6 @@ export const SystemComponentFile = Schema.Struct({
   hidden: Schema.optional(Schema.Array(Schema.String)),
   /** What each item of a Select or a Menu draws. */
   item: Schema.optional(ItemTemplate),
-  origin: Schema.Literal("system"),
   /** Style fields per state, per part. */
   states: Schema.Record(Schema.String, PartStyles),
   /** Style fields per variant axis, per member, per part. */
@@ -154,6 +152,20 @@ export const SystemComponentFile = Schema.Struct({
     Schema.String,
     Schema.Record(Schema.String, PartStyles)
   ),
+};
+
+/** A system component's look: its file but the envelope. */
+export const SystemLook = Schema.Struct(lookFields);
+export type SystemLook = typeof SystemLook.Type;
+
+const { states, variants, ...unordered } = lookFields;
+export const SystemComponentFile = Schema.Struct({
+  ...envelope,
+  // In the order a file has always been written in.
+  ...unordered,
+  origin: Schema.Literal("system"),
+  states,
+  variants,
 });
 export type SystemComponentFile = typeof SystemComponentFile.Type;
 
@@ -225,8 +237,9 @@ export const ComponentFile = Schema.Union([
 export type ComponentFile = typeof ComponentFile.Type;
 
 /**
- * A change to an app component's properties or slots (ADR 0042), made on the file as it is when
- * the server applies it, so a change made meanwhile (a tree edited in place) is not lost. A
+ * A change to a component's file (ADR 0042), made on the file as it is when the server applies it,
+ * so a change made meanwhile (a tree edited in place, a note added) is not lost: an app
+ * component's properties or slots, a system component's look, a behaviour note taken out. A
  * property or a member renamed or taken out is followed by the variants its tree keeps
  * (`at["size=lg"]`) and by every instance's props, in one undo step.
  */
@@ -262,6 +275,9 @@ export const ComponentChange = Schema.Union([
     name: Schema.NullOr(Schema.String),
     op: Schema.Literal("defaultSlot"),
   }),
+  /** A system component's look, its notes and envelope kept. */
+  Schema.Struct({ look: SystemLook, op: Schema.Literal("setLook") }),
+  Schema.Struct({ id: Schema.String, op: Schema.Literal("removeNote") }),
 ]);
 export type ComponentChange = typeof ComponentChange.Type;
 
