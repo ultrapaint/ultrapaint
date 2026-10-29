@@ -100,13 +100,16 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       {hoverRect ? (
         <Outline kind="hover" node={hoverNode} rect={hoverRect} />
       ) : null}
-      {selectedRect ? (
+      {/* Kept while the frame measures a node just selected, hidden: its toolbar is updated
+          for the node rather than drawn anew a frame later. */}
+      {selectedRect || selectedNode ? (
         <Outline
           bare={many || !madeHere}
           frame={frame}
+          hidden={!selectedRect}
           kind="selection"
           node={selectedNode}
-          rect={selectedRect}
+          rect={selectedRect ?? NO_RECT}
         />
       ) : null}
       {others.map((o) => (
@@ -192,6 +195,9 @@ const GroupOutline = ({
 };
 
 /** A frame whose size is not known yet: nothing keeps the toolbar in. */
+/** Where a node not measured yet is outlined, hidden. */
+const NO_RECT: Rect = { height: 0, width: 0, x: 0, y: 0 };
+
 const UNBOUNDED = {
   height: Number.POSITIVE_INFINITY,
   width: Number.POSITIVE_INFINITY,
@@ -205,6 +211,7 @@ const UNBOUNDED = {
 const Outline = ({
   bare = false,
   frame = UNBOUNDED,
+  hidden = false,
   rect,
   kind,
   node,
@@ -213,6 +220,8 @@ const Outline = ({
   bare?: boolean;
   /** The frame's size, which the toolbar stays inside while it fits. */
   frame?: { height: number; width: number };
+  /** Not drawn while its node is not measured yet, its toolbar kept. */
+  hidden?: boolean;
   rect: { x: number; y: number; width: number; height: number };
   kind: "hover" | "selection";
   node: DesignNode | null;
@@ -230,6 +239,7 @@ const Outline = ({
         outline: `${(kind === "selection" ? 2 : 1) * inv}px solid ${color}`,
         outlineOffset: -1 * inv,
         top: rect.y,
+        visibility: hidden ? "hidden" : undefined,
         width: rect.width,
       }}
     >
@@ -241,7 +251,13 @@ const Outline = ({
             inv={inv}
             node={node}
           />
-          <ElementToolbar frame={frame} inv={inv} node={node} rect={rect} />
+          <ElementToolbar
+            frame={frame}
+            hidden={hidden}
+            inv={inv}
+            node={node}
+            rect={rect}
+          />
         </>
       ) : null}
     </div>
