@@ -14,7 +14,15 @@ import {
   COMPONENT_STATES,
   COMPONENTS_DIR,
 } from "./component-names.ts";
-import { Border, Color, DesignNode, Length, Padding } from "./document.ts";
+import {
+  Border,
+  Color,
+  CrossAlign,
+  DesignNode,
+  Length,
+  MainAlign,
+  Padding,
+} from "./document.ts";
 
 // biome-ignore lint/performance/noBarrelFile: the names live apart so the preview loads no schema; the components' users find them here too.
 export {
@@ -36,10 +44,20 @@ export {
 export const ComponentState = Schema.Literals(COMPONENT_STATES);
 export type ComponentState = typeof ComponentState.Type;
 
-/** The style fields a system component's look sets on one part: the design document's own, tokens included. */
+/**
+ * The style fields a system component's look sets on one part: the design document's own, tokens
+ * included, and how the part lays out what it holds (`direction`, `align`, `crossAlign`, `gap`,
+ * `padding` per side) and where it goes among its siblings (`order`).
+ */
 export const PartStyle = Schema.Struct({
+  /** Along the direction. */
+  align: Schema.optional(MainAlign),
   border: Schema.optional(Border),
   color: Schema.optional(Color),
+  /** Across the direction. */
+  crossAlign: Schema.optional(CrossAlign),
+  /** The part lays out what it holds as a row or a column. */
+  direction: Schema.optional(Schema.Literals(["row", "column"])),
   fill: Schema.optional(Color),
   fontSize: Schema.optional(Length),
   fontWeight: Schema.optional(Length),
@@ -48,6 +66,8 @@ export const PartStyle = Schema.Struct({
   opacity: Schema.optional(
     Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 }))
   ),
+  /** Its place among its siblings as drawn (CSS `order`): lower first, 0 when absent. */
+  order: Schema.optional(Schema.Number),
   padding: Schema.optional(Padding),
   radius: Schema.optional(Length),
   shadow: Schema.optional(Schema.String),
@@ -94,14 +114,39 @@ const envelope = {
 };
 
 /**
+ * What a Select or a Menu draws for each of its items (ADR 0041): design nodes, the item's label
+ * in the text node `label` names and its picture in the image `image` names. Selecting and
+ * highlighting an item stay Base UI's.
+ */
+export const ItemTemplate = Schema.Struct({
+  /** The image node that shows the item's picture, when it has one. */
+  image: Schema.optional(Schema.String),
+  /** The text node that shows the item's label. */
+  label: Schema.optional(Schema.String),
+  tree: DesignNode,
+});
+export type ItemTemplate = typeof ItemTemplate.Type;
+
+/**
  * A system component's look as the project's design says it: style fields per part at its base,
- * per variant axis and member, and per state. Its parts, axes and states are the catalogue's;
- * behaviour is Base UI's, and its behavioural parts are fixed.
+ * per variant axis and member, and per state; what each slot holds when an instance gives it
+ * nothing; which optional parts it leaves out; and, for a Select or a Menu, what an item draws.
+ * Its parts, axes and states are the catalogue's; behaviour is Base UI's, and its behavioural
+ * parts are fixed: a component that adds behaviour or removes one of them is an app component
+ * built on it.
  */
 export const SystemComponentFile = Schema.Struct({
   ...envelope,
   /** Style fields every instance starts from, per part. */
   base: PartStyles,
+  /** What each slot holds when an instance gives it nothing, by the slot's name. */
+  content: Schema.optional(
+    Schema.Record(Schema.String, Schema.Array(DesignNode))
+  ),
+  /** The optional parts left out (the catalogue says which are). */
+  hidden: Schema.optional(Schema.Array(Schema.String)),
+  /** What each item of a Select or a Menu draws. */
+  item: Schema.optional(ItemTemplate),
   origin: Schema.Literal("system"),
   /** Style fields per state, per part. */
   states: Schema.Record(Schema.String, PartStyles),

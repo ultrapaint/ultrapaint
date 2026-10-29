@@ -26,6 +26,11 @@ export interface SystemComponentSlot {
   readonly layout?: "row" | "column" | "block";
   /** `root`, or the part's `data-slot`. */
   readonly name: string;
+  /**
+   * A look can leave it out (`hidden`): a part that shows something, not one that does
+   * something. A behavioural part (a trigger, a popup, an item, a tab list) is never optional.
+   */
+  readonly optional?: true;
 }
 
 export interface SystemComponentMeta {
@@ -40,6 +45,8 @@ export interface SystemComponentMeta {
   readonly slots: readonly SystemComponentSlot[];
   /** The states its look can be given for (`SPEC_STATES`). */
   readonly states: readonly string[];
+  /** Its items can be drawn by a template of design nodes (`item`): a Select's, a Menu's. */
+  readonly templatedItems?: true;
   /** The text a new instance shows, for one that shows text. */
   readonly text?: string;
   /** Variant axes and their members; the first member is the default. */
@@ -203,8 +210,8 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
         layout: "column",
         name: "card-header",
       },
-      { label: "Title", name: "card-title" },
-      { label: "Description", name: "card-description" },
+      { label: "Title", name: "card-title", optional: true },
+      { label: "Description", name: "card-description", optional: true },
       {
         holds: "default",
         label: "Content",
@@ -250,7 +257,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     ],
     slots: [
       { label: "Field", name: ROOT_SLOT },
-      { label: "Label", name: "field-label" },
+      { label: "Label", name: "field-label", optional: true },
       { label: "Input", name: "input" },
     ],
     states: ["hover", "focus", "disabled", "invalid"],
@@ -275,7 +282,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     ],
     slots: [
       { label: "Field", name: ROOT_SLOT },
-      { label: "Label", name: "field-label" },
+      { label: "Label", name: "field-label", optional: true },
       { label: "Textarea", name: "textarea" },
     ],
     states: ["hover", "focus", "disabled", "invalid"],
@@ -296,6 +303,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { label: "Field", name: ROOT_SLOT },
       { label: "Box", name: "checkbox" },
       { label: "Tick", name: "checkbox-indicator" },
+      { label: "Label", name: "field-label", optional: true },
     ],
     states: ["hover", "focus", "checked", "disabled"],
     variants: {},
@@ -315,6 +323,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { label: "Field", name: ROOT_SLOT },
       { label: "Track", name: "switch" },
       { label: "Thumb", name: "switch-thumb" },
+      { label: "Label", name: "field-label", optional: true },
     ],
     states: ["hover", "focus", "checked", "disabled"],
     variants: {},
@@ -334,10 +343,10 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { label: "Tabs", name: ROOT_SLOT },
       { label: "List", name: "tabs-list" },
       { label: "Tab", name: "tab" },
-      { label: "Indicator", name: "tabs-indicator" },
+      { label: "Indicator", name: "tabs-indicator", optional: true },
       { holds: "default", label: "Panel", layout: "column", name: "tab-panel" },
     ],
-    states: ["hover", "focus"],
+    states: ["hover", "focus", "active"],
     variants: {},
   },
   {
@@ -360,13 +369,16 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     ],
     slots: [
       { label: "Field", name: ROOT_SLOT },
-      { label: "Label", name: "field-label" },
+      { label: "Label", name: "field-label", optional: true },
       { label: "Trigger", name: "select-trigger" },
       { label: "Value", name: "select-value" },
+      { label: "Icon", name: "select-icon", optional: true },
       { label: "Popup", name: "select-popup" },
       { label: "Item", name: "select-item" },
+      { label: "Check", name: "select-item-indicator", optional: true },
     ],
-    states: ["hover", "focus", "open", "disabled"],
+    states: ["hover", "focus", "open", "highlighted", "disabled"],
+    templatedItems: true,
     variants: {},
   },
   {
@@ -391,7 +403,8 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { label: "Item", name: "menu-item" },
       { label: "Separator", name: "menu-separator" },
     ],
-    states: ["open"],
+    states: ["open", "highlighted"],
+    templatedItems: true,
     text: "Open menu",
     variants: {},
   },
@@ -414,7 +427,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     slots: [
       { holds: "nodes", label: "Trigger", layout: "row", name: "trigger" },
       { label: "Popup", name: "popover" },
-      { label: "Title", name: "popover-title" },
+      { label: "Title", name: "popover-title", optional: true },
       {
         holds: "default",
         label: "Content",
@@ -477,7 +490,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
         name: "dialog-header",
       },
       { label: "Title", name: "dialog-title" },
-      { label: "Description", name: "dialog-description" },
+      { label: "Description", name: "dialog-description", optional: true },
       {
         holds: "default",
         label: "Content",
@@ -485,9 +498,9 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
         name: "dialog-content",
       },
       { holds: "nodes", label: "Footer", layout: "row", name: "dialog-footer" },
-      { label: "Close", name: "dialog-close" },
+      { label: "Close", name: "dialog-close", optional: true },
     ],
-    states: ["open"],
+    states: ["open", "hover"],
     variants: { size: SIZES },
   },
   {
@@ -506,7 +519,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     slots: [
       { label: "Toast", name: ROOT_SLOT },
       { label: "Title", name: "toast-title" },
-      { label: "Description", name: "toast-description" },
+      { label: "Description", name: "toast-description", optional: true },
       {
         holds: "default",
         label: "Action",

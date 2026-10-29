@@ -21,6 +21,12 @@ describe("the default look", () => {
         ),
       ];
       expect(styled.filter((slot) => !parts.has(slot))).toEqual([]);
+      // A state is one the catalogue says the component has.
+      expect(
+        Object.keys(spec?.states ?? {}).filter(
+          (st) => !meta.states.includes(st)
+        )
+      ).toEqual([]);
       for (const [axis, members] of Object.entries(spec?.variants ?? {})) {
         expect(meta.variants[axis]).toEqual(
           expect.arrayContaining(Object.keys(members))
@@ -35,6 +41,15 @@ describe("the default look", () => {
     );
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       "background-color: var(--color-primary)"
+    );
+  });
+
+  it("styles a part's own state where Base UI puts it, on the part", () => {
+    expect(SYSTEM_COMPONENTS_CSS).toContain(
+      '[data-ed-c="Checkbox"]:not([data-ed-wrapper]) [data-slot="checkbox"][data-checked]'
+    );
+    expect(SYSTEM_COMPONENTS_CSS).toContain(
+      '[data-ed-p="Menu"] [data-slot="menu-item"][data-highlighted]'
     );
   });
 });

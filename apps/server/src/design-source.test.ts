@@ -337,6 +337,22 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             })
           );
           assert.include(itself.message, "Loop places Loop");
+          // A system component's look leaves out only an optional part, and templates only items.
+          const fixedPart = yield* Effect.flip(
+            client["components.write"]({
+              component: { ...file, hidden: ["root"] },
+            })
+          );
+          assert.include(fixedPart.message, "Button cannot leave out root");
+          const noItems = yield* Effect.flip(
+            client["components.write"]({
+              component: {
+                ...file,
+                item: { tree: { children: [], id: "i", type: "row" } },
+              },
+            })
+          );
+          assert.include(noItems.message, "has no items to draw");
 
           // A node becomes an app component: its tree in the file, an instance in its place.
           const made = yield* client["components.makeApp"]({

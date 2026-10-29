@@ -220,4 +220,43 @@ describe("lookCss", () => {
     expect(lookCss([button({ base: { root: {} } })], ctx)).toBe("");
     expect(lookCss([], ctx)).toBe("");
   });
+
+  it("lays a part out, and leaves an optional part out", () => {
+    const css = lookCss(
+      [
+        button({
+          base: {
+            label: { align: "between", crossAlign: "center", direction: "row" },
+            root: { order: 2 },
+          },
+          hidden: ["icon"],
+        }),
+      ],
+      ctx
+    );
+    expect(css).toContain(
+      "display: flex;\n  flex-direction: row;\n  justify-content: space-between;\n  align-items: center;"
+    );
+    expect(css).toContain("order: 2;");
+    expect(css).toContain(
+      '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="icon"],\n[data-ed-c="Button"][data-ed-wrapper] > * [data-slot="icon"],\n[data-ed-p="Button"] [data-slot="icon"],\n[data-ed-p="Button"][data-slot="icon"] {\n  display: none;\n}'
+    );
+  });
+
+  it("matches a part's state on the part as well as on the root", () => {
+    const css = lookCss(
+      [button({ states: { checked: { box: { fill: "red" } } } })],
+      ctx
+    );
+    const [rule] = selectorsOf(css);
+    expect(rule).toContain(
+      '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="box"][data-checked]'
+    );
+    expect(rule).toContain(
+      '[data-ed-c="Button"]:not([data-ed-wrapper])[data-checked] [data-slot="box"]'
+    );
+    expect(rule).toContain(
+      '[data-ed-p="Button"] [data-slot="box"][data-checked]'
+    );
+  });
 });

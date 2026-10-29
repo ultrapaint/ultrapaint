@@ -52,7 +52,7 @@ export const makeStyleContext = (
   textStyles: new Map((ds?.typography.styles ?? []).map((s) => [s.name, s])),
 });
 
-const JUSTIFY: Record<string, string> = {
+export const JUSTIFY: Record<string, string> = {
   around: "space-around",
   between: "space-between",
   center: "center",
@@ -60,7 +60,7 @@ const JUSTIFY: Record<string, string> = {
   start: "flex-start",
 };
 
-const ITEMS: Record<string, string> = {
+export const ITEMS: Record<string, string> = {
   baseline: "baseline",
   center: "center",
   end: "flex-end",

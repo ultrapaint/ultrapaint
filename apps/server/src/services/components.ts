@@ -25,6 +25,7 @@ import {
   LEGACY_SPECS_DIR,
   LegacyComponentSpec,
   ROOT_SLOT,
+  type SystemComponentFile,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
@@ -49,7 +50,10 @@ import {
   findPath,
   idsOf,
 } from "@ultrapaint/design-document/tree";
-import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
+import {
+  type SystemComponentMeta,
+  systemComponentOf,
+} from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { componentOfSpec } from "@ultrapaint/system-components/migrate";
 import {
@@ -127,6 +131,40 @@ const appProblemOf = (component: AppComponentFile): string | undefined => {
   return undefined;
 };
 
+/**
+ * What is wrong with a system component's look against its catalogue entry, or nothing: it leaves
+ * out only optional parts, gives content only to slots, and a template only to a Select's or a
+ * Menu's items.
+ */
+const systemProblemOf = (
+  component: SystemComponentFile,
+  meta: SystemComponentMeta
+): string | undefined => {
+  const parts = new Map(meta.slots.map((s) => [s.name, s]));
+  const fixed = (component.hidden ?? []).find((p) => !parts.get(p)?.optional);
+  if (fixed !== undefined) {
+    const optional = meta.slots.filter((s) => s.optional).map((s) => s.name);
+    return `${component.name} cannot leave out ${fixed}: ${optional.length > 0 ? `its optional parts are ${optional.join(", ")}` : "it has no optional part"}`;
+  }
+  const notSlot = Object.keys(component.content ?? {}).find(
+    (slot) => parts.get(slot)?.holds === undefined
+  );
+  if (notSlot !== undefined) {
+    return `${component.name} has no slot ${notSlot} to give content: its slots are ${meta.slots.flatMap((s) => (s.holds ? [s.name] : [])).join(", ") || "none"}`;
+  }
+  const { item } = component;
+  if (item && !meta.templatedItems) {
+    return `${component.name} has no items to draw with a template: a Select's and a Menu's have`;
+  }
+  const ids = item ? idsOf(item.tree) : new Set<string>();
+  const unbound = [item?.label, item?.image].find(
+    (id) => id !== undefined && !ids.has(id)
+  );
+  return unbound === undefined
+    ? undefined
+    : `the item template shows the item in node ${unbound}, which its tree does not have`;
+};
+
 /** What is wrong with a component's file among the others, or nothing. */
 export const problemOf = (
   component: ComponentFile,
@@ -138,7 +176,7 @@ export const problemOf = (
   const system = systemComponentOf(component.name);
   if (component.origin === "system") {
     return system
-      ? undefined
+      ? systemProblemOf(component, system)
       : `${component.name} is no system component: an app component's file says origin "app"`;
   }
   if (system) {
