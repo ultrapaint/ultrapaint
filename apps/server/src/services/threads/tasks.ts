@@ -87,10 +87,6 @@ export class AgentTasks extends Context.Service<
      Use tokens such as "$text-4xl", "$font-weight-bold" and "$leading-tight". The scan starts
      you off with a scale built from the theme: keep what the product uses, rename and fix the
      rest, drop what it does not have.
-   - components: for each component a designer would place, by export name: \`category\`,
-     \`description\`, \`exampleProps\` that make it render something meaningful on its own (a
-     dialog open, a select with options, a badge with a variant) and \`exampleText\` for one
-     that takes text as children.
    - elevation: the levels, lowest first (Sunken, Default, Raised, Overlay), each a \`surface\`
      colour token, the \`shadow\` that goes with it, and the z-index \`layer\` of those that
      overlap. The scan starts you off from the semantic surfaces; fix it from how the product's

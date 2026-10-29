@@ -33,7 +33,6 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
-import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
 import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
@@ -52,8 +51,6 @@ import { caseOf, codeCounts, driftOf, planOf, summaryOf } from "./sync-plan.ts";
 import { figmaBaselineOf, syncSides } from "./sync-sides.ts";
 
 const STYLESHEET_RE = /\.css$/;
-/** What a component is written in. */
-const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?)$/;
 
 const Dependencies = Schema.optional(
   Schema.Record(Schema.String, Schema.Unknown)
@@ -172,28 +169,11 @@ export class DesignSystemSyncService extends Context.Service<
           Effect.orElseSucceed(() => false)
         );
 
-      const walk = makeWalk(fs, path);
-      /** Source files under the component directories, their installs and builds aside. */
-      const librarySources = (dirs: readonly string[]) =>
-        Effect.map(
-          Effect.forEach(dirs, (dir) =>
-            walk(dir, {
-              includeFile: (name) => SOURCE_FILE_RE.test(name),
-              skipDir: (name) =>
-                name === "node_modules" || name.startsWith("."),
-            })
-          ),
-          (found) => found.flat().length
-        );
-
       const read = project.use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
           const styleSystem = yield* ProjectStyleSystem;
           const { settings } = paths;
-          const components = (yield* (yield* ComponentService).catalogue).map(
-            (c) => c.name
-          );
           const code = yield* CodeSide;
           const source = yield* code.tokens;
           const state = yield* (yield* DesignSystemService).get;
@@ -209,7 +189,6 @@ export class DesignSystemSyncService extends Context.Service<
             : undefined;
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
-            components: components.length,
             ...(state.document && {
               designMd: {
                 held: state.document.held.length,
@@ -223,11 +202,6 @@ export class DesignSystemSyncService extends Context.Service<
             libraryDirs: [...settings.libraryDirs],
             ...(old.drawn + old.left + old.specs > 0 && {
               oldInstances: old,
-            }),
-            ...(components.length === 0 && {
-              librarySources: yield* librarySources(
-                settings.libraryDirs.map((dir) => path.resolve(paths.root, dir))
-              ),
             }),
             styleSystem: styleSystem.id,
             stylesheets: settings.hostCss.length,
@@ -243,7 +217,6 @@ export class DesignSystemSyncService extends Context.Service<
             drift: driftOf(
               state.designSystem,
               source.tokens,
-              components,
               source.files.length > 0
             ),
             facts,

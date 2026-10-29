@@ -51,7 +51,7 @@ const addTo = (
   const next = makeIdGenerator();
   const made =
     id === "button" && button
-      ? newInstance(button, undefined, next)
+      ? newInstance(button, next)
       : newElement(id === "button" ? "paragraph" : id, next);
   const child: DesignNode =
     slot.holds === "default" ? made : { ...made, slot: slot.name };

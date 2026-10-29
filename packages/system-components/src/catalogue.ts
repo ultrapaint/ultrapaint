@@ -8,6 +8,7 @@
  * system component, over the default look in `look.ts`). Implementing a design hands the look of each
  * part in each state to an agent, which applies it to whatever the application uses.
  */
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   Catalogue,
   ComponentMeta,
@@ -57,7 +58,7 @@ export interface SystemComponentMeta {
   readonly category: string;
   readonly description: string;
   /** The props a new instance starts with. */
-  readonly example: Readonly<Record<string, unknown>>;
+  readonly example: Readonly<Record<string, JsonValue>>;
   readonly layer: ComponentLayer;
   readonly name: string;
   readonly props: readonly PropMeta[];
@@ -573,6 +574,7 @@ const systemEntryOf = (
 ): ComponentMeta => ({
   category: meta.category,
   description: meta.description,
+  example: meta.example,
   importFrom: SYSTEM_FROM,
   name: meta.name,
   props: meta.props,
@@ -587,6 +589,7 @@ const systemEntryOf = (
       ...(Object.keys(layoutIn).length > 0 && { layoutIn }),
     };
   }),
+  ...(meta.text !== undefined && { text: meta.text }),
   variants: Object.fromEntries(
     Object.entries(meta.variants).map(([axis, members]) => [axis, [...members]])
   ),

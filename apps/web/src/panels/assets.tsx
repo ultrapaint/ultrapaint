@@ -67,12 +67,7 @@ const articled = (noun: string) =>
 /** Ids are the server's to settle; these only have to be unique within the node. */
 const nextId = () => makeIdGenerator();
 
-const instanceOf = (c: ComponentMeta) =>
-  newInstance(
-    c,
-    useDesignSystem.getState().designSystem?.components?.[c.name],
-    nextId()
-  );
+const instanceOf = (c: ComponentMeta) => newInstance(c, nextId());
 
 /**
  * Everything an entry of the Assets panel does: a click inserts, a drag carries the node, a
@@ -180,7 +175,7 @@ const useThumbnails = (
   // The project's looks draw them too (ADRs 0028, 0041).
   const { components: files, css } = useDesignLook();
   const key = hashOf(
-    `${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${css}:${JSON.stringify(files)}`
+    `${JSON.stringify(designSystem?.colors ?? [])}:${css}:${JSON.stringify(files)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
@@ -244,12 +239,6 @@ const useThumbnails = (
   return thumbnails;
 };
 
-/** Category of a component: what init said, else what the catalogue guessed from its path. */
-const categoryOf = (
-  c: ComponentMeta,
-  ds: ReturnType<typeof useDesignSystem.getState>["designSystem"]
-) => ds?.components?.[c.name]?.category ?? c.category;
-
 export const Assets = () => {
   const configured = useProject((s) => s.info.configured);
   const components = useComponents((s) => s.catalogue);
@@ -259,7 +248,6 @@ export const Assets = () => {
   const activePage = useEditor((s) => s.activePage);
   const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
-  const designSystem = useDesignSystem((s) => s.designSystem);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>(
     () => (localStorage.getItem(VIEW_KEY) as View | null) ?? "list"
@@ -269,7 +257,7 @@ export const Assets = () => {
     (c) =>
       !q ||
       c.name.toLowerCase().includes(q) ||
-      categoryOf(c, designSystem).toLowerCase().includes(q)
+      c.category.toLowerCase().includes(q)
   );
   const thumbnails = useThumbnails(list, view === "grid");
 
@@ -292,7 +280,7 @@ export const Assets = () => {
   ].map(({ items, title }) => {
     const byCategory = new Map<string, ComponentMeta[]>();
     for (const c of items) {
-      const category = categoryOf(c, designSystem);
+      const { category } = c;
       byCategory.set(category, [...(byCategory.get(category) ?? []), c]);
     }
     return { byCategory, count: items.length, title };

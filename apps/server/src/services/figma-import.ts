@@ -457,11 +457,7 @@ export class FigmaImportService extends Context.Service<
             message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. ${TOOLS.list_components} has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
           });
         }
-        const { designSystem: saved } = yield* designSystem.get;
-        const from =
-          mapping.from ??
-          saved?.components?.[component.name]?.from ??
-          component.importFrom;
+        const from = mapping.from ?? component.importFrom;
         const known = new Set(component.props.map((p) => p.name));
         const named = [
           ...Object.keys(mapping.props ?? {}),

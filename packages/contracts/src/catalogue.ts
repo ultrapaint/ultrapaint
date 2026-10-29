@@ -49,12 +49,16 @@ export type ComponentSlot = typeof ComponentSlot.Type;
 export const ComponentMeta = Schema.Struct({
   category: Schema.String,
   description: Schema.optional(Schema.String),
+  /** The props a new instance starts with, and its thumbnail is drawn with. */
+  example: Schema.optional(Schema.Record(Schema.String, Json)),
   /** What an instance names as `from`: `@ultrapaint/system` or `#app`. */
   importFrom: Schema.String,
   name: Schema.String,
   props: Schema.Array(PropMeta),
   /** Its parts, the root first. */
   slots: Schema.Array(ComponentSlot),
+  /** The text a new instance shows, for one that shows text. */
+  text: Schema.optional(Schema.String),
   /** Variant axes: name -> members. */
   variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });

@@ -67,12 +67,11 @@ export const SyncStep = Schema.Struct({
 });
 export type SyncStep = typeof SyncStep.Type;
 
-/** A token or component one side has and the other does not describe or declare. */
+/**
+ * A token one side has and the other does not describe or declare. Components drift no more:
+ * they are the editor's system components and the project's own files (ADR 0042).
+ */
 export const SyncDrift = Schema.Struct({
-  /** Components the design system notes that the code no longer has. */
-  componentsGone: Schema.Array(Schema.String),
-  /** Components of the code the design system says nothing about. */
-  componentsUndescribed: Schema.Array(Schema.String),
   /** Tokens the design system lists that the code no longer declares. */
   tokensGone: Schema.Array(Schema.String),
   /** Tokens the code declares that the design system does not list. */
@@ -81,18 +80,13 @@ export const SyncDrift = Schema.Struct({
 export type SyncDrift = typeof SyncDrift.Type;
 
 export const emptyDrift: SyncDrift = {
-  componentsGone: [],
-  componentsUndescribed: [],
   tokensGone: [],
   tokensUndescribed: [],
 };
 
 /** How much drift there is, in one number: what the Design system tab counts. */
 export const driftCount = (drift: SyncDrift) =>
-  drift.componentsGone.length +
-  drift.componentsUndescribed.length +
-  drift.tokensGone.length +
-  drift.tokensUndescribed.length;
+  drift.tokensGone.length + drift.tokensUndescribed.length;
 
 export const SyncFacts = Schema.Struct({
   /** The package the pages resolve from has React: there is an application. */
@@ -108,8 +102,6 @@ export const SyncFacts = Schema.Struct({
       toDesign: Schema.Number,
     })
   ),
-  /** Components the catalogue lists. */
-  components: Schema.Number,
   /** `DESIGN.md`, when there is one (ADR 0027). */
   designMd: Schema.optional(
     Schema.Struct({
@@ -133,12 +125,6 @@ export const SyncFacts = Schema.Struct({
   ),
   /** The component directories the settings name. */
   libraryDirs: Schema.Array(Schema.String),
-  /**
-   * Source files in the component directories, counted when none of their components could be
-   * read: none at all is a project with no components yet (a blank new design), not settings
-   * that point at the wrong place.
-   */
-  librarySources: Schema.optional(Schema.Number),
   /**
    * What the designs hold from before (ADRs 0040, 0041), when there is any: instances to draw as
    * now (the repository's components a system component can draw, system components and drafts

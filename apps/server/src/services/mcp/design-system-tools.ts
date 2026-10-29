@@ -133,12 +133,7 @@ export const designSystemToolHandlers = Effect.gen(function* () {
           `no component named ${name}; call ${TOOLS.list_components} to see what there is`
         );
       }
-      const { designSystem: ds } = yield* designSystem((d) => d.get);
-      const example = newInstance(
-        component,
-        ds?.components?.[component.name],
-        makeIdGenerator()
-      );
+      const example = newInstance(component, makeIdGenerator());
       return {
         example: asJson(example),
         importFrom: component.importFrom,
