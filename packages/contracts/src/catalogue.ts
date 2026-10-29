@@ -53,22 +53,7 @@ export const ComponentMeta = Schema.Struct({
   snippet: Schema.String,
   /** Storybook story ids usable as previews. */
   storyIds: Schema.Array(Schema.String),
-  /**
-   * Its `cva` classes, where they are written out: the base every variant has, each variant
-   * member's, and the members it starts with. What DESIGN.md's component tokens are read from
-   * (ADR 0027).
-   */
-  styles: Schema.optional(
-    Schema.Struct({
-      base: Schema.String,
-      classes: Schema.Record(
-        Schema.String,
-        Schema.Record(Schema.String, Schema.String)
-      ),
-      defaults: Schema.Record(Schema.String, Schema.String),
-    })
-  ),
-  /** `cva` variants: name -> members. */
+  /** Variant axes: name -> members. */
   variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 export type ComponentMeta = typeof ComponentMeta.Type;

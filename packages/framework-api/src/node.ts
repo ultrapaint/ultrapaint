@@ -1,13 +1,3 @@
-/**
- * What a framework and a style system give the server, on the Node side. A framework is the UI
- * library and its bundler: where an application is and how a new one is written (the canvas
- * draws the editor's own primitives, ADR 0040). A style system is what the tokens and classes are
- * written in (ADR 0024): how the tokens are read and written back, and what the code uses. The server knows
- * repositories, files, design documents and the editor's protocol; everything else comes
- * through these two interfaces, as a Storybook framework package (`@storybook/react-vite`)
- * does for Storybook's core.
- */
-import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
   UsageInventory,
@@ -18,11 +8,8 @@ import type {
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import type {
-  ComponentStyle,
   FileEdit,
-  SourceToken,
   StyleSystemId,
   TokenChange,
   TokenSource,
@@ -148,15 +135,6 @@ export interface StyleSuggestions {
   readonly tailwind: "v4" | "v3" | "none";
 }
 
-/** A component's `cva` classes as the catalogue reads them: the base, each member's, the defaults. */
-export type ComponentStyles = NonNullable<ComponentMeta["styles"]>;
-
-/** What a style system reads off a component's code into its spec (ADR 0029). */
-export type SpecFromCode = Pick<
-  ComponentSpec,
-  "base" | "defaults" | "states" | "variants"
->;
-
 /**
  * A style system (ADR 0024): Tailwind v4 today, StyleX or Emotion later. Synchronous and pure
  * apart from reading the repository's files; the server writes what it returns.
@@ -167,23 +145,6 @@ export interface StyleSystem {
    * implement a page.
    */
   readonly codeRules: string;
-  /**
-   * A component's classes read into the fields of its spec (ADR 0029): the root slot's style
-   * fields in its base, in each variant member and in each state, tokens named as pages name
-   * them where the classes name one of `tokens`.
-   */
-  readonly componentSpec: (
-    styles: ComponentStyles,
-    tokens: readonly SourceToken[]
-  ) => SpecFromCode;
-  /**
-   * What a component's classes set in the state it starts in, as DESIGN.md's component tokens
-   * hold it (ADR 0027), the code's tokens being `tokens`.
-   */
-  readonly componentStyle: (
-    classes: string,
-    tokens: readonly SourceToken[]
-  ) => ComponentStyle;
   /** The stylesheets of the packages in `dirs` (absolute) that set the style system up. */
   readonly detect: (root: string, dirs: readonly string[]) => StyleSuggestions;
   readonly id: StyleSystemId;

@@ -3,7 +3,7 @@ import {
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import { describe, expect, it } from "vitest";
-import { componentEntries, mirrorOf } from "./mirror.ts";
+import { mirrorOf, type SpecLike, specEntries } from "./mirror.ts";
 
 /** A shadcn theme on Tailwind v4, as the service hands it over: the code's values merged in. */
 const shadcn = (): DesignSystem => {
@@ -102,43 +102,38 @@ describe("mirrorOf", () => {
 });
 
 describe("component tokens", () => {
-  /** A stand-in for the style system: one class, one property. */
-  const read = (classes: string): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const c of classes.split(" ")) {
-      if (c.startsWith("bg-")) {
-        out.backgroundColor = `$color-${c.slice(3)}`;
-      } else if (c.startsWith("fg-")) {
-        out.textColor = `$color-${c.slice(3)}`;
-      } else if (c.startsWith("h-")) {
-        out.height = c.slice(2);
-      }
-    }
-    return out;
-  };
-  const button = {
-    name: "IconButton",
-    styles: {
-      base: "fg-ink",
-      classes: {
-        size: { lg: "h-48px", sm: "h-32px" },
-        variant: {
-          danger: "bg-danger fg-white",
-          default: "bg-primary",
-          ghost: "",
-        },
+  const button: SpecLike = {
+    base: {
+      icon: { fill: "$color-muted" },
+      root: { color: "$color-ink", fontSize: 14, height: 32 },
+    },
+    component: "IconButton",
+    defaults: { size: "sm", variant: "default" },
+    look: "design",
+    variants: {
+      size: {
+        lg: { root: { height: "48px", padding: { left: 16, right: 12 } } },
+        sm: {},
       },
-      defaults: { size: "sm", variant: "default" },
+      variant: {
+        danger: { root: { color: "$color-white", fill: "$color-danger" } },
+        default: { root: { fill: "$color-primary" } },
+        ghost: {},
+      },
     },
   };
 
   it("gives the component as it starts, each colour variant, and each size's dimensions", () => {
     expect(
-      componentEntries(
-        [button, { name: "Card" }],
-        new Set(["IconButton"]),
-        read
-      )
+      specEntries([
+        button,
+        { ...button, component: "Card", look: "code" },
+        {
+          ...button,
+          component: "Hero",
+          draft: { children: [], id: "h", type: "group" },
+        },
+      ])
     ).toEqual({
       "icon-button": {
         backgroundColor: "$color-primary",
@@ -153,7 +148,18 @@ describe("component tokens", () => {
       "icon-button-ghost": { height: "32px", textColor: "$color-ink" },
       "icon-button-lg": { height: "48px" },
     });
-    expect(componentEntries([button], new Set(), read)).toEqual({});
+  });
+
+  it("writes padding the same on every side as one length, and leaves out one that is not", () => {
+    expect(
+      specEntries([
+        {
+          ...button,
+          base: { root: { padding: { bottom: 8, left: 8, right: 8, top: 8 } } },
+          variants: {},
+        },
+      ])
+    ).toEqual({ "icon-button": { padding: "8px" } });
   });
 
   it("refers to the front matter's tokens, and writes the value of one it does not have", () => {

@@ -450,7 +450,7 @@ The design system is two files, both meant to be committed:
   [DESIGN.md format](https://github.com/google-labs-code/design.md) that coding agents and design
   tools read and write ([ADR 0027](docs/adr/0027-design-md.md)):
   - its front matter holds the tokens (`colors`, `typography`, `rounded`, `spacing`), kept in
-    step with the design system;
+    step with the design system, and the `components` whose look you took over, from their specs;
   - its body says, in the format's sections, what the product is, which colours mean what,
     which component to use for what, and what to always or never do.
 
