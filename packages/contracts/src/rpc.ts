@@ -63,7 +63,6 @@ import {
   PageList,
   UploadAssetInput,
 } from "./pages.ts";
-import { InstanceDrawn } from "./preview.ts";
 import { LogLine, ProjectInfo } from "./project.ts";
 import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
@@ -757,14 +756,13 @@ const requestRpcs = [
   /**
    * A node of a design as code, everything under it included (the inspector's Code tab): JSX
    * with the repository's components, its look in the classes of the project's style system
-   * (ADR 0024). `parent` is how its parent lays it out; `component` names a page's function;
-   * `instances` is how the preview drew them.
+   * (ADR 0024). `parent` is how its parent lays it out; `component` names a page's function.
+   * An instance's children are laid out as the catalogue's slots say (ADR 0042).
    */
   Rpc.make("code.write", {
     error: NotConfigured,
     payload: {
       component: Schema.optional(Schema.String),
-      instances: Schema.optional(Schema.Record(Schema.String, InstanceDrawn)),
       node: DesignNode,
       parent: Schema.optional(
         Schema.Literals(["row", "column", "block", "free"])

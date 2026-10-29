@@ -50,7 +50,7 @@ describe("the default look", () => {
 
   it("styles a part's own state where Base UI puts it, on the part", () => {
     expect(SYSTEM_COMPONENTS_CSS).toContain(
-      '[data-ed-c="Checkbox"]:not([data-ed-wrapper]) [data-slot="checkbox"][data-checked]'
+      '[data-ed-c="Checkbox"] [data-slot="checkbox"][data-checked]'
     );
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       '[data-ed-p="Menu"] [data-slot="menu-item"][data-highlighted]'

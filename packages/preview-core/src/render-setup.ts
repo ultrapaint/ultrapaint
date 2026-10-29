@@ -46,6 +46,5 @@ export const renderSetup = (
     // A frame is the page's window: what fills the window's height fills the frame's.
     pageHeight: "100cqh",
     reportError: (error) => events.error?.({ ...error, source: "page" }),
-    reportInstances: (instances) => events.instances?.(instances),
   };
 };

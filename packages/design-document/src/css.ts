@@ -116,15 +116,6 @@ type Declared = Record<string, DeclaredValue>;
 /** A page as tall as the screen: `min-h-screen` in the code, its frame on the canvas. */
 const SCREEN_HEIGHT = "100vh";
 
-/**
- * The element around a component that keeps its props to itself: a column that stretches the
- * component across, the instance's own declarations over it. The canvas and the code draw it so.
- */
-export const AROUND_INSTANCE: Declarations = {
-  display: "flex",
-  flexDirection: "column",
-};
-
 /** Padding or margin, on every side at once or side by side. */
 const sidesDeclared = (
   property: "padding" | "margin",

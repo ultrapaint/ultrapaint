@@ -12,6 +12,7 @@
  * application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -19,14 +20,12 @@ import type {
   ClassWriter,
   Declarations,
 } from "@ultrapaint/contracts/node-style";
-import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import {
   type Breakpoint,
   breakpointsUsed,
   resolveAtBreakpoint,
 } from "./breakpoints.ts";
 import {
-  AROUND_INSTANCE,
   declarationsOf,
   layoutOf,
   makeStyleContext,
@@ -35,6 +34,7 @@ import {
   type StyleContext,
   tagOf,
 } from "./css.ts";
+import { slotLayoutOf } from "./slots.ts";
 import { childrenOf, nodeLabel, walk } from "./tree.ts";
 
 const INDENT = "  ";
@@ -56,6 +56,11 @@ export interface CodeOptions {
    */
   readonly breakpoints?: readonly Breakpoint[] | undefined;
   /**
+   * The components (ADR 0042): how the slot each of an instance's children fills lays it out.
+   * Left out, an instance lays its children out as a block.
+   */
+  readonly catalogue?: Catalogue | undefined;
+  /**
    * Name of the function a page is written as; given, a page node becomes that component.
    * Left out, the page is written as its markup alone.
    */
@@ -72,13 +77,6 @@ export interface CodeOptions {
    * Left out, the link is written as it is.
    */
   readonly hrefOf?: ((link: string) => string) | undefined;
-  /**
-   * How the preview drew the instances, by node id (`ed:instances`): how each lays out its
-   * children, and whether its component keeps its props, so that its box goes on a `div` around
-   * it. An instance left out is taken to pass its props on and to lay its children out as a
-   * block.
-   */
-  readonly instances?: Readonly<Record<string, InstanceDrawn>> | undefined;
   /** How the node's parent lays it out, which `fill` and `hug` are relative to. */
   readonly parent?: ParentLayout | undefined;
 }
@@ -89,7 +87,8 @@ interface Writing {
   readonly at: readonly ReadonlyMap<string, DesignNode>[];
   readonly classes: ClassWriter;
   readonly hrefOf: (link: string) => string;
-  readonly instances: Readonly<Record<string, InstanceDrawn>>;
+  /** How the instance or the part a child is in lays it out, by the child's id. */
+  readonly inSlots: ReadonlyMap<string, ParentLayout>;
   /** The base (null), then the breakpoints the tree sets anything at, smallest first. */
   readonly levels: readonly (string | null)[];
   /** The name each instance's component is imported as (`importKey`), unique in the file. */
@@ -139,18 +138,30 @@ export const componentsImportBase = (settings: {
  * A tree with each system component written as the application's component for it (ADR 0040): imported
  * from `base`'s file of its name (`@/components/ui/dialog`), the children of each named slot in
  * that component's part (`DialogFooter` for `dialog-footer`, `DialogTrigger` for `trigger`), where
- * the first of them was.
+ * the first of them was. How the slot each instance's child fills lays it out goes in `inSlots`.
  */
-const asApplicationCode = (node: DesignNode, base: string): DesignNode => {
+const asApplicationCode = (
+  node: DesignNode,
+  base: string,
+  catalogue: Catalogue,
+  inSlots: Map<string, ParentLayout>
+): DesignNode => {
   if (node.type !== "instance") {
     return isParent(node)
       ? ({
           ...node,
-          children: node.children.map((c) => asApplicationCode(c, base)),
+          children: node.children.map((c) =>
+            asApplicationCode(c, base, catalogue, inSlots)
+          ),
         } as DesignNode)
       : node;
   }
-  const children = (node.children ?? []).map((c) => asApplicationCode(c, base));
+  for (const child of node.children ?? []) {
+    inSlots.set(child.id, slotLayoutOf(node, child.slot, catalogue) ?? "block");
+  }
+  const children = (node.children ?? []).map((c) =>
+    asApplicationCode(c, base, catalogue, inSlots)
+  );
   if (node.from === APP_FROM) {
     return asAppComponentCode(node, children, base);
   }
@@ -414,21 +425,29 @@ const nodeAt = (node: DesignNode, w: Writing, level: number): DesignNode =>
 const hiddenEverywhere = (node: DesignNode, w: Writing) =>
   w.levels.every((_, level) => nodeAt(node, w, level).hidden);
 
-/** How a node lays out its children: an instance as the preview saw its component do it. */
-const childLayoutOf = (node: DesignNode, w: Writing): ParentLayout =>
+/** How a node lays out a child: an instance, or a part of one, as the slot it fills does. */
+const childLayoutOf = (
+  node: DesignNode,
+  child: DesignNode,
+  w: Writing
+): ParentLayout =>
   node.type === "instance"
-    ? (w.instances[node.id]?.layout ?? "block")
+    ? (w.inSlots.get(child.id) ?? "block")
     : layoutOf(node);
 
 /** What its parent lays a node out as, at each level. */
 type Parents = readonly ParentLayout[];
 
-const childrenFor = (node: DesignNode, w: Writing): Child[] => {
-  const parents = w.levels.map((_, level) =>
-    childLayoutOf(nodeAt(node, w, level), w)
+const childrenFor = (node: DesignNode, w: Writing): Child[] =>
+  childrenOf(node).flatMap((child) =>
+    childFor(
+      child,
+      w,
+      w.levels.map((_, level) =>
+        childLayoutOf(nodeAt(node, w, level), child, w)
+      )
+    )
   );
-  return childrenOf(node).flatMap((child) => childFor(child, w, parents));
-};
 
 /** A node below the one written: hidden ones are left out, and say so. */
 const childFor = (node: DesignNode, w: Writing, parents: Parents): Child[] =>
@@ -456,16 +475,15 @@ const contentOf = (node: DesignNode): string => {
   }
 };
 
-/** An element's classes, from its declarations at each level with `around`'s under them. */
+/** An element's classes, from its declarations at each level. */
 const classesOf = (
   w: Writing,
-  styles: readonly Declarations[],
-  around: Declarations = {}
+  styles: readonly Declarations[]
 ): readonly string[] =>
   w.classes.classes(
     styles.map((declarations, level) => ({
       breakpoint: w.levels[level] ?? null,
-      declarations: { ...around, ...declarations },
+      declarations,
     }))
   );
 
@@ -555,25 +573,6 @@ const jsxShowing = (
       } else if (node.text) {
         content = [{ kind: "text", text: jsxText(node.text) }];
       }
-      // A component that keeps its props to itself cannot take the classes: they go on a div
-      // around it, which stretches it across, as the canvas draws it.
-      if (w.instances[node.id]?.wrapped && classes.length > 0) {
-        return linked(
-          node,
-          w,
-          element(
-            "div",
-            classAttribute(classesOf(w, styles, AROUND_INSTANCE)),
-            [
-              element(
-                tagOfInstance(node, w),
-                propAttributes(node.props, []),
-                content
-              ),
-            ]
-          )
-        );
-      }
       return linked(
         node,
         w,
@@ -655,9 +654,12 @@ export const toCode = (
   classes: ClassWriter,
   options: CodeOptions = {}
 ): string => {
+  const inSlots = new Map<string, ParentLayout>();
   const node = asApplicationCode(
     given,
-    options.componentsFrom ?? DEFAULT_COMPONENTS_FROM
+    options.componentsFrom ?? DEFAULT_COMPONENTS_FROM,
+    options.catalogue ?? [],
+    inSlots
   );
   const parent = options.parent ?? "free";
   const asComponent = node.type === "page" && options.component !== undefined;
@@ -685,7 +687,7 @@ export const toCode = (
     at,
     classes,
     hrefOf: options.hrefOf ?? ((link: string) => link),
-    instances: options.instances ?? {},
+    inSlots,
     levels,
     localNames,
     styles: makeStyleContext(options.designSystem),

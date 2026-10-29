@@ -413,7 +413,7 @@ export default function PricingPage() {
 <Card data-x="y" {...{"weird key":1}} className="ring-1 p-2" />`);
   });
 
-  it("sizes an instance's children by the layout its component was drawn with", () => {
+  it("sizes an instance's children by the layout of the slot they fill", () => {
     const node: DesignNode = {
       children: [
         {
@@ -432,30 +432,25 @@ export default function PricingPage() {
     expect(toCode(node, ds)).toContain(`<p className="h-full">Hi</p>`);
     expect(
       toCode(node, ds, {
-        instances: { card: { layout: "column", wrapped: false } },
+        catalogue: [
+          {
+            category: "Layout",
+            importFrom: "@acme/ui/card",
+            name: "Card",
+            props: [],
+            slots: [
+              {
+                holds: "default",
+                label: "Card",
+                layout: "column",
+                name: "root",
+              },
+            ],
+            variants: {},
+          },
+        ],
       })
     ).toContain(`<p className="flex-1 min-h-0">Hi</p>`);
-  });
-
-  it("puts the box of a component that keeps its props on a div around it", () => {
-    const node: DesignNode = {
-      component: "Card",
-      from: "@acme/ui/card",
-      height: "fill",
-      id: "card",
-      props: { size: "sm" },
-      type: "instance",
-    };
-    expect(
-      toCode(node, ds, {
-        instances: { card: { layout: "block", wrapped: true } },
-        parent: "column",
-      })
-    ).toBe(`import { Card } from "@acme/ui/card";
-
-<div className="flex flex-col flex-1 min-h-0">
-  <Card size="sm" />
-</div>`);
   });
 });
 

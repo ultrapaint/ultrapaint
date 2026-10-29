@@ -24,9 +24,9 @@ import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { MIXED, type Shared, shownAs } from "../lib/shared-value.ts";
 import { type Side, sharedSide, withSides } from "../lib/sides.ts";
 import { useTokenOptions } from "../lib/token-options.tsx";
+import { useComponents } from "../state/components.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useInstances } from "../state/instances.ts";
 import {
   NodeValueField,
   nullIfMixed,
@@ -219,9 +219,9 @@ const LengthField = ({
 const useFillWarnings = (frame: string, node: DesignNode) => {
   const canvas = useEditor((s) => s.canvas);
   const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frame));
-  const instances = useInstances((s) => s.drawn);
+  const catalogue = useComponents((s) => s.catalogue);
   return root
-    ? fillWarnings(root, instances).filter((w) => w.nodeId === node.id)
+    ? fillWarnings(root, catalogue).filter((w) => w.nodeId === node.id)
     : [];
 };
 

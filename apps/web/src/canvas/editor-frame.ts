@@ -367,8 +367,6 @@ export class EditorFrame {
         this.fail({ during, error });
         tell("error", (l) => l.error?.(error));
       },
-      instances: (instances) =>
-        tell("instances", (l) => l.instances?.(instances)),
       navigateTo: (route, replace) =>
         tell("navigateTo", (l) => l.navigateTo?.(route, replace)),
       pressed: (nodeIds) => tell("pressed", (l) => l.pressed?.(nodeIds)),
@@ -615,7 +613,6 @@ export const forwardTo = (
   latest: () => FrameListeners
 ): Required<FrameListeners> => ({
   error: (error) => latest().error?.(error),
-  instances: (instances) => latest().instances?.(instances),
   navigateTo: (route, replace) => latest().navigateTo?.(route, replace),
   pressed: (nodeIds) => latest().pressed?.(nodeIds),
   ready: () => latest().ready?.(),

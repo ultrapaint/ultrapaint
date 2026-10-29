@@ -474,7 +474,6 @@ describe("a frame's events handed on", () => {
     const calls: string[] = [];
     const every: Handed = {
       error: () => calls.push("error"),
-      instances: () => calls.push("instances"),
       navigateTo: () => calls.push("navigateTo"),
       pressed: () => calls.push("pressed"),
       ready: () => calls.push("ready"),
@@ -485,7 +484,6 @@ describe("a frame's events handed on", () => {
     };
     const handed = m.forwardTo(() => every);
     handed.error({ message: "m", source: "page" });
-    handed.instances({});
     handed.navigateTo("/", false);
     handed.pressed([]);
     handed.ready();

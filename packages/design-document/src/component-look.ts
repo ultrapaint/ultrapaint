@@ -47,8 +47,6 @@ export const STATE_ATTRIBUTE = "data-ed-state";
  * portalled into the frame's body, is the component's as a portal, not as its root.
  */
 export const PORTAL_ATTRIBUTE = "data-ed-p";
-/** The div the renderer draws around a component that does not forward its props (0015). */
-const WRAPPER_ATTRIBUTE = "data-ed-wrapper";
 
 const WHITESPACE_RE = /\s+/g;
 const CSS_STRING_RE = /["\\\n\r\f]/g;
@@ -242,8 +240,8 @@ interface Match {
 }
 
 /**
- * The selectors of a slot under one match: the root as drawn bare and as wrapped. A part is also
- * found in a portal of the component's (an overlay's popup), inside it or as the portalled
+ * The selectors of a slot under one match: the root, or a part inside it. A part is also found
+ * in a portal of the component's (an overlay's popup), inside it or as the portalled
  * element itself.
  */
 const selectorsOf = (
@@ -255,16 +253,12 @@ const selectorsOf = (
   if (slot === ROOT_SLOT) {
     // The root is the part: a state on it is the root's.
     const own = `${target}${onPart}`;
-    return [
-      `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${own}`,
-      `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${own}`,
-    ];
+    return [`${marked}${host}${own}`];
   }
   const part = `${attribute("data-slot", "", slot)}${onPart}`;
   const portal = attribute(PORTAL_ATTRIBUTE, "", component);
   return [
-    `${marked}:not([${WRAPPER_ATTRIBUTE}])${host}${target} ${part}`,
-    `${marked}[${WRAPPER_ATTRIBUTE}]${host} > *${target} ${part}`,
+    `${marked}${host}${target} ${part}`,
     `${portal}${host}${target} ${part}`,
     `${portal}${host}${target}${part}`,
   ];
