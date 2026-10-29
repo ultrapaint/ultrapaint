@@ -15,7 +15,7 @@ import {
   sourceOf,
 } from "@ultrapaint/design-document/breakpoints";
 import { currentBreakpoints } from "../state/design-system.ts";
-import { pageOfFrame } from "../state/documents.ts";
+import { editedAtOf, pageOfFrame, useDocuments } from "../state/documents.ts";
 import { type EditorState, useEditor } from "../state/editor.ts";
 import { frameBreakpoint, useFrameBreakpoint } from "../state/selection.ts";
 import { unsetValueOf } from "./node-fields.ts";
@@ -23,9 +23,12 @@ import { unsetValueOf } from "./node-fields.ts";
 const viewsIn = (frames: EditorState["frames"], frame: string) =>
   (frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0;
 
-/** Whether the page a frame shows is drawn in views: its edits then land where they are made. */
+/**
+ * Whether the page a frame shows is drawn in views: its edits then land where they are made. A
+ * component edited in place at one of its variants is one too: its edits land on the variant.
+ */
 export const hasViews = (frame: string) =>
-  viewsIn(useEditor.getState().frames, frame);
+  editedAtOf(frame) !== null || viewsIn(useEditor.getState().frames, frame);
 
 /** The breakpoint what is edited in a frame lands at: null for the node's own fields. */
 export const editingBreakpoint = (frame: string): string | null =>
@@ -34,7 +37,11 @@ export const editingBreakpoint = (frame: string): string | null =>
 /** `editingBreakpoint` for a component. */
 export const useEditingBreakpoint = (frame: string): string | null => {
   const shown = useFrameBreakpoint(frame);
-  return useEditor((s) => viewsIn(s.frames, frame)) ? shown : null;
+  const variant = useDocuments((s) =>
+    s.edited !== null && s.edited.frame === frame ? s.edited.at : null
+  );
+  const views = useEditor((s) => viewsIn(s.frames, frame));
+  return variant ?? (views ? shown : null);
 };
 
 const sameJson = (a: unknown, b: unknown) =>

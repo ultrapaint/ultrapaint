@@ -105,6 +105,13 @@ const MESSAGE_STYLE = {
  * the instance is selected.
  */
 export const APP_NODE_ATTRIBUTE = "data-ed-app-node";
+/**
+ * What a page's nodes are marked with while an app component's instance is edited in place: not
+ * the page's attribute, so only the component's nodes can be selected.
+ */
+const OUTSIDE_ATTRIBUTE = "data-ed-outside";
+/** The page around an instance edited in place, dimmed. */
+const DIMMED = "rgb(9 9 11 / 0.5)";
 
 /** What every node of one render needs, handed down without threading it through props. */
 interface Scope {
@@ -115,12 +122,16 @@ interface Scope {
   readonly drawing: readonly string[];
   /** The page's nodes among an app component's tree: an instance's children in its slots. */
   readonly filled?: ReadonlySet<string> | undefined;
+  /** The instance edited in place, with the props it is drawn with, when one is (ADR 0041). */
+  readonly isolating?: RenderRequest["isolate"];
   readonly navigate: (route: string) => void;
   /**
    * What a node's id is written in: the page's attribute, or, inside an app component's tree,
    * one the editor does not read, so only the instance can be selected.
    */
   readonly nodeAttribute: string;
+  /** What the page's own nodes are written in: the page's attribute, or, editing in place, not. */
+  readonly pageAttribute: string;
   /** Tells the editor how an instance lays its children out, once it is drawn. */
   readonly report: (nodeId: string, drawn: InstanceDrawn) => void;
   readonly styles: Omit<StyleContext, "parent">;
@@ -258,7 +269,11 @@ const NodeView = ({
     return createElement(
       ScopeContext.Provider,
       {
-        value: { ...scope, filled: undefined, nodeAttribute: NODE_ATTRIBUTE },
+        value: {
+          ...scope,
+          filled: undefined,
+          nodeAttribute: scope.pageAttribute,
+        },
       },
       createElement(NodeView, { node, parent })
     );
@@ -348,7 +363,15 @@ const AppView = ({
       text: `${node.component} is drawn inside itself`,
     });
   }
-  const { filled, tree } = expandAppInstance(file, node);
+  const editing = scope.isolating?.instance === node.id;
+  // Edited in place, it draws the component's own values, at the variant being edited.
+  const { filled, tree } = expandAppInstance(
+    file,
+    editing ? { ...node, props: scope.isolating?.props ?? {} } : node
+  );
+  if (editing) {
+    return createElement(IsolatedView, { file, filled, node, style, tree });
+  }
   return createElement(
     ScopeContext.Provider,
     {
@@ -376,7 +399,61 @@ const AppView = ({
 };
 
 /**
- * One of the editor's system components (ADR 0040). It takes its instance's props, and its children
+ * An app component's instance edited in place (ADR 0041): its tree's nodes are the ones the editor
+ * selects, by the component's ids, the root standing where the instance is, and the page around it
+ * is dimmed, its nodes, those in the instance's slots included, not selectable.
+ */
+const IsolatedView = ({
+  file,
+  filled,
+  node,
+  style,
+  tree,
+}: {
+  file: AppComponentFile;
+  filled: ReadonlySet<string>;
+  node: InstanceNode;
+  style: Style;
+  tree: DesignNode;
+}): ReactNode => {
+  const scope = useContext(ScopeContext) as Scope;
+  const own = Object.fromEntries(
+    Object.entries(style).filter(([key]) => key !== "boxSizing")
+  );
+  return createElement(
+    ScopeContext.Provider,
+    {
+      value: {
+        ...scope,
+        drawing: [...scope.drawing, file.name],
+        filled,
+        nodeAttribute: NODE_ATTRIBUTE,
+      },
+    },
+    createElement(NodeView, {
+      node: tree,
+      own: {
+        attributes: {
+          [NODE_ATTRIBUTE]: tree.id,
+          [COMPONENT_ATTRIBUTE]: node.component,
+          [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
+          "data-ed-instance": node.component,
+          "data-ed-isolated": "",
+        },
+        style: {
+          ...own,
+          outline: `100vmax solid ${DIMMED}`,
+          position: own.position ?? "relative",
+          zIndex: "2147483000",
+        },
+      },
+      parent: "free",
+    })
+  );
+};
+
+/**
+ * One of the editor's own system components (ADR 0040). It takes its instance's props, and its children
  * by the slot each names: the ones that name none are its children, the others go in `slots`,
  * each laid out as its slot lays out. The node's id, marks and box go on the element the
  * system component draws as the instance; how its children are laid out is the catalogue's, and the
@@ -654,12 +731,16 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
 
   const draw = (request: RenderRequest) => {
     restyle(request);
+    const pageAttribute =
+      request.isolate === undefined ? NODE_ATTRIBUTE : OUTSIDE_ATTRIBUTE;
     const scope: Scope = {
       apps,
       assetUrl: setup.assetUrl,
       drawing: [],
+      isolating: request.isolate,
       navigate: setup.navigate,
-      nodeAttribute: NODE_ATTRIBUTE,
+      nodeAttribute: pageAttribute,
+      pageAttribute,
       report,
       styles,
       systems,

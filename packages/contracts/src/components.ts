@@ -27,9 +27,12 @@ import {
 // biome-ignore lint/performance/noBarrelFile: the names live apart so the preview loads no schema; the components' users find them here too.
 export {
   APP_FROM,
+  COMPONENT_DOC_PREFIX,
   COMPONENT_EXTENSION,
   COMPONENT_STATES,
   COMPONENTS_DIR,
+  componentDocOf,
+  componentOfDoc,
   isVariantKey,
   LEGACY_DRAFT_FROM,
   LEGACY_SPEC_EXTENSION,

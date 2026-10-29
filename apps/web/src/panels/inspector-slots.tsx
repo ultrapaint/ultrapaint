@@ -1,11 +1,11 @@
 /**
- * A system component's slots (ADR 0040): every part of it that holds nodes, with the layers that fill it,
- * and what to put in it. A Dialog has its trigger, header, content and footer; a node added to the
+ * A component's slots (ADRs 0040, 0041): every part of a system component, or container of an app
+ * component's tree, that holds nodes, with the layers that fill it, and what to put in it. A Dialog has its trigger, header, content and footer; a node added to the
  * footer is the instance's child that names `dialog-footer`, laid out as the footer lays out its
  * children. A child that names no slot fills the default one.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
+import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
   type ElementId,
@@ -77,7 +77,10 @@ export const SlotsSection = ({
     )
   );
   const slots = (meta?.slots ?? []).filter((slot) => slot.holds);
-  if (node.from !== SYSTEM_FROM || slots.length === 0) {
+  if (
+    !(node.from === SYSTEM_FROM || node.from === APP_FROM) ||
+    slots.length === 0
+  ) {
     return null;
   }
   return (

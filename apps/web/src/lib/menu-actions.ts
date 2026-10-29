@@ -33,6 +33,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
+import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -88,6 +89,7 @@ import {
   areSiblings,
   arrangeNode,
   deleteSelection,
+  detachInstances,
   duplicateSelection,
   insertNode,
   insertNodesAt,
@@ -474,6 +476,12 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       return commentOn(sel, target.at);
     case "makeApp":
       return makeAppOf(sel);
+    case "editComponent": {
+      const node = selected(nodeContext(sel))?.node;
+      return node?.type === "instance" && isolate(sel.frame, node);
+    }
+    case "detach":
+      return ensureEditable() && detachInstances(sel);
     case "toSystem":
       return ensureEditable() && replaceWithSystemComponent(act.name, sel);
     case "link":

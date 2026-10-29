@@ -2,18 +2,36 @@ import type {
   Catalogue,
   ComponentMeta,
 } from "@ultrapaint/contracts/catalogue";
+import { appComponentsIn } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import { appComponentMeta } from "@ultrapaint/design-document/app-components";
 import { takesChildren } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
+import { useComponents } from "./components.ts";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
 
 interface CatalogueStore {
+  /** The system components, then the project's app components (ADR 0041). */
   catalogue: Catalogue | null;
   load: (refresh?: boolean) => Promise<void>;
   loading: boolean;
+  /** The catalogue as the server gives it: the system components. */
+  system: Catalogue | null;
 }
+
+/** The server's catalogue with the app components after the system ones. */
+const withApps = (system: Catalogue | null): Catalogue | null =>
+  system && {
+    ...system,
+    components: [
+      ...system.components,
+      ...appComponentsIn(useComponents.getState().components).map(
+        appComponentMeta
+      ),
+    ],
+  };
 
 export const useCatalogue = create<CatalogueStore>((set) => ({
   catalogue: null,
@@ -21,7 +39,8 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
     set({ loading: true });
     try {
       if (refresh) {
-        set({ catalogue: await api().request("catalogue.get", { refresh }) });
+        const system = await api().request("catalogue.get", { refresh });
+        set({ catalogue: withApps(system), system });
       } else {
         await catalogueData.read();
       }
@@ -32,12 +51,21 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
     }
   },
   loading: false,
+  system: null,
 }));
 
-/** The components the repository offers, as the server last scanned them. */
+/** The components the editor offers, as the server last gave them. */
 const catalogueData = follow({
-  apply: (catalogue: Catalogue) => useCatalogue.setState({ catalogue }),
+  apply: (system: Catalogue) =>
+    useCatalogue.setState({ catalogue: withApps(system), system }),
   read: () => api().request("catalogue.get", { refresh: false }),
+});
+
+// An app component made, changed or deleted is in the catalogue as soon as its file is.
+useComponents.subscribe((now, before) => {
+  if (now.components !== before.components) {
+    useCatalogue.setState((s) => ({ catalogue: withApps(s.system) }));
+  }
 });
 
 /** The catalogue's entry for an instance: the same export from the same module, else by name. */

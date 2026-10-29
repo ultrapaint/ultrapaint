@@ -22,6 +22,8 @@ export interface PageDrawing {
   readonly designSystem: DesignSystem | null;
   /** A node on the canvas held where the pointer put it: drawn at its size while it has one. */
   readonly held?: Partial<Box> | undefined;
+  /** An app component's instance edited in place in the frame (ADR 0041). */
+  readonly isolate?: RenderRequest["isolate"];
   readonly look: DesignLook;
   /** A page fills its frame; a node on the canvas is drawn as large as it is (`fit`). */
   readonly mode: RenderMode;
@@ -75,6 +77,7 @@ export const pageRequest = (page: PageDrawing): RenderRequest => {
   return {
     defaults: page.defaults,
     designSystem,
+    ...(page.isolate && { isolate: page.isolate }),
     look: page.look,
     mode: page.mode,
     root: sized && resolveAt(sized, breakpointsFor(designSystem), at),

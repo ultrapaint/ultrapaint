@@ -4,6 +4,7 @@
  * Storybook's preview only knows a renderer's `renderToCanvas`. Both are the editor's own: the
  * frames draw the editor's system components, and nothing of the repository's runs in them.
  */
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -77,6 +78,17 @@ export interface RenderRequest {
   /** What the canvas draws every page in: its theme, its fill and its type. */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
+  /**
+   * An app component's instance edited in place (ADR 0041): its tree is drawn as the nodes the
+   * editor selects, with `props` over the instance's (the variant being edited), and the rest of
+   * the page dimmed and not selectable.
+   */
+  readonly isolate?:
+    | {
+        readonly instance: string;
+        readonly props?: Readonly<Record<string, JsonValue>> | undefined;
+      }
+    | undefined;
   /** Shown instead of a node. */
   readonly message?: string | undefined;
   readonly mode: RenderMode;

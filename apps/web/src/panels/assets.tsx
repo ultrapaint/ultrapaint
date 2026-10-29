@@ -4,6 +4,7 @@
  * selection; a drag puts it anywhere, on a page or on the canvas.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
   ELEMENTS,
@@ -294,11 +295,21 @@ export const Assets = () => {
     return <SetupEmpty />;
   }
 
-  const byCategory = new Map<string, ComponentMeta[]>();
-  for (const c of list) {
-    const category = categoryOf(c, designSystem);
-    byCategory.set(category, [...(byCategory.get(category) ?? []), c]);
-  }
+  // The system components, then the project's own (ADR 0041), each by category.
+  const sections = [
+    {
+      items: list.filter((c) => c.importFrom !== APP_FROM),
+      title: "System",
+    },
+    { items: list.filter((c) => c.importFrom === APP_FROM), title: "App" },
+  ].map(({ items, title }) => {
+    const byCategory = new Map<string, ComponentMeta[]>();
+    for (const c of items) {
+      const category = categoryOf(c, designSystem);
+      byCategory.set(category, [...(byCategory.get(category) ?? []), c]);
+    }
+    return { byCategory, count: items.length, title };
+  });
   const target = insertTarget({
     activePage,
     canvas,
@@ -366,28 +377,51 @@ export const Assets = () => {
               : "No components catalogued"}
           </div>
         )}
-        {Array.from(byCategory.entries()).map(([category, items]) => (
-          <div key={category}>
-            <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
-              {category}
-            </div>
-            {view === "list" ? (
-              items.map((c) => (
-                <ListItem component={c} key={`${c.group}:${c.name}`} />
-              ))
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
-                {items.map((c) => (
-                  <GridItem
-                    component={c}
-                    key={`${c.group}:${c.name}`}
-                    thumbnail={thumbnails[c.name]}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+        {catalogue
+          ? sections.map((section) => (
+              <section key={section.title}>
+                <div className="border-t px-2 pt-2 pb-1 font-medium text-foreground">
+                  {section.title}
+                </div>
+                {section.count === 0 && section.title === "App" && !q ? (
+                  <p className="px-2 pb-2 font-body text-muted-foreground">
+                    Your own components. Select part of a page and choose "Make
+                    an app component…" in its menu.
+                  </p>
+                ) : null}
+                {Array.from(section.byCategory.entries()).map(
+                  ([category, items]) => (
+                    <div key={category}>
+                      {/* An app component no category is given is the section's own. */}
+                      {category === section.title ? null : (
+                        <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
+                          {category}
+                        </div>
+                      )}
+                      {view === "list" ? (
+                        items.map((c) => (
+                          <ListItem
+                            component={c}
+                            key={`${c.group}:${c.name}`}
+                          />
+                        ))
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
+                          {items.map((c) => (
+                            <GridItem
+                              component={c}
+                              key={`${c.group}:${c.name}`}
+                              thumbnail={thumbnails[c.name]}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </section>
+            ))
+          : null}
       </div>
     </div>
   );

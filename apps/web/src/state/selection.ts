@@ -18,6 +18,8 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { currentBreakpoints, useBreakpoints } from "./design-system.ts";
 import {
+  drawnRootOf,
+  editedAtOf,
   isNodeFrame,
   isViewFrame,
   nodeIn,
@@ -136,10 +138,12 @@ export const frameBreakpoint = (
   frame: string,
   seen: Seen = seenNow()
 ): string | null =>
+  // A component edited in place at one of its variants is shown and edited at that variant.
+  editedAtOf(frame) ??
   nameAt(
     seen.breakpoints,
     isNodeFrame(frame)
-      ? fixedWidth(rootOfFrame(seen.docs, seen.canvas, frame))
+      ? fixedWidth(drawnRootOf(seen.docs, seen.canvas, frame))
       : seen.frames[frame]?.width
   );
 
@@ -152,10 +156,13 @@ export const useFrameBreakpoint = (frame: string | null): string | null => {
   );
   const nodeWidth = useDocuments((s) =>
     frame !== null && isNodeFrame(frame)
-      ? fixedWidth(rootOfFrame(s.docs, canvas, frame))
+      ? fixedWidth(drawnRootOf(s.docs, canvas, frame))
       : undefined
   );
-  return nameAt(breakpoints, pageWidth ?? nodeWidth);
+  const variant = useDocuments((s) =>
+    s.edited !== null && s.edited.frame === frame ? s.edited.at : null
+  );
+  return variant ?? nameAt(breakpoints, pageWidth ?? nodeWidth);
 };
 
 // ---- Nodes as their view draws them ----

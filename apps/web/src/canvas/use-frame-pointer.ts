@@ -20,6 +20,7 @@ import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { selectForMenu, useEditor } from "../state/editor.ts";
+import { isolate } from "../state/isolation.ts";
 import { isSelected, selectedIn } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
 import {
@@ -162,6 +163,10 @@ export const useFramePointer = ({
     if (id && node?.type === "text") {
       select(id);
       frameOf(frameId).editText(id);
+    }
+    // An app component's instance is edited in place (ADR 0041).
+    if (node?.type === "instance") {
+      isolate(frameId, node);
     }
   };
 

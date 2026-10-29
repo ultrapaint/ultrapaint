@@ -26,6 +26,8 @@ import { ensureEditable } from "./setup.ts";
 interface DocumentsStore {
   canvas: string | null;
   docs: Record<string, DocumentState>;
+  /** The frame whose edits go to an app component's tree, while one does (`editFrameAs`). */
+  edited: EditedAs | null;
   /** Opens a canvas's documents: every one of them, read. */
   load: (canvas: string) => Promise<void>;
   loaded: boolean;
@@ -35,6 +37,7 @@ interface DocumentsStore {
 export const useDocuments = create<DocumentsStore>((set) => ({
   canvas: null,
   docs: {},
+  edited: null,
   load: async (canvas) => {
     set({ canvas, docs: {}, loaded: false });
     await documentsData.read().catch(reportError);
@@ -150,9 +153,39 @@ export const viewOfFrame = (frame: string): string | null =>
     ? frame.slice(frame.indexOf(VIEW_SEPARATOR) + VIEW_SEPARATOR.length)
     : null;
 
-/** The document a frame belongs to: the page it is, or the canvas's loose nodes. */
-export const docOfFrame = (frame: string, canvas: string | null): string =>
+/**
+ * A frame whose edits go to another document: an app component's tree edited in place in it
+ * (ADR 0041, `isolation.ts`), at one of its variants (`size=lg`) or at its own fields.
+ */
+export interface EditedAs {
+  /** The variant the edits land on, as a node's `at` keeps it; null for the node's own fields. */
+  readonly at: string | null;
+  readonly doc: string;
+  readonly frame: string;
+}
+
+let editedAs: EditedAs | null = null;
+
+/** Edits made in a frame go to another document from now on; null puts every frame back to its own. */
+export const editFrameAs = (edited: EditedAs | null) => {
+  editedAs = edited;
+  useDocuments.setState({ edited });
+};
+
+/** The variant a frame's edits land on, while a component is edited in place in it at one. */
+export const editedAtOf = (frame: string): string | null =>
+  editedAs?.frame === frame ? editedAs.at : null;
+
+/** The document a frame shows: the page it is, or the canvas's loose nodes. */
+export const shownDocOf = (frame: string, canvas: string | null): string =>
   isNodeFrame(frame) ? canvasDocOf(canvas ?? "") : pageOfFrame(frame);
+
+/**
+ * The document a frame's selection and edits belong to: the one it shows, or the app component
+ * edited in place in it.
+ */
+export const docOfFrame = (frame: string, canvas: string | null): string =>
+  editedAs?.frame === frame ? editedAs.doc : shownDocOf(frame, canvas);
 
 const NO_NODES: readonly DesignNode[] = [];
 
@@ -165,8 +198,21 @@ export const canvasNodes = (
   return root ? childrenOf(root) : NO_NODES;
 };
 
-/** What a frame draws: a page's root, or the node on the canvas it stands for. */
+/**
+ * What a frame's selection and edits are in: what it draws, or the tree of the app component
+ * edited in place in it.
+ */
 export const rootOfFrame = (
+  docs: Record<string, DocumentState>,
+  canvas: string | null,
+  frame: string
+): DesignNode | null =>
+  editedAs?.frame === frame
+    ? (docs[editedAs.doc]?.root ?? null)
+    : drawnRootOf(docs, canvas, frame);
+
+/** What a frame draws: a page's root, or the node on the canvas it stands for. */
+export const drawnRootOf = (
   docs: Record<string, DocumentState>,
   canvas: string | null,
   frame: string

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Canvas } from "./canvas/canvas.tsx";
 import { provideDesignLook } from "./canvas/editor-frame.ts";
+import { IsolationBanner } from "./canvas/isolation-banner.tsx";
 import {
   NoUrlWarning,
   Prototype,
@@ -399,6 +400,7 @@ export const App = () => {
                 <ShellNotices />
                 <CanvasStatus />
                 <SnapshotBanner />
+                {workspace === "prototype" ? null : <IsolationBanner />}
                 {workspace === "prototype" ? (
                   <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
                     <NoUrlWarning />

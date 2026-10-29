@@ -5,6 +5,7 @@
  * again. Pure: the editor draws a frame with the tree resolved at its width, the code is written
  * with a class per breakpoint, and the inspector reads where a value comes from.
  */
+import { isVariantKey } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { shortName, tokensOfKind } from "@ultrapaint/contracts/token-table";
@@ -52,13 +53,19 @@ export const breakpointAt = (
 ): Breakpoint | null =>
   breakpoints.filter((b) => b.min <= width).at(-1) ?? null;
 
-/** The breakpoints that hold at a breakpoint, from the smallest up to it; none at the base. */
+/**
+ * The breakpoints that hold at a breakpoint, from the smallest up to it; none at the base. An
+ * app component's variant (`size=lg`, ADR 0041) is edited over the base alone.
+ */
 const upTo = (
   breakpoints: readonly Breakpoint[],
   name: string | null
 ): readonly string[] => {
   if (name === null) {
     return [];
+  }
+  if (isVariantKey(name)) {
+    return [name];
   }
   const index = breakpoints.findIndex((b) => b.name === name);
   return index < 0 ? [] : breakpoints.slice(0, index + 1).map((b) => b.name);

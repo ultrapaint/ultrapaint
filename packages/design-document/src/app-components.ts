@@ -8,6 +8,7 @@
  * Pure, and free of the catalogue: the server, the renderer and the editor share it.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
   isVariantKey,
@@ -18,6 +19,7 @@ import type {
   ComponentProperty,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import { type IdGenerator, idPrefix } from "./ids.ts";
 import { childrenOf } from "./tree.ts";
 
 type Fields = Record<string, unknown>;
@@ -189,6 +191,52 @@ export const expandAppInstance = (
   return { filled, tree: visit(file.tree) };
 };
 
+/** What an instance says of where it sits, which the nodes detached from it keep. */
+const PLACEMENT = [
+  "height",
+  "hidden",
+  "link",
+  "locked",
+  "margin",
+  "maxHeight",
+  "maxWidth",
+  "minHeight",
+  "minWidth",
+  "name",
+  "slot",
+  "width",
+  "x",
+  "y",
+] as const;
+
+/**
+ * An instance detached from its component (ADR 0041): the tree it draws, with its property values,
+ * its choices' overrides and its slots' contents baked in, its nodes given new ids by `next`, and
+ * its root where the instance was. Nested components stay instances.
+ */
+export const detachedOf = (
+  file: AppComponentFile,
+  instance: InstanceNode,
+  next: IdGenerator
+): DesignNode => {
+  const types = new Map<string, string>();
+  const visit = (node: DesignNode) => {
+    types.set(node.id, node.type);
+    childrenOf(node).forEach(visit);
+  };
+  visit(file.tree);
+  const { tree } = expandAppInstance(file, instance, (id) =>
+    next(idPrefix(types.get(id) ?? "n"))
+  );
+  const placement = Object.fromEntries(
+    PLACEMENT.flatMap((field) => {
+      const value = (instance as unknown as Fields)[field];
+      return value === undefined ? [] : [[field, value] as const];
+    })
+  );
+  return { ...tree, ...placement } as DesignNode;
+};
+
 /** The app components a tree places, by name, nested ones not included. */
 export const appComponentsPlaced = (root: DesignNode): Set<string> => {
   const names = new Set<string>();
@@ -239,4 +287,71 @@ export const appComponentCycle = (
     }
   }
   return null;
+};
+
+/** A property as a catalogue's prop: what the inspector edits and an agent reads. */
+const propOf = (property: ComponentProperty): PropMeta => {
+  const members = property.members ?? [];
+  const type: PropMeta["type"] =
+    property.kind === "choice"
+      ? {
+          kind: "enum",
+          members,
+          raw: members.map((m) => JSON.stringify(m)).join(" | "),
+        }
+      : {
+          kind: property.kind === "boolean" ? "boolean" : "string",
+          raw: property.kind === "boolean" ? "boolean" : "string",
+        };
+  return {
+    defaultValue: property.default,
+    description:
+      property.kind === "image"
+        ? "An image's source: a path in the canvas or a URL."
+        : `The ${property.kind} the component shows.`,
+    name: property.name,
+    required: false,
+    type,
+  };
+};
+
+/**
+ * An app component as the catalogue lists a component (ADR 0041): its properties as props, its
+ * choices as variant axes, its slots as a system component's are, placed with `from: "#app"`.
+ */
+export const appComponentMeta = (file: AppComponentFile): ComponentMeta => ({
+  category: file.category ?? "App",
+  ...(file.description !== undefined && { description: file.description }),
+  file: "",
+  group: "App",
+  importFrom: APP_FROM,
+  name: file.name,
+  props: file.properties.map(propOf),
+  slots: file.slots.map((s) => ({
+    holds: s.default ? ("default" as const) : ("nodes" as const),
+    label: s.label ?? s.name,
+    layout: layoutOfSlot(file.tree, s.node),
+    name: s.name,
+  })),
+  snippet: `<${file.name} />`,
+  storyIds: [],
+  variants: Object.fromEntries(
+    file.properties.flatMap((p) =>
+      p.kind === "choice" ? [[p.name, [...(p.members ?? [])]]] : []
+    )
+  ),
+});
+
+/** How a slot's container lays out what it holds. */
+const layoutOfSlot = (
+  tree: DesignNode,
+  id: string
+): "row" | "column" | "block" => {
+  const find = (at: DesignNode): DesignNode | undefined =>
+    at.id === id ? at : childrenOf(at).map(find).find(Boolean);
+  const node = find(tree);
+  if (node?.type === "row" || node?.type === "column") {
+    return node.type;
+  }
+  return node?.type === "page" ? "column" : "block";
 };
