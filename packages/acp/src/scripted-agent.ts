@@ -73,6 +73,8 @@ export interface ScriptedCall {
 
 /** One prompt, as the agent receives it, and what the agent can do within its turn. */
 export interface ScriptedTurn {
+  /** Ends the turn with this answer: why it stopped, and what it spent. */
+  readonly answer: (response: PromptResponse) => Effect.Effect<void>;
   /** Completes once the host has asked for the turn to stop (`session/cancel`). */
   readonly cancelled: Effect.Effect<void>;
   /** Puts a question to the user, as an MCP server the agent called does, and waits. */
@@ -218,6 +220,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
     answer: Deferred.Deferred<PromptResponse, AcpError>,
     cancelled: Deferred.Deferred<void>
   ): ScriptedTurn => ({
+    answer: (response) => Effect.asVoid(Deferred.succeed(answer, response)),
     cancelled: Deferred.await(cancelled),
     elicit: (request) => handlers.onElicitation(request),
     end: (stopReason = "end_turn") =>

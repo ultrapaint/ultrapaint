@@ -40,40 +40,70 @@ const isOldToolCall = (item: unknown): item is Record<string, unknown> => {
   );
 };
 
+/** A turn's usage as threads wrote it before it was ACP's: cached reads were `cachedInputTokens`. */
+const isOldUsage = (item: unknown): item is Record<string, unknown> => {
+  if (typeof item !== "object" || item === null) {
+    return false;
+  }
+  const { kind, usage } = item as Record<string, unknown>;
+  return (
+    kind === "turn_end" &&
+    typeof usage === "object" &&
+    usage !== null &&
+    "cachedInputTokens" in usage
+  );
+};
+
+/** An item written before, as this version writes it. */
+const migrateItem = (item: unknown): unknown => {
+  if (isOldToolCall(item)) {
+    return {
+      ...item,
+      content: Array.isArray(item.content)
+        ? item.content.map((c: unknown) =>
+            typeof c === "string" ? { text: c, type: "text" } : c
+          )
+        : item.content,
+      locations: Array.isArray(item.locations)
+        ? item.locations.map((l: unknown) =>
+            typeof l === "string" ? { path: l } : l
+          )
+        : item.locations,
+    };
+  }
+  if (isOldUsage(item)) {
+    const { cachedInputTokens, ...usage } = item.usage as Record<
+      string,
+      unknown
+    >;
+    return {
+      ...item,
+      usage: { ...usage, cachedReadTokens: cachedInputTokens },
+    };
+  }
+  return item;
+};
+
 /**
- * Threads written before tool calls kept their content and locations structured: both were
- * flattened to strings. An old conversation is still worth reading, so the strings become text
- * and bare paths on the way in. Anything already current is returned as it came, so a thread
- * written by this version is not rebuilt on every start.
+ * Threads written by earlier versions: tool calls whose content and locations were flattened
+ * to strings, which become text and bare paths, and a turn's usage before it was ACP's. An old
+ * conversation is still worth reading. Anything already current is returned as it came, so a
+ * thread written by this version is not rebuilt on every start.
  */
 export const migrateStored = (stored: unknown): unknown => {
   const items =
     typeof stored === "object" && stored !== null
       ? (stored as { items?: unknown }).items
       : undefined;
-  if (!(Array.isArray(items) && items.some(isOldToolCall))) {
+  if (
+    !(
+      Array.isArray(items) &&
+      items.some((item) => isOldToolCall(item) || isOldUsage(item))
+    )
+  ) {
     return stored;
   }
-  return {
-    ...(stored as object),
-    items: items.map((item: unknown) =>
-      isOldToolCall(item)
-        ? {
-            ...item,
-            content: Array.isArray(item.content)
-              ? item.content.map((c: unknown) =>
-                  typeof c === "string" ? { text: c, type: "text" } : c
-                )
-              : item.content,
-            locations: Array.isArray(item.locations)
-              ? item.locations.map((l: unknown) =>
-                  typeof l === "string" ? { path: l } : l
-                )
-              : item.locations,
-          }
-        : item
-    ),
-  };
+  return { ...(stored as object), items: items.map(migrateItem) };
 };
 
 /**

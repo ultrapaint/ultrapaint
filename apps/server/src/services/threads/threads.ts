@@ -167,6 +167,7 @@ export class ThreadService extends Context.Service<
           session.switchAgent(
             {
               configOptions: undefined,
+              context: undefined,
               currentModeId: undefined,
               modes: undefined,
               sandboxed: undefined,

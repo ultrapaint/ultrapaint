@@ -4,17 +4,20 @@
  * publishing and keeping the cursor to the caller.
  */
 import type {
+  PromptResponse,
   SessionConfigOption,
   SessionConfigSelectOptions,
   SessionNotification,
 } from "@ultrapaint/acp/acp-agent";
 import type {
+  ContextUsage,
   Thread,
   ThreadItem,
   ToolContent,
   ToolLocation,
   TurnUsage,
 } from "@ultrapaint/contracts/threads";
+import { Predicate } from "effect";
 
 type SessionUpdate = SessionNotification["update"];
 
@@ -159,7 +162,8 @@ export const mapConfigOptions = (
     options: opt.type === "boolean" ? BOOLEAN_OPTIONS : choicesOf(opt.options),
   }));
 
-interface RawQuota {
+/** codex-acp's own accounting in a response's `_meta`, which claude-agent-acp copies. */
+interface Quota {
   readonly model_usage?: readonly {
     readonly model: string;
     readonly token_count?: { readonly totalTokens?: number };
@@ -172,27 +176,64 @@ interface RawQuota {
   };
 }
 
+const quotaOf = (response: PromptResponse): Quota | undefined => {
+  const quota = response._meta?.quota;
+  return Predicate.isObject(quota) ? (quota as Quota) : undefined;
+};
+
 /**
- * What a turn spent, as the agent reports it alongside the response. Agents that keep no
- * accounting send nothing, and the turn simply has no cost to show.
+ * What a turn spent, as the agent reports it with its answer: ACP's typed `usage` where it
+ * sends one, else what Codex says in `_meta.quota`, split by model where it says that. Agents
+ * that keep no accounting send nothing, and the turn simply has no cost to show.
  */
-export const turnUsage = (meta: unknown): TurnUsage | undefined => {
-  const quota = (meta as { quota?: RawQuota } | undefined)?.quota;
+export const turnUsage = (response: PromptResponse): TurnUsage | undefined => {
+  const quota = quotaOf(response);
+  const byModel = quota?.model_usage?.map((entry) => ({
+    model: entry.model,
+    tokens: entry.token_count?.totalTokens ?? 0,
+  }));
+  const split = byModel?.length ? { byModel } : {};
+  const { usage } = response;
+  if (usage) {
+    return {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      ...(Predicate.isNumber(usage.cachedReadTokens)
+        ? { cachedReadTokens: usage.cachedReadTokens }
+        : {}),
+      ...(Predicate.isNumber(usage.cachedWriteTokens)
+        ? { cachedWriteTokens: usage.cachedWriteTokens }
+        : {}),
+      ...(Predicate.isNumber(usage.thoughtTokens)
+        ? { thoughtTokens: usage.thoughtTokens }
+        : {}),
+      ...split,
+    };
+  }
   const total = quota?.token_count;
   if (!total) {
     return;
   }
   return {
-    byModel: (quota.model_usage ?? []).map((entry) => ({
-      model: entry.model,
-      tokens: entry.token_count?.totalTokens ?? 0,
-    })),
-    cachedInputTokens: total.cachedInputTokens ?? 0,
+    cachedReadTokens: total.cachedInputTokens ?? 0,
     inputTokens: total.inputTokens ?? 0,
     outputTokens: total.outputTokens ?? 0,
     totalTokens: total.totalTokens ?? 0,
+    ...split,
   };
 };
+
+/** How full the context is, and what the session cost, from ACP's `usage_update`. */
+const contextOf = (
+  u: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>
+): ContextUsage => ({
+  size: u.size,
+  used: u.used,
+  ...(u.cost
+    ? { cost: { amount: u.cost.amount, currency: u.cost.currency } }
+    : {}),
+});
 
 const appendText =
   (kind: "agent" | "thought", text: string) =>
@@ -364,6 +405,11 @@ export const projectUpdate = (
             type: "thread",
           },
         ],
+        ctx
+      );
+    case "usage_update":
+      return unmoved(
+        [{ patch: { context: contextOf(u) }, type: "thread" }],
         ctx
       );
     case "session_info_update": {
