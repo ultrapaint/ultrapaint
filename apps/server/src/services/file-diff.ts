@@ -1,3 +1,8 @@
+/**
+ * A file's text before and after, as the diff of a `FileDiff`: how a snapshot or a checkpoint
+ * is compared with the designs now (`design-refs.ts`), git being no part of it.
+ */
+
 /** LCS lengths on lines: `dp[i][j]` is the LCS of `a[i..]` and `b[j..]`. */
 const lcsTable = (a: string[], b: string[]): number[][] => {
   const n = a.length;

@@ -44,13 +44,7 @@ import {
   Stale,
 } from "./errors.ts";
 import { FigmaImport } from "./figma.ts";
-import {
-  Checkpoint,
-  GitCommitInput,
-  GitCommitResult,
-  GitDiff,
-  GitStatus,
-} from "./git.ts";
+import { GitCommitInput, GitCommitResult, GitStatus } from "./git.ts";
 import {
   ImplementationChanges,
   ImplementationItem,
@@ -82,7 +76,7 @@ import {
   SetupSuggestions,
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
-import { Snapshot, SnapshotView } from "./snapshots.ts";
+import { Checkpoint, FileDiff, Snapshot, SnapshotView } from "./snapshots.ts";
 import {
   SyncPlan,
   TokenComparison,
@@ -696,7 +690,7 @@ const requestRpcs = [
   Rpc.make("git.diff", {
     error: GitError,
     payload: { path: Schema.String },
-    success: GitDiff,
+    success: FileDiff,
   }),
   Rpc.make("git.commit", {
     error: GitWriteError,
@@ -709,7 +703,7 @@ const requestRpcs = [
   Rpc.make("checkpoints.diff", {
     error: CheckpointError,
     payload: { id: Schema.String },
-    success: Schema.Array(GitDiff),
+    success: Schema.Array(FileDiff),
   }),
   /** The design files put back as the checkpoint kept them: one undo step. */
   Rpc.make("checkpoints.revert", {
@@ -740,7 +734,7 @@ const requestRpcs = [
   Rpc.make("snapshots.diff", {
     error: CheckpointError,
     payload: { id: Schema.String },
-    success: Schema.Array(GitDiff),
+    success: Schema.Array(FileDiff),
   }),
   /** The snapshot to look at, without touching a file. */
   Rpc.make("snapshots.view", {

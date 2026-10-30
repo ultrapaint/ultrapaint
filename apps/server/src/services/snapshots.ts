@@ -1,11 +1,11 @@
 import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
-import type { GitDiff } from "@ultrapaint/contracts/git";
 import {
   type CanvasLayout,
   emptyCanvasLayout,
   type Page,
 } from "@ultrapaint/contracts/pages";
+import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { Snapshot, type SnapshotView } from "@ultrapaint/contracts/snapshots";
 import { canvasDocOf, canvasRoot } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, CANVASES_FILE } from "@ultrapaint/shared/canvas";
@@ -148,7 +148,7 @@ export class Snapshots extends Context.Service<
     readonly delete: (id: string) => Effect.Effect<void, NotFound>;
     readonly diff: (
       id: string
-    ) => Effect.Effect<GitDiff[], NotFound | NotConfigured>;
+    ) => Effect.Effect<FileDiff[], NotFound | NotConfigured>;
     readonly list: Effect.Effect<Snapshot[]>;
     readonly restore: (id: string) => Effect.Effect<void, RestoreFailure>;
     readonly view: (

@@ -1,5 +1,5 @@
 import type { NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
-import { Checkpoint, type GitDiff } from "@ultrapaint/contracts/git";
+import { Checkpoint, type FileDiff } from "@ultrapaint/contracts/snapshots";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
@@ -55,7 +55,7 @@ export class Checkpoints extends Context.Service<
     ) => Effect.Effect<void, NotConfigured>;
     readonly diff: (
       id: string
-    ) => Effect.Effect<GitDiff[], NotFound | NotConfigured>;
+    ) => Effect.Effect<FileDiff[], NotFound | NotConfigured>;
     /** The checkpoint of the open repository, with the store's snapshot of its files. */
     readonly find: (
       id: string
