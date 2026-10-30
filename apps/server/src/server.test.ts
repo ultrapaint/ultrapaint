@@ -1,4 +1,5 @@
 import { request } from "node:http";
+import { connect, type Socket } from "node:net";
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import {
@@ -9,11 +10,15 @@ import {
 import { withChangedNodes } from "@ultrapaint/design-document/patch";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
+  Clock,
+  Context,
   Effect,
+  Exit,
   Fiber,
   FileSystem,
-  type Layer,
-  type Scope,
+  Layer,
+  Option,
+  Scope,
   Stream,
 } from "effect";
 import {
@@ -388,6 +393,141 @@ describe("server over WebSocket RPC", () => {
         );
       }
     })
+  );
+});
+
+/**
+ * A connection the test holds open until its scope ends, as a client that does not hang up
+ * would: it sends `asked`, if any, and reads the first line of the answer. Half-open allowed,
+ * so the server ending its side does not end the client's.
+ */
+const heldOpen = (port: number, asked?: string) =>
+  Effect.acquireRelease(
+    Effect.callback<{ readonly answer: string; readonly socket: Socket }>(
+      (resume) => {
+        const socket = connect({
+          allowHalfOpen: true,
+          host: "127.0.0.1",
+          port,
+        });
+        socket.on("error", () => resume(Effect.die("the connection failed")));
+        socket.once("connect", () => {
+          if (asked === undefined) {
+            resume(Effect.succeed({ answer: "", socket }));
+            return;
+          }
+          socket.once("data", (chunk) =>
+            resume(
+              Effect.succeed({
+                answer: String(chunk).split("\r\n")[0] ?? "",
+                socket,
+              })
+            )
+          );
+          socket.write(asked);
+        });
+      }
+    ),
+    ({ socket }) => Effect.sync(() => socket.destroy())
+  );
+
+const STOP_BOUND_MS = 500;
+
+/**
+ * How long a server of the test's own takes to stop once `hold` has left a connection open on
+ * it, or `undefined` when it has not stopped within two seconds. The connection is held in the
+ * test's scope, so it outlives the server.
+ */
+const stopTime = <E>(
+  hold: (port: number) => Effect.Effect<unknown, E, Scope.Scope>
+) =>
+  Effect.gen(function* () {
+    const scope = yield* Scope.make();
+    const { port } = Context.get(
+      yield* Layer.buildWithScope(TestServer, scope),
+      TestEnv
+    );
+    yield* hold(port);
+    // real clock: what is measured is how long the real server takes to close its socket.
+    const start = yield* Clock.currentTimeMillis;
+    const closing = yield* Effect.forkDetach(Scope.close(scope, Exit.void));
+    const stopped = yield* Effect.timeoutOption(
+      Fiber.await(closing),
+      "2 seconds"
+    );
+    const end = yield* Clock.currentTimeMillis;
+    return Option.isSome(stopped) ? end - start : undefined;
+  });
+
+describe("stopping", () => {
+  // real clock: the time a real server takes to stop is what is under test.
+  it.live(
+    "stops at once with a keep-alive connection open after its answer",
+    () =>
+      Effect.gen(function* () {
+        const elapsed = yield* stopTime((port) =>
+          Effect.tap(
+            heldOpen(
+              port,
+              `GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nConnection: keep-alive\r\n\r\n`
+            ),
+            ({ answer }) =>
+              Effect.sync(() => assert.strictEqual(answer, "HTTP/1.1 200 OK"))
+          )
+        );
+        assert.isDefined(elapsed);
+        assert.isBelow(elapsed ?? Number.POSITIVE_INFINITY, STOP_BOUND_MS);
+      }),
+    10_000
+  );
+
+  // real clock: the time a real server takes to stop is what is under test.
+  it.live(
+    "stops at once with a connection open that has asked nothing yet, as a client's pool opens one ahead",
+    () =>
+      Effect.gen(function* () {
+        const elapsed = yield* stopTime((port) =>
+          Effect.gen(function* () {
+            yield* heldOpen(port);
+            // Connections are accepted in the order they arrive: once a later one is answered,
+            // the server holds the idle one too.
+            assert.strictEqual(yield* statusOf(port, "/api/health", {}), 200);
+          })
+        );
+        assert.isDefined(elapsed);
+        assert.isBelow(elapsed ?? Number.POSITIVE_INFINITY, STOP_BOUND_MS);
+      }),
+    10_000
+  );
+
+  // real clock: the time a real server takes to stop is what is under test.
+  it.live(
+    "stops at once after turning away an upgrade whose client keeps the connection open",
+    () =>
+      Effect.gen(function* () {
+        const elapsed = yield* stopTime((port) =>
+          Effect.tap(
+            heldOpen(
+              port,
+              [
+                "GET /ws HTTP/1.1",
+                `Host: 127.0.0.1:${port}`,
+                "Origin: https://evil.example",
+                ...Object.entries(UPGRADE).map(([k, v]) => `${k}: ${v}`),
+                "",
+                "",
+              ].join("\r\n")
+            ),
+            ({ answer }) =>
+              Effect.sync(() =>
+                assert.strictEqual(answer, "HTTP/1.1 403 Forbidden")
+              )
+          )
+        );
+        assert.isDefined(elapsed);
+        assert.isBelow(elapsed ?? Number.POSITIVE_INFINITY, STOP_BOUND_MS);
+      }),
+    10_000
   );
 });
 
