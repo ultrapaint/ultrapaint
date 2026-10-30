@@ -14,6 +14,11 @@ import type {
   ContentBlock,
   McpServerConfig,
 } from "@ultrapaint/acp/acp-agent";
+import {
+  BASELINE,
+  type Negotiated,
+  promptBlock,
+} from "@ultrapaint/acp/negotiated";
 import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
 import {
   AgentFailure,
@@ -151,6 +156,10 @@ interface Live {
   readonly agent: AcpAgent;
   /** The briefing, and the recap of what came before, go out once, with the first prompt. */
   briefed: boolean;
+  /** Whether the session was given the editor's MCP server: its tools are this agent's way. */
+  editorMcp: boolean;
+  /** What the agent said it can do, once it has. */
+  negotiated: Negotiated;
   /** The session was reopened, so the agent has the conversation back. */
   resumed: boolean;
   readonly scope: Scope.Closeable;
@@ -349,6 +358,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const session: Live = {
         agent,
         briefed: false,
+        editorMcp: false,
+        negotiated: BASELINE,
         resumed: false,
         scope,
       };
@@ -384,25 +395,25 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         Effect.forkIn(projectScope)
       );
 
-      // The agent is told about the editor's own MCP server, with a token that dies with the
-      // session. `mcpCapabilities` is the agent saying it can reach one over http.
-      const mcpServers: McpServerConfig[] = [];
+      // The editor's own MCP server, with a token that dies with the session; the opener offers
+      // it to an agent that says it reaches one over http.
+      let editorMcp: McpServerConfig | null = null;
       if (mcpEnabled) {
         const token = yield* Scope.provide(access.issue(threadId), scope);
         const { header, url } = yield* access.endpoint;
-        mcpServers.push({
+        editorMcp = {
           headers: [{ name: header, value: token }],
           name: EDITOR_MCP_SERVER,
           type: "http",
           url,
-        });
+        };
       }
 
-      const { patch, resumed } = yield* opener
+      const ready = yield* opener
         .open({
           agent,
           config,
-          mcpServers,
+          editorMcp,
           root: paths.root,
           thread,
         })
@@ -414,9 +425,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
             )
           )
         );
-      session.resumed = resumed;
+      session.resumed = ready.resumed;
+      session.negotiated = ready.negotiated;
+      session.editorMcp = ready.editorMcp;
       // The status is the prompt's: the session starts inside its turn.
-      yield* store.update(threadId, patch);
+      yield* store.update(threadId, ready.patch);
       return session;
     });
 
@@ -581,7 +594,13 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       );
       cursor = emptyCursor();
       yield* Effect.forkIn(
-        runTurn(session, sessionId, blocks, before),
+        runTurn(
+          session,
+          sessionId,
+          // What the agent cannot take is sent as it can: a link, a note.
+          blocks.map((block) => promptBlock(session.negotiated, block)),
+          before
+        ),
         session.scope
       );
     });
@@ -811,12 +830,12 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           return;
         }
         const parsed = BOOLEAN_VALUES[value] ?? value;
-        const response = (yield* Effect.mapError(
+        const response = yield* Effect.mapError(
           now.session.agent.setConfigOption(now.sessionId, optionId, parsed),
           agentFailure
-        )) as { configOptions?: unknown } | undefined;
+        );
         yield* store.update(threadId, {
-          configOptions: mapConfigOptions(response?.configOptions) ?? chosen,
+          configOptions: mapConfigOptions(response.configOptions) ?? chosen,
         });
       }
     );

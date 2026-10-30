@@ -25,7 +25,6 @@ import {
   type PromptResponse,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
-  reopening,
   type SessionState,
   type SessionUpdate,
   type StopReason,
@@ -33,17 +32,25 @@ import {
   withMeta,
 } from "./acp-agent.ts";
 import { type AcpError, AcpProcessExited, AcpRequestError } from "./errors.ts";
+import { BASELINE, negotiated } from "./negotiated.ts";
 import { makeUpdates } from "./updates.ts";
 
 type ConfigOptions = NonNullable<NewSessionResponse["configOptions"]>;
 
 /** How the agent answers the host before any prompt. Every field has a default. */
 export interface AgentScript {
+  /** The ways it says it signs in; with `requiresAuth`, one of its own by default. */
+  readonly authMethods?: InitializeResponse["authMethods"];
   /**
    * `initialize` waits for this: an agent slow to start, or, with `Effect.never`, one that
    * never answers.
    */
   readonly booting?: Effect.Effect<void>;
+  /**
+   * What it says it can do, over what a well-behaved agent says: it takes pictures and files
+   * embedded in a prompt, and reaches an MCP server over http.
+   */
+  readonly capabilities?: InitializeResponse["agentCapabilities"];
   /** What a new session offers: by default a `model` option, `fast` or `smart`. */
   readonly configOptions?: ConfigOptions;
   /** Whether the agent can load a stored session (`session/load`), replaying it. */
@@ -241,17 +248,23 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   const initialized: InitializeResponse = {
     agentCapabilities: {
       loadSession: script.loadSession === true,
+      // What a well-behaved agent takes: pictures, files embedded, an MCP server over http.
+      mcpCapabilities: { http: true },
+      promptCapabilities: { embeddedContext: true, image: true },
       ...(script.resume === true && {
         sessionCapabilities: { resume: {} },
       }),
+      ...script.capabilities,
     },
-    authMethods: script.requiresAuth
-      ? [{ description: "test", id: "test-auth", name: "Test" }]
-      : [],
+    authMethods:
+      script.authMethods ??
+      (script.requiresAuth
+        ? [{ description: "test", id: "test-auth", name: "Test" }]
+        : []),
     protocolVersion: 1,
   };
   /** What the agent said in `initialize`, once it has. */
-  let known: InitializeResponse | undefined;
+  let known = BASELINE;
 
   const agent: AcpAgent = {
     authenticate: (methodId) =>
@@ -280,7 +293,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
       Effect.andThen(
         script.booting ?? Effect.void,
         Effect.sync(() => {
-          known = initialized;
+          known = negotiated(initialized);
           return initialized;
         })
       )
@@ -334,7 +347,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
       ).pipe(settling(updates)),
     reopen: (sessionId, cwd, session) =>
       Effect.suspend(() => {
-        const way = reopening(known);
+        const way = known.reopen;
         if (way === null) {
           return Effect.succeed(null);
         }

@@ -8,6 +8,7 @@
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { Readable, Writable } from "node:stream";
+import { pathToFileURL } from "node:url";
 import {
   type ContentBlock,
   type CreateElicitationRequest,
@@ -30,6 +31,7 @@ import {
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionNotification,
+  type SetSessionConfigOptionResponse,
   type TerminalOutputRequest,
   type TerminalOutputResponse,
   type WaitForTerminalExitRequest,
@@ -42,7 +44,9 @@ import {
   AcpProcessExited,
   AcpRequestError,
   AcpSpawnError,
+  ResourceNotFound,
 } from "./errors.ts";
+import { BASELINE, negotiated } from "./negotiated.ts";
 import type { AgentLaunch } from "./sandbox.ts";
 import { makeUpdates, type Updates } from "./updates.ts";
 
@@ -59,8 +63,11 @@ export type {
   ReadTextFileRequest,
   RequestPermissionRequest,
   RequestPermissionResponse,
+  SessionConfigOption,
+  SessionConfigSelectOptions,
   SessionNotification,
   SessionUpdate,
+  SetSessionConfigOptionResponse,
   StopReason,
   ToolCallUpdate,
   WriteTextFileRequest,
@@ -167,7 +174,7 @@ export interface AcpAgent {
     sessionId: string,
     configId: string,
     value: string | boolean
-  ) => Effect.Effect<unknown, AcpError>;
+  ) => Effect.Effect<SetSessionConfigOptionResponse, AcpError>;
   readonly setMode: (
     sessionId: string,
     modeId: string
@@ -184,22 +191,13 @@ export const initializeRequest = (
   clientCapabilities: {
     elicitation: { form: {} },
     fs: { readTextFile: true, writeTextFile: true },
+    // A boolean option is drawn as on and off, and set as a boolean.
+    session: { configOptions: { boolean: {} } },
     terminal: true,
   },
   clientInfo: { name: "ultrapaint", version: clientVersion },
   protocolVersion: PROTOCOL_VERSION,
 });
-
-/** How a stored session is opened again, by what the agent said it can do; null when it cannot. */
-export const reopening = (
-  init: InitializeResponse | undefined
-): "resume" | "load" | null => {
-  const capabilities = init?.agentCapabilities;
-  if (capabilities?.sessionCapabilities?.resume) {
-    return "resume";
-  }
-  return capabilities?.loadSession === true ? "load" : null;
-};
 
 /**
  * A call whose answer the agent sends after updates of its own (a prompt's turn): answered once
@@ -298,7 +296,7 @@ export const spawnAcpAgent = (
     // handler chain, so updates sent before a response can reach us a few microtasks after it.
     // One macrotask later they have all been received.
     const updates = yield* makeUpdates(handlers.onUpdate, nextMacrotask);
-    let initialized: InitializeResponse | undefined;
+    let initialized = BASELINE;
 
     const child = yield* Effect.acquireRelease(
       startProcess(launch, options.cwd),
@@ -334,7 +332,12 @@ export const spawnAcpAgent = (
       if (Result.isSuccess(result)) {
         return result.success;
       }
-      throw RequestError.internalError(undefined, result.failure.message);
+      const { failure } = result;
+      // A file that is not there is the agent's to handle, as ACP names it; anything else failed.
+      if (failure instanceof ResourceNotFound) {
+        throw RequestError.resourceNotFound(pathToFileURL(failure.path).href);
+      }
+      throw RequestError.internalError(undefined, failure.message);
     };
 
     const app = client({ name: "ultrapaint" })
@@ -428,7 +431,7 @@ export const spawnAcpAgent = (
       ).pipe(
         Effect.tap((response) =>
           Effect.sync(() => {
-            initialized = response;
+            initialized = negotiated(response);
           })
         )
       ),
@@ -453,7 +456,7 @@ export const spawnAcpAgent = (
             sessionId,
             ...withMeta(session?.meta),
           };
-          switch (reopening(initialized)) {
+          switch (initialized.reopen) {
             case "resume":
               return Effect.map(
                 call("session/resume", () =>

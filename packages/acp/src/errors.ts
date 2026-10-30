@@ -31,6 +31,12 @@ export class AcpRequestError extends Schema.TaggedError<AcpRequestError>()(
 
 export type AcpError = AcpSpawnError | AcpProcessExited | AcpRequestError;
 
+/** A file the agent asked the editor for is not there: the agent hears ACP's "resource not found". */
+export class ResourceNotFound extends Schema.TaggedError<ResourceNotFound>()(
+  "ResourceNotFound",
+  { message: Schema.String, path: Schema.String }
+) {}
+
 /** Terminal the agent referred to does not exist, or its command could not be started. */
 export class TerminalError extends Schema.TaggedError<TerminalError>()(
   "TerminalError",

@@ -16,6 +16,8 @@
  *   history     reports whether the conversation so far came with the prompt, and its first line
  *   how         reports how its session was opened: `how:new`, `how:loaded` or `how:resumed`
  *   model       reports the session's model
+ *   read        reads the path given after it through `fs/read_text_file`, and says `read:` and
+ *               the text, or the code of the error it got
  *   mcp         reports the MCP server the client gave the session, with its token
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
@@ -204,6 +206,17 @@ const scenarios = {
         : "cancelled";
     await text(cx, sessionId, `permission:${outcome}`);
   },
+  async read(cx, sessionId, cwd, rest) {
+    try {
+      const { content } = await cx.request(methods.client.fs.readTextFile, {
+        path: `${cwd}/${rest}`,
+        sessionId,
+      });
+      await text(cx, sessionId, `read:${content}`);
+    } catch (error) {
+      await text(cx, sessionId, `read:${error.code}`);
+    }
+  },
   async reply(cx, sessionId) {
     await text(cx, sessionId, "Thinking.", "agent_thought_chunk");
     await text(cx, sessionId, "Hello ");
@@ -292,6 +305,9 @@ agent({ name: "fake-agent" })
     return {
       agentCapabilities: {
         loadSession: process.env.FAKE_AGENT_LOAD === "1",
+        // What a well-behaved agent takes: the editor's MCP server, pictures, files embedded.
+        mcpCapabilities: { http: true },
+        promptCapabilities: { embeddedContext: true, image: true },
         ...(process.env.FAKE_AGENT_RESUME === "1" && {
           sessionCapabilities: { resume: {} },
         }),

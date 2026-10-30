@@ -8,6 +8,7 @@ import {
   type SessionNotification,
   spawnAcpAgent,
 } from "./acp-agent.ts";
+import { ResourceNotFound } from "./errors.ts";
 import { makeTerminalManager } from "./terminal-manager.ts";
 
 const fakeAgent = path.resolve(
@@ -155,6 +156,27 @@ describe("AcpAgent", () => {
       const { sessionId } = yield* agent.newSession(process.cwd());
       assert.isNull(yield* agent.reopen(sessionId, process.cwd()));
     })
+  );
+
+  it.live(
+    "tells the agent a file it asked for is not there as resource not found",
+    () =>
+      Effect.gen(function* () {
+        const { agent, seen } = yield* open({
+          readTextFile: (request) =>
+            Effect.fail(
+              new ResourceNotFound({
+                message: `${request.path} is not there`,
+                path: request.path,
+              })
+            ),
+        });
+        const { sessionId } = yield* agent.newSession(process.cwd());
+        yield* agent.prompt(sessionId, [
+          { text: "read gone.txt", type: "text" },
+        ]);
+        assert.deepStrictEqual(seen, ["read:-32002"]);
+      })
   );
 
   it.live("surfaces the agent's own explanation of a failed prompt", () =>
