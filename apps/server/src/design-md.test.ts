@@ -69,9 +69,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             file,
             first.replace("## Overview\n", "## Overview\n\nCalm and dense.\n")
           );
-          yield* client["designSystem.setToken"]({
-            name: "color-brand",
-            value: "#1d4ed8",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "color-brand", op: "setValue", value: "#1d4ed8" }],
           });
           const second = yield* fs.readFileString(file);
           assert.include(second, 'brand: "#1d4ed8"');
@@ -92,9 +91,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               path: "colors.ink",
             },
           ]);
-          yield* client["designSystem.setToken"]({
-            name: "radius-card",
-            value: "1rem",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "radius-card", op: "setValue", value: "1rem" }],
           });
           const third = yield* fs.readFileString(file);
           assert.include(third, 'ink: "#000000"');
@@ -125,9 +123,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             },
             name: "Button",
           });
-          yield* client["designSystem.setToken"]({
-            name: "radius-card",
-            value: "0.75rem",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "radius-card", op: "setValue", value: "0.75rem" }],
           });
           const fourth = yield* fs.readFileString(file);
           assert.include(fourth, "components:\n  button:\n");

@@ -8,6 +8,7 @@ import {
   type DesignSystem,
   type DesignSystemState,
 } from "@ultrapaint/contracts/design-system";
+import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { withTokenChanges } from "@ultrapaint/contracts/token-table";
@@ -18,6 +19,11 @@ import {
   componentsImportBase,
   toCode,
 } from "@ultrapaint/design-document/code";
+import {
+  applyEdits,
+  editLabel,
+  tokenChangesOf,
+} from "@ultrapaint/design-document/design-system-edits";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
   Context,
@@ -65,6 +71,15 @@ export class DesignSystemService extends Context.Service<
   DesignSystemService,
   {
     readonly detect: Effect.Effect<DesignSystem, EditFailure>;
+    /**
+     * The editor's operations made in order (ADR 0045, `applyEdits`) and saved as one undo step;
+     * with `codeTokens: auto` the code follows the values. Nothing is written when one does not
+     * fit. Returns the files written.
+     */
+    readonly edit: (
+      ops: readonly DesignSystemEdit[],
+      label?: string
+    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
     readonly get: Effect.Effect<DesignSystemState>;
     /**
      * The state read again, the stylesheets and the components from scratch: after a change to
@@ -128,7 +143,7 @@ export class DesignSystemService extends Context.Service<
     DesignSystemService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
-      const edit = yield* EditService;
+      const journal = yield* EditService;
       const code = yield* CodeSide;
       const designMd = yield* DesignMd;
       const figma = yield* FigmaBaseline;
@@ -254,7 +269,7 @@ export class DesignSystemService extends Context.Service<
           ...designSystem,
           codeSync: yield* code.agreement(designSystem),
         };
-        yield* edit.transaction(label, (tx) =>
+        yield* journal.transaction(label, (tx) =>
           Effect.gen(function* () {
             yield* writeFiles(tx, saved);
             if (document !== undefined) {
@@ -310,7 +325,7 @@ export class DesignSystemService extends Context.Service<
             ? { designMd: written.designMd }
             : keptDocument && { designMd: keptDocument }),
         };
-        yield* edit.transaction("Update the design system", (tx) =>
+        yield* journal.transaction("Update the design system", (tx) =>
           Effect.gen(function* () {
             yield* writeFiles(tx, saved);
             if (written) {
@@ -343,15 +358,26 @@ export class DesignSystemService extends Context.Service<
           "There is no design system yet to change a token in: Sync makes one.",
       });
 
-      const setTokens = Effect.fn("DesignSystemService.setTokens")(function* (
-        changes: readonly TokenChange[],
-        label = "Change tokens"
+      /**
+       * A design system changed from the one the files read, saved in one undo step, and the
+       * code told the value changes made (`codeTokens: auto`): the one path a token edit takes.
+       */
+      const commit = Effect.fnUntraced(function* (
+        change: (
+          ds: DesignSystem
+        ) => DesignSystem | { readonly problem: string },
+        changes: (ds: DesignSystem) => readonly TokenChange[],
+        label: string
       ) {
         const { designSystem: ds } = yield* filesRead;
         if (!ds) {
           return yield* noDesignSystem;
         }
-        const saved = yield* save(withTokenChanges(ds, changes), label).pipe(
+        const next = change(ds);
+        if ("problem" in next) {
+          return yield* new BadRequest({ message: next.problem });
+        }
+        const saved = yield* save(next, label).pipe(
           Effect.mapError(
             (error) =>
               new BadRequest({
@@ -359,8 +385,30 @@ export class DesignSystemService extends Context.Service<
               })
           )
         );
-        const followed = yield* code.follow(changes, saved);
+        const followed = yield* code.follow(changes(ds), saved);
         return { files: [systemRel, tokensRel, ...followed.files] };
+      });
+
+      const editOps = Effect.fn("DesignSystemService.edit")(function* (
+        ops: readonly DesignSystemEdit[],
+        label?: string
+      ) {
+        return yield* commit(
+          (ds) => applyEdits(ds, ops),
+          (ds) => tokenChangesOf(ds, ops),
+          label ?? editLabel(ops)
+        );
+      }, serially);
+
+      const setTokens = Effect.fn("DesignSystemService.setTokens")(function* (
+        changes: readonly TokenChange[],
+        label = "Change tokens"
+      ) {
+        return yield* commit(
+          (ds) => withTokenChanges(ds, changes),
+          () => changes,
+          label
+        );
       }, serially);
 
       const setToken = Effect.fn("DesignSystemService.setToken")(function* (
@@ -424,6 +472,7 @@ export class DesignSystemService extends Context.Service<
             })
           ),
         detect,
+        edit: editOps,
         get,
         refresh: code.refresh.pipe(
           Effect.andThen(serially(mirror)),

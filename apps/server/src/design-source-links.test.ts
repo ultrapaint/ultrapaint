@@ -114,9 +114,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             ],
           });
           // A token changed in the design alone waits for the code (ADR 0028).
-          yield* client["designSystem.setToken"]({
-            name: "color-brand",
-            value: "#ff0000",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "color-brand", op: "setValue", value: "#ff0000" }],
           });
           assert.notInclude(yield* css(), "#ff0000");
           const listed = yield* client["implementation.list"]();
@@ -170,9 +169,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             path.join(repo, "styles/app.css"),
             (yield* css()).replace("#111827", "#000000")
           );
-          yield* client["designSystem.setToken"]({
-            name: "color-ink",
-            value: "#333333",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "color-ink", op: "setValue", value: "#333333" }],
           });
           const left = yield* handoff({ action: "export" });
           assert.include(left, "Nothing to bring to the code.");
@@ -440,9 +438,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(tokensOf(taken).get("color-accent"), "#123456");
 
           // A change in the editor writes both files, and loses nothing of either.
-          yield* client["designSystem.setToken"]({
-            name: "radius-card",
-            value: "1rem",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "radius-card", op: "setValue", value: "1rem" }],
           });
           const after = yield* current();
           const expected = new Map(tokensOf(taken)).set("radius-card", "1rem");
@@ -463,9 +460,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           );
           assert.isNotNull(broken.designSystem);
           const refused = yield* Effect.flip(
-            client["designSystem.setToken"]({
-              name: "radius-card",
-              value: "2rem",
+            client["designSystem.edit"]({
+              ops: [{ name: "radius-card", op: "setValue", value: "2rem" }],
             })
           );
           assert.include(String(refused.message), "design.tokens.json");
@@ -493,9 +489,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             (ds) => tokensOf(ds).get("radius-card") === "1rem" && ds !== null
           );
           assert.deepStrictEqual(tokensOf(read), tokensOf(after));
-          yield* client["designSystem.setToken"]({
-            name: "color-accent",
-            value: "#654321",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "color-accent", op: "setValue", value: "#654321" }],
           });
           assert.include(yield* fs.readFileString(tokensFile), "#00ff00");
           const moved = yield* fs.readFileString(systemFile);

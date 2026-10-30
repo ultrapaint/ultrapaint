@@ -1,8 +1,9 @@
 /**
  * A token's value changed from the editor (ADR 0028). The value is the design's: the server
- * changes the design system, one undo step, and the code follows on export, or at once with
- * `codeTokens: auto`. The toast that reports it puts the old value back.
+ * changes the design system (`designSystem.edit`, ADR 0045), one undo step, and the code follows
+ * on export, or at once with `codeTokens: auto`. The toast that reports it undoes that step.
  */
+import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import { tokenOf } from "@ultrapaint/contracts/token-table";
 import { toast } from "sonner";
 import { promptDialog } from "../components/dialogs.tsx";
@@ -11,15 +12,30 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
-const setToken = (name: string, value: string | null) =>
-  api().request(
-    "designSystem.setToken",
-    value === null ? { name, remove: true } : { name, value }
-  );
+/**
+ * The design system changed by `ops` as one undo step, with the files written; one of them
+ * that does not fit refuses them all.
+ */
+export const editDesignSystem = (
+  ops: readonly DesignSystemEdit[],
+  label?: string
+) =>
+  api().request("designSystem.edit", {
+    ops,
+    ...(label !== undefined && { label }),
+  });
 
 /** The default theme's value of a token, as the design system has it from the code. */
 const defaultValueOf = (name: string): string | undefined =>
   tokenOf(useDesignSystem.getState().designSystem, name)?.value;
+
+/** A token's default value set, the token added where its kind goes when the design lacks it. */
+const setToken = (name: string, value: string) =>
+  editDesignSystem([
+    defaultValueOf(name) === undefined
+      ? { name, op: "addToken", value }
+      : { name, op: "setValue", value },
+  ]);
 
 export const editTokenValue = async (name: string, shown: string) => {
   if (!ensureEditable()) {
@@ -40,7 +56,7 @@ export const editTokenValue = async (name: string, shown: string) => {
     return;
   }
   try {
-    const { files, previous } = await setToken(name, next.trim());
+    const { files } = await setToken(name, next.trim());
     const code = files.filter((f) => !f.endsWith(".json"));
     toast.success(
       code.length > 0
@@ -50,7 +66,7 @@ export const editTokenValue = async (name: string, shown: string) => {
         action: {
           label: "Undo",
           onClick: () => {
-            setToken(name, previous).catch(reportError);
+            api().request("edit.undo", undefined).catch(reportError);
           },
         },
       }

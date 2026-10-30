@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { DesignSystem, emptyDesignSystem } from "./design-system.ts";
+import { DesignSystemEditInput } from "./design-system-edit.ts";
 import { DocOp, PageDocument } from "./document.ts";
 import { CommandFailed, errorCodes, NotFound } from "./errors.ts";
 import { UltrapaintRpcs, eventNames } from "./rpc.ts";
@@ -103,6 +104,31 @@ describe("contracts", () => {
     expect(overTheWire(DesignSystem, emptyDesignSystem())).toEqual(
       emptyDesignSystem()
     );
+  });
+
+  it("round-trips every kind of design-system edit", () => {
+    const input: DesignSystemEditInput = {
+      label: "Tune the palette",
+      ops: [
+        { name: "color-ink", op: "setValue", value: "#111" },
+        { name: "color-ink", op: "setValue", theme: "dark", value: null },
+        { description: "Text", name: "color-ink", op: "setDescription" },
+        {
+          group: "brand",
+          name: "color-brand-50",
+          op: "addToken",
+          value: "#eef",
+          values: { dark: "#112" },
+        },
+        { name: "color-ink", op: "removeToken" },
+        { group: "brand", index: 0, name: "color-x", op: "moveToken" },
+        { name: "brand", op: "addGroup" },
+        { name: "brand", op: "renameGroup", to: "primary" },
+        { op: "setTextStyle", style: { name: "Body", role: "paragraph" } },
+        { name: "Body", op: "removeTextStyle" },
+      ],
+    };
+    expect(overTheWire(DesignSystemEditInput, input)).toEqual(input);
   });
 
   it("round-trips transcript items, including a permission still undecided", () => {
