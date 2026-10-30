@@ -162,19 +162,6 @@ export const Canvas = () => {
     }
   }, [mode]);
 
-  // Escape puts back whatever the pointer is doing: a frame moved or sized, a drag, a marquee, a
-  // group being drawn (the tool stays picked). It goes no further then.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && cancelGesture()) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-
   // A canvas that goes away mid-gesture leaves nothing listening to the window.
   useEffect(
     () => () => {

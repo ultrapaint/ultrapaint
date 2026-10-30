@@ -7,16 +7,18 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
+import { cancelGesture } from "../canvas/frame-gesture.ts";
 import { nextView, setView, viewportSize } from "../state/camera.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { leaveIsolation } from "../state/isolation.ts";
 import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { select, selectPage } from "../state/selection.ts";
-import { allFrames } from "../state/surface.ts";
+import { allFrames, surfaceNow } from "../state/surface.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import { isTyping, overlayOpen } from "./keys.ts";
 import { selected } from "./node-actions.ts";
@@ -113,6 +115,21 @@ export const dismiss = () => {
   }
   return false;
 };
+
+/**
+ * Escape: one step back from whatever is going on, the first of these that has something to put
+ * away. What the pointer is doing (a frame moved or sized, a drag, a marquee, a group being drawn:
+ * put back, nothing saved, the tool kept), an app component edited in place (left), an open
+ * comment, the prototype's commenting or a selected page (`dismiss`), what the main area holds
+ * besides (a board's pick), then the selection (its parent, or let go at the top). False when
+ * none had anything, and the key is the browser's.
+ */
+export const stepBack = (): boolean =>
+  cancelGesture() ||
+  leaveIsolation() ||
+  dismiss() ||
+  surfaceNow().escape() ||
+  walkSelection("Escape");
 
 /** Where on screen a point of the canvas is. */
 const screenOf = (x: number, y: number) => {

@@ -2,10 +2,19 @@
 import "../testing/fake-browser.ts";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { leaveBoard, openBoard } from "../state/board.ts";
+import { useDrag } from "../canvas/drag.ts";
+import {
+  leaveBoard,
+  openBoard,
+  pickOf,
+  pickOnBoard,
+  useBoard,
+} from "../state/board.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
+import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { keyEventOf } from "../testing/key-events.ts";
 import {
@@ -297,6 +306,77 @@ describe("the scopes", () => {
     expect(useCanvasGrid.getState().visible).toBe(false);
     expect(pressOn("t")).toEqual({ prevented: false, ran: false });
     expect(useEditor.getState().mode).toBe("select");
+    leaveBoard("none");
+  });
+});
+
+describe("Escape, one step back at a time", () => {
+  const HOME = "home.page.json";
+
+  it("puts back a drag, then leaves a component edited in place, lets go of a comment and walks up the selection", () => {
+    useDocuments.setState({
+      canvas: "main",
+      docs: {
+        [HOME]: {
+          doc: HOME,
+          hash: "h",
+          root: {
+            children: [
+              {
+                children: [
+                  { id: "title", role: "heading", text: "Hi", type: "text" },
+                ],
+                id: "hero",
+                type: "column",
+              },
+            ],
+            id: "home",
+            type: "page",
+          },
+        },
+      },
+    });
+    useEditor.setState({
+      canvas: "main",
+      selection: { frame: HOME, nodeId: "title" },
+    });
+    useIsolation.setState({
+      isolated: {
+        component: "Promo",
+        entered: "title",
+        frame: HOME,
+        instance: "title",
+        variant: null,
+      },
+    });
+    useComments.setState({ open: "c1" });
+    useDrag.setState({ dragged: { kind: "new", name: "Card" } });
+
+    expect(pressOn("escape")).toEqual({ prevented: true, ran: true });
+    expect(useDrag.getState().dragged).toBeNull();
+    expect(useIsolation.getState().isolated).not.toBeNull();
+
+    pressOn("escape");
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useComments.getState().open).toBe("c1");
+
+    pressOn("escape");
+    expect(useComments.getState().open).toBeNull();
+    expect(useEditor.getState().selection?.nodeId).toBe("title");
+
+    pressOn("escape");
+    expect(useEditor.getState().selection?.nodeId).toBe("hero");
+    pressOn("escape");
+    expect(useEditor.getState().selection).toBeNull();
+    // Nothing left to step back from: the key is the browser's.
+    expect(pressOn("escape")).toEqual({ prevented: false, ran: false });
+  });
+
+  it("lets go of what is picked on a board", () => {
+    openBoard({ item: "color", view: "system" }, "none");
+    pickOnBoard({ frame: "board:system/color/light", nodeId: "token:color-x" });
+    pressOn("escape");
+    expect(pickOf(useBoard.getState())).toBeNull();
     leaveBoard("none");
   });
 });

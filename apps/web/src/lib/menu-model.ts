@@ -308,7 +308,7 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     f.parentSelectable &&
       item({ kind: "selectParent" }, "Select parent", {
         ...one,
-        command: "selectParent",
+        command: "escape",
       }),
     separator,
     ...addressEntries(f),

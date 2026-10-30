@@ -51,9 +51,9 @@ import {
 } from "./node-actions.ts";
 import { goToPage, newPage, zoomToPage } from "./page-actions.ts";
 import {
-  dismiss,
   editSelectedText,
   openSelectionMenuByKey,
+  stepBack,
   undoOrRedo,
   walkSelection,
   zoomBy,
@@ -570,12 +570,15 @@ const keyOnlyCommands = (): CommandSpec[] => [
     title: "Edit the text",
   },
   {
-    // An open comment, the prototype's commenting and a selected page are let go of first.
+    // What the pointer is doing, a component edited in place, an open comment, the prototype's
+    // commenting, a selected page and a board's pick are put away first (`stepBack`).
     group: "Selection",
-    id: "selectParent",
+    id: "escape",
     keys: ["escape"],
     offered: keyOnly,
-    run: () => dismiss() || walkSelection("Escape"),
+    run: stepBack,
+    sheetTitle:
+      "Put back a drag, leave a component edited in place, let go of a comment or a pick, or select the parent",
     title: "Select the parent",
   },
   {
