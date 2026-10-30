@@ -6,6 +6,7 @@
 import { Schema } from "effect";
 import { Json } from "./base.ts";
 import { APP_FROM } from "./component-names.ts";
+import { InstanceFrom } from "./document.ts";
 
 export const PropType = Schema.Struct({
   kind: Schema.Literals(["string", "number", "boolean", "enum", "list"]),
@@ -13,11 +14,10 @@ export const PropType = Schema.Struct({
 });
 export type PropType = typeof PropType.Type;
 
+/** What an instance sets, by name: its type, and the value it falls to when it sets none. */
 export const PropMeta = Schema.Struct({
   defaultValue: Schema.optional(Json),
-  description: Schema.optional(Schema.String),
   name: Schema.String,
-  required: Schema.Boolean,
   type: PropType,
 });
 export type PropMeta = typeof PropMeta.Type;
@@ -57,7 +57,7 @@ export const ComponentMeta = Schema.Struct({
   /** The props a new instance starts with, and its thumbnail is drawn with. */
   example: Schema.optional(Schema.Record(Schema.String, Json)),
   /** What an instance names as `from`: `@ultrapaint/system` or `#app`. */
-  importFrom: Schema.String,
+  importFrom: InstanceFrom,
   name: Schema.String,
   props: Schema.Array(PropMeta),
   /** Its parts, the root first. */
@@ -72,14 +72,49 @@ export type ComponentMeta = typeof ComponentMeta.Type;
 /** The system components, then the project's app components. */
 export type Catalogue = readonly ComponentMeta[];
 
-/** The catalogue's entry for an instance: the same name from the same origin, else by name. */
+/**
+ * Whether what is put inside an instance has a place in it: its component has a default slot,
+ * which a child naming no slot fills (`fillSlots`). An insert or a drop names none, so it lands
+ * in the default slot, whatever other slots hold nodes; a component whose slots are all named
+ * (an app component's may be) is filled from the inspector's slots, which name theirs.
+ */
+export const componentTakesChildren = (component: {
+  readonly slots: readonly Pick<ComponentSlot, "holds">[];
+}) => component.slots.some((s) => s.holds === "default");
+
+/** The catalogue's entry for an instance: the same name from the same origin. */
 export const metaOf = (
   catalogue: Catalogue,
   instance: { readonly component: string; readonly from: string }
 ): ComponentMeta | undefined =>
   catalogue.find(
     (c) => c.name === instance.component && c.importFrom === instance.from
-  ) ?? catalogue.find((c) => c.name === instance.component);
+  );
+
+const UPPER_RE = /([a-z0-9])([A-Z])/g;
+
+/**
+ * The file the application keeps its own component for a component in (ADR 0040), by name in
+ * its components directory: `order-summary` for OrderSummary, a system component's under `ui/`
+ * (`ui/dialog`). The starter application is written with it and the Code tab imports from it.
+ */
+export const applicationFileOf = (component: string) =>
+  component.replace(UPPER_RE, "$1-$2").toLowerCase();
+
+/**
+ * The name the application gives a component, or one of its parts that holds nodes (ADR 0040):
+ * `Dialog`, `DialogFooter` for its `dialog-footer`, `DialogTrigger` for its `trigger`.
+ */
+export const applicationNameOf = (component: string, slot?: string) => {
+  if (slot === undefined) {
+    return component;
+  }
+  const own = applicationFileOf(component);
+  return (slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`)
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+};
 
 /**
  * A component in one line, as an agent picks one: the project's own marked (app), its variants,

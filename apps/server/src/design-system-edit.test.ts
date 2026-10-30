@@ -98,7 +98,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
 
           // With codeTokens auto, a value reaches the code at once.
-          const current = (yield* client["settings.get"]()) ?? settings;
+          const current =
+            (yield* client["project.info"]()).settings ?? settings;
           yield* client["settings.set"]({ ...current, codeTokens: "auto" });
           const auto = yield* client["designSystem.edit"]({
             label: "Round the cards more",

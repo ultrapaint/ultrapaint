@@ -27,7 +27,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -67,6 +67,19 @@ const sameOrigin = (origin: string, host: string | undefined) =>
   host !== undefined && URL.canParse(origin) && new URL(origin).host === host;
 
 /**
+ * Whether a request may be answered: a browser page is let in when it came from this machine or
+ * from this server's own address; a native client sends no origin.
+ */
+const originAllowed = ({
+  host,
+  origin,
+}: Readonly<Record<string, string | undefined>>) =>
+  !origin || LOCAL_ORIGIN_RE.test(origin) || sameOrigin(origin, host);
+
+const originRefused = () =>
+  HttpServerResponse.text("origin not allowed", { status: 403 });
+
+/**
  * The editor's API: one WebSocket that carries every RPC and every event stream. A browser
  * page is let in when it came from this machine or from this server's own address, and any
  * other origin is turned away before the upgrade; native clients send no origin.
@@ -81,13 +94,8 @@ const RpcRoute = Layer.effectDiscard(
       "/ws",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { host, origin } = request.headers;
-        if (
-          origin &&
-          !LOCAL_ORIGIN_RE.test(origin) &&
-          !sameOrigin(origin, host)
-        ) {
-          return HttpServerResponse.text("origin not allowed", { status: 403 });
+        if (!originAllowed(request.headers)) {
+          return originRefused();
         }
         return yield* httpEffect;
       })
@@ -111,19 +119,14 @@ const FIG_HEADER = "x-file-name";
  */
 const FigmaImportRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const project = yield* ProjectManager;
+    const project = yield* OpenProject;
     yield* router.add(
       "POST",
       "/api/figma/import",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { host, origin } = request.headers;
-        if (
-          origin &&
-          !LOCAL_ORIGIN_RE.test(origin) &&
-          !sameOrigin(origin, host)
-        ) {
-          return HttpServerResponse.text("origin not allowed", { status: 403 });
+        if (!originAllowed(request.headers)) {
+          return originRefused();
         }
         const tooLarge = HttpServerResponse.jsonUnsafe(
           { message: "the file is larger than the import accepts" },

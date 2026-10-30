@@ -3,7 +3,7 @@ import type {
   DesignNode,
   DocumentState,
 } from "@ultrapaint/contracts/document";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateOpsAt } from "../lib/breakpoint-edits.ts";
 import { useComponents } from "./components.ts";
 import { docOfFrame, nodeIn, useDocuments } from "./documents.ts";
@@ -12,6 +12,7 @@ import {
   editVariant,
   isolate,
   leaveIsolation,
+  startIsolation,
   useIsolation,
 } from "./isolation.ts";
 import { frameBreakpoint } from "./selection.ts";
@@ -43,7 +44,15 @@ const TITLE: DesignNode = {
   type: "text",
 };
 
+/** What the edit in place follows, started for each test and stopped after it. */
+let stop: () => void = () => undefined;
+
+afterEach(() => {
+  stop();
+});
+
 beforeEach(() => {
+  stop = startIsolation();
   leaveIsolation();
   useEditor.setState({ canvas: "", selection: null });
   useDocuments.setState({

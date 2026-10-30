@@ -12,7 +12,7 @@ import type {
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { Effect } from "effect";
 import { hashContent } from "../hash.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { SnapshotStore } from "./snapshot-store.ts";
 import { WorkingTree } from "./working-tree.ts";
@@ -31,7 +31,7 @@ const unreadable = (error: { readonly message: string }) =>
   });
 
 export const makeSetupSnapshots = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const store = yield* SnapshotStore;
 
   /** The store keeps each project's setup apart: two projects may share a state directory. */

@@ -17,18 +17,18 @@ import {
   type CanvasLayout,
   emptyCanvasLayout,
   type FrameLayout,
-  type Page,
   type PageList,
 } from "@ultrapaint/contracts/pages";
 import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
 import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
-import { COMMENTS_FILE, type CommentsService } from "./comments.ts";
+import { canvasText } from "./canvas-file.ts";
+import type { CommentsService } from "./comments.ts";
+import { COMMENTS_FILE } from "./comments-file.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { CopyTarget } from "./pages.ts";
-import { idOf, makeBindings } from "./pages-bindings.ts";
-import { renderCanvas } from "./pages-layout.ts";
+import { makePageMoves } from "./pages-moves.ts";
 import type { PagesReading } from "./pages-reading.ts";
 
 export const makeCanvasOperations = (
@@ -38,27 +38,23 @@ export const makeCanvasOperations = (
   const {
     canvasById,
     canvasFile,
+    canvasIn,
     canvasPath,
-    checkRoute,
-    contentOf,
+    contentIn,
     edit,
     exists,
-    failIfExists,
     fallbackName,
     fs,
     list,
     path,
     paths,
     publishList,
-    readCanvas,
     root,
     toPage,
     updateCanvas,
-    updateFrames,
-    updateRoutes,
     writeOrder,
   } = reading;
-  const { rebind } = makeBindings(reading);
+  const { arriveIn, movePages } = makePageMoves(reading, comments);
 
   // ---- canvases ----
   /**
@@ -95,13 +91,13 @@ export const makeCanvasOperations = (
     if (rootIsImplicit && all.pages.some((p) => p.canvas === ROOT_CANVAS)) {
       yield* tx.write(
         paths.relative(rootFile),
-        renderCanvas({
+        canvasText({
           ...emptyCanvasLayout(),
           name: fallbackName(ROOT_CANVAS),
         })
       );
     }
-    yield* tx.create(paths.relative(canvasPath(id)), renderCanvas(layout));
+    yield* tx.create(paths.relative(canvasPath(id)), canvasText(layout));
     const order = all.canvases.map((c) => c.id);
     const at = after === undefined ? -1 : order.indexOf(after);
     yield* writeOrder(
@@ -119,17 +115,24 @@ export const makeCanvasOperations = (
     if (trimmed === "") {
       return yield* new BadRequest({ message: "a canvas needs a name" });
     }
-    const id = yield* freeCanvasId(trimmed);
-    const all = yield* list;
-    yield* edit.transaction(`Create the canvas ${trimmed}`, (tx) =>
-      addCanvas(tx, all, id, {
-        ...emptyCanvasLayout(),
-        name: trimmed,
-        routes: {},
+    const made = yield* edit.transaction(`Create the canvas ${trimmed}`, (tx) =>
+      Effect.gen(function* () {
+        const id = yield* freeCanvasId(trimmed);
+        yield* addCanvas(tx, yield* list, id, {
+          ...emptyCanvasLayout(),
+          name: trimmed,
+          routes: {},
+        });
+        return id;
       })
     );
     yield* publishList;
-    return { home: "/", id, name: trimmed, variants: [] } satisfies Canvas;
+    return {
+      home: "/",
+      id: made,
+      name: trimmed,
+      variants: [],
+    } satisfies Canvas;
   });
 
   const renameCanvas = Effect.fn("PagesService.renameCanvas")(function* (
@@ -140,9 +143,16 @@ export const makeCanvasOperations = (
     if (trimmed === "") {
       return yield* new BadRequest({ message: "a canvas needs a name" });
     }
-    const { canvas } = yield* canvasById(id);
-    yield* edit.transaction(`Rename ${canvas.name} to ${trimmed}`, (tx) =>
-      updateCanvas(tx, id, (layout) => ({ ...layout, name: trimmed }))
+    const canvas = yield* edit.transaction("Rename a canvas", (tx) =>
+      Effect.gen(function* () {
+        const before = yield* canvasById(id, yield* list);
+        yield* tx.name(`Rename ${before.name} to ${trimmed}`);
+        yield* updateCanvas(tx, id, (layout) => ({
+          ...layout,
+          name: trimmed,
+        }));
+        return before;
+      })
     );
     yield* publishList;
     return { ...canvas, name: trimmed } satisfies Canvas;
@@ -151,13 +161,17 @@ export const makeCanvasOperations = (
   const reorderCanvases = Effect.fn("PagesService.reorderCanvases")(function* (
     order: readonly string[]
   ) {
-    const { canvases } = yield* list;
-    const known = new Set(canvases.map((c) => c.id));
-    const named = order.filter((id) => known.has(id));
-    // What the request leaves out keeps its place after what it names.
-    const rest = canvases.map((c) => c.id).filter((id) => !named.includes(id));
     yield* edit.transaction("Reorder the canvases", (tx) =>
-      writeOrder(tx, [...named, ...rest])
+      Effect.gen(function* () {
+        const { canvases } = yield* list;
+        const known = new Set(canvases.map((c) => c.id));
+        const named = order.filter((id) => known.has(id));
+        // What the request leaves out keeps its place after what it names.
+        const rest = canvases
+          .map((c) => c.id)
+          .filter((id) => !named.includes(id));
+        yield* writeOrder(tx, [...named, ...rest]);
+      })
     );
     yield* publishList;
   });
@@ -170,23 +184,26 @@ export const makeCanvasOperations = (
     if (trimmed === "") {
       return yield* new BadRequest({ message: "a canvas needs a name" });
     }
-    const { all, canvas } = yield* canvasById(id);
-    const copyId = yield* freeCanvasId(trimmed);
-    const pages = all.pages.filter((p) => p.canvas === id);
-    yield* edit.transaction(`Duplicate ${canvas.name} as ${trimmed}`, (tx) =>
+    const duplicated = yield* edit.transaction("Duplicate a canvas", (tx) =>
       Effect.gen(function* () {
         // Read in the action, so an edit made meanwhile is copied rather than lost.
-        const layout = yield* readCanvas(id);
+        const all = yield* list;
+        const canvas = yield* canvasById(id, all);
+        yield* tx.name(`Duplicate ${canvas.name} as ${trimmed}`);
+        const copyId = yield* freeCanvasId(trimmed);
+        const layout = yield* canvasIn(tx, id);
         // Ids are unique within a document; a copy in a canvas of its own keeps them.
         yield* addCanvas(tx, all, copyId, { ...layout, name: trimmed }, id);
-        for (const page of pages) {
+        for (const page of all.pages.filter((p) => p.canvas === id)) {
           yield* tx.create(
             paths.relative(path.join(root, copyId, page.path)),
-            yield* contentOf(page.file)
+            yield* contentIn(tx, page.file)
           );
         }
+        return { canvas, copyId };
       })
     );
+    const { copyId } = duplicated;
     // The root's assets are everyone's; another canvas's own go with it. Images stay out
     // of the journal, which holds text, as they do when they are uploaded.
     if (id !== ROOT_CANVAS) {
@@ -205,7 +222,7 @@ export const makeCanvasOperations = (
     const copied = (yield* publishList).canvases.find((c) => c.id === copyId);
     return (
       copied ?? {
-        ...canvas,
+        ...duplicated.canvas,
         id: copyId,
         name: trimmed,
       }
@@ -237,20 +254,24 @@ export const makeCanvasOperations = (
   const deleteCanvas = Effect.fn("PagesService.deleteCanvas")(function* (
     id: string
   ) {
-    const { all, canvas } = yield* canvasById(id);
-    if (all.canvases.length === 1) {
-      return yield* new BadRequest({
-        message: "the last canvas cannot be deleted",
-      });
-    }
-    yield* edit.transaction(`Delete the canvas ${canvas.name}`, (tx) =>
+    yield* edit.transaction("Delete a canvas", (tx) =>
       Effect.gen(function* () {
-        const going = all.pages.filter((p) => p.canvas === id);
-        for (const page of going) {
-          yield* tx.remove(page.file);
+        const all = yield* list;
+        const canvas = yield* canvasById(id, all);
+        yield* tx.name(`Delete the canvas ${canvas.name}`);
+        if (all.canvases.length === 1) {
+          return yield* new BadRequest({
+            message: "the last canvas cannot be deleted",
+          });
         }
-        // Its pages' links to the code go with them (ADR 0030), and come back on undo.
-        yield* rebind(tx, new Map(going.map((p) => [p.id, null] as const)));
+        // Its pages go with their links to the code (ADR 0030), which come back on undo.
+        yield* movePages(
+          tx,
+          all,
+          all.pages
+            .filter((p) => p.canvas === id)
+            .map((page) => ({ page, to: null }))
+        );
         yield* tx.remove(yield* canvasFile(id));
         yield* tx.remove(
           paths.relative(
@@ -261,6 +282,7 @@ export const makeCanvasOperations = (
           tx,
           all.canvases.map((c) => c.id).filter((c) => c !== id)
         );
+        return canvas;
       })
     );
     // The designs directory's own canvas leaves the directory and the shared assets to the
@@ -287,32 +309,15 @@ export const makeCanvasOperations = (
   });
 
   /**
-   * The URLs pages copied into a canvas take along: none may be one the target serves
-   * already. A new canvas (`null`) serves none yet.
+   * The pages to copy or move, with the variants and states of the base pages among them, which
+   * are drawings of them and go wherever they go; and the canvas they go to, a new one made by
+   * name. Inside the action.
    */
-  const carriedRoutes = Effect.fnUntraced(function* (
+  const copying = Effect.fnUntraced(function* (
     all: PageList,
-    chosen: readonly Page[],
-    target: string | null
-  ) {
-    const carried: Record<string, string> = {};
-    for (const page of chosen) {
-      if (page.variant === undefined && page.route !== undefined) {
-        carried[page.path] =
-          target === null
-            ? page.route
-            : yield* checkRoute(all, target, page.route);
-      }
-    }
-    return carried;
-  });
-
-  const copyTo = Effect.fn("PagesService.copyTo")(function* (
     ids: readonly string[],
-    target: CopyTarget,
-    move: boolean
+    target: CopyTarget
   ) {
-    const all = yield* list;
     const picked = all.pages.filter((p) => ids.includes(p.id));
     const [first] = picked;
     if (!first) {
@@ -324,7 +329,6 @@ export const makeCanvasOperations = (
         message: "the pages to copy are in more than one canvas",
       });
     }
-    // A base page's variants and states are drawings of it, and go wherever it goes.
     const families = new Set(
       picked
         .filter((p) => p.variant === undefined && p.state === undefined)
@@ -343,123 +347,81 @@ export const makeCanvasOperations = (
     }
     const to = creating
       ? yield* freeCanvasId(targetName)
-      : (yield* canvasById(target.canvas)).canvas.id;
+      : (yield* canvasById(target.canvas, all)).id;
     if (to === from) {
       return yield* new BadRequest({
         message: "the pages are in that canvas already",
       });
     }
-    const entries = yield* Effect.forEach(chosen, (page) =>
-      Effect.gen(function* () {
-        const abs = yield* paths.resolve(path.join(root, to, page.path));
-        yield* failIfExists(abs);
-        return { abs, page };
-      })
-    );
-    const carried = yield* carriedRoutes(all, chosen, creating ? null : to);
-    const variants = [
-      ...new Set(
-        chosen.flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
-      ),
-    ];
-    const states = [
-      ...new Set(
-        chosen.flatMap((p) => (p.state === undefined ? [] : [p.state]))
-      ),
-    ];
-    const verb = move ? "Move" : "Copy";
     const what = picked.length === 1 ? first.name : `${picked.length} pages`;
-    const gone = (key: string) => chosen.some((p) => p.path === key);
-    yield* edit.transaction(`${verb} ${what} to ${targetName}`, (tx) =>
-      Effect.gen(function* () {
-        // Read in the action, so an edit made meanwhile is carried rather than lost.
-        const source = yield* readCanvas(from);
-        const withFrames = (frames: CanvasLayout["frames"]) => ({
-          ...frames,
-          ...Object.fromEntries(
-            chosen.flatMap((p) => {
-              const frame = source.frames[p.path];
-              return frame ? [[p.path, frame] as const] : [];
-            })
-          ),
-        });
-        const withVariants = (layout: CanvasLayout): CanvasLayout => {
-          const listed = layout.variants ?? [];
-          const added = variants.filter((v) => !listed.includes(v));
-          const listedStates = layout.states ?? [];
-          const addedStates = states.filter((v) => !listedStates.includes(v));
-          return {
-            ...layout,
-            ...(added.length > 0 && { variants: [...listed, ...added] }),
-            ...(addedStates.length > 0 && {
-              states: [...listedStates, ...addedStates],
-            }),
-          };
-        };
-        if (creating) {
-          const fresh = { ...emptyCanvasLayout(), name: targetName };
-          yield* addCanvas(
-            tx,
-            all,
-            to,
-            withVariants({
-              ...fresh,
-              frames: withFrames({}),
-              routes: carried,
-            }),
-            from
-          );
-        } else {
-          yield* updateCanvas(tx, to, (layout) =>
-            withVariants({ ...layout, frames: withFrames(layout.frames) })
-          );
-          yield* updateRoutes(tx, all, to, (routes) => ({
-            ...routes,
-            ...carried,
-          }));
-        }
-        for (const { abs, page } of entries) {
-          yield* tx.create(paths.relative(abs), yield* contentOf(page.file));
-        }
-        if (move) {
-          for (const { page } of entries) {
-            yield* tx.remove(page.file);
+    return { chosen, creating, from, targetName, to, what };
+  });
+
+  const copyTo = Effect.fn("PagesService.copyTo")(function* (
+    ids: readonly string[],
+    target: CopyTarget,
+    move: boolean
+  ) {
+    const copied = yield* edit.transaction(
+      move ? "Move pages" : "Copy pages",
+      (tx) =>
+        Effect.gen(function* () {
+          const all = yield* list;
+          const { chosen, creating, from, targetName, to, what } =
+            yield* copying(all, ids, target);
+          yield* tx.name(`${move ? "Move" : "Copy"} ${what} to ${targetName}`);
+          if (creating) {
+            yield* addCanvas(
+              tx,
+              all,
+              to,
+              { ...emptyCanvasLayout(), name: targetName, routes: {} },
+              from
+            );
           }
-          // The conversation about a page goes where the page goes; a copy starts without.
-          const before = yield* comments.rewrite(tx, from, (left) =>
-            left.filter((c) => !gone(c.page))
-          );
-          const carriedComments = before.filter((c) => gone(c.page));
-          if (carriedComments.length > 0) {
-            yield* comments.rewrite(tx, to, (there) => [
-              ...there,
-              ...carriedComments,
-            ]);
+          if (move) {
+            // A page moved is still the design its code implements (ADR 0030), with its
+            // comments: everything goes with it.
+            yield* movePages(
+              tx,
+              all,
+              chosen.map((page) => ({
+                page,
+                to: { canvas: to, path: page.path },
+              }))
+            );
+          } else {
+            // Read in the action, so an edit made meanwhile is carried rather than lost. A copy
+            // is a new design: no comments, no link to the code.
+            const source = yield* canvasIn(tx, from);
+            for (const page of chosen) {
+              yield* tx.create(
+                paths.relative(
+                  yield* paths.resolve(path.join(root, to, page.path))
+                ),
+                yield* contentIn(tx, page.file)
+              );
+            }
+            yield* arriveIn(
+              tx,
+              all,
+              to,
+              chosen.map((page) => ({
+                frame: source.frames[page.path],
+                page,
+                path: page.path,
+              }))
+            );
           }
-          yield* updateFrames(tx, from, (left) =>
-            Object.fromEntries(
-              Object.entries(left).filter(([key]) => !gone(key))
-            )
-          );
-          yield* updateRoutes(tx, all, from, (routes) =>
-            Object.fromEntries(
-              Object.entries(routes).filter(([key]) => !gone(key))
-            )
-          );
-          // A page moved is still the design its code implements (ADR 0030): its binding and
-          // the design as it was implemented go with it. A copy is a new design, with none.
-          yield* rebind(
-            tx,
-            new Map(
-              entries.map(({ page }) => [page.id, idOf(to, page.path)] as const)
-            )
-          );
-        }
-      })
+          return { chosen, to };
+        })
     );
     yield* publishList;
-    return yield* Effect.forEach(entries, ({ abs, page }) =>
-      toPage(to, page.path, abs)
+    return yield* Effect.forEach(copied.chosen, (page) =>
+      Effect.flatMap(
+        paths.resolve(path.join(root, copied.to, page.path)),
+        (abs) => toPage(copied.to, page.path, abs)
+      )
     );
   });
 
@@ -467,7 +429,6 @@ export const makeCanvasOperations = (
     id: string,
     route: string
   ) {
-    const { all, canvas } = yield* canvasById(id);
     const trimmed = route.trim();
     if (trimmed === "") {
       return yield* new BadRequest({
@@ -477,47 +438,55 @@ export const makeCanvasOperations = (
     const home = normaliseRoute(
       trimmed.startsWith("/") ? trimmed : `/${trimmed}`
     );
-    // A home no page serves would open the prototype on nothing.
-    const served = all.pages.filter(
-      (p) => p.canvas === id && p.variant === undefined
-    );
-    if (!matchRoute(served, home)) {
-      return yield* new BadRequest({
-        message: `no page of ${canvas.name} serves ${home}; give a page that URL first`,
-      });
-    }
-    yield* edit.transaction(`Open ${canvas.name} on ${home}`, (tx) =>
-      updateCanvas(tx, id, (layout) => ({ ...layout, home }))
+    const opened = yield* edit.transaction("Open a canvas on a URL", (tx) =>
+      Effect.gen(function* () {
+        const all = yield* list;
+        const canvas = yield* canvasById(id, all);
+        yield* tx.name(`Open ${canvas.name} on ${home}`);
+        // A home no page serves would open the prototype on nothing.
+        const served = all.pages.filter(
+          (p) => p.canvas === id && p.variant === undefined
+        );
+        if (!matchRoute(served, home)) {
+          return yield* new BadRequest({
+            message: `no page of ${canvas.name} serves ${home}; give a page that URL first`,
+          });
+        }
+        yield* updateCanvas(tx, id, (layout) => ({ ...layout, home }));
+        return canvas;
+      })
     );
     yield* publishList;
-    return { ...canvas, home } satisfies Canvas;
+    return { ...opened, home } satisfies Canvas;
   });
 
   const writeFrames = Effect.fn("PagesService.writeFrames")(function* (
     canvas: string,
     frames: Record<string, FrameLayout>
   ) {
-    const all = yield* list;
-    // Frames are saved for a canvas there is; they do not make one.
-    if (!all.canvases.some((c) => c.id === canvas)) {
-      return yield* new NotFound({
-        message: `canvas not found: ${canvas}`,
-      });
-    }
-    // The editor's frames may be older than a page renamed, moved or deleted since: a frame
-    // of a page that is gone would be brought back under its old name.
-    const present = new Set(
-      all.pages.filter((p) => p.canvas === canvas).map((p) => p.path)
-    );
     yield* edit.transaction("Arrange the canvas", (tx) =>
-      updateCanvas(tx, canvas, (layout) => ({
-        ...layout,
-        frames: Object.fromEntries(
-          Object.entries({ ...layout.frames, ...frames }).filter(([key]) =>
-            present.has(key)
-          )
-        ),
-      }))
+      Effect.gen(function* () {
+        const all = yield* list;
+        // Frames are saved for a canvas there is; they do not make one.
+        if (!all.canvases.some((c) => c.id === canvas)) {
+          return yield* new NotFound({
+            message: `canvas not found: ${canvas}`,
+          });
+        }
+        // The editor's frames may be older than a page renamed, moved or deleted since: a
+        // frame of a page that is gone would be brought back under its old name.
+        const present = new Set(
+          all.pages.filter((p) => p.canvas === canvas).map((p) => p.path)
+        );
+        yield* updateCanvas(tx, canvas, (layout) => ({
+          ...layout,
+          frames: Object.fromEntries(
+            Object.entries({ ...layout.frames, ...frames }).filter(([key]) =>
+              present.has(key)
+            )
+          ),
+        }));
+      })
     );
   });
 
@@ -526,37 +495,35 @@ export const makeCanvasOperations = (
     pagePath: string,
     size: FrameSize
   ) {
-    const all = yield* list;
-    const page = all.pages.find(
-      (p) => p.canvas === canvas && p.path === pagePath
-    );
-    if (!page) {
-      return yield* new NotFound({
-        message: `page not found: ${pagePath}`,
-      });
-    }
-    const drawn = all.pages
-      .filter((p) => p.canvas === canvas)
-      .map((p) => p.path);
-    return yield* edit.transaction(`Size ${page.name}`, (tx) =>
+    const sized = yield* edit.transaction("Size a page", (tx) =>
       Effect.gen(function* () {
-        // The layout as it is now, so nothing written since is put back. A page with no frame
-        // saved yet is sized where the editor draws it.
-        const layout = yield* readCanvas(canvas);
-        const next = sizeFrame(
-          drawnFrame(drawn, layout.frames, pagePath),
-          size
+        const all = yield* list;
+        const page = all.pages.find(
+          (p) => p.canvas === canvas && p.path === pagePath
         );
-        yield* tx.write(
-          yield* canvasFile(canvas),
-          renderCanvas({
+        if (!page) {
+          return yield* new NotFound({
+            message: `page not found: ${pagePath}`,
+          });
+        }
+        yield* tx.name(`Size ${page.name}`);
+        const drawn = all.pages
+          .filter((p) => p.canvas === canvas)
+          .map((p) => p.path);
+        // The layout as it is now, so nothing written since is put back. A page with no
+        // frame saved yet is sized where the editor draws it.
+        let frame = sizeFrame(drawnFrame(drawn, {}, pagePath), size);
+        yield* updateCanvas(tx, canvas, (layout) => {
+          frame = sizeFrame(drawnFrame(drawn, layout.frames, pagePath), size);
+          return {
             ...layout,
-            frames: { ...layout.frames, [pagePath]: next },
-          })
-        );
-        return next;
+            frames: { ...layout.frames, [pagePath]: frame },
+          };
+        });
+        return frame;
       })
     );
+    return sized;
   });
 
   return {

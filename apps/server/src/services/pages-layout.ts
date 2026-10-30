@@ -1,19 +1,16 @@
 /**
- * The pages' pure parts: what `canvas.json` and `canvases.json` say, the URL a canvas opens on,
- * the page list a set of files makes, and the links a rename or a new URL rewrites. The pages
+ * The pages' pure parts: what `canvases.json` says, the URL a canvas opens on,
+ * the page list a set of files makes. The pages
  * service and the snapshots both build on them; the service holds the files.
  */
-import { Conflict } from "@ultrapaint/contracts/errors";
 import {
   type Canvas,
-  CanvasLayout,
+  type CanvasLayout,
   CanvasOrder,
   emptyCanvasLayout,
   type Page,
   type PageList,
 } from "@ultrapaint/contracts/pages";
-import { serialiseDocument } from "@ultrapaint/design-document/format";
-import { fillIds } from "@ultrapaint/design-document/ids";
 import { isPageFile } from "@ultrapaint/design-document/tree";
 import {
   CANVAS_FILE,
@@ -31,7 +28,7 @@ import {
   pageRouteOf,
   variantOf,
 } from "@ultrapaint/shared/route";
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 
 export const IGNORED_DIRS = new Set([
   "node_modules",
@@ -39,58 +36,9 @@ export const IGNORED_DIRS = new Set([
   "dist",
   ".vite",
 ]);
-const decodeCanvas = Schema.decodeUnknownEffect(CanvasLayout);
 export const decodeOrder = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CanvasOrder)
 );
-
-/**
- * A layout from the text of `canvas.json`, with the ids its nodes leave out filled in. Nodes
- * are the canvas's document; ids are what an operation names them by.
- */
-export const parseCanvas = (text: string) =>
-  Effect.gen(function* () {
-    const json = yield* Effect.try({
-      catch: (error) =>
-        new Conflict({ message: `canvas.json is not JSON: ${String(error)}` }),
-      try: () => JSON.parse(text) as unknown,
-    });
-    const filled = fillIds(json);
-    const layout = yield* decodeCanvas(json).pipe(
-      Effect.mapError(
-        (error) =>
-          new Conflict({ message: `canvas.json is invalid: ${error.message}` })
-      )
-    );
-    return { filled, layout };
-  });
-
-const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
-  Object.fromEntries(
-    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
-  );
-
-/**
- * `canvas.json` as it is written: what its pages are drawn in and what it is called first, keys
- * sorted, and no empty list. The routes are written even when there are none, since their absence
- * means a canvas from before pages had optional URLs.
- */
-export const renderCanvas = (layout: CanvasLayout) => {
-  const nodes = layout.nodes ?? [];
-  const variants = layout.variants ?? [];
-  const states = layout.states ?? [];
-  return serialiseDocument({
-    ...(layout.defaults !== undefined && { defaults: layout.defaults }),
-    ...(layout.name !== undefined && { name: layout.name }),
-    ...(layout.home !== undefined && { home: layout.home }),
-    ...(variants.length > 0 && { variants }),
-    ...(states.length > 0 && { states }),
-    ...(layout.routes !== undefined && { routes: sortedKeys(layout.routes) }),
-    frames: sortedKeys(layout.frames),
-    ...(nodes.length > 0 && { nodes }),
-    version: 1,
-  });
-};
 
 const byRoute = (a: string, b: string) => a.localeCompare(b);
 
@@ -234,35 +182,4 @@ export const pageListOf = (input: {
     };
   });
   return { canvases: orderCanvases(canvases, input.order), pages };
-};
-
-/**
- * Rewrites, in place, the `link` of every node of a JSON tree (a page document, a canvas's
- * nodes): `map` answers what a link becomes, or undefined to leave it. True when one changed.
- */
-export const mapLinks = (
-  value: unknown,
-  map: (link: string) => string | undefined
-): boolean => {
-  if (Array.isArray(value)) {
-    return value.map((item) => mapLinks(item, map)).some(Boolean);
-  }
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  let changed = false;
-  if (typeof record.link === "string") {
-    const next = map(record.link);
-    if (next !== undefined && next !== record.link) {
-      record.link = next;
-      changed = true;
-    }
-  }
-  for (const key of ["children", "root"]) {
-    if (key in record && mapLinks(record[key], map)) {
-      changed = true;
-    }
-  }
-  return changed;
 };

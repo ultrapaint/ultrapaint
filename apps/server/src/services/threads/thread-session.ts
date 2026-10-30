@@ -55,7 +55,8 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
+import { DesignFiles } from "../design-files.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
@@ -243,7 +244,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const access = yield* McpAccess;
   const checkpoints = yield* Checkpoints;
   const { mcp: mcpEnabled } = yield* ServerConfig;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const events = yield* EventBus;
   const log = yield* AppLog;
   const path = yield* Path.Path;
@@ -323,6 +324,15 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
               events.publish("agent.terminal", { chunk, terminalId, threadId }),
             onUpdate: (n) => turn.place(n.update, relative),
             paths,
+            // A project closed meanwhile has nobody following its files.
+            wrote: (file, text) =>
+              project
+                .use(
+                  Effect.flatMap(DesignFiles, (files) =>
+                    files.report(file, text)
+                  )
+                )
+                .pipe(Effect.catchTag("NotConfigured", () => Effect.void)),
           },
           root: paths.root,
           writable,

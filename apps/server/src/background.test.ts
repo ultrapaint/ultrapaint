@@ -1,8 +1,12 @@
 import path from "node:path";
-import { assert, layer } from "@effect/vitest";
+import { assert, describe, layer, it as test } from "@effect/vitest";
 import { isWholeDocument } from "@ultrapaint/contracts/document";
 import { Effect, FileSystem, Stream } from "effect";
+import { OpenProject } from "./project.ts";
+import { DesignSystemSyncService } from "./services/design-system-sync.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
 import { nextEvent, TestEnv, TestServer } from "./testing/harness.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const PAGE = `${JSON.stringify({
   root: { children: [], id: "root", type: "page" },
@@ -77,57 +81,53 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         }),
       30_000
     );
-
-    it.effect(
-      "works the sync plan out again after a package.json that does not read",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const manifest = path.join(repo, "designs/package.json");
-          yield* fs.writeFileString(manifest, '{ "name": "designs", ');
-          // The plan that runs on the project opening reads the broken manifest.
-          const { event: opened } = yield* nextEvent(
-            client["events.syncPlan"](),
-            client["settings.set"]({ ...settings, libraryDirs: [] })
-          );
-          assert.isTrue(opened._tag === "Some" && !opened.value.facts.app);
-          const plan = yield* client["sync.plan"]();
-          assert.isFalse(plan.facts.app);
-
-          yield* fs.writeFileString(
-            manifest,
-            '{ "name": "designs", "dependencies": { "react": "19" } }\n'
-          );
-          const { event: next } = yield* nextEvent(
-            client["events.syncPlan"](),
-            client["settings.set"]({ ...settings, libraryDirs: ["ui"] })
-          );
-          assert.isTrue(next._tag === "Some" && next.value.facts.app);
-        }),
-      30_000
-    );
-
-    it.effect(
-      "lists the Figma imports there are when one of them does not read",
-      () =>
-        Effect.gen(function* () {
-          const { client, home, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* client["settings.set"](settings);
-          const dir = path.join(home, "imports", "fig_broken");
-          yield* fs.makeDirectory(dir, { recursive: true });
-          yield* fs.writeFileString(path.join(dir, "import.json"), "{ nope");
-
-          const listed = yield* client["figma.list"]();
-          assert.notInclude(
-            listed.map((i) => i.id),
-            "fig_broken"
-          );
-          // Nor does it stop the sync, which reads the newest import.
-          yield* client["sync.plan"]();
-        }),
-      30_000
-    );
   }
 );
+
+describe("the sync plan", () => {
+  test.effect(
+    "is worked out again after a package.json that does not read",
+    () =>
+      Effect.gen(function* () {
+        const { reopen, repo } = yield* ProjectFixture;
+        const fs = yield* FileSystem.FileSystem;
+        const sync = yield* DesignSystemSyncService;
+        assert.isFalse((yield* sync.plan).facts.app);
+        yield* fs.writeFileString(
+          path.join(repo, "designs/package.json"),
+          '{ "name": "designs", "dependencies": { "react": "19" } }\n'
+        );
+        yield* reopen({ libraryDirs: ["ui"] });
+        assert.isTrue((yield* sync.plan).facts.app);
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: { "designs/package.json": '{ "name": "designs", ' },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+});
+
+describe("the Figma imports", () => {
+  test.effect("are listed when one of them does not read", () =>
+    Effect.gen(function* () {
+      const project = yield* OpenProject;
+      const listed = yield* project.use(
+        Effect.flatMap(FigmaImportService, (figma) => figma.list)
+      );
+      assert.notInclude(
+        listed.map((i) => i.id),
+        "fig_broken"
+      );
+      // Nor does it stop the sync, which reads the newest import.
+      yield* (yield* DesignSystemSyncService).plan;
+    }).pipe(
+      Effect.provide(
+        ProjectTest({ state: { "imports/fig_broken/import.json": "{ nope" } })
+      ),
+      Effect.scoped
+    )
+  );
+});

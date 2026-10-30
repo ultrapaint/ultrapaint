@@ -1,3 +1,4 @@
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { childrenOf } from "@ultrapaint/design-document/tree";
@@ -235,7 +236,6 @@ describe("converting a frame", () => {
       mapping: {
         Button: {
           component: "Button",
-          from: "@acme/ui/button",
           kind: "component",
           propMap: {
             Label: { text: true },
@@ -250,7 +250,7 @@ describe("converting a frame", () => {
     }
     expect(root.children[3]).toMatchObject({
       component: "Button",
-      from: "@acme/ui/button",
+      from: SYSTEM_FROM,
       props: { size: "lg", variant: "primary" },
       text: "Sign in",
       type: "instance",
@@ -282,7 +282,6 @@ describe("converting a frame", () => {
       mapping: {
         Button: {
           component: "Button",
-          from: "@acme/ui/button",
           kind: "component",
           text: "children",
         },

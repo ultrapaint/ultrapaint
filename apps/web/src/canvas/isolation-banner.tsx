@@ -1,33 +1,20 @@
 import { Component } from "lucide-react";
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { appComponentOf, useComponents } from "../state/components.ts";
-import { isBoardFrame } from "../state/documents.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import {
   editVariant,
   leaveIsolation,
   useIsolation,
 } from "../state/isolation.ts";
 
-/** Whether a key is typed into something: a field, or text being edited on the canvas. */
-const typing = (event: KeyboardEvent) => {
-  const [target] = event.composedPath();
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable ||
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.tagName === "SELECT")
-  );
-};
-
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, or Escape. On its board (ADR 0045) the board edited says the member,
+ * on, and the way out: Done, or Escape (the `escape` command). On its board (ADR 0045) the board edited says the member,
  * a board a variant, and the banner only names it.
  */
 export const IsolationBanner = () => {
@@ -36,26 +23,11 @@ export const IsolationBanner = () => {
     isolated ? appComponentOf(s.components, isolated.component) : undefined
   );
 
-  useEffect(() => {
-    if (!isolated) {
-      return;
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !typing(event)) {
-        event.preventDefault();
-        event.stopPropagation();
-        leaveIsolation();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [isolated]);
-
   if (!(isolated && file?.origin === "app")) {
     return null;
   }
   const choices = file.properties.filter((p) => p.kind === "choice");
-  const onBoard = isBoardFrame(isolated.frame);
+  const onBoard = frameRefOf(isolated.frame).kind === "board";
   const current = isolated.variant
     ? `${isolated.variant.property}\n${isolated.variant.member}`
     : "";

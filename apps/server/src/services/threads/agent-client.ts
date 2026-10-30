@@ -16,8 +16,6 @@ import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { ServerConfig } from "../../config.ts";
-import { EventBus } from "../../events.ts";
-import { hashContent } from "../../hash.ts";
 import type { RepoPaths } from "../repo-paths.ts";
 
 /** What a thread gives the agent it launches: where it works, and where its news goes. */
@@ -37,11 +35,15 @@ export interface AgentHost {
   /** Every session update, in order. */
   readonly onUpdate: AcpHandlers["onUpdate"];
   readonly paths: RepoPaths["Service"];
+  /**
+   * A file the editor wrote for the agent, by its path in the repository, told to whoever follows
+   * the files (`DesignFiles`): the editors, and the modules that own the file's kind.
+   */
+  readonly wrote: (file: string, content: string) => Effect.Effect<void>;
 }
 
 export const makeAgentClient = Effect.fnUntraced(function* () {
   const log = yield* AppLog;
-  const events = yield* EventBus;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -156,10 +158,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
             });
           }
           yield* writeAtomic(abs, request.content);
-          yield* events.publish("file.changed", {
-            file: paths.relative(abs),
-            hash: hashContent(request.content),
-          });
+          yield* host.wrote(paths.relative(abs), request.content);
         }
       ),
     };

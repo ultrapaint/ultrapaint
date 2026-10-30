@@ -7,20 +7,23 @@
  * drag (`drag.ts`, which knows where it lands), followed the same way. Escape puts away a marquee
  * a frame draws (`use-frame-pointer.ts`) through here too.
  */
+
+import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
-import { isNodeFrame, NODE_FRAME_PREFIX } from "../state/documents.ts";
+import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import {
-  allFrames,
-  type Box,
   doneDrawingFrame,
   drawingFrame,
   hold,
   holdUntil,
+  setFrame,
   showFrame,
-  useEditor,
-} from "../state/editor.ts";
+} from "../state/page-layout.ts";
+import { select, selectPage } from "../state/selection.ts";
+import { allFrames } from "../state/surface.ts";
 import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
@@ -194,7 +197,7 @@ const followFrame = (
       const s = useEditor.getState();
       const f = s.frames[pageId];
       if (moved && f) {
-        s.setFrame(pageId, { ...f, ...roundBox(f) });
+        setFrame(pageId, { ...f, ...roundBox(f) });
       } else if (pushed) {
         showFrame(pushed.page, pushed.frame);
       }
@@ -266,13 +269,14 @@ export const beginFrameGesture = (
     (e.currentTarget as Element | null)
       ?.closest?.("[data-canvas]")
       ?.setPointerCapture(e.pointerId);
-  if (isNodeFrame(frameId)) {
-    const nodeId = frameId.slice(NODE_FRAME_PREFIX.length);
+  const ref = frameRefOf(frameId);
+  if (ref.kind === "node") {
+    const nodeId = ref.node;
     const box = allFrames()[frameId];
     if (!box) {
       return;
     }
-    s.select({ frame: frameId, nodeId });
+    select({ frame: frameId, nodeId });
     // A locked node is picked up by its name, and stays where it is and the size it is.
     if (isFrameLocked(frameId)) {
       return;
@@ -294,7 +298,7 @@ export const beginFrameGesture = (
   }
   capture();
   followFrame(frameId, kind, corner, frame, e);
-  s.selectPage(frameId);
+  selectPage(frameId);
 };
 
 /**

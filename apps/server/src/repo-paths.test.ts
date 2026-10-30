@@ -36,12 +36,10 @@ describe("RepoPaths.resolve", () => {
         }).pipe(
           Effect.provide(
             RepoPaths.layer({
-              componentPackages: [],
               designsDir: "real",
               hostCss: [],
               libraryDirs: [],
               repoPath: repo,
-              theme: "light",
             })
           )
         );
@@ -85,12 +83,10 @@ describe("a designs directory that is a link", () => {
         }).pipe(
           Effect.provide(
             RepoPaths.layer({
-              componentPackages: [],
               designsDir: "docs/designs",
               hostCss: [],
               libraryDirs: [],
               repoPath: repo,
-              theme: "light",
             })
           )
         );

@@ -4,7 +4,7 @@ import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { allTokens } from "@ultrapaint/contracts/token-table";
 import { makeFixture as makeFigmaFile } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, PlatformError } from "effect";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { DesignMd, documentBaseline } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
@@ -17,7 +17,7 @@ import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** An effect of the open project's services, run in it. */
 const inProject = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-  Effect.flatMap(ProjectManager, (project) => project.use(effect));
+  Effect.flatMap(OpenProject, (project) => project.use(effect));
 
 const designSystem = Effect.map(
   inProject(Effect.flatMap(DesignSystemService, (d) => d.get)),

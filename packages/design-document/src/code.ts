@@ -12,7 +12,12 @@
  * application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
+import {
+  applicationFileOf,
+  applicationNameOf,
+  type Catalogue,
+  metaOf,
+} from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -92,14 +97,14 @@ interface Writing {
   readonly inSlots: InSlots;
   /** The base (null), then the breakpoints the tree sets anything at, smallest first. */
   readonly levels: readonly (string | null)[];
-  /** The name each instance's component is imported as (`importKey`), unique in the file. */
-  readonly localNames: ReadonlyMap<string, string>;
   /** The design system's text styles and tokens, made once. */
   readonly styles: StyleContext;
 }
 
 /** How the slot each instance's child fills lays it out, by the child's id, at each level. */
 type InSlots = Map<string, readonly ParentLayout[]>;
+/** The module each instance's component is imported from, by the instance's id. */
+type Modules = Map<string, string>;
 
 /** The levels a tree is written at: the base, then each breakpoint it sets, with what holds at each. */
 interface Levels {
@@ -110,16 +115,8 @@ interface Levels {
 // ---- System components as the application's components ----
 
 const DEFAULT_COMPONENTS_FROM = "@/components/ui";
-const UPPER_RE = /([a-z0-9])([A-Z])/g;
 const PROPERTY_WORD_RE = /[\s_-]+(\w)/g;
 const FIRST_UPPER_RE = /^[A-Z]/;
-
-const kebabOf = (name: string) => name.replace(UPPER_RE, "$1-$2").toLowerCase();
-const pascalOf = (kebab: string) =>
-  kebab
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
 
 /**
  * Where the application's own component for a system component is imported from (ADR 0040): the first
@@ -144,30 +141,33 @@ export const componentsImportBase = (settings: {
   return `${written}/ui`;
 };
 
+/** Where an instance's component is written, and what is learnt writing it. */
+interface Written {
+  readonly base: string;
+  readonly catalogue: Catalogue;
+  /** How the slot each instance's child fills lays it out. */
+  readonly inSlots: InSlots;
+  readonly levels: Levels;
+  /** The module each instance's component, or part, is imported from. */
+  readonly modules: Modules;
+}
+
 /**
  * A tree with each system component written as the application's component for it (ADR 0040): imported
  * from `base`'s file of its name (`@/components/ui/dialog`), the children that fill each named
  * slot (`fillSlots`, as the canvas draws them) in that component's part (`DialogFooter` for
- * `dialog-footer`, `DialogTrigger` for `trigger`), in the component's order. How the slot each
- * instance's child fills lays it out goes in `inSlots`.
+ * `dialog-footer`, `DialogTrigger` for `trigger`), in the component's order.
  */
-const asApplicationCode = (
-  node: DesignNode,
-  base: string,
-  catalogue: Catalogue,
-  levels: Levels,
-  inSlots: InSlots
-): DesignNode => {
+const asApplicationCode = (node: DesignNode, w: Written): DesignNode => {
   if (node.type !== "instance") {
     return isParent(node)
       ? ({
           ...node,
-          children: node.children.map((c) =>
-            asApplicationCode(c, base, catalogue, levels, inSlots)
-          ),
+          children: node.children.map((c) => asApplicationCode(c, w)),
         } as DesignNode)
       : node;
   }
+  const { catalogue, inSlots, levels } = w;
   // The instance at each level: its variant may turn with a breakpoint, its slot's layout too.
   const atLevels = levels.names.map((name) => ({
     holding: upTo(levels.breakpoints, name),
@@ -186,16 +186,10 @@ const asApplicationCode = (
       )
     );
   }
-  const children = (node.children ?? []).map((c) =>
-    asApplicationCode(c, base, catalogue, levels, inSlots)
-  );
-  if (node.from === APP_FROM) {
-    return asAppComponentCode(node, children, base);
-  }
-  if (node.from !== SYSTEM_FROM) {
-    return node.children ? { ...node, children } : node;
-  }
-  return asSystemComponentCode(node, children, base, catalogue);
+  const children = (node.children ?? []).map((c) => asApplicationCode(c, w));
+  return node.from === APP_FROM
+    ? asAppComponentCode(node, children, w)
+    : asSystemComponentCode(node, children, w);
 };
 
 /**
@@ -205,14 +199,13 @@ const asApplicationCode = (
 const asSystemComponentCode = (
   node: InstanceNode,
   children: readonly DesignNode[],
-  base: string,
-  catalogue: Catalogue
+  w: Written
 ): DesignNode => {
-  const own = kebabOf(node.component);
-  const from = `${base}/${own}`;
-  const entry = metaOf(catalogue, node);
+  const from = `${w.base}/${applicationFileOf(node.component)}`;
+  w.modules.set(node.id, from);
+  const entry = metaOf(w.catalogue, node);
   if (!(entry && node.children)) {
-    return { ...node, from, ...(node.children && { children }) };
+    return node.children ? { ...node, children } : node;
   }
   const written = new Map(
     children.map((c) => {
@@ -227,19 +220,18 @@ const asSystemComponentCode = (
       if (entry.slots.find((s) => s.name === slot)?.holds === "default") {
         return held;
       }
+      const id = `${node.id}-${slot}`;
+      w.modules.set(id, from);
       return [
         {
           children: held,
-          component: pascalOf(
-            slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`
-          ),
-          from,
-          id: `${node.id}-${slot}`,
+          component: applicationNameOf(node.component, slot),
+          from: SYSTEM_FROM,
+          id,
           type: "instance",
-        } as DesignNode,
+        } satisfies InstanceNode,
       ];
     }),
-    from,
   };
 };
 
@@ -258,9 +250,10 @@ const propNameOf = (name: string) =>
 const asAppComponentCode = (
   node: InstanceNode,
   children: DesignNode[],
-  base: string
+  w: Written
 ): DesignNode => {
-  const parent = base.endsWith("/ui") ? base.slice(0, -3) : base;
+  const parent = w.base.endsWith("/ui") ? w.base.slice(0, -3) : w.base;
+  w.modules.set(node.id, `${parent}/${applicationFileOf(node.component)}`);
   const props = node.props
     ? Object.fromEntries(
         Object.entries(node.props).map(([name, value]) => [
@@ -271,7 +264,6 @@ const asAppComponentCode = (
     : undefined;
   return {
     ...node,
-    from: `${parent}/${kebabOf(node.component)}`,
     ...(props && { props }),
     ...(node.children && { children }),
   };
@@ -284,105 +276,35 @@ const isParent = (
 
 // ---- Imports ----
 
-/** `@acme/ui/date-picker` → `DatePicker`: what a default export is imported as. */
-const defaultImportName = (from: string) => {
-  const base = from.split("/").at(-1) ?? from;
-  const words = base.match(WORD_RE) ?? ["Component"];
-  const name = words
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
-  return IDENTIFIER_RE.test(name) ? name : `Component${name}`;
-};
-
-/** An imported component: its module and its export, `default` for the default one. */
-const importKey = (from: string, component: string) => `${from}\0${component}`;
-
-const tagOfInstance = (node: InstanceNode, w: Writing) =>
-  w.localNames.get(importKey(node.from, node.component)) ??
-  (node.component === "default"
-    ? defaultImportName(node.from)
-    : node.component);
-
-/** `base`, or `base2`, `base3`…: the first that `free` allows. */
-const firstFree = (base: string, free: (name: string) => boolean) => {
-  let name = base;
-  for (let n = 2; !free(name); n += 1) {
-    name = `${base}${n}`;
-  }
-  return name;
-};
-
 /**
- * The imports the visible instances under a node need, one statement per module, and the name
- * each component is imported as. Names in `reserved` (the page's own component) are taken. A
- * component imported by name keeps it unless an earlier module's took it (`{ Card as Card2 }`);
- * a default export takes its module's name (`Button`, `Button2`), never one imported by name.
+ * The imports the visible instances under a node need, one statement per module, each component
+ * by its name: a component's name is unique among the system and the app components (ADR 0041).
  */
 const importsFor = (
   root: DesignNode,
-  reserved: readonly string[],
+  modules: Modules,
   hidden: (node: DesignNode) => boolean
-): { localNames: Map<string, string>; lines: string[] } => {
-  const modules = new Map<string, { named: Set<string>; fallback: boolean }>();
+): string[] => {
+  const named = new Map<string, Set<string>>();
   const visit = (node: DesignNode) => {
     if (hidden(node)) {
       return;
     }
-    if (node.type === "instance") {
-      const entry = modules.get(node.from) ?? {
-        fallback: false,
-        named: new Set<string>(),
-      };
-      if (node.component === "default") {
-        entry.fallback = true;
-      } else {
-        entry.named.add(node.component);
-      }
-      modules.set(node.from, entry);
+    const from = node.type === "instance" ? modules.get(node.id) : undefined;
+    if (node.type === "instance" && from !== undefined) {
+      named.set(from, (named.get(from) ?? new Set()).add(node.component));
     }
     for (const child of childrenOf(node)) {
       visit(child);
     }
   };
   visit(root);
-  const sorted = [...modules.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const byName = (a: string, b: string) => a.localeCompare(b);
-  /** The names imported by name, which an alias or a default export's name does not take. */
-  const wanted = new Set(sorted.flatMap(([, { named }]) => [...named]));
-  const taken = new Set(reserved);
-  const localNames = new Map<string, string>();
-  for (const [from, { named }] of sorted) {
-    for (const component of [...named].sort(byName)) {
-      const name = firstFree(
-        component,
-        (n) => !taken.has(n) && (n === component || !wanted.has(n))
-      );
-      taken.add(name);
-      localNames.set(importKey(from, component), name);
-    }
-  }
-  for (const [from, { fallback }] of sorted) {
-    if (fallback) {
-      const name = firstFree(
-        defaultImportName(from),
-        (n) => !(taken.has(n) || wanted.has(n))
-      );
-      taken.add(name);
-      localNames.set(importKey(from, "default"), name);
-    }
-  }
-  const lines = sorted.map(([from, { fallback, named }]) => {
-    const names = [...named].sort(byName).map((component) => {
-      const local = localNames.get(importKey(from, component));
-      return local === component ? component : `${component} as ${local}`;
-    });
-    const parts = [
-      ...(fallback ? [localNames.get(importKey(from, "default"))] : []),
-      ...(names.length > 0 ? [`{ ${names.join(", ")} }`] : []),
-    ];
-    return `import ${parts.join(", ")} from ${JSON.stringify(from)};`;
-  });
-  return { lines, localNames };
+  return [...named.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(
+      ([from, names]) =>
+        `import { ${[...names].sort((a, b) => a.localeCompare(b)).join(", ")} } from ${JSON.stringify(from)};`
+    );
 };
 
 // ---- JSX ----
@@ -620,11 +542,7 @@ const jsxShowing = (
       return linked(
         node,
         w,
-        element(
-          tagOfInstance(node, w),
-          propAttributes(node.props, classes),
-          content
-        )
+        element(node.component, propAttributes(node.props, classes), content)
       );
     }
     default: {
@@ -702,13 +620,14 @@ export const toCode = (
   const used = breakpointsUsed(given, breakpoints);
   const levels = [null, ...used.map((b) => b.name)];
   const inSlots: InSlots = new Map();
-  const node = asApplicationCode(
-    given,
-    options.componentsFrom ?? DEFAULT_COMPONENTS_FROM,
-    options.catalogue ?? [],
-    { breakpoints, names: levels },
-    inSlots
-  );
+  const modules: Modules = new Map();
+  const node = asApplicationCode(given, {
+    base: options.componentsFrom ?? DEFAULT_COMPONENTS_FROM,
+    catalogue: options.catalogue ?? [],
+    inSlots,
+    levels: { breakpoints, names: levels },
+    modules,
+  });
   const parent = options.parent ?? "free";
   const asComponent = node.type === "page" && options.component !== undefined;
   const at = levels.map((name) => {
@@ -719,12 +638,7 @@ export const toCode = (
   const hiddenAll = (n: DesignNode) =>
     levels.every((_, level) => (at[level]?.get(n.id) ?? n).hidden);
   const rootHidden = hiddenAll(base);
-  // The page's own function is a name in the file too: an import does not take it.
-  const { localNames, lines: imports } = importsFor(
-    base,
-    asComponent && options.component ? [options.component] : [],
-    (n) => n !== base && hiddenAll(n)
-  );
+  const imports = importsFor(base, modules, (n) => n !== base && hiddenAll(n));
   const notes = rootHidden
     ? ["// Hidden in the design: the application leaves it out."]
     : [];
@@ -734,7 +648,6 @@ export const toCode = (
     hrefOf: options.hrefOf ?? ((link: string) => link),
     inSlots,
     levels,
-    localNames,
     styles: makeStyleContext(options.designSystem),
   };
   // A node hidden everywhere is still written when it is the one asked for.

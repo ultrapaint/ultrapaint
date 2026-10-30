@@ -33,12 +33,11 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import { FigmaImportService } from "./figma-import.ts";
-import { Migration } from "./migration.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 import {
@@ -143,7 +142,7 @@ export class DesignSystemSyncService extends Context.Service<
   static readonly layer = Layer.effect(
     DesignSystemSyncService,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const setup = yield* DesignSystemSetupService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
@@ -178,10 +177,6 @@ export class DesignSystemSyncService extends Context.Service<
           const source = yield* code.tokens;
           const state = yield* (yield* DesignSystemService).get;
           const latest = yield* (yield* FigmaImportService).latest;
-          const old = yield* (yield* Migration).left.pipe(
-            // Pages that cannot be read say nothing of what they hold.
-            Effect.orElseSucceed(() => ({ drawn: 0, left: 0, specs: 0 }))
-          );
           const ds = state.designSystem;
           const comparison = ds ? yield* code.comparison(ds) : null;
           const codeTokens = comparison?.read
@@ -200,9 +195,6 @@ export class DesignSystemSyncService extends Context.Service<
             designSystem: state.designSystem !== null,
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
             libraryDirs: [...settings.libraryDirs],
-            ...(old.drawn + old.left + old.specs > 0 && {
-              oldInstances: old,
-            }),
             styleSystem: styleSystem.id,
             stylesheets: settings.hostCss.length,
             tokens: source.tokens.filter((t) => t.own).length,

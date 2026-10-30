@@ -1,8 +1,8 @@
 /**
  * The stylesheets every frame of the editor's page adopts (ADR 0034, 0040): the frame's own base,
  * the system components' default look, and the design's (every token's value and the looks the
- * project owns, ADRs 0028, 0041). Each is parsed once and shared by every frame; a frame given a
- * look of its own adopts its own design sheet in place of the shared one (ADR 0042).
+ * project owns, ADRs 0028, 0041). Each is parsed once and shared by every frame; a board's frame
+ * adopts a sheet of its own after them (ADR 0045).
  *
  * The editor writes all of it for a frame (ADR 0042): the root is the shadow host (`:host`), the
  * body the frame's body element, the window's size the frame's (`@container ed-frame`, `cqh`).
@@ -111,21 +111,18 @@ const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
 };
 
 /**
- * The sheets a frame adopts, in the order they apply: the design's last, so it wins; `own` in
- * place of the shared design sheet.
+ * The sheets a frame adopts, in the order they apply: the design's after the components', so it
+ * wins, and the frame's own `extra` (a board's) last.
  */
-export const frameSheets = (
-  own?: CSSStyleSheet,
-  extra?: CSSStyleSheet
-): CSSStyleSheet[] => [
+export const frameSheets = (extra?: CSSStyleSheet): CSSStyleSheet[] => [
   sheet("base"),
   sheet("components"),
-  own ?? sheet("design"),
+  sheet("design"),
   ...(extra ? [extra] : []),
 ];
 
-/** A design sheet of one frame's (a component's unsaved look). */
-export const ownDesignSheet = (css: string): CSSStyleSheet => {
+/** A stylesheet of one frame's (a board's). */
+export const frameSheet = (css: string): CSSStyleSheet => {
   const own = new CSSStyleSheet();
   own.replaceSync(css);
   return own;

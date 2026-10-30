@@ -20,12 +20,10 @@ vi.mock(
 const REPO = "/work/shop";
 
 const running: Settings = {
-  componentPackages: [],
   designsDir: "designs",
   hostCss: [],
   libraryDirs: [],
   repoPath: REPO,
-  theme: "light",
 };
 
 const openInfo = (storage: ProjectInfo["storage"]): ProjectInfo => ({
@@ -99,11 +97,11 @@ describe("detecting", () => {
     let draft: Settings = running;
     const detecting = detect(REPO);
     // The settings page's form, typed in while the server reads the repository.
-    draft = { ...draft, pagePngs: true, theme: "dark" };
+    draft = { ...draft, codeTokens: "auto", pagePngs: true };
     answer(found);
     draft = (await detecting).onto(draft);
     expect(draft.pagePngs).toBe(true);
-    expect(draft.theme).toBe("dark");
+    expect(draft.codeTokens).toBe("auto");
     expect(draft.designsDir).toBe("docs/designs");
     expect(draft.libraryDirs).toEqual(["src/ui"]);
     expect(fakeApi.calls[0]?.input).toEqual({ repoPath: REPO });

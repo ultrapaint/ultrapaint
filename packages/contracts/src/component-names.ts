@@ -34,7 +34,10 @@ export const isVariantKey = (key: string) => key.includes("=");
 
 /**
  * The document an app component's tree is edited as (ADR 0041), beside a page's and a canvas's:
- * `component:Promo`. Its file is the component's.
+ * `component:Promo`. Its file is the component's. It is written as a design target names a
+ * component (`COMPONENT_TARGET_PREFIX`, ADR 0030) and kept apart from it: a document is an app
+ * component's tree, which a system component has none of, and a target any component's file;
+ * nothing reads one as the other.
  */
 export const COMPONENT_DOC_PREFIX = "component:";
 export const componentDocOf = (name: string) =>

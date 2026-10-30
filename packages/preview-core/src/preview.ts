@@ -63,8 +63,7 @@ export interface PageError {
 
 /**
  * The design's look (ADRs 0028, 0041, 0042): what the frames draw the components with. The editor
- * sets it once on the preview (`setLook`), which writes its stylesheet for every frame; a frame
- * that draws another (a component's unsaved look) is given its own with its render.
+ * sets it on the preview (`setLook`), which writes its stylesheet once for every frame.
  */
 export interface Look {
   /**
@@ -102,8 +101,6 @@ export interface RenderRequest {
         readonly props?: Readonly<Record<string, JsonValue>> | undefined;
       }
     | undefined;
-  /** A look of its own, in a stylesheet of the frame's; the preview's when left out. */
-  readonly look?: Look | undefined;
   /** Shown instead of a node. */
   readonly message?: string | undefined;
   readonly mode: RenderMode;
@@ -112,7 +109,7 @@ export interface RenderRequest {
 }
 
 /** What a renderer is told to draw: a request, with the components of the look it is drawn in. */
-export interface Drawing extends Omit<RenderRequest, "css" | "look"> {
+export interface Drawing extends Omit<RenderRequest, "css"> {
   readonly components: Look["components"];
 }
 
@@ -173,10 +170,6 @@ export interface FrameRuntime {
   readonly show: (shown: Partial<FrameShown>) => void;
   /** Nodes an agent is rewriting, drawn as placeholders until it is done. */
   readonly skeleton: (nodeIds: readonly string[]) => void;
-  /** The CSS custom properties the stylesheets define, resolved in the frame's theme. */
-  readonly tokens: (
-    prefixes?: readonly string[]
-  ) => Readonly<Record<string, string>>;
   readonly unmount: () => void;
   readonly watchRects: (nodeIds: readonly string[]) => void;
 }
@@ -237,8 +230,8 @@ export interface Preview {
     options: MountFrameOptions
   ) => FrameRuntime;
   /**
-   * The design's look from now on, for every frame that is not given one of its own: its
-   * stylesheet written once, and every frame drawn again with its components.
+   * The design's look from now on, for every frame: its stylesheet written once, and every frame
+   * drawn again with its components.
    */
   readonly setLook: (look: Look) => void;
 }

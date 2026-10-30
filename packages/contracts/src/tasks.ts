@@ -54,13 +54,6 @@ export const RedrawTask = Schema.TaggedStruct("Redraw", {
 });
 export type RedrawTask = typeof RedrawTask.Type;
 
-/** `/components`: a sheet of the design system's components drawn into a canvas. */
-export const ComponentsTask = Schema.TaggedStruct("Components", {
-  canvas: Schema.String,
-  extra: Extra,
-});
-export type ComponentsTask = typeof ComponentsTask.Type;
-
 /** `/design-system`: a step of the design-system setup (ADR 0023); Define in a mode if given. */
 export const SetupStepTask = Schema.TaggedStruct("SetupStep", {
   extra: Extra,
@@ -91,7 +84,6 @@ export const TaskRequest = Schema.Union([
   AdoptTask,
   ImportFigmaTask,
   RedrawTask,
-  ComponentsTask,
   SetupStepTask,
   SyncTask,
 ]);
@@ -254,22 +246,6 @@ const COMMANDS: readonly Command[] = [
     },
     print: (request) => [canvasWord(request.canvas), request.change],
     requests: ["Redraw"],
-  }),
-  command({
-    argument: "<canvas>",
-    description:
-      "Draw a sheet of the design system's components, in each of their variants, into a canvas",
-    name: "components",
-    parse: (argument) => {
-      const { first, rest } = splitWord(argument);
-      return {
-        _tag: "Components",
-        canvas: canvasOfWord(first),
-        ...given("extra", rest),
-      };
-    },
-    print: (request) => [canvasWord(request.canvas), request.extra],
-    requests: ["Components"],
   }),
   command({
     argument: "<step>",

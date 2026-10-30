@@ -15,7 +15,7 @@ import {
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { agentWays } from "./agent-ways.ts";
@@ -42,7 +42,7 @@ export class AgentTasks extends Context.Service<
   static readonly layer = Layer.effect(
     AgentTasks,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const { mcp } = yield* ServerConfig;
       const ways = agentWays(mcp);
 
@@ -134,8 +134,6 @@ ${userAdds(extra)}</ultrapaint-task>`
             return yield* pageTasks.importFigma(request);
           case "Redraw":
             return yield* pageTasks.redraw(request);
-          case "Components":
-            return yield* pageTasks.components(request);
           case "SetupStep":
             return yield* setupStep(request);
           case "Sync":

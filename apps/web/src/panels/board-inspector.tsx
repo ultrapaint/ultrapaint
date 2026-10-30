@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { OVERVIEW } from "../boards/library-boards.ts";
+import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
+import { isGuideline } from "../boards/system-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
 import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";
@@ -52,7 +54,7 @@ const useKind = (open: BoardPlace) => {
     s.catalogue.some((c) => c.name === open.item && c.importFrom === APP_FROM)
   );
   if (open.view === "system") {
-    return open.item.startsWith("guide-") ? "Guideline" : "Foundation";
+    return isGuideline(open.item) ? "Guideline" : "Foundation";
   }
   if (open.item === OVERVIEW) {
     return "Every component";
@@ -60,25 +62,19 @@ const useKind = (open: BoardPlace) => {
   return app ? "App component" : "System component";
 };
 
-/** A picked node's id says what it stands for: `token:color-primary` is the token. */
-const pickedName = (nodeId: string) => {
-  const at = nodeId.indexOf(":");
-  return { kind: nodeId.slice(0, at), name: nodeId.slice(at + 1) };
-};
-
-type Picked = ReturnType<typeof pickedName>;
+/** What is picked on Design system's boards: a token, a colour group or a text style. */
+type Picked = DesignSystemPick;
 
 /** What a pick is called under its name. */
-const subtitleOf = (picked: Picked, itemName: string) => {
-  if (picked.kind === "token") {
-    return tokenKindLabel(picked.name);
+const subtitleOf = (picked: Picked) => {
+  switch (picked.kind) {
+    case "token":
+      return tokenKindLabel(picked.name);
+    case "group":
+      return "Color group";
+    default:
+      return "Text style";
   }
-  if (picked.kind === "group") {
-    return "Color group";
-  }
-  return picked.kind === "style"
-    ? "Text style"
-    : `${picked.kind} of ${itemName}`;
 };
 
 /** The operation that deletes what is picked, when it can be. */
@@ -144,7 +140,7 @@ const SystemBody = ({
 }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const document = useDesignSystem((s) => s.document);
-  if (open.item.startsWith("guide-")) {
+  if (isGuideline(open.item)) {
     return <GuidelineEditor document={document} item={open.item} />;
   }
   if (!ds) {
@@ -259,9 +255,9 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
   const chip = useBoardChip();
   // On the Library the item is what the panel is about: a cell picked is its place, in the selects.
   const picked =
-    pick && open.view === "system" ? pickedName(pick.nodeId) : null;
+    pick && open.view === "system" ? designSystemPickOf(pick.nodeId) : null;
   const title = picked?.name ?? name;
-  const subtitle = picked ? subtitleOf(picked, name) : kind;
+  const subtitle = picked ? subtitleOf(picked) : kind;
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
       <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3">

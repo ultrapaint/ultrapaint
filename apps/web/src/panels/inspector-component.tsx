@@ -2,7 +2,8 @@
  * An app component edited in place (ADR 0041), in the inspector: its properties (added, renamed,
  * taken out, a choice's members), a field of the node selected exposed as one (a text's text, a
  * node's visibility, an image's picture, a nested instance's text or prop), and a container made
- * one of its slots. Each change is the component's file saved whole, one undo step.
+ * one of its slots. Each is a component change made on the file as the server has it (ADR 0042),
+ * one undo step.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { metaOf, type PropMeta } from "@ultrapaint/contracts/catalogue";
@@ -522,7 +523,7 @@ export const IsolatedComponent = ({
   const file = useComponents((s) =>
     isolated ? appComponentOf(s.components, isolated.component) : undefined
   );
-  if (!(isolated && file?.origin === "app")) {
+  if (!(isolated && file)) {
     return null;
   }
   return (

@@ -28,9 +28,10 @@ import { useComponents } from "./components.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
-import { layoutOf, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
 import { useImplementation } from "./implementation.ts";
 import { useKept } from "./kept.ts";
+import { applyLayout, layoutOf } from "./page-layout.ts";
 import { useProject } from "./project.ts";
 import { followServer, viewSnapshot } from "./server-data.ts";
 import { useSkills } from "./skills.ts";
@@ -47,12 +48,10 @@ vi.mock(
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const settings: Settings = {
-  componentPackages: [],
   designsDir: "designs",
   hostCss: [],
   libraryDirs: [],
   repoPath: "/work/shop",
-  theme: "light",
 };
 
 const page = (id: string, name: string): Page => ({
@@ -258,7 +257,7 @@ const openEditor = async () => {
     useKept.getState().load(),
   ]);
   // The canvas opens with the layout it read, as `goTo` does.
-  useEditor.getState().applyLayout("", await layoutOf(""));
+  applyLayout("", await layoutOf(""));
 };
 
 const reported: unknown[] = [];

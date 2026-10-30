@@ -6,13 +6,12 @@ import {
   componentOfDoc,
 } from "@ultrapaint/contracts/components";
 import {
+  type AppliedChanges,
   type ApplyInput,
-  type ApplyResult,
   DesignNode,
   type DocumentChange,
   type DocumentEdit,
   type DocumentState,
-  PageDocument,
 } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
@@ -25,7 +24,7 @@ import {
   type UploadAssetInput,
 } from "@ultrapaint/contracts/pages";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
-import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
@@ -52,49 +51,20 @@ import {
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import { canvasText, readCanvasText } from "./canvas-file.ts";
 import {
   componentText,
   readComponentFile,
   withTree,
 } from "./component-files.ts";
+import { DesignFiles } from "./design-files.ts";
+import { decodePage, parseDocument, problemOf } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
-import { parseCanvas } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const decodePage = Schema.decodeUnknownEffect(PageDocument);
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
 const decodeNode = Schema.decodeUnknownEffect(DesignNode);
-
-/** What a document's text holds, with whether ids had to be filled in, or what is wrong with it. */
-export const parseDocument = (
-  text: string,
-  canvas: boolean
-): Effect.Effect<
-  | { readonly filled: boolean; readonly root: DesignNode }
-  | { readonly problem: string }
-> =>
-  canvas
-    ? parseCanvas(text).pipe(
-        Effect.map(({ filled, layout }) => ({
-          filled,
-          root: canvasRoot(layout.nodes ?? []),
-        })),
-        Effect.catch((error) => Effect.succeed({ problem: error.message }))
-      )
-    : Effect.try({
-        catch: (error) => `not JSON: ${problemOf(error)}`,
-        try: () => JSON.parse(text) as unknown,
-      }).pipe(
-        Effect.flatMap((json) => {
-          const filled = fillIds(json);
-          return decodePage(json).pipe(
-            Effect.map(({ root }) => ({ filled, root })),
-            Effect.mapError((error) => error.message)
-          );
-        }),
-        Effect.catch((problem) => Effect.succeed({ problem }))
-      );
 
 const IMAGE_EXTENSIONS = new Set([
   "avif",
@@ -117,9 +87,6 @@ interface Loaded {
   readonly text: string | null;
 }
 
-const problemOf = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
 /** What `apply`'s `alongside` works with: the step's files, and the documents as they are in it. */
 export interface ApplyStep {
   /** Every page and canvas of every canvas. */
@@ -130,6 +97,14 @@ export interface ApplyStep {
 
 /** What `alongside` adds to the step: more edits, or nothing but its files. */
 type Alongside = readonly DocumentEdit[] | undefined;
+
+/**
+ * What applying edits gives: the ids the operations created, each document touched as it is now
+ * and as the editors were told it (ADR 0044).
+ */
+export interface Applied extends AppliedChanges {
+  readonly documents: readonly DocumentState[];
+}
 
 /**
  * The design documents of the open project: every page (`<route>.page.json`) and every canvas's
@@ -144,22 +119,18 @@ export class DocumentService extends Context.Service<
      * Applies the edits as one undo step; `alongside` changes other files of the designs in the
      * same step (a component's file written as an instance of it takes a node's place), and may
      * give edits of its own, made of the documents as they are under the journal (`step.all`,
-     * `step.get`), so no edit made meanwhile fails or is lost.
+     * `step.get`), so no edit made meanwhile fails or is lost. Answers with each document touched
+     * and its change as the editors were told it.
      */
     readonly apply: (
       input: ApplyInput,
       alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
-    ) => Effect.Effect<ApplyResult, EditFailure | Conflict>;
+    ) => Effect.Effect<Applied, EditFailure | Conflict>;
     /** Every page and canvas of every canvas, as each is saved now. */
     readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
-    /**
-     * A document's state as the editor is told it (ADR 0044): the change last published to it
-     * when that is the state, else the whole document.
-     */
-    readonly changeOf: (state: DocumentState) => DocumentChange;
     readonly list: (
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
@@ -176,6 +147,7 @@ export class DocumentService extends Context.Service<
       const edit = yield* EditService;
       const pages = yield* PagesService;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
@@ -320,28 +292,21 @@ export class DocumentService extends Context.Service<
        * are missing, or it is not a document.
        */
       const withIds = (text: string, canvas: boolean) =>
-        Effect.flatMap(parseDocument(text, canvas), (parsed) => {
-          if ("problem" in parsed || !parsed.filled) {
-            return Effect.succeed(null);
-          }
-          if (!canvas) {
-            return Effect.succeed(
-              serialiseDocument({
-                root: parsed.root,
-                version: DOCUMENT_VERSION,
-              })
+        canvas
+          ? readCanvasText(text).pipe(
+              Effect.map(({ filled, layout }) =>
+                filled ? canvasText(layout) : null
+              ),
+              Effect.orElseSucceed(() => null)
+            )
+          : Effect.map(parseDocument(text, false), (parsed) =>
+              "problem" in parsed || !parsed.filled
+                ? null
+                : serialiseDocument({
+                    root: parsed.root,
+                    version: DOCUMENT_VERSION,
+                  })
             );
-          }
-          // The canvas's layout is kept as it is; only its nodes get their ids.
-          return Effect.try(
-            () => JSON.parse(text) as Record<string, unknown>
-          ).pipe(
-            Effect.map((layout): string | null =>
-              serialiseDocument({ ...layout, nodes: childrenOf(parsed.root) })
-            ),
-            Effect.orElseSucceed(() => null)
-          );
-        });
 
       const stateOf = (doc: string, loaded: Loaded): DocumentState => ({
         doc,
@@ -425,20 +390,17 @@ export class DocumentService extends Context.Service<
         }
         return state;
       };
+      /** Tells the editors of a state they were not told yet; answers with it as they were told. */
       const publish = (state: DocumentState) =>
-        Effect.suspend(() => {
+        Effect.suspend((): Effect.Effect<DocumentChange> => {
           const before = published.get(state.doc);
           if (before?.state.hash === state.hash) {
-            return Effect.void;
+            return Effect.succeed(before.change);
           }
           const change = changeSince(before?.state, state);
           published.set(state.doc, { change, state });
-          return events.publish("document", change);
+          return Effect.as(events.publish("document", change), change);
         });
-      const changeOf = (state: DocumentState): DocumentChange => {
-        const last = published.get(state.doc);
-        return last?.state.hash === state.hash ? last.change : state;
-      };
 
       /** A document's edited tree written to its file: a page's, a canvas's, a component's. */
       const writeDocument = Effect.fnUntraced(function* (
@@ -554,8 +516,8 @@ export class DocumentService extends Context.Service<
         const documents = yield* Effect.forEach(touched, (doc) =>
           Effect.map(load(doc), (loaded) => stateOf(doc, loaded))
         );
-        yield* Effect.forEach(documents, publish, { discard: true });
-        return { created, documents } satisfies ApplyResult;
+        const changes = yield* Effect.forEach(documents, publish);
+        return { changes, created, documents } satisfies Applied;
       });
 
       const all = allOf(true).pipe(Effect.withSpan("DocumentService.all"));
@@ -627,7 +589,7 @@ export class DocumentService extends Context.Service<
         return isPageFile(rel) ? rel : null;
       };
 
-      yield* events.subscribe("file.changed").pipe(
+      yield* designFiles.changes(["page", "canvas", "component"]).pipe(
         Stream.mapEffect(({ file }) => {
           const doc = docOfFile(file);
           if (doc === null) {
@@ -649,7 +611,6 @@ export class DocumentService extends Context.Service<
       return DocumentService.of({
         all,
         apply,
-        changeOf,
         get,
         list,
         upload,

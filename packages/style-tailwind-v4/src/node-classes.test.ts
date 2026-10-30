@@ -1,3 +1,4 @@
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { Declarations } from "@ultrapaint/contracts/node-style";
@@ -313,7 +314,7 @@ describe("toCode", () => {
           },
           {
             component: "Button",
-            from: "@acme/ui/button",
+            from: SYSTEM_FROM,
             id: "cta",
             props: { disabled: true, size: 2, variant: "outline" },
             text: "Start",
@@ -335,7 +336,7 @@ describe("toCode", () => {
       },
       {
         component: "Badge",
-        from: "@acme/ui/badge",
+        from: SYSTEM_FROM,
         id: "badge",
         link: "/plans",
         type: "instance",
@@ -349,8 +350,8 @@ describe("toCode", () => {
   it("writes a page as its component, with the imports its instances need", () => {
     expect(
       toCode(page, ds, { component: "PricingPage" })
-    ).toBe(`import { Badge } from "@acme/ui/badge";
-import { Button } from "@acme/ui/button";
+    ).toBe(`import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function PricingPage() {
   return (
@@ -372,7 +373,7 @@ export default function PricingPage() {
     const hero = page.children[0] as DesignNode;
     expect(
       toCode(hero, ds, { parent: "row" })
-    ).toBe(`import { Button } from "@acme/ui/button";
+    ).toBe(`import { Button } from "@/components/ui/button";
 
 <div className="flex flex-col gap-4 flex-1 min-w-0">
   <h1>Pricing</h1>
@@ -402,13 +403,13 @@ export default function PricingPage() {
   it("merges a className prop with the node's utilities", () => {
     const node: DesignNode = {
       component: "Card",
-      from: "@acme/ui/card",
+      from: SYSTEM_FROM,
       id: "card",
       padding: 8,
       props: { className: "ring-1", "data-x": "y", "weird key": 1 },
       type: "instance",
     };
-    expect(toCode(node, ds)).toBe(`import { Card } from "@acme/ui/card";
+    expect(toCode(node, ds)).toBe(`import { Card } from "@/components/ui/card";
 
 <Card data-x="y" {...{"weird key":1}} className="ring-1 p-2" />`);
   });
@@ -425,7 +426,7 @@ export default function PricingPage() {
         },
       ],
       component: "Card",
-      from: "@acme/ui/card",
+      from: SYSTEM_FROM,
       id: "card",
       type: "instance",
     };
@@ -435,7 +436,7 @@ export default function PricingPage() {
         catalogue: [
           {
             category: "Layout",
-            importFrom: "@acme/ui/card",
+            importFrom: SYSTEM_FROM,
             name: "Card",
             props: [],
             slots: [
@@ -455,89 +456,6 @@ export default function PricingPage() {
 });
 
 describe("toCode's names and text", () => {
-  it("gives two default exports of the same name a name each, and none a named import's", () => {
-    const row: DesignNode = {
-      children: [
-        {
-          component: "default",
-          from: "@acme/ui/button",
-          id: "a",
-          type: "instance",
-        },
-        {
-          component: "default",
-          from: "@beta/ui/button",
-          id: "b",
-          type: "instance",
-        },
-        { component: "Button", from: "@gamma/ui", id: "c", type: "instance" },
-      ],
-      id: "row",
-      type: "row",
-    };
-    expect(toCode(row, ds)).toBe(`import Button2 from "@acme/ui/button";
-import Button3 from "@beta/ui/button";
-import { Button } from "@gamma/ui";
-
-<div className="flex">
-  <Button2 />
-  <Button3 />
-  <Button />
-</div>`);
-  });
-
-  it("leaves the page's own name to the page", () => {
-    const settings: DesignNode = {
-      children: [
-        {
-          component: "default",
-          from: "@/components/settings-page",
-          id: "a",
-          type: "instance",
-        },
-        {
-          component: "SettingsPage",
-          from: "@acme/ui",
-          id: "b",
-          type: "instance",
-        },
-      ],
-      id: "root",
-      type: "page",
-    };
-    const code = toCode(settings, ds, { component: "SettingsPage" });
-    expect(code).toContain(
-      'import SettingsPage3 from "@/components/settings-page";'
-    );
-    expect(code).toContain(
-      'import { SettingsPage as SettingsPage2 } from "@acme/ui";'
-    );
-    expect(code).toContain("export default function SettingsPage() {");
-    expect(code).toContain("<SettingsPage3 />");
-    expect(code).toContain("<SettingsPage2 />");
-  });
-
-  it("gives a component imported by name from two modules a name each", () => {
-    const row: DesignNode = {
-      children: [
-        { component: "Card", from: "@acme/ui/card", id: "a", type: "instance" },
-        { component: "Card", from: "@beta/ui", id: "b", type: "instance" },
-        { component: "Card2", from: "@gamma/ui", id: "c", type: "instance" },
-      ],
-      id: "row",
-      type: "row",
-    };
-    expect(toCode(row, ds)).toBe(`import { Card } from "@acme/ui/card";
-import { Card as Card3 } from "@beta/ui";
-import { Card2 } from "@gamma/ui";
-
-<div className="flex">
-  <Card />
-  <Card3 />
-  <Card2 />
-</div>`);
-  });
-
   it("writes text JSX would read otherwise as a string", () => {
     const text = (value: string): DesignNode => ({
       id: "t",

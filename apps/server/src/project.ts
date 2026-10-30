@@ -32,6 +32,7 @@ import { EventBus } from "./events.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
+import type { DesignFiles } from "./services/design-files.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DesignTargets } from "./services/design-targets.ts";
@@ -41,7 +42,6 @@ import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import type { ImplementationService } from "./services/implementation.ts";
-import type { Migration } from "./services/migration.ts";
 import type { PagePngs } from "./services/page-pngs.ts";
 import type { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
@@ -60,7 +60,7 @@ export type ProjectServices =
   | CodeSide
   | CommentsService
   | ComponentService
-  | Migration
+  | DesignFiles
   | DesignMd
   | DesignSystemService
   | DesignTargets
@@ -95,7 +95,7 @@ export type ProjectLayer = (
   settings: Settings
 ) => Layer.Layer<ProjectServices, never, ProjectRequirements>;
 
-interface OpenProject {
+interface Opened {
   readonly scope: Scope.Closeable;
   readonly services: Context.Context<ProjectServices>;
   /** The settings it was opened with: the settings in force. */
@@ -116,6 +116,32 @@ const withoutUnset = (settings: Settings) =>
 /** Whether two settings run the same project: equal field by field, whatever their keys' order. */
 const sameSettings = (a: Settings, b: Settings) =>
   equivalentSettings(withoutUnset(a), withoutUnset(b));
+
+/**
+ * The project open now, for whatever works against it: its services, and its scope for work that
+ * must end when the project does. Two adapters: the one `ProjectManager` opens with the settings in
+ * force, and the threads' tests' fixture, which opens only what threads use.
+ */
+export class OpenProject extends Context.Service<
+  OpenProject,
+  {
+    /** Scope of the open project, for work that must end when the project does. */
+    readonly scope: Effect.Effect<Scope.Scope, NotConfigured>;
+    /**
+     * One service of the open project, for a caller that asks it many things:
+     * `const pages = project.service(PagesService)`, then `pages((p) => p.list)`.
+     */
+    readonly service: <I extends ProjectServices, S>(
+      key: Context.Key<I, S>
+    ) => <A, E>(
+      f: (service: S) => Effect.Effect<A, E>
+    ) => Effect.Effect<A, E | NotConfigured>;
+    /** Runs an effect against the open project. */
+    readonly use: <A, E>(
+      effect: Effect.Effect<A, E, ProjectServices>
+    ) => Effect.Effect<A, E | NotConfigured>;
+  }
+>()("ultrapaint/server/OpenProject") {}
 
 /**
  * Owns the one open project and the settings in force. The project is a layer built into its
@@ -150,28 +176,13 @@ export class ProjectManager extends Context.Service<
     ) => Effect.Effect<PersistResult, BadRequest | Conflict>;
     /** Renames a configuration file still under its old name; returns the new path. */
     readonly renameConfig: Effect.Effect<string, BadRequest | Conflict>;
-    /** Scope of the open project, for work that must end when the project does. */
-    readonly scope: Effect.Effect<Scope.Scope, NotConfigured>;
     /** Validates and, when valid, saves the settings and puts them in force. */
     readonly set: (settings: Settings) => Effect.Effect<SettingsValidation>;
-    /** Runs an effect against the open project. */
-    readonly use: <A, E>(
-      effect: Effect.Effect<A, E, ProjectServices>
-    ) => Effect.Effect<A, E | NotConfigured>;
-    /**
-     * One service of the open project, for a caller that asks it many things:
-     * `const pages = project.service(PagesService)`, then `pages((p) => p.list)`.
-     */
-    readonly service: <I extends ProjectServices, S>(
-      key: Context.Key<I, S>
-    ) => <A, E>(
-      f: (service: S) => Effect.Effect<A, E>
-    ) => Effect.Effect<A, E | NotConfigured>;
   }
 >()("ultrapaint/server/ProjectManager") {
+  /** The settings in force and the project they open: `ProjectManager` and `OpenProject`. */
   static readonly layer = (projectLayer: ProjectLayer) =>
-    Layer.effect(
-      ProjectManager,
+    Layer.effectContext(
       Effect.gen(function* () {
         const requirements = yield* Effect.context<ProjectRequirements>();
         const path = yield* Path.Path;
@@ -188,7 +199,7 @@ export class ProjectManager extends Context.Service<
         // reads the repository lands before or after the detected settings, never between.
         const inForce = yield* Semaphore.make(1);
         const publishing = yield* Semaphore.make(1);
-        let current: OpenProject | null = null;
+        let current: Opened | null = null;
         // The info the editor was last told, to tell it only of a change.
         let published: string | null = null;
 
@@ -415,22 +426,31 @@ export class ProjectManager extends Context.Service<
           Effect.forkIn(managerScope, { startImmediately: true })
         );
 
-        return ProjectManager.of({
-          adoptDetected,
-          apply,
-          close: lifecycle.withPermits(1)(closeCurrent),
-          info,
-          persist,
-          renameConfig,
-          scope: Effect.suspend(() =>
-            current
-              ? Effect.succeed(current.scope)
-              : Effect.fail(notConfigured())
-          ),
-          service: (key) => (f) => use(Effect.flatMap(key, f)),
-          set,
-          use,
-        });
+        return Context.make(
+          ProjectManager,
+          ProjectManager.of({
+            adoptDetected,
+            apply,
+            close: lifecycle.withPermits(1)(closeCurrent),
+            info,
+            persist,
+            renameConfig,
+            set,
+          })
+        ).pipe(
+          Context.add(
+            OpenProject,
+            OpenProject.of({
+              scope: Effect.suspend(() =>
+                current
+                  ? Effect.succeed(current.scope)
+                  : Effect.fail(notConfigured())
+              ),
+              service: (key) => (f) => use(Effect.flatMap(key, f)),
+              use,
+            })
+          )
+        );
       })
     );
 }

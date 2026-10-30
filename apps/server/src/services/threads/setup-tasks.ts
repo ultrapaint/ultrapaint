@@ -11,7 +11,7 @@ import type { NotConfigured } from "@ultrapaint/contracts/errors";
 import type { SetupStepTask } from "@ultrapaint/contracts/tasks";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { inventoryBrief, mappingCounts } from "../design-system-setup-rules.ts";
@@ -44,7 +44,7 @@ export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
   readonly ways: AgentWays;
 }) {
   const { importSteps, ways } = deps;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const setup = yield* DesignSystemSetupService;
   /** How an agent's step ends: it says so, and the user goes on from the Setup view. */
   const finishing = ways.finishStep;
