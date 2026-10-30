@@ -12,7 +12,7 @@ import { basename } from "@ultrapaint/shared/path";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
-import { COMMENTS_FILE } from "./comments.ts";
+import { COMMENTS_FILE } from "./comments-file.ts";
 import { EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { type Contents, SnapshotStore } from "./snapshot-store.ts";

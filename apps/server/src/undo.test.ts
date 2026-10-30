@@ -3,6 +3,7 @@ import { assert, describe, it, layer } from "@effect/vitest";
 import { Conflict } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { EventBus } from "./events.ts";
+import { DesignFiles } from "./services/design-files.ts";
 import {
   EditService,
   type FileCodec,
@@ -143,6 +144,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 /** The journal alone, over a repository whose designs are in `designs/`. */
 const journalIn = (repo: string) =>
   EditService.layer.pipe(
+    Layer.provide(DesignFiles.layerTest),
     Layer.provide(
       Layer.mergeAll(
         RepoPaths.layer({

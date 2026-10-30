@@ -32,6 +32,7 @@ import { EventBus } from "./events.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
+import type { DesignFiles } from "./services/design-files.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DesignTargets } from "./services/design-targets.ts";
@@ -61,6 +62,7 @@ export type ProjectServices =
   | CommentsService
   | ComponentService
   | Migration
+  | DesignFiles
   | DesignMd
   | DesignSystemService
   | DesignTargets

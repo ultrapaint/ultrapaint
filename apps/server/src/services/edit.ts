@@ -11,6 +11,7 @@ import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent } from "../hash.ts";
+import { DesignFiles } from "./design-files.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const JOURNAL_LIMIT = 200;
@@ -204,6 +205,7 @@ export class EditService extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
@@ -277,7 +279,7 @@ export class EditService extends Context.Service<
               })
           )
         );
-        yield* fileChanged(rel, content === null ? "" : hashContent(content));
+        yield* designFiles.report(rel, content);
       });
 
       /**
@@ -304,9 +306,6 @@ export class EditService extends Context.Service<
           });
         }
       });
-
-      const fileChanged = (file: string, hash: string) =>
-        events.publish("file.changed", { file, hash });
 
       const editable = (rel: string) =>
         paths.isEditable(rel)

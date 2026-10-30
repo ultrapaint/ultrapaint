@@ -50,6 +50,7 @@ import {
   problemOf,
   readComponentFile,
 } from "./component-files.ts";
+import { DesignFiles } from "./design-files.ts";
 import { type ApplyStep, DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -229,7 +230,6 @@ export class ComponentService extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const documents = yield* DocumentService;
-      const dir = path.join(paths.designsDir, COMPONENTS_DIR);
       /** A path inside the designs directory as the repository has it. */
       const repoOf = (designs: string) =>
         paths.relative(path.join(paths.designsDir, designs));
@@ -496,12 +496,7 @@ export class ComponentService extends Context.Service<
       });
 
       // Whoever changes the files — an undo, an agent, a checkout — the editor hears of it.
-      const prefix = `${paths.relative(dir)}/`;
-      yield* events.subscribe("file.changed").pipe(
-        Stream.filter(
-          ({ file }) =>
-            file.startsWith(prefix) && file.endsWith(COMPONENT_EXTENSION)
-        ),
+      yield* (yield* DesignFiles).changes(["component"]).pipe(
         Stream.debounce("50 millis"),
         Stream.runForEach(() => publish),
         Effect.forkScoped

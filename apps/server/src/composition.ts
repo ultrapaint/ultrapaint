@@ -4,7 +4,8 @@
  * the same layers with their own (`testing/project.ts`, `testing/threads.ts`).
  *
  * The adapters are the seams that have a second one for tests: how an agent is started and
- * confined (`AgentLauncher`, `AgentSandbox`).
+ * confined (`AgentLauncher`, `AgentSandbox`), and how the designs' changes are heard
+ * (`DesignFiles`: a watch of the directory, or only what a test tells it).
  */
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Layer } from "effect";
@@ -15,6 +16,7 @@ import { ProjectManager, type ProjectRequirements } from "./project.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
+import { DesignFiles } from "./services/design-files.ts";
 import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
@@ -59,21 +61,34 @@ import { WorkingTree } from "./services/working-tree.ts";
 /** What the agents' adapters are built on: the server's own services and the project. */
 type AgentRequirements = ProjectRequirements | ProjectManager;
 
+/** What the designs' changes are heard with. */
+type DesignFilesLayer = Layer.Layer<
+  DesignFiles,
+  never,
+  RepoPaths | ProjectRequirements
+>;
+
 /**
  * The adapters the application is built with. `agents` gives `AgentLauncher` and
- * `AgentSandbox`, and whatever else its adapter offers a test (the agents it plays).
+ * `AgentSandbox`, and whatever else its adapter offers a test (the agents it plays);
+ * `designFiles` hears of the designs' changes.
  */
 export interface Adapters<Agents> {
   readonly agents: Layer.Layer<Agents, never, AgentRequirements>;
+  readonly designFiles: DesignFilesLayer;
 }
 
-/** The server's adapters: the sandboxed agent process. */
+/** The server's adapters: the sandboxed agent process, and a watch of the designs. */
 export const ServerAdapters = {
   agents: AgentLauncher.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
+  designFiles: DesignFiles.layer,
 } satisfies Adapters<AgentLauncher | AgentSandbox>;
 
 /** The services of the project the settings describe. */
-export const projectLayer = (settings: Settings) =>
+export const projectLayer = (
+  settings: Settings,
+  designFiles: DesignFilesLayer
+) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
   // names, with its behaviour notes in a component's file or in comments (ADR 0030).
   // Figma's import maps a frame's components to the catalogue's.
@@ -111,6 +126,8 @@ export const projectLayer = (settings: Settings) =>
     Layer.provideMerge(GitService.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
+    // The designs' changes, the journal's own and everyone else's, heard of once.
+    Layer.provideMerge(designFiles),
     Layer.provideMerge(ProjectStyleSystem.layer),
     Layer.provideMerge(RepoPaths.layer(settings))
   );
@@ -165,6 +182,10 @@ export const ApplicationLayer = <Agents>(adapters: Adapters<Agents>) =>
     Layer.provideMerge(DesignSystemSyncService.layer),
     Layer.provideMerge(DesignSystemSetupService.layer),
     Layer.provideMerge(adapters.agents),
-    Layer.provideMerge(ProjectManager.layer(projectLayer)),
+    Layer.provideMerge(
+      ProjectManager.layer((settings) =>
+        projectLayer(settings, adapters.designFiles)
+      )
+    ),
     Layer.provideMerge(Foundation)
   );

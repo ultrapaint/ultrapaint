@@ -51,6 +51,7 @@ import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
 import { componentsIn, readComponents } from "./components.ts";
+import { DesignFiles } from "./design-files.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
@@ -778,11 +779,7 @@ export class ImplementationService extends Context.Service<
         Stream.map(stream, () => undefined);
       yield* Stream.mergeAll(
         [
-          poke(
-            events
-              .subscribe("file.changed")
-              .pipe(Stream.filter(({ file }) => file === fileRel))
-          ),
+          poke((yield* DesignFiles).changes(["implementation"])),
           poke(events.subscribe("document")),
           poke(events.subscribe("pages")),
           poke(events.subscribe("components")),
