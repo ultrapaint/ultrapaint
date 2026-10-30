@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { railTabsFor, useBoard } from "../state/board.ts";
+import { useComponents } from "../state/components.ts";
 import { type LeftTab, useEditor } from "../state/editor.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -125,13 +126,17 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 
 /**
  * The left panels the workspace offers, in a column at the window's left, each named under its
- * icon: the agents always first. Design system's opens its board view. Settings and who the user is at its foot. It shares one card with
- * the left panel, a shade darker; with the panel put away it is the whole card.
+ * icon: the agents always first. Design system's opens its board view. Settings and who the user
+ * is at its foot. It shares one card with the left panel, a shade darker; with the panel put away
+ * it is the whole card.
  */
 export const Rail = () => {
   const panelHidden = usePanels((s) => s.left);
-  // A board view has no Layers but where there is a tree (ADR 0045).
-  const tabs = railTabsFor(useBoard((s) => s.open));
+  // A board view has no Layers but where there is a tree (ADR 0045): an app component's, known
+  // once the components are.
+  const open = useBoard((s) => s.open);
+  useComponents((s) => s.components);
+  const tabs = railTabsFor(open);
   return (
     <nav
       aria-label="Panels"

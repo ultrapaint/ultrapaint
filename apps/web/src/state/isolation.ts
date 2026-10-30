@@ -8,6 +8,10 @@
  * The tree edited is the document's, which the server publishes whenever the component's file
  * changes, whoever changes it (ADR 0042): its file only starts it, so an edit is never shown
  * undone while the components' news is on its way.
+ *
+ * On an app component's board (ADR 0045) its tree is edited in the same way on the board of one
+ * of its variants, the edits landing on that variant's member; leaving selects nothing, as a
+ * board's instance is no page's.
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
@@ -16,7 +20,7 @@ import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
-import { editFrameAs, useDocuments } from "./documents.ts";
+import { editFrameAs, isBoardFrame, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 
 /** A choice's member edits land on. */
@@ -81,10 +85,18 @@ const editIn = (isolated: Isolation | null) =>
   );
 
 /**
- * Edits an app component's instance in place: its tree is selected, and what is done in the
- * frame is done to it. Whether it is one: false for any other node.
+ * Edits an app component's instance in place: its tree is selected (unless `select` is false,
+ * what is selected being the caller's), what is done in the frame is done to it, and lands on
+ * `variant` (the component's own fields when none). Whether it is one: false for any other node.
  */
-export const isolate = (frame: string, node: InstanceNode): boolean => {
+export const isolate = (
+  frame: string,
+  node: InstanceNode,
+  {
+    select = true,
+    variant = null,
+  }: { readonly select?: boolean; readonly variant?: VariantEdited | null } = {}
+): boolean => {
   const file = node.from === APP_FROM ? fileOf(node.component) : undefined;
   if (!file) {
     return false;
@@ -95,12 +107,14 @@ export const isolate = (frame: string, node: InstanceNode): boolean => {
     entered: around?.frame === frame ? around.entered : node.id,
     frame,
     instance: node.id,
-    variant: null,
+    variant,
   };
   useIsolation.setState({ isolated });
   editIn(isolated);
   showTree();
-  useEditor.getState().select({ frame, nodeId: file.tree.id });
+  if (select) {
+    useEditor.getState().select({ frame, nodeId: file.tree.id });
+  }
   return true;
 };
 
@@ -114,7 +128,11 @@ export const leaveIsolation = () => {
   editIn(null);
   useEditor
     .getState()
-    .select({ frame: isolated.frame, nodeId: isolated.entered });
+    .select(
+      isBoardFrame(isolated.frame)
+        ? null
+        : { frame: isolated.frame, nodeId: isolated.entered }
+    );
 };
 
 /** The member edits land on from now on; null for the component's own fields. */

@@ -1,8 +1,14 @@
-import type { ElementId } from "@ultrapaint/design-document/factories";
+import { APP_FROM } from "@ultrapaint/contracts/component-names";
+import {
+  type ElementId,
+  newInstance,
+} from "@ultrapaint/design-document/factories";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import {
   ArrowDown,
   ArrowRight,
   ChevronDown,
+  Component,
   Hand,
   Image,
   MessageCircle,
@@ -28,6 +34,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
@@ -44,6 +53,7 @@ import { keysOf } from "../lib/commands.ts";
 import {
   INSERTED_ELEMENTS,
   insertElement,
+  insertNode,
   insertTarget,
 } from "../lib/node-actions.ts";
 import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
@@ -51,8 +61,11 @@ import { BOARD_MODES, setBoardTheme, useBoard } from "../state/board.ts";
 import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { isBoardFrame } from "../state/documents.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 
 /** `label` names the tool for a screen reader, as the tooltip names it on screen. */
@@ -244,8 +257,44 @@ const InsertItems = () => {
   );
 };
 
+/**
+ * The components, inserted into the selection: on an app component's board, where the Library is
+ * the navigation, what its tree edited in place is built with besides the elements. The one
+ * edited is not among them.
+ */
+const InsertComponents = () => {
+  const catalogue = useComponents((s) => s.catalogue);
+  const editing = useIsolation((s) => s.isolated?.component);
+  const target = insertTarget();
+  const listed = catalogue
+    .filter((c) => c.name !== editing)
+    .toSorted(
+      (a, b) =>
+        Number(b.importFrom === APP_FROM) - Number(a.importFrom === APP_FROM) ||
+        a.name.localeCompare(b.name)
+    );
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={target === null}>
+        <Component />
+        Component
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-80 w-44 overflow-y-auto">
+        {listed.map((c) => (
+          <DropdownMenuItem
+            key={`${c.importFrom}:${c.name}`}
+            onClick={() => insertNode(newInstance(c, makeIdGenerator()))}
+          >
+            {c.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+};
+
 /** The first of the tools (ADR 0045): the elements a design is built of, in a plain menu. */
-const InsertMenu = () => (
+const InsertMenu = ({ components = false }: { components?: boolean }) => (
   <DropdownMenu>
     <Tooltip>
       <TooltipTrigger
@@ -270,6 +319,7 @@ const InsertMenu = () => (
     </Tooltip>
     <DropdownMenuContent align="start" className="w-40" side="right">
       <InsertItems />
+      {components ? <InsertComponents /> : null}
     </DropdownMenuContent>
   </DropdownMenu>
 );
@@ -338,17 +388,21 @@ export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
   // Holding Space pans for as long as it is held; the strip shows the tool in effect.
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
-  // A board view has no elements to insert and a few tools (ADR 0045), and draws in a theme.
+  // A board view has no elements to insert and a few tools (ADR 0045), and draws in a theme;
+  // but an app component's tree edited in place on its board is built as on a page.
   const onBoard = useBoard((s) => s.open !== null);
+  const building = useIsolation(
+    (s) => s.isolated !== null && isBoardFrame(s.isolated.frame)
+  );
   const shown = onBoard
     ? modes.filter((m) => BOARD_MODES.includes(m.value))
     : modes;
 
   return (
     <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
-      {onBoard ? null : (
+      {onBoard && !building ? null : (
         <>
-          <InsertMenu />
+          <InsertMenu components={building} />
           <Separator className="my-0.5 w-5" />
         </>
       )}

@@ -96,6 +96,27 @@ describe("an app component edited in place", () => {
     });
   });
 
+  it("is edited on a board's instance at a member, without a selection of its own, and left selecting nothing", () => {
+    const board = "board:library/Promo/tone=loud";
+    useEditor.setState({ selection: { frame: board, nodeId: "title" } });
+    expect(
+      isolate(
+        board,
+        { ...PROMO, id: "instance", props: { tone: "loud" } },
+        { select: false, variant: { member: "loud", property: "tone" } }
+      )
+    ).toBe(true);
+    expect(docOfFrame(board, "")).toBe("component:Promo");
+    expect(frameBreakpoint(board)).toBe("tone=loud");
+    expect(useEditor.getState().selection).toEqual({
+      frame: board,
+      nodeId: "title",
+    });
+    leaveIsolation();
+    expect(docOfFrame(board, "")).toBe(board);
+    expect(useEditor.getState().selection).toBeNull();
+  });
+
   it("lands an edit on the member of a choice being edited, as a breakpoint's", () => {
     isolate(HOME, PROMO);
     editVariant({ member: "loud", property: "tone" });

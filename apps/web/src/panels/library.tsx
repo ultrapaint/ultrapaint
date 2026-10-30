@@ -11,7 +11,14 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { cn } from "cn";
-import { ArrowUpRight, LayoutGrid, List, Palette, Search } from "lucide-react";
+import {
+  ArrowUpRight,
+  LayoutGrid,
+  List,
+  Palette,
+  Plus,
+  Search,
+} from "lucide-react";
 import type * as React from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import {
@@ -23,6 +30,7 @@ import { OVERVIEW } from "../boards/library-boards.ts";
 import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { BackToPage } from "../components/back-to-page.tsx";
+import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
@@ -36,7 +44,7 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useDesignLook } from "../state/look.ts";
 import { showLeftPanel } from "../state/panels.ts";
-import { useProject } from "../state/project.ts";
+import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
@@ -265,10 +273,48 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-/** The panel's title, as the rail names it. */
+/**
+ * A new app component, named in a prompt: an empty column placed nowhere (`components.create`),
+ * its board opened to build it on.
+ */
+const newAppComponent = async () => {
+  if (!ensureEditable()) {
+    return;
+  }
+  const given = await promptDialog({
+    confirmLabel: "Make",
+    description:
+      "It starts as an empty column, on a board of its own: build it there, then place it from the Library.",
+    placeholder: "PricingCard",
+    title: "A new app component",
+  });
+  if (!given?.trim()) {
+    return;
+  }
+  try {
+    const made = await api().request("components.create", { name: given });
+    await useComponents.getState().load();
+    if (made.component) {
+      openBoard({ item: made.component.name, view: "library" });
+    }
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/** The panel's title, as the rail names it, and + New. */
 const Title = () => (
   <div className="flex h-10 shrink-0 items-center px-3 font-heading-xsmall">
     Library
+    <button
+      className="ml-auto flex h-6 items-center gap-1 rounded-md px-1.5 font-body font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      onClick={newAppComponent}
+      title="Make a new app component"
+      type="button"
+    >
+      <Plus className="size-3.5" />
+      New
+    </button>
   </div>
 );
 
@@ -461,8 +507,8 @@ const InsertList = () => {
             section.title === "App components" &&
             !query.trim() ? (
               <p className="px-3 pb-2 font-body text-muted-foreground">
-                None yet. Select part of a page and choose "Make an app
-                component…" in its menu.
+                None yet. Make one with + New, or select part of a page and
+                choose "Make an app component…" in its menu.
               </p>
             ) : null}
             {view === "list" ? (

@@ -1,31 +1,17 @@
-/**
- * The Design system panel's Components tab (ADRs 0040, 0041): every system component, in its
- * default look or in the project's, and every app component. Opening a system component shows its
- * look as a live matrix of its variants and states, drawn by the preview with the component
- * itself, and the fields of one part in the base, a variant or a state. Taking its look over starts
- * the project's file from its default, so the fields hold real values; resetting it removes the
- * file. Opening an app component shows it drawn, its properties and its slots.
- */
-import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   type AppComponentFile,
   COMPONENT_STATES,
-  type ComponentChange,
   type ComponentFile,
   type ComponentState,
-  type PartStyle,
   ROOT_SLOT,
   SYSTEM_FROM,
   type SystemComponentFile,
-  type SystemLook,
 } from "@ultrapaint/contracts/components";
-import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { presetSize } from "@ultrapaint/contracts/pages";
 import {
   fallbacksOf,
-  type Inherited,
   inheritedAt,
   type Member,
   type Place,
@@ -33,16 +19,13 @@ import {
   styleAt,
   withStyle,
 } from "@ultrapaint/design-document/look-places";
-import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { designCss } from "@ultrapaint/system-components/look";
-import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowLeft, Code2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -50,17 +33,8 @@ import {
 import { axesOf, matrixOf } from "../boards/library-boards.ts";
 import { useFrameDrawing } from "../canvas/editor-frame.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
-import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { ValueField } from "../components/value-field.tsx";
-import { allSelected, nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
-import {
-  type FieldTokenKind,
-  Swatch,
-  useColorOf,
-  useTokenOptions,
-} from "../lib/token-options.tsx";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -68,6 +42,15 @@ import { useEditor } from "../state/editor.ts";
 import { statusLabel, useImplementation } from "../state/implementation.ts";
 import { useDesignLook } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
+import {
+  change,
+  LookExtras,
+  lookOf,
+  Notes,
+  partsOf,
+  removeComponent,
+  SlotFields,
+} from "./look-inspector.tsx";
 
 /** A component as the tab lists it: a system component, with its file when it has one, or an app component's. */
 type Listed =
@@ -116,38 +99,6 @@ const lookLabel = (listed: Listed) => {
   }
   return listed.file ? "your look" : "default look";
 };
-
-/**
- * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
- * stays; what the server refuses is said. True when it went through.
- */
-const change = async (name: string, made: ComponentChange) => {
-  try {
-    await api().request("components.change", { change: made, name });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
-};
-
-/** A system component's look: its file but the envelope. */
-const lookOf = (file: SystemComponentFile): SystemLook => ({
-  base: file.base,
-  ...(file.content && { content: file.content }),
-  ...(file.hidden && { hidden: file.hidden }),
-  ...(file.item && { item: file.item }),
-  states: file.states,
-  variants: file.variants,
-  ...(file.variantStates && { variantStates: file.variantStates }),
-});
-
-/** A system component's parts, the root first, as the catalogue names them. */
-const partsOf = (name: string) =>
-  systemComponentOf(name)?.slots.map((s) => ({
-    label: s.label,
-    name: s.name,
-  })) ?? [{ label: "The component", name: ROOT_SLOT }];
 
 /** How wide a page is drawn: the selected page's frame, else the canvas's widest, else a desktop's. */
 const usePageWidth = () =>
@@ -261,572 +212,6 @@ export const Matrix = ({
   );
 };
 
-/** What a field left empty shows: the value it takes, and where from. */
-const inheritedText = (inherited: Inherited | undefined) =>
-  inherited ? `${String(inherited.value)} (${inherited.from})` : "Not set";
-
-/** One style field of a slot, over the design system's tokens. */
-const Field = ({
-  inherited,
-  kind,
-  label,
-  onChange,
-  value,
-}: {
-  inherited?: Inherited | undefined;
-  kind: FieldTokenKind | "opacity";
-  label: string;
-  onChange: (value: JsonValue) => void;
-  value: JsonValue | undefined;
-}) => {
-  const options = useTokenOptions(kind === "opacity" ? "spacing" : kind);
-  const color = useColorOf(value);
-  return (
-    <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
-      <span className="truncate text-muted-foreground">{label}</span>
-      <ValueField
-        {...(kind === "color" && {
-          accept: (q: string) => CSS.supports("color", q),
-          leading: <Swatch color={color} />,
-        })}
-        onChange={onChange}
-        options={kind === "opacity" ? [] : options}
-        placeholder={inheritedText(inherited)}
-        title={
-          inherited && value === undefined
-            ? `${label}: ${inheritedText(inherited)}`
-            : label
-        }
-        value={value}
-      />
-    </div>
-  );
-};
-
-const SIDES = ["top", "right", "bottom", "left"] as const;
-type Side = (typeof SIDES)[number];
-
-/** One side's padding: its own, or what every side has. */
-const sideOf = (padding: PartStyle["padding"], side: Side) =>
-  typeof padding === "object" ? padding[side] : padding;
-
-/** The style with one side's padding set (`null` takes it off), the others kept as they are. */
-const withSide = (
-  style: PartStyle,
-  side: Side,
-  value: JsonValue
-): PartStyle => {
-  const { padding, ...rest } = style;
-  const kept = Object.fromEntries(
-    SIDES.flatMap((s) => {
-      const v = s === side ? undefined : sideOf(padding, s);
-      return v === undefined ? [] : [[s, v]];
-    })
-  );
-  const given =
-    (typeof value === "string" && value !== "") || typeof value === "number";
-  const sides = given ? { ...kept, [side]: value } : kept;
-  return Object.keys(sides).length === 0
-    ? rest
-    : ({ ...rest, padding: sides } as PartStyle);
-};
-
-/** One field of a part that takes one of a few words. */
-const Choice = ({
-  inherited,
-  label,
-  onChange,
-  options,
-  value,
-}: {
-  inherited?: Inherited | undefined;
-  label: string;
-  onChange: (value: JsonValue) => void;
-  options: readonly string[];
-  value: string | undefined;
-}) => (
-  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
-    <span className="truncate text-muted-foreground">{label}</span>
-    <NativeSelect
-      aria-label={label}
-      className="w-full"
-      onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
-      size="sm"
-      value={value ?? ""}
-    >
-      <NativeSelectOption value="">
-        {inheritedText(inherited)}
-      </NativeSelectOption>
-      {options.map((o) => (
-        <NativeSelectOption key={o} value={o}>
-          {o}
-        </NativeSelectOption>
-      ))}
-    </NativeSelect>
-  </div>
-);
-
-/** The fields of one part at one place, each left empty showing what it takes from where. */
-const SlotFields = ({
-  inherited,
-  onChange,
-  style,
-}: {
-  inherited: Readonly<Record<string, Inherited>>;
-  onChange: (style: PartStyle) => void;
-  style: PartStyle;
-}) => {
-  const set = (key: keyof PartStyle) => (value: JsonValue) => {
-    const { [key]: _old, ...rest } = style;
-    onChange(
-      value === null || value === ""
-        ? rest
-        : ({ ...rest, [key]: value } as PartStyle)
-    );
-  };
-  const border = (key: "color" | "width") => (value: JsonValue) => {
-    const { [key]: _old, ...rest } = style.border ?? {};
-    const next =
-      value === null || value === "" ? rest : { ...rest, [key]: value };
-    const { border: _border, ...others } = style;
-    onChange(
-      (Object.keys(next).length === 0
-        ? others
-        : { ...others, border: next }) as PartStyle
-    );
-  };
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Field
-        inherited={inherited.fill}
-        kind="color"
-        label="Fill"
-        onChange={set("fill")}
-        value={style.fill}
-      />
-      <Field
-        inherited={inherited.color}
-        kind="color"
-        label="Text"
-        onChange={set("color")}
-        value={style.color}
-      />
-      <Field
-        inherited={inherited["border.color"]}
-        kind="color"
-        label="Border"
-        onChange={border("color")}
-        value={style.border?.color}
-      />
-      <Field
-        inherited={inherited["border.width"]}
-        kind="borderWidth"
-        label="Border width"
-        onChange={border("width")}
-        value={style.border?.width}
-      />
-      <Field
-        inherited={inherited.radius}
-        kind="radius"
-        label="Radius"
-        onChange={set("radius")}
-        value={style.radius}
-      />
-      <Field
-        inherited={inherited.padding}
-        kind="spacing"
-        label="Padding"
-        onChange={set("padding")}
-        value={typeof style.padding === "object" ? undefined : style.padding}
-      />
-      {SIDES.map((side) => (
-        <Field
-          inherited={inherited[`padding.${side}`]}
-          key={side}
-          kind="spacing"
-          label={`Padding ${side}`}
-          onChange={(value) => onChange(withSide(style, side, value))}
-          value={sideOf(style.padding, side)}
-        />
-      ))}
-      <Choice
-        inherited={inherited.direction}
-        label="Direction"
-        onChange={set("direction")}
-        options={["row", "column"]}
-        value={style.direction}
-      />
-      <Choice
-        inherited={inherited.align}
-        label="Align"
-        onChange={set("align")}
-        options={["start", "center", "end", "between", "around"]}
-        value={style.align}
-      />
-      <Choice
-        inherited={inherited.crossAlign}
-        label="Cross align"
-        onChange={set("crossAlign")}
-        options={["start", "center", "end", "stretch", "baseline"]}
-        value={style.crossAlign}
-      />
-      <Field
-        inherited={inherited.order}
-        kind="opacity"
-        label="Order"
-        onChange={(v) =>
-          set("order")(typeof v === "string" && v !== "" ? Number(v) : v)
-        }
-        value={style.order}
-      />
-      <Field
-        inherited={inherited.height}
-        kind="spacing"
-        label="Height"
-        onChange={set("height")}
-        value={style.height}
-      />
-      <Field
-        inherited={inherited.gap}
-        kind="spacing"
-        label="Gap"
-        onChange={set("gap")}
-        value={style.gap}
-      />
-      <Field
-        inherited={inherited.fontSize}
-        kind="fontSize"
-        label="Text size"
-        onChange={set("fontSize")}
-        value={style.fontSize}
-      />
-      <Field
-        inherited={inherited.fontWeight}
-        kind="fontWeight"
-        label="Weight"
-        onChange={set("fontWeight")}
-        value={style.fontWeight}
-      />
-      <Field
-        inherited={inherited.shadow}
-        kind="shadow"
-        label="Shadow"
-        onChange={set("shadow")}
-        value={style.shadow}
-      />
-      <Field
-        inherited={inherited.opacity}
-        kind="opacity"
-        label="Opacity"
-        onChange={(v) =>
-          set("opacity")(
-            typeof v === "number" ? Math.min(1, Math.max(0, v)) : v
-          )
-        }
-        value={style.opacity}
-      />
-    </div>
-  );
-};
-
-/** The nodes selected on the canvas, copied without the slot each fills: what a look can take. */
-const selectedNodes = (): DesignNode[] =>
-  nodesOf(allSelected()).map(
-    ({ node: { slot: _slot, ...node } }) => node as DesignNode
-  );
-
-/** The first node of a tree of a type, by id. */
-const firstOf = (
-  node: DesignNode,
-  type: DesignNode["type"]
-): string | undefined => {
-  if (node.type === type) {
-    return node.id;
-  }
-  for (const child of "children" in node ? (node.children ?? []) : []) {
-    const found = firstOf(child, type);
-    if (found) {
-      return found;
-    }
-  }
-  return undefined;
-};
-
-/**
- * What a look says beyond its parts' style (ADR 0041): the optional parts it shows, what each slot
- * holds when an instance gives it nothing, and what a Select's or a Menu's item draws. Content and
- * templates are taken from the selection on the canvas.
- */
-const LookExtras = ({
-  file,
-  onChange,
-}: {
-  file: SystemComponentFile;
-  onChange: (file: SystemComponentFile) => void;
-}) => {
-  const meta = systemComponentOf(file.name);
-  if (!meta) {
-    return null;
-  }
-  const optional = meta.slots.filter((s) => s.optional);
-  const holding = meta.slots.filter((s) => s.holds !== undefined);
-  const hidden = new Set(file.hidden ?? []);
-  const show = (part: string, shown: boolean) => {
-    const next = shown
-      ? [...hidden].filter((p) => p !== part)
-      : [...hidden, part];
-    const { hidden: _old, ...rest } = file;
-    onChange(next.length === 0 ? rest : { ...rest, hidden: next });
-  };
-  const setContent = (slot: string, nodes: readonly DesignNode[]) => {
-    const { [slot]: _old, ...others } = file.content ?? {};
-    const content = nodes.length === 0 ? others : { ...others, [slot]: nodes };
-    const { content: _content, ...rest } = file;
-    onChange(Object.keys(content).length === 0 ? rest : { ...rest, content });
-  };
-  const setItem = (tree: DesignNode | null) => {
-    const { item: _old, ...rest } = file;
-    if (!tree) {
-      onChange(rest);
-      return;
-    }
-    const label = firstOf(tree, "text");
-    const image = firstOf(tree, "image");
-    onChange({
-      ...rest,
-      item: {
-        tree,
-        ...(label !== undefined && { label }),
-        ...(image !== undefined && { image }),
-      },
-    });
-  };
-  const fromSelection = (use: (nodes: DesignNode[]) => void) => {
-    const nodes = selectedNodes();
-    if (nodes.length === 0) {
-      toast.message("Select the nodes on the canvas first.");
-      return;
-    }
-    use(nodes);
-  };
-  return (
-    <div className="flex flex-col gap-3">
-      {optional.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Optional parts</span>
-          {optional.map((part) => (
-            // biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button
-            <label className="flex items-center gap-2" key={part.name}>
-              <Checkbox
-                checked={!hidden.has(part.name)}
-                onCheckedChange={(shown) => show(part.name, shown)}
-              />
-              {part.label}
-            </label>
-          ))}
-        </div>
-      ) : null}
-      {holding.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Content when empty</span>
-          {holding.map((slot) => {
-            const held = file.content?.[slot.name] ?? [];
-            return (
-              <div className="flex items-center gap-1.5" key={slot.name}>
-                <span className="min-w-0 flex-1 truncate">
-                  {slot.label}{" "}
-                  <span className="text-muted-foreground">
-                    {held.length === 0
-                      ? "nothing"
-                      : `${held.length} node${held.length === 1 ? "" : "s"}`}
-                  </span>
-                </span>
-                <Button
-                  onClick={() =>
-                    fromSelection((nodes) => setContent(slot.name, nodes))
-                  }
-                  size="xs"
-                  variant="outline"
-                >
-                  Use selection
-                </Button>
-                {held.length > 0 ? (
-                  <Button
-                    aria-label={`Clear what ${slot.label} holds`}
-                    onClick={() => setContent(slot.name, [])}
-                    size="icon-xs"
-                    variant="ghost"
-                  >
-                    <X />
-                  </Button>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-      {meta.templatedItems ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Item</span>
-          <div className="flex items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-muted-foreground">
-              {file.item
-                ? "Drawn from your nodes: the first text is the label, the first image its picture."
-                : "Its label alone."}
-            </span>
-            <Button
-              onClick={() =>
-                fromSelection(([first, ...more]) =>
-                  setItem(
-                    more.length === 0 && first
-                      ? first
-                      : ({
-                          children: [first, ...more],
-                          crossAlign: "center",
-                          gap: 8,
-                          id: "item",
-                          type: "row",
-                        } as DesignNode)
-                  )
-                )
-              }
-              size="xs"
-              variant="outline"
-            >
-              Use selection
-            </Button>
-            {file.item ? (
-              <Button
-                aria-label="Draw items by their label alone"
-                onClick={() => setItem(null)}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <X />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-};
-
-/**
- * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
- * about one part or the whole of it. They go with the component to `/implement`. Added and taken
- * out on the server, on the file as it is there, so a look being edited is not saved with them.
- */
-const Notes = ({
-  component,
-  dirty,
-  parts,
-}: {
-  component: ComponentFile;
-  dirty: boolean;
-  parts: readonly { readonly label?: string; readonly name: string }[];
-}) => {
-  const [text, setText] = useState("");
-  const [slot, setSlot] = useState(ROOT_SLOT);
-  const notes = component.notes ?? [];
-  const add = async () => {
-    if (text.trim() === "") {
-      return;
-    }
-    try {
-      await api().request("components.addNote", {
-        name: component.name,
-        ...(slot !== ROOT_SLOT && { slot }),
-        text: text.trim(),
-      });
-      setText("");
-    } catch (error) {
-      reportError(error);
-    }
-  };
-  const remove = (id: string) =>
-    change(component.name, { id, op: "removeNote" });
-  const partOf = (name: string | undefined) =>
-    parts.find((s) => s.name === name)?.label ?? name;
-  const choices = [
-    { label: "The component", name: ROOT_SLOT },
-    ...parts.filter((p) => p.name !== ROOT_SLOT),
-  ];
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-medium">Behaviour</span>
-      {notes.length === 0 ? (
-        <p className="text-muted-foreground">
-          What the code must do that the design cannot show: it goes to the code
-          when the component is implemented.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {notes.map((n) => (
-            <li className="flex items-start gap-1.5" key={n.id}>
-              <span className="min-w-0 flex-1">
-                {n.slot ? (
-                  <span className="text-muted-foreground">
-                    {partOf(n.slot)}:{" "}
-                  </span>
-                ) : null}
-                {n.text}
-              </span>
-              <Button
-                aria-label="Take the note out"
-                disabled={dirty}
-                onClick={() => remove(n.id)}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex gap-1.5">
-        {choices.length > 1 ? (
-          <NativeSelect
-            aria-label="About"
-            className="w-28"
-            onChange={(e) => setSlot(e.target.value)}
-            size="sm"
-            value={slot}
-          >
-            {choices.map((s) => (
-              <NativeSelectOption key={s.name} value={s.name}>
-                {s.label ?? s.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
-        <Input
-          aria-label="A behaviour note"
-          className="h-7 min-w-0 flex-1"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              add();
-            }
-          }}
-          placeholder="Closes on Escape and gives the focus back"
-          value={text}
-        />
-        <Button
-          disabled={dirty || text.trim() === ""}
-          onClick={add}
-          size="sm"
-          title={dirty ? "Save or discard the look's changes first" : undefined}
-          variant="outline"
-        >
-          Note
-        </Button>
-      </div>
-    </div>
-  );
-};
-
 /** The detail's header: back, the component's name, and where its implementation stands. */
 const DetailHeader = ({
   name,
@@ -862,23 +247,6 @@ const ImplementButton = ({ name }: { name: string }) => (
     Implement
   </Button>
 );
-
-/** Removes a component's file, once confirmed. */
-const removeComponent = async (
-  name: string,
-  confirm: { confirmLabel: string; description: string; title: string },
-  done: () => void
-) => {
-  if (!(await confirmDialog(confirm))) {
-    return;
-  }
-  try {
-    await api().request("components.remove", { name });
-    done();
-  } catch (error) {
-    reportError(error);
-  }
-};
 
 const SystemDetail = ({
   file: saved,
@@ -955,15 +323,11 @@ const SystemDetail = ({
           <ImplementButton name={name} />
           <Button
             onClick={() =>
-              removeComponent(
-                name,
-                {
-                  confirmLabel: "Reset",
-                  description: `${name} is drawn in its default look again; its behaviour notes go with its file.`,
-                  title: `Reset ${name} to its default look?`,
-                },
-                onBack
-              )
+              removeComponent(name, {
+                confirmLabel: "Reset",
+                description: `${name} is drawn in its default look again; its behaviour notes go with its file.`,
+                title: `Reset ${name} to its default look?`,
+              }).then((removed) => removed && onBack())
             }
             size="sm"
             variant="ghost"
@@ -1096,15 +460,11 @@ const AppDetail = ({
         <Button
           aria-label="Delete the component"
           onClick={() =>
-            removeComponent(
-              file.name,
-              {
-                confirmLabel: "Delete",
-                description: `Its tree goes with it; pages that use ${file.name} show it missing.`,
-                title: `Delete the ${file.name} component?`,
-              },
-              onBack
-            )
+            removeComponent(file.name, {
+              confirmLabel: "Delete",
+              description: `Its tree goes with it; pages that use ${file.name} show it missing.`,
+              title: `Delete the ${file.name} component?`,
+            }).then((removed) => removed && onBack())
           }
           size="icon-sm"
           variant="ghost"

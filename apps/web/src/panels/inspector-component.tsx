@@ -41,7 +41,10 @@ import { reportError } from "../state/project.ts";
  * Changes the component's file on the server, as it is there now (ADR 0042); what the server
  * refuses is said.
  */
-const changeFile = async (file: AppComponentFile, change: ComponentChange) => {
+export const changeFile = async (
+  file: AppComponentFile,
+  change: ComponentChange
+) => {
   try {
     await api().request("components.change", { change, name: file.name });
   } catch (error) {
@@ -83,7 +86,7 @@ const freeName = (file: AppComponentFile, base: string) => {
   return name;
 };
 
-const KINDS: readonly {
+export const KINDS: readonly {
   readonly kind: PropertyKind;
   readonly label: string;
 }[] = [
@@ -93,7 +96,7 @@ const KINDS: readonly {
   { kind: "image", label: "Image" },
 ];
 
-const newProperty = (
+export const newProperty = (
   file: AppComponentFile,
   kind: PropertyKind
 ): ComponentProperty => {
@@ -171,11 +174,11 @@ const whatItSets = (property: ComponentProperty) => {
     return `Sets ${count} field${count === 1 ? "" : "s"}.`;
   }
   return property.kind === "choice"
-    ? "Its members are variants: pick one above the canvas to edit it."
+    ? "Its members are variants: edit the component in place at one to change it."
     : "Sets nothing yet: expose a node's field as it.";
 };
 
-const PropertyRow = ({
+export const PropertyRow = ({
   file,
   property,
 }: {

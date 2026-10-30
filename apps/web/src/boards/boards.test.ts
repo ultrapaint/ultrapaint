@@ -1,4 +1,5 @@
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import {
   type DesignDocument,
   type DesignSystem,
@@ -11,7 +12,15 @@ import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
 import { describe, expect, it } from "vitest";
 import { contrastPairs, gradeOf, isRamp } from "./color-boards.ts";
-import { libraryBoards, OVERVIEW, overviewBoard } from "./library-boards.ts";
+import {
+  appComponentBoards,
+  cellId,
+  drawnWidths,
+  libraryBoards,
+  OVERVIEW,
+  overviewBoard,
+  placeOfCell,
+} from "./library-boards.ts";
 import {
   type Board,
   foundationsOf,
@@ -284,18 +293,120 @@ describe("the Library's boards", () => {
     expect(open).toBe(false);
   });
 
-  it("draws a component's matrix in one row a member, at its own width", () => {
-    const { boards } = libraryBoards("Button", catalogue, defaultLookOf);
-    const [matrix] = boards;
-    const root = matrix?.root;
-    expect(root?.width).toBe("hug");
-    const rows = root && "children" in root ? (root.children ?? []) : [];
-    expect(rows.length).toBeGreaterThan(1);
-    expect(rows.every((r) => !("wrap" in r) || r.wrap === false)).toBe(true);
-    // Each cell named for its member and state, which a click picks.
-    expect(ids(root as DesignNode)).toEqual(
-      expect.arrayContaining(["cell:primary:base", "cell:outline:hover"])
+  it("draws a system component's matrix, members and states named, and a board an axis more", () => {
+    const { boards, direction } = libraryBoards(
+      "Button",
+      catalogue,
+      defaultLookOf
     );
+    expect(direction).toBe("column");
+    expect(boards.map((b) => [b.name, b.title])).toEqual([
+      ["matrix", "variant × state"],
+      ["axis-size", "size"],
+    ]);
+    const [matrix, sizes] = boards;
+    expect(matrix?.root.width).toBe("hug");
+    const drawn = ids(matrix?.root as DesignNode);
+    // The states over their columns, the members before their rows, a grid lining them up.
+    expect(drawn).toEqual(
+      expect.arrayContaining([
+        "state:base",
+        "state:hover",
+        "member:outline",
+        "cell:variant=primary:base",
+        "cell:variant=outline:hover",
+      ])
+    );
+    expect(matrix?.css).toContain("grid-template-columns");
+    expect(ids(sizes?.root as DesignNode)).toEqual(
+      expect.arrayContaining(["cell:size=sm:base", "member:size=sm"])
+    );
+  });
+
+  it("reads a cell's place back from its id", () => {
+    const outlineHover = {
+      state: "hover" as const,
+      variant: { axis: "variant", member: "outline" },
+    };
+    expect(cellId(outlineHover)).toBe("cell:variant=outline:hover");
+    expect(placeOfCell(cellId(outlineHover))).toEqual(outlineHover);
+    expect(placeOfCell("cell:base:base")).toEqual({
+      state: null,
+      variant: null,
+    });
+    expect(placeOfCell("cell:base:nope")).toBeNull();
+    expect(placeOfCell("token:color-x")).toBeNull();
+  });
+
+  it("draws an app component a board a member of each choice, edited in place on the member", () => {
+    const card: AppComponentFile = {
+      name: "Plan",
+      origin: "app",
+      properties: [
+        {
+          default: "default",
+          kind: "choice",
+          members: ["default", "featured"],
+          name: "tone",
+        },
+        { default: "Pro", kind: "text", name: "title" },
+      ],
+      slots: [],
+      tree: { children: [], id: "card", type: "column", width: 320 },
+      version: 1,
+    };
+    const { boards, direction } = libraryBoards("Plan", catalogue, () => card);
+    expect(direction).toBe("row");
+    expect(boards.map((b) => b.name)).toEqual([
+      "tone=default",
+      "tone=featured",
+    ]);
+    const [base, featured] = boards;
+    expect(featured?.inPlace).toEqual({
+      instance: {
+        component: "Plan",
+        from: "#app",
+        id: "instance",
+        props: { tone: "featured" },
+        type: "instance",
+      },
+      variant: { member: "featured", property: "tone" },
+    });
+    // The choice's default member is the component's own fields.
+    expect(base?.inPlace?.variant).toBeNull();
+    expect(base?.root.width).toBe(368);
+    // Without a choice, once, as an instance that sets nothing.
+    const plain = { ...card, properties: [] };
+    expect(appComponentBoards(plain).map((b) => b.name)).toEqual(["component"]);
+  });
+
+  it("scales an app component wider than a tile down to it on the Overview, measured once drawn", () => {
+    const header: AppComponentFile = {
+      name: "Header",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: { children: [], id: "h", type: "row" },
+      version: 1,
+    };
+    const withHeader = catalogueOf([header]);
+    // Hugging what it holds, its width is known once it is drawn.
+    expect(overviewBoard(withHeader, () => header).css).not.toContain(
+      "example:Header"
+    );
+    const drawn = drawnWidths(
+      ["Header"],
+      { "example:Header": { width: 704 } },
+      {}
+    );
+    expect(drawn).toEqual({ Header: 704 });
+    expect(overviewBoard(withHeader, () => header, drawn).css).toContain(
+      '[data-ed-node="example:Header"] { zoom: 0.2500;'
+    );
+    // Drawn again at that scale, it measures the same: nothing moves.
+    expect(
+      drawnWidths(["Header"], { "example:Header": { width: 176 } }, drawn)
+    ).toBe(drawn);
   });
 
   it("draws the Overview first and nothing for a component it does not have", () => {

@@ -278,6 +278,17 @@ export const showBoardFramesWith = (
 export const onBoard = () => boardFrames() !== null;
 
 /**
+ * Whether a board's frame takes a selection: one an app component's tree is edited in place on
+ * (ADR 0045), as `board.ts` says it.
+ */
+let boardTakesSelection: (frame: string) => boolean = () => false;
+
+/** `board.ts` says which of its frames take a selection. */
+export const takeBoardSelectionWith = (takes: (frame: string) => boolean) => {
+  boardTakesSelection = takes;
+};
+
+/**
  * Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. On a
  * board view, the boards' frames.
  */
@@ -607,7 +618,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   rightTab: "design",
   route: "/",
   select: (selection) => {
-    if (selection && hidesSelection(get)) {
+    if (selection && hidesSelection(get, selection.frame)) {
       return;
     }
     set({ also: [], selectedPage: null, selection });
@@ -619,7 +630,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   selection: null,
   selectMany: (selections) => {
     const [first, ...rest] = selections;
-    if (!first || hidesSelection(get)) {
+    if (!first || hidesSelection(get, first.frame)) {
       get().select(null);
       return;
     }
@@ -749,10 +760,11 @@ export const useEditor = create<EditorStore>((set, get) => ({
 
 /**
  * Nothing shows a selection in the prototype, nor on a board view, which draws no page: nothing
- * may be selected there.
+ * may be selected there but in an app component's tree, on its board (`frame`).
  */
-const hidesSelection = (get: () => EditorStore) =>
-  get().workspace === "prototype" || onBoard();
+const hidesSelection = (get: () => EditorStore, frame?: string) =>
+  get().workspace === "prototype" ||
+  (onBoard() && !(frame !== undefined && boardTakesSelection(frame)));
 
 /**
  * Selects a node for a right-click. One that is already selected keeps the selection, in the view

@@ -3,8 +3,9 @@
  * picked on its boards, in the place of Design, Code and Comments. On Design system: a token's,
  * a colour group's or a text style's fields (`token-inspector.tsx`), a guideline's text
  * (`guideline-editor.tsx`), and with nothing picked what can be added to the foundation; a
- * project without a design system sees its Set up. The Library's cells and components come with
- * their boards (Phase 6).
+ * project without a design system sees its Set up. On the Library: a system component's look at
+ * the cell picked (`look-inspector.tsx`), an app component's properties, variants and slots
+ * (`app-inspector.tsx`), and on the Overview the way to a component's board.
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
@@ -30,8 +31,10 @@ import {
 import { useComponents } from "../state/components.ts";
 import { commitEdits, useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { AppInspector, AppMenu } from "./app-inspector.tsx";
 import { GuidelineEditor } from "./guideline-editor.tsx";
 import { InspectedKey } from "./inspector-fields.tsx";
+import { LookInspector, SystemMenu } from "./look-inspector.tsx";
 import {
   FoundationActions,
   GroupInspector,
@@ -198,12 +201,71 @@ const PickSwatch = ({ picked }: { picked: Picked | null }) => {
   ) : null;
 };
 
+/** The Library's inspector body: the Overview's hint, a system component's look, an app component's. */
+const LibraryBody = ({ open }: { open: BoardPlace }) => {
+  const meta = useComponents((s) =>
+    s.catalogue.find((c) => c.name === open.item)
+  );
+  const ds = useDesignSystem((s) => s.designSystem);
+  if (open.item === OVERVIEW) {
+    return (
+      <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
+        {hintOf(open)}
+        {ds ? null : (
+          <>
+            <span>
+              Every component is drawn in its default look. Set up a design
+              system to draw them in yours.
+            </span>
+            <Button
+              onClick={() => useDesignSystemSetup.getState().show(true)}
+              size="sm"
+            >
+              Set up
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  }
+  return meta?.importFrom === APP_FROM ? (
+    <AppInspector name={open.item} />
+  ) : (
+    <LookInspector meta={meta} name={open.item} />
+  );
+};
+
+/** The "…" of the item open: a pick's on Design system, a component's on the Library. */
+const HeaderMenu = ({
+  kind,
+  open,
+  picked,
+}: {
+  kind: string;
+  open: BoardPlace;
+  picked: Picked | null;
+}) => {
+  const ds = useDesignSystem((s) => s.designSystem);
+  if (open.view === "system") {
+    return picked && ds ? <PickMenu ds={ds} picked={picked} /> : null;
+  }
+  if (open.item === OVERVIEW) {
+    return null;
+  }
+  return kind === "App component" ? (
+    <AppMenu name={open.item} />
+  ) : (
+    <SystemMenu name={open.item} />
+  );
+};
+
 export const BoardInspector = ({ open }: { open: BoardPlace }) => {
   const pick = useBoard(pickOf);
   const kind = useKind(open);
   const name = useItemName(open);
-  const ds = useDesignSystem((s) => s.designSystem);
-  const picked = pick ? pickedName(pick.nodeId) : null;
+  // On the Library the item is what the panel is about: a cell picked is its place, in the selects.
+  const picked =
+    pick && open.view === "system" ? pickedName(pick.nodeId) : null;
   const title = picked?.name ?? name;
   const subtitle = picked ? subtitleOf(picked, name) : kind;
   return (
@@ -224,9 +286,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
             {subtitle}
           </span>
         </div>
-        {picked && ds && open.view === "system" ? (
-          <PickMenu ds={ds} picked={picked} />
-        ) : null}
+        <HeaderMenu kind={kind} open={open} picked={picked} />
         <HideRightPanel />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
@@ -236,9 +296,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
           {open.view === "system" ? (
             <SystemBody open={open} picked={picked} />
           ) : (
-            <p className="p-3 font-body text-muted-foreground">
-              {picked ? null : hintOf(open)}
-            </p>
+            <LibraryBody open={open} />
           )}
         </InspectedKey.Provider>
       </div>

@@ -82,7 +82,11 @@ export const useFramePointer = ({
   /** Where the frame is on the canvas, which a node dragged off it starts from. */
   frame: { x: number; y: number };
   frameId: string;
-  kind: "page" | "node";
+  /**
+   * A page, a node placed on the canvas (which a drag of its root moves about), or a board's
+   * frame an app component is edited in place in (ADR 0045), which stays where its board is.
+   */
+  kind: "page" | "node" | "board";
   root: DesignNode | null;
 }) => {
   // Pointer interaction in select mode.

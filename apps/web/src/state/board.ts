@@ -14,17 +14,32 @@
  * is a navigation, which back walks; going from item to item replaces it.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
+import {
+  type AppComponentFile,
+  componentDocOf,
+} from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { create } from "zustand";
+import {
+  APP_DEFAULT_BOARD,
+  appBoardName,
+  appInPlace,
+  appVariantOfBoard,
+  appVariantsOf,
+} from "../boards/library-boards.ts";
 import { setView, type View, viewportSize } from "./camera.ts";
+import { appComponentOf, useComponents } from "./components.ts";
+import { boardFrameOf, boardOfFrame, type useDocuments } from "./documents.ts";
 import {
   type LeftTab,
   type Mode,
   railTabs,
   showBoardFramesWith,
+  takeBoardSelectionWith,
   unpicked,
   useEditor,
 } from "./editor.ts";
-import { leaveIsolation } from "./isolation.ts";
+import { isolate, leaveIsolation, useIsolation } from "./isolation.ts";
 import { type BoardUrl, onUrlChange, readUrl, writeBoard } from "./url.ts";
 import type { Picked } from "./workspace-memory.ts";
 
@@ -87,6 +102,29 @@ showBoardFramesWith(() => {
   return open ? frames : null;
 });
 
+/** The variant a board of the app component open draws; undefined for no board of it. */
+const appBoardOf = (frame: string) => {
+  const at = boardOfFrame(frame);
+  const { open } = useBoard.getState();
+  const file =
+    at && open?.view === at.view && open.item === at.item
+      ? appOpen(open)
+      : undefined;
+  if (!(at && file)) {
+    return;
+  }
+  const variants = appVariantsOf(file);
+  const variant = appVariantOfBoard(at.name);
+  const known =
+    variants.length === 0
+      ? at.name === APP_DEFAULT_BOARD
+      : variants.some((v) => appBoardName(v) === at.name);
+  return known ? { file, variant } : undefined;
+};
+
+// An app component's boards take a selection: its tree is edited in place there.
+takeBoardSelectionWith((frame) => appBoardOf(frame) !== undefined);
+
 /** An item's key among the cameras and the picks. */
 export const boardKey = (place: BoardPlace) => `${place.view}/${place.item}`;
 
@@ -108,12 +146,44 @@ export const BOARD_MODES: readonly Mode[] = ["select", "interact", "pan"];
 const boardMode = (mode: Mode): Mode =>
   BOARD_MODES.includes(mode) ? mode : "select";
 
-/**
- * The rail's places on a board view: Layers only where there is a tree, which no board has yet
- * (an app component's will, ADR 0045).
- */
+/** The app component a board view shows, when it shows one. */
+const appOpen = (open: BoardPlace | null): AppComponentFile | undefined => {
+  const file =
+    open?.view === "library"
+      ? appComponentOf(useComponents.getState().components, open.item)
+      : undefined;
+  return file?.origin === "app" ? file : undefined;
+};
+
+/** The rail's places on a board view: Layers only where there is a tree, an app component's. */
 export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] =>
-  open ? railTabs.filter((tab) => tab !== "layers") : railTabs;
+  open && !appOpen(open)
+    ? railTabs.filter((tab) => tab !== "layers")
+    : railTabs;
+
+/**
+ * The tree an app component's board view shows in Layers, and the board it is selected in: the
+ * one it is edited in place on, else its first variant's. Null on any other board view.
+ */
+export const boardTree = (
+  open: BoardPlace | null,
+  docs: ReturnType<typeof useDocuments.getState>["docs"]
+): { readonly frame: string; readonly root: DesignNode } | null => {
+  const file = appOpen(open);
+  if (!(open && file)) {
+    return null;
+  }
+  const { isolated } = useIsolation.getState();
+  const [first = null] = appVariantsOf(file);
+  const frame =
+    isolated?.component === file.name
+      ? isolated.frame
+      : boardFrameOf({ ...open, name: appBoardName(first) });
+  return {
+    frame,
+    root: docs[componentDocOf(file.name)]?.root ?? file.tree,
+  };
+};
 
 /**
  * Where an item's boards begin the first time it is opened, from the seen part's corner: a
@@ -146,9 +216,8 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
     return;
   }
   // Left before the page is put aside: the instance it was entered from is what is selected.
-  if (!was) {
-    leaveIsolation();
-  }
+  // From item to item, a tree edited in place on a board is left with its board.
+  leaveIsolation();
   const now = useEditor.getState();
   const left: Left = board.left ?? {
     leftTab: now.leftTab,
@@ -195,6 +264,7 @@ const close = (): { left: Left | null; view: BoardView } | null => {
   if (!open) {
     return null;
   }
+  leaveIsolation();
   useBoard.setState({
     cameras: { ...cameras, [boardKey(open)]: useEditor.getState().view },
     frames: {},
@@ -306,6 +376,27 @@ export const followBoardHistory = (): (() => void) =>
       leaveBoard("none");
     }
   });
+
+/**
+ * What is selected in an app component's board (from Layers, or a node of its tree) is edited in
+ * place there: the board's instance is isolated, what was selected kept.
+ */
+useEditor.subscribe((now, before) => {
+  const frame = now.selection?.frame;
+  if (
+    frame === undefined ||
+    frame === before.selection?.frame ||
+    useIsolation.getState().isolated?.frame === frame
+  ) {
+    return;
+  }
+  const board = appBoardOf(frame);
+  if (!board) {
+    return;
+  }
+  const { instance, variant } = appInPlace(board.file, board.variant);
+  isolate(frame, instance, { select: false, variant });
+});
 
 /**
  * The prototype shows the page: a board view open gives way to it, and what the page was left
