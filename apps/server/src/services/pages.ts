@@ -8,7 +8,7 @@ import type {
   Page,
   PageList,
 } from "@ultrapaint/contracts/pages";
-import { Context, Effect, Layer, Semaphore } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { CommentsService } from "./comments.ts";
 import type { EditFailure, EditTransaction } from "./edit.ts";
 import { makeCanvasOperations } from "./pages-canvases.ts";
@@ -146,10 +146,8 @@ export class PagesService extends Context.Service<
     Effect.gen(function* () {
       const reading = yield* makePagesReading;
       const comments = yield* CommentsService;
-      // Renames, duplicates and deletes pick a file name and rewrite `canvas.json`; two at
-      // once would choose the same name or lose each other's frame.
-      const mutations = yield* Semaphore.make(1);
-      const exclusive = mutations.withPermits(1);
+      // Every operation finds what it acts on, picks a file name and rewrites `canvas.json`
+      // inside its step, under the journal's lock: two at once run one after the other.
       const { canvasFile, list, readCanvas, updateCanvas } = reading;
       const {
         copyTo,
@@ -177,29 +175,26 @@ export class PagesService extends Context.Service<
 
       return PagesService.of({
         canvasFile,
-        copyTo: (ids, target, move) => exclusive(copyTo(ids, target, move)),
-        create: (canvas, page, templateId) =>
-          exclusive(create(canvas, page, templateId)),
-        createCanvas: (name) => exclusive(createCanvas(name)),
-        createState: (id, state) => exclusive(createState(id, state)),
-        createVariant: (id, variant) => exclusive(createVariant(id, variant)),
-        createWith: (canvas, page, document, frame) =>
-          exclusive(createWith(canvas, page, document, frame)),
-        delete: (id) => exclusive(remove(id)),
-        deleteCanvas: (id) => exclusive(deleteCanvas(id)),
-        duplicate: (id) => exclusive(duplicate(id)),
-        duplicateCanvas: (id, name) => exclusive(duplicateCanvas(id, name)),
+        copyTo,
+        create,
+        createCanvas,
+        createState,
+        createVariant,
+        createWith,
+        delete: remove,
+        deleteCanvas,
+        duplicate,
+        duplicateCanvas,
         list,
         readCanvas,
-        rename: (id, name) => exclusive(rename(id, name)),
-        renameCanvas: (id, name) => exclusive(renameCanvas(id, name)),
-        reorderCanvases: (order) => exclusive(reorderCanvases(order)),
-        setFrame: (canvas, pagePath, frame) =>
-          exclusive(setFrame(canvas, pagePath, frame)),
-        setHome: (id, route) => exclusive(setHome(id, route)),
-        setRoute: (id, route) => exclusive(setRoute(id, route)),
+        rename,
+        renameCanvas,
+        reorderCanvases,
+        setFrame,
+        setHome,
+        setRoute,
         updateCanvas,
-        writeFrames: (canvas, frames) => exclusive(writeFrames(canvas, frames)),
+        writeFrames,
       });
     })
   );

@@ -1,6 +1,6 @@
 /**
  * The pages' pure parts: what `canvases.json` says, the URL a canvas opens on,
- * the page list a set of files makes, and the links a rename or a new URL rewrites. The pages
+ * the page list a set of files makes. The pages
  * service and the snapshots both build on them; the service holds the files.
  */
 import {
@@ -182,35 +182,4 @@ export const pageListOf = (input: {
     };
   });
   return { canvases: orderCanvases(canvases, input.order), pages };
-};
-
-/**
- * Rewrites, in place, the `link` of every node of a JSON tree (a page document, a canvas's
- * nodes): `map` answers what a link becomes, or undefined to leave it. True when one changed.
- */
-export const mapLinks = (
-  value: unknown,
-  map: (link: string) => string | undefined
-): boolean => {
-  if (Array.isArray(value)) {
-    return value.map((item) => mapLinks(item, map)).some(Boolean);
-  }
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  let changed = false;
-  if (typeof record.link === "string") {
-    const next = map(record.link);
-    if (next !== undefined && next !== record.link) {
-      record.link = next;
-      changed = true;
-    }
-  }
-  for (const key of ["children", "root"]) {
-    if (key in record && mapLinks(record[key], map)) {
-      changed = true;
-    }
-  }
-  return changed;
 };

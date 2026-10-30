@@ -123,6 +123,11 @@ export interface EditTransaction {
    * change carried into the steps (a comment added since) names the file as each step had it.
    */
   readonly move: (from: string, to: string) => Effect.Effect<void, EditFailure>;
+  /**
+   * Names the step, in place of the label the transaction was given: for an action that finds
+   * what it acts on inside the step (a page renamed is named in the list as the step reads it).
+   */
+  readonly name: (label: string) => Effect.Effect<void>;
   /** The file as it is now, the step's own writes included: its text, or null when there is none. */
   readonly read: (rel: string) => Effect.Effect<string | null, EditFailure>;
   /** The file as it is now, read as the codec says. */
@@ -167,8 +172,9 @@ export class EditService extends Context.Service<
     readonly redo: Effect.Effect<UndoResult | null, EditFailure>;
     readonly state: Effect.Effect<UndoState>;
     /**
-     * Runs `body` as one undoable action. Nothing else touches the journal meanwhile, and a
-     * failure puts back what the body had already changed.
+     * Runs `body` as one undoable action, labelled `label` unless the body names it
+     * (`tx.name`). Nothing else touches the journal meanwhile, and a failure puts back what the
+     * body had already changed.
      */
     readonly transaction: <A, E>(
       label: string,
@@ -381,9 +387,14 @@ export class EditService extends Context.Service<
         const readDocument = <A, E>(rel: string, codec: FileCodec<A, E>) =>
           Effect.flatMap(current(rel), codec.decode);
 
+        let named: string | undefined;
         const tx: EditTransaction = {
           create,
           move,
+          name: (label) =>
+            Effect.sync(() => {
+              named = label;
+            }),
           read: current,
           readDocument,
           remove,
@@ -392,6 +403,7 @@ export class EditService extends Context.Service<
         return {
           changes: () => changes.filter((c) => c.before !== c.after),
           moves: () => [...moves],
+          named: () => named,
           tx,
         };
       };
@@ -420,13 +432,14 @@ export class EditService extends Context.Service<
                 if (changes.length === 0) {
                   return Effect.void;
                 }
+                const named = r.named() ?? label;
                 // Drop redo entries beyond the cursor, then append.
                 const moves = r.moves();
                 journal = withinLimits([
                   ...journal.slice(0, cursor),
                   moves.length > 0
-                    ? { changes, label, moves }
-                    : { changes, label },
+                    ? { changes, label: named, moves }
+                    : { changes, label: named },
                 ]);
                 cursor = journal.length;
                 invalidated = undefined;
