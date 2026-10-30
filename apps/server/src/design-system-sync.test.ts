@@ -35,7 +35,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const first = yield* client["sync.plan"]();
           assert.strictEqual(first.case, "code");
           assert.isTrue(first.facts.app);
-          assert.strictEqual(first.facts.tokens, 2);
           assert.deepStrictEqual(
             first.steps.map((s) => s.kind),
             ["inventory", "define", "map", "migrate", "verify"]

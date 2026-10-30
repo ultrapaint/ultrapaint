@@ -9,6 +9,7 @@ import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
+import { CodeSide } from "../code-side.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
@@ -182,7 +183,9 @@ export const designSystemToolHandlers = Effect.gen(function* () {
 
     scan_design_system: Effect.fn("EditorTools.scan_design_system")(
       function* () {
-        const found = yield* designSystem((d) => d.scan);
+        const found = yield* reported(
+          project.use(Effect.flatMap(CodeSide, (c) => c.scan))
+        );
         return {
           designSystem: asJson(found.designSystem),
           files: found.files,

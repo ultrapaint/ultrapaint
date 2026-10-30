@@ -121,13 +121,8 @@ export const SyncFacts = Schema.Struct({
   figma: Schema.optional(
     Schema.Struct({ id: Schema.String, name: Schema.String })
   ),
-  /** The component directories the settings name. */
-  libraryDirs: Schema.Array(Schema.String),
-  styleSystem: Schema.String,
   /** The stylesheets the settings name. */
   stylesheets: Schema.Number,
-  /** Tokens the code declares itself, not the style system's defaults. */
-  tokens: Schema.Number,
 });
 export type SyncFacts = typeof SyncFacts.Type;
 

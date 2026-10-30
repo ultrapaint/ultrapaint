@@ -337,7 +337,7 @@ const documentAfter = (
 const someOf = (paths: readonly string[]) =>
   `${paths.slice(0, 4).join(", ")}${paths.length > 4 ? ", …" : ""}`;
 
-/** What the document holds that tokens cannot say: its text styles, its components. */
+/** What the document holds that tokens cannot say: its text styles, its components' looks. */
 const documentNotes = (
   path: string,
   held: readonly { readonly path: string }[]
@@ -356,7 +356,7 @@ const documentNotes = (
       : []),
     ...(components.length > 0
       ? [
-          `${plural(components.length, "component setting")} of ${path} differ from the components' classes (${someOf(components)}). Classes are the code's: taking the document's tokens puts the code's back; change the classes to change them.`,
+          `${plural(components.length, "component setting")} of ${path} differ from the components' looks (${someOf(components)}). A system component's look is its file's, edited on its board: taking the document's tokens puts the look's back; change the look to change them.`,
         ]
       : []),
   ];

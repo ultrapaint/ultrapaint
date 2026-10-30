@@ -203,8 +203,8 @@ export const scanDesignSystem = (
   });
   notes.push(
     styles.length > 0
-      ? "The text styles are a starter scale built from the theme's sizes, weights and leading; the product's own styles, component categories and example props cannot be read from CSS: ask the user or read the components."
-      : "Text styles, component categories and example props cannot be read from CSS; ask the user or read the components."
+      ? "The text styles are a starter scale built from the theme's sizes, weights and leading; the product's own styles cannot be read from CSS: ask the user or read the code."
+      : "Text styles cannot be read from CSS; ask the user or read the code."
   );
 
   const elevation = starterElevation({ colors, shadows: of("shadow") });

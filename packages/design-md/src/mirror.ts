@@ -5,7 +5,7 @@
  */
 
 import { ROOT_SLOT } from "@ultrapaint/contracts/component-names";
-import type { PartStyle, PartStyles } from "@ultrapaint/contracts/components";
+import type { PartStyle } from "@ultrapaint/contracts/components";
 import type {
   DesignSystem,
   TextStyle,
@@ -17,6 +17,7 @@ import {
   isColor,
   resolveCss,
 } from "@ultrapaint/contracts/token-value";
+import type { ComponentLook } from "@ultrapaint/design-document/component-look";
 import {
   isToken,
   tokenName,
@@ -379,25 +380,15 @@ const tokensOfStyle = (style: PartStyle): Record<string, string> => {
   return out;
 };
 
-/** A system component's look as DESIGN.md's component tokens are read from it (ADRs 0027, 0041). */
-export interface LookLike {
-  readonly base: PartStyles;
-  readonly component: string;
-  /** The member each variant axis starts in. */
-  readonly defaults: Readonly<Record<string, string>>;
-  readonly states?: Readonly<Record<string, PartStyles>> | undefined;
-  readonly variantStates?:
-    | Readonly<
-        Record<
-          string,
-          Readonly<Record<string, Readonly<Record<string, PartStyles>>>>
-        >
-      >
-    | undefined;
-  readonly variants: Readonly<
-    Record<string, Readonly<Record<string, PartStyles>>>
-  >;
-}
+/**
+ * A system component's look as DESIGN.md's component tokens are read from it (ADRs 0027, 0041):
+ * the fields of its file that say what it looks like.
+ */
+export type LookLike = Pick<
+  ComponentLook,
+  "base" | "component" | "defaults" | "variants"
+> &
+  Partial<Pick<ComponentLook, "states" | "variantStates">>;
 
 /**
  * The component tokens of the system components whose look the project owns (ADRs 0027, 0041):
