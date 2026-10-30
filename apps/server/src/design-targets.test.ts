@@ -5,7 +5,7 @@ import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
+import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { eachTest } from "./testing/each-test.ts";
 import { callTool, ProjectTest } from "./testing/project.ts";
@@ -201,8 +201,11 @@ describe("a design target, named once", () => {
           yield* miss("nowhere.page.json"),
           `no page is nowhere.page.json; ${pages}`
         );
-        // A node beside the pages is no page: the tools take it with loose.
-        assert.include(yield* miss("canvas#c_1"), "pass `loose: true`");
+        // A node beside the pages is read where it is, in the canvas its reference says.
+        assert.strictEqual(
+          yield* miss(`${id}:canvas#c_1`),
+          `no node c_1 in designs/${id}/canvas.json; read it without a node to see its ids`
+        );
       })
     );
   });

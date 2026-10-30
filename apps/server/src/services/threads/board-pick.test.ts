@@ -59,15 +59,21 @@ describe("a board's pick, as the agent is told it (ADR 0045, B11)", () => {
   });
 
   it("says where a system component's file keeps its look at the place picked", () => {
-    const at = (variant?: string, state?: string) =>
-      boardPickText({
+    const at = (variant?: string, state?: "hover" | "focus") => {
+      const [axis = "", member = ""] = variant?.split("=") ?? [];
+      return boardPickText({
         file: BUTTON,
         kind: "board",
         name: "Button",
         pick: "systemComponent",
-        ...(variant && { variant }),
-        ...(state && { state }),
+        ...((variant || state) && {
+          place: {
+            state: state ?? null,
+            variant: variant ? { axis, member } : null,
+          },
+        }),
       });
+    };
     expect(at("variant=outline", "hover")).toBe(
       "The user has picked the look of the system component Button at variant=outline in the hover state: variantStates.variant.outline.hover of docs/designs/components/Button.component.json. Changes should target that place of its look unless told otherwise."
     );
@@ -87,7 +93,7 @@ describe("a board's pick, as the agent is told it (ADR 0045, B11)", () => {
         kind: "board",
         name: "SiteHeader",
         pick: "appComponent",
-        variant: "tone=featured",
+        place: { state: null, variant: { axis: "tone", member: "featured" } },
       })
     ).toBe(
       'The user has picked the variant tone=featured of the app component SiteHeader (what its nodes override under at["tone=featured"]), kept in docs/designs/components/SiteHeader.component.json. Changes should target that variant unless told otherwise.'

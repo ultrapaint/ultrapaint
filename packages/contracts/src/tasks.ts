@@ -1,7 +1,7 @@
 /**
  * The tasks an agent is given, as typed requests: implement a design, link pages built already
- * to their code, import a Figma file, redraw a canvas, draw a component sheet, run a step of the
- * design-system setup, sync. The server turns a request into the task's text
+ * to their code, import a Figma file, redraw a canvas, run a step of the design-system setup,
+ * sync. The server turns a request into the task's text
  * (`apps/server/src/services/threads/tasks.ts`); a slash command is one way to write a request.
  * Each command is declared once here, with how it is offered, read and written: the catalogue the
  * server serves (`slashCommands`), `parseCommand` and `commandOf` derive from it, so the editor
@@ -96,6 +96,25 @@ export type TaskRequest = typeof TaskRequest.Type;
 export const taskPurpose = (request: TaskRequest): ThreadPurpose =>
   request._tag === "Implement" ? "implement" : "design";
 
+/**
+ * Whether the thread that runs a task draws designs, and is told the design skills, which the
+ * design evals were tuned with (ADR 0043): a canvas redrawn, a Figma file made pages, the design
+ * system imported or defined. Implementing, linking pages built already, mapping and migrating
+ * the code and matching tokens draw nothing.
+ */
+export const drawsDesigns = (request: TaskRequest): boolean => {
+  switch (request._tag) {
+    case "Init":
+    case "ImportFigma":
+    case "Redraw":
+      return true;
+    case "SetupStep":
+      return request.step === "define";
+    default:
+      return false;
+  }
+};
+
 const ROOT_CANVAS = '""';
 const ADOPT_FLAG = "--adopt";
 const WHITESPACE_RE = /\s+/;
@@ -178,7 +197,7 @@ const command = <T extends RequestTag>(
 const COMMANDS: readonly Command[] = [
   command({
     description:
-      "Import the repository's design system: tokens, text styles, components and conventions",
+      "Import the repository's design system: tokens, text styles and conventions",
     name: "init",
     parse: (argument) => ({ _tag: "Init", ...given("extra", argument) }),
     print: (request) => [request.extra],
@@ -218,7 +237,7 @@ const COMMANDS: readonly Command[] = [
   }),
   command({
     description:
-      "Turn an imported Figma file into pages, with its components replaced by the repository's",
+      "Turn an imported Figma file into pages, its components made the design's",
     name: "import-figma",
     parse: (argument) => {
       const { first, rest } = splitWord(argument);

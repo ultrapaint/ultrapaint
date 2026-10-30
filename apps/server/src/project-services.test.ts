@@ -7,7 +7,7 @@ import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { OpenProject } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
+import { EditorTools } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
 import { callTool, ProjectFixture, withProject } from "./testing/project.ts";
 

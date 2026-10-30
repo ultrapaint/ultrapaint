@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe, layer, it as test } from "@effect/vitest";
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
@@ -9,11 +9,8 @@ import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
-import { FigmaTools } from "./services/mcp/figma-tools.ts";
-import { MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
+import { EditorTools, MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
-import { SetupTools } from "./services/mcp/setup-tools.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
@@ -270,7 +267,10 @@ describe("tasks, without the editor's MCP server", () => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
-        assert.include(init, "1. Read the stylesheets the preview imports");
+        assert.include(
+          init,
+          "1. Read the stylesheets the code's tokens are in"
+        );
         assert.include(init, "valid against this JSON Schema");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
@@ -372,8 +372,6 @@ describe("the editor's tools in what an agent is told", () => {
   /** The tools the editor's MCP server offers, by the names their definitions give them. */
   const offered = new Set<string>([
     ...Object.keys(EditorTools.tools),
-    ...Object.keys(FigmaTools.tools),
-    ...Object.keys(SetupTools.tools),
     AskUser.name,
     GetScreenshot.name,
   ]);
@@ -479,13 +477,25 @@ describe("the editor's tools in what an agent is told", () => {
     ],
     components: [
       "ask\n`get_component` for its props and variants.",
-      "read its code for its props and variants.",
+      "read its line among the components listed for its props and variants.",
     ],
     layout: [
       "or at `390` and `1440` with\n`get_screenshot`'s `width`.",
       "or at `390` and `1440`. Keep",
     ],
   } as const;
+
+  /**
+   * What the editor no longer has or never was, said anywhere an agent reads: the rail has no
+   * Pages panel, the stylesheets are where the code's tokens are (Sync's, not the preview's), and
+   * a system component has no code in the repository.
+   */
+  const stale = (read: readonly Read[]) =>
+    read.flatMap((r) =>
+      ["Pages panel", "the preview imports", "read its code"]
+        .filter((phrase) => r.text.includes(phrase))
+        .map((phrase) => `${r.of} says ${phrase}`)
+    );
 
   /** The briefings' text, where the design skills are told. */
   const briefings = (read: readonly Read[]) =>
@@ -530,6 +540,7 @@ describe("the editor's tools in what an agent is told", () => {
             "write_figma_frame",
           ]
         );
+        assert.deepStrictEqual(stale([...before, ...after, instructions]), []);
         // The skills keep their words with the tools, which the design evals were tuned to.
         for (const [withTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withTools);
@@ -561,12 +572,31 @@ describe("the editor's tools in what an agent is told", () => {
           ),
           []
         );
+        assert.deepStrictEqual(stale([...before, ...after]), []);
         for (const [, withoutTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withoutTools);
         }
       })
     );
   });
+});
+
+describe("the briefing", () => {
+  test.effect(
+    "tells the design skills to a thread that draws designs, and to no other",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const skilled = (text: string | undefined) =>
+          (text ?? "").includes("How to design well");
+        assert.isTrue(skilled(yield* briefing.text("design")));
+        assert.isFalse(skilled(yield* briefing.text("implement")));
+        // Map, Migrate or a token match: a design thread that draws nothing.
+        assert.isFalse(
+          skilled(yield* briefing.text("design", { designs: false }))
+        );
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
 });
 
 describe("slash commands", () => {

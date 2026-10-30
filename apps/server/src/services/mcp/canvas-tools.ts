@@ -13,14 +13,12 @@ import { Tool, Toolkit } from "effect/ai";
 import type { CopyTarget } from "../pages.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
-
-const Failure = ToolFailure;
+import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 export const CopyPages = Tool.make("copy_pages", {
   description:
     "Copy or move pages with variants into a canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes comments too.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** The canvas the pages are in; needed only when the project has several. */
     canvas: opt(Schema.String),
@@ -43,26 +41,26 @@ export const CopyPages = Tool.make("copy_pages", {
       })
     ),
   }),
-});
+}).annotateMerge(doing("destructive"));
 
 export const CreateCanvas = Tool.make("create_canvas", {
   description: "Make an empty canvas, its id its name made safe.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({ id: Schema.String, name: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 export const SetHome = Tool.make("set_home", {
   description:
     "Choose the page, one with a URL, the canvas's prototype opens on.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
     route: Schema.String,
   }),
   success: Schema.Struct({ canvas: Schema.String, home: Schema.String }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const LinkSummary = Schema.Struct({
   /** Why the link leads nowhere; absent when it leads somewhere. */
@@ -80,7 +78,7 @@ const LinkSummary = Schema.Struct({
 export const ListLinks = Tool.make("list_links", {
   description:
     "Every linking node of a canvas, its page and target, broken ones marked: run it after changing URLs or deleting or moving pages.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** Only the links that lead nowhere. */
     brokenOnly: opt(Schema.Boolean),
@@ -92,7 +90,7 @@ export const ListLinks = Tool.make("list_links", {
     broken: Schema.Number,
     links: Schema.Array(LinkSummary),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 /**
  * Where a link leads in a canvas whose pages are these, read as the editor reads it
@@ -131,104 +129,116 @@ export const linkTargetOf = (
   };
 };
 
-const CanvasTools = Toolkit.make(CopyPages, CreateCanvas, SetHome, ListLinks);
+export const CanvasTools = Toolkit.make(
+  CopyPages,
+  CreateCanvas,
+  SetHome,
+  ListLinks
+);
 
-export const canvasToolHandlers = Effect.gen(function* () {
-  const { canvasOf, documents, pageAt, pagesOf, pagesService } =
-    yield* makeLookup;
+export const CanvasToolsLive = CanvasTools.toLayer(
+  Effect.gen(function* () {
+    const { canvasOf, documents, pageAt, pagesOf, pagesService } =
+      yield* makeLookup;
 
-  return CanvasTools.of({
-    copy_pages: Effect.fn("EditorTools.copy_pages")(function* ({
-      canvas,
-      move,
-      newCanvas,
-      pages: given,
-      to,
-    }) {
-      if ((to === undefined) === (newCanvas === undefined)) {
-        return yield* missing(
-          "say where the pages go: `to` with the id of a canvas there is, or `newCanvas` with the name of one to make"
-        );
-      }
-      if (given.length === 0) {
-        return yield* missing("name the pages to copy in `pages`");
-      }
-      const chosen = yield* Effect.forEach(given, (p) => pageAt(p, canvas));
-      const target: CopyTarget =
-        newCanvas === undefined
-          ? { canvas: yield* canvasOf(to) }
-          : { name: newCanvas };
-      const copied = yield* pagesService((pages) =>
-        pages.copyTo(
-          chosen.map((p) => p.id),
-          target,
-          move ?? false
-        )
-      );
-      return {
-        canvas: copied[0]?.canvas ?? "",
-        pages: copied.map((page) => ({
-          file: page.file,
-          ...(page.route !== undefined && { route: page.route }),
-        })),
-      };
-    }),
-
-    create_canvas: Effect.fn("EditorTools.create_canvas")(function* ({ name }) {
-      const made = yield* pagesService((pages) => pages.createCanvas(name));
-      return { id: made.id, name: made.name };
-    }),
-
-    list_links: Effect.fn("EditorTools.list_links")(function* ({
-      brokenOnly,
-      canvas,
-    }) {
-      const id = yield* canvasOf(canvas);
-      const inCanvas = (yield* reported(pagesOf)).pages.filter(
-        (p) => p.canvas === id
-      );
-      const states = yield* documents((d) => d.list(id));
-      const links = states.flatMap((state) => {
-        if (!state.root) {
-          return [];
+    return CanvasTools.of({
+      copy_pages: Effect.fn("EditorTools.copy_pages")(function* ({
+        canvas,
+        move,
+        newCanvas,
+        pages: given,
+        to,
+      }) {
+        if ((to === undefined) === (newCanvas === undefined)) {
+          return yield* missing(
+            "say where the pages go: `to` with the id of a canvas there is, or `newCanvas` with the name of one to make"
+          );
         }
-        // The canvas's own document holds the nodes placed beside the pages.
-        const page =
-          state.doc === canvasDocOf(id)
-            ? null
-            : (inCanvas.find((p) => p.id === state.doc)?.file ?? state.doc);
-        return [...walk(state.root)].flatMap((node) =>
-          node.link === undefined || node.link.trim() === ""
-            ? []
-            : [
-                {
-                  link: node.link,
-                  node: node.id,
-                  page,
-                  ...linkTargetOf(node.link, inCanvas),
-                },
-              ]
+        if (given.length === 0) {
+          return yield* missing("name the pages to copy in `pages`");
+        }
+        const chosen = yield* Effect.forEach(given, (p) => pageAt(p, canvas));
+        const target: CopyTarget =
+          newCanvas === undefined
+            ? { canvas: yield* canvasOf(to) }
+            : { name: newCanvas };
+        const copied = yield* pagesService((pages) =>
+          pages.copyTo(
+            chosen.map((p) => p.id),
+            target,
+            move ?? false
+          )
         );
-      });
-      const broken = links.filter((l) => l.broken !== undefined);
-      return {
-        broken: broken.length,
-        links: brokenOnly ? broken : links,
-      };
-    }),
+        return {
+          canvas: copied[0]?.canvas ?? "",
+          pages: copied.map((page) => ({
+            file: page.file,
+            ...(page.route !== undefined && { route: page.route }),
+          })),
+        };
+      }),
 
-    set_home: Effect.fn("EditorTools.set_home")(function* ({ route, canvas }) {
-      const page = yield* pageAt(route, canvas);
-      if (page.route === undefined) {
-        return yield* missing(
-          `${page.file} serves no URL, and a prototype opens on one; give it one with ${TOOLS.set_page_url} first`
+      create_canvas: Effect.fn("EditorTools.create_canvas")(function* ({
+        name,
+      }) {
+        const made = yield* pagesService((pages) => pages.createCanvas(name));
+        return { id: made.id, name: made.name };
+      }),
+
+      list_links: Effect.fn("EditorTools.list_links")(function* ({
+        brokenOnly,
+        canvas,
+      }) {
+        const id = yield* canvasOf(canvas);
+        const inCanvas = (yield* reported(pagesOf)).pages.filter(
+          (p) => p.canvas === id
         );
-      }
-      const home = page.route;
-      const changed = yield* pagesService((pages) =>
-        pages.setHome(page.canvas, home)
-      );
-      return { canvas: changed.id, home: changed.home };
-    }),
-  });
-});
+        const states = yield* documents((d) => d.list(id));
+        const links = states.flatMap((state) => {
+          if (!state.root) {
+            return [];
+          }
+          // The canvas's own document holds the nodes placed beside the pages.
+          const page =
+            state.doc === canvasDocOf(id)
+              ? null
+              : (inCanvas.find((p) => p.id === state.doc)?.file ?? state.doc);
+          return [...walk(state.root)].flatMap((node) =>
+            node.link === undefined || node.link.trim() === ""
+              ? []
+              : [
+                  {
+                    link: node.link,
+                    node: node.id,
+                    page,
+                    ...linkTargetOf(node.link, inCanvas),
+                  },
+                ]
+          );
+        });
+        const broken = links.filter((l) => l.broken !== undefined);
+        return {
+          broken: broken.length,
+          links: brokenOnly ? broken : links,
+        };
+      }),
+
+      set_home: Effect.fn("EditorTools.set_home")(function* ({
+        route,
+        canvas,
+      }) {
+        const page = yield* pageAt(route, canvas);
+        if (page.route === undefined) {
+          return yield* missing(
+            `${page.file} serves no URL, and a prototype opens on one; give it one with ${TOOLS.set_page_url} first`
+          );
+        }
+        const home = page.route;
+        const changed = yield* pagesService((pages) =>
+          pages.setHome(page.canvas, home)
+        );
+        return { canvas: changed.id, home: changed.home };
+      }),
+    });
+  })
+);

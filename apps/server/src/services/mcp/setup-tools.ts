@@ -15,17 +15,15 @@ import { Tool, Toolkit } from "effect/ai";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { CallingThread } from "./access.ts";
-import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
-
-const Failure = ToolFailure;
+import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const FinishSetupStep = Tool.make("finish_setup_step", {
   description:
     "End your setup step, with a few lines for the user: what you did and were unsure of.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({ summary: Schema.String }),
   success: Schema.Struct({ status: Schema.String, step: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 /**
  * A decision as an agent passes it: optional keys, not unions with null. Kinds `figma` and
@@ -44,19 +42,19 @@ const MapEntry = Schema.Struct({
 const MapValues = Tool.make("map_values", {
   description:
     'Decide values: target a token (color-primary, text-sm), or a layer ("50"), or keep: true.',
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({ entries: Schema.Array(MapEntry) }),
   success: Schema.Struct({
     problems: Schema.Array(Schema.String),
     saved: Schema.Number,
     undecided: Schema.Number,
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const NextBatch = Tool.make("next_batch", {
   description:
     "Migrate: ends the batch under way with done (a line on it), rewrites the next and returns what is left in its files; batch null when none is.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({ done: opt(Schema.String) }),
   success: Schema.Struct({
     batch: Schema.NullOr(MigrationBatch),
@@ -69,7 +67,7 @@ const NextBatch = Tool.make("next_batch", {
     ),
     remaining: Schema.Number,
   }),
-});
+}).annotateMerge(doing("destructive"));
 
 export const SetupTools = Toolkit.make(FinishSetupStep, MapValues, NextBatch);
 
