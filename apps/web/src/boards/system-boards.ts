@@ -121,6 +121,9 @@ const BLANK_LINE = /\n\s*\n/;
 const NOT_WORD = /[^a-z0-9]+/g;
 const EDGE_DASHES = /^-|-$/g;
 
+/** Whether an item of Design system is a guideline, by its id. */
+export const isGuideline = (item: string) => item.startsWith(GUIDE_PREFIX);
+
 /** A guideline's id, from its heading: `Do's and Don'ts` is `guide-do-s-and-don-ts`. */
 export const guidelineId = (heading: string) =>
   `${GUIDE_PREFIX}${heading.toLowerCase().replace(NOT_WORD, "-").replace(EDGE_DASHES, "")}`;
@@ -234,7 +237,7 @@ export const systemBoards = (
   if (item === "color") {
     return colorBoards(ds, q);
   }
-  if (item.startsWith(GUIDE_PREFIX)) {
+  if (isGuideline(item)) {
     return guidelineBoards(document, item);
   }
   return ds

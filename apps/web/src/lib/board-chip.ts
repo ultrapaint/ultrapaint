@@ -26,9 +26,9 @@ import {
   appInPlace,
   appVariantOfBoard,
   OVERVIEW,
-  placeOfCell,
 } from "../boards/library-boards.ts";
-import { systemItemName } from "../boards/system-boards.ts";
+import { designSystemPickOf, pickOfId, placeOfCell } from "../boards/pick.ts";
+import { isGuideline, systemItemName } from "../boards/system-boards.ts";
 import type { BoardPick, BoardPlace } from "../state/board.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 
@@ -91,12 +91,6 @@ const styleOf = (ds: DesignSystem, name: string): string | undefined => {
   return fields.length > 0 ? fields.join(", ") : undefined;
 };
 
-/** The pick's kind and name, from the node id a board names for it (`token:color-primary`). */
-const splitPick = (nodeId: string) => {
-  const at = nodeId.indexOf(":");
-  return { kind: nodeId.slice(0, at), name: nodeId.slice(at + 1) };
-};
-
 const withDetail = (
   chip: BoardAttachment,
   detail: string | undefined
@@ -109,7 +103,7 @@ const systemChip = (
   facts: BoardFacts
 ): BoardAttachment => {
   const { designsDir, document, ds } = facts;
-  if (item.startsWith("guide-")) {
+  if (isGuideline(item)) {
     return {
       file: document?.path ?? DESIGN_MD_FILE,
       kind: "board",
@@ -118,7 +112,7 @@ const systemChip = (
     };
   }
   const file = `${designsDir}/${DESIGN_SYSTEM_FILE}`;
-  const picked = pick ? splitPick(pick.nodeId) : null;
+  const picked = pick ? designSystemPickOf(pick.nodeId) : null;
   const of = (
     kind: BoardAttachment["pick"],
     name: string,
@@ -156,9 +150,8 @@ const appBoardPicked = (
   ) {
     return edited.name;
   }
-  return pick?.nodeId.startsWith("variant:")
-    ? pick.nodeId.slice("variant:".length)
-    : null;
+  const picked = pick ? pickOfId(pick.nodeId) : null;
+  return picked?.kind === "variant" ? picked.board : null;
 };
 
 /** The Library's chip: the component open, at the place or the variant picked. */
