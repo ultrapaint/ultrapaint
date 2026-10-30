@@ -54,10 +54,7 @@ const codeChanges = (...args: Parameters<typeof changesOf>) => {
 const facts: SyncFacts = {
   app: true,
   designSystem: false,
-  libraryDirs: ["front/src/components"],
-  styleSystem: "tailwind-v4",
   stylesheets: 1,
-  tokens: 8,
 };
 
 const token = (name: string, own = true): SourceToken => ({
@@ -125,7 +122,7 @@ describe("the plan", () => {
   it("asks for nothing about components: the canvas draws the editor's system components", () => {
     const steps = planOf({
       drift: emptyDrift,
-      facts: { ...facts, libraryDirs: [] },
+      facts,
       figmaSynced: false,
       setup: emptySetup(0),
     });

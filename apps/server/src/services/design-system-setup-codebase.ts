@@ -11,6 +11,7 @@ import type {
 import { Clock, Effect, FileSystem, Path } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { OpenProject } from "../project.ts";
+import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { refuse } from "./design-system-setup-store.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -49,14 +50,13 @@ export const makeCodebaseReader = Effect.gen(function* () {
         const paths = yield* RepoPaths;
         const tree = yield* WorkingTree;
         const { usage } = yield* ProjectStyleSystem;
-        const designSystem = yield* DesignSystemService;
-        const saved = (yield* designSystem.get).designSystem;
+        const saved = (yield* (yield* DesignSystemService).get).designSystem;
         if (required && !saved) {
           return yield* refuse(
             "There is no design system saved: Define writes design-system.json first."
           );
         }
-        const theme = saved ? null : yield* designSystem.scan;
+        const theme = saved ? null : yield* (yield* CodeSide).scan;
         const designs = paths.relative(paths.designsDir);
         const files = (yield* tree.files).filter(
           (file) =>

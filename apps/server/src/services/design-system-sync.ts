@@ -39,7 +39,6 @@ import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { ProjectStyleSystem } from "./style-system.ts";
 import {
   changesOf,
   matchEntries,
@@ -147,7 +146,7 @@ export class DesignSystemSyncService extends Context.Service<
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      // One reading at a time: they read the catalogue and the code.
+      // One reading at a time: they read the design system and the code.
       const lock = yield* Semaphore.make(1);
       // Taking from Figma and saving matches read the baseline and write it back whole: two at
       // once would lose one's matches.
@@ -171,10 +170,8 @@ export class DesignSystemSyncService extends Context.Service<
       const read = project.use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
-          const styleSystem = yield* ProjectStyleSystem;
           const { settings } = paths;
           const code = yield* CodeSide;
-          const source = yield* code.tokens;
           const state = yield* (yield* DesignSystemService).get;
           const latest = yield* (yield* FigmaImportService).latest;
           const ds = state.designSystem;
@@ -194,10 +191,7 @@ export class DesignSystemSyncService extends Context.Service<
             }),
             designSystem: state.designSystem !== null,
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
-            libraryDirs: [...settings.libraryDirs],
-            styleSystem: styleSystem.id,
             stylesheets: settings.hostCss.length,
-            tokens: source.tokens.filter((t) => t.own).length,
             ...(codeTokens && { codeTokens }),
           };
           const baseline = latest ? yield* figmaBaselineOf(latest.name) : null;
@@ -233,8 +227,8 @@ export class DesignSystemSyncService extends Context.Service<
       );
 
       // The code the plan reads is outside the designs directory, which is all the pages
-      // watch: the stylesheets' directories and the component directories are watched here,
-      // again for each project that opens.
+      // watch: the stylesheets' directories are watched here, again for each project that opens.
+      // A component's look is in the designs (ADR 0041), which DESIGN.md's mirror hears of.
       const pokes = yield* PubSub.unbounded<undefined>();
       const watching = yield* FiberHandle.make<void, never>();
       const codeDirs = project.use(
@@ -242,14 +236,11 @@ export class DesignSystemSyncService extends Context.Service<
           const paths = yield* RepoPaths;
           const source = yield* (yield* CodeSide).tokens;
           return [
-            ...new Set([
-              ...source.files
+            ...new Set(
+              source.files
                 .filter((f) => !f.includes("node_modules"))
-                .map((f) => path.dirname(path.resolve(paths.root, f))),
-              ...paths.settings.libraryDirs.map((d) =>
-                path.resolve(paths.root, d)
-              ),
-            ]),
+                .map((f) => path.dirname(path.resolve(paths.root, f)))
+            ),
           ];
         })
       );
@@ -271,15 +262,12 @@ export class DesignSystemSyncService extends Context.Service<
           ),
           { concurrency: "unbounded" }
         ).pipe(
-          Stream.filter(
-            (event) =>
-              STYLESHEET_RE.test(event.path) || event.path.endsWith(".tsx")
-          ),
+          Stream.filter((event) => STYLESHEET_RE.test(event.path)),
           Stream.debounce("150 millis"),
           Stream.runForEach(() =>
             Effect.gen(function* () {
-              // The preview draws the design over the code's values, and DESIGN.md mirrors the
-              // components' classes: both are read again, and the editor hears of it.
+              // The preview draws the design over the code's values: they are read again, and
+              // the editor hears of it.
               yield* survive(
                 project.use(
                   Effect.flatMap(DesignSystemService, (d) => d.refresh)
@@ -301,7 +289,7 @@ export class DesignSystemSyncService extends Context.Service<
       );
 
       // Whatever the plan reads changed: the project opened, the design system was written,
-      // a step moved, a stylesheet or a component file changed.
+      // a step moved, a stylesheet changed.
       const triggers = Stream.mergeAll(
         [
           Stream.fromPubSub(pokes),
@@ -309,9 +297,7 @@ export class DesignSystemSyncService extends Context.Service<
           Stream.map(events.subscribe("designSystem"), () => undefined),
           Stream.map(events.subscribe("dsSetup"), () => undefined),
           events.subscribe("file.changed").pipe(
-            Stream.filter(
-              ({ file }) => STYLESHEET_RE.test(file) || file.endsWith(".tsx")
-            ),
+            Stream.filter(({ file }) => STYLESHEET_RE.test(file)),
             Stream.map(() => undefined)
           ),
         ],

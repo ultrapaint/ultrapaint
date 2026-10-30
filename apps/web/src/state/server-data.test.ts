@@ -107,10 +107,7 @@ const plan = (at: number): SyncPlan => ({
   facts: {
     app: true,
     designSystem: true,
-    libraryDirs: [],
-    styleSystem: "tailwind-v4",
     stylesheets: 1,
-    tokens: 0,
   },
   steps: [],
   summary: "",

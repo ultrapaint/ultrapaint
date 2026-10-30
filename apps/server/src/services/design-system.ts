@@ -19,7 +19,6 @@ import {
   applyEdits,
   editLabel,
 } from "@ultrapaint/design-document/design-system-edits";
-import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
@@ -86,8 +85,6 @@ export class DesignSystemService extends Context.Service<
      * them that the files read last time would not show, such as a stylesheet that was not there.
      */
     readonly refresh: Effect.Effect<DesignSystemState>;
-    /** What the stylesheets say, as a first design system by the style system's fixed rules. */
-    readonly scan: Effect.Effect<DesignSystemScan>;
     /**
      * A node of the designs as the application's code writes it: the markup the design
      * document's, the classes the style system's (ADR 0024), at the design system's breakpoints.
@@ -421,9 +418,7 @@ export class DesignSystemService extends Context.Service<
         return { files };
       });
 
-      const scan = code.scan.pipe(Effect.withSpan("DesignSystemService.scan"));
-
-      const detect = Effect.flatMap(scan, (found) =>
+      const detect = Effect.flatMap(code.scan, (found) =>
         Effect.map(write(found.designSystem), (w) => w.designSystem)
       );
 
@@ -475,7 +470,6 @@ export class DesignSystemService extends Context.Service<
         ),
         refresh: code.refresh.pipe(Effect.andThen(mirror), Effect.andThen(get)),
         replace,
-        scan,
         write,
       });
     })
