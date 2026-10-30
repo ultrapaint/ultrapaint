@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe, it, layer } from "@effect/vitest";
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
@@ -562,6 +562,24 @@ describe("the editor's tools in what an agent is told", () => {
       })
     );
   });
+});
+
+describe("the briefing", () => {
+  it.effect(
+    "tells the design skills to a thread that draws designs, and to no other",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const skilled = (text: string | undefined) =>
+          (text ?? "").includes("How to design well");
+        assert.isTrue(skilled(yield* briefing.text("design")));
+        assert.isFalse(skilled(yield* briefing.text("implement")));
+        // Map, Migrate or a token match: a design thread that draws nothing.
+        assert.isFalse(
+          skilled(yield* briefing.text("design", { designs: false }))
+        );
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
 });
 
 describe("slash commands", () => {

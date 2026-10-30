@@ -7,7 +7,11 @@
  */
 import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
-import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
+import {
+  drawsDesigns,
+  parseCommand,
+  taskPurpose,
+} from "@ultrapaint/contracts/tasks";
 import type {
   BoardAttachment,
   BoardPickKind,
@@ -237,21 +241,26 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   });
 
   /**
-   * What leads a session's first prompt. A resumed session has the conversation back, and
-   * the briefing with it if anything was ever asked. A new one is told the project, then
+   * What leads a session's first prompt, `text`. A resumed session has the conversation back,
+   * and the briefing with it if anything was ever asked. A new one is told the project, then
    * what was said before it.
    */
   const sessionContext = Effect.fnUntraced(function* (
     resumed: boolean,
     earlier: readonly ThreadItem[],
     purpose: ThreadPurpose,
-    tools: boolean
+    tools: boolean,
+    text: string
   ) {
     if (resumed && earlier.some((i) => i.kind === "user")) {
       return [];
     }
+    // A session started for a task that draws nothing (Map, an implementation's link) is not
+    // told how to design well.
+    const parsed = parseCommand(text);
+    const designs = parsed?._tag !== "Request" || drawsDesigns(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { tools })
+      ? yield* briefing.text(purpose, { designs, tools })
       : undefined;
     const recap = resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((text): ContentBlock[] =>

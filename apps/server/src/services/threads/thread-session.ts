@@ -533,7 +533,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
             session.resumed,
             earlier,
             purpose,
-            session.editorMcp
+            session.editorMcp,
+            input.text
           ))
         );
       }
