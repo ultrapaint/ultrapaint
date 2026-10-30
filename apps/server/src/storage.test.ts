@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
-import { assert, describe, it, layer } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import {
   Effect,
   Fiber,
@@ -18,6 +18,7 @@ import { ServerLive } from "./server.ts";
 import { SettingsService } from "./services/settings.ts";
 import { Storage } from "./services/storage.ts";
 import { resolveStorage } from "./storage-resolve.ts";
+import { eachTest } from "./testing/each-test.ts";
 import {
   makeRepository,
   makeTestServer,
@@ -26,6 +27,10 @@ import {
   TestEnv,
 } from "./testing/harness.ts";
 import { waitFor } from "./testing/wait-for.ts";
+
+/** Why a block runs on the real clock: what it waits for is the configuration file's watch. */
+const CONFIG_WATCH =
+  "a configuration file written by hand is heard by a real watch of its directory, polled with waitFor";
 
 const tempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -172,138 +177,132 @@ describe("resolveStorage", () => {
 
 const Unsaved = makeTestServer(() => Effect.succeed({ mode: "ephemeral" }));
 
-layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
-  "a session started without a configuration",
-  (test) => {
-    test.effect(
-      "runs a project from memory and writes no settings anywhere",
-      () =>
-        Effect.gen(function* () {
-          const { client, home, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const before = yield* client["project.info"]();
-          assert.strictEqual(before.storage.mode, "ephemeral");
-          // The fixture repository is where the server was started.
-          assert.strictEqual(before.storage.defaultRepoPath, repo);
+eachTest(Unsaved)("a session started without a configuration", (test) => {
+  test.effect(
+    "runs a project from memory and writes no settings anywhere",
+    () =>
+      Effect.gen(function* () {
+        const { client, home, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const before = yield* client["project.info"]();
+        assert.strictEqual(before.storage.mode, "ephemeral");
+        // The fixture repository is where the server was started.
+        assert.strictEqual(before.storage.defaultRepoPath, repo);
 
-          assert.isTrue((yield* client["settings.set"](settings)).ok);
-          const info = yield* client["project.info"]();
-          assert.isTrue(info.configured);
-          assert.strictEqual(info.storage.mode, "ephemeral");
-          assert.isFalse(yield* fs.exists(path.join(home, "settings.json")));
-          assert.isFalse(yield* fs.exists(path.join(home, "threads")));
-          assert.isFalse(yield* fs.exists(path.join(repo, "ultrapaint.json")));
-        })
-    );
+        assert.isTrue((yield* client["settings.set"](settings)).ok);
+        const info = yield* client["project.info"]();
+        assert.isTrue(info.configured);
+        assert.strictEqual(info.storage.mode, "ephemeral");
+        assert.isFalse(yield* fs.exists(path.join(home, "settings.json")));
+        assert.isFalse(yield* fs.exists(path.join(home, "threads")));
+        assert.isFalse(yield* fs.exists(path.join(repo, "ultrapaint.json")));
+      })
+  );
 
-    test.effect(
-      "refuses a configuration path it cannot write a shared file to",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const relative = yield* Effect.flip(
-            client["settings.persist"]({ configPath: "design.json", settings })
-          );
-          assert.strictEqual(relative._tag, "BadRequest");
-          const missing = yield* Effect.flip(
-            client["settings.persist"]({
-              configPath: `${repo}/nowhere/ultrapaint.json`,
-              settings,
-            })
-          );
-          assert.strictEqual(missing._tag, "BadRequest");
-          // Replacing is for a configuration; any other JSON file stays as it is.
-          const fs = yield* FileSystem.FileSystem;
-          const packageJson = `${repo}/package.json`;
-          const before = yield* fs.readFileString(packageJson);
-          const other = yield* Effect.flip(
-            client["settings.persist"]({
-              configPath: packageJson,
-              overwrite: true,
-              settings,
-            })
-          );
-          assert.strictEqual(other._tag, "BadRequest");
-          assert.strictEqual(yield* fs.readFileString(packageJson), before);
-        })
-    );
-
-    test.effect(
-      "saves the session to a file and keeps saving from then on",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const thread = yield* client["threads.create"]({
-            agentId: "fake",
-            title: "before saving",
-          });
-          const snapshot = yield* client["snapshots.create"]({ name: "kept" });
-          const configPath = path.join(repo, "ultrapaint.json");
-
-          const events = yield* subscribed(
-            client["events.project"]().pipe(
-              Stream.filter((info) => info.storage.mode === "file"),
-              Stream.runHead
-            )
-          );
-          const result = yield* client["settings.persist"]({
-            configPath,
+  test.effect(
+    "refuses a configuration path it cannot write a shared file to",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const relative = yield* Effect.flip(
+          client["settings.persist"]({ configPath: "design.json", settings })
+        );
+        assert.strictEqual(relative._tag, "BadRequest");
+        const missing = yield* Effect.flip(
+          client["settings.persist"]({
+            configPath: `${repo}/nowhere/ultrapaint.json`,
             settings,
-          });
-          assert.isTrue(result.validation.ok);
-          assert.strictEqual(result.configPath, configPath);
-          assert.strictEqual(result.command, `cd ${repo} && ultrapaint`);
-          const pushed = yield* Fiber.join(events);
-          assert.strictEqual(
-            pushed._tag === "Some" ? pushed.value.storage.configPath : null,
-            configPath
-          );
+          })
+        );
+        assert.strictEqual(missing._tag, "BadRequest");
+        // Replacing is for a configuration; any other JSON file stays as it is.
+        const fs = yield* FileSystem.FileSystem;
+        const packageJson = `${repo}/package.json`;
+        const before = yield* fs.readFileString(packageJson);
+        const other = yield* Effect.flip(
+          client["settings.persist"]({
+            configPath: packageJson,
+            overwrite: true,
+            settings,
+          })
+        );
+        assert.strictEqual(other._tag, "BadRequest");
+        assert.strictEqual(yield* fs.readFileString(packageJson), before);
+      })
+  );
 
-          // A shared file: no machine-specific path, stable key order.
-          const written = JSON.parse(yield* fs.readFileString(configPath));
-          assert.notProperty(written, "repoPath");
-          assert.deepStrictEqual(
-            Object.keys(written),
-            Object.keys(written).sort()
-          );
-          assert.strictEqual(written.designsDir, "designs");
+  test.effect("saves the session to a file and keeps saving from then on", () =>
+    Effect.gen(function* () {
+      const { client, repo, settings } = yield* TestEnv;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      // A session with its project open, from memory.
+      yield* client["settings.set"](settings);
+      const thread = yield* client["threads.create"]({
+        agentId: "fake",
+        title: "before saving",
+      });
+      const snapshot = yield* client["snapshots.create"]({ name: "kept" });
+      const configPath = path.join(repo, "ultrapaint.json");
 
-          // What the session had collected moved next to the file, out of git's sight.
-          const state = path.join(repo, ".ultrapaint");
-          assert.isTrue(
-            yield* fs.exists(path.join(state, "threads", `${thread.id}.json`))
-          );
-          assert.isTrue(
-            yield* fs.exists(
-              path.join(state, "store", "refs", "designs", snapshot.id)
-            )
-          );
-          assert.strictEqual(
-            yield* fs.readFileString(path.join(state, ".gitignore")),
-            "*\n"
-          );
-          // The run file too: a second start in the repository finds this server there.
-          assert.isTrue(yield* fs.exists(path.join(state, "run.json")));
+      const events = yield* subscribed(
+        client["events.project"]().pipe(
+          Stream.filter((info) => info.storage.mode === "file"),
+          Stream.runHead
+        )
+      );
+      const result = yield* client["settings.persist"]({
+        configPath,
+        settings,
+      });
+      assert.isTrue(result.validation.ok);
+      assert.strictEqual(result.configPath, configPath);
+      assert.strictEqual(result.command, `cd ${repo} && ultrapaint`);
+      const pushed = yield* Fiber.join(events);
+      assert.strictEqual(
+        pushed._tag === "Some" ? pushed.value.storage.configPath : null,
+        configPath
+      );
 
-          // Later changes go to the file, and a second save is refused.
-          yield* client["settings.set"]({ ...settings, codeTokens: "auto" });
-          const again = JSON.parse(yield* fs.readFileString(configPath));
-          assert.strictEqual(again.codeTokens, "auto");
-          const twice = yield* Effect.flip(
-            client["settings.persist"]({
-              configPath,
-              overwrite: true,
-              settings,
-            })
-          );
-          assert.strictEqual(twice._tag, "BadRequest");
+      // A shared file: no machine-specific path, stable key order.
+      const written = JSON.parse(yield* fs.readFileString(configPath));
+      assert.notProperty(written, "repoPath");
+      assert.deepStrictEqual(Object.keys(written), Object.keys(written).sort());
+      assert.strictEqual(written.designsDir, "designs");
+
+      // What the session had collected moved next to the file, out of git's sight.
+      const state = path.join(repo, ".ultrapaint");
+      assert.isTrue(
+        yield* fs.exists(path.join(state, "threads", `${thread.id}.json`))
+      );
+      assert.isTrue(
+        yield* fs.exists(
+          path.join(state, "store", "refs", "designs", snapshot.id)
+        )
+      );
+      assert.strictEqual(
+        yield* fs.readFileString(path.join(state, ".gitignore")),
+        "*\n"
+      );
+      // The run file too: a second start in the repository finds this server there.
+      assert.isTrue(yield* fs.exists(path.join(state, "run.json")));
+
+      // Later changes go to the file, and a second save is refused.
+      yield* client["settings.set"]({ ...settings, codeTokens: "auto" });
+      const again = JSON.parse(yield* fs.readFileString(configPath));
+      assert.strictEqual(again.codeTokens, "auto");
+      const twice = yield* Effect.flip(
+        client["settings.persist"]({
+          configPath,
+          overwrite: true,
+          settings,
         })
-    );
-  }
-);
+      );
+      assert.strictEqual(twice._tag, "BadRequest");
+    })
+  );
+});
 
 const Shared = makeTestServer(({ repo }) =>
   Effect.gen(function* () {
@@ -318,7 +317,7 @@ const Shared = makeTestServer(({ repo }) =>
   })
 );
 
-layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(Shared, { realClock: CONFIG_WATCH })(
   "a session started from a configuration file in the repository",
   (test) => {
     test.effect("resolves the repository from where the file is", () =>
@@ -365,9 +364,12 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
             ],
             label: "Name the title",
           });
-          // The same settings, written another way: an editor that reformats the file.
+          // The same settings, written another way: an editor that reformats the file with tabs.
           const same = JSON.parse(yield* fs.readFileString(configPath));
-          yield* fs.writeFileString(configPath, JSON.stringify(same));
+          yield* fs.writeFileString(
+            configPath,
+            JSON.stringify(same, null, "\t")
+          );
           yield* waitFor(client["logs.recent"](), (lines) =>
             lines.some((line) => line.text === `reloaded ${configPath}`)
           );
@@ -377,7 +379,6 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
             (yield* client["edit.state"]()).undoLabel,
             "Name the title"
           );
-          yield* client["edit.undo"]();
         })
     );
 
@@ -405,7 +406,7 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
 
 const Appearing = makeTestServer(() => Effect.succeed({ mode: "ephemeral" }));
 
-layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(Appearing, { realClock: CONFIG_WATCH })(
   "an unsaved session whose repository gets a configuration file",
   (test) => {
     test.effect(
@@ -459,7 +460,6 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
             (now) => now.settings?.codeTokens === "manual"
           );
           assert.strictEqual(rewritten.settings?.designsDir, "designs");
-          yield* fs.remove(legacy);
         })
     );
   }
@@ -620,7 +620,7 @@ const Detected = makeTestServer(({ repo }) =>
   })
 );
 
-layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(Detected, { realClock: CONFIG_WATCH })(
   "an unsaved session started in a repository that holds its pages",
   (test) => {
     test.effect("opens the repository with what detection finds", () =>
