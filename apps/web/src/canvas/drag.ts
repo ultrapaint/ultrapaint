@@ -34,7 +34,7 @@ import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
 /** Type of the data a Library entry's drag carries: the node it inserts, as JSON. */
-export const ASSET_MIME = "application/ultrapaint-node";
+export const LIBRARY_MIME = "application/ultrapaint-node";
 
 export type Dragged =
   | {

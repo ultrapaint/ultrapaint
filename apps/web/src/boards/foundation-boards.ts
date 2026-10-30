@@ -13,30 +13,25 @@ import {
   type Token,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import {
-  shortName,
-  spacingBasePx,
-  tokensOfKind,
-} from "@ultrapaint/contracts/token-table";
+import { shortName, spacingBasePx } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toMs, toPx } from "@ultrapaint/contracts/token-value";
-import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { isToken, tokenRef } from "@ultrapaint/design-document/tokens";
-import { label, MONO, section, sheet, text, tokenRow } from "./board-nodes.ts";
+import {
+  label,
+  MONO,
+  section,
+  sheet,
+  text,
+  tokenRow,
+  tokensFound as tokensOf,
+} from "./board-nodes.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
 const WIDE = 560;
 const ACCENT = "#6366f1";
 const SURFACE = "#8a8a9326";
-
-const matches = (token: { name: string; value: string }, q: string) =>
-  !q ||
-  token.name.toLowerCase().includes(q) ||
-  token.value.toLowerCase().includes(q);
-
-const tokensOf = (ds: DesignSystem, kind: TokenKind, q: string): Token[] =>
-  tokensOfKind(ds, kind).filter((t) => matches(t, q));
 
 /** A board when it has anything to draw. */
 const board = (
@@ -368,7 +363,7 @@ const NODE = "data-ed-node";
  * The motion board's stylesheet (B12): one movement along the track, each easing's dot moved by
  * it over a second and a half with its curve, each duration's with the default curve over it.
  */
-export const motionCss = (
+const motionCss = (
   easings: readonly Token[],
   durations: readonly Token[]
 ): string =>

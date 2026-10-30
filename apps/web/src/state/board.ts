@@ -143,7 +143,7 @@ export const FIRST_ITEM: Readonly<Record<BoardView, string>> = {
 };
 
 /** The left panel a board view is navigated from. */
-export const PANEL_OF: Readonly<Record<BoardView, LeftTab>> = {
+const PANEL_OF: Readonly<Record<BoardView, LeftTab>> = {
   library: "library",
   system: "designSystem",
 };

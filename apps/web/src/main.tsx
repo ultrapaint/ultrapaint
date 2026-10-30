@@ -3,8 +3,7 @@ import { App } from "./app.tsx";
 import { frameErrors, frameOf } from "./canvas/editor-frame.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
 import { pageById, zoomToPage } from "./lib/page-actions.ts";
-import { BillingPage } from "./pages/billing.tsx";
-import { PricingPage } from "./pages/pricing.tsx";
+
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
 import { leaveBoard, openBoard, useBoard } from "./state/board.ts";
@@ -51,11 +50,4 @@ if (import.meta.env.DEV) {
   };
 }
 
-const pathname = window.location.pathname.replace(/\/$/, "");
-const Page =
-  {
-    "/pricing": PricingPage,
-    "/settings/billing": BillingPage,
-  }[pathname] ?? App;
-
-createRoot(document.getElementById("root") as HTMLElement).render(<Page />);
+createRoot(document.getElementById("root") as HTMLElement).render(<App />);
