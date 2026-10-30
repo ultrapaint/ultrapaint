@@ -3,7 +3,6 @@
  * system and the code, and the steps that bring them together. What each side is to the engine
  * is in `sync-readings.ts`.
  */
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
   DesignSystemSetup,
   SetupStepId,
@@ -20,8 +19,6 @@ import {
   type SyncStepState,
   type TokenDiff,
 } from "@ultrapaint/contracts/sync";
-import { listedTokens } from "@ultrapaint/contracts/token-table";
-import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
 
@@ -31,28 +28,26 @@ const some = (names: readonly string[], shown = 4) =>
     ? `${names.slice(0, shown).join(", ")} and ${names.length - shown} more`
     : names.join(", ");
 
-/** What drifted between a design system and the code, by name. */
-export const driftOf = (
-  ds: DesignSystem | null,
-  tokens: readonly SourceToken[],
-  /** Whether the stylesheets were read at all: without them nothing can be said of tokens. */
-  read: boolean
-): SyncDrift => {
-  if (!ds) {
-    return emptyDrift;
-  }
-  const omitted = new Set(ds.omitted ?? []);
-  const listed = new Set(listedTokens(ds).map((t) => t.name));
-  return {
-    // A token the code does not declare is waiting for an export, not drift (ADR 0028).
-    tokensGone: [],
-    tokensUndescribed: read
-      ? tokens
-          .filter((t) => t.own && !(listed.has(t.name) || omitted.has(t.name)))
-          .map((t) => t.name)
-      : [],
-  };
-};
+/**
+ * What drifted between a design system and the code, from the code's comparison with it: the
+ * tokens it finds new in the code, which the design system takes once they are described (one
+ * left out on purpose is `ignored`). Nothing without a comparison: no design system, or no
+ * stylesheet read.
+ */
+export const driftOf = (diffs: readonly TokenDiff[] | null): SyncDrift =>
+  diffs
+    ? {
+        tokensUndescribed: [
+          ...new Set(
+            diffs
+              .filter(
+                (d) => d.outcome === "to-design" && d.design === undefined
+              )
+              .map((d) => d.name)
+          ),
+        ],
+      }
+    : emptyDrift;
 
 export const caseOf = (facts: SyncFacts): SyncCase => {
   if (facts.designSystem) {
@@ -185,10 +180,7 @@ const framesStepOf = (optional: boolean) =>
 
 /** What drifted, in words: the describe step's detail. */
 const driftParts = (drift: SyncDrift) =>
-  [
-    [drift.tokensUndescribed, "token", "the design system does not list"],
-    [drift.tokensGone, "token", "it lists that the code no longer declares"],
-  ]
+  [[drift.tokensUndescribed, "token", "the design system does not list"]]
     .filter(([names]) => (names as readonly string[]).length > 0)
     .map(([names, what, where]) => {
       const list = names as readonly string[];
