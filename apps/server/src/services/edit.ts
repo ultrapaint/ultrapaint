@@ -10,7 +10,6 @@ import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
-import { hashContent } from "../hash.ts";
 import { DesignFiles } from "./design-files.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -81,12 +80,6 @@ export const withinLimits = (
   }
   return kept.reverse();
 };
-
-export interface SourceFile {
-  readonly abs: string;
-  readonly content: string;
-  readonly hash: string;
-}
 
 export type EditFailure =
   | NotFound
@@ -167,9 +160,6 @@ export const updateFile = <A, E>(
 export class EditService extends Context.Service<
   EditService,
   {
-    readonly read: (
-      rel: string
-    ) => Effect.Effect<SourceFile, NotFound | ForbiddenPath>;
     readonly redo: Effect.Effect<UndoResult | null, EditFailure>;
     readonly state: Effect.Effect<UndoState>;
     /**
@@ -235,15 +225,6 @@ export class EditService extends Context.Service<
       );
 
       const exists = makeExists(fs);
-
-      const read = Effect.fn("EditService.read")(function* (rel: string) {
-        const abs = yield* paths.resolve(rel);
-        if (!(yield* exists(abs))) {
-          return yield* new NotFound({ message: `file not found: ${rel}` });
-        }
-        const content = yield* Effect.orDie(fs.readFileString(abs));
-        return { abs, content, hash: hashContent(content) };
-      });
 
       /** The file as it is now; null when there is none. */
       const current = Effect.fnUntraced(function* (rel: string) {
@@ -573,7 +554,6 @@ export class EditService extends Context.Service<
 
       return EditService.of({
         amend,
-        read,
         redo: step("redo"),
         state: Effect.sync(snapshotState),
         transaction,
