@@ -128,9 +128,9 @@ const measure = (
     }
     spent.total += item.usage.totalTokens;
     spent.input += item.usage.inputTokens;
-    spent.cached += item.usage.cachedInputTokens;
+    spent.cached += item.usage.cachedReadTokens ?? 0;
     spent.output += item.usage.outputTokens;
-    for (const entry of item.usage.byModel) {
+    for (const entry of item.usage.byModel ?? []) {
       byModel[entry.model] = (byModel[entry.model] ?? 0) + entry.tokens;
     }
   }

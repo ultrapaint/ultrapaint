@@ -240,6 +240,19 @@ export type ThreadScope = typeof ThreadScope.Type;
 export const ThreadPurpose = Schema.Literals(["design", "implement"]);
 export type ThreadPurpose = typeof ThreadPurpose.Type;
 
+/** How full the agent's context is, as it last said (ACP's `usage_update`), and what it cost. */
+export const ContextUsage = Schema.Struct({
+  /** What the session has cost so far. */
+  cost: Schema.optional(
+    Schema.Struct({ amount: Schema.Number, currency: Schema.String })
+  ),
+  /** The context window, in tokens. */
+  size: Schema.Number,
+  /** The tokens in it now. */
+  used: Schema.Number,
+});
+export type ContextUsage = typeof ContextUsage.Type;
+
 export const Thread = Schema.Struct({
   agentId: Schema.String,
   /**
@@ -247,6 +260,8 @@ export const Thread = Schema.Struct({
    * previous session reported them, and what is chosen here is applied when it starts.
    */
   configOptions: Schema.optional(Schema.Array(ConfigOption)),
+  /** How full the agent's context is, as it last said; the session's, gone with it. */
+  context: Schema.optional(ContextUsage),
   createdAt: Schema.Number,
   currentModeId: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String),
@@ -323,14 +338,20 @@ export const ToolLocation = Schema.Struct({
 });
 export type ToolLocation = typeof ToolLocation.Type;
 
-/** What a turn cost, in the agent's own accounting. Absent when it does not keep any. */
+/**
+ * What a turn spent, in the agent's own accounting, as ACP's `Usage` says it. Absent when it
+ * keeps none. A turn written before had `cachedInputTokens`, read as `cachedReadTokens`.
+ */
 export const TurnUsage = Schema.Struct({
-  byModel: Schema.Array(
-    Schema.Struct({ model: Schema.String, tokens: Schema.Number })
+  /** Split by model, where the agent says (Codex, Claude Code, in their `_meta`). */
+  byModel: Schema.optional(
+    Schema.Array(Schema.Struct({ model: Schema.String, tokens: Schema.Number }))
   ),
-  cachedInputTokens: Schema.Number,
+  cachedReadTokens: Schema.optional(Schema.Number),
+  cachedWriteTokens: Schema.optional(Schema.Number),
   inputTokens: Schema.Number,
   outputTokens: Schema.Number,
+  thoughtTokens: Schema.optional(Schema.Number),
   totalTokens: Schema.Number,
 });
 export type TurnUsage = typeof TurnUsage.Type;

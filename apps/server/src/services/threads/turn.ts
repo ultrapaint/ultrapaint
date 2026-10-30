@@ -118,7 +118,7 @@ export const makeTurn = (
             // Attribution is a nicety; a project closed meanwhile must not fail the turn.
             .pipe(Effect.orElseSucceed((): string[] => []))
         : [];
-    const usage = turnUsage(response._meta);
+    const usage = turnUsage(response);
     yield* store.push(threadId, {
       at: yield* Clock.currentTimeMillis,
       changedFiles,

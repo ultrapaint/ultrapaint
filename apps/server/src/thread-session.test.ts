@@ -608,6 +608,71 @@ describe("a turn", () => {
       );
     }));
 
+  test("ends with what the turn spent, as ACP says it, and the thread says how full the context is", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* started();
+      yield* turn.update({
+        cost: { amount: 0.12, currency: "USD" },
+        sessionUpdate: "usage_update",
+        size: 200_000,
+        used: 1200,
+      });
+      yield* turn.answer({
+        _meta: {
+          quota: {
+            model_usage: [{ model: "opus", token_count: { totalTokens: 15 } }],
+          },
+        },
+        stopReason: "end_turn",
+        usage: {
+          cachedReadTokens: 3,
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+      });
+      const { items, thread } = yield* threadWhen(threadId, turnEnded);
+      const end = items.at(-1);
+      assert.deepStrictEqual(end?.kind === "turn_end" && end.usage, {
+        byModel: [{ model: "opus", tokens: 15 }],
+        cachedReadTokens: 3,
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      });
+      assert.deepStrictEqual(thread.context, {
+        cost: { amount: 0.12, currency: "USD" },
+        size: 200_000,
+        used: 1200,
+      });
+    }));
+
+  test("reads what a turn spent from Codex's own accounting, where ACP's is not sent", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* started();
+      yield* turn.answer({
+        _meta: {
+          quota: {
+            token_count: {
+              cachedInputTokens: 2,
+              inputTokens: 7,
+              outputTokens: 4,
+              totalTokens: 11,
+            },
+          },
+        },
+        stopReason: "end_turn",
+      });
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const end = items.at(-1);
+      assert.deepStrictEqual(end?.kind === "turn_end" && end.usage, {
+        cachedReadTokens: 2,
+        inputTokens: 7,
+        outputTokens: 4,
+        totalTokens: 11,
+      });
+    }));
+
   test("briefs the agent once per session, for the thread's purpose", () =>
     Effect.gen(function* () {
       const { agent, threadId, turn } = yield* started();

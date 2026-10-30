@@ -68,6 +68,7 @@ export interface OpenedSession {
   readonly patch: Pick<
     Thread,
     | "configOptions"
+    | "context"
     | "currentModeId"
     | "modes"
     | "sandboxed"
@@ -248,6 +249,8 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
       negotiated: agreed,
       patch: {
         configOptions,
+        // A new session starts with nothing in its context; one reopened says so when it does.
+        ...(resumed ? {} : { context: undefined }),
         currentModeId,
         modes,
         sandboxed: sandbox.available,

@@ -72,7 +72,12 @@ import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
-import { ModelPicker, ModePicker, roomyItems } from "./thread-pickers.tsx";
+import {
+  ContextMeter,
+  ModelPicker,
+  ModePicker,
+  roomyItems,
+} from "./thread-pickers.tsx";
 import {
   AnswerButtons,
   AnswerField,
@@ -400,6 +405,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
           <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
           <div className="flex-1" />
+          <ContextMeter thread={thread} />
           {answering ? (
             <AnswerButtons
               answering={answering}
