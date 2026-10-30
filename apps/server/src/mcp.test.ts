@@ -386,6 +386,55 @@ describe("the editor's MCP server, over the wire", () => {
   );
 
   onAServer(
+    "offers the tasks as prompts, their argument completed from the project",
+    () =>
+      Effect.gen(function* () {
+        const { client, port, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const { token } = yield* client["mcp.connection"]();
+        const json = (body: {
+          method: string;
+          params?: Record<string, unknown>;
+        }) =>
+          callMcp(port, token, body).pipe(
+            Effect.flatMap((response) =>
+              Effect.promise(
+                () =>
+                  response.json() as Promise<{
+                    result: {
+                      completion?: { values: string[] };
+                      messages?: { content: { text: string } }[];
+                      prompts?: { name: string }[];
+                    };
+                  }>
+              )
+            )
+          );
+        const listed = yield* json({ method: "prompts/list" });
+        assert.includeMembers(
+          (listed.result.prompts ?? []).map((p) => p.name),
+          ["implement", "redraw", "sync"]
+        );
+        const completed = yield* json({
+          method: "completion/complete",
+          params: {
+            argument: { name: "argument", value: "/h" },
+            ref: { name: "implement", type: "ref/prompt" },
+          },
+        });
+        assert.deepStrictEqual(completed.result.completion?.values, ["/home"]);
+        const got = yield* json({
+          method: "prompts/get",
+          params: { arguments: { argument: "/home" }, name: "implement" },
+        });
+        const text = got.result.messages?.[0]?.content.text ?? "";
+        assert.include(text, "Implement the page Home");
+        // Worded for an agent with the tools: it marks the design implemented through them.
+        assert.include(text, 'handoff with action "mark"');
+      })
+  );
+
+  onAServer(
     "keeps what an agent reads of the tools under its budget, and says no more than it needs",
     () =>
       Effect.gen(function* () {
