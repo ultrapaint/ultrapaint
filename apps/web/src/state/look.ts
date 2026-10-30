@@ -33,13 +33,14 @@ export interface StyleDraft {
   readonly style: PartStyle;
 }
 
-/** The style being typed; null while none is. */
-export const useLookDraft = create<{ draft: StyleDraft | null }>(() => ({
-  draft: null,
-}));
-
-/** A draft committed: the next components the server sends replace it. */
-let settling = false;
+/**
+ * The style being typed, null while none is; `settling` once it is committed, until the next
+ * components the server sends replace it.
+ */
+export const useLookDraft = create<{
+  draft: StyleDraft | null;
+  settling: boolean;
+}>(() => ({ draft: null, settling: false }));
 
 /** The components with the draft laid over its component's file. */
 const drafted = (
@@ -54,7 +55,10 @@ const drafted = (
       )
     : components;
 
-/** The look of the last components, draft and design system asked for, kept while they are the same. */
+/**
+ * The look of the last components, draft and design system asked for, kept while they are the
+ * same: a cache of `lookOf`, which only says whether the same three give the same object.
+ */
 let memo: {
   readonly components: readonly ComponentFile[];
   readonly draft: StyleDraft | null;
@@ -127,24 +131,32 @@ export const useDesignLook = (): Look => {
   );
 };
 
-/** The components the server sent after a commit: the draft gives way to them. */
-useComponents.subscribe((now, before) => {
-  if (settling && now.components !== before.components) {
-    settling = false;
-    useLookDraft.setState({ draft: null });
-  }
-});
+/**
+ * The draft given way to the next components the server sends, while it is still settling;
+ * answers the function that stops waiting.
+ */
+const settleOnNextComponents = () => {
+  const stop = useComponents.subscribe((now, before) => {
+    if (now.components === before.components) {
+      return;
+    }
+    stop();
+    if (useLookDraft.getState().settling) {
+      useLookDraft.setState({ draft: null, settling: false });
+    }
+  });
+  return stop;
+};
 
 /**
  * Draws a part's style at a place as typed, until it is committed or let go (null): nothing is
  * sent. A draft committed is not let go: it stays drawn until the server's answer replaces it.
  */
 export const draftStyle = (draft: StyleDraft | null) => {
-  if (draft === null && settling) {
+  if (draft === null && useLookDraft.getState().settling) {
     return;
   }
-  settling = false;
-  useLookDraft.setState({ draft });
+  useLookDraft.setState({ draft, settling: false });
 };
 
 /**
@@ -153,8 +165,8 @@ export const draftStyle = (draft: StyleDraft | null) => {
  */
 export const commitStyle = async (draft: StyleDraft): Promise<boolean> => {
   // Settling from now: the field closing as it commits does not let the draft go.
-  settling = true;
-  useLookDraft.setState({ draft });
+  useLookDraft.setState({ draft, settling: true });
+  const stop = settleOnNextComponents();
   try {
     await api().request("components.change", {
       change: {
@@ -169,8 +181,8 @@ export const commitStyle = async (draft: StyleDraft): Promise<boolean> => {
     useComponents.getState().load();
     return true;
   } catch (error) {
-    settling = false;
-    useLookDraft.setState({ draft: null });
+    stop();
+    useLookDraft.setState({ draft: null, settling: false });
     reportError(error);
     return false;
   }
