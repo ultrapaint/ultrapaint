@@ -917,7 +917,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               "implement",
               "import-figma",
               "redraw",
-              "components",
               "design-system",
               "sync",
             ]

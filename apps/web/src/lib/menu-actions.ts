@@ -38,7 +38,6 @@ import { ensureEditable } from "../state/setup.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
   canvasById,
-  componentSheet,
   copyPagesTo,
   deleteCanvas,
   duplicateCanvas,
@@ -562,8 +561,6 @@ const runCanvasEntry = (
       return duplicateCanvas(canvas);
     case "duplicateWithAgent":
       return duplicateCanvasWithAgent(canvas);
-    case "componentSheet":
-      return componentSheet(canvas);
     case "readyAll":
       return setPagesReady(
         useProject
