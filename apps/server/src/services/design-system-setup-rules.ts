@@ -7,6 +7,7 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import {
   type DesignSystemSetup,
+  defaultsOf,
   type MappingChange,
   type MappingEntry,
   type MigrationBatch,
@@ -152,11 +153,12 @@ export const inventorySummary = (inventory: UsageInventory) => {
 
 /** The inventory as an agent is told it: the totals and the values most used off the system. */
 export const inventoryBrief = (inventory: UsageInventory) => {
+  const defaults = defaultsOf(inventory);
   const totals = USAGE_KINDS.flatMap(({ kind, label }) => {
     const t = inventory.totals.find((x) => x.kind === kind);
     return t && t.system + t.default + t.raw > 0
       ? [
-          `- ${label}: ${t.system} the design system's, ${t.default} Tailwind's own, ${t.raw} written out`,
+          `- ${label}: ${t.system} the design system's, ${t.default} ${defaults} own, ${t.raw} written out`,
         ]
       : [];
   });
@@ -165,7 +167,7 @@ export const inventoryBrief = (inventory: UsageInventory) => {
     .slice(0, BRIEF_VALUES)
     .map(
       (v) =>
-        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : "Tailwind's"}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, is exactly ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
+        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : defaults}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, is exactly ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
     );
   return `The code, read against ${inventory.against === "saved" ? "the saved design system" : "the theme's tokens"} (${plural(inventory.files, "source file")}):
 ${totals.join("\n") || "- nothing"}

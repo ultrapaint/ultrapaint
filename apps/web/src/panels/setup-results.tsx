@@ -4,6 +4,7 @@
  * used off it), Map's mapping with a choice per value, and Migrate's batches.
  */
 import {
+  defaultsOf,
   type MappingEntry,
   type MigrationBatch,
   USAGE_KINDS,
@@ -32,7 +33,7 @@ const FIRST_VALUES = 12;
 /** Mapping entries listed before "Show all". */
 const FIRST_ENTRIES = 30;
 const KEEP = "__keep";
-/** Tailwind's own colours a design system may leave out, drawn all the same. */
+/** The style system's own colours a design system may leave out, drawn all the same. */
 const BASICS: Record<string, string> = {
   "color-black": "#000000",
   "color-white": "#ffffff",
@@ -85,6 +86,9 @@ const Swatch = ({ kind, value }: { kind: UsageKind; value: string }) => {
   );
 };
 
+const capitalised = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
 /** What a value off the system is, after how it is written. */
 const noteOf = (value: UsageValue) => {
   if (!value.token) {
@@ -93,7 +97,14 @@ const noteOf = (value: UsageValue) => {
   return ` · is ${value.token}`;
 };
 
-const ValueRow = ({ value }: { value: UsageValue }) => {
+const ValueRow = ({
+  defaults,
+  value,
+}: {
+  /** Whose the values of status `default` are: `Tailwind's`. */
+  defaults: string;
+  value: UsageValue;
+}) => {
   const [where] = value.locations;
   return (
     <li
@@ -108,7 +119,7 @@ const ValueRow = ({ value }: { value: UsageValue }) => {
         </span>
       </span>
       <span className="truncate font-body text-muted-foreground">
-        {value.status === "raw" ? "Written out" : "Tailwind's"}
+        {value.status === "raw" ? "Written out" : capitalised(defaults)}
         {noteOf(value)}
         {where ? ` · ${where.file}:${where.line}` : ""}
       </span>
@@ -169,7 +180,7 @@ export const InventoryResult = ({
           </span>
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-muted-foreground/40" />
-            Tailwind's
+            {capitalised(defaultsOf(inventory))}
           </span>
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-destructive" />
@@ -182,7 +193,11 @@ export const InventoryResult = ({
           <span className="font-heading-xsmall">Most used off the system</span>
           <ul className="flex flex-col divide-y">
             {listed.map((v) => (
-              <ValueRow key={`${v.kind}|${v.status}|${v.value}`} value={v} />
+              <ValueRow
+                defaults={defaultsOf(inventory)}
+                key={`${v.kind}|${v.status}|${v.value}`}
+                value={v}
+              />
             ))}
           </ul>
           <ShowAll

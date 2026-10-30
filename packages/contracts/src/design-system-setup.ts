@@ -160,7 +160,8 @@ export const USAGE_KINDS: readonly {
 
 /**
  * - `system`: a value of the design system (a token it names, a step of its scale).
- * - `default`: one of Tailwind's own values the design system does not name.
+ * - `default`: one of the style system's own values the design system does not name (Tailwind's
+ *   palette and scales), which the inventory names (`defaults`).
  * - `raw`: a value written out: a hex colour, an arbitrary class, an inline style.
  */
 export const UsageStatus = Schema.Literals(["system", "default", "raw"]);
@@ -200,9 +201,14 @@ export const UsageInventory = Schema.Struct({
   /** Which design system it was read against: the one saved, or the theme's when none is. */
   against: Schema.Literals(["saved", "theme"]),
   at: Schema.Number,
+  /**
+   * Whose the values of status `default` are, as the style system names them: `Tailwind's`. Left
+   * out by an inventory an older version kept.
+   */
+  defaults: Schema.optional(Schema.String),
   /** Source files read. */
   files: Schema.Number,
-  /** The colour tokens the repository's own theme declares, not Tailwind's. */
+  /** The colour tokens the repository's own theme declares, not the style system's. */
   ownColors: Schema.Number,
   recommendation: Schema.Struct({ mode: DefineMode, reason: Schema.String }),
   totals: Schema.Array(UsageTotals),
@@ -210,6 +216,10 @@ export const UsageInventory = Schema.Struct({
   values: Schema.Array(UsageValue),
 });
 export type UsageInventory = typeof UsageInventory.Type;
+
+/** Whose an inventory's values of status `default` are, in a few words. */
+export const defaultsOf = (inventory: UsageInventory): string =>
+  inventory.defaults ?? "the style system's";
 
 /** What redoing a step does to a file. */
 export const RestoreEntry = Schema.Struct({

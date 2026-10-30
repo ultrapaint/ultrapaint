@@ -161,6 +161,7 @@ const summarise: UsageReader["summarise"] = (files, ctx, at) => {
   return {
     against: ctx.ownTokens === null ? "saved" : "theme",
     at,
+    defaults: "Tailwind's",
     files: files.length,
     ownColors,
     recommendation: recommend(ownColors, totals.get("color")),
