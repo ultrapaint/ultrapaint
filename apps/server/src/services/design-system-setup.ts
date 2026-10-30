@@ -19,10 +19,6 @@ import type {
   UsageLeft,
   UsageMapping,
 } from "@ultrapaint/contracts/design-system-setup";
-import {
-  SETUP_STEPS,
-  setupStepOf,
-} from "@ultrapaint/contracts/design-system-setup";
 import type {
   BadRequest,
   CommandFailed,
@@ -36,11 +32,15 @@ import { makeCodebaseReader } from "./design-system-setup-codebase.ts";
 import {
   applyChanges,
   batchesOf,
+  indexOf,
   inventorySummary,
   mappingCounts,
   mappingOf,
   mappingTable,
+  type StepAction,
+  stepAfter,
   targetProblem,
+  titleOf,
   verifySummary,
 } from "./design-system-setup-rules.ts";
 import {
@@ -80,9 +80,6 @@ const dirOf = (file: string) => {
   const cut = file.lastIndexOf("/");
   return cut === -1 ? "." : file.slice(0, cut);
 };
-
-const titleOf = (id: SetupStepId) => setupStepOf(id)?.title ?? id;
-const indexOf = (id: SetupStepId) => SETUP_STEPS.findIndex((s) => s.id === id);
 
 export class DesignSystemSetupService extends Context.Service<
   DesignSystemSetupService,
@@ -263,21 +260,9 @@ export class DesignSystemSetupService extends Context.Service<
         options: { readonly mode?: DefineMode; readonly threadId?: string }
       ) {
         const setup = yield* get;
-        const waiting = setup.steps
-          .slice(0, indexOf(id))
-          .find((s) => s.status !== "done");
-        if (waiting) {
-          return yield* refuse(
-            `${titleOf(waiting.id)} comes first: go on past it before ${titleOf(id)}.`
-          );
-        }
-        if (stepIn(setup, id).status !== "todo") {
-          return yield* refuse(
-            `${titleOf(id)} has started already: resume it, or redo it to start again.`
-          );
-        }
-        if (setupStepOf(id)?.agent && options.threadId === undefined) {
-          return yield* refuse(`${titleOf(id)} runs in a thread.`);
+        const next = stepAfter(setup, id, "start", options);
+        if ("problem" in next) {
+          return yield* refuse(next.problem);
         }
         const before = yield* snapshot;
         const startedAt = yield* Clock.currentTimeMillis;
@@ -313,15 +298,14 @@ export class DesignSystemSetupService extends Context.Service<
       ) {
         const setup = yield* get;
         const step = setup.steps.find((s) => s.threadId === threadId);
-        if (!step || step.status === "todo") {
+        const moved = step && stepAfter(setup, step.id, "finish");
+        if (!(step && moved)) {
           return yield* refuse(
             "This thread does not run a step of the design-system setup."
           );
         }
-        if (step.status === "done") {
-          return yield* refuse(
-            `The user has gone on past ${titleOf(step.id)} already.`
-          );
+        if ("problem" in moved) {
+          return yield* refuse(moved.problem);
         }
         const after = yield* snapshot;
         const finishedAt = yield* Clock.currentTimeMillis;
@@ -330,26 +314,22 @@ export class DesignSystemSetupService extends Context.Service<
             ...s,
             after,
             finishedAt,
-            status: "review",
+            status: moved.status,
             summary: summary.trim(),
           }))
         );
         return stepIn(next, step.id);
       }, lock.withPermits(1));
 
-      /** A step moved from one of `from` to `to`, its end snapshot taken or dropped. */
-      const move = (
-        name: string,
-        from: readonly SetupStep["status"][],
-        to: SetupStep["status"],
-        why: (step: SetupStep) => string
-      ) =>
+      /** A step moved as `action` takes it, its end snapshot taken or dropped. */
+      const move = (name: string, action: StepAction) =>
         Effect.fn(name)(function* (id: SetupStepId) {
           const setup = yield* get;
-          const step = stepIn(setup, id);
-          if (!from.includes(step.status)) {
-            return yield* refuse(why(step));
+          const moved = stepAfter(setup, id, action);
+          if ("problem" in moved) {
+            return yield* refuse(moved.problem);
           }
+          const to = moved.status;
           const finishedAt = yield* Clock.currentTimeMillis;
           const after = to === "active" ? undefined : yield* snapshot;
           return yield* save(
@@ -362,30 +342,9 @@ export class DesignSystemSetupService extends Context.Service<
           );
         }, lock.withPermits(1));
 
-      const stop = move(
-        "DesignSystemSetupService.stop",
-        ["active", "review"],
-        "stopped",
-        (s) => `${titleOf(s.id)} is not under way.`
-      );
-      const resume = move(
-        "DesignSystemSetupService.resume",
-        ["stopped", "review"],
-        "active",
-        (s) =>
-          s.status === "active"
-            ? `${titleOf(s.id)} is under way already.`
-            : `${titleOf(s.id)} cannot be resumed: redo it to start again.`
-      );
-      const complete = move(
-        "DesignSystemSetupService.complete",
-        ["active", "review", "stopped"],
-        "done",
-        (s) =>
-          s.status === "done"
-            ? `${titleOf(s.id)} is done already.`
-            : `${titleOf(s.id)} has not started.`
-      );
+      const stop = move("DesignSystemSetupService.stop", "stop");
+      const resume = move("DesignSystemSetupService.resume", "resume");
+      const complete = move("DesignSystemSetupService.complete", "complete");
 
       /** What redoing a step puts back. */
       const restoreOf = Effect.fnUntraced(function* (
