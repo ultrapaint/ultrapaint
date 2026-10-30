@@ -158,9 +158,8 @@ tokens, ${tools.ask_user} puts a card of questions to the user.
  color-muted-foreground), near-identical colours the same token. A length becomes the nearest
  step or token: 13px is spacing-3, 15px text-sm or text-base, whichever the design uses. A
  z-index becomes the elevation's layer.
-   - the component, for a plain element whose job the library's component does (target Button).
    - kept as it is (keep: true), with a note on why, for a value that has to stay: a brand colour
- outside the system, an offset a layout depends on, an element the component cannot replace.
+ outside the system, an offset a layout depends on.
 3. Ask the user ${ways.askUser} where the meaning is not yours to decide (which grey is the muted
    one, whether a colour is the brand's), a few values a card, your choice first. Wait for the
    answers.
@@ -190,8 +189,6 @@ ${batches.length === 0 ? "There are no batches: nothing the mapping settles is l
 2. Rewrite what is left in the batch's files yourself:
    - a colour or a length in a constant, a computed style or a template onto the token: the
  class (bg-primary, p-3) or the variable (var(--color-primary), calc(var(--spacing) * 3));
-   - a plain element onto the component the mapping names, imported the way the files around it
- import it, keeping what it does: its type, handlers, disabled, ref and aria props;
    - a use without a target stays as it is, and so does whatever the mapping keeps.
 3. Run the repository's type check and linter (package.json says how) and fix what the batch
    broke.

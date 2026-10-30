@@ -79,7 +79,7 @@ const designChanges = Effect.gen(function* () {
   const project = yield* OpenProject;
   yield* project.use(
     Effect.flatMap(DesignSystemService, (d) =>
-      d.setToken({ name: "color-ink", value: "#333333" })
+      d.edit([{ name: "color-ink", op: "setValue", value: "#333333" }])
     )
   );
 });

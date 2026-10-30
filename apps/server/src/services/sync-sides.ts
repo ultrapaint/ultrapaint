@@ -6,15 +6,16 @@
  *
  * - The code (`CodeSide`) is matched by name, and its baseline (`codeSync`) is moved whenever
  *   either is written.
+ *
+ * What a side gives the design system is the editor's operations (`editsOf`), checked as an edit
+ * is and written by the design system's one write path, which tells the code with `codeTokens:
+ * auto`. A baseline moves by `moveBaseline`, outside the undo history.
  * - Figma is never written: its baseline (`sync`, or `FigmaBaseline`'s while there is no design
  *   system) keeps both sides' values and the matches, by Figma's id, for one file.
  * - DESIGN.md (`DesignMd`) is rewritten in the design system's names with its values, and its
  *   baseline (`designMd`) is what its mirror agrees on.
  */
-import type {
-  DesignSystem,
-  DocumentMatch,
-} from "@ultrapaint/contracts/design-system";
+import type { DocumentMatch } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import type {
   FigmaMatch,
@@ -23,7 +24,10 @@ import type {
   TokenDiff,
   TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
-import { withTokenChanges } from "@ultrapaint/contracts/token-table";
+import {
+  applyEdits,
+  editsOf,
+} from "@ultrapaint/design-document/design-system-edits";
 import type { TokenGroups } from "@ultrapaint/design-md/format";
 import { emptyGroups } from "@ultrapaint/design-md/format";
 import { mergeMirror } from "@ultrapaint/design-md/merge";
@@ -146,7 +150,10 @@ const codeAdapter: SideAdapter = {
         Effect.gen(function* () {
           const taken =
             toDesign.length > 0
-              ? yield* service.setTokens(toDesign, "Take the code's tokens")
+              ? yield* service.edit(
+                  editsOf(ds, toDesign),
+                  "Take the code's tokens"
+                )
               : { files: nothing };
           const written =
             toSource.length > 0
@@ -184,7 +191,7 @@ const saveFigmaBaseline = Effect.fnUntraced(function* (next: SyncBaseline) {
   if (!designSystem) {
     return yield* waiting.wait(next);
   }
-  yield* service.write({ ...designSystem, sync: next });
+  yield* service.moveBaseline("sync", () => next);
   yield* waiting.clear;
 });
 
@@ -259,7 +266,10 @@ const figmaAdapter: SideAdapter = {
           let files = nothing;
           if (toDesign.length > 0) {
             ({ files } = ds
-              ? yield* service.setTokens(toDesign, `Take ${file}'s tokens`)
+              ? yield* service.edit(
+                  editsOf(ds, toDesign),
+                  `Take ${file}'s tokens`
+                )
               : yield* (yield* CodeSide).write(toDesign, null));
           }
           // Where Figma and the design system stand now, for the next sync to compare with.
@@ -327,7 +337,7 @@ const documentAfter = (
 const someOf = (paths: readonly string[]) =>
   `${paths.slice(0, 4).join(", ")}${paths.length > 4 ? ", …" : ""}`;
 
-/** What the document holds that tokens cannot say: its text styles, its components. */
+/** What the document holds that tokens cannot say: its text styles, its components' looks. */
 const documentNotes = (
   path: string,
   held: readonly { readonly path: string }[]
@@ -346,7 +356,7 @@ const documentNotes = (
       : []),
     ...(components.length > 0
       ? [
-          `${plural(components.length, "component setting")} of ${path} differ from the components' classes (${someOf(components)}). Classes are the code's: taking the document's tokens puts the code's back; change the classes to change them.`,
+          `${plural(components.length, "component setting")} of ${path} differ from the components' looks (${someOf(components)}). A system component's look is its file's, edited on its board: taking the document's tokens puts the look's back; change the look to change them.`,
         ]
       : []),
   ];
@@ -359,7 +369,7 @@ const noDocument =
  * DESIGN.md's front matter (ADR 0027): the design system takes what the document changed alone
  * and the conflicts given to it, listing the tokens new to it; the document is rewritten in the
  * design system's names, its references with it, what was left out taken out of it, and what is
- * still unmatched kept. With `codeTokens: auto` the code follows.
+ * still unmatched kept. With `codeTokens: auto` the code follows, as it follows every write.
  */
 const designMdAdapter: SideAdapter = {
   byName: false,
@@ -401,7 +411,9 @@ const designMdAdapter: SideAdapter = {
               matches: sorted(matches),
             });
             yield* service
-              .write({ ...ds, designMd: next } satisfies DesignSystem)
+              .moveBaseline("designMd", (previous) =>
+                documentBaseline(previous, { matches: sorted(matches) })
+              )
               .pipe(Effect.mapError(unsaved("the matches could not be saved")));
             return compareDocument(tokens, design, next);
           }),
@@ -411,7 +423,11 @@ const designMdAdapter: SideAdapter = {
       write: ({ toDesign }) =>
         Effect.gen(function* () {
           const after = yield* service.get;
-          const listed = withTokenChanges(after.designSystem ?? ds, toDesign);
+          const base = after.designSystem ?? ds;
+          const listed = applyEdits(base, editsOf(base, toDesign));
+          if ("problem" in listed) {
+            return yield* new BadRequest({ message: listed.problem });
+          }
           const current = after.document;
           if (!current) {
             return yield* new BadRequest({ message: noDocument });
@@ -431,7 +447,7 @@ const designMdAdapter: SideAdapter = {
             listed.designMd?.agreed ?? {}
           );
           // Its matches were by the document's names, which are the design system's now.
-          yield* service
+          const { files } = yield* service
             .replace(
               {
                 ...listed,
@@ -447,12 +463,8 @@ const designMdAdapter: SideAdapter = {
             .pipe(
               Effect.mapError(unsaved(`${current.path} could not be written`))
             );
-          const { designSystem: taken } = yield* service.get;
-          const code = taken
-            ? yield* (yield* CodeSide).follow(toDesign, taken)
-            : { files: nothing };
           return {
-            files: [current.path, ...code.files],
+            files: [current.path, ...files.filter((f) => f !== current.path)],
             written: toDesign.length,
           };
         }),

@@ -4,11 +4,8 @@ import path from "node:path";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { afterAll, describe, expect, it } from "vitest";
-import {
-  inlineThemeAliases,
-  scanDesignSystem,
-  themeOf,
-} from "./design-system-scan.ts";
+import { scanDesignSystem } from "./design-system-scan.ts";
+import { readTokens, themeOf } from "./tokens.ts";
 
 const roots: string[] = [];
 afterAll(() => {
@@ -138,6 +135,49 @@ describe("scanning a Tailwind v4 design system", () => {
       { name: "color-accent", value: "#f4f4f5", values: { dark: "#27272a" } },
       { name: "color-ring", value: "#2563eb" },
     ]);
+  });
+
+  it("gives every token the values the code's tokens are read with, so Sync finds nothing to settle after /init", () => {
+    const root = repository({
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "node_modules/tailwindcss/theme.css":
+        "@theme default { --spacing: 0.25rem; }",
+      // An alias, whose value is the variable's; a theme that sets the token's own variable,
+      // which the alias's utilities never read.
+      "src/index.css": `@import "tailwindcss";
+@theme inline {
+  --color-primary: var(--primary);
+}
+:root { --primary: #112233; }
+.dark {
+  --primary: #445566;
+  --color-primary: #ff0000;
+}
+`,
+    });
+    const ctx = {
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: "designs",
+        hostCss: ["../../src/index.css"],
+      },
+    };
+    const scanned = new Map(
+      listedTokens(scanDesignSystem(ctx).designSystem).map((t) => [
+        t.name,
+        { value: t.value, values: t.values ?? {} },
+      ])
+    );
+    const read = readTokens(ctx).tokens.filter((t) => scanned.has(t.name));
+    expect(read.map((t) => t.name)).toEqual(["color-primary"]);
+    for (const t of read) {
+      expect(scanned.get(t.name)).toEqual({
+        value: t.value,
+        values: t.values ?? {},
+      });
+    }
   });
 
   it("reads border widths, layout, motion and icons, and starts the elevation", () => {
@@ -415,27 +455,5 @@ describe("the theme a block belongs to", () => {
     expect(themeOf(".darker")).toBeNull();
     expect(themeOf('[data-theme="ocean"]:not(.dark)')).toBe("ocean");
     expect(themeOf('[data-theme="light"]')).toBeNull();
-  });
-});
-
-describe("inline theme aliases", () => {
-  it("are the @theme inline variables that stand for another variable", () => {
-    const root = repository({
-      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
-      "web/app.css": `@import "tailwindcss";
-:root { --foreground: #111; }
-.dark { --foreground: #eee; }
-@theme inline {
-  --color-foreground: var(--foreground);
-  --color-brand: #ff0000;
-  --radius-lg: calc(var(--radius) * 1.2);
-}`,
-    });
-    const aliases = inlineThemeAliases(
-      ["../web/app.css"],
-      path.join(root, "designs", "host.css"),
-      path.join(root, "web")
-    );
-    expect([...aliases]).toEqual([["--color-foreground", "var(--foreground)"]]);
   });
 });

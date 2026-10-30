@@ -43,18 +43,14 @@ export interface UsageOccurrence {
   readonly raw: string;
   /** Where `raw` starts in the file; for a style or a declaration, where its value does. */
   readonly start?: number;
-  /** What uses it: a utility (`bg`, `p`, `text`), `style:<property>`, `css:<property>`, `literal`, `element`. */
+  /** What uses it: a utility (`bg`, `p`, `text`), `style:<property>`, `css:<property>`, `literal`. */
   readonly use: string;
-  /** What is used: `blue-500`, `[#3b82f6]`, `13px`, `button`. */
+  /** What is used: `blue-500`, `[#3b82f6]`, `13px`. */
   readonly value: string;
 }
 
 export interface UsageContext {
-  /** The components of the catalogue, whose plain counterparts are reported. */
-  readonly components: readonly string[];
   readonly designSystem: DesignSystem;
-  /** Repo-relative directories of the component library: its own plain elements are its business. */
-  readonly libraryDirs: readonly string[];
   /**
    * The tokens the repository's theme declares, when the design system is the theme's scan and
    * not one saved: the rest of its tokens are the framework's defaults. Null for a saved one.
