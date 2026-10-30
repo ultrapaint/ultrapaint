@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { boardLayout, ROW_GAP, UNMEASURED } from "./board-layout.ts";
+import {
+  BOARD_MARGIN,
+  boardLayout,
+  firstBoardView,
+  ROW_GAP,
+  UNMEASURED,
+} from "./board-layout.ts";
 
 const sizes = {
   a: { height: 200, width: 400 },
@@ -26,5 +32,31 @@ describe("boardLayout", () => {
       a: { height: 200, width: 400, x: UNMEASURED.width, y: 0 },
       c: { ...UNMEASURED, x: 0, y: 0 },
     });
+  });
+});
+
+describe("firstBoardView", () => {
+  const seen = { width: 1000, x: 400 };
+
+  it("starts the boards a little in from the seen part's corner, at 100%", () => {
+    expect(
+      firstBoardView([{ height: 200, width: 400, x: 0, y: 0 }], seen)
+    ).toEqual({ x: 400 + BOARD_MARGIN.x, y: BOARD_MARGIN.y, zoom: 1 });
+  });
+
+  it("zooms out until every board fits between the panels, never in", () => {
+    const view = firstBoardView(
+      [
+        { height: 200, width: 600, x: 0, y: 0 },
+        { height: 200, width: 600, x: 600 + ROW_GAP, y: 0 },
+      ],
+      seen
+    );
+    const wide = 1200 + ROW_GAP;
+    expect(view.zoom).toBeCloseTo((1000 - 2 * BOARD_MARGIN.x) / wide);
+    // The last board's right edge is the margin in from the seen part's.
+    expect(view.x + wide * view.zoom).toBeCloseTo(
+      seen.x + seen.width - BOARD_MARGIN.x
+    );
   });
 });

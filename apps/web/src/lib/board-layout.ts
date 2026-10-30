@@ -32,3 +32,31 @@ export const boardLayout = (
   }
   return out;
 };
+
+/**
+ * Where an item's boards begin the first time it is opened, from the seen part's corner: a little
+ * in from its left, and low enough for the names over them.
+ */
+export const BOARD_MARGIN = { x: 32, y: 72 } as const;
+
+/**
+ * The camera an item's boards are first seen with: from the seen part's corner, every board as
+ * wide as the part of the canvas between the panels holds, zoomed out as far as that takes and
+ * never in past 100%.
+ */
+export const firstBoardView = (
+  boxes: readonly Box[],
+  seen: { readonly width: number; readonly x: number }
+): { x: number; y: number; zoom: number } => {
+  const left = Math.min(0, ...boxes.map((b) => b.x));
+  const top = Math.min(0, ...boxes.map((b) => b.y));
+  const right = Math.max(0, ...boxes.map((b) => b.x + b.width));
+  const room = seen.width - 2 * BOARD_MARGIN.x;
+  const wide = right - left;
+  const zoom = wide > 0 && room > 0 ? Math.min(1, room / wide) : 1;
+  return {
+    x: seen.x + BOARD_MARGIN.x - left * zoom,
+    y: BOARD_MARGIN.y - top * zoom,
+    zoom,
+  };
+};
