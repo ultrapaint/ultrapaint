@@ -7,17 +7,17 @@
  * the editor the open repository's list whenever a ref is kept or let go of, whoever did it.
  */
 import { type NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
-import type { GitDiff } from "@ultrapaint/contracts/git";
+import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { basename } from "@ultrapaint/shared/path";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
 import { COMMENTS_FILE } from "./comments.ts";
 import { EditService } from "./edit.ts";
+import { simpleDiff } from "./file-diff.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { type Contents, SnapshotStore } from "./snapshot-store.ts";
 import { Storage } from "./storage.ts";
-import { simpleDiff } from "./threads/diff.ts";
 
 const DESIGN_FILE_RE = /\.(tsx?|json|css|md)$/;
 
@@ -230,7 +230,7 @@ export const makeDesignRefs = <
     const diff = Effect.fnUntraced(function* (ref: DesignRef<N>) {
       const { before, changes, current } = yield* changesSince(ref);
       return changes.map(
-        (change): GitDiff => ({
+        (change): FileDiff => ({
           diff: simpleDiff(
             change.path,
             before[change.path] ?? "",

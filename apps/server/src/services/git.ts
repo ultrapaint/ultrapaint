@@ -1,10 +1,7 @@
 import { BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
-import type {
-  GitDiff,
-  GitFileStatus,
-  GitStatus,
-} from "@ultrapaint/contracts/git";
+import type { GitFileStatus, GitStatus } from "@ultrapaint/contracts/git";
 import { writesGit } from "@ultrapaint/contracts/settings";
+import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { Context, Effect, Layer, PubSub, Semaphore, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { EventBus } from "../events.ts";
@@ -100,7 +97,7 @@ export class GitService extends Context.Service<
     readonly init: Effect.Effect<void, BadRequest | CommandFailed>;
     readonly diff: (
       rel: string
-    ) => Effect.Effect<GitDiff, CommandFailed | ForbiddenPathError>;
+    ) => Effect.Effect<FileDiff, CommandFailed | ForbiddenPathError>;
     readonly status: Effect.Effect<GitStatus, CommandFailed>;
   }
 >()("ultrapaint/server/GitService") {

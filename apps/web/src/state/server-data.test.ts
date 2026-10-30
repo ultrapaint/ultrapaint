@@ -5,7 +5,6 @@ import type {
   DocumentPatch,
   DocumentState,
 } from "@ultrapaint/contracts/document";
-import type { Checkpoint } from "@ultrapaint/contracts/git";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type {
   CanvasLayout,
@@ -14,7 +13,11 @@ import type {
 } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import type { Snapshot, SnapshotView } from "@ultrapaint/contracts/snapshots";
+import type {
+  Checkpoint,
+  Snapshot,
+  SnapshotView,
+} from "@ultrapaint/contracts/snapshots";
 import { emptyDrift, type SyncPlan } from "@ultrapaint/contracts/sync";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
