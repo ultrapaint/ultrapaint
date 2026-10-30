@@ -5,6 +5,7 @@
  */
 
 import { Json } from "@ultrapaint/contracts/base";
+import { pageTemplates } from "@ultrapaint/design-document/factories";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { RepoPaths } from "../repo-paths.ts";
@@ -253,11 +254,9 @@ export const pageToolHandlers = Effect.gen(function* () {
     }),
 
     list_templates: () =>
-      pagesService((pages) =>
-        Effect.succeed({
-          templates: pages.templates.map((t) => ({ id: t.id, name: t.name })),
-        })
-      ),
+      Effect.succeed({
+        templates: pageTemplates.map((t) => ({ id: t.id, name: t.name })),
+      }),
 
     rename_page: Effect.fn("EditorTools.rename_page")(function* ({
       route,

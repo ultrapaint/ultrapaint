@@ -6,8 +6,8 @@ import {
   componentOfDoc,
 } from "@ultrapaint/contracts/components";
 import {
+  type AppliedChanges,
   type ApplyInput,
-  type ApplyResult,
   DesignNode,
   type DocumentChange,
   type DocumentEdit,
@@ -132,6 +132,14 @@ export interface ApplyStep {
 type Alongside = readonly DocumentEdit[] | undefined;
 
 /**
+ * What applying edits gives: the ids the operations created, each document touched as it is now
+ * and as the editors were told it (ADR 0044).
+ */
+export interface Applied extends AppliedChanges {
+  readonly documents: readonly DocumentState[];
+}
+
+/**
  * The design documents of the open project: every page (`<route>.page.json`) and every canvas's
  * canvas (the nodes of `canvas.json`). Reads them, applies operations to them as one undo step
  * per request, and tells the editor whenever one changes — from an edit, an undo, an agent or a
@@ -144,22 +152,18 @@ export class DocumentService extends Context.Service<
      * Applies the edits as one undo step; `alongside` changes other files of the designs in the
      * same step (a component's file written as an instance of it takes a node's place), and may
      * give edits of its own, made of the documents as they are under the journal (`step.all`,
-     * `step.get`), so no edit made meanwhile fails or is lost.
+     * `step.get`), so no edit made meanwhile fails or is lost. Answers with each document touched
+     * and its change as the editors were told it.
      */
     readonly apply: (
       input: ApplyInput,
       alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
-    ) => Effect.Effect<ApplyResult, EditFailure | Conflict>;
+    ) => Effect.Effect<Applied, EditFailure | Conflict>;
     /** Every page and canvas of every canvas, as each is saved now. */
     readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
-    /**
-     * A document's state as the editor is told it (ADR 0044): the change last published to it
-     * when that is the state, else the whole document.
-     */
-    readonly changeOf: (state: DocumentState) => DocumentChange;
     readonly list: (
       canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
@@ -425,20 +429,17 @@ export class DocumentService extends Context.Service<
         }
         return state;
       };
+      /** Tells the editors of a state they were not told yet; answers with it as they were told. */
       const publish = (state: DocumentState) =>
-        Effect.suspend(() => {
+        Effect.suspend((): Effect.Effect<DocumentChange> => {
           const before = published.get(state.doc);
           if (before?.state.hash === state.hash) {
-            return Effect.void;
+            return Effect.succeed(before.change);
           }
           const change = changeSince(before?.state, state);
           published.set(state.doc, { change, state });
-          return events.publish("document", change);
+          return Effect.as(events.publish("document", change), change);
         });
-      const changeOf = (state: DocumentState): DocumentChange => {
-        const last = published.get(state.doc);
-        return last?.state.hash === state.hash ? last.change : state;
-      };
 
       /** A document's edited tree written to its file: a page's, a canvas's, a component's. */
       const writeDocument = Effect.fnUntraced(function* (
@@ -554,8 +555,8 @@ export class DocumentService extends Context.Service<
         const documents = yield* Effect.forEach(touched, (doc) =>
           Effect.map(load(doc), (loaded) => stateOf(doc, loaded))
         );
-        yield* Effect.forEach(documents, publish, { discard: true });
-        return { created, documents } satisfies ApplyResult;
+        const changes = yield* Effect.forEach(documents, publish);
+        return { changes, created, documents } satisfies Applied;
       });
 
       const all = allOf(true).pipe(Effect.withSpan("DocumentService.all"));
@@ -649,7 +650,6 @@ export class DocumentService extends Context.Service<
       return DocumentService.of({
         all,
         apply,
-        changeOf,
         get,
         list,
         upload,

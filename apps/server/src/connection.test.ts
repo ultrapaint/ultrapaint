@@ -72,10 +72,10 @@ describe("Connection", () => {
         yield* until(() => connection.state === "open");
         assert.deepStrictEqual(states, ["connecting", "open"]);
 
-        const health = yield* Effect.promise(() =>
-          connection.request("health", undefined)
+        const before = yield* Effect.promise(() =>
+          connection.request("project.info", undefined)
         );
-        assert.deepStrictEqual(health, { ok: true, version: "test" });
+        assert.isFalse(before.configured);
 
         // A wire error keeps the lower-case code the editor has always seen.
         const failure = yield* Effect.promise(() =>
@@ -117,7 +117,7 @@ describe("Connection", () => {
         yield* Scope.close(first, Exit.void);
         yield* until(() => connection.state !== "open");
         const offline = yield* Effect.promise(() =>
-          connection.request("health", undefined).catch((e: unknown) => e)
+          connection.request("project.info", undefined).catch((e: unknown) => e)
         );
         assert.instanceOf(offline, RequestError);
         assert.strictEqual((offline as RequestError).message, "not connected");
@@ -130,21 +130,11 @@ describe("Connection", () => {
         yield* until(() => connection.state === "open");
         assert.isAbove(states.filter((s) => s === "open").length, 1);
 
-        // Subscriptions made while offline are live on the new session.
-        yield* Effect.promise(() =>
-          connection.request("settings.validate", {
-            componentPackages: [],
-            designsDir: "designs",
-            hostCss: [],
-            libraryDirs: [],
-            repoPath: "/nonexistent",
-            theme: "light",
-          })
+        // Requests go through on the new session.
+        const info = yield* Effect.promise(() =>
+          connection.request("project.info", undefined)
         );
-        const health = yield* Effect.promise(() =>
-          connection.request("health", undefined)
-        );
-        assert.isTrue(health.ok);
+        assert.isFalse(info.configured);
       }).pipe(Effect.provide(NodeServices.layer)),
     30_000
   );

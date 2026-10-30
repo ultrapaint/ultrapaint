@@ -236,7 +236,7 @@ export const subscribed = <A, E, R>(consume: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const { client } = yield* TestEnv;
     const fiber = yield* Effect.forkScoped(consume, { startImmediately: true });
-    yield* client.health();
+    yield* client["project.info"]();
     return fiber;
   });
 

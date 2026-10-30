@@ -181,7 +181,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
 
           // With codeTokens auto, an edit reaches the code at once, as before ADR 0028.
-          const current = (yield* client["settings.get"]()) ?? settings;
+          const current =
+            (yield* client["project.info"]()).settings ?? settings;
           yield* client["settings.set"]({ ...current, codeTokens: "auto" });
           const auto = yield* client["designSystem.edit"]({
             ops: [{ name: "radius-card", op: "setValue", value: "1.25rem" }],
@@ -252,7 +253,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.isTrue(
             yield* fs.exists(path.join(repo, "blank/src/components"))
           );
-          const current = (yield* client["settings.get"]()) ?? settings;
+          const current =
+            (yield* client["project.info"]()).settings ?? settings;
           const validation = yield* client["settings.set"]({
             ...current,
             ...made.settings,

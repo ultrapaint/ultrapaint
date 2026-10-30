@@ -291,13 +291,13 @@ layer(OnNewDesign, { excludeTestServices: true, timeout: "60 seconds" })(
       () =>
         Effect.gen(function* () {
           const { client, port } = yield* TestEnv;
-          const settings = yield* client["settings.get"]();
-          if (settings === null) {
+          const { settings } = yield* client["project.info"]();
+          if (settings === undefined) {
             return assert.fail("the server has no settings");
           }
           const folder = settings.repoPath;
           assert.strictEqual(path.basename(folder), "Acme");
-          const validation = yield* client["settings.validate"](settings);
+          const validation = yield* client["settings.set"](settings);
           assert.deepStrictEqual(validation.problems, []);
           // What a second start, the command's or the desktop app's, finds and attaches to.
           const run = yield* readRunFile(path.join(folder, ".ultrapaint"));

@@ -8,7 +8,6 @@ import type {
   Page,
   PageList,
 } from "@ultrapaint/contracts/pages";
-import { pageTemplates } from "@ultrapaint/design-document/factories";
 import { Context, Effect, Layer, Semaphore } from "effect";
 import { CommentsService } from "./comments.ts";
 import type { EditFailure, EditTransaction } from "./edit.ts";
@@ -126,10 +125,6 @@ export class PagesService extends Context.Service<
       id: string,
       route: string | null
     ) => Effect.Effect<Page, PagesFailure>;
-    readonly templates: readonly {
-      readonly id: string;
-      readonly name: string;
-    }[];
     /** Changes the layout inside an action, which the change becomes part of. */
     readonly updateCanvas: (
       tx: EditTransaction,
@@ -203,7 +198,6 @@ export class PagesService extends Context.Service<
           exclusive(setFrame(canvas, pagePath, frame)),
         setHome: (id, route) => exclusive(setHome(id, route)),
         setRoute: (id, route) => exclusive(setRoute(id, route)),
-        templates: pageTemplates,
         updateCanvas,
         writeFrames: (canvas, frames) => exclusive(writeFrames(canvas, frames)),
       });
