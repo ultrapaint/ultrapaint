@@ -522,7 +522,7 @@ export const IsolatedComponent = ({
   const file = useComponents((s) =>
     isolated ? appComponentOf(s.components, isolated.component) : undefined
   );
-  if (!(isolated && file?.origin === "app")) {
+  if (!(isolated && file)) {
     return null;
   }
   return (

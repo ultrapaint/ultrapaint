@@ -4,10 +4,10 @@ import {
   APP_FROM,
   type AppComponentFile,
   type ComponentFile,
-  emptySystemComponent,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import type { Mounted } from "@ultrapaint/preview-core/preview";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
 import { afterEach, describe, expect, it } from "vitest";

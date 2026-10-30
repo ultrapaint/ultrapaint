@@ -359,15 +359,11 @@ export type ComponentList = typeof ComponentList.Type;
 export const componentFileOf = (name: string) =>
   `${COMPONENTS_DIR}/${name}${COMPONENT_EXTENSION}`;
 
-/** A system component's file that sets nothing: drawn in its default look. */
-export const emptySystemComponent = (name: string): SystemComponentFile => ({
-  base: {},
-  name,
-  origin: "system",
-  states: {},
-  variants: {},
-  version: 1,
-});
+/** The components of a list that read: what the previews draw and the catalogue is made of. */
+export const componentsIn = (
+  entries: readonly ComponentEntry[]
+): ComponentFile[] =>
+  entries.flatMap((e) => (e.component ? [e.component] : []));
 
 /** The files that are app components'. */
 export const appComponentsIn = (

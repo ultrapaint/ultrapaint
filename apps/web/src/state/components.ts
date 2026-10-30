@@ -5,10 +5,12 @@
  * made from them here, as the server makes it for the agents.
  */
 import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
-import type {
-  ComponentEntry,
-  ComponentFile,
-  ComponentList,
+import {
+  type AppComponentFile,
+  type ComponentEntry,
+  type ComponentFile,
+  type ComponentList,
+  componentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { takesChildren } from "@ultrapaint/design-document/tree";
@@ -30,7 +32,7 @@ interface ComponentsStore {
 }
 
 const fromEntries = (entries: readonly ComponentEntry[]) => {
-  const components = entries.flatMap((e) => (e.component ? [e.component] : []));
+  const components = componentsIn(entries);
   return {
     catalogue: catalogueOf(components),
     components,
@@ -57,11 +59,14 @@ const componentsData = follow({
   whole: ["components"],
 });
 
-/** An app component's file, by name. */
+/** An app component's file, by name; none for a system component's or a name no file has. */
 export const appComponentOf = (
   components: readonly ComponentFile[],
   name: string
-) => components.find((c) => c.origin === "app" && c.name === name);
+): AppComponentFile | undefined =>
+  components.find(
+    (c): c is AppComponentFile => c.origin === "app" && c.name === name
+  );
 
 /** Whether the editor may put something inside a node: a container, or a component that takes children. */
 export const holdsChildren = (node: DesignNode): boolean =>

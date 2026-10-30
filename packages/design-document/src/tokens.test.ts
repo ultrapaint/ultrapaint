@@ -1,11 +1,11 @@
 import {
   APP_FROM,
   type AppComponentFile,
-  emptySystemComponent,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { PageNode } from "@ultrapaint/contracts/document";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { describe, expect, it } from "vitest";
 import { designTokenCss, tokensIn, tokensUsed } from "./tokens.ts";
 

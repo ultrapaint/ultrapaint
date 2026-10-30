@@ -8,9 +8,10 @@
  */
 
 import type { Comment } from "@ultrapaint/contracts/comments";
-import type {
-  ComponentFile,
-  ComponentNote,
+import {
+  type ComponentFile,
+  type ComponentNote,
+  componentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -52,7 +53,7 @@ import { EventBus } from "../events.ts";
 import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
-import { componentsIn, readComponents } from "./components.ts";
+import { readComponents } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
@@ -338,7 +339,7 @@ export class ImplementationService extends Context.Service<
       const fileRel = paths.relative(fileAbs);
       // The components as their files have them; read here, below `ComponentService`.
       const componentsNow = readComponents(paths.designsDir).pipe(
-        Effect.map(componentsIn),
+        Effect.map((l) => componentsIn(l.components)),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path)
       );

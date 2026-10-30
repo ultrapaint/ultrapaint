@@ -22,6 +22,7 @@ import {
   type ComponentList,
   componentDocOf,
   componentFileOf,
+  componentsIn,
   ROOT_SLOT,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
@@ -142,10 +143,6 @@ export const readComponents = (designsDir: string) =>
     return { components: entries } satisfies ComponentList;
   });
 
-/** The components of a list that read. */
-export const componentsIn = (list: ComponentList): ComponentFile[] =>
-  list.components.flatMap((e) => (e.component ? [e.component] : []));
-
 export class ComponentService extends Context.Service<
   ComponentService,
   {
@@ -216,7 +213,7 @@ export class ComponentService extends Context.Service<
         Effect.withSpan("ComponentService.list")
       );
 
-      const components = Effect.map(list, componentsIn);
+      const components = Effect.map(list, (l) => componentsIn(l.components));
       const catalogue = Effect.map(components, catalogueOf);
 
       const publish = Effect.flatMap(list, (l) =>
