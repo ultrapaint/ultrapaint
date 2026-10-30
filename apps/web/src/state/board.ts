@@ -173,7 +173,7 @@ export const editSelectedOnBoard = (frame: string) => {
 };
 
 /** An item's key among the cameras and the picks. */
-export const boardKey = (place: BoardPlace) => `${place.view}/${place.item}`;
+const boardKey = (place: BoardPlace) => `${place.view}/${place.item}`;
 
 /** The item a view opens on the first time: Color, and the Library's Overview. */
 export const FIRST_ITEM: Readonly<Record<BoardView, string>> = {

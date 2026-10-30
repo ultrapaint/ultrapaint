@@ -161,6 +161,34 @@ describe("the node menu", () => {
     expect(loose).not.toContain("selectParent");
   });
 
+  it("offers a node of a tree on its board nothing of a page's, but what it does to the node", () => {
+    const onBoard = kinds(
+      nodeEntries(
+        facts({
+          frame: {
+            item: "Promo",
+            kind: "board",
+            name: "component",
+            view: "library",
+          },
+        })
+      )
+    );
+    for (const kind of [
+      "comment",
+      "makeApp",
+      "link",
+      "viewCode",
+      "copyLink",
+      "copyRef",
+    ]) {
+      expect(onBoard, kind).not.toContain(kind);
+    }
+    expect(onBoard).toEqual(
+      expect.arrayContaining(["rename", "wrap", "hide", "zoomTo", "delete"])
+    );
+  });
+
   it("locks a node, and unlocks a locked one, but not a page", () => {
     expect(find(nodeEntries(facts()), "lock")).toMatchObject({
       label: "Lock",
