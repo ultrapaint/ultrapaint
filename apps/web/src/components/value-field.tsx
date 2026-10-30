@@ -68,7 +68,9 @@ export const ValueField = ({
   value,
   options,
   onChange,
+  onPreview,
   placeholder,
+  hint,
   leading,
   accept,
   className,
@@ -77,6 +79,13 @@ export const ValueField = ({
   value: JsonValue | undefined;
   options: readonly StyleOption[];
   onChange: (value: JsonValue) => void;
+  /**
+   * The value the open list has highlighted, to be drawn before it is picked (null takes the
+   * value off); undefined once none is.
+   */
+  onPreview?: (value: JsonValue | undefined) => void;
+  /** Muted at the field's end while it is not set: where the value it takes comes from. */
+  hint?: string;
   /** Shown while nothing is set: what the layout does on its own. */
   placeholder?: string;
   leading?: React.ReactNode;
@@ -106,8 +115,14 @@ export const ValueField = ({
       current={current}
       custom={custom}
       display={displayOf(value) || (placeholder ?? "")}
+      hint={hint}
       leading={leading}
       onPick={(picked) => onChange(parseValue(picked))}
+      onPreview={
+        onPreview &&
+        ((highlighted) =>
+          onPreview(highlighted === null ? undefined : parseValue(highlighted)))
+      }
       options={withUnset}
       outside={(option) => isOutsideDesignSystem(option, options)}
       title={title}

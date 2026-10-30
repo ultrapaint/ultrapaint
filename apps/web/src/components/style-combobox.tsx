@@ -51,6 +51,11 @@ interface StyleComboboxProps {
   hint?: string;
   leading?: React.ReactNode;
   onPick: (cls: string) => void;
+  /**
+   * The value the list has highlighted while it is open (an option gone through, a value typed),
+   * to be drawn before it is picked; null once none is.
+   */
+  onPreview?: (value: string | null) => void;
   options: readonly StyleOption[];
   /** Whether a value is outside the design system, marked so; none is when it is left out. */
   outside?: (value: string) => boolean;
@@ -163,6 +168,7 @@ const ActiveCombobox = ({
   hint,
   leading,
   onPick,
+  onPreview,
   options,
   outside,
   title,
@@ -193,8 +199,11 @@ const ActiveCombobox = ({
     setOpen(next);
     if (!next) {
       setQuery("");
+      onPreview?.(null);
     }
   };
+  const onItemHighlighted = (item: Item | undefined) =>
+    onPreview?.(item?.value ?? null);
   const onInputValueChange = (
     v: string,
     details: ComboboxPrimitive.Root.ChangeEventDetails
@@ -223,6 +232,7 @@ const ActiveCombobox = ({
       items={items}
       itemToStringLabel={toLabel}
       onInputValueChange={onInputValueChange}
+      onItemHighlighted={onPreview ? onItemHighlighted : undefined}
       onOpenChange={onOpenChange}
       onValueChange={onValueChange}
       open={open}
