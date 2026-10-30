@@ -404,7 +404,7 @@ describe("the editor's MCP server, over the wire", () => {
             )
           )
         );
-        const tools = listed.result.tools;
+        const { tools } = listed.result;
         const named = (
           hint: "destructiveHint" | "idempotentHint" | "readOnlyHint"
         ) =>
@@ -1045,6 +1045,61 @@ describe("the tools for documents", () => {
           kind: "design-system",
         });
         assert.include(JSON.stringify(format.schema), "typography");
+      })
+  );
+});
+
+describe("where a tool works, named by a node reference (ADR 0018)", () => {
+  inAProject("reads only the node a reference names", () =>
+    Effect.gen(function* () {
+      const { document } = yield* tool("read_page", { route: "/home#heading" });
+      assert.strictEqual((document as { id: string }).id, "heading");
+    })
+  );
+
+  inAProject("shows the nodes a reference names, in focus", () =>
+    Effect.gen(function* () {
+      const events = yield* EventBus;
+      const both = yield* Effect.forkScoped(
+        Stream.runCollect(events.subscribe("agent.focus").pipe(Stream.take(2))),
+        { startImmediately: true }
+      );
+      yield* tool("focus", { nodes: ["/home#heading"], route: "/home" }, "t-1");
+      yield* tool("focus", { route: "/home#heading" }, "t-1");
+      assert.deepStrictEqual(
+        (yield* Fiber.join(both)).map((event) => event.nodeIds),
+        [["heading"], ["heading"]]
+      );
+    })
+  );
+
+  inAProject(
+    "reads and changes a node beside the pages named by its reference",
+    () =>
+      Effect.gen(function* () {
+        yield* tool("apply_operations", {
+          loose: true,
+          ops: [
+            inserted({
+              id: "note",
+              role: "paragraph",
+              text: "Hi",
+              type: "text",
+            }),
+          ],
+        });
+        yield* tool("apply_operations", {
+          ops: [{ id: "note", op: "update", set: { text: "Hello" } }],
+          route: "canvas#note",
+        });
+        const { document } = yield* tool("read_page", { route: "canvas#note" });
+        assert.deepStrictEqual(
+          {
+            id: (document as { id: string }).id,
+            text: (document as { text: string }).text,
+          },
+          { id: "note", text: "Hello" }
+        );
       })
   );
 });

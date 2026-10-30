@@ -15,7 +15,6 @@ import {
   outlineOf,
   walk,
 } from "@ultrapaint/design-document/tree";
-import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
@@ -24,7 +23,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { designSystemSchema, pageSchema } from "../threads/task-text.ts";
 import { CallingThread } from "./access.ts";
-import { makeLookup } from "./lookup.ts";
+import { makeLookup, nodeIdOf } from "./lookup.ts";
 import {
   asJson,
   doing,
@@ -37,9 +36,9 @@ import {
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
 
-/** The node id a reference such as `/home#c_1` stands for; any other value as it is. */
-const nodeIdOf = (value: unknown): unknown =>
-  typeof value === "string" ? (parseNodeRef(value)?.nodeId ?? value) : value;
+/** A field that names a node: a reference read as its node's id, anything else as it is. */
+const idIn = (value: unknown): unknown =>
+  typeof value === "string" ? nodeIdOf(value) : value;
 
 /**
  * An operation with the node references in the fields that name a node (`id`, `parent`, `ids`)
@@ -53,11 +52,11 @@ const nodeRefsToIds = (op: unknown): unknown => {
   const fields = { ...op };
   for (const key of ["id", "parent"] as const) {
     if (key in fields) {
-      fields[key] = nodeIdOf(fields[key]);
+      fields[key] = idIn(fields[key]);
     }
   }
   if (Array.isArray(fields.ids)) {
-    fields.ids = fields.ids.map(nodeIdOf);
+    fields.ids = fields.ids.map(idIn);
   }
   return fields;
 };
@@ -192,7 +191,7 @@ const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
 export const DocumentToolsLive = DocumentTools.toLayer(
   Effect.gen(function* () {
     const events = yield* EventBus;
-    const { canvasOf, documents, pageAt, project } = yield* makeLookup;
+    const { canvasOf, documents, project, where } = yield* makeLookup;
 
     /** Refuses a breakpoint the design system does not have: the code has no prefix for it. */
     const knownBreakpoints = Effect.fnUntraced(function* (
@@ -231,16 +230,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         ops,
         route,
       }) {
-        let doc: string;
-        if (loose) {
-          doc = canvasDocOf(yield* canvasOf(canvas));
-        } else if (route === undefined) {
-          return yield* missing(
-            "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
-          );
-        } else {
-          doc = (yield* pageAt(route, canvas)).id;
-        }
+        const { doc } = yield* where({ canvas, loose, route });
         // A node an agent writes may leave its ids out; they are made before the ops are read.
         // Node references the user pasted stand for their node ids.
         const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
@@ -309,19 +299,22 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         route,
         canvas,
       }) {
-        const page = yield* pageAt(route, canvas);
+        const { doc, file, nodeId, page } = yield* where({ canvas, route });
+        // A reference names its node: the route's, or each of the nodes'.
+        const nodeIds =
+          nodes?.map(nodeIdOf) ?? (nodeId === undefined ? undefined : [nodeId]);
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
           // The page, not the route: the same route can be a page in two canvases.
           yield* events.publish("agent.focus", {
-            pageId: page.id,
+            pageId: doc,
             threadId,
-            ...(page.route !== undefined && { route: page.route }),
-            ...(nodes !== undefined && { nodeIds: nodes }),
+            ...(page?.route !== undefined && { route: page.route }),
+            ...(nodeIds !== undefined && { nodeIds }),
             ...(action !== undefined && { action }),
           });
         }
-        return { file: page.file };
+        return { file };
       }),
 
       get_document_format: ({ kind }) =>
@@ -358,33 +351,28 @@ export const DocumentToolsLive = DocumentTools.toLayer(
       }) {
         const shown = (tree: DesignNode) =>
           depth === undefined ? tree : outlineOf(tree, Math.floor(depth));
-        const page = yield* pageAt(route, canvas);
-        const state = yield* documents((d) => d.get(page.id));
+        const { doc, file, nodeId } = yield* where({ canvas, node, route });
+        const state = yield* documents((d) => d.get(doc));
         if (state.problem !== undefined) {
           return yield* missing(
-            `${page.file} is not a valid page: ${state.problem}`
+            `${file} is not a valid page: ${state.problem}`
           );
         }
-        if (node !== undefined) {
-          const id = parseNodeRef(node)?.nodeId ?? node;
-          const found = findNode(state.root, id);
+        if (nodeId !== undefined) {
+          const found = findNode(state.root, nodeId);
           if (found === null) {
             return yield* missing(
-              `no node ${id} in ${page.file}; read the page without node to see its ids`
+              `no node ${nodeId} in ${file}; read it without a node to see its ids`
             );
           }
-          return {
-            document: asJson(shown(found)),
-            file: page.file,
-            hash: state.hash,
-          };
+          return { document: asJson(shown(found)), file, hash: state.hash };
         }
         return {
           document: asJson({
             root: state.root && shown(state.root),
             version: 1,
           }),
-          file: page.file,
+          file,
           hash: state.hash,
         };
       }),

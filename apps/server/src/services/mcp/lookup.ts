@@ -1,13 +1,45 @@
+import type { Page } from "@ultrapaint/contracts/pages";
+import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect } from "effect";
 import { OpenProject } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
 import { pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
+import { RepoPaths } from "../repo-paths.ts";
 import { missing, reported } from "./tool-helpers.ts";
 
+/** Where a tool works: a page, or the nodes beside a canvas's pages, maybe one node of either. */
+export interface Where {
+  readonly canvas: string;
+  /** The document: the page's id, or the canvas's own (`canvasDocOf`). */
+  readonly doc: string;
+  /** Its file, repository-relative: the page's, or the canvas's `canvas.json`. */
+  readonly file: string;
+  /** A node id, never a reference: the one `node` or the name's reference says. */
+  readonly nodeId?: string;
+  /** Null for the nodes beside the pages. */
+  readonly page: Page | null;
+}
+
+/** Where to work, as the parameters of every tool that takes it say it. */
+export interface Given {
+  readonly canvas?: string | undefined;
+  /** The nodes beside the pages, rather than a page. */
+  readonly loose?: boolean | undefined;
+  /** A node id, or a node reference, which names its page as well. */
+  readonly node?: string | undefined;
+  /** A page's URL or file, a node reference, or `canvas#id` for a node beside the pages. */
+  readonly route?: string | undefined;
+}
+
+/** The node id a reference such as `/home#c_1` stands for; any other text as it is. */
+export const nodeIdOf = (text: string) => parseNodeRef(text)?.nodeId ?? text;
+
 /**
- * How a tool finds what an agent names: a canvas, a page by route or file, a document. Every
- * miss is a sentence that says what there is instead.
+ * How a tool finds what an agent names: a canvas, where to work (`where`: a page or the nodes
+ * beside the pages, and a node of either), a document. Every miss is a sentence that says what
+ * there is instead.
  */
 export const makeLookup = Effect.gen(function* () {
   const project = yield* OpenProject;
@@ -39,28 +71,90 @@ export const makeLookup = Effect.gen(function* () {
     );
   });
 
-  /**
-   * A page by URL or by file (repository-relative, designs-relative or inside its canvas), in the
-   * canvas named, or in the only canvas that has it, by the one rule for page names
-   * (`pageTargetNamed`): a canvas written first (`marketing:/pricing`) and a node reference
-   * (`/orders#c_1`, `marketing:/pricing#c_1`, `drafts.page.json#c_1`) name their page as well.
-   * A miss says it as a design target's does, the pages listed.
-   */
-  const pageAt = Effect.fnUntraced(function* (
-    given: string,
+  /** The nodes beside a canvas's pages, maybe one of them. */
+  const beside = Effect.fnUntraced(function* (
+    canvas: string | undefined,
+    nodeId: string | undefined
+  ) {
+    const id = yield* canvasOf(canvas);
+    const paths = yield* reported(project.use(RepoPaths));
+    return {
+      canvas: id,
+      doc: canvasDocOf(id),
+      file: paths.relative(
+        `${paths.designsDir}/${id === "" ? "" : `${id}/`}canvas.json`
+      ),
+      page: null,
+      ...(nodeId !== undefined && { nodeId }),
+    } satisfies Where;
+  });
+
+  /** The page a name means, or the node beside the pages its reference does; a miss says why. */
+  const targetNamed = Effect.fnUntraced(function* (
+    named: string,
     canvas: string | undefined
   ) {
     const { pages } = yield* reported(pagesOf);
-    const named = pageTargetNamed(pages, given, canvas);
-    if (named._tag === "Page") {
-      return named.page;
+    const found = pageTargetNamed(pages, named, canvas);
+    return found._tag === "Page" || found._tag === "Loose"
+      ? found
+      : yield* missing(pageMissed(pages, found, named, canvas));
+  });
+
+  /**
+   * Where a tool works, by one rule for every tool (ADR 0018: a node reference is taken wherever
+   * a page or a node id is). `route` names a page by URL or by file, in the canvas named or in
+   * the only canvas that has it (`pageTargetNamed`), a canvas written first
+   * (`marketing:/pricing`); a node reference names its page and its node (`/orders#c_1`), or a
+   * node beside the pages (`canvas#c_1`). `node` names a node by id or by reference, and its
+   * reference names the page too when `route` does not. `loose: true` is the nodes beside the
+   * pages of the canvas named, or of the page's. A miss says it as a design target's does, the
+   * pages listed.
+   */
+  const where = Effect.fnUntraced(function* ({
+    canvas,
+    loose,
+    node,
+    route,
+  }: Given) {
+    const nodeId = node === undefined ? undefined : nodeIdOf(node);
+    const named =
+      route ?? (node !== undefined && parseNodeRef(node) ? node : undefined);
+    if (named === undefined) {
+      return loose
+        ? yield* beside(canvas, nodeId)
+        : yield* missing(
+            "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
+          );
     }
-    if (named._tag === "Loose") {
-      return yield* missing(
-        `${given} is a node on the canvas beside the pages; pass \`loose: true\` instead of a page`
-      );
+    const found = yield* targetNamed(named, canvas);
+    if (found._tag === "Loose") {
+      return yield* beside(canvas ?? found.canvas, nodeId ?? found.nodeId);
     }
-    return yield* missing(pageMissed(pages, named, given, canvas));
+    const { page } = found;
+    const id = nodeId ?? found.nodeId;
+    return loose
+      ? yield* beside(page.canvas, id)
+      : ({
+          canvas: page.canvas,
+          doc: page.id,
+          file: page.file,
+          page,
+          ...(id !== undefined && { nodeId: id }),
+        } satisfies Where);
+  });
+
+  /** A page by `where`'s rule, for a tool that works on pages only. */
+  const pageAt = Effect.fnUntraced(function* (
+    route: string,
+    canvas: string | undefined
+  ) {
+    const at = yield* where({ canvas, route });
+    return at.page === null
+      ? yield* missing(
+          `${route} is a node on the canvas beside the pages, not a page`
+        )
+      : at.page;
   });
 
   const documents = <A, E extends { readonly message: string }>(
@@ -71,5 +165,13 @@ export const makeLookup = Effect.gen(function* () {
     f: (service: PagesService["Service"]) => Effect.Effect<A, E>
   ) => reported(project.use(Effect.flatMap(PagesService, f)));
 
-  return { canvasOf, documents, pageAt, pagesOf, pagesService, project };
+  return {
+    canvasOf,
+    documents,
+    pageAt,
+    pagesOf,
+    pagesService,
+    project,
+    where,
+  };
 });

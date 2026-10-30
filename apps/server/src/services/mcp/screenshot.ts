@@ -4,19 +4,14 @@
  * Every other tool answers with JSON, which the toolkit turns into text. A picture has to reach
  * the agent as an image, so this one is answered by hand (`rawTool`).
  */
-import { presetSize } from "@ultrapaint/contracts/pages";
-import {
-  canvasDocOf,
-  findNode,
-  findPath,
-} from "@ultrapaint/design-document/tree";
-import { parseNodeRef } from "@ultrapaint/shared/node-ref";
+import { type Page, presetSize } from "@ultrapaint/contracts/pages";
+import { findNode, findPath } from "@ultrapaint/design-document/tree";
 import { Effect, Schema } from "effect";
 import { McpSchema, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
-import { makeLookup } from "./lookup.ts";
+import { makeLookup, type Where } from "./lookup.ts";
 import {
   doing,
   finite,
@@ -50,57 +45,53 @@ export const GetScreenshot = Tool.make("get_screenshot", {
 /** `get_screenshot`, answered with the picture and a line on what it shows. */
 export const screenshotTool = Effect.gen(function* () {
   const screenshots = yield* Screenshots;
-  const { documents, pageAt, project, canvasOf } = yield* makeLookup;
-
-  type Parameters = typeof GetScreenshot.parametersSchema.Type;
+  const { documents, project, where } = yield* makeLookup;
 
   /** A node on the canvas, drawn inside the one placed there that holds it, at its own size. */
-  const drawOnCanvas = Effect.fnUntraced(function* ({
-    node,
-    canvas,
-    width,
-  }: Parameters) {
-    if (node === undefined) {
+  const drawOnCanvas = Effect.fnUntraced(function* (
+    { canvas, doc, nodeId }: Where,
+    width: number | undefined
+  ) {
+    if (nodeId === undefined) {
       return yield* missing(
         `say which node on the canvas with \`node\`; ${TOOLS.read_canvas} lists them`
       );
     }
-    const inCanvas = yield* canvasOf(canvas);
-    const state = yield* documents((d) => d.get(canvasDocOf(inCanvas)));
-    const placed = findPath(state.root, node)?.[1];
+    const state = yield* documents((d) => d.get(doc));
+    const placed = findPath(state.root, nodeId)?.[1];
     if (!placed) {
       return yield* missing(
-        `no node ${node} on the canvas; ${TOOLS.read_canvas} lists them`
+        `no node ${nodeId} on the canvas; ${TOOLS.read_canvas} lists them`
       );
     }
     const bytes = yield* reported(
       screenshots.capture({
-        canvas: inCanvas,
+        canvas,
         height: CANVAS_HEIGHT,
         mode: "fit",
         root: placed,
         width: width ?? CANVAS_WIDTH,
-        ...(placed.id !== node && { nodeId: node }),
+        ...(placed.id !== nodeId && { nodeId }),
       })
     );
-    return { bytes, what: `node ${node} on the canvas` };
+    return { bytes, what: `node ${nodeId} on the canvas` };
   });
 
   /** A page as a window of its frame's size shows it, or one node of it in place. */
   const drawPage = Effect.fnUntraced(function* (
-    route: string,
-    { node, canvas, width }: Parameters
+    page: Page,
+    nodeId: string | undefined,
+    width: number | undefined
   ) {
-    const page = yield* pageAt(route, canvas);
     const state = yield* documents((d) => d.get(page.id));
     if (state.problem !== undefined || !state.root) {
       return yield* missing(
         `${page.file} is not a valid page: ${state.problem ?? "it is empty"}`
       );
     }
-    if (node !== undefined && !findNode(state.root, node)) {
+    if (nodeId !== undefined && !findNode(state.root, nodeId)) {
       return yield* missing(
-        `no node ${node} on ${page.route ?? page.file}; ${TOOLS.read_page} lists them`
+        `no node ${nodeId} on ${page.route ?? page.file}; ${TOOLS.read_page} lists them`
       );
     }
     const layout = yield* reported(
@@ -117,41 +108,26 @@ export const screenshotTool = Effect.gen(function* () {
         mode: "page",
         root: state.root,
         width: viewport,
-        ...(node !== undefined && { nodeId: node }),
+        ...(nodeId !== undefined && { nodeId }),
       })
     );
-    const where = `${page.route ?? page.file} at ${viewport}px wide`;
+    const shown = `${page.route ?? page.file} at ${viewport}px wide`;
     return {
       bytes,
-      what: node === undefined ? where : `node ${node} of ${where}`,
+      what: nodeId === undefined ? shown : `node ${nodeId} of ${shown}`,
     };
   });
 
-  const draw = (given: Parameters) => {
-    // A node reference says the page, or the canvas, and the node at once.
-    const ref = given.node === undefined ? null : parseNodeRef(given.node);
-    const parameters: Parameters = ref
-      ? {
-          ...given,
-          node: ref.nodeId,
-          ...(ref.page === null
-            ? { loose: true }
-            : { route: given.route ?? ref.page }),
-          ...(ref.canvas === undefined || given.canvas !== undefined
-            ? {}
-            : { canvas: ref.canvas }),
-        }
-      : given;
-    if (parameters.loose) {
-      return drawOnCanvas(parameters);
-    }
-    if (parameters.route === undefined) {
-      return missing(
-        "say which page with `route`, or pass `loose: true` and a `node` for a node beside the pages"
-      );
-    }
-    return drawPage(parameters.route, parameters);
-  };
+  /** Where it is, by the one rule every tool reads it by (`where`): a reference says it all. */
+  const draw = Effect.fnUntraced(function* ({
+    width,
+    ...given
+  }: typeof GetScreenshot.parametersSchema.Type) {
+    const at = yield* where(given);
+    return at.page === null
+      ? yield* drawOnCanvas(at, width)
+      : yield* drawPage(at.page, at.nodeId, width);
+  });
 
   return rawTool(GetScreenshot, (parameters) =>
     Effect.map(
