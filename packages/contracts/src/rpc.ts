@@ -12,7 +12,6 @@ import {
   ComponentChange,
   ComponentEntry,
   ComponentList,
-  ComponentNote,
 } from "./components.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
 import { DesignSystemEditInput } from "./design-system-edit.ts";
@@ -797,16 +796,6 @@ const requestRpcs = [
   Rpc.make("components.remove", {
     error: EditError,
     payload: { name: Schema.String },
-  }),
-  /** A behaviour note added to a component, about a part or the whole of it (ADR 0030). */
-  Rpc.make("components.addNote", {
-    error: EditError,
-    payload: {
-      name: Schema.String,
-      slot: Schema.optional(Schema.String),
-      text: Schema.String,
-    },
-    success: ComponentNote,
   }),
   /**
    * Nodes of a page made an app component (ADR 0041): they become its tree, and an instance of it

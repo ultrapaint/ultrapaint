@@ -22,7 +22,6 @@ import {
   ROOT_SLOT,
   SYSTEM_FROM,
   type SystemComponentFile,
-  type SystemLook,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
@@ -90,17 +89,6 @@ const change = async (name: string, made: ComponentChange) => {
     return false;
   }
 };
-
-/** A system component's look: its file but the envelope. */
-const lookOf = (file: SystemComponentFile): SystemLook => ({
-  base: file.base,
-  ...(file.content && { content: file.content }),
-  ...(file.hidden && { hidden: file.hidden }),
-  ...(file.item && { item: file.item }),
-  states: file.states,
-  variants: file.variants,
-  ...(file.variantStates && { variantStates: file.variantStates }),
-});
 
 /** A system component's parts, the root first, as the catalogue names them. */
 const partsOf = (name: string) =>
@@ -488,15 +476,10 @@ const firstOf = (
 /**
  * What a look says beyond its parts' style (ADR 0041): the optional parts it shows, what each slot
  * holds when an instance gives it nothing, and what a Select's or a Menu's item draws. Content and
- * templates are taken from the nodes selected on the page.
+ * templates are taken from the nodes selected on the page. Each is a change of its own, made on
+ * the file as the server has it, so nothing else of the look goes back to what was read here.
  */
-const LookExtras = ({
-  file,
-  onChange,
-}: {
-  file: SystemComponentFile;
-  onChange: (file: SystemComponentFile) => void;
-}) => {
+const LookExtras = ({ file }: { file: SystemComponentFile }) => {
   const meta = systemComponentOf(file.name);
   if (!meta) {
     return null;
@@ -504,34 +487,23 @@ const LookExtras = ({
   const optional = meta.slots.filter((s) => s.optional);
   const holding = meta.slots.filter((s) => s.holds !== undefined);
   const hidden = new Set(file.hidden ?? []);
-  const show = (part: string, shown: boolean) => {
-    const next = shown
-      ? [...hidden].filter((p) => p !== part)
-      : [...hidden, part];
-    const { hidden: _old, ...rest } = file;
-    onChange(next.length === 0 ? rest : { ...rest, hidden: next });
-  };
-  const setContent = (slot: string, nodes: readonly DesignNode[]) => {
-    const { [slot]: _old, ...others } = file.content ?? {};
-    const content = nodes.length === 0 ? others : { ...others, [slot]: nodes };
-    const { content: _content, ...rest } = file;
-    onChange(Object.keys(content).length === 0 ? rest : { ...rest, content });
-  };
+  const show = (part: string, shown: boolean) =>
+    change(file.name, { hidden: !shown, op: "setHidden", part });
+  const setContent = (slot: string, nodes: readonly DesignNode[]) =>
+    change(file.name, { nodes, op: "setContent", slot });
   const setItem = (tree: DesignNode | null) => {
-    const { item: _old, ...rest } = file;
     if (!tree) {
-      onChange(rest);
-      return;
+      return change(file.name, { item: null, op: "setItem" });
     }
     const label = firstOf(tree, "text");
     const image = firstOf(tree, "image");
-    onChange({
-      ...rest,
+    return change(file.name, {
       item: {
         tree,
         ...(label !== undefined && { label }),
         ...(image !== undefined && { image }),
       },
+      op: "setItem",
     });
   };
   const fromSelection = (use: (nodes: DesignNode[]) => void) => {
@@ -664,15 +636,13 @@ export const Notes = ({
     if (text.trim() === "") {
       return;
     }
-    try {
-      await api().request("components.addNote", {
-        name: component.name,
-        ...(slot !== ROOT_SLOT && { slot }),
-        text: text.trim(),
-      });
+    const added = await change(component.name, {
+      op: "addNote",
+      ...(slot !== ROOT_SLOT && { slot }),
+      text: text.trim(),
+    });
+    if (added) {
       setText("");
-    } catch (error) {
-      reportError(error);
     }
   };
   const remove = (id: string) =>
@@ -1013,12 +983,7 @@ export const LookInspector = ({
         (s) => s.optional || s.holds !== undefined
       ) || systemComponentOf(name)?.templatedItems ? (
         <Section title="Parts">
-          <LookExtras
-            file={file}
-            onChange={(next) =>
-              change(name, { look: lookOf(next), op: "setLook" })
-            }
-          />
+          <LookExtras file={file} />
         </Section>
       ) : null}
       <ComponentUsedIn from={SYSTEM_FROM} name={name} />

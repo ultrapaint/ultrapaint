@@ -92,6 +92,44 @@ describe("flows in the services", () => {
 
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
     it.effect(
+      "changes one thing of a look on the file as it is, what was set since kept (review D6)",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const components = project.service(ComponentService);
+          yield* components((c) => c.fromDefault("Card"));
+          // Set by someone else after the editor read the file.
+          yield* components((c) =>
+            c.change("Card", {
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { fill: "$color-brand" },
+            })
+          );
+          const noted = yield* components((c) =>
+            c.change("Card", { op: "addNote", text: "Opens its page" })
+          );
+          const left = yield* components((c) =>
+            c.change("Card", {
+              hidden: true,
+              op: "setHidden",
+              part: "card-description",
+            })
+          );
+          const card = left.component;
+          assert(card?.origin === "system");
+          assert.deepStrictEqual(card.hidden, ["card-description"]);
+          assert.deepStrictEqual(card.base.root, { fill: "$color-brand" });
+          // The note's id is the server's, the one the file keeps.
+          assert.deepStrictEqual(card.notes, noted.component?.notes);
+          assert.strictEqual(card.notes?.[0]?.text, "Opens its page");
+        })
+    );
+  });
+
+  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+    it.effect(
       "deletes a page with its variants, and says which pages went",
       () =>
         Effect.gen(function* () {
