@@ -9,7 +9,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
-import { useDocuments } from "../state/documents.ts";
+import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
@@ -82,6 +82,8 @@ beforeEach(() => {
     workspace: "design",
   });
   useBoard.setState(initialBoard, true);
+  // No component edited in place: neither its isolation nor the frame its edits went to.
+  editFrameAs(null);
   useIsolation.setState({ isolated: null });
   useDocuments.setState({ canvas: "main", docs: { [HOME]: home } });
   container = document.createElement("div");
