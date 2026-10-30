@@ -6,7 +6,8 @@ module, and [ADR 0038](docs/adr/0038-deep-modules-second-review.md) gives the on
 half-done theirs, [ADR 0039](docs/adr/0039-deep-modules-third-review.md) the ones a third
 review found, and [ADR 0042](docs/adr/0042-deep-modules-fourth-review.md) the ones the system
 components left, with [ADR 0043](docs/adr/0043-what-the-agents-read-and-the-follow-ups.md)'s
-follow-ups.
+follow-ups, and [ADR 0046](docs/adr/0046-deep-modules-fifth-review.md) the ones the components
+refactor and the board view left.
 
 ## Design
 
@@ -64,15 +65,17 @@ follow-ups.
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
-  variants and states, which are named after it and move and go with it (`familyOf`).
+  **page variants** (`pricing@bold.page.json`) and **page states**, which are named after it and
+  move and go with it (`familyOf`). _Avoid_ "variant" or "state" alone where a component's could
+  be meant: a component has **variants** and **interaction states** of its own.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
   from its component by `detachedOf`, or made one of nodes by `appComponentFrom`, both keeping
   one list of where a node sits). A **document change** is how the editors are told of one
-  (ADR 0044): a **patch** of the nodes it made new or changed since the state they have (`from`),
+  (ADR 0044): a **patch** of the nodes it made new or changed since the **version** they have (`from`),
   each with its children by id (`changedNodes`, put into a copy by `withChangedNodes`), or the
-  whole document when it cannot be said; a copy at another state reads the document again. The
+  whole document when it cannot be said; a copy at another version reads the document again. The
   editor keeps the nodes that did not change as the objects it had (`shareUnchanged` for a whole
   document), so what is drawn of them is not drawn again. A tree's
   **outline** is it shown some levels down, a node at the last counting its children
@@ -87,20 +90,33 @@ follow-ups.
   design file but the comments, are compared with now and put back one way (`design-refs`: one
   undo step), and keeping a checkpoint as a snapshot names its files again. Whenever one is kept
   or let go of, the server publishes the open repository's list of that kind (`checkpoints`,
-  `snapshots`), which the Changes panel follows (`kept`).
+  `snapshots`), which the Changes panel follows (`kept`). A checkpoint and a file's diff are
+  contracts' `snapshots` (`Checkpoint`, `FileDiff`), the diff worked out by the server's
+  `file-diff`.
 
 ## Agents
 
 - **Thread**: a conversation with an agent about a scope; a **turn** is one prompt and what the
-  agent does with it. A thread's **session** (`ThreadSession`) holds its live state and status;
+  agent does with it (`turn`: on its way to the agent, at the agent, or none; the one place a turn
+  ends or fails). `ThreadSessions` creates and deletes threads and gives a thread's **session**
+  (`ThreadSession`), which holds its live state and status, and switches its agent;
   a thread is **busy** while a turn runs or is being stopped (`isBusy`). How a thread is shown
   (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
   `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
   `attachmentsOf`.
 - **Card**: what the agent waits on the user for, a permission or a question
-  (`PendingCards`, ADR 0022).
+  (`PendingCards`, ADR 0022). The editor never answers a permission from memory: "always" is the
+  agent's own option.
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013),
-  or a scripted in-memory agent in tests.
+  or a scripted in-memory agent in tests. It is given a **host** (the cards, the paths, what the
+  agent may write) and builds the editor's side of the launch from it, the terminals confined.
+  Each adapter keeps the order of the agent's updates itself (acp's `updates`), and a prompt
+  returns once its turn's updates are handled.
+- **What the agent advertised** (acp's `negotiated`): what an agent said of itself when it
+  started, and the decisions taken from it: how a thread is **reopened** (`session/resume` before
+  `session/load`, whose replay the adapter drops), what a prompt may carry (a file embedded or
+  linked, a picture or a note of it), whether it is offered the editor's MCP server, and how it
+  signs in (never by the editor on its own).
 - **Built-in agent**: an agent that ships with the tool (Claude Code, Codex), each one
   **descriptor** in acp's `built-in`: how the command launches it through `npx`, the ACP adapter
   the desktop app bundles in its place, its program, how it is asked whether it is signed in and
@@ -108,7 +124,9 @@ follow-ups.
   variables by where the app found it (ADRs 0004, 0031). Their ids are contracts'
   `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
-  by a typed **task request**; a **slash command** is a request written as text.
+  by a typed **task request**; a **slash command** is a request written as text. The agent's own
+  slash commands are offered after the editor's (`agentCommands`). What a prompt carries to the
+  agent (its text, its attachments as content blocks) is `prompt-content`'s.
 - **Design target**: what `/implement` and `handoff` name a design by (the server's
   `design-targets`, by `designTargetNamed` beside `pageNamed`): `component:Button`, or a bare
   component name, is a component's file; anything else is a page by the page rule, a canvas written first
@@ -135,20 +153,27 @@ follow-ups.
   The only home of a component's description (ADR 0042). The server's **component-files** codec
   reads, writes and checks a file (names unique among its properties, slots and members) and
   changes it: a **component change** (`ComponentChange`: a property added, set, renamed or taken
-  out, a member renamed, a slot added, taken out or made the default, a system component's look
-  set, a note taken out) is made by `ComponentService.change` on the file as it is now, a rename
-  followed into the variants its tree keeps and every instance's props (`instanceOps`, of the
-  documents as they are in the step), in one undo step.
+  out, a member renamed, a slot added, taken out or made the default, one thing of a system
+  component's look — a part's style at a place, an optional part left out, a slot's content, the
+  item template — or a note added or taken out) is made by `ComponentService.change` on the file
+  as it is in the step, a rename followed into the variants its tree keeps and every instance's
+  props (`instanceOps`, of the documents as they are in the step), in one undo step. Every write
+  of a component's file reads it inside the step.
 - **Catalogue**: what a design can place, the system components then the app components that
   read (system-components' `catalogueOf`, over the component files; ADR 0042): each entry's props,
   variant axes, slots and their layout, and the example a new instance starts with. The server
   gives it to the agents (`ComponentService.catalogue`), the web's components store makes it from
-  the files it holds; `metaOf` finds an instance's entry.
+  the files it holds; `metaOf` finds an instance's entry by its name and origin. A prop is a name,
+  a type and a default. A component **takes children** when it has a default slot
+  (`componentTakesChildren`): a node inserted or dropped into an instance fills that slot. The
+  application's file and part names for a component are `applicationFileOf` and
+  `applicationNameOf`, which the Code tab and the starter application share.
 - **System component**: one of the editor's own components (`packages/system-components`, ADRs
   0040, 0041): Button, Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base
-  UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`. Its
+  UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`; `from`
+  is one of the two origins (`InstanceFrom`), and a page that names anything else does not read. Its
   entry in the catalogue's source (`SYSTEM_COMPONENTS`) says its props, variant axes, parts (`data-slot`, the optional ones a look
-  may leave out), slots, states and **layer**: in the page's flow (`inline`), anchored above it
+  may leave out), slots, **interaction states** (hover, focus, disabled…) and **layer**: in the page's flow (`inline`), anchored above it
   (`anchored`) or over it (`blocking`). Its **look** is its file: style fields per part at its
   base, in each variant, in each state and in a **state in a variant** (`variantStates`, ADR
   0044: an outline button's hover), the more specific winning and disabled over the other
@@ -165,7 +190,8 @@ follow-ups.
   node's own field for its kind or a prop of the instance a node is.
 - **Variant**: a member of a system component's axis (`variant`, `size`), or of an app
   component's choice, whose overrides its nodes keep in their `at` under `<property>=<member>`,
-  beside the breakpoints', so a change to the component itself lands in every variant.
+  beside the breakpoints', so a change to the component itself lands in every variant. _Avoid_
+  for a page's alternate (a **page variant**) and for Tailwind's `md:` (a class's **prefix**).
 - **Slot**: a part of a component that holds nodes (a Dialog's `trigger`, `dialog-header`,
   `dialog-content`, `dialog-footer`; a container of an app component's tree): an instance's child
   fills the slot it names (`slot`), the rest fill the **default** slot. **Filling slots** is one
@@ -174,10 +200,8 @@ follow-ups.
   **layout** is how it lays out what it holds, the catalogue's with a look's `direction`, or an
   app component's container turned in a member or at a breakpoint, over it in the instance's
   variant and at the breakpoints that hold where it is drawn (`slotLayoutOf`): what `fill` and `hug` are relative to on the canvas,
-  in the Code tab and in the fill warnings.
-- **Migration**: what came before ADRs 0040 and 0041 brought up to date in one undo step, Sync's
-  one step (the server's `Migration` and its `migration.run`, on system-components' pure
-  `migrate.ts`).
+  in the Code tab and in the fill warnings. A node inserted or dropped into an instance fills its
+  default slot; a component whose slots are all named is filled from the inspector.
 - **Element**: a layout, text or image node, what is not a component, which the tools' **Insert**
   menu offers (`ElementId`, `newElement`, `INSERTED_ELEMENTS`); the Library offers the components.
 - **Preview**: what draws the editor's frames (preview-core's `Preview`): the frames, a renderer
@@ -185,14 +209,15 @@ follow-ups.
   tests), the system components. Nothing of the repository's runs in it.
 - **The design's look**: the project's components and the stylesheet drawn from them and the
   design system (`designCss`), set once on the preview (`setLook`, which `followLook` keeps
-  current) and shared by every frame; a frame given a look of its own with a request draws it in
-  a stylesheet of its own. A look is edited live: the part's style being typed is laid
+  current) and shared by every frame; a board's own `css` is the only other stylesheet a frame
+  draws. _Avoid_ "look" alone where a system component's look (its file) could be meant. A look
+  is edited live: the part's style being typed is laid
   over the saved files as a **look draft** (`draftStyle`), drawn by every frame, until it is
   committed as one `setStyle`.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool
   that parks it (`editor-frame`).
 - **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
-  the design system, the canvas's defaults, a look of its own when it has one, and what is said
+  the design system, the canvas's defaults, a board's `css` when it has one, and what is said
   in place of a page; the renderer is told it as a **drawing**, with the look's components. `useFrameDrawing` draws it once the frame is open, whenever it changes and in a frame
   opened anew; a page's, for the canvas and the prototype, is `pageRequest`'s: the page at the
   frame's width, a node on the canvas at the size it is held at.
@@ -207,7 +232,18 @@ follow-ups.
 
 ## Editor and shell
 
-- **Location**: where the editor is: canvas, page, route, variant, with the URL.
+- **Location**: where the editor is: canvas, page, route, page variant, board view, with the
+  URL. A navigation from a board view leaves it as part of arriving (`goTo`, `toPageCanvas`), one
+  entry of the history.
+- **Frame ref**: what a frame's id names, a page, a view of one, a node on the canvas or a board
+  (the web's `frame-ref`), and what each allows: comments, prototype links, the document shown,
+  the width its breakpoint is read at.
+- **Surface**: the main area, the page canvas or a board view (the web's `surface`, two adapters):
+  its frames, which take a selection, its tools, rail and right panel, its background, the
+  commands it offers, what a press or a drop on its ground does, and its step back on Escape.
+  Both draw the same ground (`CanvasGround`) and frame headers.
+- **Page layout**: where the page canvas's frames and views are drawn, a gesture's frame against
+  a layout pushed meanwhile, and the saves in flight (the web's `page-layout`).
 - **Server data**: what the editor holds of the server's, each **piece** declared by its store
   with `follow` (how it is read, what the store does with it, the events that bring news of it)
   and followed by one module, `server-data`: the events reach it, it is read again at every
@@ -222,7 +258,8 @@ follow-ups.
   pointer or Escape puts back whatever the pointer is doing, a drag or a group being drawn too, and
   saves nothing.
 - **Selection**: the nodes of a page the user picked, which every view of the page shows, by one
-  rule (the web's `selection`): a Shift-click in another view adds to it. It is in the view it was
+  rule and changed by one module (the web's `selection`: `select`, `selectMany`,
+  `toggleSelected`, `selectPage`, `selectForMenu`): a Shift-click in another view adds to it. It is in the view it was
   made in, whose breakpoint its fields are shown and edited at; a node of it Shift-clicked or
   right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
   and Layers read the selected nodes as that view draws them, and what several share as one value
@@ -236,7 +273,8 @@ follow-ups.
 - **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
   of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
   what a filter finds), the way down to the selection a reveal opens, and where a dragged row
-  lands, as a node-actions `Place`. The panel draws it and forwards its events.
+  lands, as a node-actions `Place`; what it lists, an isolated tree, a board's or the pages
+  (`layerScope`). The panel draws it and forwards its events.
 - **Showing a panel**: one verb a side, which brings a panel put away back and leaves the
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
@@ -250,22 +288,27 @@ follow-ups.
 - **Board**: a generated document drawn as a frame, by the renderer that draws pages, to show one
   item of the design system or the Library (ADR 0045): a palette's ramps in a theme, a type
   scale, a system component in every variant and state, an app component in one variant. Its
-  nodes are named for what they stand for, so a click on one **picks** it (a token, a cell, a
-  variant), and the right panel is the inspector of what is picked. A pick sent to the chat is a
+  nodes are named for what they stand for, by one grammar (`boards/pick`), so a click on one
+  **picks** it (a token, a group, a text style, a cell, a variant), and the right panel is the
+  inspector of what is picked. A pick sent to the chat is a
   **board attachment**: what it is, what it is now and its file, told to the agent in a sentence
   (`boardPickText`), with no tool added.
 - **Board view**: the main area while a Design system or Library item is open (ADR 0045): the
   canvas's pan and zoom over that item's boards only, on a tinted dotted background of its own
   and with a camera of its own, no element toolbar, the URL saying the item
   (`?view=system&item=color`, `?view=library&item=Button`). Leaving it goes back to the page and
-  its camera as they were.
+  its camera as they were. Its boards are laid out in its own state (`showBoards`,
+  `setBoardSize`), and it is started explicitly (`startBoardView`): nothing subscribes at
+  import.
 - **Revealing**: bringing a page's frame or a node into view, the canvas's counterpart of showing
   a panel (the web's `reveal`): the canvas it is on is opened, the prototype left, it is
   selected, and the camera glides to it once its frame is **laid out**, the canvas on screen and
   the frame's box known (a node beside the pages once its document is read), drawn or not. A move
   of the camera meanwhile, another reveal's included, gives it up.
 - **Command**: something the editor does, in one list the palette, the shortcut sheet and the
-  menus read (ADR 0032); a **binding** is a command's chord and the scope it works in.
+  menus read (ADR 0032), offered as the surface says; a **binding** is a command's chord and the
+  scope it works in. Escape is one command, one step back at a time (`stepBack`: a gesture
+  cancelled, a tree left, a card dismissed, the surface's own step, the parent selected).
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
@@ -275,8 +318,24 @@ follow-ups.
 - **Composition root**: what the server is made of, each service on the ones below it, in
   `composition.ts`: the foundation, the open project's layer, the threads and the application
   layer. It is built with **adapters**, the seams that have a test's second one: the preview's
-  host and the agents' launcher with its sandbox. `ProjectTest` builds the same application in
-  a test, a project open on a fixture, and `callTool` calls an MCP tool's handler in-process.
+  host, the agents' launcher with its sandbox and the designs' changes. `ProjectTest` builds the
+  same application in a test, a project open on a fixture; `ProjectRpc` asks it the editor's
+  requests through an in-memory client; `callTool` calls an MCP tool's handler in-process.
+- **Open project**: the services and scope of the project open now (`OpenProject`: `use`,
+  `service`, `scope`), whoever asks for them.
+- **Designs' changes**: every change to the designs, whoever made it (the journal, an agent, a
+  checkout), sorted once by kind (a page, the canvases, a component, the design system, its
+  tokens, the notes, a skill, the link to the code, the comments) and told once per content
+  (`DesignFiles`); its adapters are a watch of the designs directory, or what a test reports. The
+  wire's `file.changed` is one output of it.
+- **Read under the journal**: what a step writes from a file, it reads inside the step, under the
+  journal's lock (`tx.read`, `tx.readDocument` with a file's codec, `updateFile`), so an undo or
+  another edit lands before it or after it and no module needs a lock of its own. Each file has
+  one codec: `canvas-file`, `comments-file`, `document-file`, `implementation-files`,
+  `component-files`, `design-system-files`.
+- **A page's move**: a page renamed, moved to another canvas or taken out takes its followers
+  with it in one step (`movePages`): its files, comments, frames, URL, the canvas's home, the
+  links to it (in pages and app components' trees) and its link to the code.
 - **Settings in force**: the settings the open project runs, which `ProjectManager` alone puts
   in force, whoever asks (a save, a session saved to a file, a file renamed or changed by someone
   else, detection at start): the project is opened, opened again when it runs other settings, or
