@@ -52,6 +52,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import { canvasText, readCanvasText } from "./canvas-file.ts";
 import {
   componentText,
   readComponentFile,
@@ -59,7 +60,6 @@ import {
 } from "./component-files.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
-import { parseCanvas } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const decodePage = Schema.decodeUnknownEffect(PageDocument);
@@ -75,7 +75,7 @@ export const parseDocument = (
   | { readonly problem: string }
 > =>
   canvas
-    ? parseCanvas(text).pipe(
+    ? readCanvasText(text).pipe(
         Effect.map(({ filled, layout }) => ({
           filled,
           root: canvasRoot(layout.nodes ?? []),
@@ -324,28 +324,21 @@ export class DocumentService extends Context.Service<
        * are missing, or it is not a document.
        */
       const withIds = (text: string, canvas: boolean) =>
-        Effect.flatMap(parseDocument(text, canvas), (parsed) => {
-          if ("problem" in parsed || !parsed.filled) {
-            return Effect.succeed(null);
-          }
-          if (!canvas) {
-            return Effect.succeed(
-              serialiseDocument({
-                root: parsed.root,
-                version: DOCUMENT_VERSION,
-              })
+        canvas
+          ? readCanvasText(text).pipe(
+              Effect.map(({ filled, layout }) =>
+                filled ? canvasText(layout) : null
+              ),
+              Effect.orElseSucceed(() => null)
+            )
+          : Effect.map(parseDocument(text, false), (parsed) =>
+              "problem" in parsed || !parsed.filled
+                ? null
+                : serialiseDocument({
+                    root: parsed.root,
+                    version: DOCUMENT_VERSION,
+                  })
             );
-          }
-          // The canvas's layout is kept as it is; only its nodes get their ids.
-          return Effect.try(
-            () => JSON.parse(text) as Record<string, unknown>
-          ).pipe(
-            Effect.map((layout): string | null =>
-              serialiseDocument({ ...layout, nodes: childrenOf(parsed.root) })
-            ),
-            Effect.orElseSucceed(() => null)
-          );
-        });
 
       const stateOf = (doc: string, loaded: Loaded): DocumentState => ({
         doc,

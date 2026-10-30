@@ -24,11 +24,11 @@ import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
 import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
+import { canvasText } from "./canvas-file.ts";
 import { COMMENTS_FILE, type CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { CopyTarget } from "./pages.ts";
 import { idOf, makeBindings } from "./pages-bindings.ts";
-import { renderCanvas } from "./pages-layout.ts";
 import type { PagesReading } from "./pages-reading.ts";
 
 export const makeCanvasOperations = (
@@ -95,13 +95,13 @@ export const makeCanvasOperations = (
     if (rootIsImplicit && all.pages.some((p) => p.canvas === ROOT_CANVAS)) {
       yield* tx.write(
         paths.relative(rootFile),
-        renderCanvas({
+        canvasText({
           ...emptyCanvasLayout(),
           name: fallbackName(ROOT_CANVAS),
         })
       );
     }
-    yield* tx.create(paths.relative(canvasPath(id)), renderCanvas(layout));
+    yield* tx.create(paths.relative(canvasPath(id)), canvasText(layout));
     const order = all.canvases.map((c) => c.id);
     const at = after === undefined ? -1 : order.indexOf(after);
     yield* writeOrder(
@@ -549,7 +549,7 @@ export const makeCanvasOperations = (
         );
         yield* tx.write(
           yield* canvasFile(canvas),
-          renderCanvas({
+          canvasText({
             ...layout,
             frames: { ...layout.frames, [pagePath]: next },
           })
