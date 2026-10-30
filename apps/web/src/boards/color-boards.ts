@@ -22,7 +22,7 @@ import type { Board, Boards } from "./system-boards.ts";
  * The neutral palette every design draws with until it has a design system, as one: light and
  * dark, the way `system-components/look` writes it.
  */
-export const neutralDesignSystem = (): DesignSystem => ({
+const neutralDesignSystem = (): DesignSystem => ({
   ...emptyDesignSystem(),
   colors: [
     {

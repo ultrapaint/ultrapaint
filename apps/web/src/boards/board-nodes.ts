@@ -5,11 +5,28 @@
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { tokenOf } from "@ultrapaint/contracts/token-table";
+import { tokenOf, tokensOfKind } from "@ultrapaint/contracts/token-table";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 
+/** Whether a search (lower-cased) finds a token, by its name or its value; any, with none. */
+export const found = (token: { name: string; value: string }, q: string) =>
+  !q ||
+  token.name.toLowerCase().includes(q) ||
+  token.value.toLowerCase().includes(q);
+
+/** The design system's tokens of a kind, or of several, that a search finds, in its order. */
+export const tokensFound = (
+  ds: DesignSystem,
+  kinds: TokenKind | readonly TokenKind[],
+  q: string
+): Token[] =>
+  (typeof kinds === "string" ? [kinds] : kinds)
+    .flatMap((kind) => tokensOfKind(ds, kind))
+    .filter((t) => found(t, q));
+
 /** A label's grey, legible on a light sheet and a dark one. */
-export const MUTED = "#8a8a93";
+const MUTED = "#8a8a93";
 
 export const label = (
   id: string,

@@ -36,11 +36,11 @@ import {
   useCreate,
 } from "./create-tool.ts";
 import {
-  ASSET_MIME,
   beginDrag,
   cancelDrag,
   canvasPoint,
   endDrag,
+  LIBRARY_MIME,
   landingPoint,
   moveDrag,
   useDrag,
@@ -168,7 +168,7 @@ export const Canvas = () => {
     }
     const onDragOver = (e: DragEvent) => {
       const types = e.dataTransfer?.types ?? [];
-      const component = types.includes(ASSET_MIME);
+      const component = types.includes(LIBRARY_MIME);
       if (!(e.dataTransfer && (component || types.includes("Files")))) {
         return;
       }
@@ -197,7 +197,7 @@ export const Canvas = () => {
         addImages(images, canvasPoint(e.clientX, e.clientY));
         return;
       }
-      const raw = e.dataTransfer?.getData(ASSET_MIME);
+      const raw = e.dataTransfer?.getData(LIBRARY_MIME);
       if (raw) {
         endDrag(JSON.parse(raw) as DesignNode);
       } else {

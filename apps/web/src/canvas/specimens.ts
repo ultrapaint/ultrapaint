@@ -1,8 +1,8 @@
 /**
  * Pictures of single nodes, drawn in a frame of the editor's page nobody sees (ADR 0034): the
  * Library's thumbnails, the threads' pictures, the toolbar's options and the screenshots
- * agents ask for. One node at a time, with the repository's stylesheet and its real components,
- * then captured.
+ * agents ask for. One node at a time, in the design's look and the system components as every
+ * frame draws them (ADR 0040), then captured.
  */
 
 import type { ComponentFile } from "@ultrapaint/contracts/components";

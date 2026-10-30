@@ -79,10 +79,10 @@ const drawnStates = (component: SystemComponentFile): ComponentState[] => {
 const BOARD_PAGE_WIDTH = 1200;
 
 /** What a tile shows a component in: its width but its padding. */
-export const STAGE_WIDTH = 200 - 2 * 12;
+const STAGE_WIDTH = 200 - 2 * 12;
 
 /** How much the Overview scales an app component drawn `width` wide to fit its tile. */
-export const stageScale = (width: number) =>
+const stageScale = (width: number) =>
   width > STAGE_WIDTH ? STAGE_WIDTH / width : 1;
 
 /** How wide an app component's tree draws by itself; null when it hugs what it holds. */
@@ -409,7 +409,7 @@ const gridCss = (id: string, columns: number) =>
  * named; then a board for each other axis, its members side by side under their names, each in
  * its default state. A component without an axis is one row of states.
  */
-export const systemComponentBoards = (
+const systemComponentBoards = (
   file: SystemComponentFile,
   meta: ComponentMeta | undefined
 ): Board[] => {
@@ -522,11 +522,11 @@ export const appVariantOfBoard = (name: string): AppVariant | null => {
 };
 
 /** The sheet of an app component's board, named for the variant it draws: `variant:tone=featured`. */
-export const appSheetId = (variant: AppVariant | null) =>
+const appSheetId = (variant: AppVariant | null) =>
   `variant:${appBoardName(variant)}`;
 
 /** The instance a board of an app component draws, which a double-click edits in place. */
-export const APP_INSTANCE = "instance";
+const APP_INSTANCE = "instance";
 
 /**
  * How wide an app component's sheet is: its tree's width and the margins around it, a page's
