@@ -1,7 +1,7 @@
 # Plan: the Design system and the Library
 
-Status: accepted, 2026-10-30; Phases 1 to 4 done (the merge of `feat/primitives`, the sketch, this
-plan and [ADR 0045](adr/0045-design-system-and-library.md)). Amends 0028, 0029, 0032, 0040, 0041
+Status: accepted, 2026-10-30; Phases 1 to 5 done (the merge of `feat/primitives`, the sketch, this
+plan and [ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system). Amends 0028, 0029, 0032, 0040, 0041
 and 0044 as the ADR says.
 
 ## Why
@@ -151,7 +151,7 @@ and its URL reloaded in the editor.
 
 ### Phase 5: Design system
 
-- [ ] 5.1 `designSystem.edit`: the operations as a contract (`DesignSystemEdit` in
+- [x] 5.1 `designSystem.edit`: the operations as a contract (`DesignSystemEdit` in
       `packages/contracts/src/design-system-edit.ts`: `setValue {name, theme?, value}`,
       `setDescription`, `addToken {name, group?, value, values?}`, `removeToken`, `moveToken
       {name, group, index?}`, `addGroup`, `renameGroup`, `setTextStyle {style}`,
@@ -163,10 +163,10 @@ and its URL reloaded in the editor.
       for the values it changed, `setToken`/`setTokens` written on it; the handler in
       `rpc-handlers.ts`. `designSystem.setToken` goes; `lib/token-edit.ts` sends one operation
       and the toast's undo is the journal's.
-- [ ] 5.2 Generate ramp from…: a pure `rampOf(base, theme)` (`design-document/src/ramp.ts`): 11
+- [x] 5.2 Generate ramp from…: a pure `rampOf(base, theme)` (`design-document/src/ramp.ts`): 11
       shades over OKLCH lightness with the base at its nearest step, the dark theme's run the
       other way; the palette's inspector previews it and applies it as one `edit`.
-- [ ] 5.3 The boards, generated documents (`apps/web/src/boards/system-boards.ts`, pure):
+- [x] 5.3 The boards, generated documents (`apps/web/src/boards/system-boards.ts`, pure):
       `colorBoards(ds)` (a frame per theme: each palette's ramp and gradient strip, the usual
       contrast pairs with their WCAG ratio and grade, by a `contrastRatio` added to
       `contracts/src/token-value.ts` over its colour reading),
@@ -174,12 +174,12 @@ and its URL reloaded in the editor.
       `radiusBoards`, `elevationBoards`, `motionBoards` (B12), `breakpointBoards`, and
       `guidelineBoard(document, section)`; node ids per B6. A project without a design system
       draws the neutral one, with Set up.
-- [ ] 5.4 The inspectors (`panels/board-inspector.tsx` and `panels/token-inspector.tsx`): a
+- [x] 5.4 The inspectors (`panels/board-inspector.tsx` and `panels/token-inspector.tsx`): a
       token's values per theme (`ValueField` with a colour picker), description, group, where
       it is used (the documents' and component files' `tokensUsed`), delete; a group's name and
       add a token; a text style's fields as token pickers (`useTokenOptions`); each committed
       field one `edit`.
-- [ ] 5.5 Guidelines: the section drawn as a document board and edited in place, written with
+- [x] 5.5 Guidelines: the section drawn as a document board and edited in place, written with
       `designSystem.setSection` (`panels/design-md-view.tsx`'s editing moved to the board).
 
 Tests: `design-system-edits.test.ts` (each operation, an unknown token, a duplicate, a group
@@ -188,9 +188,34 @@ in order, the base kept); the server's `design-system.edit` in one undo step tha
 back, with the code following (`design-system-sync.test.ts`, `undo.test.ts`), the callers of
 `setToken` unchanged; `rpc.test.ts`; `boards/system-boards.test.ts` (ids, ramps, pairs and
 grades, an empty design system); the inspector's field to operation in a
-new `lib/token-edit.test.ts`.
+new `lib/token-edit.test.ts` (built as `lib/token-ops.test.ts`).
 
 Checks: as Phase 4, and `apps/server/src/mcp.test.ts`'s budget untouched (no tool).
+
+As built: `applyEdits` answers a problem naming the operation (`removeToken color-x: …`) rather
+than a tagged error, as `component-files.ts`'s changes do, and the server makes it a `BadRequest`;
+`setValue` refuses a token the design system does not list (the token prompt adds one with
+`addToken`), and `editLabel` names the step. The service's `setToken` and `setTokens` stay, on the
+same write as `edit` (`commit`), for Sync and the tests; the RPC `designSystem.setToken` is gone,
+and its tests send `designSystem.edit` (the one undo step and the code following are
+`design-system-edit.test.ts`'s).
+The boards are split by place: `boards/color-boards.ts` (Color, a board a theme, `theme` on
+`Board`; palettes, groups whose tokens are all steps, first; `contrastPairs`, `gradeOf`;
+`neutralDesignSystem` from `NEUTRAL_COLORS`, now exported by `system-components/look.ts`),
+`boards/foundation-boards.ts` (the others; Motion's `css`, carried by a frame's request into a
+stylesheet of its own, `RenderRequest.css` in `preview-core`), `boards/board-nodes.ts` (the
+pieces, `valueIn` following `var(--…)`). A group's title is `group:<name>`, picked like a token.
+The inspectors are `panels/token-inspector.tsx` (token, group, text style, what a foundation can
+add) and `panels/guideline-editor.tsx` (a guideline's markdown beside its board, its board drawing
+it as typed through `useBoard.guideDraft`, written on leaving the field); the fields' operations
+are `lib/token-ops.ts` (`valueOp`, `rampEdits`, `textStyleOp`, `usesOf`), tested in
+`lib/token-ops.test.ts`. Live edits are a draft in `state/design-system.ts` (`draftEdits`,
+`commitEdits`, `saved` beside the drawn design system). "Used in" counts the pages of the canvas
+open, the component files and the text styles, in the editor. Found on the way: the neutral
+look's dark colours were declared on the theme's element and so won over a colour the design gives
+in its default theme only; every colour is now declared again in each theme (`designTokenCss`).
+The boards' first view starts 32px past the left panel and Color's two themes 24px apart
+(`ROW_GAP`).
 
 ### Phase 6: Library
 
