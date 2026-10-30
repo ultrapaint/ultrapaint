@@ -15,6 +15,7 @@ import {
 import type { AcpSpawnError } from "@ultrapaint/acp/errors";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer, type Scope } from "effect";
+import { ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../../config.ts";
 import { type AgentHost, makeAgentClient } from "./agent-client.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
@@ -59,7 +60,8 @@ export class AgentLauncher extends Context.Service<
     Effect.gen(function* () {
       const sandbox = yield* AgentSandbox;
       const fs = yield* FileSystem.FileSystem;
-      const { version } = yield* ServerConfig;
+      const { machine, version } = yield* ServerConfig;
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const client = yield* makeAgentClient();
       return AgentLauncher.of({
         launch: Effect.fn("AgentLauncher.launch")(function* (
@@ -87,8 +89,14 @@ export class AgentLauncher extends Context.Service<
           return yield* spawnAcpAgent(confined.launch, {
             clientVersion: version,
             cwd: root,
+            env: machine.env,
             handlers,
-          });
+          }).pipe(
+            Effect.provideService(
+              ChildProcessSpawner.ChildProcessSpawner,
+              spawner
+            )
+          );
         }),
       });
     })

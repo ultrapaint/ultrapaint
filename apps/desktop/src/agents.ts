@@ -459,14 +459,18 @@ export class Agents extends Context.Service<
                 message: `${agent.name} has no adapter in this app.`,
               });
             }
-            const adapter = yield* spawnAcpAgent(
-              { ...launch, env: { ...env, ...launch.env } },
-              {
-                clientVersion: layout.version ?? "dev",
-                cwd: tmpdir(),
-                // A sign-in asks for nothing of the editor: whatever the adapter asks is refused.
-                handlers: refusingHandlers("the app is only signing in"),
-              }
+            const adapter = yield* spawnAcpAgent(launch, {
+              clientVersion: layout.version ?? "dev",
+              cwd: tmpdir(),
+              // The user's login shell's, as the app found it.
+              env,
+              // A sign-in asks for nothing of the editor: whatever the adapter asks is refused.
+              handlers: refusingHandlers("the app is only signing in"),
+            }).pipe(
+              Effect.provideService(
+                ChildProcessSpawner.ChildProcessSpawner,
+                spawner
+              )
             );
             const init = yield* adapter.initialize;
             if (!init.authMethods?.some((m) => m.id === method.method)) {

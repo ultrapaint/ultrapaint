@@ -6,8 +6,6 @@
  * Nothing outside this file sees an SDK value other than the protocol's plain data types, so
  * the implementation can be replaced without touching the thread service.
  */
-import { type ChildProcess, spawn } from "node:child_process";
-import { Readable, Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import {
   type ContentBlock,
@@ -38,7 +36,17 @@ import {
   type WaitForTerminalExitResponse,
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
-import { Deferred, Effect, Predicate, Result, type Scope } from "effect";
+import {
+  type Cause,
+  Deferred,
+  Effect,
+  Predicate,
+  Queue,
+  Result,
+  type Scope,
+  Stream,
+} from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   type AcpError,
   AcpProcessExited,
@@ -266,40 +274,22 @@ const nextMacrotask = Effect.callback<void>((resume) => {
   return Effect.sync(() => clearImmediate(handle));
 });
 
-const startProcess = (launch: AgentLaunch, cwd: string) =>
-  Effect.callback<ChildProcess, AcpSpawnError>((resume) => {
-    const child = spawn(launch.command, [...launch.args], {
-      cwd,
-      // Its own process group: `npx` wrappers start the real agent as a grandchild.
-      detached: process.platform !== "win32",
-      env: { ...process.env, ...launch.env },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    child.once("spawn", () => resume(Effect.succeed(child)));
-    child.once("error", (error) =>
-      resume(
-        Effect.fail(
-          new AcpSpawnError({ command: launch.command, message: error.message })
-        )
-      )
-    );
-  });
+/**
+ * How long a process asked to stop (SIGTERM, to its whole group) is given before it is killed:
+ * an agent and the terminals it asks for alike.
+ */
+export const KILL_AFTER = "3 seconds";
 
-const signalGroup = (child: ChildProcess, signal: NodeJS.Signals) =>
-  Effect.sync(() => {
-    if (child.pid === undefined || child.exitCode !== null) {
-      return;
-    }
-    try {
-      if (process.platform === "win32") {
-        child.kill(signal);
-      } else {
-        process.kill(-child.pid, signal);
-      }
-    } catch {
-      // The group is already gone.
-    }
-  });
+/** `Process interrupted due to receipt of signal: 'SIGTERM'`, as the spawner says it. */
+const SIGNAL_RE = /signal: '(\w+)'/;
+
+/** The signal a process the spawner says was interrupted was stopped by. */
+const signalOf = (error: { readonly cause?: unknown }): string => {
+  const match: RegExpExecArray | null = Predicate.isError(error.cause)
+    ? SIGNAL_RE.exec(error.cause.message)
+    : null;
+  return match?.[1] ?? "SIGKILL";
+};
 
 /**
  * Starts the agent described by a launch: command, args and env, already wrapped in whatever
@@ -311,9 +301,18 @@ export const spawnAcpAgent = (
     /** The editor's own version, which `initialize` tells the agent. */
     readonly clientVersion: string;
     readonly cwd: string;
+    /**
+     * The environment the agent starts from, under the launch's own variables: the server's
+     * (`ServerConfig`), not whatever the process happens to have.
+     */
+    readonly env: Readonly<Record<string, string>>;
     readonly handlers: AcpHandlers;
   }
-): Effect.Effect<AcpAgent, AcpSpawnError, Scope.Scope> =>
+): Effect.Effect<
+  AcpAgent,
+  AcpSpawnError,
+  Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const { handlers } = options;
     const context = yield* Effect.context<never>();
@@ -325,26 +324,60 @@ export const spawnAcpAgent = (
     const updates = yield* makeUpdates(handlers.onUpdate, nextMacrotask);
     let initialized = BASELINE;
 
-    const child = yield* Effect.acquireRelease(
-      startProcess(launch, options.cwd),
-      (process) =>
-        signalGroup(process, "SIGTERM").pipe(
-          Effect.andThen(
-            Deferred.await(exitSignal).pipe(Effect.timeoutOption("3 seconds"))
-          ),
-          Effect.andThen(signalGroup(process, "SIGKILL"))
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    // What the SDK writes, to the agent's stdin; ended when the SDK closes its side.
+    const input = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+    const child = yield* spawner
+      .spawn(
+        ChildProcess.make(launch.command, launch.args, {
+          cwd: options.cwd,
+          // Its own process group (the spawner's default): `npx` starts the real agent as a
+          // grandchild, and stopping the agent stops the group.
+          env: { ...options.env, ...launch.env },
+          extendEnv: false,
+          forceKillAfter: KILL_AFTER,
+          stdin: Stream.fromQueue(input),
+        })
+      )
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new AcpSpawnError({
+              command: launch.command,
+              message: error.message,
+            })
         )
+      );
+    // Detached: it ends with the process, which the scope stops, and says how it ended to
+    // whoever waits, the scope's own finalizers included.
+    yield* child.exitCode.pipe(
+      Effect.match({
+        onFailure: (error): AcpExit => ({
+          code: null,
+          signal: signalOf(error),
+        }),
+        onSuccess: (code): AcpExit => ({ code, signal: null }),
+      }),
+      Effect.flatMap((exit) => Deferred.succeed(exitSignal, exit)),
+      Effect.forkDetach
     );
-    child.once("exit", (code, signal) => {
-      Deferred.doneUnsafe(exitSignal, Effect.succeed({ code, signal }));
-    });
-    child.stderr?.on("data", (chunk) => {
-      run(handlers.onStderr(String(chunk).trimEnd())).catch(() => undefined);
-    });
+    yield* child.stderr.pipe(
+      Stream.decodeText(),
+      Stream.runForEach((text) => handlers.onStderr(text.trimEnd())),
+      Effect.ignore,
+      Effect.forkScoped
+    );
 
     const stream = ndJsonStream(
-      Writable.toWeb(child.stdin as Writable) as WritableStream<Uint8Array>,
-      Readable.toWeb(child.stdout as Readable) as ReadableStream<Uint8Array>
+      new WritableStream<Uint8Array>({
+        close: () => {
+          Queue.endUnsafe(input);
+        },
+        write: (chunk) => {
+          Queue.offerUnsafe(input, chunk);
+        },
+      }),
+      Stream.toReadableStreamWith(child.stdout, context)
     );
 
     /**

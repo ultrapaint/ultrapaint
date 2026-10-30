@@ -15,6 +15,7 @@ import { Effect, FileSystem, Path, type Scope } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
+import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { hashContent } from "../../hash.ts";
 import type { RepoPaths } from "../repo-paths.ts";
@@ -44,6 +45,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const { machine } = yield* ServerConfig;
   const writeAtomic = makeWriteAtomic(fs, path);
 
   /**
@@ -65,6 +67,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
     const { agentName, writable } = launch;
     const terminals = yield* makeTerminalManager({
       confine: launch.confine,
+      env: machine.env,
       onOutput: host.onTerminalOutput,
     }).pipe(
       Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner)
