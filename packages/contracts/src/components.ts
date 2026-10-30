@@ -265,10 +265,11 @@ export type ComponentFile = typeof ComponentFile.Type;
 
 /**
  * A change to a component's file (ADR 0042), made on the file as it is when the server applies it,
- * so a change made meanwhile (a tree edited in place, a note added) is not lost: an app
- * component's properties or slots, a system component's look or one part's style in it, a
- * behaviour note taken out. A property or a member renamed or taken out is followed by the
- * variants its tree keeps (`at["size=lg"]`) and by every instance's props, in one undo step.
+ * so a change made meanwhile (a tree edited in place, a note added, another part's style) is not
+ * lost: an app component's properties or slots, one thing of a system component's look (a part's
+ * style at a place, an optional part left out, a slot's content, the items' template), a
+ * behaviour note added or taken out. A property or a member renamed or taken out is followed by
+ * the variants its tree keeps (`at["size=lg"]`) and by every instance's props, in one undo step.
  */
 export const ComponentChange = Schema.Union([
   Schema.Struct({
@@ -302,8 +303,6 @@ export const ComponentChange = Schema.Union([
     name: Schema.NullOr(Schema.String),
     op: Schema.Literal("defaultSlot"),
   }),
-  /** A system component's look, its notes and envelope kept. */
-  Schema.Struct({ look: SystemLook, op: Schema.Literal("setLook") }),
   /**
    * One part's style at one place of a system component's look (ADR 0045), what the rest of the
    * look says kept as it is in the file: an empty style takes the part out of that place.
@@ -313,6 +312,29 @@ export const ComponentChange = Schema.Union([
     place: LookPlace,
     slot: Schema.String,
     style: PartStyle,
+  }),
+  /** An optional part of a system component's look left out, or shown again. */
+  Schema.Struct({
+    hidden: Schema.Boolean,
+    op: Schema.Literal("setHidden"),
+    part: Schema.String,
+  }),
+  /** What a system component's slot holds when an instance gives it nothing; none with no nodes. */
+  Schema.Struct({
+    nodes: Schema.Array(DesignNode),
+    op: Schema.Literal("setContent"),
+    slot: Schema.String,
+  }),
+  /** What a Select's or a Menu's item draws; its label alone with null. */
+  Schema.Struct({
+    item: Schema.NullOr(ItemTemplate),
+    op: Schema.Literal("setItem"),
+  }),
+  /** A behaviour note (ADR 0030) about a part, or the whole; the server gives it its id. */
+  Schema.Struct({
+    op: Schema.Literal("addNote"),
+    slot: Schema.optional(Schema.String),
+    text: Schema.String,
   }),
   Schema.Struct({ id: Schema.String, op: Schema.Literal("removeNote") }),
 ]);

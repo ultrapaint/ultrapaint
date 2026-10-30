@@ -5,9 +5,10 @@
  * over starts the file from that default, and removing the file goes back to it. An app
  * component's file is its tree, its properties and its slots, made from nodes of a page or written
  * by an agent, or started empty from the Library (`create`). Every file is read and validated by
- * the `component-files` codec, whoever writes it, and what the editor changes of a file (a look or
- * one part's style in it, properties and slots, notes) is changed on it as it is now (`change`,
- * `addNote`), an app component's instances following a rename in the same undo step.
+ * the `component-files` codec, whoever writes it, and every write reads the file as it is inside
+ * its undo step: what the editor changes of a file (one thing of a look, properties and slots,
+ * notes) is changed on it as it is now (`change`), an app component's instances following a
+ * rename in the same undo step.
  */
 
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
@@ -19,7 +20,6 @@ import {
   type ComponentEntry,
   type ComponentFile,
   type ComponentList,
-  type ComponentNote,
   componentDocOf,
   componentFileOf,
   ROOT_SLOT,
@@ -44,6 +44,8 @@ import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 import {
+  appComponentName,
+  type ComponentRead,
   changedComponent,
   componentText,
   instanceOps,
@@ -54,39 +56,20 @@ import { type ApplyStep, DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const COMPONENT_NAME_RE = /^[A-Z][A-Za-z0-9]*$/;
-const SPACED_WORD_RE = /\s+(\w)/g;
-/** The name a new app component takes from what was typed (`Hero title` is `HeroTitle`), or what is wrong with it. */
-const appNameOf = (
-  given: string,
-  taken: readonly ComponentFile[]
-): { readonly name: string } | { readonly problem: string } => {
-  const name = given
-    .trim()
-    .replace(SPACED_WORD_RE, (_, c: string) => c.toUpperCase());
-  if (!COMPONENT_NAME_RE.test(name)) {
-    return {
-      problem: `a component is named in PascalCase, letters and digits: ${given}`,
-    };
-  }
-  if (systemComponentOf(name)) {
-    return {
-      problem: `${name} is a system component's name: an app component takes another`,
-    };
-  }
-  return taken.some((c) => c.name === name)
-    ? { problem: `there is a ${name} component already` }
-    : { name };
-};
-
 /** The undo step a change is named by: a look's part at its place, else the component. */
 const labelOf = (name: string, made: ComponentChange) => {
-  if (made.op === "setStyle") {
-    return `Change ${name}'s ${made.slot === ROOT_SLOT ? "look" : made.slot} at ${placeLabel(made.place)}`;
+  switch (made.op) {
+    case "setStyle":
+      return `Change ${name}'s ${made.slot === ROOT_SLOT ? "look" : made.slot} at ${placeLabel(made.place)}`;
+    case "setHidden":
+    case "setContent":
+    case "setItem":
+      return `Change ${name}'s look`;
+    case "addNote":
+      return `Note how ${name} behaves`;
+    default:
+      return `Change the ${name} component`;
   }
-  return made.op === "setLook"
-    ? `Change ${name}'s look`
-    : `Change the ${name} component`;
 };
 
 /**
@@ -173,9 +156,9 @@ export class ComponentService extends Context.Service<
     readonly catalogue: Effect.Effect<Catalogue>;
     /**
      * A change to a component's file made on it as it is now: an app component's properties or
-     * slots, a system component's look, a note taken out. A property or a member renamed or taken
-     * out follows into the variants its tree keeps and every instance's props, in every document
-     * as it is in the same undo step.
+     * slots, one thing of a system component's look, a note added (its id made here) or taken
+     * out. A property or a member renamed or taken out follows into the variants its tree keeps
+     * and every instance's props, in every document as it is in the same undo step.
      */
     readonly change: (
       name: string,
@@ -192,15 +175,6 @@ export class ComponentService extends Context.Service<
     readonly remove: (
       name: string
     ) => Effect.Effect<void, EditFailure | NotFound>;
-    /**
-     * A behaviour note added to a component (ADR 0030), about a part of it or the whole: what
-     * its code must do that the design cannot show. One undo step.
-     */
-    readonly addNote: (
-      name: string,
-      text: string,
-      slot?: string
-    ) => Effect.Effect<ComponentNote, EditFailure | NotFound>;
     /**
      * Nodes of a page, siblings, made an app component: they are its tree (several in a row or a
      * column, as their container lays them out), and an instance of it takes their place, where
@@ -258,18 +232,6 @@ export class ComponentService extends Context.Service<
         return component;
       });
 
-      const save = Effect.fnUntraced(function* (
-        component: ComponentFile,
-        label: string
-      ) {
-        const file = componentFileOf(component.name);
-        yield* edit.transaction(label, (tx) =>
-          tx.write(repoOf(file), componentText(component))
-        );
-        yield* publish;
-        return { component, file } satisfies ComponentEntry;
-      });
-
       /**
        * The documents' operations that bring the instances of `name` along with a change: every
        * page and canvas, and every other app component's tree, as they are in the step.
@@ -292,43 +254,43 @@ export class ComponentService extends Context.Service<
         });
       });
 
-      /** A component's file as it is on disk now. */
+      /** A component's file as it is on disk now: what it reads as, or null when there is none. */
       const fileNow = Effect.fnUntraced(function* (name: string) {
         const file = componentFileOf(name);
         const text = yield* fs
           .readFileString(path.join(paths.designsDir, file))
           .pipe(Effect.orElseSucceed(() => null));
-        const read = text === null ? null : readComponentFile(text, file);
-        if (!(read && "component" in read)) {
-          return yield* new NotFound({
-            message: systemComponentOf(name)
-              ? `${name} has no file: take its look over first`
-              : `no component ${name}${read ? `: ${read.problem}` : ""}`,
+        return text === null ? null : readComponentFile(text, file);
+      });
+
+      /** Refused when a component of that name has a file already. */
+      const notTaken = Effect.fnUntraced(function* (name: string) {
+        if ((yield* fileNow(name)) !== null) {
+          return yield* new BadRequest({
+            message: `there is a ${name} component already`,
           });
         }
-        return read.component;
       });
 
       /**
-       * A component's file changed as it is under the journal, so a change made since the editor
-       * read it stays (a tree edited in place, a note added); with `follow`, the instances of the
-       * component in every document follow it in the same step, read in it too.
+       * A component's file written as `next` makes it of the file as it is under the journal (null
+       * when there is none), so a change made since the editor read it stays (a tree edited in
+       * place, a note added); with `follow`, the instances of the component in every document
+       * follow it in the same step, read in it too. Every write of a component's file is this.
        */
       const changeFile = Effect.fnUntraced(function* (
         name: string,
         label: string,
-        next: (file: ComponentFile) => ComponentFile | { problem: string },
+        next: (
+          now: ComponentRead | null
+        ) => Effect.Effect<ComponentFile, BadRequest | NotFound>,
         follow?: ComponentChange
       ) {
         const file = componentFileOf(name);
         let saved: ComponentFile | undefined;
         yield* documents.apply({ edits: [], label }, (step) =>
           Effect.gen(function* () {
-            const changed = next(yield* fileNow(name));
-            if ("problem" in changed) {
-              return yield* new BadRequest({ message: changed.problem });
-            }
-            yield* checked(changed);
+            const changed = yield* checked(yield* next(yield* fileNow(name)));
             yield* step.tx.write(repoOf(file), componentText(changed));
             saved = changed;
             return follow && changed.origin === "app"
@@ -347,10 +309,26 @@ export class ComponentService extends Context.Service<
         name: string,
         made: ComponentChange
       ) {
+        const noteId =
+          made.op === "addNote" ? yield* makeId("note") : undefined;
         return yield* changeFile(
           name,
           labelOf(name, made),
-          (file) => changedComponent(file, made),
+          (now) => {
+            if (!(now && "component" in now)) {
+              return new NotFound({
+                message: systemComponentOf(name)
+                  ? `${name} has no file: take its look over first`
+                  : `no component ${name}${now ? `: ${now.problem}` : ""}`,
+              });
+            }
+            const changed = changedComponent(now.component, made, {
+              ...(noteId && { noteId }),
+            });
+            return "problem" in changed
+              ? new BadRequest({ message: changed.problem })
+              : Effect.succeed(changed);
+          },
           made
         );
       });
@@ -364,12 +342,14 @@ export class ComponentService extends Context.Service<
             message: `${name} is no system component: only a system component has a default look to start from`,
           });
         }
-        // Started again, a file keeps its behaviour notes: they are not the look.
-        const notes = (yield* components).find((c) => c.name === name)?.notes;
-        return yield* save(
-          { ...start, ...(notes && notes.length > 0 && { notes }) },
-          `Take ${name}'s look over`
-        );
+        return yield* changeFile(name, `Take ${name}'s look over`, (now) => {
+          // Started again, a file keeps its behaviour notes: they are not the look.
+          const notes = now && "component" in now ? now.component.notes : [];
+          return Effect.succeed({
+            ...start,
+            ...(notes && notes.length > 0 && { notes }),
+          });
+        });
       });
 
       const remove = Effect.fn("ComponentService.remove")(function* (
@@ -388,48 +368,12 @@ export class ComponentService extends Context.Service<
         yield* publish;
       });
 
-      /** The parts a note can be about: a system component's, an app component's slots and nodes. */
-      const partsOf = (component: ComponentFile): string[] =>
-        component.origin === "system"
-          ? (systemComponentOf(component.name)?.slots ?? []).map((s) => s.name)
-          : [...component.slots.map((s) => s.name), ...idsOf(component.tree)];
-
-      const addNote = Effect.fn("ComponentService.addNote")(function* (
-        name: string,
-        text: string,
-        slot?: string
-      ) {
-        if (text.trim() === "") {
-          return yield* new BadRequest({
-            message: "say what the component must do",
-          });
-        }
-        const note: ComponentNote = {
-          id: yield* makeId("note"),
-          ...(slot !== undefined && slot !== ROOT_SLOT && { slot }),
-          text: text.trim(),
-        };
-        yield* changeFile(name, `Note how ${name} behaves`, (component) => {
-          const parts = partsOf(component);
-          return slot !== undefined && !parts.includes(slot)
-            ? {
-                problem: `${name} has no part ${slot}; its parts are ${parts.join(", ")}`,
-              }
-            : { ...component, notes: [...(component.notes ?? []), note] };
-        });
-        return note;
-      });
-
       const makeApp = Effect.fn("ComponentService.makeApp")(function* (
         page: string,
         nodeIds: readonly string[],
         given: string
       ) {
-        const named = appNameOf(given, yield* components);
-        if ("problem" in named) {
-          return yield* new BadRequest({ message: named.problem });
-        }
-        const { name } = named;
+        const name = appComponentName(given);
         const { root } = yield* documents.get(page);
         const found = root ? siblingsOf(root, nodeIds) : null;
         if (!found) {
@@ -466,7 +410,14 @@ export class ComponentService extends Context.Service<
           },
           ({ tx }) =>
             Effect.as(
-              tx.write(repoOf(file), componentText(component)),
+              Effect.all(
+                [
+                  checked(component),
+                  notTaken(name),
+                  tx.write(repoOf(file), componentText(component)),
+                ],
+                { discard: true }
+              ),
               undefined
             )
         );
@@ -477,21 +428,18 @@ export class ComponentService extends Context.Service<
       const create = Effect.fn("ComponentService.create")(function* (
         given: string
       ) {
-        const named = appNameOf(given, yield* components);
-        if ("problem" in named) {
-          return yield* new BadRequest({ message: named.problem });
-        }
-        const { name } = named;
-        return yield* save(
-          {
-            name,
-            origin: "app",
-            properties: [],
-            slots: [],
-            tree: newElement("column", makeIdGenerator()),
-            version: 1,
-          },
-          `Make the ${name} component`
+        const name = appComponentName(given);
+        const made: ComponentFile = {
+          name,
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: newElement("column", makeIdGenerator()),
+          version: 1,
+        };
+        // What is wrong with the name is said before that it is taken.
+        return yield* changeFile(name, `Make the ${name} component`, () =>
+          Effect.as(Effect.andThen(checked(made), notTaken(name)), made)
         );
       });
 
@@ -508,7 +456,6 @@ export class ComponentService extends Context.Service<
       );
 
       return ComponentService.of({
-        addNote,
         catalogue,
         change,
         components,

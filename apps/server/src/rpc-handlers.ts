@@ -112,8 +112,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.list": ({ canvas }) => comments((c) => c.list(canvas)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
-      "components.addNote": ({ name, slot, text }) =>
-        components((c) => c.addNote(name, text, slot)),
       "components.change": ({ change, name }) =>
         components((c) => c.change(name, change)),
       "components.create": ({ name }) => components((c) => c.create(name)),
