@@ -5,11 +5,8 @@ import {
   matchRoute,
   normaliseRoute,
   pageNameOf,
-  pagePathOf,
   pageRouteOf,
   pagesInVariant,
-  resolveTarget,
-  routeLabel,
   routeOf,
   routesOf,
   variantOf,
@@ -110,21 +107,9 @@ describe("routes derived from page files", () => {
     expect(routeOf("invoices/[id].page.json")).toBe("/invoices/:id");
   });
 
-  it("names the file a route asks for, without an extension", () => {
-    expect(pagePathOf("/")).toBe("index");
-    expect(pagePathOf("/settings/billing")).toBe("settings/billing");
-    expect(pagePathOf("invoices/:id")).toBe("invoices/[id]");
-  });
-
   it("tolerates what a person types", () => {
     expect(normaliseRoute("")).toBe("/");
     expect(normaliseRoute("settings//billing/")).toBe("/settings/billing");
-  });
-
-  it("labels a route by its last segment", () => {
-    expect(routeLabel("/")).toBe("Home");
-    expect(routeLabel("/settings/sign-in")).toBe("Sign in");
-    expect(routeLabel("/invoices/:id")).toBe("Id");
   });
 });
 
@@ -158,16 +143,5 @@ describe("matching a route", () => {
 
   it("answers with nothing when no page serves the route", () => {
     expect(matchRoute(entries, "/nowhere")).toBeNull();
-  });
-});
-
-describe("what a link points at", () => {
-  it("takes a path with a leading slash as a route", () => {
-    expect(resolveTarget("/settings/billing")).toBe("/settings/billing");
-  });
-
-  it("takes anything else as a page file inside the canvas", () => {
-    expect(resolveTarget("settings/billing.tsx")).toBe("/settings/billing");
-    expect(resolveTarget("index.tsx")).toBe("/");
   });
 });

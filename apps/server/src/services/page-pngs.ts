@@ -51,8 +51,8 @@ const NOTHING: PngRefresh = { drawn: [], removed: [], stale: [] };
  * image diff.
  *
  * The server has no browser, so the pictures are drawn by an open editor's preview, at the size
- * of the page's frame, with the repository's own components and stylesheet. Each PNG carries the
- * key of what it was drawn from — the page's file, the design system, the frame's size and the
+ * of the page's frame, with the design's look (its components and design system). Each PNG
+ * carries the key of what it was drawn from — the page's file, the design system, the frame's size and the
  * theme — and is drawn again only when that changes: a page that did not change is never
  * rewritten, so it never shows up as a change. A page changed while no editor is open keeps its
  * old picture until one opens. A PNG this service wrote whose page is gone is removed; a PNG it
