@@ -208,8 +208,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(button?.uses, 1);
           // The repository's Button is offered as what it might be.
           assert.strictEqual(button?.candidates[0]?.name, "Button");
-          const listed = yield* client["figma.list"]();
-          assert.strictEqual(listed[0]?.id, imported.id);
 
           // Bytes that are not a Figma file are refused with a reason.
           const refused = yield* upload(

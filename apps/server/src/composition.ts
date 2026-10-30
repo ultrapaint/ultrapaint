@@ -84,15 +84,16 @@ export const projectLayer = (settings: Settings) =>
     FigmaImportService.layer,
     Migration.layer
   ).pipe(
-    // The components: a system component's look as the design says it, an app component's tree
-    // (ADR 0041).
-    Layer.provideMerge(ComponentService.layer),
-    // The link to the code reads the pages, their documents and the components (ADR 0030).
+    // The link to the code reads the pages, their documents and the design system (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),
-    Layer.provideMerge(DocumentService.layer),
+    // The Code tab writes a node with the design system's classes and the components' slots.
     Layer.provideMerge(
       Layer.mergeAll(DesignSystemService.layer, SkillsService.layer)
     ),
+    // The components: a system component's look as the design says it, an app component's tree
+    // (ADR 0041).
+    Layer.provideMerge(ComponentService.layer),
+    Layer.provideMerge(DocumentService.layer),
     // The design system's sides: DESIGN.md mirrors it with the code's tokens and the
     // components' classes; Figma's baseline waits for it.
     Layer.provideMerge(Layer.mergeAll(DesignMd.layer, FigmaBaseline.layer)),

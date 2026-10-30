@@ -324,7 +324,7 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
     test.effect("resolves the repository from where the file is", () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
-        const settings = yield* client["settings.get"]();
+        const { settings } = yield* client["project.info"]();
         assert.strictEqual(settings?.repoPath, repo);
         assert.deepStrictEqual(settings?.libraryDirs, []);
         assert.strictEqual(settings?.theme, "light");
@@ -396,7 +396,7 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
           (info) => info.designsDir === "screens"
         );
         assert.strictEqual(
-          (yield* client["settings.get"]())?.designsDir,
+          (yield* client["project.info"]()).settings?.designsDir,
           "screens"
         );
       })
@@ -431,7 +431,7 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.isFalse(yield* fs.exists(legacy));
           const info = yield* client["project.info"]();
           assert.strictEqual(info.storage.configPath, renamed);
-          const settings = yield* client["settings.get"]();
+          const { settings } = yield* client["project.info"]();
           if (settings) {
             yield* client["settings.set"]({ ...settings, theme: "dark" });
           }
@@ -448,7 +448,10 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
             JSON.stringify({ designsDir: "designs", theme: "light" })
           );
           yield* Effect.sleep("600 millis");
-          assert.strictEqual((yield* client["settings.get"]())?.theme, "dark");
+          assert.strictEqual(
+            (yield* client["project.info"]()).settings?.theme,
+            "dark"
+          );
           yield* fs.remove(legacy);
         })
     );
@@ -638,8 +641,8 @@ layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
           ],
           label: "Name the title",
         });
-        const settings = yield* client["settings.get"]();
-        assert.isNotNull(settings);
+        const { settings } = yield* client["project.info"]();
+        assert.isDefined(settings);
         if (settings) {
           const { event, result } = yield* nextEvent(
             client["events.project"]().pipe(

@@ -78,11 +78,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     it.effect("answers before any repository is configured", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
-        assert.deepStrictEqual(yield* client.health(), {
-          ok: true,
-          version: "test",
-        });
-        assert.isNull(yield* client["settings.get"]());
+        assert.isUndefined((yield* client["project.info"]()).settings);
         assert.isFalse((yield* client["project.info"]()).configured);
       })
     );
@@ -116,7 +112,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           });
           assert.isFalse(validation.ok);
           assert.include(validation.problems.join("\n"), "missing");
-          assert.isNull(yield* client["settings.get"]());
+          assert.isUndefined((yield* client["project.info"]()).settings);
         })
     );
 
@@ -595,7 +591,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               { startImmediately: true }
             );
             // Answered once the subscription before it is the server's.
-            yield* other.health();
+            yield* other["project.info"]();
             const applied = yield* client["documents.apply"]({
               edits: [
                 {
@@ -829,7 +825,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           assert.strictEqual(result._tag, "Failure");
           assert.strictEqual(event._tag, "Some");
-          assert.isTrue((yield* client.health()).ok);
+          assert.isTrue((yield* client["project.info"]()).configured);
         })
     );
 
@@ -1597,45 +1593,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const state = yield* client["documents.get"]({ doc: headed.id });
           assert.notInclude(JSON.stringify(state.root), '"link"');
           yield* client["pages.delete"]({ id: headed.id });
-        })
-    );
-
-    it.effect(
-      "opens a canvas on a URL one of its pages serves, and keeps it there",
-      () =>
-        Effect.gen(function* () {
-          const { client } = yield* TestEnv;
-          const homeOf = (canvas: string) =>
-            Effect.map(
-              client["pages.list"](),
-              (list) => list.canvases.find((c) => c.id === canvas)?.home
-            );
-          const nowhere = yield* Effect.flip(
-            client["canvases.setHome"]({ id: "", route: "/nowhere" })
-          );
-          assert.strictEqual(nowhere._tag, "BadRequest");
-          const set = yield* client["canvases.setHome"]({
-            id: "",
-            route: "pricing",
-          });
-          assert.strictEqual(set.home, "/pricing");
-          assert.strictEqual(
-            (yield* client["canvas.get"]({ canvas: "" })).home,
-            "/pricing"
-          );
-          // The page serves another URL: the canvas follows it there.
-          yield* client["pages.setRoute"]({
-            id: "pricing.page.json",
-            route: "/plans",
-          });
-          assert.strictEqual(yield* homeOf(""), "/plans");
-          // The page goes: the canvas opens on the first URL another page serves.
-          yield* client["pages.delete"]({ id: "pricing.page.json" });
-          assert.strictEqual(yield* homeOf(""), "/home");
-          assert.strictEqual(
-            (yield* client["canvas.get"]({ canvas: "" })).home,
-            "/home"
-          );
         })
     );
 
