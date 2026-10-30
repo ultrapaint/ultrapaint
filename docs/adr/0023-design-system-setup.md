@@ -5,6 +5,8 @@ Amended 2026-10-26 by [PLAN-desktop](../PLAN-desktop.md) Phase 0.4: the snapshot
 tool's own snapshot store, the code's files are listed by a walk that reads `.gitignore`, and no
 git is needed (see the amendment at the end).
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the inventory has no plain elements (the editor's catalogue is not the repository's library); a step's moves are one pure rule.
+
 ## Context
 
 `/init` imports the design system a repository already has: it reads the Tailwind v4 theme,

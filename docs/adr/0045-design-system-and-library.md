@@ -10,6 +10,8 @@ operations, still one undo step). The screens are sketched on the Redesign canva
 (`design-system-color`, `library-insert`, `library-button`, `library-app-component`). The terms
 are in `GLOSSARY.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the board view is one of the main area's two surfaces (`showBoardFramesWith` and `takeBoardSelectionWith` go); a board's picks have one grammar; a pick crosses the wire as a `LookPlace`.
+
 ## Context
 
 The design system has one panel, the width of the rail's column: swatches, type specimens and

@@ -5,6 +5,8 @@ are drawn in its instances; the migration's RPC is `migration.run`) and 0042 (a 
 covers a system component's look and a note taken out; a rename's instance edits are made inside
 its undo step). The terms are in `GLOSSARY.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: a component change covers each thing of a look and adding a note; the design skills go only to threads that draw designs; one outline rule for `read_page` and `/implement`.
+
 ## Context
 
 0042 made an app component's properties change on the server, on the file as it is, but the

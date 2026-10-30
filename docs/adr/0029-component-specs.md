@@ -1,6 +1,6 @@
 # ADR 0029: A component's behaviour is the code's; its look can be the design's
 
-Status: accepted, 2026-10-25. Builds on 0015 (instances render the repository's components),
+Status: superseded by 0041 (specs and drafts become components) and 0045 (a component's look is edited on its board), 2026-10-30. Accepted 2026-10-25. Builds on 0015 (instances render the repository's components),
 0027 (component tokens from cva) and 0028 (the design holds the values). Plan:
 `docs/PLAN-design-source.md`.
 

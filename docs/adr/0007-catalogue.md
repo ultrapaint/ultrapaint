@@ -1,6 +1,6 @@
 # ADR 0007: Component catalogue
 
-Status: accepted, 2026-09-17.
+Status: superseded by 0040 and 0042 (the catalogue is the system components' and the component files'), 2026-10-30. Accepted 2026-09-17.
 
 TypeScript 7 (the native compiler) ships no JavaScript compiler API, so the server depends on
 TypeScript 5 under the alias `typescript-api` for the catalogue only. A program over the library

@@ -3,6 +3,8 @@
 Status: accepted, 2026-10-06. Builds on 0016 (Figma import), 0023 (design-system setup) and
 0024 (style systems). Plan: `docs/PLAN-design-system-sync.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the drift is what the code's comparison finds new; `SyncFacts`' unread fields and `tokensGone` go; Sync watches stylesheets only.
+
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: values live in the design
 > system, not the code; the code is compared with it as Figma and DESIGN.md are, and follows on
 > export.

@@ -4,6 +4,8 @@ Status: accepted, 2026-10-25. Supersedes 0025's "values live in the code". Amend
 names), 0024 (the style system is the code's side) and 0027 (DESIGN.md is compared with the
 design, not the code). Plan: `docs/PLAN-design-source.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: one write path makes the code follow every write; Sync's takes are `designSystem.edit` operations; a baseline moves one way, outside undo.
+
 > Amended 2026-10-25 (second round): `design.tokens.json` is a Sync source as well as an
 > export; agents bring the code up to the design through `handoff` and `/sync code`; and a
 > design's implementation waits on the tokens it uses that the code does not have yet.

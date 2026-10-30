@@ -69,7 +69,7 @@ Found while mapping the code for this plan; each is answered in the phase that m
 - **"+ New" has no RPC**: `components.makeApp` needs a page and at least one node.
 - **The thumbnails are Assets' own** (`useThumbnails`, not exported from `panels/assets.tsx`).
 - **A prompt's selection is a page's node** (`PromptAttachment.selection` needs `file` and
-  `nodeId`, told "on the design canvas" in `services/threads/turns.ts`).
+  `nodeId`, told "on the design canvas" in `services/threads/prompt-content.ts`).
 - **The redesign canvas drew its chrome without half its tokens.** Since 0040 the canvas's tokens
   are the design system's or the neutral defaults (`look.ts`): `$color-sidebar`, `$color-brand`,
   `$color-rail` and `$shadow-*` resolve to nothing, so the older redesign pages lost their card
@@ -286,7 +286,7 @@ component wider than one to it, its width measured once drawn when its tree hugs
       "component" | "guideline", name, variant?, state?, file}`
       (`packages/contracts/src/threads.ts`); `chipOfSelection` and `attachmentsOf`
       (`state/attachments.ts`) make it on a board; `scopeOf` and `attachmentBlocks`
-      (`apps/server/src/services/threads/turns.ts`) tell it ("The user has picked the token
+      (`apps/server/src/services/threads/prompt-content.ts`) tell it ("The user has picked the token
       color-primary-600 of the design system: light #2563eb, dark #60a5fa") with its file
       (`design-system.json`, `components/<Name>.component.json`) as a resource link. The
       inspector's title has the chat button the element toolbar has on a page.
@@ -313,7 +313,7 @@ token's value in each theme, a group's tokens, a text style's fields, a componen
 default look, a variant that is its choice's default member). The web makes it in
 `lib/board-chip.ts` (`boardChipOf`, pure, tested in `lib/board-chip.test.ts`) and holds it as a
 chip like a node's (`state/attachments.ts`, keyed by what it is and where); the server tells it with
-`boardPickText` in `services/threads/turns.ts` (tested in `board-pick.test.ts`), saying where a
+`boardPickText` in `services/threads/prompt-content.ts` (tested in `board-pick.test.ts`), saying where a
 system component's file keeps the look at the place picked (`variantStates.variant.outline.hover`),
 the file linked when it exists; it gives a thread no scope. The chat button is `BoardChatButton`
 (`canvas/element-toolbar-chat.tsx`) in `BoardInspector`'s title, and the composer sends the pick
