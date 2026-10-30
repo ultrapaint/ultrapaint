@@ -5,11 +5,11 @@
 import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
-import { leaveBoard } from "../state/board.ts";
+
 import { setView, zoomToFit } from "../state/camera.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
-import { type GoTo, goTo } from "../state/location.ts";
+import { type GoTo, goTo, toPageCanvas } from "../state/location.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
@@ -32,7 +32,7 @@ const views = new Map<string, { x: number; y: number; zoom: number }>();
  */
 const showCanvas = async (id: string, at?: Omit<GoTo, "canvas">) => {
   // The canvas asked for is shown: a board view open gives way to it, its camera put back first.
-  leaveBoard();
+  toPageCanvas();
   const editor = useEditor.getState();
   if (editor.canvas !== null) {
     views.set(editor.canvas, editor.view);

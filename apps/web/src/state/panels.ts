@@ -2,13 +2,14 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
 import { useAgents } from "./agents.ts";
-import { FIRST_ITEM, leaveBoard, openBoard, useBoard } from "./board.ts";
+import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
 import {
   type LeftTab,
   type RightTab,
   type Selection,
   useEditor,
 } from "./editor.ts";
+import { toPageCanvas } from "./location.ts";
 import { surfaceNow } from "./surface.ts";
 
 /**
@@ -203,7 +204,7 @@ const showTab = (tab: LeftTab) => {
     return;
   }
   if (open && !surfaceNow().railTabs().includes(tab)) {
-    leaveBoard();
+    toPageCanvas();
   }
   useEditor.setState({ leftTab: tab });
 };
