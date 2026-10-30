@@ -18,9 +18,9 @@ import {
   type DesignSystem,
   type TextStyle,
 } from "@ultrapaint/contracts/design-system";
+import { defaultTheme } from "@ultrapaint/contracts/themes";
 import type { BoardAttachment } from "@ultrapaint/contracts/threads";
 import { tokenOf } from "@ultrapaint/contracts/token-table";
-import { firstTheme } from "../boards/board-nodes.ts";
 import {
   appBoardName,
   appInPlace,
@@ -54,7 +54,7 @@ const valuesOf = (ds: DesignSystem, name: string): string | undefined => {
     return value === undefined ? [] : [`${theme} ${value}`];
   });
   return others.length > 0
-    ? [`${firstTheme(ds)} ${token.value}`, ...others].join(", ")
+    ? [`${defaultTheme(ds)} ${token.value}`, ...others].join(", ")
     : token.value;
 };
 
