@@ -6,6 +6,8 @@
  */
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
 import type {
+  BoardAttachment,
+  BoardPickKind,
   PromptInput,
   Thread,
   ThreadItem,
@@ -67,6 +69,61 @@ export const scopeOf = (
   return file ? { file: file.path, name: pageNameOf(file.path) } : null;
 };
 
+/**
+ * Where a system component's file keeps its look at a place: `variantStates.variant.outline.hover`
+ * for an outline button's hover, `variants.size.lg`, `states.hover`, else `base`.
+ */
+const lookPathOf = (variant: string | undefined, state: string | undefined) => {
+  const [axis, member] = variant?.split("=") ?? [];
+  if (axis && member) {
+    return state
+      ? `variantStates.${axis}.${member}.${state}`
+      : `variants.${axis}.${member}`;
+  }
+  return state ? `states.${state}` : "base";
+};
+
+/** A system component's look at the place picked, or the component when none is. */
+const systemComponentText = (a: BoardAttachment, now: string) => {
+  if (!(a.variant || a.state)) {
+    return `The user has picked the system component ${a.name}${now}, whose look is ${a.file}. Changes should target its look unless told otherwise.`;
+  }
+  const place = [a.variant, a.state && `the ${a.state} state`]
+    .filter(Boolean)
+    .join(" in ");
+  return `The user has picked the look of the system component ${a.name} at ${place}${now}: ${lookPathOf(a.variant, a.state)} of ${a.file}. Changes should target that place of its look unless told otherwise.`;
+};
+
+/** What each kind of pick is told as, `now` what it is now in brackets, or nothing. */
+const PICK_TEXT: Record<
+  BoardPickKind,
+  (a: BoardAttachment, now: string) => string
+> = {
+  appComponent: (a, now) =>
+    a.variant
+      ? `The user has picked the variant ${a.variant} of the app component ${a.name}${now || ` (what its nodes override under at["${a.variant}"])`}, kept in ${a.file}. Changes should target that variant unless told otherwise.`
+      : `The user has picked the app component ${a.name}${now}, kept in ${a.file}. Changes should target this component unless told otherwise.`,
+  foundation: (a, now) =>
+    `The user is looking at the design system's ${a.name}${now}, kept in ${a.file}. Changes should target these tokens unless told otherwise.`,
+  group: (a, now) =>
+    `The user has picked the colour group ${a.name} of the design system${now}, kept in ${a.file}. Changes should target this group's tokens unless told otherwise.`,
+  guideline: (a, now) =>
+    `The user is looking at the section "${a.name}" of ${a.file}, the design system's guidelines${now}. Changes should target this section unless told otherwise.`,
+  systemComponent: systemComponentText,
+  textStyle: (a, now) =>
+    `The user has picked the text style ${a.name} of the design system${now}, kept in ${a.file}. Changes should target this text style unless told otherwise.`,
+  token: (a, now) =>
+    `The user has picked the token ${a.name} of the design system${now}, kept in ${a.file}. Changes should target this token unless told otherwise.`,
+};
+
+/** What the user picked on a board, told as the agent should take it (ADR 0045, B11). */
+export const boardPickText = (a: BoardAttachment): string =>
+  PICK_TEXT[a.pick](a, a.detail ? ` (${a.detail})` : "");
+
+/** How the transcript names a board's pick: `Button variant=outline hover @ components/Button.component.json`. */
+const boardPickLabel = (a: BoardAttachment) =>
+  `${[a.name, a.variant, a.state].filter(Boolean).join(" ")} @ ${a.file}`;
+
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
 export const titleOf = (text: string) => {
   const line = text.trim().split("\n")[0]?.trim() ?? "";
@@ -82,6 +139,27 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   const commands = yield* SlashCommands;
   const { briefing: briefingEnabled } = yield* ServerConfig;
   const fs = yield* FileSystem.FileSystem;
+
+  /** A board's pick: what it is, and its file linked, when it has one yet. */
+  const boardBlocks = Effect.fnUntraced(function* (
+    a: BoardAttachment,
+    paths: RepoPaths["Service"]
+  ) {
+    const abs = yield* paths.resolve(a.file);
+    // A system component in its default look has no file yet: it is named, not linked.
+    const exists = yield* Effect.orElseSucceed(fs.exists(abs), () => false);
+    const text: ContentBlock = { text: boardPickText(a), type: "text" };
+    return exists
+      ? [
+          text,
+          {
+            name: a.file,
+            type: "resource_link",
+            uri: `file://${abs}`,
+          } satisfies ContentBlock,
+        ]
+      : [text];
+  });
 
   /** The prompt's text and attachments as the agent gets them, and as the transcript names them. */
   const attachmentBlocks = Effect.fnUntraced(function* (
@@ -113,6 +191,9 @@ export const makePromptContent = Effect.fnUntraced(function* () {
           { name: a.file, type: "resource_link", uri: `file://${abs}` }
         );
         labels.push(`${a.name} @ ${a.file}`);
+      } else if (a.kind === "board") {
+        blocks.push(...(yield* boardBlocks(a, paths)));
+        labels.push(boardPickLabel(a));
       } else {
         const match = a.dataUrl.match(DATA_URL_RE);
         if (match?.[1] && match[2] !== undefined) {

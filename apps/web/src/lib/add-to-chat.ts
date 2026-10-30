@@ -1,20 +1,27 @@
 /**
- * Add to chat: the element goes to the open thread's composer as a chip, or to a new thread when
- * the chat shows the list or one is asked for. The chat opens on it; nothing is sent. Taking it
- * back out removes the chip.
+ * Add to chat: the element, or what is picked on a board, goes to the open thread's composer as a
+ * chip, or to a new thread when the chat shows the list or one is asked for. The chat opens on
+ * it; nothing is sent. Taking it back out removes the chip.
  */
-import type { Thread } from "@ultrapaint/contracts/threads";
+import type { BoardAttachment, Thread } from "@ultrapaint/contracts/threads";
+import { useMemo } from "react";
 import { useAgents } from "../state/agents.ts";
 import {
   addChip,
+  type Chip,
   canvasOfFile,
   chipOfSelection,
   nodeKey,
   removeChip,
 } from "../state/attachments.ts";
+import { pickOf, useBoard } from "../state/board.ts";
+import { useComponents } from "../state/components.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import type { Selection } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { boardChipOf } from "./board-chip.ts";
 import { reveal } from "./reveal.ts";
 import { createThread } from "./start-thread.ts";
 
@@ -29,14 +36,23 @@ const openThread = (): Thread | null => {
 const listOf = (selection: Selection | readonly Selection[]) =>
   Array.isArray(selection) ? selection : [selection as Selection];
 
-export const addToChat = async (
+export const addToChat = (
   selection: Selection | readonly Selection[],
+  options: { readonly newThread?: boolean } = {}
+) =>
+  addChipsToChat(
+    listOf(selection).flatMap((s) => {
+      const chip = chipOfSelection(s);
+      return chip ? [chip] : [];
+    }),
+    options
+  );
+
+/** Chips to the open thread's composer, or a new thread's; a board's pick goes this way. */
+export const addChipsToChat = async (
+  chips: readonly Chip[],
   { newThread = false }: { readonly newThread?: boolean } = {}
 ) => {
-  const chips = listOf(selection).flatMap((s) => {
-    const chip = chipOfSelection(s);
-    return chip ? [chip] : [];
-  });
   if (chips.length === 0) {
     return;
   }
@@ -48,6 +64,35 @@ export const addToChat = async (
     addChip(thread.id, chip);
   }
   await showLeftPanel({ chat: thread.id });
+};
+
+/**
+ * The chip of what is picked on the board view open, as the stores have it now; null on the page
+ * canvas and where a board has nothing to tell.
+ */
+export const useBoardChip = (): BoardAttachment | null => {
+  const open = useBoard((s) => s.open);
+  const pick = useBoard(pickOf);
+  const ds = useDesignSystem((s) => s.designSystem);
+  const document = useDesignSystem((s) => s.document);
+  const catalogue = useComponents((s) => s.catalogue);
+  const components = useComponents((s) => s.components);
+  const designsDir = useProject((s) => s.settings?.designsDir);
+  const editedOn = useIsolation((s) => s.isolated?.frame ?? null);
+  return useMemo(
+    () =>
+      open && designsDir !== undefined
+        ? boardChipOf(open, pick, {
+            catalogue,
+            components,
+            designsDir,
+            document,
+            ds,
+            editedOn,
+          })
+        : null,
+    [open, pick, ds, document, catalogue, components, designsDir, editedOn]
+  );
 };
 
 /** Takes elements back out of the open thread's composer. */

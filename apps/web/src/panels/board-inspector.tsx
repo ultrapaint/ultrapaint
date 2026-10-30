@@ -5,7 +5,8 @@
  * (`guideline-editor.tsx`), and with nothing picked what can be added to the foundation; a
  * project without a design system sees its Set up. On the Library: a system component's look at
  * the cell picked (`look-inspector.tsx`), an app component's properties, variants and slots
- * (`app-inspector.tsx`), and on the Overview the way to a component's board.
+ * (`app-inspector.tsx`), and on the Overview the way to a component's board. Its title has the
+ * chat button the element toolbar has on a page: what is picked goes to the chat (B11).
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
@@ -20,7 +21,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { OVERVIEW } from "../boards/library-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
+import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";
+import { useBoardChip } from "../lib/add-to-chat.ts";
 import { Swatch } from "../lib/token-options.tsx";
 import {
   type BoardPlace,
@@ -253,6 +256,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
   const pick = useBoard(pickOf);
   const kind = useKind(open);
   const name = useItemName(open);
+  const chip = useBoardChip();
   // On the Library the item is what the panel is about: a cell picked is its place, in the selects.
   const picked =
     pick && open.view === "system" ? pickedName(pick.nodeId) : null;
@@ -276,6 +280,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
             {subtitle}
           </span>
         </div>
+        {chip ? <BoardChatButton chip={chip} /> : null}
         <HeaderMenu kind={kind} open={open} picked={picked} />
         <HideRightPanel />
       </div>

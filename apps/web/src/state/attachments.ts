@@ -1,13 +1,21 @@
 /**
  * What the composer of each thread sends along with its next prompt, as chips: nodes attached
- * from the canvas (Add to chat, a layer dragged in, the right-click menu) and pages. A store, not
+ * from the canvas (Add to chat, a layer dragged in, the right-click menu), pages, and what is
+ * picked on a board of Design system or the Library (ADR 0045, B11). A store, not
  * the composer's state: the canvas adds to it while the chat may be closed. `attachmentsOf` says
  * what chips go with a prompt as, a comment sent to an agent's included.
  */
 import type { Comment } from "@ultrapaint/contracts/comments";
+import {
+  componentFileOf,
+  componentOfDoc,
+} from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { PromptAttachment } from "@ultrapaint/contracts/threads";
+import type {
+  BoardAttachment,
+  PromptAttachment,
+} from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import {
@@ -34,16 +42,26 @@ export type Chip =
       readonly kind: "page";
       readonly name: string;
       readonly pageId: string;
-    };
+    }
+  /** What is picked on a board, as the prompt carries it (`lib/board-chip.ts`). */
+  | BoardAttachment;
 
 /** The key of a node's chip, known from where the node is without the node itself. */
 export const nodeKey = (frame: string, nodeId: string) =>
   `node:${frame}#${nodeId}`;
 
-export const chipKey = (chip: Chip): string =>
-  chip.kind === "node"
+/** The key of a board's chip: what it is, its name, and the place of a component picked. */
+export const boardChipKey = (chip: BoardAttachment) =>
+  `board:${chip.pick}/${chip.name}/${chip.variant ?? ""}/${chip.state ?? ""}`;
+
+export const chipKey = (chip: Chip): string => {
+  if (chip.kind === "board") {
+    return boardChipKey(chip);
+  }
+  return chip.kind === "node"
     ? nodeKey(chip.frame, chip.nodeId)
     : `page:${chip.pageId}`;
+};
 
 interface AttachmentsStore {
   byThread: Record<string, readonly Chip[]>;
@@ -95,9 +113,20 @@ export const clearChips = (threadId: string, sent: readonly Chip[]) =>
 const canvasFileOf = (designsDir: string, canvas: string) =>
   `${designsDir}/${canvas ? `${canvas}/` : ""}canvas.json`;
 
-/** The file a node of a frame lives in: its page's, or the canvas's own for a loose node. */
+/**
+ * The file a node of a frame lives in: its page's, or the canvas's own for a loose node; the app
+ * component's while its tree is edited in place in the frame, on a page or on its board.
+ */
 export const fileOfFrame = (frame: string): string | null => {
-  // A board's frame is generated: it has no file of the designs (ADR 0045).
+  const { edited } = useDocuments.getState();
+  const component = edited?.frame === frame ? componentOfDoc(edited.doc) : null;
+  const designsDir = useProject.getState().settings?.designsDir;
+  if (component !== null) {
+    return designsDir === undefined
+      ? null
+      : `${designsDir}/${componentFileOf(component)}`;
+  }
+  // A board's frame is otherwise generated: it has no file of the designs (ADR 0045).
   if (isBoardFrame(frame)) {
     return null;
   }
@@ -105,7 +134,6 @@ export const fileOfFrame = (frame: string): string | null => {
   if (page) {
     return page.file;
   }
-  const designsDir = useProject.getState().settings?.designsDir;
   const { canvas } = useEditor.getState();
   if (designsDir === undefined || canvas === null) {
     return null;
@@ -165,6 +193,9 @@ export const pageChip = (page: Page): Chip => ({
  * found again where it is, or a page. A picture is not kept.
  */
 export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
+  if (attachment.kind === "board") {
+    return attachment;
+  }
   const { pages } = useProject.getState();
   if (attachment.kind === "file") {
     const page = pages.find((p) => p.file === attachment.path);
@@ -208,12 +239,17 @@ export const chipOfComment = (comment: Comment, page: Page): Chip =>
 
 /**
  * What a prompt carries for its chips: each page's file, and each node with the file it lives in,
- * a file once however many of its nodes go. A screenshot is the composer's to add.
+ * a file once however many of its nodes go; a board's pick as it is, its file linked rather than
+ * sent. A screenshot is the composer's to add.
  */
 export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
   const attachments: PromptAttachment[] = [];
   const files = new Set<string>();
   for (const chip of chips) {
+    if (chip.kind === "board") {
+      attachments.push(chip);
+      continue;
+    }
     if (!files.has(chip.file)) {
       files.add(chip.file);
       attachments.push({ kind: "file", path: chip.file });
