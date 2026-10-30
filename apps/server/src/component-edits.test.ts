@@ -40,9 +40,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           yield* client["components.fromDefault"]({ name: "Button" });
           // A note added since the editor read the file stays: the style is set on it as it is.
-          yield* client["components.addNote"]({
+          yield* client["components.change"]({
+            change: { op: "addNote", text: "Submits its form" },
             name: "Button",
-            text: "Submits its form",
           });
           const before = yield* read();
           yield* client["components.change"]({

@@ -168,7 +168,7 @@ export const PromptAttachment = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
   /** A node of a design document the user has selected on the canvas. */
   Schema.Struct({
-    /** Whether the node is a component of the library. */
+    /** Whether the node is an instance of a component (ADR 0041). */
     component: Schema.optional(Schema.Boolean),
     /** The page's file, or the canvas's `canvas.json` for a node beside the pages. */
     file: Schema.String,
@@ -221,7 +221,7 @@ export type QueuedPrompt = typeof QueuedPrompt.Type;
  * was. The chat shows a picture of it, so the thread is found by sight.
  */
 export const ThreadScope = Schema.Struct({
-  /** Whether the node is a component of the library, which gives it the component colour. */
+  /** Whether the node is an instance of a component, which gives it the component colour. */
   component: Schema.optional(Schema.Boolean),
   /** How many nodes the first prompt attached, when more than one. */
   count: Schema.optional(Schema.Number),

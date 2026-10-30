@@ -5,6 +5,7 @@ import type {
   ApplyInput,
   DesignNode,
   DocumentState,
+  PageNode,
 } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
@@ -211,14 +212,6 @@ const setUp = () => {
             children: [text("title"), text("lede"), text("cta")],
             id: "hero",
             type: "column",
-          },
-          // An instance of the repository's, from before the system components.
-          {
-            component: "Button",
-            from: "@/components/ui/button",
-            id: "old",
-            text: "Go",
-            type: "instance",
           },
           // An instance of one of the project's own components.
           { component: "Promo", from: "#app", id: "promo", type: "instance" },
@@ -462,6 +455,31 @@ describe("a node's menu", () => {
     ]);
   });
 
+  it("inserts into a component that holds nodes, in its default slot (review D1)", async () => {
+    const home = useDocuments.getState().docs[HOME]?.root as PageNode;
+    const card: DesignNode = {
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+    };
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, { ...home, children: [...home.children, card] }),
+      },
+    }));
+    useEditor.getState().select({ frame: HOME, nodeId: "card" });
+    await choose(
+      { kind: "component", make: () => text("made"), name: "Text" },
+      { kind: "insert" }
+    );
+    // Named in no slot, it fills the default one, the card's content.
+    expect(lastEdit().ops).toMatchObject([
+      { doc: HOME, node: { id: "made" }, op: "insert", parent: "card" },
+    ]);
+  });
+
   it("in a view, lands at the view's breakpoint (ADR 0036)", async () => {
     const title = nodeAt(TABLET, "title");
     // A view of a page is the page: comments and links are there.
@@ -632,7 +650,6 @@ const EVERY_ACTION = {
   canvas: { command: true, paste: true },
   canvasEntry: {
     adopt: true,
-    componentSheet: true,
     delete: true,
     duplicate: true,
     duplicateWithAgent: true,
@@ -672,7 +689,6 @@ const EVERY_ACTION = {
     paste: true,
     rename: true,
     selectParent: true,
-    toSystem: true,
     unwrap: true,
     viewCode: true,
     wrap: true,
@@ -708,7 +724,6 @@ const EVERY_ACTION = {
 const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
   nodeAt(HOME, "hero"),
-  nodeAt(HOME, "old"),
   nodeAt(HOME, "promo"),
   homePage,
   { kind: "page", pageId: ABOUT },

@@ -40,10 +40,6 @@ describe("parseCommand", () => {
       canvas: "",
       change: "to wireframes, greyscale",
     });
-    expect(requestOf("/components drafts")).toEqual({
-      _tag: "Components",
-      canvas: "drafts",
-    });
     expect(requestOf("/sync code now")).toEqual({
       _tag: "Sync",
       extra: "now",
@@ -122,10 +118,6 @@ describe("the slash commands", () => {
       { _tag: "Adopt", targets: [] },
       { _tag: "Adopt", targets: ["", "marketing", "orders.page.json"] },
     ],
-    Components: [
-      { _tag: "Components", canvas: "" },
-      { _tag: "Components", canvas: "drafts", extra: "buttons first" },
-    ],
     Implement: [
       { _tag: "Implement", target: "/settings/billing" },
       { _tag: "Implement", canvas: "marketing", target: "/pricing" },
@@ -172,7 +164,6 @@ describe("the slash commands", () => {
       "implement",
       "import-figma",
       "redraw",
-      "components",
       "design-system",
       "sync",
     ]);

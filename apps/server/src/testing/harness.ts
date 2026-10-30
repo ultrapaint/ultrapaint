@@ -202,12 +202,10 @@ export const makeTestServer = (
             port,
             repo,
             settings: {
-              componentPackages: [],
               designsDir: "designs",
               hostCss: [],
               libraryDirs: [],
               repoPath: repo,
-              theme: "light",
             } satisfies Settings,
           })
         )

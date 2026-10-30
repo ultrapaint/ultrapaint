@@ -191,10 +191,6 @@ export const duplicateCanvasWithAgent = async (canvas: Canvas) => {
   }
 };
 
-/** Asks an agent to draw a sheet of the design system's components into the canvas. */
-export const componentSheet = (canvas: Canvas) =>
-  startTask({ _tag: "Components", canvas: canvas.id });
-
 export const deleteCanvas = async (canvas: Canvas) => {
   if (!ensureEditable()) {
     return;

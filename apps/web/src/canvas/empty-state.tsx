@@ -220,7 +220,7 @@ const Starters = ({ canvas }: { canvas: string }) => {
     [designSystem]
   );
   const withSystem = theme !== null;
-  const offered = offeredStarters(catalogue, withSystem);
+  const offered = offeredStarters(withSystem);
   const style = thumbStyle(theme);
   return (
     // Between both side panels the canvas is narrower than the strip: it is drawn smaller there.

@@ -38,7 +38,6 @@ import { ensureEditable } from "../state/setup.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
   canvasById,
-  componentSheet,
   copyPagesTo,
   deleteCanvas,
   duplicateCanvas,
@@ -90,7 +89,6 @@ import {
   nodesOf,
   placeOf,
   renameNode,
-  replaceWithSystemComponent,
   selected,
   selectParent,
   setHidden,
@@ -450,8 +448,6 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
     }
     case "detach":
       return ensureEditable() && detachInstances(sel);
-    case "toSystem":
-      return ensureEditable() && replaceWithSystemComponent(act.name, sel);
     case "link":
       return setLink(sel, act.to);
     case "linkUrl":
@@ -565,8 +561,6 @@ const runCanvasEntry = (
       return duplicateCanvas(canvas);
     case "duplicateWithAgent":
       return duplicateCanvasWithAgent(canvas);
-    case "componentSheet":
-      return componentSheet(canvas);
     case "readyAll":
       return setPagesReady(
         useProject

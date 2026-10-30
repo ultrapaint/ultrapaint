@@ -41,7 +41,6 @@ import {
   Rows3,
   Scissors,
   Send,
-  Shapes,
   Smartphone,
   Split,
   Square,
@@ -93,7 +92,6 @@ type ActKind = MenuAction["act"]["kind"];
 
 /** The icon of an item, by what it does; those that differ by their argument are told below. */
 const ICONS: Partial<Record<ActKind, LucideIcon>> = {
-  componentSheet: Shapes,
   copy: Copy,
   copyName: Copy,
   copyRef: Copy,
@@ -125,7 +123,6 @@ const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
   moveTo: FolderInput,
   preset: MonitorSmartphone,
   send: Send,
-  toSystem: Shapes,
   variant: Split,
   wrap: Group,
 };

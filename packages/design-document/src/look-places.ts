@@ -103,7 +103,7 @@ export const withStyle = <L extends LookStyles>(
 };
 
 /** The places a field falls back to when a place does not set it, the nearest first. */
-export const fallbacksOf = ({ state, variant }: Place): Place[] => {
+const fallbacksOf = ({ state, variant }: Place): Place[] => {
   if (state && variant) {
     return [{ state, variant: null }, { state: null, variant }, BASE];
   }

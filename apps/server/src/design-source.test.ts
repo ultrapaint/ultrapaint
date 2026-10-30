@@ -284,13 +284,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(file.base.root?.fill, "$color-primary");
 
           // The design changes the look.
-          const look = {
-            base: { root: { fill: "#ff0000" } },
-            states: file.states,
-            variants: file.variants,
-          };
           yield* client["components.change"]({
-            change: { look, op: "setLook" },
+            change: {
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { fill: "#ff0000" },
+            },
             name: "Button",
           });
           const listed = yield* client["components.list"]();
@@ -347,10 +347,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           // A system component's look leaves out only an optional part, and templates only items.
           const fixedPart = yield* Effect.flip(
             client["components.change"]({
-              change: {
-                look: { ...look, hidden: ["root"] },
-                op: "setLook",
-              },
+              change: { hidden: true, op: "setHidden", part: "root" },
               name: "Button",
             })
           );
@@ -358,11 +355,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const noItems = yield* Effect.flip(
             client["components.change"]({
               change: {
-                look: {
-                  ...look,
-                  item: { tree: { children: [], id: "i", type: "row" } },
-                },
-                op: "setLook",
+                item: { tree: { children: [], id: "i", type: "row" } },
+                op: "setItem",
               },
               name: "Button",
             })
@@ -542,21 +536,19 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const taken = yield* client["components.fromDefault"]({
             name: "Badge",
           });
-          const look = taken.component;
-          assert(look?.origin === "system");
-          // A note added after the look inspector read the file, which saves its look after.
-          const note = yield* client["components.addNote"]({
+          assert(taken.component?.origin === "system");
+          // A note added after the look inspector read the file, which sets a style after.
+          const noted = yield* client["components.change"]({
+            change: { op: "addNote", text: "Reads its count aloud" },
             name: "Badge",
-            text: "Reads its count aloud",
           });
+          const note = noted.component?.notes?.at(-1) ?? { id: "" };
           const saved = yield* client["components.change"]({
             change: {
-              look: {
-                base: { ...look.base, root: { radius: 2 } },
-                states: look.states,
-                variants: look.variants,
-              },
-              op: "setLook",
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { radius: 2 },
             },
             name: "Badge",
           });

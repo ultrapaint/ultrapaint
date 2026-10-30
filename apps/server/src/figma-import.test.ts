@@ -248,10 +248,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           });
           assert.isNotTrue(mapped.result.isError);
           assert.deepStrictEqual(mapped.result.structuredContent.undecided, []);
-          const decided = mapped.result.structuredContent.mapping as {
-            from: string;
-          };
-          assert.isString(decided.from);
 
           const frame = yield* tool("read_figma_frame", { frame: "Login" });
           assert.isNotTrue(frame.result.isError);
@@ -283,7 +279,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(hero?.type, "image");
           assert.deepStrictEqual(instance, {
             component: "Button",
-            from: decided.from,
+            from: "@ultrapaint/system",
             id: instance?.id ?? "",
             name: "Button",
             props: { label: "Sign in", variant: "primary" },

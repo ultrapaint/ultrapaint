@@ -22,6 +22,7 @@ import {
   type ComponentProperty,
   componentFileOf,
   isVariantKey,
+  ROOT_SLOT,
   type SystemComponentFile,
   variantKey,
 } from "@ultrapaint/contracts/components";
@@ -44,6 +45,17 @@ import { Schema } from "effect";
 const decodeComponent = Schema.decodeUnknownResult(ComponentFile);
 
 const COMPONENT_NAME_RE = /^[A-Z][A-Za-z0-9]*$/;
+const SPACED_WORD_RE = /\s+(\w)/g;
+
+/** The name a new app component takes from what was typed: `Hero title` is `HeroTitle`. */
+export const appComponentName = (given: string) =>
+  given.trim().replace(SPACED_WORD_RE, (_, c: string) => c.toUpperCase());
+
+/** The parts a note can be about: a system component's, an app component's slots and nodes. */
+const partsOf = (component: ComponentFile): string[] =>
+  component.origin === "system"
+    ? (systemComponentOf(component.name)?.slots ?? []).map((s) => s.name)
+    : [...component.slots.map((s) => s.name), ...idsOf(component.tree)];
 
 /** A file's text as a component, or why it is not one. */
 export type ComponentRead =
@@ -412,59 +424,145 @@ const missing = (file: ComponentFile, what: string, name: string) => ({
 });
 
 /**
- * A component's file with a change made, or why it cannot be: a property, a slot or a note it
- * does not have, a look asked of an app component or properties of a system one. What the result
- * is checked for is `problemOf`'s.
+ * A component's file with a change made, or why it cannot be: a property, a slot, a part or a
+ * note it does not have, a look asked of an app component or properties of a system one. A note
+ * added takes `made.noteId`, which the server makes. What the result is checked for is
+ * `problemOf`'s.
  */
 export const changedComponent = (
   file: ComponentFile,
-  change: ComponentChange
+  change: ComponentChange,
+  made: { readonly noteId?: string } = {}
 ): Changed<ComponentFile> => {
-  if (change.op === "removeNote") {
-    const notes = file.notes ?? [];
-    return notes.some((n) => n.id === change.id)
-      ? { ...file, notes: notes.filter((n) => n.id !== change.id) }
-      : missing(file, "note", change.id);
-  }
-  if (change.op === "setLook") {
-    if (file.origin !== "system") {
-      return { problem: `${file.name} is an app component: it has no look` };
+  switch (change.op) {
+    case "addNote":
+      return withNote(file, change, made.noteId ?? "note");
+    case "removeNote": {
+      const notes = file.notes ?? [];
+      return notes.some((n) => n.id === change.id)
+        ? { ...file, notes: notes.filter((n) => n.id !== change.id) }
+        : missing(file, "note", change.id);
     }
-    const { content: _c, hidden: _h, item: _i, ...envelope } = file;
-    return { ...envelope, ...change.look };
+    case "setStyle":
+    case "setHidden":
+    case "setContent":
+    case "setItem":
+      return file.origin === "system"
+        ? looked(file, change)
+        : { problem: `${file.name} is an app component: it has no look` };
+    default:
+      return file.origin === "app"
+        ? changedApp(file, change)
+        : {
+            problem: `${file.name} is a system component's look: it has no properties or slots`,
+          };
   }
-  if (change.op === "setStyle") {
-    return styled(file, change);
-  }
-  if (file.origin !== "app") {
-    return {
-      problem: `${file.name} is a system component's look: it has no properties or slots`,
-    };
-  }
-  return changedApp(file, change);
 };
 
-/** One part's style set at one place of a system component's look, the rest as the file has it. */
-const styled = (
+/** A note added about a part, or the whole, of either origin. */
+const withNote = (
   file: ComponentFile,
-  change: Extract<ComponentChange, { op: "setStyle" }>
+  change: Extract<ComponentChange, { op: "addNote" }>,
+  id: string
 ): Changed<ComponentFile> => {
-  if (file.origin !== "system") {
-    return { problem: `${file.name} is an app component: it has no look` };
+  const text = change.text.trim();
+  if (text === "") {
+    return { problem: "say what the component must do" };
   }
-  const parts = (systemComponentOf(file.name)?.slots ?? []).map((s) => s.name);
-  return parts.includes(change.slot)
-    ? withStyle(file, change.place, change.slot, change.style)
-    : {
-        problem: `${file.name} has no part ${change.slot}; its parts are ${parts.join(", ")}`,
-      };
+  const { slot } = change;
+  const parts = partsOf(file);
+  if (slot !== undefined && !parts.includes(slot)) {
+    return {
+      problem: `${file.name} has no part ${slot}; its parts are ${parts.join(", ")}`,
+    };
+  }
+  return {
+    ...file,
+    notes: [
+      ...(file.notes ?? []),
+      { id, ...(slot !== undefined && slot !== ROOT_SLOT && { slot }), text },
+    ],
+  };
+};
+
+/** A record with one key set, or taken out with nothing; undefined when it is left empty. */
+const withKey = <V>(
+  record: Readonly<Record<string, V>> | undefined,
+  key: string,
+  value: V | undefined
+): Record<string, V> | undefined => {
+  const { [key]: _old, ...rest } = record ?? {};
+  const next = value === undefined ? rest : { ...rest, [key]: value };
+  return Object.keys(next).length === 0 ? undefined : next;
+};
+
+/** A system component's file with `key` set to `value`, or taken out when it is undefined. */
+const withField = <K extends "content" | "hidden" | "item">(
+  file: SystemComponentFile,
+  key: K,
+  value: SystemComponentFile[K] | undefined
+): SystemComponentFile => {
+  const { [key]: _old, ...rest } = file;
+  return (
+    value === undefined ? rest : { ...rest, [key]: value }
+  ) as SystemComponentFile;
+};
+
+/**
+ * One thing of a system component's look changed, the rest as the file has it: a part's style at
+ * a place, an optional part left out or shown, a slot's content, the items' template.
+ */
+const looked = (
+  file: SystemComponentFile,
+  change: Extract<
+    ComponentChange,
+    { op: "setStyle" | "setHidden" | "setContent" | "setItem" }
+  >
+): Changed<SystemComponentFile> => {
+  if (change.op === "setItem") {
+    return withField(file, "item", change.item ?? undefined);
+  }
+  const part = change.op === "setHidden" ? change.part : change.slot;
+  const parts = partsOf(file);
+  if (!parts.includes(part)) {
+    return {
+      problem: `${file.name} has no part ${part}; its parts are ${parts.join(", ")}`,
+    };
+  }
+  switch (change.op) {
+    case "setStyle":
+      return withStyle(file, change.place, change.slot, change.style);
+    case "setHidden": {
+      const others = (file.hidden ?? []).filter((p) => p !== part);
+      const hidden = change.hidden ? [...others, part] : others;
+      return withField(file, "hidden", hidden.length > 0 ? hidden : undefined);
+    }
+    default:
+      return withField(
+        file,
+        "content",
+        withKey(
+          file.content,
+          part,
+          change.nodes.length > 0 ? change.nodes : undefined
+        )
+      );
+  }
 };
 
 const changedApp = (
   file: AppComponentFile,
   change: Exclude<
     ComponentChange,
-    { op: "removeNote" | "setLook" | "setStyle" }
+    {
+      op:
+        | "addNote"
+        | "removeNote"
+        | "setStyle"
+        | "setHidden"
+        | "setContent"
+        | "setItem";
+    }
   >
 ): Changed<AppComponentFile> => {
   switch (change.op) {

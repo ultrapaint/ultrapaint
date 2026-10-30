@@ -131,7 +131,7 @@ const borderCss = (
 };
 
 /** The CSS of one part's style as declarations, kebab-case property to value, tokens resolved. */
-export const partStyleCss = (
+const partStyleCss = (
   style: PartStyle,
   ctx: StyleContext
 ): Record<string, string> => {

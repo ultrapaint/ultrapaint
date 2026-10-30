@@ -36,11 +36,6 @@ import {
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
-import {
-  asSystemComponent,
-  isRepositoryInstance,
-} from "@ultrapaint/system-components/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
 import {
   appComponentOf,
@@ -564,31 +559,6 @@ export const nodesOf = (targets: readonly Selection[]) => {
       ? [{ doc: docOfFrame(t.frame, canvas), frame: t.frame, node }]
       : [];
   });
-};
-
-/**
- * Instances of the repository's components drawn as a system component (ADR 0040), each where it was:
- * its props, children and text kept where the system component has them (`migrate.ts`).
- */
-export const replaceWithSystemComponent = (
-  name: string,
-  target?: Selection
-) => {
-  const meta = systemComponentOf(name);
-  const byDoc = new Map<string, DocOp[]>();
-  for (const { doc, node } of nodesOf(outermost(actedOn(target)))) {
-    if (!(meta && isRepositoryInstance(node))) {
-      continue;
-    }
-    byDoc.set(doc, [
-      ...(byDoc.get(doc) ?? []),
-      { ids: [node.id], node: asSystemComponent(node, meta), op: "replace" },
-    ]);
-  }
-  const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
-  return edits.length > 0
-    ? applyEdits(edits, `Draw as ${name}`)
-    : Promise.resolve(null);
 };
 
 /**

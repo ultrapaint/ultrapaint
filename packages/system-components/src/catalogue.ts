@@ -77,14 +77,11 @@ export interface SystemComponentMeta {
 const prop = (
   name: string,
   kind: PropMeta["type"]["kind"],
-  description: string,
-  extra: Partial<Omit<PropMeta, "name" | "type" | "description">> & {
+  extra: Pick<PropMeta, "defaultValue"> & {
     readonly members?: readonly string[];
   } = {}
 ): PropMeta => ({
-  description,
   name,
-  required: extra.required ?? false,
   type: {
     kind,
     ...(extra.members && { members: extra.members }),
@@ -94,25 +91,17 @@ const prop = (
   }),
 });
 
-const text = (name: string, description: string, defaultValue?: string) =>
-  prop(name, "string", description, {
+const text = (name: string, defaultValue?: string) =>
+  prop(name, "string", {
     ...(defaultValue !== undefined && { defaultValue }),
   });
-const flag = (name: string, description: string) =>
-  prop(name, "boolean", description, { defaultValue: false });
-const choice = (
-  name: string,
-  members: readonly string[],
-  description: string
-) => prop(name, "enum", description, { defaultValue: members[0], members });
-const list = (name: string, description: string) =>
-  prop(name, "list", description);
+const flag = (name: string) => prop(name, "boolean", { defaultValue: false });
+const choice = (name: string, members: readonly string[]) =>
+  prop(name, "enum", { defaultValue: members[0], members });
+const list = (name: string) => prop(name, "list");
 
-const OPEN = flag(
-  "open",
-  "Drawn open. In the prototype it starts open, and the user opens and closes it."
-);
-const DISABLED = flag("disabled", "Drawn disabled: it takes no input.");
+const OPEN = flag("open");
+const DISABLED = flag("disabled");
 
 const BUTTON_VARIANTS = [
   "primary",
@@ -133,14 +122,10 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "inline",
     name: "Button",
     props: [
-      choice("variant", BUTTON_VARIANTS, "How much it stands out."),
-      choice(
-        "size",
-        [...SIZES, "icon"],
-        "Its height and padding; `icon` is square."
-      ),
+      choice("variant", BUTTON_VARIANTS),
+      choice("size", [...SIZES, "icon"]),
       DISABLED,
-      flag("loading", "Shows a spinner before its label and takes no input."),
+      flag("loading"),
     ],
     slots: [
       { holds: "default", label: "Button", layout: "row", name: ROOT_SLOT },
@@ -157,11 +142,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "inline",
     name: "Badge",
     props: [
-      choice(
-        "variant",
-        ["default", "secondary", "outline", "destructive"],
-        "How much it stands out."
-      ),
+      choice("variant", ["default", "secondary", "outline", "destructive"]),
     ],
     slots: [
       { holds: "default", label: "Badge", layout: "row", name: ROOT_SLOT },
@@ -176,7 +157,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: {},
     layer: "inline",
     name: "Spinner",
-    props: [choice("size", SIZES, "How big it is.")],
+    props: [choice("size", SIZES)],
     slots: [{ label: "Spinner", name: ROOT_SLOT }],
     states: [],
     variants: { size: SIZES },
@@ -187,11 +168,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { fallback: "AL" },
     layer: "inline",
     name: "Avatar",
-    props: [
-      text("src", "The picture's URL or a path in the canvas."),
-      text("fallback", "What shows without a picture: initials.", "AL"),
-      choice("size", SIZES, "How big it is."),
-    ],
+    props: [text("src"), text("fallback", "AL"), choice("size", SIZES)],
     slots: [
       { label: "Avatar", name: ROOT_SLOT },
       { label: "Image", name: "avatar-image" },
@@ -207,10 +184,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { description: "A short description.", title: "Card title" },
     layer: "inline",
     name: "Card",
-    props: [
-      text("title", "The header's title; the header slot replaces it."),
-      text("description", "The line under the title."),
-    ],
+    props: [text("title"), text("description")],
     slots: [
       { label: "Card", name: ROOT_SLOT },
       {
@@ -238,9 +212,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { orientation: "horizontal" },
     layer: "inline",
     name: "Separator",
-    props: [
-      choice("orientation", ["horizontal", "vertical"], "Which way it runs."),
-    ],
+    props: [choice("orientation", ["horizontal", "vertical"])],
     slots: [{ label: "Separator", name: ROOT_SLOT }],
     states: [],
     variants: { orientation: ["horizontal", "vertical"] },
@@ -252,17 +224,21 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "inline",
     name: "Input",
     props: [
-      text("label", "The label above the field."),
-      text("placeholder", "What the empty field says."),
-      text("value", "The text in the field."),
-      choice(
-        "type",
-        ["text", "email", "password", "number", "search", "url", "tel"],
-        "What the field asks for."
-      ),
-      choice("size", SIZES, "Its height."),
+      text("label"),
+      text("placeholder"),
+      text("value"),
+      choice("type", [
+        "text",
+        "email",
+        "password",
+        "number",
+        "search",
+        "url",
+        "tel",
+      ]),
+      choice("size", SIZES),
       DISABLED,
-      flag("invalid", "Drawn as wrong."),
+      flag("invalid"),
     ],
     slots: [
       { label: "Field", name: ROOT_SLOT },
@@ -280,14 +256,14 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "inline",
     name: "Textarea",
     props: [
-      text("label", "The label above the field."),
-      text("placeholder", "What the empty field says."),
-      text("value", "The text in the field."),
-      prop("rows", "number", "How many lines it shows.", {
+      text("label"),
+      text("placeholder"),
+      text("value"),
+      prop("rows", "number", {
         defaultValue: 3,
       }),
       DISABLED,
-      flag("invalid", "Drawn as wrong."),
+      flag("invalid"),
     ],
     slots: [
       { label: "Field", name: ROOT_SLOT },
@@ -303,11 +279,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { label: "Remember me" },
     layer: "inline",
     name: "Checkbox",
-    props: [
-      text("label", "The text beside it."),
-      flag("checked", "Drawn ticked."),
-      DISABLED,
-    ],
+    props: [text("label"), flag("checked"), DISABLED],
     slots: [
       { label: "Field", name: ROOT_SLOT },
       { label: "Box", name: "checkbox" },
@@ -323,11 +295,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { label: "Notifications" },
     layer: "inline",
     name: "Switch",
-    props: [
-      text("label", "The text beside it."),
-      flag("checked", "Drawn on."),
-      DISABLED,
-    ],
+    props: [text("label"), flag("checked"), DISABLED],
     slots: [
       { label: "Field", name: ROOT_SLOT },
       { label: "Track", name: "switch" },
@@ -344,10 +312,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { items: ["Overview", "Activity", "Settings"], value: "Overview" },
     layer: "inline",
     name: "Tabs",
-    props: [
-      list("items", "The tabs' labels, in order."),
-      text("value", "The selected tab's label; the first when left out."),
-    ],
+    props: [list("items"), text("value")],
     slots: [
       { label: "Tabs", name: ROOT_SLOT },
       { label: "List", name: "tabs-list" },
@@ -369,10 +334,10 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "anchored",
     name: "Select",
     props: [
-      text("label", "The label above the trigger."),
-      list("items", "The options, in order."),
-      text("value", "The chosen option; the placeholder shows when left out."),
-      text("placeholder", "What the trigger says while nothing is chosen."),
+      text("label"),
+      list("items"),
+      text("value"),
+      text("placeholder"),
       OPEN,
       DISABLED,
     ],
@@ -397,15 +362,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     example: { items: ["Profile", "Settings", "-", "Sign out"] },
     layer: "anchored",
     name: "Menu",
-    props: [
-      list("items", "The actions, in order; `-` is a separator."),
-      choice(
-        "align",
-        ["start", "center", "end"],
-        "Where it lines up with the trigger."
-      ),
-      OPEN,
-    ],
+    props: [list("items"), choice("align", ["start", "center", "end"]), OPEN],
     slots: [
       { holds: "default", label: "Trigger", layout: "row", name: ROOT_SLOT },
       { label: "Popup", name: "menu-popup" },
@@ -425,12 +382,8 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "anchored",
     name: "Popover",
     props: [
-      text("title", "The panel's title."),
-      choice(
-        "side",
-        ["bottom", "top", "left", "right"],
-        "Which side of the trigger it opens on."
-      ),
+      text("title"),
+      choice("side", ["bottom", "top", "left", "right"]),
       OPEN,
     ],
     slots: [
@@ -455,12 +408,8 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "anchored",
     name: "Tooltip",
     props: [
-      text("content", "What it says.", "A helpful hint"),
-      choice(
-        "side",
-        ["top", "bottom", "left", "right"],
-        "Which side of the trigger it shows on."
-      ),
+      text("content", "A helpful hint"),
+      choice("side", ["top", "bottom", "left", "right"]),
       OPEN,
     ],
     slots: [
@@ -482,12 +431,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     },
     layer: "blocking",
     name: "Dialog",
-    props: [
-      text("title", "The header's title; the header slot replaces it."),
-      text("description", "The line under the title."),
-      choice("size", SIZES, "How wide it is on a wide page."),
-      OPEN,
-    ],
+    props: [text("title"), text("description"), choice("size", SIZES), OPEN],
     slots: [
       { holds: "nodes", label: "Trigger", layout: "row", name: "trigger" },
       { label: "Backdrop", name: "dialog-backdrop" },
@@ -520,9 +464,9 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     layer: "anchored",
     name: "Toast",
     props: [
-      text("title", "What happened."),
-      text("description", "More about it."),
-      choice("variant", ["default", "destructive"], "What kind of news it is."),
+      text("title"),
+      text("description"),
+      choice("variant", ["default", "destructive"]),
       OPEN,
     ],
     slots: [
@@ -598,12 +542,7 @@ const systemEntryOf = (
 /** A property as a catalogue's prop: what the inspector edits and an agent reads. */
 const propOf = (property: ComponentProperty): PropMeta => ({
   defaultValue: property.default,
-  description:
-    property.kind === "image"
-      ? "An image's source: a path in the canvas or a URL."
-      : `The ${property.kind} the component shows.`,
   name: property.name,
-  required: false,
   type:
     property.kind === "choice"
       ? { kind: "enum", members: property.members ?? [] }

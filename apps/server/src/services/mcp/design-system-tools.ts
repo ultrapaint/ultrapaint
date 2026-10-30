@@ -87,17 +87,11 @@ export const GetComponent = Tool.make("get_component", {
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({
     description: Schema.optional(Schema.String),
-    /** An instance node that uses it, ready for apply_operations. */
+    /** An instance node that uses it, ready for apply_operations: its `from` says its origin. */
     example: Json,
-    importFrom: Schema.String,
     name: Schema.String,
-    props: Schema.Array(
-      Schema.Struct({
-        name: Schema.String,
-        required: Schema.Boolean,
-        type: Schema.String,
-      })
-    ),
+    /** Each prop with its type: `size: "md" | "sm"`. */
+    props: Schema.Array(Schema.String),
     /** The parts its children fill, by name (`*` the default), and how each lays them out. */
     slots: Schema.Array(Schema.String),
     variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
@@ -136,13 +130,10 @@ export const designSystemToolHandlers = Effect.gen(function* () {
           description: component.description,
         }),
         example: asJson(example),
-        importFrom: component.importFrom,
         name: component.name,
-        props: component.props.map((prop) => ({
-          name: prop.name,
-          required: prop.required,
-          type: typeText(prop.type),
-        })),
+        props: component.props.map(
+          (prop) => `${prop.name}: ${typeText(prop.type)}`
+        ),
         slots: component.slots.flatMap((slot) =>
           slot.holds === undefined
             ? []

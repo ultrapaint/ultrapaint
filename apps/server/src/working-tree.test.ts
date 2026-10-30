@@ -60,12 +60,10 @@ describe("WorkingTree", () => {
     WorkingTree.layer.pipe(
       Layer.provide(
         RepoPaths.layer({
-          componentPackages: [],
           designsDir: "designs",
           hostCss: [],
           libraryDirs: [],
           repoPath: root,
-          theme: "light",
         })
       ),
       Layer.provide(

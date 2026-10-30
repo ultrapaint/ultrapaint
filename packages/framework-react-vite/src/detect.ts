@@ -7,8 +7,10 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { LibrarySuggestion } from "@ultrapaint/contracts/setup";
-import type { Detect } from "@ultrapaint/framework-api/node";
+import type {
+  LibrarySuggestion,
+  SetupSuggestions,
+} from "@ultrapaint/contracts/setup";
 import { toPosix } from "@ultrapaint/shared/path";
 
 const MAX_DEPTH = 5;
@@ -159,7 +161,17 @@ const best = <T>(items: Scored<T>[]): T[] =>
     .slice(0, MAX_SUGGESTIONS)
     .map((i) => i.value);
 
-export const detect: Detect = (root) => {
+/** What the setup proposes of a repository's application, the stylesheets aside. */
+export type Detected = Pick<
+  SetupSuggestions,
+  "anchors" | "designsDirs" | "libraries" | "rootManifest"
+>;
+
+/**
+ * What is recognised of a repository's React application; null when it has none. Synchronous and
+ * read-only: it looks at manifests and file names, never runs anything.
+ */
+export const detect = (root: string): Detected | null => {
   const packages = findPackages(root);
   const reactPackages = packages.filter(usesReact);
   if (reactPackages.length === 0) {

@@ -36,7 +36,7 @@ describe("toCode", () => {
         },
         {
           component: "Button",
-          from: "@acme/ui/button",
+          from: SYSTEM_FROM,
           id: "b",
           padding: 8,
           text: "Go",
@@ -47,7 +47,7 @@ describe("toCode", () => {
       type: "page",
     };
     expect(toCode(page, writer, { component: "HomePage" })).toBe(
-      `import { Button } from "@acme/ui/button";
+      `import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (

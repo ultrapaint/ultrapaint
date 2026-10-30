@@ -34,7 +34,7 @@ const page = (children: DesignNode[]): PageNode => ({
 
 const button = (fields: Partial<InstanceNode> = {}): InstanceNode => ({
   component: "Button",
-  from: "@ui/button",
+  from: "@ultrapaint/system",
   id: "btn",
   type: "instance",
   ...fields,

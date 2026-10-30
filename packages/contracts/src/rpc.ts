@@ -12,7 +12,6 @@ import {
   ComponentChange,
   ComponentEntry,
   ComponentList,
-  ComponentNote,
 } from "./components.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
 import { DesignSystemEditInput } from "./design-system-edit.ts";
@@ -768,16 +767,6 @@ const requestRpcs = [
     error: EditError,
     payload: { name: Schema.String },
   }),
-  /** A behaviour note added to a component, about a part or the whole of it (ADR 0030). */
-  Rpc.make("components.addNote", {
-    error: EditError,
-    payload: {
-      name: Schema.String,
-      slot: Schema.optional(Schema.String),
-      text: Schema.String,
-    },
-    success: ComponentNote,
-  }),
   /**
    * Nodes of a page made an app component (ADR 0041): they become its tree, and an instance of it
    * takes their place. One undo step.
@@ -802,19 +791,6 @@ const requestRpcs = [
     success: ComponentEntry,
   }),
 
-  /**
-   * Everything from before brought up to date, as one undo step (ADRs 0040, 0041): instances of
-   * the repository's components, of system components and drafts as they were named, and the
-   * specs' files, with their implementations: the `Migration`'s.
-   */
-  Rpc.make("migration.run", {
-    error: EditError,
-    success: Schema.Struct({
-      components: Schema.Number,
-      documents: Schema.Number,
-      drawn: Schema.Number,
-    }),
-  }),
   /** Every page and component, with whether it is ready, implemented, or changed since (ADR 0030). */
   Rpc.make("implementation.list", {
     error: NotConfigured,

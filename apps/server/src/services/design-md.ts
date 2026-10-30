@@ -10,7 +10,10 @@
  * DESIGN.md is in `sync-sides.ts`.
  */
 
-import { systemComponentsIn } from "@ultrapaint/contracts/components";
+import {
+  componentsIn,
+  systemComponentsIn,
+} from "@ultrapaint/contracts/components";
 import {
   DESIGN_MD_FILE,
   DESIGN_NOTES_FILE,
@@ -44,7 +47,7 @@ import {
   Stream,
 } from "effect";
 import { makeStampedCache } from "../file-stamp.ts";
-import { componentsIn, readComponents } from "./components.ts";
+import { readComponents } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
 import { withAgreement } from "./design-system-files.ts";
@@ -250,7 +253,9 @@ export class DesignMd extends Context.Service<
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path)
         );
-        const looks = looksOf(systemComponentsIn(componentsIn(list)));
+        const looks = looksOf(
+          systemComponentsIn(componentsIn(list.components))
+        );
         return mirrorOf(ds, componentEntries(looks)).groups;
       });
 

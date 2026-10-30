@@ -739,7 +739,6 @@ describe("the editor's requests on a project", () => {
             "implement",
             "import-figma",
             "redraw",
-            "components",
             "design-system",
             "sync",
           ]

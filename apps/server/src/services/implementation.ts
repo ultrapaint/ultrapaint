@@ -8,9 +8,10 @@
  */
 
 import type { Comment } from "@ultrapaint/contracts/comments";
-import type {
-  ComponentFile,
-  ComponentNote,
+import {
+  type ComponentFile,
+  type ComponentNote,
+  componentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -50,7 +51,7 @@ import { EventBus } from "../events.ts";
 import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
-import { componentsIn, readComponents } from "./components.ts";
+import { readComponents } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
@@ -121,8 +122,6 @@ export interface Current {
   readonly snapshot: Implemented;
   readonly target: string;
 }
-
-export type { EntryEdit } from "./implementation-files.ts";
 
 /** What telling which tokens a design waits on needs, read once for a whole list. */
 interface TokenContext {
@@ -291,16 +290,6 @@ export class ImplementationService extends Context.Service<
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
-    /**
-     * Entries changed inside another action, in its undo step (the migration's): `edits` gives
-     * the changes from the entries as they are in it.
-     */
-    readonly editIn: (
-      tx: EditTransaction,
-      edits: (
-        items: Readonly<Record<string, ImplementationEntry>>
-      ) => readonly EntryEdit[]
-    ) => Effect.Effect<void, EditFailure>;
   }
 >()("ultrapaint/server/ImplementationService") {
   static readonly layer = Layer.effect(
@@ -320,7 +309,7 @@ export class ImplementationService extends Context.Service<
       const fileRel = paths.relative(fileAbs);
       // The components as their files have them; read here, below `ComponentService`.
       const componentsNow = readComponents(paths.designsDir).pipe(
-        Effect.map(componentsIn),
+        Effect.map((l) => componentsIn(l.components)),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path)
       );
@@ -530,15 +519,21 @@ export class ImplementationService extends Context.Service<
           items: Readonly<Record<string, ImplementationEntry>>
         ) => readonly EntryEdit[]
       ) {
-        // Read in the action, so a change made meanwhile is kept.
-        const file = yield* readFile;
+        // Read in the action, so a change made meanwhile is kept. One that does not read is
+        // written whole by the first mark.
+        const file = yield* tx
+          .readDocument(fileRel, implementationCodec)
+          .pipe(Effect.catchTag("Conflict", () => Effect.succeed(emptyFile())));
         const edits = editsOf(file.items);
         if (edits.length === 0) {
           return;
         }
         yield* tx.write(
           fileRel,
-          serialise({ items: withEdits(file.items, edits), version: 1 })
+          implementationCodec.encode({
+            items: withEdits(file.items, edits),
+            version: 1,
+          })
         );
         for (const { snapshot } of edits) {
           if (snapshot) {
@@ -797,7 +792,6 @@ export class ImplementationService extends Context.Service<
       return ImplementationService.of({
         changes,
         current,
-        editIn,
         implemented,
         item,
         list,

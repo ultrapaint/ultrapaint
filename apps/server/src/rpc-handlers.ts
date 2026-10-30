@@ -20,7 +20,6 @@ import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
-import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
@@ -73,7 +72,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const skills = open.service(SkillsService);
     const figma = open.service(FigmaImportService);
     const components = open.service(ComponentService);
-    const migration = open.service(Migration);
     const implementation = open.service(ImplementationService);
 
     // Every event as the bus carries it, but a screenshot request: an editor listening for those
@@ -130,8 +128,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.list": ({ canvas }) => comments((c) => c.list(canvas)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
-      "components.addNote": ({ name, slot, text }) =>
-        components((c) => c.addNote(name, text, slot)),
       "components.change": ({ change, name }) =>
         components((c) => c.change(name, change)),
       "components.create": ({ name }) => components((c) => c.create(name)),
@@ -202,7 +198,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         implementation((s) => s.unbind(target)),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
       "mcp.connection": () => access.connection,
-      "migration.run": () => migration((m) => m.run),
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>

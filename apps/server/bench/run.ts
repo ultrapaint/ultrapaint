@@ -305,13 +305,11 @@ const program = Effect.gen(function* () {
     // The designs directory has to be there before the settings can name it.
     mkdirSync(designs, { recursive: true });
     const validation = yield* client["settings.set"]({
-      componentPackages: ["@ultrapaint/web"],
       designsDir: designsRel,
       hostCss: ["../../../apps/web/src/styles.css"],
       libraryDirs: ["apps/web/src/components"],
       repoPath: repo,
       resolveFrom: "apps/web",
-      theme: "light",
     });
     yield* Effect.log(`settings: ${JSON.stringify(validation)}`);
     yield* openEditor(`http://127.0.0.1:${port}/`);
