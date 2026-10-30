@@ -86,10 +86,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     // is one that can draw, which the screenshots count.
     const eventHandlers = {
       ...(Object.fromEntries(
-        eventNames.map((name) => [
-          `events.${name}`,
-          () => events.subscribe(name),
-        ])
+        eventNames.map((name) => [`events.${name}`, () => events.follow(name)])
       ) as {
         readonly [E in EventName as `events.${E}`]: () => Stream.Stream<
           EventPayload<E>
