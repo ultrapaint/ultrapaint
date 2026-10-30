@@ -2,7 +2,6 @@ import type { SystemLook } from "@ultrapaint/contracts/components";
 import { describe, expect, it } from "vitest";
 import {
   BASE,
-  fallbacksOf,
   inheritedAt,
   type Place,
   placeLabel,
@@ -68,16 +67,6 @@ describe("a look's places", () => {
     expect(
       withStyle(look, { state: null, variant: outline }, "root", {}).variants
     ).toEqual({});
-  });
-
-  it("falls back from a state in a member to the state, the member and the base", () => {
-    expect(fallbacksOf(outlineHover).map(placeLabel)).toEqual([
-      "hover",
-      "outline",
-      "base",
-    ]);
-    expect(fallbacksOf({ state: "hover", variant: null })).toEqual([BASE]);
-    expect(fallbacksOf(BASE)).toEqual([]);
   });
 
   it("says what each field takes and from where, the default look last", () => {

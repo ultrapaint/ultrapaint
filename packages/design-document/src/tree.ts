@@ -119,11 +119,6 @@ export const findPath = (
   return null;
 };
 
-export const parentOf = (
-  root: DesignNode | null | undefined,
-  id: string
-): DesignNode | null => findPath(root, id)?.at(-2) ?? null;
-
 /** Every node, depth first, parents before their children. */
 export function* walk(root: DesignNode): Generator<DesignNode> {
   yield root;
