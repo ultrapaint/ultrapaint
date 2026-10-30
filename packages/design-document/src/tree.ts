@@ -190,31 +190,60 @@ export const canvasRoot = (nodes: readonly DesignNode[]): GroupNode => ({
   type: "group",
 });
 
-/** Whether two JSON values are the same value. */
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * Whether two JSON values are the same value, whatever the order of their keys: a key set to
+ * undefined is a key left out, as it is once the value is written as JSON. The one equality of
+ * trees, for the editors' patches and the agents' diff alike.
+ */
 export const sameJson = (a: unknown, b: unknown): boolean => {
   if (a === b) {
     return true;
   }
-  if (
-    typeof a !== "object" ||
-    typeof b !== "object" ||
-    a === null ||
-    b === null ||
-    Array.isArray(a) !== Array.isArray(b)
-  ) {
-    return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, i) => sameJson(item, b[i]));
   }
-  const ka = Object.keys(a);
-  const kb = Object.keys(b);
-  return (
-    ka.length === kb.length &&
-    ka.every((k) =>
-      sameJson(
-        (a as Record<string, unknown>)[k],
-        (b as Record<string, unknown>)[k]
-      )
-    )
-  );
+  if (isRecord(a) && isRecord(b)) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    return Array.from(keys).every((key) => sameJson(a[key], b[key]));
+  }
+  return false;
+};
+
+/** A node of a tree with where it sits: its parent's id, null for the root, and its index. */
+export interface IndexedNode {
+  readonly index: number;
+  readonly node: DesignNode;
+  readonly parent: string | null;
+}
+
+/**
+ * Every node of a tree by id with where it sits, in the order a tree is read; `repeated` when an
+ * id is there more than once, the first one kept.
+ */
+export const indexTree = (
+  root: DesignNode
+): { readonly nodes: Map<string, IndexedNode>; readonly repeated: boolean } => {
+  const nodes = new Map<string, IndexedNode>();
+  let repeated = false;
+  const stack: IndexedNode[] = [{ index: 0, node: root, parent: null }];
+  for (let entry = stack.pop(); entry; entry = stack.pop()) {
+    if (nodes.has(entry.node.id)) {
+      repeated = true;
+      continue;
+    }
+    nodes.set(entry.node.id, entry);
+    const parent = entry.node.id;
+    // Pushed last first, so the nodes come in the order a tree is read.
+    stack.push(
+      ...childrenOf(entry.node)
+        .map((node, index) => ({ index, node, parent }))
+        .toReversed()
+    );
+  }
+  return { nodes, repeated };
 };
 
 /**
