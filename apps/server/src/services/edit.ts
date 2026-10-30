@@ -95,8 +95,22 @@ export type EditFailure =
   | BadRequest;
 
 /**
+ * How a file of the designs is read and written: what its text holds, and the text a value is
+ * written as. `decode` is given null for a file that is not there.
+ */
+export interface FileCodec<A, E = never> {
+  readonly decode: (text: string | null) => Effect.Effect<A, E>;
+  readonly encode: (value: A) => string;
+}
+
+/**
  * What an action does to files inside a transaction. Every change is recorded, and the whole
  * transaction becomes one undo step.
+ *
+ * Read-modify-write is one rule: whatever a step writes from a file's content, it reads inside
+ * the step (`read`, `readDocument`, `updateFile`), under the journal's lock. An edit, an undo, a
+ * comment or another action made meanwhile then lands before the step or after it, never between
+ * its reading and its writing, so nothing is lost and no module needs a lock of its own for it.
  */
 export interface EditTransaction {
   /** A new file; there must not be one there yet. */
@@ -109,6 +123,13 @@ export interface EditTransaction {
    * change carried into the steps (a comment added since) names the file as each step had it.
    */
   readonly move: (from: string, to: string) => Effect.Effect<void, EditFailure>;
+  /** The file as it is now, the step's own writes included: its text, or null when there is none. */
+  readonly read: (rel: string) => Effect.Effect<string | null, EditFailure>;
+  /** The file as it is now, read as the codec says. */
+  readonly readDocument: <A, E>(
+    rel: string,
+    codec: FileCodec<A, E>
+  ) => Effect.Effect<A, E | EditFailure>;
   readonly remove: (rel: string) => Effect.Effect<void, EditFailure>;
   /** Writes the file as given, whether it exists or not. Writing what is there changes nothing. */
   readonly write: (
@@ -116,6 +137,21 @@ export interface EditTransaction {
     content: string
   ) => Effect.Effect<void, EditFailure>;
 }
+
+/**
+ * Changes a file inside a step: read as the codec says, made into its next value by `f`, and
+ * written back, which changes nothing when its text is what is there. Answers with the value as
+ * it was.
+ */
+export const updateFile = <A, E>(
+  tx: EditTransaction,
+  rel: string,
+  codec: FileCodec<A, E>,
+  f: (value: A) => A
+): Effect.Effect<A, E | EditFailure> =>
+  Effect.flatMap(tx.readDocument(rel, codec), (value) =>
+    Effect.as(tx.write(rel, codec.encode(f(value))), value)
+  );
 
 /**
  * Writes design files: atomic writes and one undo journal for everything the editor changes —
@@ -342,7 +378,17 @@ export class EditService extends Context.Service<
           moves.push({ from, to });
         });
 
-        const tx: EditTransaction = { create, move, remove, write };
+        const readDocument = <A, E>(rel: string, codec: FileCodec<A, E>) =>
+          Effect.flatMap(current(rel), codec.decode);
+
+        const tx: EditTransaction = {
+          create,
+          move,
+          read: current,
+          readDocument,
+          remove,
+          write,
+        };
         return {
           changes: () => changes.filter((c) => c.before !== c.after),
           moves: () => [...moves],
