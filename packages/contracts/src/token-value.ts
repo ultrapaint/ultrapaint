@@ -504,6 +504,66 @@ export const hexOf = (color: Color): string => {
   return `#${byte(r)}${byte(g)}${byte(b)}${a < 1 ? byte(a) : ""}`;
 };
 
+/**
+ * A colour's relative luminance as WCAG 2 defines it, from 0 (black) to 1 (white): its sRGB
+ * channels made linear and weighed. Out of gamut is clamped; alpha is not counted.
+ */
+export const relativeLuminance = (color: Color): number => {
+  const [r, g, b] = each(unclampedSrgb(color), (n) => srgbToLinear(clamp01(n)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/**
+ * WCAG 2's contrast ratio between two colours' CSS, from 1 to 21; null when either is not a
+ * colour this reads (`var()`, `color-mix()`).
+ */
+export const contrastRatio = (a: string, b: string): number | null => {
+  const x = parseColor(a);
+  const y = parseColor(b);
+  if (!(x && y)) {
+    return null;
+  }
+  const [hi, lo] = [relativeLuminance(x), relativeLuminance(y)].sort(
+    (m, n) => n - m
+  ) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** Linear sRGB to OKLab, through its cone responses: `oklabToLinearSrgb` the other way. */
+const linearSrgbToOklab = ([r, g, b]: Vec): Vec => {
+  const l = Math.cbrt(
+    0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b
+  );
+  const m = Math.cbrt(
+    0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b
+  );
+  const s = Math.cbrt(
+    0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b
+  );
+  return [
+    0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s,
+    1.977_998_495_1 * l - 2.428_592_205 * m + 0.450_593_709_9 * s,
+    0.025_904_037_1 * l + 0.782_771_766_2 * m - 0.808_675_766 * s,
+  ];
+};
+
+/**
+ * A colour as OKLCH: its lightness from 0 to 1, its chroma and its hue in degrees (0 for a grey),
+ * through sRGB as it is drawn, out of gamut as it may be.
+ */
+export const toOklch = (
+  color: Color
+): readonly [lightness: number, chroma: number, hue: number] => {
+  const [l, a, b] = linearSrgbToOklab(each(unclampedSrgb(color), srgbToLinear));
+  const chroma = Math.hypot(a, b);
+  const hue = chroma < 1e-4 ? 0 : (Math.atan2(b, a) * 180) / Math.PI;
+  return [l, chroma, (hue + 360) % 360];
+};
+
+/** Whether a colour is drawn as it is in sRGB, within a hair of its edges. */
+export const inSrgbGamut = (color: Color): boolean =>
+  unclampedSrgb(color).every((n) => n >= -1e-4 && n <= 1 + 1e-4);
+
 /** A colour's CSS in its own space's function: `rgb()` for sRGB, `color()` for a predefined one. */
 export const printColor = (color: Color): string => {
   const num = (n: number) => formatNumber(n, 6);
