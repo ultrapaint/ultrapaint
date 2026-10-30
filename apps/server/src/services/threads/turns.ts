@@ -4,6 +4,7 @@
  * said before the session). A thread's title and scope come from its first prompt. The turn
  * itself, its queue and its end are the thread session's (`thread-session.ts`).
  */
+import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
 import type {
   BoardAttachment,
@@ -155,7 +156,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
           {
             name: a.file,
             type: "resource_link",
-            uri: `file://${abs}`,
+            uri: pathToFileURL(abs).href,
           } satisfies ContentBlock,
         ]
       : [text];
@@ -177,7 +178,11 @@ export const makePromptContent = Effect.fnUntraced(function* () {
           () => ""
         );
         blocks.push({
-          resource: { mimeType: "text/plain", text, uri: `file://${abs}` },
+          resource: {
+            mimeType: "text/plain",
+            text,
+            uri: pathToFileURL(abs).href,
+          },
           type: "resource",
         });
         labels.push(a.path);
@@ -188,7 +193,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
             text: `The user has selected the node "${a.name}" (id ${a.nodeId}) in ${a.file} on the design canvas. Edits should target this node unless told otherwise.`,
             type: "text",
           },
-          { name: a.file, type: "resource_link", uri: `file://${abs}` }
+          { name: a.file, type: "resource_link", uri: pathToFileURL(abs).href }
         );
         labels.push(`${a.name} @ ${a.file}`);
       } else if (a.kind === "board") {

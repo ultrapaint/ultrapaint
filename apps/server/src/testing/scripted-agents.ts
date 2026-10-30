@@ -12,6 +12,7 @@ import {
 } from "@ultrapaint/acp/scripted-agent";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer, Queue } from "effect";
+import { ServerConfig } from "../config.ts";
 import {
   AgentLauncher,
   type AgentLaunchOptions,
@@ -44,6 +45,7 @@ export class ScriptedAgents extends Context.Service<
   /** The agents, and the launcher that starts them. */
   static readonly layer = Layer.effectContext(
     Effect.gen(function* () {
+      const { version } = yield* ServerConfig;
       const started = yield* Queue.unbounded<LaunchedAgent>();
       const scripts = new Map<string | undefined, AgentScript>();
       let count = 0;
@@ -52,6 +54,7 @@ export class ScriptedAgents extends Context.Service<
         count += 1;
         const handlers = yield* options.handlers((command) => command);
         const { agent, control } = yield* makeScriptedAgent({
+          clientVersion: version,
           handlers,
           name: `${options.config.id}-${count}`,
           script: scripts.get(options.config.id) ?? scripts.get(undefined),

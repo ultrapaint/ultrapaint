@@ -41,6 +41,7 @@ const program = Effect.gen(function* () {
   yield* Effect.log(`command: ${confined.launch.command}`);
 
   const agent = yield* spawnAcpAgent(confined.launch, {
+    clientVersion: "spike",
     cwd: root,
     handlers: {
       onElicitation: () => Effect.succeed({ action: "decline" }),

@@ -355,8 +355,9 @@ export const projectUpdate = (
     }
     case "tool_call_update":
       return unmoved(projectToolUpdate(u, ctx), ctx);
+    // Not `plan_update` or `plan_removed`: unstable, shaped otherwise, and sent only to a client
+    // that says it reads them, which this one does not.
     case "plan":
-    case "plan_update":
       return projectPlan(u, ctx);
     case "current_mode_update":
       return unmoved(

@@ -54,6 +54,7 @@ const open = Effect.fnUntraced(function* (
   handlingTakes: Duration.Input = 0
 ) {
   const agent = yield* spawnAcpAgent(config(env), {
+    clientVersion: "test",
     cwd: process.cwd(),
     handlers: handlers(overrides),
   });
@@ -157,7 +158,7 @@ describe("AcpAgent", () => {
       const error = yield* Effect.flip(
         spawnAcpAgent(
           { ...config(), command: "/nonexistent/agent-binary" },
-          { cwd: process.cwd(), handlers: handlers() }
+          { clientVersion: "test", cwd: process.cwd(), handlers: handlers() }
         )
       );
       assert.strictEqual(error._tag, "AcpSpawnError");

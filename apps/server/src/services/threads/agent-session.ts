@@ -80,7 +80,7 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
     if (storedSessionId && canLoad) {
       yield* replaying(true);
       const loaded = yield* agent
-        .loadSession(storedSessionId, root, mcpServers)
+        .loadSession(storedSessionId, root, { mcpServers, meta })
         .pipe(
           Effect.map(
             (response): SessionInfo => ({
