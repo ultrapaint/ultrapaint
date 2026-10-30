@@ -1,6 +1,6 @@
 /**
  * Opening an ACP session on an agent just launched: `initialize`, then the thread's stored
- * session loaded when the agent can, else a new one (signing in first when the agent asks), and
+ * session reopened when the agent can, else a new one (signing in first when the agent asks), and
  * the options and mode the thread chose set on it where they differ and still exist. What it
  * gives back is the thread's to keep; the session module writes it.
  */
@@ -64,51 +64,36 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
   const preferences = yield* ChatPreferences;
   const log = yield* AppLog;
 
-  /**
-   * Loads the stored session when the agent can, otherwise starts a new one. While the stored
-   * session is replayed its updates are not new items: `replaying` says when that is.
-   */
-  const loadOrCreate = Effect.fnUntraced(function* (
+  /** Opens the stored session again when the agent can, otherwise starts a new one. */
+  const reopenOrCreate = Effect.fnUntraced(function* (
     agent: AcpAgent,
     storedSessionId: string | undefined,
-    canLoad: boolean,
     root: string,
     meta: unknown,
-    mcpServers: readonly McpServerConfig[],
-    replaying: (on: boolean) => Effect.Effect<void>
+    mcpServers: readonly McpServerConfig[]
   ) {
-    if (storedSessionId && canLoad) {
-      yield* replaying(true);
-      const loaded = yield* agent
-        .loadSession(storedSessionId, root, { mcpServers, meta })
+    if (storedSessionId) {
+      const reopened = yield* agent
+        .reopen(storedSessionId, root, { mcpServers, meta })
         .pipe(
-          Effect.map(
-            (response): SessionInfo => ({
-              ...(response as Omit<SessionInfo, "sessionId"> | undefined),
-              sessionId: storedSessionId,
-            })
-          ),
           // An expired or unknown session is not an error for the user: start fresh.
           Effect.catch((error) =>
             Effect.as(
               log.log(
                 "agent",
                 "warn",
-                `session load failed, starting fresh: ${error.message}`
+                `session reopen failed, starting fresh: ${error.message}`
               ),
               null
             )
-          ),
-          // The replayed updates can trail the response; they are still history.
-          Effect.ensuring(
-            Effect.andThen(
-              Effect.timeoutOption(agent.drained, "5 seconds"),
-              replaying(false)
-            )
           )
         );
-      if (loaded) {
-        return { info: loaded, resumed: true };
+      if (reopened) {
+        const info: SessionInfo = {
+          ...(reopened as Omit<SessionInfo, "sessionId">),
+          sessionId: storedSessionId,
+        };
+        return { info, resumed: true };
       }
     }
     const info = (yield* agent.newSession(root, {
@@ -170,23 +155,19 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
     readonly agent: AcpAgent;
     readonly config: AgentConfig;
     readonly mcpServers: readonly McpServerConfig[];
-    readonly replaying: (on: boolean) => Effect.Effect<void>;
     readonly root: string;
     readonly thread: Thread;
   }) {
-    const { agent, config, mcpServers, replaying, root, thread } = options;
+    const { agent, config, mcpServers, root, thread } = options;
     const threadId = thread.id;
     const negotiate = Effect.gen(function* () {
       const init = yield* agent.initialize;
-      const canLoad = init.agentCapabilities?.loadSession === true;
-      const attempt = loadOrCreate(
+      const attempt = reopenOrCreate(
         agent,
         thread.sessionId,
-        canLoad,
         root,
         sandbox.available ? config.sandboxMeta : undefined,
-        mcpServers,
-        replaying
+        mcpServers
       );
       const [firstAuth] = init.authMethods ?? [];
       // Some agents need authentication before a session can be created.

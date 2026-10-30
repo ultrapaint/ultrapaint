@@ -36,7 +36,7 @@ import {
   type WaitForTerminalExitResponse,
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
-import { Deferred, Effect, Predicate, Queue, Result, type Scope } from "effect";
+import { Deferred, Effect, Predicate, Result, type Scope } from "effect";
 import {
   type AcpError,
   AcpProcessExited,
@@ -44,6 +44,7 @@ import {
   AcpSpawnError,
 } from "./errors.ts";
 import type { AgentLaunch } from "./sandbox.ts";
+import { makeUpdates, type Updates } from "./updates.ts";
 
 export type {
   ContentBlock,
@@ -81,6 +82,11 @@ export interface AcpHandlers {
     request: RequestPermissionRequest
   ) => Effect.Effect<RequestPermissionResponse>;
   readonly onStderr: (text: string) => Effect.Effect<void>;
+  /**
+   * Every `session/update`, one at a time, in the order the agent sent it; a replay of a
+   * session reopened, which the host has already, is not among them.
+   */
+  readonly onUpdate: (notification: SessionNotification) => Effect.Effect<void>;
   readonly readTextFile: (
     request: ReadTextFileRequest
   ) => Effect.Effect<ReadTextFileResponse, { readonly message: string }>;
@@ -116,6 +122,15 @@ export interface McpServerConfig {
   readonly url: string;
 }
 
+/** What a session is opened with: the MCP servers it may call, and the agent's own `_meta`. */
+export interface SessionOptions {
+  readonly mcpServers?: readonly McpServerConfig[];
+  readonly meta?: unknown;
+}
+
+/** What an agent says of a session it opened again: its options and modes, where it has any. */
+export type SessionState = Pick<LoadSessionResponse, "configOptions" | "modes">;
+
 export interface AcpExit {
   readonly code: number | null;
   readonly signal: string | null;
@@ -124,41 +139,30 @@ export interface AcpExit {
 export interface AcpAgent {
   readonly authenticate: (methodId: string) => Effect.Effect<void, AcpError>;
   readonly cancel: (sessionId: string) => Effect.Effect<void, AcpError>;
-  /**
-   * Runs `handler` for every `session/update`, one at a time, in the order the agent sent
-   * them. Never completes; fork it into the session's scope. Call it once.
-   */
-  readonly consumeUpdates: (
-    handler: (notification: SessionNotification) => Effect.Effect<void>
-  ) => Effect.Effect<never>;
-  /**
-   * Completes once `consumeUpdates` has finished handling every update received so far. A
-   * prompt's response can arrive before its last update is processed; wait on this first.
-   */
-  readonly drained: Effect.Effect<void>;
   /** Completes when the agent process ends, for any reason. */
   readonly exited: Effect.Effect<AcpExit>;
+  /** The handshake; what the agent said of itself decides what `reopen` does. */
   readonly initialize: Effect.Effect<InitializeResponse, AcpError>;
-  readonly loadSession: (
-    sessionId: string,
-    cwd: string,
-    options?: {
-      readonly mcpServers?: readonly McpServerConfig[];
-      readonly meta?: unknown;
-    }
-  ) => Effect.Effect<LoadSessionResponse | undefined, AcpError>;
   readonly newSession: (
     cwd: string,
-    options?: {
-      readonly mcpServers?: readonly McpServerConfig[];
-      readonly meta?: unknown;
-    }
+    options?: SessionOptions
   ) => Effect.Effect<NewSessionResponse, AcpError>;
   readonly pid: number | undefined;
+  /** A turn: over once the agent answered and every update it sent meanwhile was handled. */
   readonly prompt: (
     sessionId: string,
     blocks: ContentBlock[]
   ) => Effect.Effect<PromptResponse, AcpError>;
+  /**
+   * Opens a stored session again: resumed where the agent can (`session/resume`), else loaded
+   * (`session/load`) with its replay kept from the host, which has it already. Null where the
+   * agent can do neither, or before `initialize`.
+   */
+  readonly reopen: (
+    sessionId: string,
+    cwd: string,
+    options?: SessionOptions
+  ) => Effect.Effect<SessionState | null, AcpError>;
   readonly setConfigOption: (
     sessionId: string,
     configId: string,
@@ -186,14 +190,33 @@ export const initializeRequest = (
   protocolVersion: PROTOCOL_VERSION,
 });
 
+/** How a stored session is opened again, by what the agent said it can do; null when it cannot. */
+export const reopening = (
+  init: InitializeResponse | undefined
+): "resume" | "load" | null => {
+  const capabilities = init?.agentCapabilities;
+  if (capabilities?.sessionCapabilities?.resume) {
+    return "resume";
+  }
+  return capabilities?.loadSession === true ? "load" : null;
+};
+
+/**
+ * A call whose answer the agent sends after updates of its own (a prompt's turn): answered once
+ * they are handled too, whether it succeeded or not, so the host sees the turn whole. Not when
+ * interrupted: the session is closing, and its updates with it.
+ */
+export const settling =
+  (updates: Updates) =>
+  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+    effect.pipe(
+      Effect.tap(() => updates.settled),
+      Effect.tapError(() => updates.settled)
+    );
+
 /** `_meta` on a request, when there is any. */
 export const withMeta = (meta: unknown) =>
   meta === undefined ? {} : { _meta: meta as Record<string, unknown> };
-
-type Inbox = SessionNotification | Deferred.Deferred<void>;
-
-const isMarker = (item: Inbox): item is Deferred.Deferred<void> =>
-  Deferred.isDeferred(item);
 
 const describe = (error: unknown): { code: number | null; message: string } => {
   if (!Predicate.isObject(error)) {
@@ -271,7 +294,11 @@ export const spawnAcpAgent = (
     const context = yield* Effect.context<never>();
     const run = Effect.runPromiseWith(context);
     const exitSignal = yield* Deferred.make<AcpExit>();
-    const inbox = yield* Queue.unbounded<Inbox>();
+    // The SDK answers a request synchronously but dispatches notifications through an async
+    // handler chain, so updates sent before a response can reach us a few microtasks after it.
+    // One macrotask later they have all been received.
+    const updates = yield* makeUpdates(handlers.onUpdate, nextMacrotask);
+    let initialized: InitializeResponse | undefined;
 
     const child = yield* Effect.acquireRelease(
       startProcess(launch, options.cwd),
@@ -312,7 +339,7 @@ export const spawnAcpAgent = (
 
     const app = client({ name: "ultrapaint" })
       .onNotification("session/update", (ctx) => {
-        Queue.offerUnsafe(inbox, ctx.params);
+        updates.receive(ctx.params);
       })
       .onRequest("session/request_permission", (ctx) =>
         serve(handlers.onPermission(ctx.params))
@@ -395,41 +422,16 @@ export const spawnAcpAgent = (
         call("session/cancel", () =>
           agent.notify("session/cancel", { sessionId })
         ),
-      // One item at a time, so a marker is reached only after the handler has finished with
-      // everything queued before it. A stream would resolve markers a whole chunk early.
-      consumeUpdates: (handler) =>
-        Effect.forever(
-          Effect.flatMap(Queue.take(inbox), (item) =>
-            isMarker(item)
-              ? Effect.asVoid(Deferred.succeed(item, undefined))
-              : handler(item)
-          )
-        ),
-      drained: Effect.gen(function* () {
-        // The SDK answers a request synchronously but dispatches notifications through an
-        // async handler chain, so updates sent before a response can reach us a few
-        // microtasks after it. One macrotask later they have all been queued.
-        yield* nextMacrotask;
-        const marker = yield* Deferred.make<void>();
-        yield* Queue.offer(inbox, marker);
-        yield* Deferred.await(marker);
-      }),
       exited: Deferred.await(exitSignal),
       initialize: call("initialize", () =>
         agent.request("initialize", initializeRequest(options.clientVersion))
+      ).pipe(
+        Effect.tap((response) =>
+          Effect.sync(() => {
+            initialized = response;
+          })
+        )
       ),
-      loadSession: (sessionId, cwd, session) =>
-        Effect.map(
-          call("session/load", () =>
-            agent.request("session/load", {
-              cwd,
-              mcpServers: [...(session?.mcpServers ?? [])],
-              sessionId,
-              ...withMeta(session?.meta),
-            })
-          ),
-          (loaded) => loaded ?? undefined
-        ),
       newSession: (cwd, session) =>
         call("session/new", () =>
           agent.request("session/new", {
@@ -442,7 +444,36 @@ export const spawnAcpAgent = (
       prompt: (sessionId, blocks) =>
         call("session/prompt", () =>
           agent.request("session/prompt", { prompt: blocks, sessionId })
-        ),
+        ).pipe(settling(updates)),
+      reopen: (sessionId, cwd, session) =>
+        Effect.suspend(() => {
+          const request = {
+            cwd,
+            mcpServers: [...(session?.mcpServers ?? [])],
+            sessionId,
+            ...withMeta(session?.meta),
+          };
+          switch (reopening(initialized)) {
+            case "resume":
+              return Effect.map(
+                call("session/resume", () =>
+                  agent.request("session/resume", request)
+                ),
+                (resumed): SessionState => resumed ?? {}
+              );
+            case "load":
+              return Effect.map(
+                updates.dropping(
+                  call("session/load", () =>
+                    agent.request("session/load", request)
+                  )
+                ),
+                (loaded): SessionState => loaded ?? {}
+              );
+            default:
+              return Effect.succeed(null);
+          }
+        }),
       setConfigOption: (sessionId, configId, value) =>
         call("session/set_config_option", () =>
           agent.request(

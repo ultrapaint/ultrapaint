@@ -23,6 +23,7 @@ const refusing: AcpHandlers = {
   onElicitation: () => Effect.succeed({ action: "decline" }),
   onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
   onStderr: () => Effect.void,
+  onUpdate: () => Effect.void,
   readTextFile: () => refuse,
   terminal: {
     create: () => refuse,

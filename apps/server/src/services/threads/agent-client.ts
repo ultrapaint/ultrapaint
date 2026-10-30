@@ -22,7 +22,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
   const path = yield* Path.Path;
   const writeAtomic = makeWriteAtomic(fs, path);
 
-  // ---- what the host does for the agent ----
+  // ---- what the host does for the agent, but for its updates, which are the session's ----
   const handlersFor = (
     agentName: string,
     paths: RepoPaths["Service"],
@@ -34,7 +34,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
      * tools; this closes it to the writes the editor makes for it.
      */
     writable?: string
-  ): AcpHandlers => ({
+  ): Omit<AcpHandlers, "onUpdate"> => ({
     onElicitation: cards.elicitation,
     onPermission: cards.permission,
     onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
