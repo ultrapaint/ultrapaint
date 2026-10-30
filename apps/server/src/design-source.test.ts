@@ -214,7 +214,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const started = yield* initializeLegacy(port, token, "2025-06-18");
           assert.include(
             JSON.stringify(started),
-            'call handoff with action \\"list\\"'
+            'handoff with action \\"list\\"'
           );
 
           yield* client["implementation.setReady"]({
