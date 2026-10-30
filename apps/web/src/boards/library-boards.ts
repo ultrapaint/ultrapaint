@@ -315,6 +315,39 @@ export const placeOfCell = (nodeId: string): LookPlace | null => {
 const stateTitle = (state: ComponentState | null) =>
   state === null ? "Default" : `${state[0]?.toUpperCase()}${state.slice(1)}`;
 
+/** A member that draws a square for an icon alone: Button's `icon`, an `icon-sm`. */
+const ICON_MEMBER = /^icon(?:-|$)/;
+
+/** A plus, drawn in the colour of what holds it: what an icon-sized component shows on its board. */
+const PLUS_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>'
+)}`;
+
+/** An example in an icon's size shows an icon in its label's place, as it would be used. */
+const withIcon = (
+  example: DesignNode,
+  next: ReturnType<typeof makeIdGenerator>
+): DesignNode => {
+  if (example.type !== "instance") {
+    return example;
+  }
+  const { text: _label, ...instance } = example;
+  return {
+    ...instance,
+    children: [
+      {
+        alt: "",
+        height: 16,
+        id: next("image"),
+        src: PLUS_ICON,
+        tint: "currentColor",
+        type: "image",
+        width: 16,
+      },
+    ],
+  };
+};
+
 /** The component in one place of its look: its example, given the member and pinned in the state. */
 const cellOf = (
   meta: ComponentMeta | undefined,
@@ -323,7 +356,7 @@ const cellOf = (
   next: ReturnType<typeof makeIdGenerator>
 ): DesignNode => {
   const { state, variant } = place;
-  const example: DesignNode = meta
+  const shown: DesignNode = meta
     ? exampleOf(meta, next)
     : {
         component: name,
@@ -332,6 +365,8 @@ const cellOf = (
         text: name,
         type: "instance",
       };
+  const example =
+    variant && ICON_MEMBER.test(variant.member) ? withIcon(shown, next) : shown;
   const props = {
     ...(example.type === "instance" ? example.props : undefined),
     ...(variant && { [variant.axis]: variant.member }),
