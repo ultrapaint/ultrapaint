@@ -321,6 +321,27 @@ describe("the Library's boards", () => {
     expect(ids(sizes?.root as DesignNode)).toEqual(
       expect.arrayContaining(["cell:size=sm:base", "member:size=sm"])
     );
+    // A square icon size shows an icon in its label's place, not a label that overflows it.
+    const nodes = (root: DesignNode | undefined): DesignNode[] =>
+      root
+        ? [
+            root,
+            ...(("children" in root && root.children) || []).flatMap(nodes),
+          ]
+        : [];
+    const cell = (id: string) =>
+      nodes(sizes?.root).find((n) => n.id === id) as unknown as
+        | { children: DesignNode[] }
+        | undefined;
+    const [icon] = cell("cell:size=icon:base")?.children ?? [];
+    expect(icon).toMatchObject({ type: "instance" });
+    expect(icon).not.toHaveProperty("text");
+    expect((icon as unknown as { children: DesignNode[] }).children).toEqual([
+      expect.objectContaining({ tint: "currentColor", type: "image" }),
+    ]);
+    expect(cell("cell:size=sm:base")?.children[0]).toMatchObject({
+      text: "Button",
+    });
   });
 
   it("reads a cell's place back from its id", () => {
