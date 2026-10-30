@@ -24,7 +24,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
-import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 
@@ -91,9 +90,7 @@ const noteOf = (value: UsageValue) => {
   if (!value.token) {
     return "";
   }
-  return value.kind === "element"
-    ? ` · the library has ${value.token}`
-    : ` · is ${value.token}`;
+  return ` · is ${value.token}`;
 };
 
 const ValueRow = ({ value }: { value: UsageValue }) => {
@@ -158,9 +155,7 @@ export const InventoryResult = ({
               <span className="flex items-baseline justify-between font-body">
                 <span>{label}</span>
                 <span className="text-muted-foreground">
-                  {kind === "element"
-                    ? `${totals.raw} plain`
-                    : `${totals.system} · ${totals.default} · ${totals.raw}`}
+                  {`${totals.system} · ${totals.default} · ${totals.raw}`}
                 </span>
               </span>
               <Bar totals={totals} />
@@ -278,13 +273,11 @@ const MappingRow = ({
 export const MappingView = () => {
   const mapping = useDesignSystemSetup((s) => s.mapping);
   const designSystem = useDesignSystem((s) => s.designSystem);
-  const catalogue = useComponents((s) => s.catalogue);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [all, setAll] = useState(false);
   if (!mapping) {
     return null;
   }
-  const components = catalogue.map((c) => c.name);
   const open = mapping.entries.filter((e) => e.target === undefined && !e.keep);
   const shown = filter === "open" ? open : mapping.entries;
   const listed = all ? shown : shown.slice(0, FIRST_ENTRIES);
@@ -308,7 +301,7 @@ export const MappingView = () => {
           <MappingRow
             entry={entry}
             key={`${entry.kind}|${entry.value}`}
-            targets={mapTargetsOf(entry.kind, designSystem, components)}
+            targets={mapTargetsOf(entry.kind, designSystem)}
           />
         ))}
       </ul>

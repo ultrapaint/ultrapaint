@@ -26,7 +26,7 @@ export const SETUP_STEPS: readonly {
   {
     agent: false,
     description:
-      "Reads the code for the colours, spacing, type, radii, shadows, layers and plain elements it uses, and which of them are the design system's.",
+      "Reads the code for the colours, spacing, type, radii, shadows and layers it uses, and which of them are the design system's.",
     id: "inventory",
     title: "Inventory",
   },
@@ -40,7 +40,7 @@ export const SETUP_STEPS: readonly {
   {
     agent: true,
     description:
-      "Decides what each value off the system becomes: a token, a component, or kept as it is. Rules take the exact matches; an agent the rest, asking you where meaning is unclear.",
+      "Decides what each value off the system becomes: a token, or kept as it is. Rules take the exact matches; an agent the rest, asking you where meaning is unclear.",
     id: "map",
     title: "Map",
   },
@@ -142,7 +142,6 @@ export const UsageKind = Schema.Literals([
   "radius",
   "shadow",
   "zIndex",
-  "element",
 ]);
 export type UsageKind = typeof UsageKind.Type;
 
@@ -157,14 +156,12 @@ export const USAGE_KINDS: readonly {
   { kind: "radius", label: "Radii" },
   { kind: "shadow", label: "Shadows" },
   { kind: "zIndex", label: "Layers" },
-  { kind: "element", label: "Plain elements" },
 ];
 
 /**
  * - `system`: a value of the design system (a token it names, a step of its scale).
  * - `default`: one of Tailwind's own values the design system does not name.
- * - `raw`: a value written out: a hex colour, an arbitrary class, an inline style, a plain
- *   element where the library has a component.
+ * - `raw`: a value written out: a hex colour, an arbitrary class, an inline style.
  */
 export const UsageStatus = Schema.Literals(["system", "default", "raw"]);
 export type UsageStatus = typeof UsageStatus.Type;
@@ -184,9 +181,9 @@ export const UsageValue = Schema.Struct({
   /** The first places it is used. */
   locations: Schema.Array(UsageLocation),
   status: UsageStatus,
-  /** The token it is, or that has exactly its value; the component for a plain element. */
+  /** The token it is, or that has exactly its value. */
   token: Schema.optional(Schema.String),
-  /** What it is: a token name (`color-blue-500`), a literal (`#3b82f6`, `13px`), an element. */
+  /** What it is: a token name (`color-blue-500`), a literal (`#3b82f6`, `13px`). */
   value: Schema.String,
 });
 export type UsageValue = typeof UsageValue.Type;
@@ -224,8 +221,7 @@ export type RestoreEntry = typeof RestoreEntry.Type;
 /**
  * What a value off the system becomes: a token of its kind (`color-primary`, `spacing-3`,
  * `radius-md`, `text-sm`, `font-weight-semibold`, `shadow-md`), a z-index the elevation names
- * (`50`), the component a plain element is replaced with (`Button`), or kept as it is. Neither a
- * target nor kept is undecided.
+ * (`50`), or kept as it is. Neither a target nor kept is undecided.
  */
 export const MappingEntry = Schema.Struct({
   /** Who decided: a rule, the agent, the user. */
@@ -278,22 +274,15 @@ export const UsageLeft = Schema.Struct({
 export type UsageLeft = typeof UsageLeft.Type;
 
 /**
- * The targets a kind may take by name: its tokens, the layers, the components. A length may
- * also become a step of the spacing scale, which no list holds: any `spacing-<n>` is one.
+ * The targets a kind may take by name: its tokens, the layers. A length may also become a step
+ * of the spacing scale, which no list holds: any `spacing-<n>` is one.
  */
 export const targetsOf = (
   kind: UsageKind,
-  ds: DesignSystem,
-  components: readonly string[]
-): readonly string[] => {
-  switch (kind) {
-    case "zIndex":
-      return (ds.elevation ?? []).flatMap((l) =>
+  ds: DesignSystem
+): readonly string[] =>
+  kind === "zIndex"
+    ? (ds.elevation ?? []).flatMap((l) =>
         l.layer === undefined ? [] : [String(l.layer)]
-      );
-    case "element":
-      return components;
-    default:
-      return tokensOfKind(ds, kind).map((t) => t.name);
-  }
-};
+      )
+    : tokensOfKind(ds, kind).map((t) => t.name);

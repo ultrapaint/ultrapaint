@@ -1,8 +1,7 @@
 /**
  * What the application's code uses, value by value, for the design-system setup (ADR 0023): the
  * colours, spacing, type sizes and weights, radii, shadows and layers of its Tailwind classes,
- * inline styles and stylesheets, and the plain elements it writes where the library has a
- * component. Read by fixed rules and synchronous: the server lists and reads the files.
+ * inline styles and stylesheets. Read by fixed rules and synchronous: the server lists and reads the files.
  *
  * Classes are found as Tailwind finds them, in every string of a file, so `cn()`, `cva()` and
  * constants count as well as `className`. Whether a value is the design system's is decided
@@ -124,7 +123,7 @@ const summarise: UsageReader["summarise"] = (files, ctx, at) => {
   );
   for (const { file, uses } of files) {
     for (const use of uses) {
-      for (const value of classify(use, known, ctx, file)) {
+      for (const value of classify(use, known)) {
         count(groups, totals, value, use, file);
       }
     }
