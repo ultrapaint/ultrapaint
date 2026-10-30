@@ -58,6 +58,7 @@ const open = (port: number) => {
 };
 
 describe("Connection", () => {
+  // real clock: the editor's client over a real socket to a real server.
   it.live(
     "requests, typed failures and events through the editor's client",
     () =>
@@ -101,6 +102,7 @@ describe("Connection", () => {
     30_000
   );
 
+  // real clock: the client's reconnecting, against a real server that stops and starts again.
   it.live(
     "fails fast while disconnected and comes back when the server does",
     () =>

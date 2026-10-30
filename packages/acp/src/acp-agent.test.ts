@@ -68,6 +68,7 @@ const open = Effect.fnUntraced(function* (
     handlers: handlers({
       onUpdate: (n) =>
         Effect.andThen(
+          // real clock: a consumer slower than the agent's real process.
           Effect.sleep(handlingTakes),
           Effect.suspend(() => {
             seen.push(textOf(n));
@@ -92,6 +93,7 @@ const agentTest = <A, E>(
     Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
   >
 ) =>
+  // real clock: the fake agent is a real process.
   it.live(name, () =>
     Effect.provide(Effect.scoped(body()), NodeServices.layer)
   );
@@ -260,6 +262,7 @@ describe("AcpAgent", () => {
 });
 
 describe("TerminalManager", () => {
+  // real clock: a real command in a real terminal.
   it.live("runs a command, keeps its output and reports the exit", () =>
     Effect.gen(function* () {
       const terminals = yield* makeTerminalManager({ env: {} });
@@ -278,6 +281,7 @@ describe("TerminalManager", () => {
     }).pipe(Effect.provide(NodeServices.layer))
   );
 
+  // real clock: a real command in a real terminal.
   it.live("keeps only the newest bytes past the limit", () =>
     Effect.gen(function* () {
       const terminals = yield* makeTerminalManager({ env: {} });
@@ -295,6 +299,7 @@ describe("TerminalManager", () => {
     }).pipe(Effect.provide(NodeServices.layer))
   );
 
+  // real clock: a real command in a real terminal.
   it.live("forgets a released terminal and kills what was still running", () =>
     Effect.gen(function* () {
       const terminals = yield* makeTerminalManager({ env: {} });

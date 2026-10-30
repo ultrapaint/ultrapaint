@@ -49,6 +49,7 @@ const onAServer = <A, E>(
   >,
   timeout = 60_000
 ) =>
+  // real clock: the editor's MCP server over a real socket.
   it.live(
     name,
     () => body().pipe(Effect.provide(TestServer), Effect.scoped),

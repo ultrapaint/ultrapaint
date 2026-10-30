@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, layer, it as test } from "@effect/vitest";
+import { assert, describe, it as test } from "@effect/vitest";
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
@@ -17,6 +17,7 @@ import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { writeComponentFile } from "./testing/components.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
@@ -82,7 +83,7 @@ const designChanges = Effect.gen(function* () {
 });
 
 describe("tasks, with the editor's MCP server", () => {
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: true }))((it) => {
     it.effect("gives each request its task and its thread's purpose", () =>
       Effect.gen(function* () {
         const init = yield* task({ _tag: "Init" });
@@ -199,7 +200,7 @@ describe("tasks, with the editor's MCP server", () => {
     );
   });
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
+  eachTest(ProjectTest({ mcp: true }))(
     "with pages of several canvases",
     (it) => {
       it.effect(
@@ -239,31 +240,28 @@ describe("tasks, with the editor's MCP server", () => {
     }
   );
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
-    "with a design system",
-    (it) => {
-      it.effect("brings the code up to the design through handoff", () =>
-        Effect.gen(function* () {
-          yield* withDesignSystem;
-          assert.include(
-            yield* textOf({ _tag: "Sync", source: "code" }),
-            "The code has every value of the design: say so, and stop."
-          );
-          yield* designChanges;
-          const sync = yield* textOf({ _tag: "Sync", source: "code" });
-          assert.include(sync, "Tokens of the design that wait for the code:");
-          assert.include(
-            sync,
-            'Export what waits for the code: call handoff with action "export" and no tokens'
-          );
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: true }))("with a design system", (it) => {
+    it.effect("brings the code up to the design through handoff", () =>
+      Effect.gen(function* () {
+        yield* withDesignSystem;
+        assert.include(
+          yield* textOf({ _tag: "Sync", source: "code" }),
+          "The code has every value of the design: say so, and stop."
+        );
+        yield* designChanges;
+        const sync = yield* textOf({ _tag: "Sync", source: "code" });
+        assert.include(sync, "Tokens of the design that wait for the code:");
+        assert.include(
+          sync,
+          'Export what waits for the code: call handoff with action "export" and no tokens'
+        );
+      })
+    );
+  });
 });
 
 describe("tasks, without the editor's MCP server", () => {
-  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: false }))((it) => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
@@ -319,22 +317,19 @@ describe("tasks, without the editor's MCP server", () => {
     );
   });
 
-  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })(
-    "with a design system",
-    (it) => {
-      it.effect("has the user bring the code up to the design", () =>
-        Effect.gen(function* () {
-          yield* withDesignSystem;
-          yield* designChanges;
-          const sync = yield* textOf({ _tag: "Sync", source: "code" });
-          assert.include(
-            sync,
-            "Export what waits for the code: write the design's value of each into the stylesheet"
-          );
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: false }))("with a design system", (it) => {
+    it.effect("has the user bring the code up to the design", () =>
+      Effect.gen(function* () {
+        yield* withDesignSystem;
+        yield* designChanges;
+        const sync = yield* textOf({ _tag: "Sync", source: "code" });
+        assert.include(
+          sync,
+          "Export what waits for the code: write the design's value of each into the stylesheet"
+        );
+      })
+    );
+  });
 });
 
 describe("the editor's tools in what an agent is told", () => {
@@ -504,7 +499,7 @@ describe("the editor's tools in what an agent is told", () => {
       .map((r) => r.text)
       .join("\n");
 
-  layer(project(true), { excludeTestServices: true })((it) => {
+  eachTest(project(true))((it) => {
     it.effect("names only the tools the server offers, by their names", () =>
       Effect.gen(function* () {
         const before = yield* everything;
@@ -549,7 +544,7 @@ describe("the editor's tools in what an agent is told", () => {
     );
   });
 
-  layer(project(false), { excludeTestServices: true })((it) => {
+  eachTest(project(false))((it) => {
     it.effect("names no tool when the server offers none", () =>
       Effect.gen(function* () {
         const before = yield* everything;
@@ -603,7 +598,7 @@ describe("slash commands", () => {
   const expand = (text: string) =>
     Effect.flatMap(SlashCommands, (commands) => commands.expand(text));
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: true }))((it) => {
     it.effect("gives a command's task, with its thread's purpose", () =>
       Effect.gen(function* () {
         const implement = yield* expand("/implement /home");
@@ -639,18 +634,15 @@ The user ran /redraw, but there is no canvas "nowhere"; the canvases are: Design
     );
   });
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
-    "with no project open",
-    (it) => {
-      it.effect("sends what was typed when no task can be prepared", () =>
-        Effect.gen(function* () {
-          yield* Effect.flatMap(ProjectManager, (project) => project.close);
-          assert.deepStrictEqual(yield* expand("/init"), {
-            purpose: "design",
-            text: "/init",
-          });
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: true }))("with no project open", (it) => {
+    it.effect("sends what was typed when no task can be prepared", () =>
+      Effect.gen(function* () {
+        yield* Effect.flatMap(ProjectManager, (project) => project.close);
+        assert.deepStrictEqual(yield* expand("/init"), {
+          purpose: "design",
+          text: "/init",
+        });
+      })
+    );
+  });
 });

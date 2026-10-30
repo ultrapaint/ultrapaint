@@ -19,7 +19,7 @@ import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject, ProjectManager } from "../project.ts";
 import { RpcHandlers } from "../rpc-handlers.ts";
 import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
@@ -184,6 +184,33 @@ export const ProjectRpc = (options: ProjectTestOptions = {}) =>
       return { client, followed, home, port: 0, repo, settings };
     })
   ).pipe(Layer.provide(RpcHandlers), Layer.provideMerge(ProjectTest(options)));
+
+/**
+ * A file of the project written past the editor (by an agent, by hand) heard of, as the watch
+ * of the designs would hear of it: a `ProjectTest` has no watcher, and the test tells
+ * `DesignFiles` of the file as it is on disk now (`rel` from the project's folder; gone is
+ * told as gone).
+ */
+export const heardOf = Effect.fnUntraced(function* (rel: string) {
+  const { repo } = yield* ProjectFixture;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const abs = path.join(repo, rel);
+  const content = (yield* fs.exists(abs))
+    ? yield* fs.readFileString(abs)
+    : null;
+  const project = yield* OpenProject;
+  yield* project.service(DesignFiles)((files) => files.report(rel, content));
+});
+
+/**
+ * A test's own project, its services asked for directly: each test builds its world
+ * (docs/TESTING.md rule 3). A `layer(ProjectTest())` shared by several tests is shared state.
+ */
+export const withProject =
+  (options: ProjectTestOptions = {}) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(ProjectTest(options)), Effect.scoped);
 
 /** A test's own project, asked through `ProjectRpc`: each test builds its world. */
 export const inAProject =
