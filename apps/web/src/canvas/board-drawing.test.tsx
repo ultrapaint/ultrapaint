@@ -70,7 +70,6 @@ const fakePreview = () => {
         scrollIntoView: () => undefined,
         show: () => undefined,
         skeleton: () => undefined,
-        tokens: () => ({}),
         unmount: () => undefined,
         watchRects: () => undefined,
       }) satisfies FrameRuntime,

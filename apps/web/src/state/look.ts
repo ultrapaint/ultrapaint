@@ -1,8 +1,7 @@
 /**
  * The design's look (ADRs 0028, 0041, 0042): every token's value in every theme, and the
  * project's components. Its stylesheet is made once per change of the design system or the
- * components and set on the preview (`followLook`), which writes it for every frame; a frame that
- * draws another look (a component's unsaved one) is given its own with its render.
+ * components and set on the preview (`followLook`), which writes it for every frame.
  *
  * A look is edited live (ADR 0045, B9): while a field of a system component's part is typed in or
  * its options are gone through, the style it would set is laid over the component's file as the
