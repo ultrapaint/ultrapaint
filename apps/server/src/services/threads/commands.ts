@@ -3,7 +3,8 @@
  * composer offers them after a `/`; the server reads one as the request it is (`parseCommand`)
  * and gives the agent the task the request stands for (`tasks.ts`) instead of what was typed,
  * which the transcript keeps. A command that names something that is not there becomes a task
- * that tells the user why.
+ * that tells the user why. Any other goes to the agent as typed: the commands its session says
+ * it has (a thread's `agentCommands`) are offered after these.
  */
 import {
   parseCommand,

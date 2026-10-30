@@ -430,6 +430,22 @@ export const projectUpdate = (
         ],
         ctx
       );
+    case "available_commands_update":
+      return unmoved(
+        [
+          {
+            patch: () => ({
+              agentCommands: u.availableCommands.map((c) => ({
+                description: c.description,
+                name: c.name,
+                ...(c.input?.hint ? { argument: c.input.hint } : {}),
+              })),
+            }),
+            type: "thread",
+          },
+        ],
+        ctx
+      );
     case "usage_update":
       return unmoved(
         [{ patch: () => ({ context: contextOf(u) }), type: "thread" }],

@@ -258,7 +258,22 @@ export const ContextUsage = Schema.Struct({
 });
 export type ContextUsage = typeof ContextUsage.Type;
 
+/** A command a prompt may start with; the server expands it into the task it stands for. */
+export const SlashCommand = Schema.Struct({
+  /** What goes after the command, for the composer's hint: `<route>`. */
+  argument: Schema.optional(Schema.String),
+  description: Schema.String,
+  /** Without the slash: `init`. */
+  name: Schema.String,
+});
+export type SlashCommand = typeof SlashCommand.Type;
+
 export const Thread = Schema.Struct({
+  /**
+   * The commands the agent's own session offers after a `/` (ACP's available commands), as it
+   * last said: the composer offers them after the editor's, and they go to the agent as typed.
+   */
+  agentCommands: Schema.optional(Schema.Array(SlashCommand)),
   agentId: Schema.String,
   /**
    * The session's options. Before the session exists these are the agent's options as a
@@ -550,16 +565,6 @@ export const PromptInput = Schema.Struct({
   threadId: FileId,
 });
 export type PromptInput = typeof PromptInput.Type;
-
-/** A command a prompt may start with; the server expands it into the task it stands for. */
-export const SlashCommand = Schema.Struct({
-  /** What goes after the command, for the composer's hint: `<route>`. */
-  argument: Schema.optional(Schema.String),
-  description: Schema.String,
-  /** Without the slash: `init`. */
-  name: Schema.String,
-});
-export type SlashCommand = typeof SlashCommand.Type;
 
 /** The name the editor's MCP server goes by, to agents and in the tool calls they report. */
 export const EDITOR_MCP_SERVER = "ultrapaint";
