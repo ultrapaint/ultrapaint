@@ -10,6 +10,7 @@
  * DESIGN.md is in `sync-sides.ts`.
  */
 
+import { COMPONENTS_DIR } from "@ultrapaint/contracts/component-names";
 import {
   componentsIn,
   systemComponentsIn,
@@ -271,18 +272,48 @@ export class DesignMd extends Context.Service<
           return linted.findings;
         });
 
+      /**
+       * The component tokens of the system components whose look the project owns, read from
+       * their files: kept until the components directory or one of its files changes, so a get
+       * or a mirror does not read every component again.
+       */
+      const componentsDir = path.join(paths.designsDir, COMPONENTS_DIR);
+      const lookEntries = makeStampedCache(
+        fs,
+        Effect.map(
+          readComponents(paths.designsDir).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path)
+          ),
+          (list) => ({
+            files: [
+              componentsDir,
+              ...list.components.map((c) =>
+                path.join(paths.designsDir, c.file)
+              ),
+            ],
+            value: componentEntries(
+              looksOf(systemComponentsIn(componentsIn(list.components)))
+            ),
+          })
+        )
+      );
+
+      /** The last front matter worked out, kept while the design system and the looks are the same. */
+      let mirrored: {
+        readonly ds: DesignSystem;
+        readonly entries: Effect.Success<typeof lookEntries.get>;
+        readonly groups: TokenGroups;
+      } | null = null;
       const mirror = Effect.fnUntraced(function* (
         ds: DesignSystem,
         _text: string | null
       ) {
-        const list = yield* readComponents(paths.designsDir).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path)
-        );
-        const looks = looksOf(
-          systemComponentsIn(componentsIn(list.components))
-        );
-        return mirrorOf(ds, componentEntries(looks)).groups;
+        const entries = yield* lookEntries.get;
+        if (!(mirrored?.ds === ds && mirrored.entries === entries)) {
+          mirrored = { ds, entries, groups: mirrorOf(ds, entries).groups };
+        }
+        return mirrored.groups;
       });
 
       const document = Effect.fnUntraced(function* (ds: DesignSystem | null) {
