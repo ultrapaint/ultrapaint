@@ -29,6 +29,7 @@ import { PageTools, PageToolsLive } from "./page-tools.ts";
 import { RawTools } from "./raw-tools.ts";
 import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
 import { SkillResources } from "./skill-resources.ts";
+import { TaskPrompts } from "./task-prompts.ts";
 import { leanSchema } from "./tool-helpers.ts";
 
 const MCP_VERSION_HEADER = "mcp-protocol-version";
@@ -149,7 +150,7 @@ it does. The design leads, and the code follows it through the ${TOOLS.handoff} 
   editing its JSON by hand (a component's file in components/ is written as a file); change token
   values in the design system, not in the stylesheet.`;
 
-export const McpRoute = Layer.mergeAll(Tools, SkillResources).pipe(
+export const McpRoute = Layer.mergeAll(Tools, SkillResources, TaskPrompts).pipe(
   Layer.provide(
     McpServer.layerHttp({
       description:
