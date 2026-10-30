@@ -7,6 +7,7 @@
  */
 import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
+import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
 import type {
   BoardAttachment,
   BoardPickKind,
@@ -32,6 +33,28 @@ not the application's code (ADR 0030). Do not try to write the code. Tell the us
 to press Implement on the page (or start a new chat with /implement), which opens a thread that
 can, and stop.
 </ultrapaint-task>`;
+
+/**
+ * What a prompt that is a command makes its thread for, before its session starts, which it
+ * decides (ADR 0030): a task that implements makes a thread that has not started its agent an
+ * implement thread, whose session is then started with the repository writable. One already
+ * running keeps its purpose and its sandbox. Null when the prompt is not a command.
+ */
+export const purposeFor = (
+  thread: Thread,
+  text: string
+): ThreadPurpose | null => {
+  const parsed = parseCommand(text);
+  if (parsed === null) {
+    return null;
+  }
+  const purpose = thread.purpose ?? "design";
+  const wanted =
+    parsed._tag === "Request" ? taskPurpose(parsed.request) : "design";
+  return wanted === "implement" && thread.sessionId === undefined
+    ? "implement"
+    : purpose;
+};
 
 /** Until the first prompt names it. */
 export const UNTITLED = "New chat";
@@ -221,12 +244,15 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   const sessionContext = Effect.fnUntraced(function* (
     resumed: boolean,
     earlier: readonly ThreadItem[],
-    purpose: ThreadPurpose
+    purpose: ThreadPurpose,
+    tools: boolean
   ) {
     if (resumed && earlier.some((i) => i.kind === "user")) {
       return [];
     }
-    const about = briefingEnabled ? yield* briefing.text(purpose) : undefined;
+    const about = briefingEnabled
+      ? yield* briefing.text(purpose, { tools })
+      : undefined;
     const recap = resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((text): ContentBlock[] =>
       text ? [{ text, type: "text" }] : []
@@ -234,30 +260,22 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   });
 
   /**
-   * The task a prompt stands for, and what the thread is for once it runs: a task that
-   * implements makes a thread that has not started its agent an implement thread, whose session
-   * is then started with the repository writable (ADR 0030). One already running keeps its
-   * sandbox, and is told to send the user to an implement thread. Null when the prompt is not a
-   * command; the caller writes the purpose with the prompt.
+   * The task a prompt stands for, worded for an agent with the editor's tools (`tools`) or
+   * without them; null when the prompt is not a command. A thread whose agent was started to
+   * design is told to send the user to an implement thread instead (`purposeFor`).
    */
   const taskFor = Effect.fnUntraced(function* (
     thread: Thread,
-    text: string
-  ): Effect.fn.Return<{
-    readonly purpose: ThreadPurpose;
-    readonly text: string;
-  } | null> {
-    const task = yield* commands.expand(text);
-    const purpose = thread.purpose ?? "design";
+    text: string,
+    tools: boolean
+  ): Effect.fn.Return<string | null> {
+    const task = yield* commands.expand(text, { tools });
     if (task === null) {
       return null;
     }
-    if (task.purpose !== "implement" || purpose === "implement") {
-      return { purpose, text: task.text };
-    }
-    return thread.sessionId === undefined
-      ? { purpose: "implement", text: task.text }
-      : { purpose, text: DESIGN_THREAD_IMPLEMENT };
+    const designing =
+      task.purpose === "implement" && purposeFor(thread, text) !== "implement";
+    return designing ? DESIGN_THREAD_IMPLEMENT : task.text;
   });
 
   return { attachmentBlocks, sessionContext, taskFor };

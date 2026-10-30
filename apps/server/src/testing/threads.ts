@@ -54,9 +54,12 @@ export class ThreadFixture extends Context.Service<
   { readonly home: string; readonly repo: string }
 >()("ultrapaint/server/testing/ThreadFixture") {}
 
-/** The briefing's stand-in: `<ultrapaint>` and the purpose it was asked for. */
-export const briefingFor = (purpose: string) =>
-  `<ultrapaint>\nThe project, for a ${purpose} thread.\n</ultrapaint>`;
+/**
+ * The briefing's stand-in: `<ultrapaint>` and the purpose it was asked for, and whether its
+ * agent has the editor's tools.
+ */
+export const briefingFor = (purpose: string, tools = false) =>
+  `<ultrapaint>\nThe project, for a ${purpose} thread${tools ? ", with the editor's tools" : ""}.\n</ultrapaint>`;
 
 /**
  * The fixture's project closed, as saving other settings closes it, and opened again: every
@@ -132,9 +135,9 @@ const projectOf = (repo: string) =>
 
 const COMMAND_RE = /^\/([\w-]+)(?:\s+([\s\S]*))?$/;
 
-/** The task `/name rest` stands for in these tests. */
-export const taskFor = (name: string, rest = "") =>
-  `<ultrapaint-task command="${name}">\n${rest}\n</ultrapaint-task>`;
+/** The task `/name rest` stands for in these tests, for an agent with the editor's tools or not. */
+export const taskFor = (name: string, rest = "", tools = false) =>
+  `<ultrapaint-task command="${name}"${tools ? " tools" : ""}>\n${rest}\n</ultrapaint-task>`;
 
 /**
  * A prompt held while it is accepted: `/hold`'s task is written once the test lets it go
@@ -160,7 +163,10 @@ const commands = Layer.effect(
   SlashCommands,
   Effect.map(HeldTask, ({ reached, release }) =>
     SlashCommands.of({
-      expand: Effect.fnUntraced(function* (text: string) {
+      expand: Effect.fnUntraced(function* (
+        text: string,
+        options: { readonly tools?: boolean } = {}
+      ) {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
         if (name === undefined) {
@@ -176,7 +182,7 @@ const commands = Layer.effect(
             parsed?._tag === "Request"
               ? taskPurpose(parsed.request)
               : ("design" as const),
-          text: taskFor(name, match?.[2]?.trim()),
+          text: taskFor(name, match?.[2]?.trim(), options.tools),
         };
       }),
       list: [],
@@ -187,7 +193,8 @@ const commands = Layer.effect(
 const briefing = Layer.succeed(
   ProjectBriefing,
   ProjectBriefing.of({
-    text: (purpose) => Effect.succeed(briefingFor(purpose)),
+    text: (purpose, options = {}) =>
+      Effect.succeed(briefingFor(purpose, options.tools)),
   })
 );
 

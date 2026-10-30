@@ -93,7 +93,8 @@ export const HandoffToolsLive = HandoffTools.toLayer(
 
     /** The task that implements a design, or why there is none, in the failure's own words. */
     const read = (id: string) =>
-      tasks.task({ _tag: "Implement", target: id }).pipe(
+      // Asked over MCP: the agent has the tools.
+      tasks.task({ _tag: "Implement", target: id }, { tools: true }).pipe(
         Effect.map(({ text }) => ({ text })),
         Effect.catchTag("TaskFailure", (failure) => missing(failure.message))
       );
