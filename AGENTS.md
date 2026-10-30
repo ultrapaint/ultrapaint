@@ -39,6 +39,9 @@ and never patch `effect`.
   ephemeral session moves it while the server runs.
 - Tests use `@effect/vitest`: `it.effect`, `layer(...)`, `TestClock` instead of sleeps. No
   `Effect.runPromise` inside a test body.
+- Tests follow `docs/TESTING.md`: through the module's interface, no sleeping to wait, every test
+  builds its own world, nondeterminism given as inputs. `pnpm test:shuffle` finds order
+  dependence; retries are never added.
 - `pnpm typecheck` runs the Effect language service through `@effect/tsgo` (patched in
   `prepare`), so floating effects, leaked requirements and missing service dependencies are
   compile errors.
