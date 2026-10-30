@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
+import { LookPlace } from "./components.ts";
 
 /**
  * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
@@ -203,10 +204,12 @@ export const PromptAttachment = Schema.Union([
     /** The token's, the group's, the style's, the foundation's, the section's or the component's. */
     name: Schema.String,
     pick: BoardPickKind,
-    /** A system component's state picked: `hover`. */
-    state: Schema.optional(Schema.String),
-    /** A component's variant picked, `<axis>=<member>`: `variant=outline`, `tone=featured`. */
-    variant: Schema.optional(Schema.String),
+    /**
+     * Where in a component the pick is (ADR 0044): a system component's look at a variant's
+     * member, a state or a state in a member; an app component's choice at a member, its `axis`
+     * the property. Absent for the component as a whole.
+     */
+    place: Schema.optional(LookPlace),
   }),
 ]);
 export type PromptAttachment = typeof PromptAttachment.Type;

@@ -136,8 +136,10 @@ describe("a board's pick as a chip (ADR 0045, B11)", () => {
       kind: "board",
       name: "Button",
       pick: "systemComponent",
-      state: "hover",
-      variant: "variant=outline",
+      place: {
+        state: "hover",
+        variant: { axis: "variant", member: "outline" },
+      },
     });
     expect(boardChipLabel(outlineHover as never)).toBe(
       "Button · variant=outline, hover"
@@ -156,13 +158,13 @@ describe("a board's pick as a chip (ADR 0045, B11)", () => {
 
   it("is an app component at the variant picked or edited in place, its default member its own fields", () => {
     expect(library("Plan")).toMatchObject({ pick: "appComponent" });
-    expect(library("Plan")?.variant).toBeUndefined();
+    expect(library("Plan")?.place).toBeUndefined();
     expect(library("Plan", "variant:tone=featured")).toEqual({
       file: "docs/designs/components/Plan.component.json",
       kind: "board",
       name: "Plan",
       pick: "appComponent",
-      variant: "tone=featured",
+      place: { state: null, variant: { axis: "tone", member: "featured" } },
     });
     expect(
       library("Plan", "variant:tone=featured", {
@@ -170,7 +172,7 @@ describe("a board's pick as a chip (ADR 0045, B11)", () => {
       })
     ).toMatchObject({
       detail: "its choice's default member: the component's own fields",
-      variant: "tone=default",
+      place: { state: null, variant: { axis: "tone", member: "default" } },
     });
   });
 
