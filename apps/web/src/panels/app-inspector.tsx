@@ -34,8 +34,8 @@ import { Section } from "../components/panel.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import { openBoard } from "../state/board.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
-import { boardFrameOf } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
 import { Inspector } from "./inspector.tsx";
 import {

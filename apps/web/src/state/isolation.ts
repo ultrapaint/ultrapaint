@@ -20,8 +20,9 @@ import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
-import { editFrameAs, isBoardFrame, useDocuments } from "./documents.ts";
+import { editFrameAs, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { frameRefOf } from "./frame-ref.ts";
 
 /** A choice's member edits land on. */
 export interface VariantEdited {
@@ -129,7 +130,7 @@ export const leaveIsolation = () => {
   useEditor
     .getState()
     .select(
-      isBoardFrame(isolated.frame)
+      frameRefOf(isolated.frame).kind === "board"
         ? null
         : { frame: isolated.frame, nodeId: isolated.entered }
     );

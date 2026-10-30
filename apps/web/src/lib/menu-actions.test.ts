@@ -12,6 +12,8 @@ import { applyOps } from "@ultrapaint/design-document/ops";
 import { canvasDocOf, canvasOfDoc } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents } from "../state/agents.ts";
+import { openBoard, setBoardFrames, useBoard } from "../state/board.ts";
+import { measureViewportWith, setView, viewTarget } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { useComponents } from "../state/components.ts";
@@ -142,8 +144,11 @@ const serveProject = () => {
 };
 
 const initial = useEditor.getState();
+const initialBoard = useBoard.getState();
 
 const setUp = () => {
+  // A glide a test left on its way lands now, before the editor is set up again.
+  setView(initial.view);
   fakeApi.reset();
   serve();
   serveProject();
@@ -263,6 +268,7 @@ const setUp = () => {
     ],
   });
   useIsolation.setState({ isolated: null });
+  useBoard.setState(initialBoard, true);
 };
 
 beforeEach(setUp);
@@ -484,6 +490,52 @@ describe("a node's menu", () => {
     expect(lastEdit().ops).toEqual([
       { doc: CANVAS, id: "note", op: "update", set: { hidden: true } },
     ]);
+  });
+});
+
+describe("a node of an app component's tree on its board (ADR 0045)", () => {
+  /** Promo's board, its tree edited in place there: the frame a node of it is selected in. */
+  const BOARD = "board:library/Promo/component";
+  const onBoard = () => {
+    openBoard({ item: "Promo", view: "library" });
+    useEditor.getState().select({ frame: BOARD, nodeId: "sale" });
+  };
+
+  it("offers nothing of a page's: no comment, link, app component, code or address", () => {
+    onBoard();
+    const kinds = itemsOf(menuFor(nodeAt(BOARD, "sale")) ?? []).map((e) =>
+      e.kind === "item" ? e.action.act.kind : e.kind
+    );
+    for (const kind of [
+      "comment",
+      "link",
+      "linkUrl",
+      "makeApp",
+      "viewCode",
+      "copyLink",
+      "copyRef",
+    ]) {
+      expect(kinds, kind).not.toContain(kind);
+    }
+    expect(kinds).toContain("hide");
+  });
+
+  it("zooms to the node on the board, which stays open", async () => {
+    onBoard();
+    setBoardFrames({ [BOARD]: { height: 300, width: 400, x: 0, y: 0 } });
+    const hide = measureViewportWith(() => ({ height: 520, width: 920, x: 0 }));
+    await choose(nodeAt(BOARD, "sale"), { kind: "zoomTo" });
+    hide();
+    expect(useBoard.getState().open).toEqual({
+      item: "Promo",
+      view: "library",
+    });
+    expect(useEditor.getState().selection).toEqual({
+      frame: BOARD,
+      nodeId: "sale",
+    });
+    // The camera glides to the board's frame: 400 by 300 into the 800 by 400 seen past the margins.
+    expect(viewTarget()?.zoom).toBeCloseTo(400 / 300);
   });
 });
 

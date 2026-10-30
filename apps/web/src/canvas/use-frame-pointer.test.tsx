@@ -55,7 +55,6 @@ const Probe = ({ report }: { report: (h: Handlers) => void }) => {
     canvas: "main",
     frame: { x: 0, y: 0 },
     frameId: HOME,
-    kind: "page",
     root,
   });
   useEffect(() => report(latest));

@@ -63,8 +63,8 @@ import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { isBoardFrame } from "../state/documents.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 
@@ -392,7 +392,7 @@ export const Toolbar = () => {
   // but an app component's tree edited in place on its board is built as on a page.
   const onBoard = useBoard((s) => s.open !== null);
   const building = useIsolation(
-    (s) => s.isolated !== null && isBoardFrame(s.isolated.frame)
+    (s) => s.isolated !== null && frameRefOf(s.isolated.frame).kind === "board"
   );
   const shown = onBoard
     ? modes.filter((m) => BOARD_MODES.includes(m.value))

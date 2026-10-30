@@ -60,8 +60,8 @@ import {
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { api } from "../state/connection.ts";
-import { isNodeFrame } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
 import {
   exportTokens,
   statusLabel,
@@ -125,8 +125,8 @@ export const Inspector = () => {
         <SidesSection field="padding" nodes={nodes} title="Padding" />
         <SidesSection field="margin" nodes={nodes} title="Margin" />
         <AppearanceSection nodes={nodes} />
-        {/* A node placed beside the pages is never in the prototype: nothing would follow it. */}
-        {node.type !== "page" && !isNodeFrame(frame) && (
+        {/* Only a page's node is in the prototype: nothing would follow a link anywhere else. */}
+        {node.type !== "page" && hasPrototypeLinks(frameRefOf(frame)) && (
           <LinkSection nodes={nodes} />
         )}
       </div>

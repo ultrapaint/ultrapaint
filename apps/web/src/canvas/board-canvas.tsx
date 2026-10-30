@@ -57,8 +57,9 @@ import {
 import { nextView, setViewSoon, viewportSize } from "../state/camera.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { boardFrameOf, rootOfFrame, useDocuments } from "../state/documents.ts";
+import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { boardFrameOf } from "../state/frame-ref.ts";
 import {
   isolate,
   leaveIsolation,
@@ -493,7 +494,6 @@ const BoardTree = ({
     canvas,
     frame: box,
     frameId,
-    kind: "board",
     root,
   });
   return (

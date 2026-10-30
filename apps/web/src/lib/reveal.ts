@@ -5,15 +5,12 @@
  * is laid out (`zoomToSelectionOnceLaidOut`), so a caller neither measures the canvas nor waits
  * a frame.
  */
-import { leaveBoard } from "../state/board.ts";
+import type { Page } from "@ultrapaint/contracts/pages";
+import { leaveBoard, useBoard } from "../state/board.ts";
 import { zoomToSelectionOnceLaidOut } from "../state/camera.ts";
-import {
-  frameOfCanvasNode,
-  isNodeFrame,
-  pageOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { type FrameRef, frameRefOf } from "../state/frame-ref.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 
@@ -69,33 +66,60 @@ const frameHolding = (
  * Brings `target` into view, selected: done once it is selected on its canvas, the camera moving
  * when the frame is laid out. A page no canvas has is left alone, as is a node no canvas holds.
  */
-export const reveal = async (target: Revealed): Promise<void> => {
+export const reveal = (target: Revealed): Promise<void> => {
   revealing += 1;
   const asked = revealing;
+  if ("canvas" in target) {
+    return revealBesidePages(target, asked);
+  }
+  const ref = frameRefOf(frameOfTarget(target));
+  switch (ref.kind) {
+    case "board":
+      // A node of a board's tree is on the board view, which stays open.
+      revealOnBoard(ref, target as Selection);
+      return Promise.resolve();
+    case "node":
+      return revealInFrame(target, undefined, asked);
+    default: {
+      const page = useProject.getState().pages.find((p) => p.id === ref.page);
+      return page ? revealInFrame(target, page, asked) : Promise.resolve();
+    }
+  }
+};
+
+/** A node beside the pages of a canvas, in whichever of its frames holds it. */
+const revealBesidePages = async (
+  target: { readonly canvas: string; readonly nodeId: string },
+  asked: number
+) => {
   // What is revealed is on the page canvas: a board view open gives way to it.
   leaveBoard();
-  if ("canvas" in target) {
-    useEditor.getState().setWorkspace("design");
-    if (target.canvas !== useEditor.getState().canvas) {
-      await goTo({ canvas: target.canvas });
-    }
-    if (!stillAsked(asked, target.canvas)) {
-      return;
-    }
-    const frame = await frameHolding(target.canvas, target.nodeId, asked);
-    if (frame !== null) {
-      useEditor.getState().select({ frame, nodeId: target.nodeId });
-      zoomToSelectionOnceLaidOut(frame);
-    }
+  useEditor.getState().setWorkspace("design");
+  if (target.canvas !== useEditor.getState().canvas) {
+    await goTo({ canvas: target.canvas });
+  }
+  if (!stillAsked(asked, target.canvas)) {
     return;
   }
-  const frame = "page" in target ? target.page : target.frame;
-  const page = isNodeFrame(frame)
-    ? undefined
-    : useProject.getState().pages.find((p) => p.id === pageOfFrame(frame));
-  if (!(page || isNodeFrame(frame))) {
-    return;
+  const frame = await frameHolding(target.canvas, target.nodeId, asked);
+  if (frame !== null) {
+    useEditor.getState().select({ frame, nodeId: target.nodeId });
+    zoomToSelectionOnceLaidOut(frame);
   }
+};
+
+/**
+ * A page's frame, or a node of a frame of the page canvas: the page's canvas opened first, when it
+ * is another; a node beside the pages (no page) is on the open one.
+ */
+const revealInFrame = async (
+  target: { readonly page: string } | Selection,
+  page: Page | undefined,
+  asked: number
+) => {
+  const frame = frameOfTarget(target);
+  // What is revealed is on the page canvas: a board view open gives way to it.
+  leaveBoard();
   const editor = useEditor.getState();
   editor.setWorkspace("design");
   if (page && page.canvas !== editor.canvas) {
@@ -116,4 +140,23 @@ export const reveal = async (target: Revealed): Promise<void> => {
     useEditor.getState().select(target);
   }
   zoomToSelectionOnceLaidOut(frame);
+};
+
+const frameOfTarget = (target: { page: string } | Selection) =>
+  "page" in target ? target.page : target.frame;
+
+/**
+ * A node of a board brought into view: on the board view open, selected, the camera gliding to
+ * it there. A board of another item, or of a board view not open, has nothing to show.
+ */
+const revealOnBoard = (
+  board: Extract<FrameRef, { kind: "board" }>,
+  target: Selection
+) => {
+  const { open } = useBoard.getState();
+  if (!(open && open.view === board.view && open.item === board.item)) {
+    return;
+  }
+  useEditor.getState().select(target);
+  zoomToSelectionOnceLaidOut(target.frame);
 };

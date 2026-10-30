@@ -21,13 +21,7 @@ import {
   normaliseRoute,
   pagesInVariant,
 } from "@ultrapaint/shared/route";
-import {
-  isBoardFrame,
-  isNodeFrame,
-  isViewFrame,
-  pageOfFrame,
-  useDocuments,
-} from "./documents.ts";
+import { useDocuments } from "./documents.ts";
 import {
   type EditorState,
   layoutOf,
@@ -36,6 +30,7 @@ import {
   unpicked,
   useEditor,
 } from "./editor.ts";
+import { frameRefOf, pageOfRef } from "./frame-ref.ts";
 import { reportError, useProject } from "./project.ts";
 import {
   onUrlChange,
@@ -259,11 +254,12 @@ export const goTo = (to: GoTo, options?: { push?: boolean }): Promise<void> => {
  * keeps the selection being made. A node on the canvas beside the pages is at no page.
  */
 export const followFrame = (frame: string) => {
-  if (isNodeFrame(frame) || isBoardFrame(frame)) {
+  const of = pageOfRef(frameRefOf(frame));
+  if (of === null) {
     return;
   }
   const page = pagesOfCanvas(useEditor.getState().canvas).find(
-    (p) => p.id === pageOfFrame(frame)
+    (p) => p.id === of
   );
   if (!page) {
     return;
@@ -298,7 +294,9 @@ export const pagesChanged = () => {
   const pages = pagesOfCanvas(canvas);
   const now = here();
   // A view's frame is its page's (ADR 0036).
-  const framed = Object.keys(frames).filter((id) => !isViewFrame(id));
+  const framed = Object.keys(frames).filter(
+    (id) => frameRefOf(id).kind !== "view"
+  );
   if (
     pages.some((p) => !frames[p.id]) ||
     framed.some((id) => !pages.some((p) => p.id === id))

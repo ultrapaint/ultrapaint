@@ -6,7 +6,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { appComponentOf, useComponents } from "../state/components.ts";
-import { isBoardFrame } from "../state/documents.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import {
   editVariant,
   leaveIsolation,
@@ -55,7 +55,7 @@ export const IsolationBanner = () => {
     return null;
   }
   const choices = file.properties.filter((p) => p.kind === "choice");
-  const onBoard = isBoardFrame(isolated.frame);
+  const onBoard = frameRefOf(isolated.frame).kind === "board";
   const current = isolated.variant
     ? `${isolated.variant.property}\n${isolated.variant.member}`
     : "";

@@ -10,7 +10,6 @@
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
-import { isNodeFrame, NODE_FRAME_PREFIX } from "../state/documents.ts";
 import {
   allFrames,
   type Box,
@@ -21,6 +20,7 @@ import {
   showFrame,
   useEditor,
 } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
@@ -266,8 +266,9 @@ export const beginFrameGesture = (
     (e.currentTarget as Element | null)
       ?.closest?.("[data-canvas]")
       ?.setPointerCapture(e.pointerId);
-  if (isNodeFrame(frameId)) {
-    const nodeId = frameId.slice(NODE_FRAME_PREFIX.length);
+  const ref = frameRefOf(frameId);
+  if (ref.kind === "node") {
+    const nodeId = ref.node;
     const box = allFrames()[frameId];
     if (!box) {
       return;

@@ -30,7 +30,7 @@ import {
 } from "../boards/library-boards.ts";
 import { systemItemName } from "../boards/system-boards.ts";
 import type { BoardPick, BoardPlace } from "../state/board.ts";
-import { boardOfFrame } from "../state/documents.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 
 /** What the stores know that a board's chip says. */
 export interface BoardFacts {
@@ -148,8 +148,12 @@ const appBoardPicked = (
   pick: BoardPick | null,
   editedOn: string | null
 ): string | null => {
-  const edited = editedOn ? boardOfFrame(editedOn) : null;
-  if (edited && edited.view === open.view && edited.item === open.item) {
+  const edited = editedOn ? frameRefOf(editedOn) : null;
+  if (
+    edited?.kind === "board" &&
+    edited.view === open.view &&
+    edited.item === open.item
+  ) {
     return edited.name;
   }
   return pick?.nodeId.startsWith("variant:")

@@ -72,7 +72,7 @@ import {
 import { pickOf, pickOnBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
-import { boardFrameOf } from "../state/documents.ts";
+import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
 import { UsesSection, usePagesRead } from "./token-inspector.tsx";

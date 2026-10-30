@@ -20,6 +20,7 @@ import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { selectForMenu, useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { isolate } from "../state/isolation.ts";
 import { isSelected, selectedIn } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
@@ -75,20 +76,21 @@ export const useFramePointer = ({
   canvas,
   frame,
   frameId,
-  kind,
   root,
 }: {
   canvas: string | null;
   /** Where the frame is on the canvas, which a node dragged off it starts from. */
   frame: { x: number; y: number };
-  frameId: string;
   /**
-   * A page, a node placed on the canvas (which a drag of its root moves about), or a board's
-   * frame an app component is edited in place in (ADR 0045), which stays where its board is.
+   * A page's frame or a view of it, a node placed on the canvas (which a drag of its root moves
+   * about), or a board's frame an app component is edited in place in (ADR 0045), which stays
+   * where its board is: its id says which.
    */
-  kind: "page" | "node" | "board";
+  frameId: string;
   root: DesignNode | null;
 }) => {
+  const ref = frameRefOf(frameId);
+  const kind = ref.kind === "view" ? "page" : ref.kind;
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
   /**

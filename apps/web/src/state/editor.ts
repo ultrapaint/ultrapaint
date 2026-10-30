@@ -15,16 +15,8 @@ import type { Rect } from "@ultrapaint/contracts/preview";
 import { create } from "zustand";
 import { sizeForPreset } from "../lib/presets.ts";
 import { api } from "./connection.ts";
-import {
-  canvasNodes,
-  isViewFrame,
-  nodeFrameOf,
-  nodeIn,
-  pageOfFrame,
-  useDocuments,
-  viewFrameOf,
-  viewOfFrame,
-} from "./documents.ts";
+import { canvasNodes, nodeIn, useDocuments } from "./documents.ts";
+import { frameRefOf, nodeFrameOf, viewFrameOf } from "./frame-ref.ts";
 import { followFrame } from "./location.ts";
 import { reportError, useProject } from "./project.ts";
 import { isSelected, pickedIn, showsIn } from "./selection.ts";
@@ -307,6 +299,19 @@ export const allFrames = (): Record<string, Box> => {
 };
 
 /**
+ * The page a frame of the layout is of, and the view it is; null for the page's own frame. The
+ * layout holds pages' frames and their views only.
+ */
+const viewIn = (id: string): { page: string; view: string | null } => {
+  const ref = frameRefOf(id);
+  return ref.kind === "view"
+    ? { page: ref.page, view: ref.view }
+    : { page: id, view: null };
+};
+
+const isView = (id: string) => frameRefOf(id).kind === "view";
+
+/**
  * The frames with their pages' views among them, each a box of its own where its page's frame
  * puts it (ADR 0036): a view's place is counted from its page's frame, so it moves with it.
  */
@@ -315,7 +320,7 @@ const placeViews = (
 ): Record<string, FrameLayout> => {
   const out: Record<string, FrameLayout> = {};
   for (const [id, frame] of Object.entries(frames)) {
-    if (isViewFrame(id)) {
+    if (isView(id)) {
       continue;
     }
     out[id] = frame;
@@ -338,7 +343,7 @@ const framesWith = (
   id: string,
   box: FrameLayout
 ): Record<string, FrameLayout> => {
-  const view = viewOfFrame(id);
+  const { page: pageId, view } = viewIn(id);
   if (view === null) {
     // A frame given without its views keeps those it has.
     const views = "views" in box ? box.views : frames[id]?.views;
@@ -347,7 +352,6 @@ const framesWith = (
       [id]: { ...box, ...(views && views.length > 0 ? { views } : {}) },
     });
   }
-  const pageId = pageOfFrame(id);
   const page = frames[pageId];
   if (!page) {
     return frames;
@@ -370,7 +374,7 @@ const framesWith = (
 const pageFrames = (
   frames: Record<string, FrameLayout>
 ): Record<string, FrameLayout> =>
-  Object.fromEntries(Object.entries(frames).filter(([id]) => !isViewFrame(id)));
+  Object.fromEntries(Object.entries(frames).filter(([id]) => !isView(id)));
 
 /**
  * The pages' frames, by page id, where `canvas-layout` has the editor draw them: where the
@@ -426,7 +430,7 @@ let gesture: { readonly page: string; pushed: FrameLayout | null } | null =
 
 /** A frame gesture draws `frame` from now on, until `doneDrawingFrame`. */
 export const drawingFrame = (frame: string) => {
-  gesture = { page: pageOfFrame(frame), pushed: null };
+  gesture = { page: viewIn(frame).page, pushed: null };
 };
 
 /**
@@ -473,7 +477,7 @@ const saveFrame = (
   if (canvas === null || viewedSnapshot()) {
     return;
   }
-  const changed = pageOfFrame(frame);
+  const changed = viewIn(frame).page;
   const sent: Record<string, FrameLayout> = {};
   for (const page of pagesOfCanvas(canvas)) {
     const drawn = frames[page.id];
@@ -597,8 +601,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   mode: modeFor(workspaceInUrl(), undefined),
   rects: {},
   removeView: (frame) => {
-    const view = viewOfFrame(frame);
-    const pageId = pageOfFrame(frame);
+    const { page: pageId, view } = viewIn(frame);
     const page = get().frames[pageId];
     if (view === null || !page) {
       return;
@@ -649,7 +652,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     // A view's frame selects its page, which every view of it shows (ADR 0036).
     set({
       also: [],
-      selectedPage: pageId && pageOfFrame(pageId),
+      selectedPage: pageId && viewIn(pageId).page,
       selection: null,
     });
     if (pageId) {

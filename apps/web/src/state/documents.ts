@@ -23,6 +23,7 @@ import {
 import { canvasIdOf } from "@ultrapaint/shared/canvas";
 import { create } from "zustand";
 import { api } from "./connection.ts";
+import { documentShown, frameRefOf, nodeFrameOf } from "./frame-ref.ts";
 import { reportError, useProject } from "./project.ts";
 import { follow } from "./server-data.ts";
 import { ensureEditable } from "./setup.ts";
@@ -204,76 +205,14 @@ export const applyEdits = async (
 
 // ---- Frames ----
 
-/** Prefix of the id of a frame showing a node placed on the canvas. */
-export const NODE_FRAME_PREFIX = "node:";
-
-export const nodeFrameOf = (nodeId: string) => `${NODE_FRAME_PREFIX}${nodeId}`;
-
-export const isNodeFrame = (frame: string) =>
-  frame.startsWith(NODE_FRAME_PREFIX);
-
-/**
- * Prefix of the id of a board's frame (ADR 0045), `board:<view>/<item>/<name>`: a document the
- * editor generates for the item a board view shows, which is no page and no node of the canvas.
+/*
+ * A frame's kind is `frame-ref.ts`'s, parsed from its id. These two are kept by name for the
+ * modules that still ask them here; a new caller switches on `frameRefOf(id).kind`.
  */
-export const BOARD_FRAME_PREFIX = "board:";
-
-/** Where a board's frame is: the board view, the item it shows, and the board's own name. */
-export interface BoardFrame {
-  readonly item: string;
-  readonly name: string;
-  readonly view: string;
-}
-
-export const boardFrameOf = ({ item, name, view }: BoardFrame) =>
-  `${BOARD_FRAME_PREFIX}${view}/${item}/${name}`;
+export const isNodeFrame = (frame: string) => frameRefOf(frame).kind === "node";
 
 export const isBoardFrame = (frame: string) =>
-  frame.startsWith(BOARD_FRAME_PREFIX);
-
-/**
- * The board a frame id names; null for any other frame. An item may hold a slash (a guideline's
- * heading): the view is before the first, the board's name after the last.
- */
-export const boardOfFrame = (frame: string): BoardFrame | null => {
-  if (!isBoardFrame(frame)) {
-    return null;
-  }
-  const rest = frame.slice(BOARD_FRAME_PREFIX.length);
-  const first = rest.indexOf("/");
-  const last = rest.lastIndexOf("/");
-  if (first < 0 || last === first) {
-    return null;
-  }
-  return {
-    item: rest.slice(first + 1, last),
-    name: rest.slice(last + 1),
-    view: rest.slice(0, first),
-  };
-};
-
-/**
- * What separates a page from one of its views in a view's frame id, `<page>#<view>` (ADR 0036):
- * a view is a frame of its own whose document is the page's.
- */
-const VIEW_SEPARATOR = "#";
-
-export const viewFrameOf = (page: string, view: string) =>
-  `${page}${VIEW_SEPARATOR}${view}`;
-
-export const isViewFrame = (frame: string) =>
-  !(isNodeFrame(frame) || isBoardFrame(frame)) &&
-  frame.includes(VIEW_SEPARATOR);
-
-/** The page a frame shows: itself, or the page a view of it draws again. */
-export const pageOfFrame = (frame: string): string =>
-  isViewFrame(frame) ? frame.slice(0, frame.indexOf(VIEW_SEPARATOR)) : frame;
-
-/** The view a frame is, by its id inside its page; null for the page's own frame. */
-export const viewOfFrame = (frame: string): string | null =>
-  isViewFrame(frame)
-    ? frame.slice(frame.indexOf(VIEW_SEPARATOR) + VIEW_SEPARATOR.length)
-    : null;
+  frameRefOf(frame).kind === "board";
 
 /**
  * A frame whose edits go to another document: an app component's tree edited in place in it
@@ -298,16 +237,15 @@ export const editFrameAs = (edited: EditedAs | null) => {
 export const editedAtOf = (frame: string): string | null =>
   editedAs?.frame === frame ? editedAs.at : null;
 
-/** The document a frame shows: the page it is, or the canvas's loose nodes. */
-const shownDocOf = (frame: string, canvas: string | null): string =>
-  isNodeFrame(frame) ? canvasDocOf(canvas ?? "") : pageOfFrame(frame);
-
 /**
  * The document a frame's selection and edits belong to: the one it shows, or the app component
- * edited in place in it.
+ * edited in place in it. A board's own frame shows none of the documents: its id is answered,
+ * which no document has.
  */
 export const docOfFrame = (frame: string, canvas: string | null): string =>
-  editedAs?.frame === frame ? editedAs.doc : shownDocOf(frame, canvas);
+  editedAs?.frame === frame
+    ? editedAs.doc
+    : (documentShown(frameRefOf(frame), canvas) ?? frame);
 
 const NO_NODES: readonly DesignNode[] = [];
 
@@ -342,14 +280,15 @@ export const drawnRootOf = (
   canvas: string | null,
   frame: string
 ): DesignNode | null => {
-  if (isBoardFrame(frame)) {
-    return null;
+  const ref = frameRefOf(frame);
+  switch (ref.kind) {
+    case "node":
+      return canvasNodes(docs, canvas).find((n) => n.id === ref.node) ?? null;
+    case "board":
+      return null;
+    default:
+      return docs[ref.page]?.root ?? null;
   }
-  if (isNodeFrame(frame)) {
-    const id = frame.slice(NODE_FRAME_PREFIX.length);
-    return canvasNodes(docs, canvas).find((n) => n.id === id) ?? null;
-  }
-  return docs[pageOfFrame(frame)]?.root ?? null;
 };
 
 /** A node of a frame, by id. */

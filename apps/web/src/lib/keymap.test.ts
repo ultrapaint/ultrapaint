@@ -374,10 +374,10 @@ describe("the menus", () => {
         nodeEntries({
           canPaste: true,
           count: 1,
+          frame: { kind: "page", page: "home.page.json" },
           hidden: false,
           index: 1,
           node,
-          onPage: true,
           parentSelectable: true,
           siblings: 3,
           wrappable: true,

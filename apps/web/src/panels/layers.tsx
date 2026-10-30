@@ -57,13 +57,9 @@ import {
 import { renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
-import {
-  canvasNodes,
-  nodeFrameOf,
-  pageOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
+import { nodeFrameOf, ownFrameOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -144,7 +140,7 @@ const selectedKeyOf = (
 ) => {
   // A node selected in a view of a page is the page's row (ADR 0036).
   if (selection) {
-    return layerKey(pageOfFrame(selection.frame), selection.nodeId);
+    return layerKey(ownFrameOf(selection.frame), selection.nodeId);
   }
   return selectedPage ? pageKey(selectedPage) : null;
 };
@@ -183,7 +179,7 @@ const useRevealSelection = (
   const [revealedFor, setRevealedFor] = useState<Selection | null>(null);
   if (selection && selection !== revealedFor) {
     setRevealedFor(selection);
-    const key = layerKey(pageOfFrame(selection.frame), selection.nodeId);
+    const key = layerKey(ownFrameOf(selection.frame), selection.nodeId);
     onReveal(key);
     setFolds((folds) => revealed(folds, items, key));
   }
@@ -989,7 +985,7 @@ const LayerRow = ({
   const hovered = useEditor(
     (s) =>
       s.hover !== null &&
-      pageOfFrame(s.hover.frame) === frame &&
+      ownFrameOf(s.hover.frame) === frame &&
       s.hover.nodeId === node.id
   );
   const dropHere = useDropHere(key);

@@ -27,8 +27,13 @@ import {
 } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
-import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
+import {
+  frameRefOf,
+  hasPrototypeLinks,
+  takesComments,
+} from "../state/frame-ref.ts";
 import { useImplementation } from "../state/implementation.ts";
 import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
@@ -186,15 +191,15 @@ const nodeMenu = (target: Selection) => {
   }
   const place = placeOf(ctx);
   const targets = actedOn(target);
-  const onPage = !isNodeFrame(target.frame);
+  const frame = frameRefOf(target.frame);
   return nodeEntries({
     canPaste: canPaste(),
     count: targets.length,
+    frame,
     hidden: allHidden(targets),
     index: place?.siblings.findIndex((c) => c.id === current.node.id) ?? 0,
-    linkTargets: onPage ? linkTargets() : [],
+    linkTargets: hasPrototypeLinks(frame) ? linkTargets() : [],
     node: current.node,
-    onPage,
     parentSelectable: !!place?.parent && place.parent.type !== "page",
     siblings: place?.siblings.length ?? 1,
     wrappable: targets.length === 1 || areSiblings(targets),
@@ -346,7 +351,7 @@ const commentOn = (target: Selection, at?: Point) => {
     target.frame,
     target.nodeId
   );
-  if (!node || isNodeFrame(target.frame)) {
+  if (!(node && takesComments(frameRefOf(target.frame)))) {
     return;
   }
   let point = at;
