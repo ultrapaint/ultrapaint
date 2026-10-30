@@ -4,12 +4,16 @@
  * publishing and keeping the cursor to the caller.
  */
 import type {
+  Plan,
   PromptResponse,
   SessionConfigOption,
   SessionConfigSelectOptions,
   SessionNotification,
+  ToolCallContent,
+  ToolCallLocation,
 } from "@ultrapaint/acp/acp-agent";
 import type {
+  ConfigOption,
   ContextUsage,
   Thread,
   ThreadItem,
@@ -41,7 +45,13 @@ export type TranscriptAction =
       readonly itemId: string;
       readonly patch: (item: ThreadItem) => ThreadItem;
     }
-  | { readonly type: "thread"; readonly patch: Partial<Thread> };
+  /** A streamed chunk at the end of an item's text: sent alone, not with the item. */
+  | { readonly type: "append"; readonly itemId: string; readonly text: string }
+  /** What changes of the thread, from the thread as it is. */
+  | {
+      readonly type: "thread";
+      readonly patch: (thread: Thread) => Partial<Thread>;
+    };
 
 export interface ProjectionContext {
   readonly hasItem: (itemId: string) => boolean;
@@ -67,51 +77,34 @@ const unmoved = (
   ctx: ProjectionContext
 ): Projection => ({ actions, turn: ctx.turn });
 
-/** A tool call's content as ACP sends it, before the editor's own shape. */
-interface RawToolContent {
-  readonly content?: { readonly text?: string; readonly type: string };
-  readonly newText?: string;
-  readonly oldText?: string | null;
-  readonly path?: string;
-  readonly terminalId?: string;
-  readonly type: string;
-}
-
 /** Keeps what the editor can show by itself: text, a file's diff, a terminal to follow. */
 export const toolContent = (
-  c: RawToolContent,
+  c: ToolCallContent,
   ctx: ProjectionContext
 ): ToolContent => {
   switch (c.type) {
     case "content":
       return {
         text:
-          c.content?.type === "text"
-            ? (c.content.text ?? "")
-            : `[${c.content?.type ?? "content"}]`,
+          c.content.type === "text" ? c.content.text : `[${c.content.type}]`,
         type: "text",
       };
     case "diff":
       return {
-        newText: c.newText ?? "",
-        path: ctx.relative(c.path ?? ""),
+        newText: c.newText,
+        path: ctx.relative(c.path),
         type: "diff",
         ...(c.oldText === null || c.oldText === undefined
           ? {}
           : { oldText: c.oldText }),
       };
-    case "terminal":
-      return { terminalId: c.terminalId ?? "", type: "terminal" };
     default:
-      return { text: `[${c.type}]`, type: "text" };
+      return { terminalId: c.terminalId, type: "terminal" };
   }
 };
 
 const toolLocations = (
-  locations: readonly {
-    readonly line?: number | null;
-    readonly path: string;
-  }[],
+  locations: readonly ToolCallLocation[],
   ctx: ProjectionContext
 ): ToolLocation[] =>
   locations.map((l) => ({
@@ -150,7 +143,10 @@ const choicesOf = (options: SessionConfigSelectOptions) =>
       ...(x.description ? { description: x.description } : {}),
     }));
 
-/** Agents describe select and boolean options; the editor renders both as a list of choices. */
+/**
+ * Agents describe select and boolean options; the editor renders both as a list of choices, and
+ * keeps which kind each is, so a boolean is set as one.
+ */
 export const mapConfigOptions = (
   options: readonly SessionConfigOption[] | null | undefined
 ): Thread["configOptions"] =>
@@ -160,7 +156,45 @@ export const mapConfigOptions = (
     ...(opt.category ? { category: opt.category } : {}),
     currentValue: String(opt.currentValue),
     options: opt.type === "boolean" ? BOOLEAN_OPTIONS : choicesOf(opt.options),
+    type: opt.type,
   }));
+
+/** An option's value as ACP sets it: a boolean's as a boolean, a select's as its choice. */
+export const optionValue = (
+  option: ConfigOption | undefined,
+  value: string
+): string | boolean => (option?.type === "boolean" ? value === "true" : value);
+
+/**
+ * An agent may offer its mode twice, as modes and as an option of category `mode`, and say a
+ * change of it either way: whichever way it changes, both say the same.
+ */
+const isModeOption = (option: ConfigOption) => option.category === "mode";
+
+/** The thread with its mode changed, the mode option with it. */
+export const modeSet = (
+  thread: Pick<Thread, "configOptions">,
+  modeId: string
+): Pick<Thread, "configOptions" | "currentModeId"> => ({
+  currentModeId: modeId,
+  ...(thread.configOptions?.some(isModeOption)
+    ? {
+        configOptions: thread.configOptions.map((o) =>
+          isModeOption(o) ? { ...o, currentValue: modeId } : o
+        ),
+      }
+    : {}),
+});
+
+/** The thread with its options changed, its mode with the mode option. */
+export const optionsSet = (
+  thread: Pick<Thread, "currentModeId">,
+  options: readonly ConfigOption[]
+): Pick<Thread, "configOptions" | "currentModeId"> => ({
+  configOptions: options,
+  currentModeId:
+    options.find(isModeOption)?.currentValue ?? thread.currentModeId,
+});
 
 /** codex-acp's own accounting in a response's `_meta`, which claude-agent-acp copies. */
 interface Quota {
@@ -235,11 +269,6 @@ const contextOf = (
     : {}),
 });
 
-const appendText =
-  (kind: "agent" | "thought", text: string) =>
-  (item: ThreadItem): ThreadItem =>
-    item.kind === kind ? { ...item, text: item.text + text } : item;
-
 /** A streamed chunk extends the open item of its kind, or opens one and closes the other. */
 const projectChunk = (
   kind: "agent" | "thought",
@@ -250,10 +279,7 @@ const projectChunk = (
   const other = kind === "agent" ? "thoughtItemId" : "agentItemId";
   const open = ctx.turn?.[key];
   if (open) {
-    return unmoved(
-      [{ itemId: open, patch: appendText(kind, text), type: "patch" }],
-      ctx
-    );
+    return unmoved([{ itemId: open, text, type: "append" }], ctx);
   }
   const item: ThreadItem = { at: ctx.now, id: ctx.newId(), kind, text };
   return {
@@ -273,9 +299,7 @@ const toolItem = (
   fallback: { status: "pending" | "in_progress"; title: string }
 ): ThreadItem => ({
   at: ctx.now,
-  content: ((u.content ?? []) as RawToolContent[]).map((c) =>
-    toolContent(c, ctx)
-  ),
+  content: (u.content ?? []).map((c) => toolContent(c, ctx)),
   id: `tool_${u.toolCallId}`,
   kind: "tool",
   locations: toolLocations(u.locations ?? [], ctx),
@@ -305,9 +329,7 @@ const projectToolUpdate = (
           ? {
               ...i,
               content: u.content
-                ? (u.content as RawToolContent[]).map((c) =>
-                    toolContent(c, ctx)
-                  )
+                ? u.content.map((c) => toolContent(c, ctx))
                 : i.content,
               locations: u.locations
                 ? toolLocations(u.locations, ctx)
@@ -321,17 +343,12 @@ const projectToolUpdate = (
   ];
 };
 
-const projectPlan = (u: SessionUpdate, ctx: ProjectionContext): Projection => {
-  const raw = (u as { entries?: unknown }).entries;
-  const entries = Array.isArray(raw)
-    ? (raw as { content: string; priority?: string; status: string }[]).map(
-        (e) => ({
-          content: e.content,
-          priority: e.priority,
-          status: e.status,
-        })
-      )
-    : [];
+const projectPlan = (plan: Plan, ctx: ProjectionContext): Projection => {
+  const entries = plan.entries.map((e) => ({
+    content: e.content,
+    priority: e.priority,
+    status: e.status,
+  }));
   const open = ctx.turn?.planItemId;
   if (open) {
     return unmoved(
@@ -394,14 +411,20 @@ export const projectUpdate = (
       return projectPlan(u, ctx);
     case "current_mode_update":
       return unmoved(
-        [{ patch: { currentModeId: u.currentModeId }, type: "thread" }],
+        [
+          {
+            patch: (thread) => modeSet(thread, u.currentModeId),
+            type: "thread",
+          },
+        ],
         ctx
       );
     case "config_option_update":
       return unmoved(
         [
           {
-            patch: { configOptions: mapConfigOptions(u.configOptions) },
+            patch: (thread) =>
+              optionsSet(thread, mapConfigOptions(u.configOptions) ?? []),
             type: "thread",
           },
         ],
@@ -409,13 +432,16 @@ export const projectUpdate = (
       );
     case "usage_update":
       return unmoved(
-        [{ patch: { context: contextOf(u) }, type: "thread" }],
+        [{ patch: () => ({ context: contextOf(u) }), type: "thread" }],
         ctx
       );
-    case "session_info_update": {
-      const { title } = u as { title?: string | null };
-      return unmoved(title ? [{ patch: { title }, type: "thread" }] : [], ctx);
-    }
+    case "session_info_update":
+      return unmoved(
+        u.title
+          ? [{ patch: () => ({ title: u.title ?? "" }), type: "thread" }]
+          : [],
+        ctx
+      );
     default:
       return unmoved([], ctx);
   }

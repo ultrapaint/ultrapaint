@@ -29,13 +29,7 @@ import { AppLog } from "../../app-log.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
-import { mapConfigOptions } from "./transcript.ts";
-
-/** Boolean options travel as strings in the editor and as booleans in ACP. */
-export const BOOLEAN_VALUES: Record<string, boolean | undefined> = {
-  false: false,
-  true: true,
-};
+import { mapConfigOptions, optionValue } from "./transcript.ts";
 
 export const agentFailure = (error: AcpError) =>
   new AgentFailure({ message: error.message });
@@ -140,7 +134,7 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
       }
       const value = want.currentValue;
       current = yield* agent
-        .setConfigOption(sessionId, want.id, BOOLEAN_VALUES[value] ?? value)
+        .setConfigOption(sessionId, want.id, optionValue(offered, value))
         .pipe(
           Effect.map(
             (response) =>

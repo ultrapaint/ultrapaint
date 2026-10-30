@@ -6,6 +6,7 @@
  * that goes with it. The thread session keeps one, and asks it whether a turn is under way.
  */
 import type { PromptResponse, SessionUpdate } from "@ultrapaint/acp/acp-agent";
+import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Clock, Deferred, Effect, Fiber, type Scope } from "effect";
 import type { AppLog } from "../../app-log.ts";
 import type { ProjectManager } from "../../project.ts";
@@ -14,6 +15,7 @@ import type { ThreadStore } from "./thread-store.ts";
 import {
   emptyCursor,
   projectUpdate,
+  type TranscriptAction,
   type TurnCursor,
   turnUsage,
 } from "./transcript.ts";
@@ -54,6 +56,11 @@ export interface Turn {
   readonly end: (response: PromptResponse) => Effect.Effect<void>;
   /** The turn went wrong: the transcript says why, and the thread takes prompts again. */
   readonly fail: (message: string) => Effect.Effect<void>;
+  /** A terminal of the agent's is done with: the tool call that ran it keeps its output's tail. */
+  readonly keepTerminal: (
+    terminalId: string,
+    output: string
+  ) => Effect.Effect<void>;
   /** An update of the agent's, placed in the transcript. */
   readonly place: (
     update: SessionUpdate,
@@ -130,6 +137,22 @@ export const makeTurn = (
     yield* transition({ _tag: "TurnEnded" });
   });
 
+  /** One thing an update does to the transcript, done. */
+  const apply = (action: TranscriptAction): Effect.Effect<void> => {
+    switch (action.type) {
+      case "push":
+        return store.push(threadId, action.item);
+      case "patch":
+        return store.patchItem(threadId, action.itemId, action.patch);
+      case "append":
+        return store.appendText(threadId, action.itemId, action.text);
+      default:
+        return Effect.flatMap(store.get(threadId), (thread) =>
+          thread ? store.update(threadId, action.patch(thread)) : Effect.void
+        );
+    }
+  };
+
   const place = Effect.fnUntraced(function* (
     update: SessionUpdate,
     relative: (file: string) => string
@@ -148,13 +171,7 @@ export const makeTurn = (
       state = { ...at, cursor: projected.turn };
     }
     for (const action of projected.actions) {
-      if (action.type === "push") {
-        yield* store.push(threadId, action.item);
-      } else if (action.type === "patch") {
-        yield* store.patchItem(threadId, action.itemId, action.patch);
-      } else {
-        yield* store.update(threadId, action.patch);
-      }
+      yield* apply(action);
     }
   });
 
@@ -196,6 +213,31 @@ export const makeTurn = (
     drop: Effect.asVoid(over),
     end,
     fail,
+    keepTerminal: Effect.fnUntraced(function* (
+      terminalId: string,
+      output: string
+    ) {
+      const runs = (item: ThreadItem) =>
+        item.kind === "tool" &&
+        item.content.some(
+          (c) => c.type === "terminal" && c.terminalId === terminalId
+        );
+      const tool = (yield* store.items(threadId)).findLast(runs);
+      if (tool) {
+        yield* store.patchItem(threadId, tool.id, (item) =>
+          item.kind === "tool"
+            ? {
+                ...item,
+                content: item.content.map((c) =>
+                  c.type === "terminal" && c.terminalId === terminalId
+                    ? { ...c, output }
+                    : c
+                ),
+              }
+            : item
+        );
+      }
+    }),
     place,
     state: Effect.sync(() => state),
     stopOpening: Effect.suspend(() =>

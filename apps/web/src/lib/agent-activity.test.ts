@@ -1,5 +1,9 @@
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import type {
+  Thread,
+  ThreadItem,
+  ToolKind,
+} from "@ultrapaint/contracts/threads";
 import { describe, expect, it } from "vitest";
 import { AGENT_COLOR, agentActivity } from "./agent-activity.ts";
 
@@ -15,7 +19,7 @@ const thread = (id: string, status: Thread["status"]): Thread => ({
 const toolCall = (
   status: "in_progress" | "completed",
   locations: { line?: number; path: string }[],
-  toolKind?: string,
+  toolKind?: ToolKind,
   title = "Edit file"
 ): ThreadItem => ({
   at: 0,

@@ -56,6 +56,9 @@ const ON_OFF = [
 
 /** The "on" value of an option that is really a switch (two values like on/off), else null. */
 const switchOnValue = (option: ConfigOption): string | null => {
+  if (option.type === "boolean") {
+    return "true";
+  }
   if (option.options.length !== 2) {
     return null;
   }

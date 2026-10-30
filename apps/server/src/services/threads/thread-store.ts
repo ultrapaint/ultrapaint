@@ -147,6 +147,15 @@ export class ThreadStore extends Context.Service<
       patch: (item: ThreadItem) => ThreadItem
     ) => Effect.Effect<void>;
     readonly push: (id: string, item: ThreadItem) => Effect.Effect<void>;
+    /**
+     * A streamed chunk at the end of an agent's message or thought: published as the chunk
+     * alone (`itemText`), where a patch publishes the whole item.
+     */
+    readonly appendText: (
+      id: string,
+      itemId: string,
+      text: string
+    ) => Effect.Effect<void>;
     readonly remove: (id: string) => Effect.Effect<void>;
     readonly update: (
       id: string,
@@ -313,12 +322,37 @@ export class ThreadStore extends Context.Service<
         });
       });
 
+      const appendText = Effect.fnUntraced(function* (
+        id: string,
+        itemId: string,
+        text: string
+      ) {
+        const entry = threads.get(id);
+        const index = entry?.items.findIndex((i) => i.id === itemId) ?? -1;
+        const existing = entry?.items[index];
+        if (
+          !(entry && existing) ||
+          (existing.kind !== "agent" && existing.kind !== "thought")
+        ) {
+          return;
+        }
+        entry.items[index] = { ...existing, text: existing.text + text };
+        yield* persistSoon(id);
+        yield* events.publish("agent", {
+          itemId,
+          text,
+          threadId: id,
+          type: "itemText",
+        });
+      });
+
       return ThreadStore.of({
         add: Effect.fnUntraced(function* (thread: Thread) {
           threads.set(thread.id, { items: [], thread });
           yield* persist(thread.id);
           yield* events.publish("agent", { thread, type: "thread" });
         }),
+        appendText,
         get: (id) => Effect.sync(() => threads.get(id)?.thread),
         hasItem: (id, itemId) =>
           threads.get(id)?.items.some((i) => i.id === itemId) ?? false,
