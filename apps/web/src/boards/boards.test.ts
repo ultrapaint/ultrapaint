@@ -377,7 +377,7 @@ describe("the Library's boards", () => {
       version: 1,
     };
     const { boards, direction } = libraryBoards("Plan", catalogue, () => card);
-    expect(direction).toBe("row");
+    expect(direction).toBe("wrap");
     expect(boards.map((b) => b.name)).toEqual([
       "tone=default",
       "tone=featured",

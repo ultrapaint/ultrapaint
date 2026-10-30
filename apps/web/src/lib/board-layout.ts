@@ -1,7 +1,8 @@
 /**
- * Where a board view's boards are (ADR 0045): in a row or a column from the board view's origin,
- * each at its drawn size, a gap between them that leaves room for the name over each. A board
- * not measured yet takes a size of its own until it is. Pure, so it is tested without a canvas.
+ * Where a board view's boards are (ADR 0045): in a row, a column or rows as wide as the canvas
+ * holds, from the board view's origin, each at its drawn size, a gap between them that leaves room
+ * for the name over each. A board not measured yet takes a size of its own until it is. Pure, so
+ * it is tested without a canvas.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 
@@ -34,10 +35,42 @@ export const boardLayout = (
 };
 
 /**
+ * Side by side while they fit in `room`, the next one under them when it would not: a card's
+ * variants share a row and a wide header's stack, each at 100% rather than all of them shrunk to
+ * fit. A board wider than `room` has a row of its own.
+ */
+export const wrappedBoards = (
+  boards: readonly string[],
+  sizes: Readonly<Record<string, { height: number; width: number }>>,
+  room: number
+): Record<string, Box> => {
+  const out: Record<string, Box> = {};
+  let x = 0;
+  let y = 0;
+  let tallest = 0;
+  for (const id of boards) {
+    const { height, width } = sizes[id] ?? UNMEASURED;
+    if (x > 0 && x + width > room) {
+      x = 0;
+      y += tallest + BOARD_GAP;
+      tallest = 0;
+    }
+    out[id] = { height, width, x, y };
+    x += width + ROW_GAP;
+    tallest = Math.max(tallest, height);
+  }
+  return out;
+};
+
+/**
  * Where an item's boards begin the first time it is opened, from the seen part's corner: a little
  * in from its left, and low enough for the names over them.
  */
 export const BOARD_MARGIN = { x: 32, y: 72 } as const;
+
+/** How wide a row of boards can be between the panels, at 100%. */
+export const boardRoom = (seen: { readonly width: number }) =>
+  seen.width - 2 * BOARD_MARGIN.x;
 
 /**
  * The camera an item's boards are first seen with: from the seen part's corner, every board as
@@ -51,7 +84,7 @@ export const firstBoardView = (
   const left = Math.min(0, ...boxes.map((b) => b.x));
   const top = Math.min(0, ...boxes.map((b) => b.y));
   const right = Math.max(0, ...boxes.map((b) => b.x + b.width));
-  const room = seen.width - 2 * BOARD_MARGIN.x;
+  const room = boardRoom(seen);
   const wide = right - left;
   const zoom = wide > 0 && room > 0 ? Math.min(1, room / wide) : 1;
   return {

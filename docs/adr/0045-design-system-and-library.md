@@ -61,8 +61,8 @@ swatch for its token, a cell for its variant and state), so a click on one picks
 - **A system component's board**: every variant in every state at full size (0044's matrix,
   `data-ed-state` pinning each), each size, its parts named; the interact tool makes hover and
   press live on it.
-- **An app component's board**: each of its variants (`<property>=<member>`) side by side, drawn
-  live; its tree is edited in place on any of them (a double-click, as on a page), an edit
+- **An app component's board**: each of its variants (`<property>=<member>`) side by side as far
+  as the canvas holds at 100%, the next one under them when it would not fit, drawn live; its tree is edited in place on any of them (a double-click, as on a page), an edit
   landing on the member of the frame it is made in, and Layers shows that tree. Layers is on the
   rail only on a board with a tree.
 

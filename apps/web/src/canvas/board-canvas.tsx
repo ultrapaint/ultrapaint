@@ -43,7 +43,7 @@ import {
   systemBoards,
   systemItemName,
 } from "../boards/system-boards.ts";
-import { boardLayout } from "../lib/board-layout.ts";
+import { boardLayout, boardRoom, wrappedBoards } from "../lib/board-layout.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import {
   type BoardPlace,
@@ -54,7 +54,7 @@ import {
   setBoardFrames,
   useBoard,
 } from "../state/board.ts";
-import { nextView, setViewSoon } from "../state/camera.ts";
+import { nextView, setViewSoon, viewportSize } from "../state/camera.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { boardFrameOf, rootOfFrame, useDocuments } from "../state/documents.ts";
@@ -189,7 +189,10 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
     [boards, open]
   );
   const layout = useMemo(
-    () => boardLayout(ids, sizes, direction),
+    () =>
+      direction === "wrap"
+        ? wrappedBoards(ids, sizes, boardRoom(viewportSize()))
+        : boardLayout(ids, sizes, direction),
     [ids, sizes, direction]
   );
   useLayoutEffect(() => {
