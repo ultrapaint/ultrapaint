@@ -24,7 +24,7 @@ import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { label } from "./board-nodes.ts";
+import { label, nodeCss } from "./board-nodes.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 /** The Library's first item: every component, one click away from its board. */
@@ -94,8 +94,6 @@ const drawnWidth = (tree: DesignNode): number | null => {
   return width === "fill" ? BOARD_PAGE_WIDTH : null;
 };
 
-const NODE = "data-ed-node";
-
 /**
  * How wide the Overview drew its app components, from what it measured of them (`example:<Name>`)
  * drawn at the scale the widths it knew gave them: the same record while none moved by a pixel or
@@ -133,10 +131,10 @@ const overviewCss = (
   wide: readonly { readonly name: string; readonly width: number }[]
 ) =>
   [
-    `[${NODE}^="stage:"] { overflow: hidden; justify-content: safe center; }`,
+    `${nodeCss("stage:", "^=")} { overflow: hidden; justify-content: safe center; }`,
     ...wide.map(
       (w) =>
-        `[${NODE}="example:${w.name}"] { zoom: ${stageScale(w.width).toFixed(4)}; flex-shrink: 0; }`
+        `${nodeCss(`example:${w.name}`)} { zoom: ${stageScale(w.width).toFixed(4)}; flex-shrink: 0; }`
     ),
   ].join("\n");
 
@@ -390,8 +388,6 @@ const cellOf = (
   };
 };
 
-const GRID = "data-ed-node";
-
 /**
  * The matrix's stylesheet: a grid of a column for the members' names and one a state, so that a
  * state's cells line up under its name whatever each draws. A document lays out rows and
@@ -399,8 +395,8 @@ const GRID = "data-ed-node";
  */
 const gridCss = (id: string, columns: number) =>
   [
-    `[${GRID}="${id}"] { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 8px; row-gap: 4px; }`,
-    `[${GRID}="${id}"] > [${GRID}^="member:"] { justify-self: start; }`,
+    `${nodeCss(id)} { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 8px; row-gap: 4px; }`,
+    `${nodeCss(id)} > ${nodeCss("member:", "^=")} { justify-self: start; }`,
   ].join("\n");
 
 /**
