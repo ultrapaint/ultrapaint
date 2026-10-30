@@ -16,6 +16,7 @@ import { useIsolation } from "./state/isolation.ts";
 import { goTo } from "./state/location.ts";
 import { showLeftPanel } from "./state/panels.ts";
 import { useProject } from "./state/project.ts";
+import { select } from "./state/selection.ts";
 import "./styles.css";
 
 if (import.meta.env.DEV) {
@@ -28,6 +29,7 @@ if (import.meta.env.DEV) {
     openBoard,
     // What `pnpm bench:canvas` drives the canvas with.
     openCanvas,
+    select,
     setView,
     showLeftPanel,
     useAgents,
