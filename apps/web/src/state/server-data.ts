@@ -204,6 +204,16 @@ const readAtOpen = async (report: (error: unknown) => void) => {
   );
 };
 
+/** The reads the latest connection open started, settled once they have all landed. */
+let reading: Promise<void> = Promise.resolve();
+
+/**
+ * Settles once the reads the latest connection open started have all landed (each failure given
+ * to `report`): the editor has caught up with the server. What a test awaits after the connection
+ * opens, rather than time passing.
+ */
+export const caughtUp = (): Promise<void> => reading;
+
 /**
  * Follows the server on the connection: its events reach the pieces, and every connection open
  * reads them again, the one open now included. A read that fails is given to `report`. Returns
@@ -216,7 +226,9 @@ export const followServer = (options: {
   const offs = eventNames.map((event) =>
     connection.on(event, (payload) => dispatch(event, payload))
   );
-  const read = () => readAtOpen(options.report).catch(options.report);
+  const read = () => {
+    reading = readAtOpen(options.report).catch(options.report);
+  };
   const offState = useConnection.subscribe((now, before) => {
     if (now.state === "open" && before.state !== "open") {
       read();
