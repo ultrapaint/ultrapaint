@@ -99,6 +99,12 @@ export class ServerConfig extends Context.Service<
        * away. Asked on every request, since an address comes and goes with a network.
        */
       readonly addresses: () => readonly string[];
+      /**
+       * The environment the server was started in, without what only the server is given (the
+       * desktop's agent runtime, Electron's switch to Node): what an agent, and a command it asks
+       * the editor to run, start from under their own variables.
+       */
+      readonly env: Readonly<Record<string, string>>;
       readonly home: string;
       /**
        * The Node the preview runs on: the one running the server, or, where that is Electron's
@@ -183,6 +189,7 @@ export class ServerConfig extends Context.Service<
         ...rest,
         machine: {
           addresses: () => [],
+          env: {},
           home: tmpdir(),
           node: process.execPath,
           path: "",

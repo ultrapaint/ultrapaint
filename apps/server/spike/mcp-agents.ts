@@ -40,6 +40,11 @@ const program = Effect.gen(function* () {
         host: "127.0.0.1",
         machine: {
           addresses: () => [],
+          env: Object.fromEntries(
+            Object.entries(process.env).flatMap(([name, value]) =>
+              value === undefined ? [] : [[name, value]]
+            )
+          ),
           home: homedir(),
           node: process.execPath,
           path: process.env.PATH ?? "",

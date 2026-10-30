@@ -215,6 +215,11 @@ const serve = Command.make(
           // The name mDNS gives the machine on the local network.
           `${hostname()}.local`,
         ],
+        env: Object.fromEntries(
+          Object.entries(process.env).flatMap(([name, value]) =>
+            value === undefined ? [] : [[name, value]]
+          )
+        ),
         home: userHome,
         node: runAsNode ? "node" : process.execPath,
         path: process.env.PATH ?? "",

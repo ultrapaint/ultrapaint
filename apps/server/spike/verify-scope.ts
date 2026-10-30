@@ -47,6 +47,11 @@ const program = Effect.gen(function* () {
   const agent = yield* spawnAcpAgent(confined.launch, {
     clientVersion: "spike",
     cwd: root,
+    env: Object.fromEntries(
+      Object.entries(process.env).flatMap(([name, value]) =>
+        value === undefined ? [] : [[name, value]]
+      )
+    ),
     handlers: {
       onElicitation: () => Effect.succeed({ action: "decline" }),
       onPermission: (request) =>

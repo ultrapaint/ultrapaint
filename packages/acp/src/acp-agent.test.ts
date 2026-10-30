@@ -2,7 +2,8 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import { Deferred, type Duration, Effect, Fiber } from "effect";
+import { Deferred, type Duration, Effect, Fiber, type Scope } from "effect";
+import type { ChildProcessSpawner } from "effect/process";
 import {
   type AcpHandlers,
   type SessionNotification,
@@ -63,6 +64,7 @@ const open = Effect.fnUntraced(function* (
   const agent = yield* spawnAcpAgent(config(env), {
     clientVersion: "test",
     cwd: process.cwd(),
+    env: {},
     handlers: handlers({
       onUpdate: (n) =>
         Effect.andThen(
@@ -81,8 +83,21 @@ const open = Effect.fnUntraced(function* (
   return { agent, seen, waiting };
 });
 
+/** A test with a real process: the fake agent, spawned as the server spawns it. */
+const agentTest = <A, E>(
+  name: string,
+  body: () => Effect.Effect<
+    A,
+    E,
+    Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
+  >
+) =>
+  it.live(name, () =>
+    Effect.provide(Effect.scoped(body()), NodeServices.layer)
+  );
+
 describe("AcpAgent", () => {
-  it.live("delivers every update before the prompt is reported as done", () =>
+  agentTest("delivers every update before the prompt is reported as done", () =>
     Effect.gen(function* () {
       const { agent, seen } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
@@ -94,7 +109,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("waits for a consumer that is slower than the agent", () =>
+  agentTest("waits for a consumer that is slower than the agent", () =>
     Effect.gen(function* () {
       // Persisting the transcript makes the real consumer lag behind the agent: the real clock
       // is the behaviour, an agent that has answered while its updates are still handled.
@@ -105,7 +120,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("routes a permission request to the handler and back", () =>
+  agentTest("routes a permission request to the handler and back", () =>
     Effect.gen(function* () {
       const { agent, seen } = yield* open({
         onPermission: (request) =>
@@ -122,7 +137,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live(
+  agentTest(
     "reopens a session by loading it, its replay kept from the host",
     () =>
       Effect.gen(function* () {
@@ -137,7 +152,7 @@ describe("AcpAgent", () => {
       })
   );
 
-  it.live("reopens a session by resuming it where the agent can", () =>
+  agentTest("reopens a session by resuming it where the agent can", () =>
     Effect.gen(function* () {
       const { agent, seen } = yield* open(
         {},
@@ -150,7 +165,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("cannot reopen a session where the agent keeps none", () =>
+  agentTest("cannot reopen a session where the agent keeps none", () =>
     Effect.gen(function* () {
       const { agent } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
@@ -158,7 +173,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live(
+  agentTest(
     "tells the agent a file it asked for is not there as resource not found",
     () =>
       Effect.gen(function* () {
@@ -179,7 +194,7 @@ describe("AcpAgent", () => {
       })
   );
 
-  it.live("surfaces the agent's own explanation of a failed prompt", () =>
+  agentTest("surfaces the agent's own explanation of a failed prompt", () =>
     Effect.gen(function* () {
       const { agent } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
@@ -191,7 +206,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("fails the call in flight when the process exits", () =>
+  agentTest("fails the call in flight when the process exits", () =>
     Effect.gen(function* () {
       const { agent } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
@@ -203,7 +218,7 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("ends a waiting turn with session/cancel", () =>
+  agentTest("ends a waiting turn with session/cancel", () =>
     Effect.gen(function* () {
       const { agent, waiting } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
@@ -216,19 +231,24 @@ describe("AcpAgent", () => {
     })
   );
 
-  it.live("reports a command that does not exist as a spawn error", () =>
+  agentTest("reports a command that does not exist as a spawn error", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         spawnAcpAgent(
           { ...config(), command: "/nonexistent/agent-binary" },
-          { clientVersion: "test", cwd: process.cwd(), handlers: handlers() }
+          {
+            clientVersion: "test",
+            cwd: process.cwd(),
+            env: {},
+            handlers: handlers(),
+          }
         )
       );
       assert.strictEqual(error._tag, "AcpSpawnError");
     })
   );
 
-  it.live("kills the agent when its scope closes", () =>
+  agentTest("kills the agent when its scope closes", () =>
     Effect.gen(function* () {
       const exited = yield* Effect.scoped(
         Effect.map(open(), ({ agent }) => agent.exited)
@@ -242,7 +262,7 @@ describe("AcpAgent", () => {
 describe("TerminalManager", () => {
   it.live("runs a command, keeps its output and reports the exit", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager();
+      const terminals = yield* makeTerminalManager({ env: {} });
       const id = yield* terminals.create({
         args: ["-c", "echo out; echo err 1>&2; exit 3"],
         command: "/bin/sh",
@@ -260,7 +280,7 @@ describe("TerminalManager", () => {
 
   it.live("keeps only the newest bytes past the limit", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager();
+      const terminals = yield* makeTerminalManager({ env: {} });
       const id = yield* terminals.create({
         args: ["-c", "printf 0123456789"],
         command: "/bin/sh",
@@ -277,7 +297,7 @@ describe("TerminalManager", () => {
 
   it.live("forgets a released terminal and kills what was still running", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager();
+      const terminals = yield* makeTerminalManager({ env: {} });
       const id = yield* terminals.create({
         args: ["30"],
         command: "sleep",
