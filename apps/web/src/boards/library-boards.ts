@@ -5,7 +5,8 @@
  * board a member of each choice, each an instance drawn live. Generated documents the canvas's
  * renderer draws, pure. A node a board draws for something that can be picked is named for it: a
  * component on the Overview (`item:Button`), which a click opens, and a cell for the place of the
- * look it shows (`cell:variant=outline:hover`), which a click picks.
+ * look it shows (`cell:variant=outline:hover`) and an app component's board for its variant
+ * (`variant:tone=featured`), which a click picks.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
@@ -485,6 +486,10 @@ export const appVariantOfBoard = (name: string): AppVariant | null => {
     : { member: name.slice(eq + 1), property: name.slice(0, eq) };
 };
 
+/** The sheet of an app component's board, named for the variant it draws: `variant:tone=featured`. */
+export const appSheetId = (variant: AppVariant | null) =>
+  `variant:${appBoardName(variant)}`;
+
 /** The instance a board of an app component draws, which a double-click edits in place. */
 export const APP_INSTANCE = "instance";
 
@@ -539,7 +544,12 @@ export const appComponentBoards = (file: AppComponentFile): Board[] => {
       inPlace,
       name: appBoardName(variant),
       root: {
-        ...sheet("sheet", [inPlace.instance], appSheetWidth(file.tree)),
+        // Named for the variant it draws (B6): a click picks it, for the agents to be told.
+        ...sheet(
+          appSheetId(variant),
+          [inPlace.instance],
+          appSheetWidth(file.tree)
+        ),
         minWidth: 240,
       },
       title: variant ? appBoardName(variant) : "as an instance",

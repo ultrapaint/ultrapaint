@@ -9,18 +9,21 @@ import type {
   QueuedPrompt,
   Thread,
 } from "@ultrapaint/contracts/threads";
-import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   AppWindow,
   ArrowUp,
+  BookText,
   Camera,
   Clock,
+  Component,
   ListPlus,
+  Palette,
   Pencil,
   Plus,
   Square,
   SquareDashedMousePointer,
+  Type,
   X,
 } from "lucide-react";
 import {
@@ -43,6 +46,8 @@ import {
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { useBoardChip } from "../lib/add-to-chat.ts";
+import { boardChipLabel } from "../lib/board-chip.ts";
 import { chordLabel } from "../lib/keys.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
@@ -152,9 +157,12 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         )
       : null
   );
-  // Nothing attached: the selection goes along, shown dashed. The page only when attached.
+  // Nothing attached: the selection goes along, shown dashed, or on a board what is picked
+  // there. The page only when attached.
+  const boardChip = useBoardChip();
   const selectedChip =
-    selection && selectedNode ? nodeChip(selection, selectedNode) : null;
+    (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
+    boardChip;
   const implicit =
     chips.length > 0 ||
     selectedChip === null ||
@@ -372,9 +380,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                   onClick={attachSelection}
                 >
                   <SquareDashedMousePointer />
-                  {selectedNode
-                    ? `Attach ${nodeLabel(selectedNode)}`
-                    : "Attach the selection"}
+                  {attachLabel(selectedChip)}
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled={!page} onClick={attachPage}>
                   <AppWindow />
@@ -546,10 +552,51 @@ const SendButtons = ({
   </>
 );
 
-const chipTitle = (chip: Chip) =>
-  chip.kind === "node"
+const chipTitle = (chip: Chip) => {
+  if (chip.kind === "board") {
+    return `${boardChipLabel(chip)} in ${chip.file}`;
+  }
+  return chip.kind === "node"
     ? `${chip.name} in ${chip.file}`
     : `Page file: ${chip.file}`;
+};
+
+/** The + menu's entry that attaches what is selected, or picked on a board. */
+const attachLabel = (chip: Chip | null) => {
+  if (chip?.kind === "board") {
+    return `Attach ${boardChipLabel(chip)}`;
+  }
+  return chip ? `Attach ${chip.name}` : "Attach the selection";
+};
+
+/** A board's chip's icon: a palette for tokens, type for a text style, a component, a page of text. */
+const BoardIcon = ({ chip }: { chip: Chip & { kind: "board" } }) => {
+  switch (chip.pick) {
+    case "textStyle":
+      return <Type className="text-muted-foreground" />;
+    case "guideline":
+      return <BookText className="text-muted-foreground" />;
+    case "systemComponent":
+    case "appComponent":
+      return <Component className="text-component" />;
+    default:
+      return <Palette className="text-muted-foreground" />;
+  }
+};
+
+/** The icon a chip leads with: a page, a node in its selection colour, a board's pick. */
+const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
+  if (chip.kind === "board") {
+    return <BoardIcon chip={chip} />;
+  }
+  return chip.kind === "page" ? (
+    <AppWindow className="text-muted-foreground" />
+  ) : (
+    <SquareDashedMousePointer
+      className={component ? "text-component" : "text-selection"}
+    />
+  );
+};
 
 /**
  * An attachment of the next prompt. A node takes its selection colour, purple for a component;
@@ -565,8 +612,12 @@ const AttachmentChip = ({
   implicit?: boolean;
   onRemove: () => void;
 }) => {
-  const component = chip.kind === "node" && chip.component;
+  const component =
+    (chip.kind === "node" && chip.component) ||
+    (chip.kind === "board" &&
+      (chip.pick === "systemComponent" || chip.pick === "appComponent"));
   const element = chip.kind === "node" && !chip.component;
+  const name = chip.kind === "board" ? boardChipLabel(chip) : chip.name;
   return (
     <span
       className={cn(
@@ -582,19 +633,10 @@ const AttachmentChip = ({
           : chipTitle(chip)
       }
     >
-      {chip.kind === "page" ? (
-        <AppWindow className="text-muted-foreground" />
-      ) : (
-        <SquareDashedMousePointer
-          className={cn(
-            component && "text-component",
-            element && "text-selection"
-          )}
-        />
-      )}
-      <span className="max-w-32 truncate">{chip.name}</span>
+      <ChipIcon chip={chip} component={component} />
+      <span className="max-w-60 truncate">{name}</span>
       <button
-        aria-label={`Remove ${chip.name}`}
+        aria-label={`Remove ${name}`}
         className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         onClick={onRemove}
         type="button"

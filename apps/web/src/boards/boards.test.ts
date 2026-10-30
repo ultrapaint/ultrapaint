@@ -375,6 +375,8 @@ describe("the Library's boards", () => {
     // The choice's default member is the component's own fields.
     expect(base?.inPlace?.variant).toBeNull();
     expect(base?.root.width).toBe(368);
+    // Named for its variant, a click picks it.
+    expect(featured?.root.id).toBe("variant:tone=featured");
     // Without a choice, once, as an instance that sets nothing.
     const plain = { ...card, properties: [] };
     expect(appComponentBoards(plain).map((b) => b.name)).toEqual(["component"]);

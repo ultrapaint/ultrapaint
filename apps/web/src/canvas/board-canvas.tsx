@@ -159,8 +159,11 @@ export const useItemName = (open: BoardPlace) => {
   return open.item === OVERVIEW ? "Overview" : open.item;
 };
 
-/** What a board names for something a click picks: a token, a group, a cell, a style, a component. */
-const PICKABLE = /^(token|group|cell|style|item):/;
+/**
+ * What a board names for something a click picks: a token, a group, a cell, a style, a
+ * component, an app component's variant.
+ */
+const PICKABLE = /^(token|group|cell|style|item|variant):/;
 
 /** The tools that pick on a board: the pointer goes to the frame only in select. */
 const isSelecting = (s: { mode: string; spacePan: boolean }) =>

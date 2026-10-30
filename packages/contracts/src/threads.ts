@@ -147,6 +147,18 @@ export const startingMode = (
   modes?.find((m) => m.id === "auto" || AUTO_MODE_RE.test(m.name))?.id ??
   current;
 
+/** What a board's pick stands for (ADR 0045, B6). */
+export const BoardPickKind = Schema.Literals([
+  "token",
+  "group",
+  "textStyle",
+  "foundation",
+  "guideline",
+  "systemComponent",
+  "appComponent",
+]);
+export type BoardPickKind = typeof BoardPickKind.Type;
+
 /**
  * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
  * can switch it between prompts. Its session starts with the first prompt that needs it, so a
@@ -169,8 +181,31 @@ export const PromptAttachment = Schema.Union([
     kind: Schema.Literal("image"),
     name: Schema.String,
   }),
+  /**
+   * What the user has picked on a board of Design system or the Library (ADR 0045, B11): a
+   * token, a colour group, a text style, a foundation, a guideline, a component, a system
+   * component's look at a variant and a state, an app component's variant.
+   */
+  Schema.Struct({
+    /** What it is now, as the editor shows it: a token's value in each theme, a text style's fields. */
+    detail: Schema.optional(Schema.String),
+    /**
+     * The file it is kept in: `design-system.json`, DESIGN.md, the component's file (which a
+     * system component in its default look does not have yet).
+     */
+    file: Schema.String,
+    kind: Schema.Literal("board"),
+    /** The token's, the group's, the style's, the foundation's, the section's or the component's. */
+    name: Schema.String,
+    pick: BoardPickKind,
+    /** A system component's state picked: `hover`. */
+    state: Schema.optional(Schema.String),
+    /** A component's variant picked, `<axis>=<member>`: `variant=outline`, `tone=featured`. */
+    variant: Schema.optional(Schema.String),
+  }),
 ]);
 export type PromptAttachment = typeof PromptAttachment.Type;
+export type BoardAttachment = Extract<PromptAttachment, { kind: "board" }>;
 
 /** A prompt waiting for the agent's turn to end. */
 export const QueuedPrompt = Schema.Struct({

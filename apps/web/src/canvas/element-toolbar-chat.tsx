@@ -1,7 +1,9 @@
 /**
  * The element toolbar's chat button: it adds what is selected to the open chat, takes it out
- * again, opens the chat it is in, or with ⌘ starts a new one.
+ * again, opens the chat it is in, or with ⌘ starts a new one. A board has no element toolbar: its
+ * inspector's title has the button for what is picked there (ADR 0045, B11).
  */
+import type { BoardAttachment } from "@ultrapaint/contracts/threads";
 
 import { cn } from "cn";
 import {
@@ -21,10 +23,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { addToChat, removeFromChat } from "../lib/add-to-chat.ts";
+import {
+  addChipsToChat,
+  addToChat,
+  removeFromChat,
+} from "../lib/add-to-chat.ts";
 import { isAttached } from "../lib/chat-link.ts";
 import { useAgents } from "../state/agents.ts";
-import { useAttachments } from "../state/attachments.ts";
+import { chipKey, removeChip, useAttachments } from "../state/attachments.ts";
 import type { Selection } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useChatLink } from "./selection-tag.tsx";
@@ -225,6 +231,56 @@ export const GroupChatButton = ({
       >
         <ChatIcon action={action} hovered={hovered} />
         {count}
+        {action === "new" ? <NewChatBadge /> : null}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+};
+
+/**
+ * What is picked on a board to the chat, or back out of the open thread's composer once it is in
+ * it; with ⌘ held, to a new thread.
+ */
+export const BoardChatButton = ({ chip }: { chip: BoardAttachment }) => {
+  const current = useAgents((s) => s.current);
+  const key = chipKey(chip);
+  const attached = useAttachments(
+    (s) =>
+      current !== null &&
+      (s.byThread[current] ?? []).some((c) => chipKey(c) === key)
+  );
+  const { handlers, hovered, newChat } = useNewChatHover();
+  const action = chatAction(newChat, attached, false);
+  const onClick = (e: ReactMouseEvent) => {
+    if (withMod(e)) {
+      addChipsToChat([chip], { newThread: true });
+    } else if (attached && current !== null) {
+      removeChip(current, key);
+    } else {
+      addChipsToChat([chip]);
+    }
+  };
+  const label = {
+    add: "Add to chat",
+    new: "Add to a new chat",
+    open: "Add to chat",
+    remove: "Remove from chat",
+  }[action];
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label={label}
+            className={cn(AGENT_BUTTON, "w-7", LOOK[action])}
+            onClick={onClick}
+            type="button"
+            {...handlers}
+          />
+        }
+      >
+        <ChatIcon action={action} hovered={hovered} />
         {action === "new" ? <NewChatBadge /> : null}
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
