@@ -309,6 +309,28 @@ describe("a thread's session", () => {
       assert.notInclude(said(items), "replayed history");
     }));
 
+  test("resumes the stored session where the agent can, rather than load and replay it", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ loadSession: true, resume: true });
+      const first = yield* started();
+      yield* first.turn.end();
+      yield* threadWhen(first.threadId, turnEnded);
+      yield* first.agent.exit(0);
+      yield* first.agent.stopped;
+
+      yield* send(first.threadId, "again");
+      const agent = yield* agents.next;
+      const turn = yield* agent.nextTurn;
+      assert.deepStrictEqual(methodsOf(yield* agent.calls), [
+        "initialize",
+        "session/resume",
+        "session/prompt",
+      ]);
+      assert.strictEqual(turn.sessionId, first.turn.sessionId);
+      assert.deepStrictEqual(turn.texts, ["again"]);
+    }));
+
   it.effect(
     "reopens a stored session with what stops a confined agent's own sandbox",
     () =>

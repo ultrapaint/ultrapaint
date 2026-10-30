@@ -2,7 +2,7 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import { type Duration, Effect, Fiber } from "effect";
+import { Deferred, type Duration, Effect, Fiber } from "effect";
 import {
   type AcpHandlers,
   type SessionNotification,
@@ -30,6 +30,7 @@ const handlers = (overrides: Partial<AcpHandlers> = {}): AcpHandlers => ({
   onElicitation: () => Effect.succeed({ action: "decline" }),
   onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
   onStderr: () => Effect.void,
+  onUpdate: () => Effect.void,
   readTextFile: refuse,
   terminal: {
     create: refuse,
@@ -47,28 +48,36 @@ const textOf = (n: SessionNotification) =>
     ? String(n.update.content.text)
     : n.update.sessionUpdate;
 
-/** Spawns the fake agent, opens a session and collects every update it sends. */
+/**
+ * Spawns the fake agent and collects every update it sends; `waiting` completes once it says it
+ * waits. `handlingTakes` makes handling each update take that long.
+ */
 const open = Effect.fnUntraced(function* (
   overrides: Partial<AcpHandlers> = {},
   env: Record<string, string> = {},
   handlingTakes: Duration.Input = 0
 ) {
+  const seen: string[] = [];
+  const waiting = yield* Deferred.make<void>();
   const agent = yield* spawnAcpAgent(config(env), {
     clientVersion: "test",
     cwd: process.cwd(),
-    handlers: handlers(overrides),
+    handlers: handlers({
+      onUpdate: (n) =>
+        Effect.andThen(
+          Effect.sleep(handlingTakes),
+          Effect.suspend(() => {
+            seen.push(textOf(n));
+            return textOf(n) === "waiting"
+              ? Effect.asVoid(Deferred.succeed(waiting, undefined))
+              : Effect.void;
+          })
+        ),
+      ...overrides,
+    }),
   });
-  const seen: string[] = [];
-  yield* Effect.forkScoped(
-    agent.consumeUpdates((n) =>
-      Effect.andThen(
-        Effect.sleep(handlingTakes),
-        Effect.sync(() => seen.push(textOf(n)))
-      )
-    )
-  );
   yield* agent.initialize;
-  return { agent, seen };
+  return { agent, seen, waiting };
 });
 
 describe("AcpAgent", () => {
@@ -79,7 +88,6 @@ describe("AcpAgent", () => {
       const response = yield* agent.prompt(sessionId, [
         { text: "reply please", type: "text" },
       ]);
-      yield* agent.drained;
       assert.strictEqual(response.stopReason, "end_turn");
       assert.deepStrictEqual(seen, ["Thinking.", "Hello ", "world"]);
     })
@@ -87,11 +95,11 @@ describe("AcpAgent", () => {
 
   it.live("waits for a consumer that is slower than the agent", () =>
     Effect.gen(function* () {
-      // Persisting the transcript makes the real consumer lag behind the agent.
+      // Persisting the transcript makes the real consumer lag behind the agent: the real clock
+      // is the behaviour, an agent that has answered while its updates are still handled.
       const { agent, seen } = yield* open({}, {}, "40 millis");
       const { sessionId } = yield* agent.newSession(process.cwd());
       yield* agent.prompt(sessionId, [{ text: "reply", type: "text" }]);
-      yield* agent.drained;
       assert.deepStrictEqual(seen, ["Thinking.", "Hello ", "world"]);
     })
   );
@@ -109,8 +117,43 @@ describe("AcpAgent", () => {
       });
       const { sessionId } = yield* agent.newSession(process.cwd());
       yield* agent.prompt(sessionId, [{ text: "permission", type: "text" }]);
-      yield* agent.drained;
       assert.deepStrictEqual(seen, ["permission:allow"]);
+    })
+  );
+
+  it.live(
+    "reopens a session by loading it, its replay kept from the host",
+    () =>
+      Effect.gen(function* () {
+        const { agent, seen } = yield* open({}, { FAKE_AGENT_LOAD: "1" });
+        const { sessionId } = yield* agent.newSession(process.cwd());
+        assert.deepStrictEqual(
+          yield* agent.reopen(sessionId, process.cwd()),
+          {}
+        );
+        yield* agent.prompt(sessionId, [{ text: "how", type: "text" }]);
+        assert.deepStrictEqual(seen, ["how:loaded"]);
+      })
+  );
+
+  it.live("reopens a session by resuming it where the agent can", () =>
+    Effect.gen(function* () {
+      const { agent, seen } = yield* open(
+        {},
+        { FAKE_AGENT_LOAD: "1", FAKE_AGENT_RESUME: "1" }
+      );
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      yield* agent.reopen(sessionId, process.cwd());
+      yield* agent.prompt(sessionId, [{ text: "how", type: "text" }]);
+      assert.deepStrictEqual(seen, ["how:resumed"]);
+    })
+  );
+
+  it.live("cannot reopen a session where the agent keeps none", () =>
+    Effect.gen(function* () {
+      const { agent } = yield* open();
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      assert.isNull(yield* agent.reopen(sessionId, process.cwd()));
     })
   );
 
@@ -140,14 +183,12 @@ describe("AcpAgent", () => {
 
   it.live("ends a waiting turn with session/cancel", () =>
     Effect.gen(function* () {
-      const { agent, seen } = yield* open();
+      const { agent, waiting } = yield* open();
       const { sessionId } = yield* agent.newSession(process.cwd());
       const turn = yield* Effect.forkScoped(
         agent.prompt(sessionId, [{ text: "wait", type: "text" }])
       );
-      yield* Effect.repeat(Effect.sleep("10 millis"), {
-        until: () => seen.includes("waiting"),
-      });
+      yield* Deferred.await(waiting);
       yield* agent.cancel(sessionId);
       assert.strictEqual((yield* Fiber.join(turn)).stopReason, "cancelled");
     })

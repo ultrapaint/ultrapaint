@@ -5,9 +5,11 @@
  * form, the turn's end or its failure, or nothing until the host cancels it. There is no
  * process and no SDK, and nothing in the prompt decides what happens.
  *
- * It keeps the promises the live agent keeps: updates are handled one at a time in the order
- * they were sent, `drained` waits for those sent so far, and once the agent has exited every
- * call fails with `AcpProcessExited`, as when the process dies. Closing its scope stops it.
+ * It keeps the promises the live agent keeps (`updates.ts`): updates are handled one at a time in
+ * the order they were sent, a turn's `update` and the prompt's answer wait until the host has
+ * handled what came before, a session loaded replays what the host does not hear again, and
+ * once the agent has exited every call fails with `AcpProcessExited`, as when the process dies.
+ * Closing its scope stops it.
  */
 import { Deferred, Effect, Queue, type Scope } from "effect";
 import {
@@ -23,12 +25,15 @@ import {
   type PromptResponse,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
-  type SessionNotification,
+  reopening,
+  type SessionState,
   type SessionUpdate,
   type StopReason,
+  settling,
   withMeta,
 } from "./acp-agent.ts";
 import { type AcpError, AcpProcessExited, AcpRequestError } from "./errors.ts";
+import { makeUpdates } from "./updates.ts";
 
 type ConfigOptions = NonNullable<NewSessionResponse["configOptions"]>;
 
@@ -41,7 +46,7 @@ export interface AgentScript {
   readonly booting?: Effect.Effect<void>;
   /** What a new session offers: by default a `model` option, `fast` or `smart`. */
   readonly configOptions?: ConfigOptions;
-  /** Whether the agent can resume a stored session (`session/load`). */
+  /** Whether the agent can load a stored session (`session/load`), replaying it. */
   readonly loadSession?: boolean;
   /** The modes a new session offers: by default `ask` and `auto`, in `ask`. */
   readonly modes?: NewSessionResponse["modes"];
@@ -49,6 +54,8 @@ export interface AgentScript {
   readonly replay?: readonly SessionUpdate[];
   /** `session/new` is refused until `authenticate` was called, as by an agent not signed in. */
   readonly requiresAuth?: boolean;
+  /** Whether the agent can resume a stored session without replaying it (`session/resume`). */
+  readonly resume?: boolean;
 }
 
 /** A call the host made, by its ACP method, with what it sent. */
@@ -122,11 +129,6 @@ const DEFAULT_MODES: NewSessionResponse["modes"] = {
   currentModeId: "ask",
 };
 
-type Inbox = SessionNotification | Deferred.Deferred<void>;
-
-const isMarker = (item: Inbox): item is Deferred.Deferred<void> =>
-  Deferred.isDeferred(item);
-
 /**
  * An agent playing `script` against `handlers`, until the scope closes. `name` prefixes its
  * session ids, so that two agents in one test do not share any.
@@ -146,7 +148,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   const script = options.script ?? {};
   const exitSignal = yield* Deferred.make<AcpExit>();
   const stopped = yield* Deferred.make<void>();
-  const inbox = yield* Queue.unbounded<Inbox>();
+  const updates = yield* makeUpdates(handlers.onUpdate);
   const turns = yield* Queue.unbounded<ScriptedTurn>();
   const calls: ScriptedCall[] = [];
   const sessionOptions = new Map<string, ConfigOptions>();
@@ -190,15 +192,12 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   const refused = (method: string, message: string) =>
     Effect.fail(new AcpRequestError({ code: -32_000, message, method }));
 
-  /** Waits until the host has handled everything sent so far. */
-  const drained = Effect.gen(function* () {
-    const marker = yield* Deferred.make<void>();
-    yield* Queue.offer(inbox, marker);
-    yield* Deferred.await(marker);
-  });
-
+  /** An update, sent and handled. */
   const send = (sessionId: string, update: SessionUpdate) =>
-    Effect.andThen(Queue.offer(inbox, { sessionId, update }), drained);
+    Effect.andThen(
+      Effect.sync(() => updates.receive({ sessionId, update })),
+      updates.settled
+    );
 
   const chunk = (
     sessionId: string,
@@ -240,12 +239,19 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   });
 
   const initialized: InitializeResponse = {
-    agentCapabilities: { loadSession: script.loadSession === true },
+    agentCapabilities: {
+      loadSession: script.loadSession === true,
+      ...(script.resume === true && {
+        sessionCapabilities: { resume: {} },
+      }),
+    },
     authMethods: script.requiresAuth
       ? [{ description: "test", id: "test-auth", name: "Test" }]
       : [],
     protocolVersion: 1,
   };
+  /** What the agent said in `initialize`, once it has. */
+  let known: InitializeResponse | undefined;
 
   const agent: AcpAgent = {
     authenticate: (methodId) =>
@@ -267,44 +273,18 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
             : Effect.void;
         })
       ),
-    consumeUpdates: (handler) =>
-      Effect.forever(
-        Effect.flatMap(Queue.take(inbox), (item) =>
-          isMarker(item)
-            ? Effect.asVoid(Deferred.succeed(item, undefined))
-            : handler(item)
-        )
-      ),
-    drained,
     exited: Deferred.await(exitSignal),
     initialize: call(
       "initialize",
       initializeRequest(options.clientVersion),
-      Effect.as(script.booting ?? Effect.void, initialized)
-    ),
-    loadSession: (sessionId, cwd, session) =>
-      call(
-        "session/load",
-        {
-          cwd,
-          mcpServers: [...(session?.mcpServers ?? [])],
-          sessionId,
-          ...withMeta(session?.meta),
-        },
-        Effect.gen(function* () {
-          sessionOptions.set(
-            sessionId,
-            sessionOptions.get(sessionId) ??
-              script.configOptions ??
-              DEFAULT_OPTIONS
-          );
-          // A real agent replays the stored conversation; the host must not show it twice.
-          for (const update of script.replay ?? []) {
-            yield* Queue.offer(inbox, { sessionId, update });
-          }
-          return {};
+      Effect.andThen(
+        script.booting ?? Effect.void,
+        Effect.sync(() => {
+          known = initialized;
+          return initialized;
         })
-      ),
+      )
+    ),
     newSession: (cwd, session) =>
       call(
         "session/new",
@@ -351,7 +331,41 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
             )
           );
         })
-      ),
+      ).pipe(settling(updates)),
+    reopen: (sessionId, cwd, session) =>
+      Effect.suspend(() => {
+        const way = reopening(known);
+        if (way === null) {
+          return Effect.succeed(null);
+        }
+        const params = {
+          cwd,
+          mcpServers: [...(session?.mcpServers ?? [])],
+          sessionId,
+          ...withMeta(session?.meta),
+        };
+        const reopened = Effect.sync((): SessionState => {
+          sessionOptions.set(
+            sessionId,
+            sessionOptions.get(sessionId) ??
+              script.configOptions ??
+              DEFAULT_OPTIONS
+          );
+          return {};
+        });
+        if (way === "resume") {
+          return call("session/resume", params, reopened);
+        }
+        // A session loaded replays the stored conversation, which the host has already.
+        const replay = Effect.sync(() => {
+          for (const update of script.replay ?? []) {
+            updates.receive({ sessionId, update });
+          }
+        });
+        return updates.dropping(
+          call("session/load", params, Effect.andThen(replay, reopened))
+        );
+      }),
     setConfigOption: (sessionId, configId, value) =>
       call(
         "session/set_config_option",

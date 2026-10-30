@@ -151,13 +151,9 @@ interface Live {
   readonly agent: AcpAgent;
   /** The briefing, and the recap of what came before, go out once, with the first prompt. */
   briefed: boolean;
-  /** While a stored session is replayed by `session/load`, its updates are not new items. */
-  replaying: boolean;
-  /** The session was loaded, so the agent has the conversation back. */
+  /** The session was reopened, so the agent has the conversation back. */
   resumed: boolean;
   readonly scope: Scope.Closeable;
-  /** The turn the agent works on: where its streamed chunks go. Null between turns. */
-  turn: TurnCursor | null;
 }
 
 export interface ThreadSession {
@@ -234,6 +230,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     let booting: Fiber.Fiber<unknown, unknown> | null = null;
     /** The turn still on its way to the agent: a cancel stops it there. */
     let opening: Fiber.Fiber<void> | null = null;
+    /** The turn the agent works on: where its streamed chunks go. Null between turns. */
+    let cursor: TurnCursor | null = null;
     // One session start, however many calls ask for it at once.
     const starting = Semaphore.makeUnsafe(1);
     // One prompt at a time, so two cannot both find the thread idle.
@@ -262,13 +260,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     });
 
     const onUpdate = Effect.fnUntraced(function* (
-      session: Live,
       update: Parameters<typeof projectUpdate>[0],
       relative: (file: string) => string
     ) {
-      if (session.replaying) {
-        return;
-      }
       // Ids are drawn up front because the projection itself is pure and synchronous.
       const ids = [yield* newItemId];
       const projected = projectUpdate(update, {
@@ -276,9 +270,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         newId: () => ids.pop() ?? `item_${ids.length}`,
         now: yield* Clock.currentTimeMillis,
         relative,
-        turn: session.turn,
+        turn: cursor,
       });
-      session.turn = projected.turn;
+      cursor = projected.turn;
       for (const action of projected.actions) {
         if (action.type === "push") {
           yield* store.push(threadId, action.item);
@@ -306,6 +300,10 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       // A design thread writes its designs only; an implement thread, the repository (ADR 0030).
       const writable =
         thread.purpose === "implement" ? undefined : paths.designsDir;
+      // An agent names a file by absolute path; the editor knows it by its path in the
+      // repository, and a path outside it is left as it came.
+      const relative = (file: string) =>
+        path.isAbsolute(file) ? paths.relative(file) : file;
       const agent = yield* launcher
         .launch({
           config,
@@ -326,14 +324,16 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
                   spawner
                 )
               ),
-              (terminals) =>
-                client.handlersFor(
+              (terminals) => ({
+                ...client.handlersFor(
                   config.name,
                   paths,
                   terminals,
                   cards,
                   writable
-                )
+                ),
+                onUpdate: (n) => onUpdate(n.update, relative),
+              })
             ),
           root: paths.root,
           writable,
@@ -349,10 +349,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const session: Live = {
         agent,
         briefed: false,
-        replaying: false,
         resumed: false,
         scope,
-        turn: null,
       };
       live = session;
 
@@ -368,14 +366,6 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           yield* cards.releaseAll;
           yield* transition({ _tag: "SessionClosed" });
         })
-      );
-      // An agent names a file by absolute path; the editor knows it by its path in the
-      // repository, and a path outside it is left as it came.
-      const relative = (file: string) =>
-        path.isAbsolute(file) ? paths.relative(file) : file;
-      yield* Effect.forkIn(
-        agent.consumeUpdates((n) => onUpdate(session, n.update, relative)),
-        scope
       );
       // An exit we did not ask for. Forked outside the session scope because it closes it.
       yield* agent.exited.pipe(
@@ -413,10 +403,6 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           agent,
           config,
           mcpServers,
-          replaying: (on) =>
-            Effect.sync(() => {
-              session.replaying = on;
-            }),
           root: paths.root,
           thread,
         })
@@ -524,16 +510,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       before: TreeStamp
     ) =>
       session.agent.prompt(sessionId, blocks).pipe(
-        // The response can overtake the last updates; the transcript must be complete first.
-        // Bounded, so a stalled consumer cannot keep the thread "running" forever.
-        Effect.tap(() =>
-          Effect.timeoutOption(session.agent.drained, "5 seconds")
-        ),
         // The turn is over before its status says so: a cancel that sees no turn leaves the
         // status alone, and one under way knows the turn ended without it.
         Effect.ensuring(
           Effect.sync(() => {
-            session.turn = null;
+            cursor = null;
           })
         ),
         Effect.matchEffect({
@@ -598,7 +579,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       yield* Effect.uninterruptible(
         checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
       );
-      session.turn = emptyCursor();
+      cursor = emptyCursor();
       yield* Effect.forkIn(
         runTurn(session, sessionId, blocks, before),
         session.scope
@@ -754,7 +735,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const now = yield* current;
       // Only a turn the agent is working on is stopped. One that has ended leaves the thread
       // as it is: nothing would take it out of "cancelling" again.
-      if (now === null || now.session.turn === null) {
+      if (now === null || cursor === null) {
         return;
       }
       const { session, sessionId } = now;
@@ -765,7 +746,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       // The agent ends the turn itself and answers the prompt with `cancelled`.
       yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
       // Unless the turn ended on its own meanwhile, and its end has already been written.
-      if (session.turn === null) {
+      if (cursor === null) {
         yield* transition({ _tag: "CancelOutlived" });
       }
     }).pipe(Effect.withSpan("ThreadService.cancel"));

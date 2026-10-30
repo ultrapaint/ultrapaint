@@ -40,6 +40,10 @@ const program = Effect.gen(function* () {
   yield* Effect.log(`sandboxed: ${sandbox.available}`);
   yield* Effect.log(`command: ${confined.launch.command}`);
 
+  let said = "";
+  // Everything the agent said in the session, for the check at the end: the secret must not
+  // appear in any answer, not only the last one.
+  let transcript = "";
   const agent = yield* spawnAcpAgent(confined.launch, {
     clientVersion: "spike",
     cwd: root,
@@ -56,6 +60,16 @@ const program = Effect.gen(function* () {
           },
         }),
       onStderr: (text) => Effect.log(`[agent] ${text}`),
+      onUpdate: (n) =>
+        Effect.sync(() => {
+          const u = n.update;
+          if (
+            u.sessionUpdate === "agent_message_chunk" &&
+            u.content.type === "text"
+          ) {
+            said += u.content.text;
+          }
+        }),
       readTextFile: () => Effect.fail({ message: "not served" }),
       terminal: {
         create: () => Effect.fail({ message: "not served" }),
@@ -68,24 +82,6 @@ const program = Effect.gen(function* () {
     },
   });
 
-  let said = "";
-  // Everything the agent said in the session, for the check at the end: the secret must not
-  // appear in any answer, not only the last one.
-  let transcript = "";
-  yield* Effect.forkScoped(
-    agent.consumeUpdates((n) =>
-      Effect.sync(() => {
-        const u = n.update;
-        if (
-          u.sessionUpdate === "agent_message_chunk" &&
-          u.content.type === "text"
-        ) {
-          said += u.content.text;
-        }
-      })
-    )
-  );
-
   yield* agent.initialize;
   const session = yield* agent.newSession(
     root,
@@ -95,7 +91,6 @@ const program = Effect.gen(function* () {
   const ask = Effect.fnUntraced(function* (label: string, text: string) {
     said = "";
     yield* agent.prompt(session.sessionId, [{ text, type: "text" }]);
-    yield* Effect.timeoutOption(agent.drained, "5 seconds");
     transcript += said;
     yield* Effect.log(
       `${label}: ${said.trim().replaceAll("\n", " ").slice(0, 160)}`

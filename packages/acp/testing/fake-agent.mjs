@@ -14,6 +14,7 @@
  *   escape      runs a terminal command writing to the path given after the scenario name
  *   blocks      reports how many project briefings came with the prompt
  *   history     reports whether the conversation so far came with the prompt, and its first line
+ *   how         reports how its session was opened: `how:new`, `how:loaded` or `how:resumed`
  *   model       reports the session's model
  *   mcp         reports the MCP server the client gave the session, with its token
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
@@ -25,7 +26,8 @@
  *
  * Sessions offer a `model` option, `fast` or `smart`, and the modes `ask` and `auto`.
  *
- * `FAKE_AGENT_LOAD=1` advertises `loadSession`; `FAKE_AGENT_AUTH=1` refuses `session/new` until
+ * `FAKE_AGENT_LOAD=1` advertises `loadSession`, which replays a line of history; `FAKE_AGENT_RESUME=1`
+ * advertises `session/resume`, which replays nothing; `FAKE_AGENT_AUTH=1` refuses `session/new` until
  * `authenticate` was called; `FAKE_AGENT_AUTH_METHOD` names its one way to authenticate. Started with `--slow-start`, it takes two seconds to answer
  * `initialize`, as an agent that boots slowly does; any other argument is left alone, so a test
  * can mark its processes to find them.
@@ -59,6 +61,8 @@ const isContext = (block) =>
     block.text.startsWith("<ultrapaint-history>"));
 
 const models = new Map();
+/** How each session was opened. */
+const opened = new Map();
 
 const configOptions = (sessionId) => [
   {
@@ -163,6 +167,9 @@ const scenarios = {
     );
     const said = recap?.text.split("\n").find((l) => l.startsWith("User: "));
     await text(cx, sessionId, recap ? `history:${said}` : "history:none");
+  },
+  async how(cx, sessionId) {
+    await text(cx, sessionId, `how:${opened.get(sessionId) ?? "new"}`);
   },
   /** Reports the editor's own MCP server as the client described it at session start. */
   async mcp(cx, sessionId) {
@@ -283,7 +290,12 @@ agent({ name: "fake-agent" })
   .onRequest("initialize", async () => {
     await new Promise((resolve) => setTimeout(resolve, SLOW_START_MS));
     return {
-      agentCapabilities: { loadSession: process.env.FAKE_AGENT_LOAD === "1" },
+      agentCapabilities: {
+        loadSession: process.env.FAKE_AGENT_LOAD === "1",
+        ...(process.env.FAKE_AGENT_RESUME === "1" && {
+          sessionCapabilities: { resume: {} },
+        }),
+      },
       authMethods: [
         {
           description: "test",
@@ -323,6 +335,13 @@ agent({ name: "fake-agent" })
     mcpServers.set(ctx.params.sessionId, ctx.params.mcpServers ?? []);
     // A real agent replays the stored conversation; the host must not show it twice.
     await text(ctx.client, ctx.params.sessionId, "replayed history");
+    opened.set(ctx.params.sessionId, "loaded");
+    return {};
+  })
+  .onRequest("session/resume", (ctx) => {
+    cwds.set(ctx.params.sessionId, ctx.params.cwd);
+    mcpServers.set(ctx.params.sessionId, ctx.params.mcpServers ?? []);
+    opened.set(ctx.params.sessionId, "resumed");
     return {};
   })
   .onRequest("session/set_mode", () => ({}))
