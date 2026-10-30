@@ -164,13 +164,19 @@ describe("a thread's session", () => {
       const { id: threadId } = yield* threads.create("scripted");
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
-      const { thread } = yield* threadWhen(
+      const { items, thread } = yield* threadWhen(
         threadId,
         (t) => t.status === "error"
       );
+      const why =
+        "Scripted is not signed in. It signs in with ChatGPT (Opens the browser), or with Log in, in a terminal.";
+      assert.strictEqual(thread.error, why);
+      // A turn whose session could not start says so in the transcript, as any failed turn does.
+      assert.deepStrictEqual(kinds(items), ["user", "status"]);
+      const last = items.at(-1);
       assert.strictEqual(
-        thread.error,
-        "Scripted is not signed in. It signs in with ChatGPT (Opens the browser), or with Log in, in a terminal."
+        last?.kind === "status" && last.text,
+        `Turn failed: ${why}`
       );
       assert.deepStrictEqual(methodsOf(yield* agent.calls), [
         "initialize",
