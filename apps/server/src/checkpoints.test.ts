@@ -53,7 +53,7 @@ const read = (file: string) =>
  * The checkpoints are told apart by when they were taken, and on the test clock every one would
  * be taken at the same instant.
  */
-const turn = (threadId: string, label: string) =>
+const takeTurn = (threadId: string, label: string) =>
   Effect.andThen(
     Effect.flatMap(Checkpoints, (checkpoints) =>
       checkpoints.create(threadId, label)
@@ -65,7 +65,7 @@ const turn = (threadId: string, label: string) =>
 const checkpoint = (label: string) =>
   Effect.gen(function* () {
     const checkpoints = yield* Checkpoints;
-    yield* turn("t-1", label);
+    yield* takeTurn("t-1", label);
     const made = (yield* checkpoints.list).find((c) => c.label === label);
     assert.isDefined(made);
     return made?.id ?? "";
@@ -205,7 +205,7 @@ describe("agent turn checkpoints", () => {
         const checkpoints = yield* Checkpoints;
         const store = yield* SnapshotStore;
         for (let i = 0; i < KEPT + 1; i += 1) {
-          yield* turn("t-2", `Before: turn ${i}`);
+          yield* takeTurn("t-2", `Before: turn ${i}`);
         }
         assert.lengthOf(yield* checkpoints.list, KEPT);
         assert.lengthOf(yield* store.named("checkpoints"), KEPT);
@@ -239,7 +239,7 @@ describe("agent turn checkpoints", () => {
           const shared = yield* hashOf(second);
           // Enough turns that both are let go of, and the store collected since.
           for (let i = 0; i < KEPT + COLLECT_EVERY; i += 1) {
-            yield* turn("t-3", `Before: later turn ${i}`);
+            yield* takeTurn("t-3", `Before: later turn ${i}`);
           }
           const ids = (yield* checkpoints.list).map((c) => c.id);
           assert.notInclude(ids, first);
