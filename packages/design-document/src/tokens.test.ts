@@ -7,7 +7,7 @@ import {
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { PageNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { tokensIn, tokensUsed } from "./tokens.ts";
+import { designTokenCss, tokensIn, tokensUsed } from "./tokens.ts";
 
 describe("the tokens a design relies on", () => {
   it("finds every token a value names, however deep, and the spacing behind a step", () => {
@@ -92,5 +92,30 @@ describe("the tokens a design relies on", () => {
       "spacing-gap",
       "text-2xl",
     ]);
+  });
+});
+
+describe("the design's tokens as CSS", () => {
+  it("gives every colour in every theme, the default's where a theme has none of its own", () => {
+    const css = designTokenCss({
+      ...emptyDesignSystem(),
+      colors: [
+        {
+          name: "Semantic",
+          tokens: [
+            { name: "color-primary", value: "#2563eb" },
+            { name: "color-bg", value: "#fff", values: { dark: "#000" } },
+          ],
+        },
+      ],
+      radius: [{ name: "radius-md", value: "0.5rem" }],
+      themes: ["light", "dark"],
+    });
+    expect(css).toBe(
+      [
+        ":host {\n  --spacing: 0.25rem;\n  --color-primary: #2563eb;\n  --color-bg: #fff;\n  --radius-md: 0.5rem;\n}",
+        '.dark, [data-theme~="dark"] {\n  --color-primary: #2563eb;\n  --color-bg: #000;\n}',
+      ].join("\n\n")
+    );
   });
 });

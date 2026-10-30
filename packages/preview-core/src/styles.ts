@@ -114,10 +114,14 @@ const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
  * The sheets a frame adopts, in the order they apply: the design's last, so it wins; `own` in
  * place of the shared design sheet.
  */
-export const frameSheets = (own?: CSSStyleSheet): CSSStyleSheet[] => [
+export const frameSheets = (
+  own?: CSSStyleSheet,
+  extra?: CSSStyleSheet
+): CSSStyleSheet[] => [
   sheet("base"),
   sheet("components"),
   own ?? sheet("design"),
+  ...(extra ? [extra] : []),
 ];
 
 /** A design sheet of one frame's (a component's unsaved look). */

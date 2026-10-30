@@ -57,6 +57,8 @@ interface BoardStore {
   cameras: Readonly<Record<string, View>>;
   /** Where the boards of the item open are, by frame id, as the board canvas lays them out. */
   frames: Readonly<Record<string, Box>>;
+  /** A guideline's text as it is typed in its inspector, drawn on its board until it is saved. */
+  guideDraft: { readonly item: string; readonly text: string } | null;
   /** The item each view showed last, which its button opens again. */
   last: Readonly<Partial<Record<BoardView, string>>>;
   /** The page canvas, while a board view is open. */
@@ -72,6 +74,7 @@ interface BoardStore {
 export const useBoard = create<BoardStore>(() => ({
   cameras: {},
   frames: {},
+  guideDraft: null,
   last: {},
   left: null,
   open: null,
@@ -112,12 +115,15 @@ const boardMode = (mode: Mode): Mode =>
 export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] =>
   open ? railTabs.filter((tab) => tab !== "layers") : railTabs;
 
-/** How far from the seen part's corner an item's boards begin, the first time it is opened. */
-const MARGIN = 72;
+/**
+ * Where an item's boards begin the first time it is opened, from the seen part's corner: a
+ * little in from its left, and low enough for the names over them.
+ */
+const MARGIN = { x: 32, y: 72 } as const;
 
 const firstView = (): View => ({
-  x: viewportSize().x + MARGIN,
-  y: MARGIN,
+  x: viewportSize().x + MARGIN.x,
+  y: MARGIN.y,
   zoom: 1,
 });
 
@@ -264,6 +270,10 @@ export const setBoardFrames = (frames: Readonly<Record<string, Box>>) => {
     useBoard.setState({ frames });
   }
 };
+
+/** A guideline's text drawn on its board as it is typed; null once it is saved or let go. */
+export const setGuideDraft = (draft: BoardStore["guideDraft"]) =>
+  useBoard.setState({ guideDraft: draft });
 
 /** The theme the boards are drawn in; null for the design's first. */
 export const setBoardTheme = (theme: string | null) =>

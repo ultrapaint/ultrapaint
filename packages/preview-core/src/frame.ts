@@ -280,23 +280,31 @@ const mountFrame = (
   let last: RenderRequest | null = null;
   /** The look given with a request, in a stylesheet of the frame's own. */
   let own: { readonly look: Look; readonly sheet: CSSStyleSheet } | null = null;
-  const adopt = (look: Look | undefined) => {
-    if (look === own?.look) {
+  /** The stylesheet given with a request besides the look (a board's). */
+  let extra: { readonly css: string; readonly sheet: CSSStyleSheet } | null =
+    null;
+  const adopt = (look: Look | undefined, css: string | undefined) => {
+    if (look === own?.look && css === extra?.css) {
       return;
     }
-    own = look ? { look, sheet: ownDesignSheet(look.css) } : null;
-    shadow.adoptedStyleSheets = frameSheets(own?.sheet);
+    if (look !== own?.look) {
+      own = look ? { look, sheet: ownDesignSheet(look.css) } : null;
+    }
+    if (css !== extra?.css) {
+      extra = css ? { css, sheet: ownDesignSheet(css) } : null;
+    }
+    shadow.adoptedStyleSheets = frameSheets(own?.sheet, extra?.sheet);
   };
   const render = (request: RenderRequest) => {
     if (editing) {
       finishTextEdit(false);
     }
     last = request;
-    adopt(request.look);
+    adopt(request.look, request.css);
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
-    const { look: _look, ...drawing } = request;
+    const { css: _css, look: _look, ...drawing } = request;
     mounted.render({
       ...drawing,
       components: (request.look ?? previewLook()).components,

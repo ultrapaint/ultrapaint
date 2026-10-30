@@ -5,8 +5,11 @@
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 
-/** Between two boards, in canvas pixels: the next one's name sits in it. */
+/** Between two boards one under the other, in canvas pixels: the next one's name sits in it. */
 export const BOARD_GAP = 64;
+
+/** Between two boards side by side, whose names are over each: Color's themes. */
+export const ROW_GAP = 24;
 
 /** What a board is drawn at until its frame says its size. */
 export const UNMEASURED = { height: 320, width: 480 } as const;
@@ -15,7 +18,7 @@ export const boardLayout = (
   boards: readonly string[],
   sizes: Readonly<Record<string, { height: number; width: number }>>,
   direction: "row" | "column",
-  gap = BOARD_GAP
+  gap = direction === "row" ? ROW_GAP : BOARD_GAP
 ): Record<string, Box> => {
   const out: Record<string, Box> = {};
   let at = 0;

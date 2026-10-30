@@ -83,6 +83,11 @@ export interface RenderRequest {
    * resolved at it, and an app component's tree is resolved at it too.
    */
   readonly at?: string | undefined;
+  /**
+   * A stylesheet of the frame's own after the look's: a board's, for what a document cannot say
+   * (an easing's animation, ADR 0045).
+   */
+  readonly css?: string | undefined;
   /** What the canvas draws every page in: its theme, its fill and its type. */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
@@ -107,7 +112,7 @@ export interface RenderRequest {
 }
 
 /** What a renderer is told to draw: a request, with the components of the look it is drawn in. */
-export interface Drawing extends Omit<RenderRequest, "look"> {
+export interface Drawing extends Omit<RenderRequest, "css" | "look"> {
   readonly components: Look["components"];
 }
 
