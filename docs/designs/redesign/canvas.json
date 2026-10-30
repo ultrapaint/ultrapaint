@@ -10,8 +10,12 @@
     "ask-card.page.json": "/ask-card",
     "box-model.page.json": "/box-model",
     "components.page.json": "/components",
+    "design-system-color.page.json": "/design-system-color",
     "design.page.json": "/design",
     "element-toolbar.page.json": "/element-toolbar",
+    "library-app-component.page.json": "/library-app-component",
+    "library-button.page.json": "/library-button",
+    "library-insert.page.json": "/library-insert",
     "spacing-options.page.json": "/spacing-options",
     "spacing-popover.page.json": "/spacing-popover",
     "vibe-new-chat.page.json": "/vibe-new-chat",
@@ -40,6 +44,13 @@
       "x": 1600,
       "y": 1140
     },
+    "design-system-color.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 0,
+      "y": 4200
+    },
     "design.page.json": {
       "height": 900,
       "preset": "desktop",
@@ -53,6 +64,27 @@
       "width": 1514,
       "x": 0,
       "y": 1140
+    },
+    "library-app-component.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 4800,
+      "y": 4200
+    },
+    "library-button.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 3200,
+      "y": 4200
+    },
+    "library-insert.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 1600,
+      "y": 4200
     },
     "spacing-options.page.json": {
       "height": 3000,
