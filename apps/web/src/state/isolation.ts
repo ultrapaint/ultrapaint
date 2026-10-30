@@ -120,11 +120,14 @@ export const isolate = (
   return true;
 };
 
-/** Back to the page: the page's instance it was entered from is selected again. */
-export const leaveIsolation = () => {
+/**
+ * Back to the page: the page's instance it was entered from is selected again. Whether there was
+ * a component edited in place to leave.
+ */
+export const leaveIsolation = (): boolean => {
   const { isolated } = useIsolation.getState();
   if (!isolated) {
-    return;
+    return false;
   }
   useIsolation.setState({ isolated: null });
   editIn(null);
@@ -133,6 +136,7 @@ export const leaveIsolation = () => {
       ? null
       : { frame: isolated.frame, nodeId: isolated.entered }
   );
+  return true;
 };
 
 /** The member edits land on from now on; null for the component's own fields. */

@@ -17,6 +17,7 @@ import {
   type BoardPlace,
   boardTakesSelection,
   editSelectedOnBoard,
+  pickOf,
   pickOnBoard,
   railTabsFor,
   useBoard,
@@ -29,6 +30,11 @@ import { selectPage } from "./selection.ts";
 export interface Surface {
   /** Its ground: the page canvas's (its grid), or the board view's tinted dots. */
   readonly background: "page" | "board";
+  /**
+   * What Escape lets go of there before the selection (`stepBack` in `shortcuts.ts`): a board's
+   * pick. Whether there was anything.
+   */
+  readonly escape: () => boolean;
   /** Every frame on it, by id: what fits, zooms, drops and reveals look at. */
   readonly frames: () => Record<string, Box>;
   /** Whether something dropped on the ground lands there: as a node beside the pages, or nowhere. */
@@ -62,6 +68,7 @@ const MODES: readonly Mode[] = [
 
 export const pageSurface: Surface = {
   background: "page",
+  escape: () => false,
   // Read when asked: the layout's module is one this one's own imports lean on.
   frames: () => pageCanvasFrames(),
   groundDrops: true,
@@ -99,6 +106,13 @@ export const boardSurface = (place: BoardPlace): Surface => {
   const tabs = () => railTabsFor(place);
   return {
     background: "board",
+    escape: () => {
+      if (!pickOf(useBoard.getState())) {
+        return false;
+      }
+      pickOnBoard(null);
+      return true;
+    },
     frames: () => ({ ...useBoard.getState().frames }),
     groundDrops: false,
     kind: "board",
