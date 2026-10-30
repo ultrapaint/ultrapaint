@@ -353,7 +353,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             "spacing 16px → spacing-4 (rule)",
             "spacing 13px → ?",
             "color color-gray-500 → ?",
-            "element button → Button (rule)",
           ]);
 
           // The user decides one, and is told what cannot be.
@@ -372,14 +371,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           // The agent decides the rest.
           const token = yield* tokenOf(mapThread ?? "");
           const saved = yield* tool(token, "map_values", {
-            entries: [
-              { kind: "spacing", target: "spacing-3", value: "13px" },
-              { keep: true, kind: "element", value: "button" },
-            ],
+            entries: [{ kind: "spacing", target: "spacing-3", value: "13px" }],
           });
           assert.deepStrictEqual(saved, {
             problems: [],
-            saved: 2,
+            saved: 1,
             undecided: 0,
           });
           yield* client["dsSetup.complete"]({ step: "map" });
@@ -403,7 +399,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             migrated,
             'className="bg-primary p-4 text-muted-foreground m-3"'
           );
-          // The plain button is kept, as the mapping says.
+          // A plain element is the repository's own business.
           assert.include(migrated, '<button type="button">');
           // Done, and there is no other batch to take.
           const after = yield* tool(agent, "next_batch", {
@@ -433,17 +429,15 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const verified = yield* client["dsSetup.start"]({ step: "verify" });
           const verify = verified.setup.steps.find((s) => s.id === "verify");
           assert.strictEqual(verify?.status, "review");
-          // The button is all that is left off the system, and it is kept on purpose.
+          // Nothing is left off the system: the plain button is not the design system's.
           assert.include(
             verify?.summary ?? "",
-            "1 now, 1 of them kept on purpose"
+            "4 uses when the mapping was made, 0 now"
           );
           const audit = yield* client["dsSetup.audit"]();
           assert.deepStrictEqual(
-            (audit?.values ?? [])
-              .filter((v) => v.status !== "system")
-              .map((v) => `${v.kind} ${v.value}`),
-            ["element button"]
+            (audit?.values ?? []).filter((v) => v.status !== "system"),
+            []
           );
         }),
       90_000

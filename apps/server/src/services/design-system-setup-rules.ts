@@ -70,7 +70,7 @@ export const inventoryBrief = (inventory: UsageInventory) => {
     .slice(0, BRIEF_VALUES)
     .map(
       (v) =>
-        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : "Tailwind's"}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, ${v.kind === "element" ? "the library has" : "is exactly"} ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
+        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : "Tailwind's"}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, is exactly ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
     );
   return `The code, read against ${inventory.against === "saved" ? "the saved design system" : "the theme's tokens"} (${plural(inventory.files, "source file")}):
 ${totals.join("\n") || "- nothing"}
@@ -131,8 +131,7 @@ export const mappingCounts = (mapping: UsageMapping) => ({
 export const targetProblem = (
   kind: UsageKind,
   target: string,
-  ds: DesignSystem,
-  components: readonly string[]
+  ds: DesignSystem
 ): string | null => {
   if (kind === "spacing" && spacingStepOf(target) !== null) {
     return null;
@@ -140,19 +139,17 @@ export const targetProblem = (
   if (kind === "zIndex" && NUMBER_RE.test(target)) {
     return null;
   }
-  const allowed = targetsOf(kind, ds, components);
+  const allowed = targetsOf(kind, ds);
   if (allowed.includes(target)) {
     return null;
   }
   const listed = allowed.slice(0, LISTED_TOKENS).join(", ");
   const more = allowed.length > LISTED_TOKENS ? ", …" : "";
-  const what =
-    kind === "element" ? "a component of the library" : `a ${kind} token`;
   const spacing =
     kind === "spacing"
       ? " A step of the scale is spacing-<n> (spacing-3)."
       : "";
-  return `"${target}" is not ${what}${allowed.length > 0 ? `; there are ${listed}${more}` : ""}.${spacing}`;
+  return `"${target}" is not a ${kind} token${allowed.length > 0 ? `; there are ${listed}${more}` : ""}.${spacing}`;
 };
 
 /** The decisions taken on the mapping, with what could not be taken and why. */

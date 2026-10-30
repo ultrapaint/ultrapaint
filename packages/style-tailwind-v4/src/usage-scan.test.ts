@@ -28,9 +28,7 @@ const designSystem: DesignSystem = {
 };
 
 const saved: UsageContext = {
-  components: ["Button", "Checkbox"],
   designSystem,
-  libraryDirs: ["src/components/ui"],
   ownTokens: null,
 };
 
@@ -193,22 +191,18 @@ a:hover { color: #abcdef; }`;
     expect(css.slice(margin?.start, margin?.end)).toBe("13px");
   });
 
-  it("reports plain elements where the library has a component, outside the library", () => {
+  it("lists no plain element: the editor's components are not the repository's library (D4)", () => {
     const values = valuesOf({
-      "src/components/ui/button.tsx": "export const Button = () => <button />;",
       "src/form.tsx": `export const Form = () => (
   <form>
     <button type="submit">Save</button>
     <input type="checkbox" />
-    <input type="text" />
+    <hr />
     <Button>Ok</Button>
   </form>
 );`,
     });
-    expect(values).toEqual([
-      "element raw button → Button ×1",
-      "element raw input:checkbox → Checkbox ×1",
-    ]);
+    expect(values).toEqual([]);
   });
 
   it("skips types, imports and the files that are not the application's", () => {

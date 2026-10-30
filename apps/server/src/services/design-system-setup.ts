@@ -448,12 +448,7 @@ export class DesignSystemSetupService extends Context.Service<
           }
           const code = yield* codebase(true);
           const result = applyChanges(mapping, changes, by, (kind, target) =>
-            targetProblem(
-              kind,
-              target,
-              code.ctx.designSystem,
-              code.ctx.components
-            )
+            targetProblem(kind, target, code.ctx.designSystem)
           );
           if (result.applied > 0) {
             yield* saveMapping(result.mapping);

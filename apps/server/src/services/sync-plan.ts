@@ -84,7 +84,7 @@ const SETUP_DETAILS: Record<SetupStepId, string> = {
   define:
     "An agent adopts the theme there is, or proposes one from what the code uses, and asks you what to keep.",
   inventory:
-    "The colours, spacing, type, radii, shadows and plain elements the code uses, and which are the system's.",
+    "The colours, spacing, type, radii, shadows and layers the code uses, and which are the system's.",
   map: "What each value off the system becomes; rules take the exact matches, an agent the rest.",
   migrate:
     "The code rewritten onto the design system a directory at a time, each batch undoable.",
