@@ -175,7 +175,7 @@ export const Canvas = () => {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  // A component from the Assets panel, or image files from the desktop.
+  // A component from the Library, or image files from the desktop.
   useEffect(() => {
     const el = ref.current;
     if (!el) {

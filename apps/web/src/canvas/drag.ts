@@ -1,7 +1,7 @@
 /**
  * Dragging things across the canvas: a node to another place in its page, into another page or
  * out onto the canvas; a node on the canvas around it or into a page; something new from the
- * Assets panel into a page or onto the canvas. One controller for all of them, because they share the
+ * Library into a page or onto the canvas. One controller for all of them, because they share the
  * question that matters — where would this land — and the line that answers it. The documents
  * say what is a container and which way it lays out its children, so the answer is read off
  * them, and only the rectangles are asked of the preview.
@@ -37,7 +37,7 @@ import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
-/** Type of the data an Assets entry's drag carries: the node it inserts, as JSON. */
+/** Type of the data a Library entry's drag carries: the node it inserts, as JSON. */
 export const ASSET_MIME = "application/ultrapaint-node";
 
 export type Dragged =
@@ -376,7 +376,7 @@ const round = (p: { x: number; y: number }) => ({
 export const placeOfDrop = (drop: Drop, at: { x: number; y: number }): Place =>
   drop.kind === "canvas" ? { at, kind: "canvas" } : drop;
 
-/** Carries the drop out. `created` is the node an Assets drag inserts. */
+/** Carries the drop out. `created` is the node a Library drag inserts. */
 export const endDrag = async (created?: DesignNode) => {
   const { copy, dragged, drop, free, grab, pointer } = useDrag.getState();
   const at = landingPoint(pointer, grab, free);
@@ -392,7 +392,7 @@ export const endDrag = async (created?: DesignNode) => {
 };
 
 /**
- * What a drop does: a node from the Assets panel inserted, one dragged copied or moved. A node on
+ * What a drop does: a node from the Library inserted, one dragged copied or moved. A node on
  * the canvas let go over the canvas moves to where it was let go.
  */
 const carryOut = async (

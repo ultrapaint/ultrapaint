@@ -1,6 +1,6 @@
 /**
  * Every edit the editor makes to nodes, from the keyboard, the layers panel, the inspector, the
- * Assets panel, the context menu, the clipboard and the canvas's drags alike: nothing else sends
+ * Library, the Insert menu, the context menu, the clipboard and the canvas's drags alike: nothing else sends
  * the documents operations. Each is one request to the server and one undo step, however many
  * nodes it changes. An action takes the node it is for, and the rest of the selection with it when
  * the node is selected; the selection when it is not given one. Renaming, selecting a parent and
@@ -24,6 +24,10 @@ import {
   type Visibility,
   withVisibility,
 } from "@ultrapaint/design-document/breakpoints";
+import {
+  type ElementId,
+  newElement,
+} from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import {
   canvasDocOf,
@@ -338,7 +342,7 @@ export const moveNode = async (target: Selection, place: Place) => {
 };
 
 /**
- * Where a node inserted from the Assets panel goes: into the selected container, or component that
+ * Where a node inserted from the Library or the Insert menu goes: into the selected container, or component that
  * takes children, at its end; next to the selected node otherwise; and at the end of the page on
  * screen when nothing is selected.
  */
@@ -413,6 +417,21 @@ export const insertNode = (
   ctx: Context = liveContext(),
   label = "Insert"
 ) => insertNodes([node], ctx, label);
+
+/**
+ * The elements the tools' Insert menu offers (ADR 0045), in its order: text is a paragraph, and
+ * a group is drawn with the group tool.
+ */
+export const INSERTED_ELEMENTS: readonly { id: ElementId; name: string }[] = [
+  { id: "row", name: "Row" },
+  { id: "column", name: "Column" },
+  { id: "paragraph", name: "Text" },
+  { id: "image", name: "Image" },
+];
+
+/** Inserts a new element where `insertTarget` says, as the Insert menu does, and selects it. */
+export const insertElement = (id: ElementId) =>
+  insertNode(newElement(id, makeIdGenerator()));
 
 /**
  * Where a node sits: the node it is inside (null for the top of the canvas) and its siblings,

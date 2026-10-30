@@ -2,9 +2,9 @@ import { cn } from "cn";
 import {
   FileUp,
   Frame,
+  LibraryBig,
   type LucideIcon,
   Palette,
-  Shapes,
   Sparkles,
 } from "lucide-react";
 import {
@@ -193,12 +193,12 @@ const OtherWay = () => (
     <span aria-hidden>·</span>
     <button
       className="pointer-events-auto flex items-center gap-1.5 hover:text-foreground"
-      onClick={() => showLeftPanel("assets")}
+      onClick={() => showLeftPanel("library")}
       onPointerDown={keepFromCanvas}
       type="button"
     >
-      <Shapes className="size-3" />
-      drag a component or an image from Assets
+      <LibraryBig className="size-3" />
+      drag a component from the Library
     </button>
   </div>
 );
