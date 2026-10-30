@@ -13,7 +13,7 @@ import {
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
-import type { Tool, Toolkit } from "effect/ai";
+import { McpSchema, type Tool, type Toolkit } from "effect/ai";
 import { RpcTest } from "effect/rpc";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
@@ -23,6 +23,7 @@ import { ProjectManager } from "../project.ts";
 import { RpcHandlers } from "../rpc-handlers.ts";
 import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
+import { RawTools } from "../services/mcp/raw-tools.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { makeFixture, TestEnv } from "./harness.ts";
@@ -216,3 +217,36 @@ export const callTool = <
     // success.
     return last.value.result as Tool.Success<Tools[Name]>;
   }).pipe(Effect.provideService(CallingThread, thread));
+
+/**
+ * One of the editor's tools that answer by hand (`get_screenshot`, `ask_user`), called as an
+ * agent's call reaches it: its parameters decoded, its answer back as the agent gets it, a
+ * picture, a sentence or a form. `request` is what the agent's client said of itself with the
+ * call: by default it speaks the stateless revision and shows no form.
+ */
+export const callRawTool = <T extends Tool.Any>(
+  tool: T,
+  parameters: Tool.ParametersEncoded<T>,
+  options: {
+    readonly request?: Partial<McpSchema.McpRequestContext["Service"]>;
+    readonly thread?: string;
+  } = {}
+) =>
+  Effect.gen(function* () {
+    const { all } = yield* RawTools;
+    const found = all.find((raw) => raw.tool.name === tool.name);
+    if (found === undefined) {
+      return yield* Effect.die(
+        new Error(`${tool.name} is no tool answered by hand`)
+      );
+    }
+    return yield* found.handle(parameters);
+  }).pipe(
+    Effect.provideService(CallingThread, options.thread),
+    Effect.provideService(McpSchema.McpRequestContext, {
+      clientCapabilities: {},
+      clientId: 0,
+      protocolVersion: "2026-07-28",
+      ...options.request,
+    })
+  );

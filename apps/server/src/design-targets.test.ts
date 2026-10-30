@@ -5,7 +5,7 @@ import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
+import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { callTool, ProjectTest } from "./testing/project.ts";
 

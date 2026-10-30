@@ -2,7 +2,7 @@
  * `get_screenshot`: a picture of a page or a node, so an agent can see what it made and fix it.
  *
  * Every other tool answers with JSON, which the toolkit turns into text. A picture has to reach
- * the agent as an image, so this one is registered on the MCP server by hand.
+ * the agent as an image, so this one is answered by hand (`rawTool`).
  */
 import { presetSize } from "@ultrapaint/contracts/pages";
 import {
@@ -11,13 +11,13 @@ import {
   findPath,
 } from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
-import { Effect, Layer, Schema } from "effect";
-import { McpSchema, McpServer, Tool } from "effect/ai";
+import { Effect, Schema } from "effect";
+import { McpSchema, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import { finite, leanSchema, missing, opt, reported } from "./tool-helpers.ts";
+import { finite, missing, opt, rawTool, reported } from "./tool-helpers.ts";
 
 /** The width a node on the canvas is drawn in, when it fills its parent. */
 const CANVAS_WIDTH = 1200;
@@ -40,156 +40,123 @@ export const GetScreenshot = Tool.make("get_screenshot", {
   }),
 }).annotate(Tool.Readonly, true);
 
-const decodeParameters = Schema.decodeUnknownEffect(
-  GetScreenshot.parametersSchema
-);
+/** `get_screenshot`, answered with the picture and a line on what it shows. */
+export const screenshotTool = Effect.gen(function* () {
+  const screenshots = yield* Screenshots;
+  const { documents, pageAt, project, canvasOf } = yield* makeLookup;
 
-const failed = (text: string) =>
-  new McpSchema.CallToolResult({
-    content: [{ text, type: "text" }],
-    isError: true,
+  type Parameters = typeof GetScreenshot.parametersSchema.Type;
+
+  /** A node on the canvas, drawn inside the one placed there that holds it, at its own size. */
+  const drawOnCanvas = Effect.fnUntraced(function* ({
+    node,
+    canvas,
+    width,
+  }: Parameters) {
+    if (node === undefined) {
+      return yield* missing(
+        `say which node on the canvas with \`node\`; ${TOOLS.read_canvas} lists them`
+      );
+    }
+    const inCanvas = yield* canvasOf(canvas);
+    const state = yield* documents((d) => d.get(canvasDocOf(inCanvas)));
+    const placed = findPath(state.root, node)?.[1];
+    if (!placed) {
+      return yield* missing(
+        `no node ${node} on the canvas; ${TOOLS.read_canvas} lists them`
+      );
+    }
+    const bytes = yield* reported(
+      screenshots.capture({
+        canvas: inCanvas,
+        height: CANVAS_HEIGHT,
+        mode: "fit",
+        root: placed,
+        width: width ?? CANVAS_WIDTH,
+        ...(placed.id !== node && { nodeId: node }),
+      })
+    );
+    return { bytes, what: `node ${node} on the canvas` };
   });
 
-export const ScreenshotToolLive = Layer.effectDiscard(
-  Effect.gen(function* () {
-    const server = yield* McpServer.McpServer;
-    const screenshots = yield* Screenshots;
-    const { documents, pageAt, project, canvasOf } = yield* makeLookup;
-
-    type Parameters = typeof GetScreenshot.parametersSchema.Type;
-
-    /** A node on the canvas, drawn inside the one placed there that holds it, at its own size. */
-    const drawOnCanvas = Effect.fnUntraced(function* ({
-      node,
-      canvas,
-      width,
-    }: Parameters) {
-      if (node === undefined) {
-        return yield* missing(
-          `say which node on the canvas with \`node\`; ${TOOLS.read_canvas} lists them`
-        );
-      }
-      const inCanvas = yield* canvasOf(canvas);
-      const state = yield* documents((d) => d.get(canvasDocOf(inCanvas)));
-      const placed = findPath(state.root, node)?.[1];
-      if (!placed) {
-        return yield* missing(
-          `no node ${node} on the canvas; ${TOOLS.read_canvas} lists them`
-        );
-      }
-      const bytes = yield* reported(
-        screenshots.capture({
-          canvas: inCanvas,
-          height: CANVAS_HEIGHT,
-          mode: "fit",
-          root: placed,
-          width: width ?? CANVAS_WIDTH,
-          ...(placed.id !== node && { nodeId: node }),
-        })
+  /** A page as a window of its frame's size shows it, or one node of it in place. */
+  const drawPage = Effect.fnUntraced(function* (
+    route: string,
+    { node, canvas, width }: Parameters
+  ) {
+    const page = yield* pageAt(route, canvas);
+    const state = yield* documents((d) => d.get(page.id));
+    if (state.problem !== undefined || !state.root) {
+      return yield* missing(
+        `${page.file} is not a valid page: ${state.problem ?? "it is empty"}`
       );
-      return { bytes, what: `node ${node} on the canvas` };
-    });
-
-    /** A page as a window of its frame's size shows it, or one node of it in place. */
-    const drawPage = Effect.fnUntraced(function* (
-      route: string,
-      { node, canvas, width }: Parameters
-    ) {
-      const page = yield* pageAt(route, canvas);
-      const state = yield* documents((d) => d.get(page.id));
-      if (state.problem !== undefined || !state.root) {
-        return yield* missing(
-          `${page.file} is not a valid page: ${state.problem ?? "it is empty"}`
-        );
-      }
-      if (node !== undefined && !findNode(state.root, node)) {
-        return yield* missing(
-          `no node ${node} on ${page.route ?? page.file}; ${TOOLS.read_page} lists them`
-        );
-      }
-      const layout = yield* reported(
-        project.use(
-          Effect.flatMap(PagesService, (pages) => pages.readCanvas(page.canvas))
-        )
+    }
+    if (node !== undefined && !findNode(state.root, node)) {
+      return yield* missing(
+        `no node ${node} on ${page.route ?? page.file}; ${TOOLS.read_page} lists them`
       );
-      const frame = layout.frames[page.path] ?? presetSize.desktop;
-      const viewport = width ?? frame.width;
-      const bytes = yield* reported(
-        screenshots.capture({
-          canvas: page.canvas,
-          height: frame.height,
-          mode: "page",
-          root: state.root,
-          width: viewport,
-          ...(node !== undefined && { nodeId: node }),
-        })
-      );
-      const where = `${page.route ?? page.file} at ${viewport}px wide`;
-      return {
-        bytes,
-        what: node === undefined ? where : `node ${node} of ${where}`,
-      };
-    });
-
-    const draw = (given: Parameters) => {
-      // A node reference says the page, or the canvas, and the node at once.
-      const ref = given.node === undefined ? null : parseNodeRef(given.node);
-      const parameters: Parameters = ref
-        ? {
-            ...given,
-            node: ref.nodeId,
-            ...(ref.page === null
-              ? { loose: true }
-              : { route: given.route ?? ref.page }),
-            ...(ref.canvas === undefined || given.canvas !== undefined
-              ? {}
-              : { canvas: ref.canvas }),
-          }
-        : given;
-      if (parameters.loose) {
-        return drawOnCanvas(parameters);
-      }
-      if (parameters.route === undefined) {
-        return missing(
-          "say which page with `route`, or pass `loose: true` and a `node` for a node beside the pages"
-        );
-      }
-      return drawPage(parameters.route, parameters);
+    }
+    const layout = yield* reported(
+      project.use(
+        Effect.flatMap(PagesService, (pages) => pages.readCanvas(page.canvas))
+      )
+    );
+    const frame = layout.frames[page.path] ?? presetSize.desktop;
+    const viewport = width ?? frame.width;
+    const bytes = yield* reported(
+      screenshots.capture({
+        canvas: page.canvas,
+        height: frame.height,
+        mode: "page",
+        root: state.root,
+        width: viewport,
+        ...(node !== undefined && { nodeId: node }),
+      })
+    );
+    const where = `${page.route ?? page.file} at ${viewport}px wide`;
+    return {
+      bytes,
+      what: node === undefined ? where : `node ${node} of ${where}`,
     };
+  });
 
-    yield* server.addTool({
-      annotations: GetScreenshot.annotations,
-      handle: (payload) =>
-        decodeParameters(payload ?? {}).pipe(
-          Effect.mapError(
-            (error) => new McpSchema.InvalidParams({ message: error.message })
-          ),
-          Effect.flatMap((parameters) =>
-            draw(parameters).pipe(
-              Effect.map(
-                ({ bytes, what }) =>
-                  new McpSchema.CallToolResult({
-                    content: [
-                      { data: bytes, mimeType: "image/png", type: "image" },
-                      { text: what, type: "text" },
-                    ],
-                    isError: false,
-                  })
-              ),
-              Effect.catchTag("ToolFailure", (failure) =>
-                Effect.succeed(failed(failure.message))
-              )
-            )
-          )
-        ),
-      tool: new McpSchema.Tool({
-        annotations: { readOnlyHint: true },
-        description: Tool.getDescription(GetScreenshot),
-        inputSchema: leanSchema(
-          Tool.getJsonSchema(GetScreenshot) as McpSchema.ToolJson
-        ),
-        name: GetScreenshot.name,
-      }),
-    });
-  })
-);
+  const draw = (given: Parameters) => {
+    // A node reference says the page, or the canvas, and the node at once.
+    const ref = given.node === undefined ? null : parseNodeRef(given.node);
+    const parameters: Parameters = ref
+      ? {
+          ...given,
+          node: ref.nodeId,
+          ...(ref.page === null
+            ? { loose: true }
+            : { route: given.route ?? ref.page }),
+          ...(ref.canvas === undefined || given.canvas !== undefined
+            ? {}
+            : { canvas: ref.canvas }),
+        }
+      : given;
+    if (parameters.loose) {
+      return drawOnCanvas(parameters);
+    }
+    if (parameters.route === undefined) {
+      return missing(
+        "say which page with `route`, or pass `loose: true` and a `node` for a node beside the pages"
+      );
+    }
+    return drawPage(parameters.route, parameters);
+  };
+
+  return rawTool(GetScreenshot, (parameters) =>
+    Effect.map(
+      draw(parameters),
+      ({ bytes, what }) =>
+        new McpSchema.CallToolResult({
+          content: [
+            { data: bytes, mimeType: "image/png", type: "image" },
+            { text: what, type: "text" },
+          ],
+          isError: false,
+        })
+    )
+  );
+});

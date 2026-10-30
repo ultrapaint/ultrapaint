@@ -59,153 +59,155 @@ const lineOf = (item: ImplementationItem) => {
   return `- ${item.target} (${item.name}): ${status}${files}${tokens}`;
 };
 
-const HandoffTools = Toolkit.make(Handoff);
+export const HandoffTools = Toolkit.make(Handoff);
 
-export const handoffToolHandlers = Effect.gen(function* () {
-  const project = yield* OpenProject;
-  const implementation = project.service(ImplementationService);
-  const designTargets = project.service(DesignTargets);
-  const tasks = yield* AgentTasks;
-  const sync = yield* DesignSystemSyncService;
+export const HandoffToolsLive = HandoffTools.toLayer(
+  Effect.gen(function* () {
+    const project = yield* OpenProject;
+    const implementation = project.service(ImplementationService);
+    const designTargets = project.service(DesignTargets);
+    const tasks = yield* AgentTasks;
+    const sync = yield* DesignSystemSyncService;
 
-  /** The design an agent named, by the one rule for design targets. */
-  const targetOf = Effect.fnUntraced(function* (
-    target: string | undefined,
-    canvas: string | undefined
-  ) {
-    if (!target) {
-      return yield* missing("say which design with target");
-    }
-    return yield* reported(designTargets((d) => d.resolve(target, canvas)));
-  });
-
-  const list = Effect.gen(function* () {
-    const { items } = yield* reported(implementation((s) => s.list));
-    const shown = items.filter((i) => i.status !== "draft");
-    return {
-      text:
-        shown.length === 0
-          ? "Nothing is ready or implemented yet."
-          : shown.map(lineOf).join("\n"),
-    };
-  });
-
-  /** The task that implements a design, or why there is none, in the failure's own words. */
-  const read = (id: string) =>
-    tasks.task({ _tag: "Implement", target: id }).pipe(
-      Effect.map(({ text }) => ({ text })),
-      Effect.catchTag("TaskFailure", (failure) => missing(failure.message))
-    );
-
-  const mark = Effect.fnUntraced(function* (
-    id: string,
-    files: readonly string[] | undefined
-  ) {
-    if (!files || files.length === 0) {
-      return yield* missing(
-        "name the files that implement it in files, repository-relative"
-      );
-    }
-    const item = yield* reported(
-      // What an agent marks has to draw as designed: no token of it waiting for the code.
-      implementation((s) => s.mark(id, files, true))
-    );
-    return { text: lineOf(item) };
-  });
-
-  /**
-   * A behaviour note on a page or one of its nodes, or on a component (a part of it, named as
-   * the node): what the code must do that a design cannot show.
-   */
-  const note = Effect.fnUntraced(function* (
-    target: DesignTarget,
-    node: string | undefined,
-    text: string | undefined
-  ) {
-    if (!text) {
-      return yield* missing("say in text what the code must do");
-    }
-    const added = yield* reported(
-      designTargets((d) => d.addNote(target, text, node))
-    );
-    const on =
-      target._tag === "Component" ? target.component.name : target.page.file;
-    const where = added.nodeId ?? added.element;
-    return { text: `Noted on ${on}${where ? ` (${where})` : ""}.` };
-  });
-
-  /**
-   * The code's token values brought up to the design's, or the code's taken into the design (ADR
-   * 0028): the tokens named, conflicts among them included, or what changed on one side alone.
-   */
-  const tokensTo = Effect.fnUntraced(function* (
-    direction: "export" | "import",
-    names: readonly string[]
-  ) {
-    const comparison = yield* reported(sync.tokens("code"));
-    if (!comparison) {
-      return yield* missing(
-        "there is no design system yet to compare the code with: Sync makes one"
-      );
-    }
-    const { decisions, left, unknown } = codeDirection(
-      comparison.diffs,
-      direction,
-      names
-    );
-    if (unknown.length > 0) {
-      return yield* missing(
-        `neither the design system nor the code has ${unknown.join(", ")}`
-      );
-    }
-    const { files, written } = yield* reported(
-      sync.apply("code", decisions, direction, names)
-    );
-    const done = direction === "export" ? "to the code" : "into the design";
-    const lines = [
-      written === 0
-        ? `Nothing to bring ${done}.`
-        : `${plural(written, "token value")} brought ${done}${files.length > 0 ? `: ${files.join(", ")}` : ""}.`,
-    ];
-    if (left.length > 0) {
-      lines.push(
-        `Changed on both sides, left for the user: ${left
-          .map(
-            (d) =>
-              `${baselineKey(d.name, d.theme)} (code ${d.source ?? "none"}, design ${d.design ?? "none"})`
-          )
-          .join(
-            ", "
-          )}. Ask which value to keep, then export or import them by name.`
-      );
-    }
-    return { text: lines.join(" ") };
-  });
-
-  return HandoffTools.of({
-    handoff: Effect.fn("EditorTools.handoff")(function* ({
-      action,
-      canvas,
-      files,
-      node,
-      target,
-      text,
-      tokens,
-    }) {
-      if (action === "list") {
-        return yield* list;
+    /** The design an agent named, by the one rule for design targets. */
+    const targetOf = Effect.fnUntraced(function* (
+      target: string | undefined,
+      canvas: string | undefined
+    ) {
+      if (!target) {
+        return yield* missing("say which design with target");
       }
-      if (action === "export" || action === "import") {
-        return yield* tokensTo(action, tokens ?? []);
+      return yield* reported(designTargets((d) => d.resolve(target, canvas)));
+    });
+
+    const list = Effect.gen(function* () {
+      const { items } = yield* reported(implementation((s) => s.list));
+      const shown = items.filter((i) => i.status !== "draft");
+      return {
+        text:
+          shown.length === 0
+            ? "Nothing is ready or implemented yet."
+            : shown.map(lineOf).join("\n"),
+      };
+    });
+
+    /** The task that implements a design, or why there is none, in the failure's own words. */
+    const read = (id: string) =>
+      tasks.task({ _tag: "Implement", target: id }).pipe(
+        Effect.map(({ text }) => ({ text })),
+        Effect.catchTag("TaskFailure", (failure) => missing(failure.message))
+      );
+
+    const mark = Effect.fnUntraced(function* (
+      id: string,
+      files: readonly string[] | undefined
+    ) {
+      if (!files || files.length === 0) {
+        return yield* missing(
+          "name the files that implement it in files, repository-relative"
+        );
       }
-      const named = yield* targetOf(target, canvas);
-      if (action === "read") {
-        return yield* read(targetId(named));
+      const item = yield* reported(
+        // What an agent marks has to draw as designed: no token of it waiting for the code.
+        implementation((s) => s.mark(id, files, true))
+      );
+      return { text: lineOf(item) };
+    });
+
+    /**
+     * A behaviour note on a page or one of its nodes, or on a component (a part of it, named as
+     * the node): what the code must do that a design cannot show.
+     */
+    const note = Effect.fnUntraced(function* (
+      target: DesignTarget,
+      node: string | undefined,
+      text: string | undefined
+    ) {
+      if (!text) {
+        return yield* missing("say in text what the code must do");
       }
-      if (action === "mark") {
-        return yield* mark(targetId(named), files);
+      const added = yield* reported(
+        designTargets((d) => d.addNote(target, text, node))
+      );
+      const on =
+        target._tag === "Component" ? target.component.name : target.page.file;
+      const where = added.nodeId ?? added.element;
+      return { text: `Noted on ${on}${where ? ` (${where})` : ""}.` };
+    });
+
+    /**
+     * The code's token values brought up to the design's, or the code's taken into the design (ADR
+     * 0028): the tokens named, conflicts among them included, or what changed on one side alone.
+     */
+    const tokensTo = Effect.fnUntraced(function* (
+      direction: "export" | "import",
+      names: readonly string[]
+    ) {
+      const comparison = yield* reported(sync.tokens("code"));
+      if (!comparison) {
+        return yield* missing(
+          "there is no design system yet to compare the code with: Sync makes one"
+        );
       }
-      return yield* note(named, node, text);
-    }),
-  });
-});
+      const { decisions, left, unknown } = codeDirection(
+        comparison.diffs,
+        direction,
+        names
+      );
+      if (unknown.length > 0) {
+        return yield* missing(
+          `neither the design system nor the code has ${unknown.join(", ")}`
+        );
+      }
+      const { files, written } = yield* reported(
+        sync.apply("code", decisions, direction, names)
+      );
+      const done = direction === "export" ? "to the code" : "into the design";
+      const lines = [
+        written === 0
+          ? `Nothing to bring ${done}.`
+          : `${plural(written, "token value")} brought ${done}${files.length > 0 ? `: ${files.join(", ")}` : ""}.`,
+      ];
+      if (left.length > 0) {
+        lines.push(
+          `Changed on both sides, left for the user: ${left
+            .map(
+              (d) =>
+                `${baselineKey(d.name, d.theme)} (code ${d.source ?? "none"}, design ${d.design ?? "none"})`
+            )
+            .join(
+              ", "
+            )}. Ask which value to keep, then export or import them by name.`
+        );
+      }
+      return { text: lines.join(" ") };
+    });
+
+    return HandoffTools.of({
+      handoff: Effect.fn("EditorTools.handoff")(function* ({
+        action,
+        canvas,
+        files,
+        node,
+        target,
+        text,
+        tokens,
+      }) {
+        if (action === "list") {
+          return yield* list;
+        }
+        if (action === "export" || action === "import") {
+          return yield* tokensTo(action, tokens ?? []);
+        }
+        const named = yield* targetOf(target, canvas);
+        if (action === "read") {
+          return yield* read(targetId(named));
+        }
+        if (action === "mark") {
+          return yield* mark(targetId(named), files);
+        }
+        return yield* note(named, node, text);
+      }),
+    });
+  })
+);

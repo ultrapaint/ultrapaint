@@ -1,9 +1,11 @@
 /**
- * What every MCP tool of the editor shares: the failure it reports, the way it reports one, and
- * the parameter shapes that keep the tools' schemas short for the agent that reads them.
+ * What every MCP tool of the editor shares: the failure it reports, the way it reports one, the
+ * parameter shapes that keep the tools' schemas short for the agent that reads them, and the
+ * adapter of a tool that answers by hand (`rawTool`).
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
+import { McpSchema, type McpServer, Tool } from "effect/ai";
 
 /**
  * What a tool says when it cannot answer: the reason, in words the agent can act on. An error
@@ -70,4 +72,61 @@ export const leanSchema = <S>(schema: S): S => {
         : [[key, leanSchema(value)]]
     )
   ) as S;
+};
+
+/** A tool's hints, as an MCP client reads them from its definition. */
+const hintsOf = (tool: Tool.Any) => ({
+  destructiveHint: Context.get(tool.annotations, Tool.Destructive),
+  idempotentHint: Context.get(tool.annotations, Tool.Idempotent),
+  openWorldHint: Context.get(tool.annotations, Tool.OpenWorld),
+  readOnlyHint: Context.get(tool.annotations, Tool.Readonly),
+});
+
+/** What a tool answers by hand: a picture, a sentence, or a form for the client to fill. */
+export type RawAnswer = McpSchema.CallToolResult | McpSchema.InputRequired;
+
+/** A sentence as a tool's whole answer, or as its failure. */
+export const said = (text: string, isError = false) =>
+  new McpSchema.CallToolResult({ content: [{ text, type: "text" }], isError });
+
+/** A tool registered by hand, as the MCP server takes it. */
+export type RawTool = Parameters<McpServer.McpServer["Service"]["addTool"]>[0];
+
+/**
+ * A tool whose answer a toolkit cannot give, registered by hand: a picture (`get_screenshot`), or
+ * a form the client asks the user (`ask_user`). It is answered as the toolkits' tools are: the
+ * parameters decoded (a mistake in them is the agent's, "invalid params"), a `ToolFailure` told as
+ * an error result in its own words, the definition read from the tool's.
+ */
+export const rawTool = <T extends Tool.Any>(
+  tool: T,
+  handle: (
+    parameters: Tool.Parameters<T>
+  ) => Effect.Effect<RawAnswer, ToolFailure, McpSchema.McpRequestContext>
+): RawTool => {
+  const decode = Schema.decodeUnknownEffect(
+    tool.parametersSchema as Schema.Codec<Tool.Parameters<T>, unknown>
+  );
+  return {
+    annotations: tool.annotations,
+    handle: (payload: unknown) =>
+      decode(payload ?? {}).pipe(
+        Effect.mapError(
+          (error) => new McpSchema.InvalidParams({ message: error.message })
+        ),
+        Effect.flatMap((parameters) =>
+          handle(parameters).pipe(
+            Effect.catchTag("ToolFailure", (failure) =>
+              Effect.succeed(said(failure.message, true))
+            )
+          )
+        )
+      ),
+    tool: new McpSchema.Tool({
+      annotations: hintsOf(tool),
+      description: Tool.getDescription(tool),
+      inputSchema: Tool.getJsonSchema(tool) as McpSchema.ToolJson,
+      name: tool.name,
+    }),
+  };
 };

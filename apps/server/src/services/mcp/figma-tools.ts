@@ -27,8 +27,6 @@ import {
   ToolFailure,
 } from "./tool-helpers.ts";
 
-const Failure = ToolFailure;
-
 const decodeMapping = Schema.decodeUnknownEffect(ComponentMapping);
 
 /** Which import a tool works on; the latest when left out, which is nearly always the one. */
@@ -39,7 +37,7 @@ const importRef = {
 const ListFigmaImports = Tool.make("list_figma_imports", {
   description:
     "The Figma files brought in, newest first; the figma tools take the newest without import.",
-  failure: Failure,
+  failure: ToolFailure,
   success: Schema.Struct({
     imports: Schema.Array(
       Schema.Struct({
@@ -57,7 +55,7 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
     "A Figma file: its frames (the screens), components with variants, properties, uses and candidates, and the mapping so far. Start here.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct(importRef),
   success: Schema.Struct({
     components: Schema.Array(FigmaComponent),
@@ -72,7 +70,7 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
     "One frame, by id (12:345) or name: its layers, its instances, mapped or not, and the page it makes now.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     /** The frame's id (12:345) or its name. */
@@ -91,7 +89,7 @@ const ReadFigmaFrame = Tool.make("read_figma_frame", {
 const ReadFigmaComponent = Tool.make("read_figma_component", {
   description:
     "One Figma component, by key: variants, properties, candidates, the frames using it, its layers and what expanding makes.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     /** The component's key, as read_figma_import lists it. */
@@ -111,7 +109,7 @@ const MapFigmaComponent = Tool.make("map_figma_component", {
 {kind:"component", component, from?, props?, propMap?, text?}: a component by name, props on every instance; propMap maps Figma properties ({"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}); text is "children" or a text property's name
 {kind:"expand"}: built from rows, columns, text and images
 {kind:"skip"}: left out`,
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     component: Schema.String,
@@ -129,7 +127,7 @@ const MapFigmaComponent = Tool.make("map_figma_component", {
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
     "Write a frame as a page named after it, with the mapping so far and its images; route for a screen. Unmapped components are expanded and reported.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     canvas: opt(Schema.String),
