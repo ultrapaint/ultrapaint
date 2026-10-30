@@ -1,7 +1,6 @@
 /**
- * What the usage scan knows of Tailwind and the DOM, shared by reading the files and holding
- * their values against the design system: the utilities it reads, colours as they are written,
- * and the plain elements a library has a component for. How a class is written and Tailwind's
+ * What the usage scan knows of Tailwind, shared by reading the files and holding their values
+ * against the design system: the utilities it reads and colours as they are written. How a class is written and Tailwind's
  * scales are `utilities`'; what a whole value is comes from contracts' `token-value`; the
  * patterns here find colours inside a file's text.
  */
@@ -134,22 +133,6 @@ export const UTILITIES = [
 export const COLOR_SET = new Set(COLOR_UTILITIES);
 export const SPACING_SET = new Set(SPACING_UTILITIES);
 export const RADIUS_SET = new Set(RADIUS_UTILITIES);
-
-/** Plain elements, and the components a library has for them. */
-export const ELEMENT_COMPONENTS: Record<string, readonly string[]> = {
-  button: ["Button"],
-  dialog: ["Dialog"],
-  hr: ["Separator"],
-  input: ["Input"],
-  "input:checkbox": ["Checkbox"],
-  "input:radio": ["RadioGroup", "Radio"],
-  "input:range": ["Slider"],
-  label: ["Label"],
-  progress: ["Progress"],
-  select: ["Select", "NativeSelect"],
-  table: ["Table"],
-  textarea: ["Textarea"],
-};
 
 /**
  * How the inventory lists a colour written out, so one written two ways counts once: `#ABC` →

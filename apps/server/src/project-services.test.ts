@@ -130,7 +130,7 @@ describe("a project in-process", () => {
           );
           assert.strictEqual(yield* tokenOf, "#111827");
           yield* designSystem((d) =>
-            d.setToken({ name: "color-ink", value: "#333333" })
+            d.edit([{ name: "color-ink", op: "setValue", value: "#333333" }])
           );
           assert.strictEqual(yield* tokenOf, "#333333");
           assert.include(

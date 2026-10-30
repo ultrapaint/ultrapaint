@@ -41,7 +41,7 @@ const MapEntry = Schema.Struct({
 
 const MapValues = Tool.make("map_values", {
   description:
-    'Decide values: target a token (color-primary, text-sm), a layer ("50") or a component (Button), or keep: true.',
+    'Decide values: target a token (color-primary, text-sm), or a layer ("50"), or keep: true.',
   failure: ToolFailure,
   parameters: Schema.Struct({ entries: Schema.Array(MapEntry) }),
   success: Schema.Struct({

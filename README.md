@@ -701,7 +701,6 @@ type after it is added to it.
 | `/implement <page>` | An agent writes a page (by URL or file), or a component (`/implement Button`), in your application, with your components and conventions |
 | `/implement --adopt [canvas or pages]` | An agent links pages already built in your application to the files that implement them, changing no code |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
-| `/components <canvas>` | Draws a sheet of the system components, in each of their variants, into a canvas |
 | `/design-system <step>` | Runs a step of the setup in its thread: `define`, `map` or `migrate` (Sync opens these for you) |
 
 ### In the editor
@@ -733,10 +732,8 @@ type after it is added to it.
 | `designsDir` | Where the pages are (`docs/designs`) |
 | `resolveFrom` | The package your application is (`front`), for its stylesheets' imports; a hint for agents that implement |
 | `libraryDirs` | Optional: where your components are (`front/src/components`), a hint for agents that implement |
-| `componentPackages` | Optional: packages of components your application uses, a hint for agents that implement |
 | `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
-| `theme` | `light` or `dark` for the canvas |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `skills.disabled` | Design skills agents are not told |

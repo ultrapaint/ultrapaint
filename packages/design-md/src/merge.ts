@@ -1,13 +1,14 @@
 /**
- * The document's mirrored values against the code's and against what the two last agreed on,
+ * The document's mirrored values against the design system's (ADR 0028) and against what the two
+ * last agreed on,
  * token by token (ADR 0027), by the rule every side is synced by
  * (`@ultrapaint/contracts/agreement`), the document being the side. Each value has a path:
  * `colors.primary`, `rounded.md`, `spacing.base`, `typography.body.fontSize`.
  *
  * - The same on both sides, as Sync compares (`#3b82f6` and its `oklch()` are one colour): kept
  *   as the document writes it (a reference stays a reference).
- * - Changed in the code only, or new there: the document takes the code's.
- * - Taken out of the document: the code's is written back, as a side that leaves a token out
+ * - Changed in the design system only, or new there: the document takes the design system's.
+ * - Taken out of the document: the design system's is written back, as a side that leaves a token out
  *   gets it back; the design system is where a token is taken out.
  * - Changed in the document only, or new there: held, for Sync to offer.
  * - Changed on both sides: held, for the user to pick.
@@ -119,14 +120,14 @@ export const resolvedValues = (
 export interface Merged {
   /** What agreed after the merge, for the next one: the old value where one is held. */
   readonly agreed: Record<string, string>;
-  /** The groups to write: the code's where it moved alone, the document's elsewhere. */
+  /** The groups to write: the design system's where it moved alone, the document's elsewhere. */
   readonly groups: TokenGroups;
   /** Paths whose document value is held for Sync, by what happened. */
   readonly held: readonly Held[];
 }
 
 export interface Held {
-  /** The code's value, when it has one. */
+  /** The design system's value, when it has one (named before ADR 0028, when it was the code's). */
   readonly code?: string;
   /** The document's value, when it has one. */
   readonly doc?: string;
@@ -140,14 +141,14 @@ const str = (v: number | string | undefined) =>
 
 export const mergeMirror = (
   doc: DesignMd,
-  code: TokenGroups,
+  design: TokenGroups,
   agreed: Readonly<Record<string, string>> | null
 ): Merged => {
   const raw = flatten(groupsOf(doc).groups);
   const resolved = resolvedValues(doc);
-  const oursRaw = flatten(code);
-  // The code's component tokens refer to its own colours: compared by what they come to.
-  const ours = resolveAgainst(oursRaw, code);
+  const oursRaw = flatten(design);
+  // The design system's component tokens refer to its own colours: compared by what they come to.
+  const ours = resolveAgainst(oursRaw, design);
 
   if (agreed === null && Object.keys(raw).length > 0) {
     // Not agreed on yet: nothing is written until Sync has matched it.

@@ -8,7 +8,7 @@ import {
   applyEdits,
   type Edited,
   editLabel,
-  tokenChangesOf,
+  editsOf,
 } from "./design-system-edits.ts";
 
 const ds: DesignSystem = {
@@ -271,28 +271,45 @@ describe("applyEdits", () => {
   });
 });
 
-describe("tokenChangesOf", () => {
-  it("tells the code the values, the default theme's as the plain value", () => {
+describe("editsOf", () => {
+  it("makes another side's changes the editor's operations, a token not listed added", () => {
     expect(
-      tokenChangesOf(ds, [
-        { name: "color-ink", op: "setValue", theme: "light", value: "#000" },
-        { name: "color-ink", op: "setValue", theme: "dark", value: null },
-        {
-          name: "radius-xl",
-          op: "addToken",
-          value: "1rem",
-          values: { dark: "2rem" },
-        },
-        { name: "radius-md", op: "removeToken" },
-        { name: "accent", op: "addGroup" },
+      editsOf(ds, [
+        { name: "color-ink", value: "#000" },
+        { name: "color-primary-600", remove: true, theme: "dark" },
+        { name: "radius-xl", value: "1rem" },
+        { name: "radius-xl", theme: "dark", value: "2rem" },
+        { name: "radius-md", remove: true },
       ])
     ).toEqual([
-      { name: "color-ink", value: "#000" },
-      { name: "color-ink", remove: true, theme: "dark" },
-      { name: "radius-xl", value: "1rem" },
-      { name: "radius-xl", theme: "dark", value: "2rem" },
-      { name: "radius-md", remove: true },
+      { name: "color-ink", op: "setValue", value: "#000" },
+      {
+        name: "color-primary-600",
+        op: "setValue",
+        theme: "dark",
+        value: null,
+      },
+      {
+        name: "radius-xl",
+        op: "addToken",
+        value: "1rem",
+        values: { dark: "2rem" },
+      },
+      { name: "radius-md", op: "removeToken" },
     ]);
+  });
+
+  it("is checked as an edit is: a name of no kind, or a theme there is not, is a problem", () => {
+    const kindless = applyEdits(
+      ds,
+      editsOf(ds, [{ name: "blur-sm", value: "4px" }])
+    );
+    expect("problem" in kindless && kindless.problem).toContain("blur-sm");
+    const theme = applyEdits(
+      ds,
+      editsOf(ds, [{ name: "color-ink", theme: "sepia", value: "#000" }])
+    );
+    expect("problem" in theme && theme.problem).toContain("sepia");
   });
 });
 
