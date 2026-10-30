@@ -2,6 +2,8 @@
 
 Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the design system).
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the scan classifies what the token reader reads, so `/init` and Sync read a stylesheet's themes one way; the framework seam beside the style system goes.
+
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the style system is the
 > code's side of the design system; it also writes the preview's overrides (`previewTokenCss`)
 > and reads component specs off classes (`componentSpec`, ADR 0029).

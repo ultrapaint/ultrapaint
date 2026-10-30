@@ -608,7 +608,10 @@ export const AgentFocus = Schema.Struct({
   action: Schema.optional(Schema.String),
   /** The nodes of the page it is about to change; none means the page as a whole. */
   nodeIds: Schema.optional(Schema.Array(Schema.String)),
-  /** The page itself: a route alone can be a page in more than one canvas. */
+  /**
+   * The document it works on: a page's id (a route alone can be a page in more than one canvas),
+   * or a canvas's for a node beside the pages, as `AgentEdited.doc` says it.
+   */
   pageId: Schema.String,
   route: Schema.optional(Schema.String),
   threadId: Schema.String,

@@ -2,6 +2,8 @@
 
 Status: accepted, 2026-09-21.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: each tool declares its kind once (read, edit, destructive, idempotent, a closed world); a node reference is taken wherever a tool is pointed (`where`); failures are worded by kind; the instructions carry the page model and `get_context` answers data; the skills are MCP resources and the slash commands MCP prompts; the ways are per session.
+
 > Amended by [0015](0015-design-documents.md), 2026-09-25. Pages are no longer source, so the
 > editor does offer the way to edit them: `read_page`, `read_canvas`, `get_document_format` and
 > `apply_operations`, the same operations the inspector makes, validated and undoable. The design

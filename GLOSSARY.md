@@ -134,7 +134,10 @@ refactor and the board view left.
   variables by where the app found it (ADRs 0004, 0031). Their ids are contracts'
   `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
-  by a typed **task request**; a **slash command** is a request written as text. The agent's own
+  by a typed **task request**; a **slash command** is a request written as text. A thread's purpose
+  (design or implement, which its sandbox follows) is read from the request before its session
+  opens (`purposeFor`), and the task's text is written once the session says what the agent
+  takes. The agent's own
   slash commands are offered after the editor's (`agentCommands`). What a prompt carries to the
   agent (its text, its attachments as content blocks) is `prompt-content`'s.
 - **Design target**: what `/implement` and `handoff` name a design by (the server's
@@ -147,11 +150,23 @@ refactor and the board view left.
   through it whichever way they are kept: a page's are comments pinned on it, resolved when done;
   a component's are in its file, deleted when done.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
-  tools or without them (`agent-ways`): each capability worded both ways (ask the user, save the
-  design system, mark a design implemented), and the tools by their own names (`tools`, none
-  without the server). A text names a tool only through them. What an agent reads says each thing
-  once, compactly (ADR 0043): a component in one line (`componentLine`), a schema compacted
-  (`compactSchema`), a tool's schema without JSON Schema's defaults (`leanSchema`).
+  tools or without them (`agent-ways`), decided per session: the server offers its tools and the
+  agent said it takes them (`mcpHttp`). Each capability is worded both ways (ask the user, save
+  the design system, mark a design implemented), and the tools by their own names (`tools`, typed
+  from the toolkits, none without the server). A text names a tool only through them. What an
+  agent reads says each thing once, compactly (ADR 0043): the page model and the component files'
+  format are paragraphs of `agent-docs` that the connect-time instructions, the briefing and the
+  tasks compose; a component in one line (`componentLine`), a schema compacted (`compactSchema`),
+  a tool's schema without JSON Schema's defaults (`leanSchema`), a tree too big to give whole as
+  its outline (`treeForAgent`, for `read_page` and `/implement` alike). The design skills go only
+  to threads that draw designs (`drawsDesigns`), and to any agent as MCP resources
+  (`skill://ultrapaint/<name>`); the slash commands are MCP prompts too.
+- **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
+  canvas beside the pages, or a node of either, by route, file or node reference (`where`).
+- **Tool kind**: whether an MCP tool reads, edits or takes something away, and whether doing it
+  twice is doing it once (`doing`), which sets its hints; the editor is a closed world. A tool
+  answered with a picture or a form is a **raw tool** (`rawTool`), decoded and failed the same
+  way. A failure is worded for the agent by its kind (a stale hash: read the page again).
 - **Setup step**: one of the design system's five set-up steps (ADR 0023), run with its thread
   by `SetupSteps`; how a step moves (started, finished, stopped, resumed) is one pure rule
   (`stepAfter`). The **usage inventory** the first step takes is what the code's classes use, by
