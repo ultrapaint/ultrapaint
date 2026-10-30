@@ -58,9 +58,9 @@ export const AssetRoute = HttpRouter.use(
         const found = yield* project
           .use(
             Effect.gen(function* () {
-              const paths = yield* RepoPaths;
-              const designs = path.join(paths.root, paths.designsDir);
-              for (const file of assetCandidates(designs, canvas, src)) {
+              // Absolute already: joined to the root again, it named a directory that is not there.
+              const { designsDir } = yield* RepoPaths;
+              for (const file of assetCandidates(designsDir, canvas, src)) {
                 const info = yield* Effect.option(fs.stat(file));
                 if (info._tag === "Some" && info.value.type === "File") {
                   return file;
