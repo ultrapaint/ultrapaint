@@ -8,7 +8,7 @@ import type {
 import { describe, expect, it } from "vitest";
 import { fillIds, makeIdGenerator } from "./ids.ts";
 import { applyOps, cloneJson, DocumentOpError, touchedBy } from "./ops.ts";
-import { canvasRoot, findNode, parentOf } from "./tree.ts";
+import { canvasRoot, findNode, findPath } from "./tree.ts";
 
 const text = (id: string, value = id): DesignNode => ({
   id,
@@ -230,7 +230,7 @@ describe("applyOps", () => {
       opts
     );
     expect(findNode(root, "new")).toMatchObject({ x: 0, y: 0 });
-    const group = parentOf(root, "free");
+    const group = findPath(root, "free")?.at(-2);
     expect(group).toMatchObject({ type: "group", x: 10, y: 20 });
     expect(findNode(root, "free")).not.toHaveProperty("x");
   });
