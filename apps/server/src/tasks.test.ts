@@ -9,11 +9,8 @@ import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
-import { FigmaTools } from "./services/mcp/figma-tools.ts";
-import { MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
+import { EditorTools, MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
-import { SetupTools } from "./services/mcp/setup-tools.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
@@ -372,8 +369,6 @@ describe("the editor's tools in what an agent is told", () => {
   /** The tools the editor's MCP server offers, by the names their definitions give them. */
   const offered = new Set<string>([
     ...Object.keys(EditorTools.tools),
-    ...Object.keys(FigmaTools.tools),
-    ...Object.keys(SetupTools.tools),
     AskUser.name,
     GetScreenshot.name,
   ]);

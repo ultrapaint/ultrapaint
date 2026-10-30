@@ -7,13 +7,7 @@
  */
 import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
-import {
-  McpProtocol,
-  McpSchema,
-  McpServer,
-  type Tool,
-  type Toolkit,
-} from "effect/ai";
+import { McpProtocol, McpSchema, McpServer, Toolkit } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
 import {
@@ -22,12 +16,19 @@ import {
   MCP_TOKEN_HEADER,
   McpAccess,
 } from "./access.ts";
-import { AskUserToolLive } from "./ask-user.ts";
+import { CanvasTools, CanvasToolsLive } from "./canvas-tools.ts";
+import { CommentTools, CommentToolsLive } from "./comment-tools.ts";
+import {
+  DesignSystemTools,
+  DesignSystemToolsLive,
+} from "./design-system-tools.ts";
+import { DocumentTools, DocumentToolsLive } from "./document-tools.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
-import { ScreenshotToolLive } from "./screenshot.ts";
+import { HandoffTools, HandoffToolsLive } from "./handoff-tools.ts";
+import { PageTools, PageToolsLive } from "./page-tools.ts";
+import { RawTools } from "./raw-tools.ts";
 import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
 import { leanSchema } from "./tool-helpers.ts";
-import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 const MCP_VERSION_HEADER = "mcp-protocol-version";
 
@@ -68,54 +69,62 @@ const TokenGate = HttpRouter.middleware(
 );
 
 /**
- * The handlers of the toolkits the server offers, which a test calls in-process
- * (`testing/project.ts`). The screenshot and `ask_user` are registered on the MCP server
- * itself: they answer with a picture, and ask the client for a form.
+ * The editor's tools that answer with JSON, each file's toolkit merged: what agents call, and what
+ * `TOOLS` names (`agent-ways.ts`). `get_screenshot` and `ask_user` answer by hand (`RawTools`).
  */
-export const ToolkitHandlers = Layer.mergeAll(
-  EditorToolsLive,
-  FigmaToolsLive,
-  SetupToolsLive
+export const EditorTools = Toolkit.merge(
+  PageTools,
+  DocumentTools,
+  DesignSystemTools,
+  CommentTools,
+  CanvasTools,
+  HandoffTools,
+  FigmaTools,
+  SetupTools
 );
 
 /**
- * A toolkit registered as `McpServer.toolkit` registers it, each tool's input schema without what
- * JSON Schema says anyway (`leanSchema`): every agent reads every tool's schema, every session.
+ * The handlers of every tool the server offers, which a test calls in-process
+ * (`testing/project.ts`: `callTool`, `callRawTool`).
  */
-const leanToolkit = <Tools extends Record<string, Tool.Any>>(
-  toolkit: Toolkit.Toolkit<Tools>
-): Layer.Layer<
-  never,
-  never,
-  | Tool.HandlersFor<Tools>
-  | Exclude<Tool.HandlerServices<Tools>, McpSchema.McpRequestContext>
-> =>
-  Layer.effectDiscard(
-    Effect.flatMap(McpServer.McpServer, (server) =>
-      Effect.provideService(
-        McpServer.registerToolkit(toolkit),
-        McpServer.McpServer,
-        McpServer.McpServer.of({
-          ...server,
-          addTool: (options) =>
-            server.addTool({
-              ...options,
-              tool: new McpSchema.Tool({
-                ...options.tool,
-                inputSchema: leanSchema(options.tool.inputSchema),
-              }),
-            }),
-        })
-      )
-    )
-  ).pipe(Layer.provide(McpServer.McpServer.layer));
+export const ToolkitHandlers = Layer.mergeAll(
+  PageToolsLive,
+  DocumentToolsLive,
+  DesignSystemToolsLive,
+  CommentToolsLive,
+  CanvasToolsLive,
+  HandoffToolsLive,
+  FigmaToolsLive,
+  SetupToolsLive,
+  RawTools.layer
+);
 
-const Tools = Layer.mergeAll(
-  leanToolkit(EditorTools),
-  leanToolkit(FigmaTools),
-  leanToolkit(SetupTools),
-  ScreenshotToolLive,
-  AskUserToolLive
+/**
+ * Every tool registered on the MCP server, each one's input schema without what JSON Schema says
+ * anyway (`leanSchema`): every agent reads every tool's schema, every session.
+ */
+const Tools = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const server = yield* McpServer.McpServer;
+    const lean = McpServer.McpServer.of({
+      ...server,
+      addTool: (options) =>
+        server.addTool({
+          ...options,
+          tool: new McpSchema.Tool({
+            ...options.tool,
+            inputSchema: leanSchema(options.tool.inputSchema),
+          }),
+        }),
+    });
+    yield* Effect.provideService(
+      McpServer.registerToolkit(EditorTools),
+      McpServer.McpServer,
+      lean
+    );
+    const { all } = yield* RawTools;
+    yield* Effect.forEach(all, lean.addTool, { discard: true });
+  })
 ).pipe(Layer.provide(ToolkitHandlers));
 
 /**

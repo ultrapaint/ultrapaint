@@ -13,17 +13,13 @@ import {
 import type { Toolkit } from "effect/ai";
 import { DESIGN_TOKENS_FILE } from "../dtcg.ts";
 import type { AskUser } from "../mcp/ask-user.ts";
-import type { FigmaTools } from "../mcp/figma-tools.ts";
+import type { EditorTools } from "../mcp/route.ts";
 import type { GetScreenshot } from "../mcp/screenshot.ts";
-import type { SetupTools } from "../mcp/setup-tools.ts";
-import type { EditorTools } from "../mcp/tools.ts";
 import { designSystemSchema, pageSchema } from "./task-text.ts";
 
 /** A tool the editor's MCP server offers, by the name its definition (`Tool.make`) gives it. */
 export type ToolName =
   | keyof Toolkit.Tools<typeof EditorTools>
-  | keyof Toolkit.Tools<typeof FigmaTools>
-  | keyof Toolkit.Tools<typeof SetupTools>
   | (typeof AskUser)["name"]
   | (typeof GetScreenshot)["name"];
 
@@ -31,50 +27,15 @@ export type ToolName =
 export type ToolNames = { readonly [N in ToolName]: N };
 
 /**
- * Every tool the server offers: one renamed, added or taken out fails to compile here. A text an
+ * Every tool the server offers, each by its name: a text writes `${TOOLS.read_page}`, and one
+ * renamed or taken out fails to compile where a text names it. The names are the toolkits' own
+ * (`ToolName`), so nothing lists them again: each reads as the name it is asked for. A text an
  * agent may read without the server takes them from `AgentWays.tools`; what a tool answers, and
  * what the MCP server tells its clients, only an agent with the tools reads, and names them here.
  */
-export const TOOLS: ToolNames = {
-  apply_operations: "apply_operations",
-  ask_user: "ask_user",
-  copy_pages: "copy_pages",
-  create_canvas: "create_canvas",
-  create_page: "create_page",
-  delete_page: "delete_page",
-  duplicate_page: "duplicate_page",
-  finish_setup_step: "finish_setup_step",
-  focus: "focus",
-  get_component: "get_component",
-  get_context: "get_context",
-  get_document_format: "get_document_format",
-  get_screenshot: "get_screenshot",
-  handoff: "handoff",
-  list_comments: "list_comments",
-  list_components: "list_components",
-  list_figma_imports: "list_figma_imports",
-  list_links: "list_links",
-  list_pages: "list_pages",
-  list_templates: "list_templates",
-  map_figma_component: "map_figma_component",
-  map_values: "map_values",
-  next_batch: "next_batch",
-  read_canvas: "read_canvas",
-  read_design_system: "read_design_system",
-  read_figma_component: "read_figma_component",
-  read_figma_frame: "read_figma_frame",
-  read_figma_import: "read_figma_import",
-  read_page: "read_page",
-  rename_page: "rename_page",
-  reply_to_comment: "reply_to_comment",
-  resolve_comment: "resolve_comment",
-  scan_design_system: "scan_design_system",
-  set_frame: "set_frame",
-  set_home: "set_home",
-  set_page_url: "set_page_url",
-  write_design_system: "write_design_system",
-  write_figma_frame: "write_figma_frame",
-};
+export const TOOLS: ToolNames = new Proxy({} as ToolNames, {
+  get: (_, name) => (typeof name === "string" ? name : undefined),
+});
 
 /** The actions of the `handoff` tool. */
 export const HANDOFF_ACTIONS = [

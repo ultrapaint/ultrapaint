@@ -34,8 +34,6 @@ import {
   ToolFailure,
 } from "./tool-helpers.ts";
 
-const Failure = ToolFailure;
-
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
 
 /** The node id a reference such as `/home#c_1` stands for; any other value as it is. */
@@ -75,7 +73,7 @@ const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 export const ReadPage = Tool.make("read_page", {
   description:
     "A page's nodes with ids, and a hash for apply_operations. node: its subtree only; depth: levels shown, deeper ones counted. A node reference (/orders#c_8x2k1q) names page and node.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
@@ -95,7 +93,7 @@ export const ReadPage = Tool.make("read_page", {
 export const ReadCanvas = Tool.make("read_canvas", {
   description:
     "The loose nodes beside a canvas's pages, with x and y; change them with apply_operations, loose: true.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({ canvas: opt(Schema.String) }),
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
 }).annotate(Tool.Readonly, true);
@@ -103,7 +101,7 @@ export const ReadCanvas = Tool.make("read_canvas", {
 export const GetDocumentFormat = Tool.make("get_document_format", {
   description:
     'The JSON Schema of a page, or with kind "design-system" of design-system.json, and how it maps to code.',
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     kind: opt(Schema.Literals(["page", "design-system"])),
   }),
@@ -121,7 +119,7 @@ export const ApplyOperations = Tool.make("apply_operations", {
 {op:"wrap", ids, type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
 {op:"replace", ids, node}: node where the siblings were
 Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room.`,
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
     canvas: opt(Schema.String),
@@ -147,7 +145,7 @@ Inserting into an instance showing "text" makes the text its first child. Number
 export const Focus = Tool.make("focus", {
   description:
     'Show the user the page you are on and, before changing nodes, their ids and what you do (action: "formatting the dates").',
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     /** A few words on what you are doing to the nodes. */
     action: opt(Schema.String),
@@ -160,7 +158,7 @@ export const Focus = Tool.make("focus", {
   success: Schema.Struct({ file: Schema.String }),
 }).annotate(Tool.Readonly, true);
 
-const DocumentTools = Toolkit.make(
+export const DocumentTools = Toolkit.make(
   ReadPage,
   ReadCanvas,
   GetDocumentFormat,
@@ -190,201 +188,205 @@ const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
   ...new Set(ops.flatMap(breakpointsOf1)),
 ];
 
-export const documentToolHandlers = Effect.gen(function* () {
-  const events = yield* EventBus;
-  const { canvasOf, documents, pageAt, project } = yield* makeLookup;
+export const DocumentToolsLive = DocumentTools.toLayer(
+  Effect.gen(function* () {
+    const events = yield* EventBus;
+    const { canvasOf, documents, pageAt, project } = yield* makeLookup;
 
-  /** Refuses a breakpoint the design system does not have: the code has no prefix for it. */
-  const knownBreakpoints = Effect.fnUntraced(function* (ops: readonly DocOp[]) {
-    const { designSystem } = yield* reported(
-      project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
-    );
-    const known = breakpointsOf(designSystem).map((b) => b.name);
-    const unknown = breakpointsNamedIn(ops).filter(
-      (name) => !known.includes(name)
-    );
-    if (unknown.length > 0) {
-      return yield* new ToolFailure({
-        message: `${unknown.join(", ")} is not a breakpoint of the design system: ${known.join(", ")}`,
-      });
-    }
-  });
-
-  /** What a design can place: how an instance's slots lay out what they hold (ADR 0042). */
-  const catalogue = reported(
-    project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
-  );
-
-  /** How the design maps to code, in the open project's style system. */
-  const codeRulesOf = reported(
-    project.use(Effect.map(ProjectStyleSystem, (s) => s.codeRules))
-  );
-
-  return DocumentTools.of({
-    apply_operations: Effect.fn("EditorTools.apply_operations")(function* ({
-      canvas,
-      expectedHash,
-      label,
-      loose,
-      ops,
-      route,
-    }) {
-      let doc: string;
-      if (loose) {
-        doc = canvasDocOf(yield* canvasOf(canvas));
-      } else if (route === undefined) {
-        return yield* missing(
-          "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
-        );
-      } else {
-        doc = (yield* pageAt(route, canvas)).id;
-      }
-      // A node an agent writes may leave its ids out; they are made before the ops are read.
-      // Node references the user pasted stand for their node ids.
-      const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
-        nodeRefsToIds
+    /** Refuses a breakpoint the design system does not have: the code has no prefix for it. */
+    const knownBreakpoints = Effect.fnUntraced(function* (
+      ops: readonly DocOp[]
+    ) {
+      const { designSystem } = yield* reported(
+        project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
       );
-      for (const op of raw) {
-        if (op && typeof op === "object" && "node" in op) {
-          fillIds({ nodes: [(op as { node: unknown }).node] });
-        }
-      }
-      const decoded = yield* decodeOps(raw).pipe(
-        Effect.mapError(
-          (error) =>
-            new ToolFailure({
-              message: `the operations are not valid: ${error.message}`,
-            })
-        )
+      const known = breakpointsOf(designSystem).map((b) => b.name);
+      const unknown = breakpointsNamedIn(ops).filter(
+        (name) => !known.includes(name)
       );
-      yield* knownBreakpoints(decoded);
-      const result = yield* documents((d) =>
-        d.apply({
-          edits: [
-            {
-              doc,
-              ops: decoded,
-              ...(expectedHash !== undefined && { expectedHash }),
-            },
-          ],
-          ...(label !== undefined && { label }),
-        })
-      );
-      const after = yield* documents((d) => d.get(doc));
-      // The work is the calling thread's: the canvas shows it on the nodes it changed.
-      const threadId = yield* Effect.service(CallingThread);
-      if (threadId && after.root) {
-        yield* events.publish("agent.edited", {
-          doc,
-          nodeIds: touchedBy(decoded, result.created, after.root),
-          threadId,
-          ...(label !== undefined && { label }),
+      if (unknown.length > 0) {
+        return yield* new ToolFailure({
+          message: `${unknown.join(", ")} is not a breakpoint of the design system: ${known.join(", ")}`,
         });
       }
-      const warnings = after.root
-        ? fillWarnings(after.root, yield* catalogue).map(
-            (w) => `${w.nodeId}: ${w.message}`
-          )
-        : [];
-      return {
-        created: result.created,
-        hash: result.documents[0]?.hash ?? "",
-        ...(warnings.length > 0 && {
-          warnings:
-            warnings.length > MAX_WARNINGS
-              ? [
-                  ...warnings.slice(0, MAX_WARNINGS),
-                  `and ${warnings.length - MAX_WARNINGS} more`,
-                ]
-              : warnings,
-        }),
-      };
-    }),
+    });
 
-    focus: Effect.fn("EditorTools.focus")(function* ({
-      action,
-      nodes,
-      route,
-      canvas,
-    }) {
-      const page = yield* pageAt(route, canvas);
-      const threadId = yield* Effect.service(CallingThread);
-      if (threadId) {
-        // The page, not the route: the same route can be a page in two canvases.
-        yield* events.publish("agent.focus", {
-          pageId: page.id,
-          threadId,
-          ...(page.route !== undefined && { route: page.route }),
-          ...(nodes !== undefined && { nodeIds: nodes }),
-          ...(action !== undefined && { action }),
-        });
-      }
-      return { file: page.file };
-    }),
+    /** What a design can place: how an instance's slots lay out what they hold (ADR 0042). */
+    const catalogue = reported(
+      project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
+    );
 
-    get_document_format: ({ kind }) =>
-      Effect.map(codeRulesOf, (rules) => ({
-        rules,
-        schema: asJson(
-          JSON.parse(
-            kind === "design-system" ? designSystemSchema() : pageSchema()
-          )
-        ),
-      })),
+    /** How the design maps to code, in the open project's style system. */
+    const codeRulesOf = reported(
+      project.use(Effect.map(ProjectStyleSystem, (s) => s.codeRules))
+    );
 
-    read_canvas: Effect.fn("EditorTools.read_canvas")(function* ({ canvas }) {
-      const id = yield* canvasOf(canvas);
-      const state = yield* documents((d) => d.get(canvasDocOf(id)));
-      if (state.problem !== undefined) {
-        return yield* missing(state.problem);
-      }
-      return {
-        hash: state.hash,
-        nodes: asJson(
-          state.root && "children" in state.root
-            ? (state.root.children ?? [])
-            : []
-        ),
-      };
-    }),
-
-    read_page: Effect.fn("EditorTools.read_page")(function* ({
-      route,
-      canvas,
-      depth,
-      node,
-    }) {
-      const shown = (tree: DesignNode) =>
-        depth === undefined ? tree : outlineOf(tree, Math.floor(depth));
-      const page = yield* pageAt(route, canvas);
-      const state = yield* documents((d) => d.get(page.id));
-      if (state.problem !== undefined) {
-        return yield* missing(
-          `${page.file} is not a valid page: ${state.problem}`
-        );
-      }
-      if (node !== undefined) {
-        const id = parseNodeRef(node)?.nodeId ?? node;
-        const found = findNode(state.root, id);
-        if (found === null) {
+    return DocumentTools.of({
+      apply_operations: Effect.fn("EditorTools.apply_operations")(function* ({
+        canvas,
+        expectedHash,
+        label,
+        loose,
+        ops,
+        route,
+      }) {
+        let doc: string;
+        if (loose) {
+          doc = canvasDocOf(yield* canvasOf(canvas));
+        } else if (route === undefined) {
           return yield* missing(
-            `no node ${id} in ${page.file}; read the page without node to see its ids`
+            "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
           );
+        } else {
+          doc = (yield* pageAt(route, canvas)).id;
+        }
+        // A node an agent writes may leave its ids out; they are made before the ops are read.
+        // Node references the user pasted stand for their node ids.
+        const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
+          nodeRefsToIds
+        );
+        for (const op of raw) {
+          if (op && typeof op === "object" && "node" in op) {
+            fillIds({ nodes: [(op as { node: unknown }).node] });
+          }
+        }
+        const decoded = yield* decodeOps(raw).pipe(
+          Effect.mapError(
+            (error) =>
+              new ToolFailure({
+                message: `the operations are not valid: ${error.message}`,
+              })
+          )
+        );
+        yield* knownBreakpoints(decoded);
+        const result = yield* documents((d) =>
+          d.apply({
+            edits: [
+              {
+                doc,
+                ops: decoded,
+                ...(expectedHash !== undefined && { expectedHash }),
+              },
+            ],
+            ...(label !== undefined && { label }),
+          })
+        );
+        const after = yield* documents((d) => d.get(doc));
+        // The work is the calling thread's: the canvas shows it on the nodes it changed.
+        const threadId = yield* Effect.service(CallingThread);
+        if (threadId && after.root) {
+          yield* events.publish("agent.edited", {
+            doc,
+            nodeIds: touchedBy(decoded, result.created, after.root),
+            threadId,
+            ...(label !== undefined && { label }),
+          });
+        }
+        const warnings = after.root
+          ? fillWarnings(after.root, yield* catalogue).map(
+              (w) => `${w.nodeId}: ${w.message}`
+            )
+          : [];
+        return {
+          created: result.created,
+          hash: result.documents[0]?.hash ?? "",
+          ...(warnings.length > 0 && {
+            warnings:
+              warnings.length > MAX_WARNINGS
+                ? [
+                    ...warnings.slice(0, MAX_WARNINGS),
+                    `and ${warnings.length - MAX_WARNINGS} more`,
+                  ]
+                : warnings,
+          }),
+        };
+      }),
+
+      focus: Effect.fn("EditorTools.focus")(function* ({
+        action,
+        nodes,
+        route,
+        canvas,
+      }) {
+        const page = yield* pageAt(route, canvas);
+        const threadId = yield* Effect.service(CallingThread);
+        if (threadId) {
+          // The page, not the route: the same route can be a page in two canvases.
+          yield* events.publish("agent.focus", {
+            pageId: page.id,
+            threadId,
+            ...(page.route !== undefined && { route: page.route }),
+            ...(nodes !== undefined && { nodeIds: nodes }),
+            ...(action !== undefined && { action }),
+          });
+        }
+        return { file: page.file };
+      }),
+
+      get_document_format: ({ kind }) =>
+        Effect.map(codeRulesOf, (rules) => ({
+          rules,
+          schema: asJson(
+            JSON.parse(
+              kind === "design-system" ? designSystemSchema() : pageSchema()
+            )
+          ),
+        })),
+
+      read_canvas: Effect.fn("EditorTools.read_canvas")(function* ({ canvas }) {
+        const id = yield* canvasOf(canvas);
+        const state = yield* documents((d) => d.get(canvasDocOf(id)));
+        if (state.problem !== undefined) {
+          return yield* missing(state.problem);
         }
         return {
-          document: asJson(shown(found)),
+          hash: state.hash,
+          nodes: asJson(
+            state.root && "children" in state.root
+              ? (state.root.children ?? [])
+              : []
+          ),
+        };
+      }),
+
+      read_page: Effect.fn("EditorTools.read_page")(function* ({
+        route,
+        canvas,
+        depth,
+        node,
+      }) {
+        const shown = (tree: DesignNode) =>
+          depth === undefined ? tree : outlineOf(tree, Math.floor(depth));
+        const page = yield* pageAt(route, canvas);
+        const state = yield* documents((d) => d.get(page.id));
+        if (state.problem !== undefined) {
+          return yield* missing(
+            `${page.file} is not a valid page: ${state.problem}`
+          );
+        }
+        if (node !== undefined) {
+          const id = parseNodeRef(node)?.nodeId ?? node;
+          const found = findNode(state.root, id);
+          if (found === null) {
+            return yield* missing(
+              `no node ${id} in ${page.file}; read the page without node to see its ids`
+            );
+          }
+          return {
+            document: asJson(shown(found)),
+            file: page.file,
+            hash: state.hash,
+          };
+        }
+        return {
+          document: asJson({
+            root: state.root && shown(state.root),
+            version: 1,
+          }),
           file: page.file,
           hash: state.hash,
         };
-      }
-      return {
-        document: asJson({
-          root: state.root && shown(state.root),
-          version: 1,
-        }),
-        file: page.file,
-        hash: state.hash,
-      };
-    }),
-  });
-});
+      }),
+    });
+  })
+);
