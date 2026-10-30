@@ -799,7 +799,7 @@ export const tokensFromDesignTokens = (
  * A Design Tokens file's tokens as the design system takes them: one token per name, the other
  * themes' values with it.
  */
-export const designTokensSide = (read: readonly ReadToken[]): SourceToken[] => {
+export const tokensOfFile = (read: readonly ReadToken[]): SourceToken[] => {
   const byName = new Map<string, SourceToken>();
   for (const t of read) {
     const found = byName.get(t.name);
@@ -837,5 +837,5 @@ export const readDesignTokens = (
     return { problem: `${DESIGN_TOKENS_FILE} is not JSON: ${String(error)}` };
   }
   const { notes, tokens } = tokensFromDesignTokens(json);
-  return { notes, tokens: designTokensSide(tokens) };
+  return { notes, tokens: tokensOfFile(tokens) };
 };

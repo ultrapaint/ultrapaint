@@ -1,14 +1,21 @@
 /**
- * The design-system setup's pure parts (ADR 0023): how an inventory reads in a line or to an
- * agent, the mapping made from it and the decisions taken on it, what a target may be, how the
- * migration is cut into batches, and what Verify says. The service holds the state and the files.
+ * The design-system setup's pure parts (ADR 0023): where a step may go from where it is, how an
+ * inventory reads in a line or to an agent, the mapping made from it and the decisions taken on
+ * it, what a target may be, how the migration is cut into batches, and what Verify says. The
+ * service holds the state and the files.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import {
+  type DesignSystemSetup,
+  defaultsOf,
   type MappingChange,
   type MappingEntry,
   type MigrationBatch,
   mappingKey,
+  SETUP_STEPS,
+  type SetupStepId,
+  type SetupStepStatus,
+  setupStepOf,
   targetsOf,
   USAGE_KINDS,
   type UsageInventory,
@@ -28,6 +35,95 @@ const BATCH_FILES = 12;
 /** Tokens a refusal lists before it stops. */
 const LISTED_TOKENS = 12;
 const NUMBER_RE = /^-?\d+$/;
+
+export const titleOf = (id: SetupStepId) => setupStepOf(id)?.title ?? id;
+export const indexOf = (id: SetupStepId) =>
+  SETUP_STEPS.findIndex((s) => s.id === id);
+
+/**
+ * What is done to a step: started, stopped, resumed, gone on past by the user (`complete`), or
+ * said to be finished by its agent (`finish`).
+ */
+export type StepAction = "complete" | "finish" | "resume" | "start" | "stop";
+
+/** Where each action may be taken from, and where it takes the step. */
+const MOVES: Record<
+  Exclude<StepAction, "start">,
+  {
+    readonly from: readonly SetupStepStatus[];
+    readonly to: SetupStepStatus;
+    readonly why: (status: SetupStepStatus, title: string) => string;
+  }
+> = {
+  complete: {
+    from: ["active", "review", "stopped"],
+    to: "done",
+    why: (status, title) =>
+      status === "done"
+        ? `${title} is done already.`
+        : `${title} has not started.`,
+  },
+  finish: {
+    from: ["active", "review", "stopped"],
+    to: "review",
+    why: (status, title) =>
+      status === "done"
+        ? `The user has gone on past ${title} already.`
+        : "This thread does not run a step of the design-system setup.",
+  },
+  resume: {
+    from: ["stopped", "review"],
+    to: "active",
+    why: (status, title) =>
+      status === "active"
+        ? `${title} is under way already.`
+        : `${title} cannot be resumed: redo it to start again.`,
+  },
+  stop: {
+    from: ["active", "review"],
+    to: "stopped",
+    why: (_status, title) => `${title} is not under way.`,
+  },
+};
+
+/**
+ * The status a step goes to when `action` is taken, or why it cannot be: the steps are started in
+ * order, each once the ones before it are done, and once (redoing it starts it again); a step an
+ * agent does starts in its thread. A step that starts is active; the service says when it ends as
+ * it starts.
+ */
+export const stepAfter = (
+  setup: DesignSystemSetup,
+  id: SetupStepId,
+  action: StepAction,
+  options: { readonly threadId?: string } = {}
+): { readonly status: SetupStepStatus } | { readonly problem: string } => {
+  const status = setup.steps.find((s) => s.id === id)?.status ?? "todo";
+  const title = titleOf(id);
+  if (action !== "start") {
+    const move = MOVES[action];
+    return move.from.includes(status)
+      ? { status: move.to }
+      : { problem: move.why(status, title) };
+  }
+  const waiting = setup.steps
+    .slice(0, indexOf(id))
+    .find((s) => s.status !== "done");
+  if (waiting) {
+    return {
+      problem: `${titleOf(waiting.id)} comes first: go on past it before ${title}.`,
+    };
+  }
+  if (status !== "todo") {
+    return {
+      problem: `${title} has started already: resume it, or redo it to start again.`,
+    };
+  }
+  if (setupStepOf(id)?.agent && options.threadId === undefined) {
+    return { problem: `${title} runs in a thread.` };
+  }
+  return { status: "active" };
+};
 
 const offOf = (inventory: UsageInventory, kind: UsageKind) => {
   const totals = inventory.totals.find((t) => t.kind === kind);
@@ -57,11 +153,12 @@ export const inventorySummary = (inventory: UsageInventory) => {
 
 /** The inventory as an agent is told it: the totals and the values most used off the system. */
 export const inventoryBrief = (inventory: UsageInventory) => {
+  const defaults = defaultsOf(inventory);
   const totals = USAGE_KINDS.flatMap(({ kind, label }) => {
     const t = inventory.totals.find((x) => x.kind === kind);
     return t && t.system + t.default + t.raw > 0
       ? [
-          `- ${label}: ${t.system} the design system's, ${t.default} Tailwind's own, ${t.raw} written out`,
+          `- ${label}: ${t.system} the design system's, ${t.default} ${defaults} own, ${t.raw} written out`,
         ]
       : [];
   });
@@ -70,7 +167,7 @@ export const inventoryBrief = (inventory: UsageInventory) => {
     .slice(0, BRIEF_VALUES)
     .map(
       (v) =>
-        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : "Tailwind's"}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, ${v.kind === "element" ? "the library has" : "is exactly"} ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
+        `- ${v.kind} ${v.value} (${v.status === "raw" ? "written out" : defaults}), ${v.count}× in ${plural(v.files, "file")}${v.token ? `, is exactly ${v.token}` : ""}: ${v.examples.join(", ")}${v.locations[0] ? ` (${v.locations[0].file}:${v.locations[0].line})` : ""}`
     );
   return `The code, read against ${inventory.against === "saved" ? "the saved design system" : "the theme's tokens"} (${plural(inventory.files, "source file")}):
 ${totals.join("\n") || "- nothing"}
@@ -131,8 +228,7 @@ export const mappingCounts = (mapping: UsageMapping) => ({
 export const targetProblem = (
   kind: UsageKind,
   target: string,
-  ds: DesignSystem,
-  components: readonly string[]
+  ds: DesignSystem
 ): string | null => {
   if (kind === "spacing" && spacingStepOf(target) !== null) {
     return null;
@@ -140,19 +236,17 @@ export const targetProblem = (
   if (kind === "zIndex" && NUMBER_RE.test(target)) {
     return null;
   }
-  const allowed = targetsOf(kind, ds, components);
+  const allowed = targetsOf(kind, ds);
   if (allowed.includes(target)) {
     return null;
   }
   const listed = allowed.slice(0, LISTED_TOKENS).join(", ");
   const more = allowed.length > LISTED_TOKENS ? ", …" : "";
-  const what =
-    kind === "element" ? "a component of the library" : `a ${kind} token`;
   const spacing =
     kind === "spacing"
       ? " A step of the scale is spacing-<n> (spacing-3)."
       : "";
-  return `"${target}" is not ${what}${allowed.length > 0 ? `; there are ${listed}${more}` : ""}.${spacing}`;
+  return `"${target}" is not a ${kind} token${allowed.length > 0 ? `; there are ${listed}${more}` : ""}.${spacing}`;
 };
 
 /** The decisions taken on the mapping, with what could not be taken and why. */

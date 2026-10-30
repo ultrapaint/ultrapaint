@@ -2,8 +2,8 @@
  * Bringing the code onto the design system, for the setup's Map and Migrate steps (ADR 0023):
  * the rules that settle what a value becomes when it matches a token exactly, and the rewrite of
  * a file where the mapping settles a value and the change is mechanical — a class, a style value,
- * a stylesheet declaration. What is left (a colour in a constant, a plain element to replace with
- * a component) is reported for an agent. Pure and synchronous.
+ * a stylesheet declaration. What is left (a colour in a constant, a computed style) is reported
+ * for an agent. Pure and synchronous.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import {
@@ -55,16 +55,9 @@ type Rule = (
 
 const EXACT = "Exactly the token's value";
 
-/** A colour equal to a token, a plain element the library has a component for. */
-const byToken: Rule = (value) => {
-  if (!value.token) {
-    return null;
-  }
-  return {
-    note: value.kind === "color" ? EXACT : `The library has ${value.token}`,
-    target: value.token,
-  };
-};
+/** A colour equal to a token. */
+const byToken: Rule = (value) =>
+  value.token ? { note: EXACT, target: value.token } : null;
 
 /** A length on the spacing scale, as its step: 16px is `spacing-4` on a 4px base; a zero is none. */
 const bySpacing: Rule = (value, { ds }) => {
@@ -98,7 +91,6 @@ const byLayer: Rule = (value, { ds }) => {
 
 const RULES: Record<UsageKind, Rule> = {
   color: byToken,
-  element: byToken,
   fontSize: byValueOf("fontSize"),
   fontWeight: byValueOf("fontWeight"),
   radius: byValueOf("radius"),
@@ -132,8 +124,8 @@ const classValue = (kind: UsageKind, target: string): string | null => {
   if (kind === "zIndex") {
     return NUMBER_RE.test(target) ? target : null;
   }
-  // What is left of a token past its kind's prefix is the class's value; an element has none.
-  const prefix = kind === "element" ? "" : tokenPrefix(kind);
+  // What is left of a token past its kind's prefix is the class's value.
+  const prefix = tokenPrefix(kind);
   return prefix && target.startsWith(prefix)
     ? target.slice(prefix.length)
     : null;
@@ -171,9 +163,6 @@ const cssValue = (
   if (kind === "zIndex") {
     // A layer's target is the number itself, its sign included.
     return NUMBER_RE.test(target) ? target : null;
-  }
-  if (kind === "element") {
-    return null;
   }
   const step = kind === "spacing" ? spacingStepOf(target) : null;
   if (step !== null && where === "inline") {
@@ -243,7 +232,7 @@ const rewriteDeclared = (
 
 /** What a use with decided values is rewritten to; null when it cannot be done in place. */
 const rewritten = (use: UsageOccurrence, decided: Decided): string | null => {
-  if (use.use === "literal" || use.use === "element") {
+  if (use.use === "literal") {
     return null;
   }
   if (use.use.startsWith("css:") || use.use.startsWith("style:")) {
@@ -291,9 +280,7 @@ const rewriter: UsageReader["rewriter"] = (ctx, mapping) => {
     const edits: Edit[] = [];
     const left: UsageLeft[] = [];
     for (const use of scanning.scanFile(file, text)) {
-      const values = classify(use, known, ctx, file).filter(
-        (v) => v.status !== "system"
-      );
+      const values = classify(use, known).filter((v) => v.status !== "system");
       if (values.length === 0) {
         continue;
       }

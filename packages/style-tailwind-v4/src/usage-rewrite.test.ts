@@ -31,9 +31,7 @@ const designSystem: DesignSystem = {
 };
 
 const ctx: UsageContext = {
-  components: ["Button"],
   designSystem,
-  libraryDirs: ["src/ui"],
   ownTokens: null,
 };
 
@@ -49,7 +47,6 @@ const mapping = new Map<string, string | null>([
   [mappingKey("radius", "6px"), "radius-sm"],
   [mappingKey("fontSize", "14px"), "text-sm"],
   [mappingKey("zIndex", "999"), "50"],
-  [mappingKey("element", "button"), "Button"],
   // Kept as it is: the brand's own orange.
   [mappingKey("color", "#d97757"), null],
 ]);
@@ -143,13 +140,6 @@ export const A = () => <button onClick={go}>Go</button>;
         target: "color-primary",
         value: "#3b82f6",
       },
-      {
-        kind: "element",
-        line: 2,
-        raw: "<button>",
-        target: "Button",
-        value: "button",
-      },
     ]);
   });
 
@@ -190,7 +180,6 @@ describe("the rules of the mapping", () => {
         value("zIndex", "50"),
         value("zIndex", "999"),
         value("shadow", "0 4px  6px rgb(0 0 0 / 0.1)"),
-        value("element", "button", "Button"),
       ],
       designSystem
     );
@@ -203,7 +192,6 @@ describe("the rules of the mapping", () => {
       "fontWeight 600 → font-weight-semibold",
       "zIndex 50 → 50",
       "shadow 0 4px  6px rgb(0 0 0 / 0.1) → shadow-md",
-      "element button → Button",
     ]);
   });
 

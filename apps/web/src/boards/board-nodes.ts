@@ -5,7 +5,7 @@
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { tokenOf, tokensOfKind } from "@ultrapaint/contracts/token-table";
+import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NODE_ATTRIBUTE } from "@ultrapaint/preview-core/preview";
@@ -143,41 +143,3 @@ export const tokenRow = (
   type: "row",
   width: "fill",
 });
-
-const VAR_RE = /^var\(--([\w.-]+)\)$/;
-
-/** The theme a design system's plain values are in: its first. */
-export const firstTheme = (ds: DesignSystem): string =>
-  ds.themes?.[0] ?? "light";
-
-/**
- * A token's value in a theme, the default theme's where it has none; a value that is another
- * token (`var(--color-blue-600)`, `$color-blue-600`) followed to that one's, a few deep.
- */
-export const valueIn = (
-  ds: DesignSystem,
-  name: string,
-  theme: string
-): string | undefined => {
-  let current = name;
-  for (let depth = 0; depth < 5; depth += 1) {
-    const token = tokenOf(ds, current);
-    if (!token) {
-      return undefined;
-    }
-    const value =
-      theme === firstTheme(ds)
-        ? token.value
-        : (token.values?.[theme] ?? token.value);
-    const alias: RegExpExecArray | null = VAR_RE.exec(value.trim());
-    const next = value.startsWith("$") ? value.slice(1) : alias?.[1];
-    if (next === undefined) {
-      return value;
-    }
-    current = next;
-  }
-  return undefined;
-};
-
-/** Whether a theme is a dark one, by its name: what the boards' own greys and grades follow. */
-export const isDark = (theme: string) => theme.toLowerCase().includes("dark");

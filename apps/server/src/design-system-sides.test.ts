@@ -166,7 +166,7 @@ describe("the code's side", () => {
           );
           yield* inProject(
             Effect.flatMap(DesignSystemService, (d) =>
-              d.setToken({ name: "color-ink", value: "#444444" })
+              d.edit([{ name: "color-ink", op: "setValue", value: "#444444" }])
             )
           );
           assert.deepStrictEqual(
@@ -341,7 +341,7 @@ describe("DESIGN.md's side", () => {
           // and, with `codeTokens: auto`, the code are written already.
           const { files } = yield* inProject(
             Effect.flatMap(DesignSystemService, (d) =>
-              d.setToken({ name: "color-ink", value: "#333333" })
+              d.edit([{ name: "color-ink", op: "setValue", value: "#333333" }])
             )
           );
           assert.include(files, "styles/app.css");

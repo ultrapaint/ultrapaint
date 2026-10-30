@@ -10,6 +10,7 @@
  * DESIGN.md is in `sync-sides.ts`.
  */
 
+import { COMPONENTS_DIR } from "@ultrapaint/contracts/component-names";
 import {
   componentsIn,
   systemComponentsIn,
@@ -36,6 +37,7 @@ import { componentEntries, mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import { looksOf } from "@ultrapaint/system-components/defaults";
+import { lint } from "@google/design.md/linter";
 import {
   Clock,
   Context,
@@ -49,11 +51,36 @@ import {
 import { makeStampedCache } from "../file-stamp.ts";
 import { readComponents } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
-import { DesignMdLint } from "./design-md-lint.ts";
-import { withAgreement } from "./design-system-files.ts";
+import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
+
+/**
+ * What the format's own linter (`@google/design.md`, ADR 0027) says about a DESIGN.md: broken
+ * references, contrast of component pairs, section order, tokens it cannot type. What the
+ * file's reading finds (a section twice, YAML that does not read) comes first, as errors: the
+ * linter does not report a section given twice, which the format calls an error.
+ */
+export const lintDocument = (text: string): readonly DesignFinding[] => {
+  const read: DesignFinding[] = parse(text).problems.map((message) => ({
+    message,
+    severity: "error",
+  }));
+  let found: DesignFinding[] = [];
+  try {
+    found = lint(text).findings.map(
+      (f): DesignFinding => ({
+        message: f.message,
+        ...(f.path !== undefined && { path: f.path }),
+        severity: f.severity,
+      })
+    );
+  } catch {
+    // The linter gives up on a file it cannot read at all; the reading says why.
+  }
+  return [...read, ...found];
+};
 
 /** DESIGN.md as it was found: at the root, or in the designs directory (`legacy`). */
 interface Found {
@@ -184,7 +211,6 @@ export class DesignMd extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
-      const linter = yield* DesignMdLint;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const rootFile = path.join(paths.root, DESIGN_MD_FILE);
@@ -192,8 +218,10 @@ export class DesignMd extends Context.Service<
       const legacyCandidate = path.join(paths.designsDir, DESIGN_NOTES_FILE);
       // A designs directory at the root of the repository has one DESIGN.md, not two.
       const legacyFile = legacyCandidate === rootFile ? null : legacyCandidate;
-      const systemFile = path.join(paths.designsDir, DESIGN_SYSTEM_FILE);
-      const systemRel = paths.relative(systemFile);
+      const moveBaseline = baselineMover(
+        edit,
+        paths.relative(path.join(paths.designsDir, DESIGN_SYSTEM_FILE))
+      );
       // Whatever writes DESIGN.md or its baseline, one at a time.
       const serially = (yield* Semaphore.make(1)).withPermits(1);
 
@@ -236,27 +264,56 @@ export class DesignMd extends Context.Service<
         readonly findings: readonly DesignFinding[];
         readonly text: string;
       } | null = null;
-      const lintOf = Effect.fnUntraced(function* (text: string) {
-        if (linted?.text === text) {
+      const lintOf = (text: string) =>
+        Effect.sync(() => {
+          if (linted?.text !== text) {
+            linted = { findings: lintDocument(text), text };
+          }
           return linted.findings;
-        }
-        const findings = yield* linter.lint(text);
-        linted = { findings, text };
-        return findings;
-      });
+        });
 
+      /**
+       * The component tokens of the system components whose look the project owns, read from
+       * their files: kept until the components directory or one of its files changes, so a get
+       * or a mirror does not read every component again.
+       */
+      const componentsDir = path.join(paths.designsDir, COMPONENTS_DIR);
+      const lookEntries = makeStampedCache(
+        fs,
+        Effect.map(
+          readComponents(paths.designsDir).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path)
+          ),
+          (list) => ({
+            files: [
+              componentsDir,
+              ...list.components.map((c) =>
+                path.join(paths.designsDir, c.file)
+              ),
+            ],
+            value: componentEntries(
+              looksOf(systemComponentsIn(componentsIn(list.components)))
+            ),
+          })
+        )
+      );
+
+      /** The last front matter worked out, kept while the design system and the looks are the same. */
+      let mirrored: {
+        readonly ds: DesignSystem;
+        readonly entries: Effect.Success<typeof lookEntries.get>;
+        readonly groups: TokenGroups;
+      } | null = null;
       const mirror = Effect.fnUntraced(function* (
         ds: DesignSystem,
         _text: string | null
       ) {
-        const list = yield* readComponents(paths.designsDir).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path)
-        );
-        const looks = looksOf(
-          systemComponentsIn(componentsIn(list.components))
-        );
-        return mirrorOf(ds, componentEntries(looks)).groups;
+        const entries = yield* lookEntries.get;
+        if (!(mirrored?.ds === ds && mirrored.entries === entries)) {
+          mirrored = { ds, entries, groups: mirrorOf(ds, entries).groups };
+        }
+        return mirrored.groups;
       });
 
       const document = Effect.fnUntraced(function* (ds: DesignSystem | null) {
@@ -344,14 +401,11 @@ export class DesignMd extends Context.Service<
             // Nothing agreed yet, and nothing now: Sync matches the document first.
             return;
           }
-          const now = yield* Clock.currentTimeMillis;
           // The baseline beside it, unless the file does not read (reading it says why).
-          yield* edit.amend(systemRel, (content) => {
-            const next = withAgreement(content, "designMd", after, now);
-            return next === null
-              ? Effect.fail("unread" as const)
-              : Effect.succeed([next, null] as const);
-          });
+          yield* moveBaseline(
+            "designMd",
+            agreeOn(after, yield* Clock.currentTimeMillis)
+          );
         },
         serially,
         Effect.ignore({ log: true }),
@@ -396,7 +450,6 @@ export class DesignMd extends Context.Service<
         }
         // What the document and the design system agree on from now: every value they share.
         const agreed = groups && mergeMirror(parse(text), groups, {}).agreed;
-        const at = yield* Clock.currentTimeMillis;
         yield* edit.transaction(
           legacy ? "Move DESIGN.md to the repository root" : "Write DESIGN.md",
           (tx) =>
@@ -405,19 +458,17 @@ export class DesignMd extends Context.Service<
                 yield* tx.move(legacy.path, file);
               }
               yield* tx.write(file, text);
-              const system =
-                agreed &&
-                withAgreement(
-                  yield* readOptional(systemFile),
-                  "designMd",
-                  agreed,
-                  at
-                );
-              if (system) {
-                yield* tx.write(systemRel, system);
-              }
             })
         );
+        // The baseline beside it, outside the undo history as every baseline moves.
+        if (agreed) {
+          yield* Effect.ignore(
+            moveBaseline(
+              "designMd",
+              agreeOn(agreed, yield* Clock.currentTimeMillis)
+            )
+          );
+        }
         return { path: file };
       }, serially);
 
@@ -464,5 +515,5 @@ export class DesignMd extends Context.Service<
         toWrite,
       });
     })
-  ).pipe(Layer.provide(DesignMdLint.layer));
+  );
 }

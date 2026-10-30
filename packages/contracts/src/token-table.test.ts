@@ -20,6 +20,7 @@ import {
   spacingStepOf,
   stripValues,
   TOKEN_TABLE,
+  tokenChangesBetween,
   tokenKindOf,
   tokenOf,
   tokenPrefix,
@@ -188,6 +189,34 @@ describe("the token table", () => {
     expect(listedTokens(removeTokens(full, names)).map((t) => t.name)).toEqual(
       TOKEN_TABLE.map((e) => nameOf(e.kind)).filter((n) => !names.has(n))
     );
+  });
+});
+
+describe("the changes between two design systems", () => {
+  it("says every value set, theme taken out and token taken out, the spacing base too", () => {
+    const before = withTokenChanges(emptyDesignSystem(), [
+      { name: "color-ink", value: "#111" },
+      { name: "color-ink", theme: "dark", value: "#eee" },
+      { name: "radius-md", value: "4px" },
+      { name: "color-line", value: "#ccc" },
+    ]);
+    const after = withTokenChanges(before, [
+      { name: "color-ink", value: "#000" },
+      { name: "color-ink", remove: true, theme: "dark" },
+      { name: "radius-md", remove: true },
+      { name: "radius-lg", value: "8px" },
+      { name: "radius-lg", theme: "dark", value: "6px" },
+      { name: SPACING_BASE, value: "0.5rem" },
+    ]);
+    expect(tokenChangesBetween(before, after)).toEqual([
+      { name: SPACING_BASE, value: "0.5rem" },
+      { name: "color-ink", value: "#000" },
+      { name: "color-ink", remove: true, theme: "dark" },
+      { name: "radius-lg", value: "8px" },
+      { name: "radius-lg", theme: "dark", value: "6px" },
+      { name: "radius-md", remove: true },
+    ]);
+    expect(tokenChangesBetween(after, after)).toEqual([]);
   });
 });
 
