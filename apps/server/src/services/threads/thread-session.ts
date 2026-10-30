@@ -46,6 +46,7 @@ import {
   Layer,
   Option,
   Path,
+  Queue,
   Scope,
   Semaphore,
   Stream,
@@ -658,10 +659,18 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     /** Until the thread no longer works on a turn, looked at again whenever the store changes. */
     const turnEnded = Effect.scoped(
       Effect.gen(function* () {
-        // Subscribed before the first look, so that no change slips between the two.
-        const changes = yield* Stream.toPull(events.subscribe("agent"));
+        // Subscribed before the first look, so that no change slips between the two: started at
+        // once, the fiber has subscribed by the time the fork returns (a pull would subscribe
+        // only when first pulled, after the look).
+        const changed = yield* Queue.sliding<void>(1);
+        yield* Effect.forkScoped(
+          Stream.runForEach(events.subscribe("agent"), () =>
+            Queue.offer(changed, undefined)
+          ),
+          { startImmediately: true }
+        );
         while (isBusy((yield* store.get(threadId))?.status)) {
-          yield* Effect.orDie(changes);
+          yield* Queue.take(changed);
         }
       })
     );
