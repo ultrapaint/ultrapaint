@@ -19,10 +19,9 @@ import {
   themesOf,
 } from "@ultrapaint/contracts/themes";
 import { shortName, tokenOf } from "@ultrapaint/contracts/token-table";
-import { RAMP_STEPS, rampOf } from "@ultrapaint/design-document/ramp";
+import { RAMP_STEPS, rampOf, shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokensIn } from "@ultrapaint/design-document/tokens";
 import { childrenOf } from "@ultrapaint/design-document/tree";
-import { stepOf } from "../boards/color-boards.ts";
 
 /** A token's own value in a theme, as it is written; undefined where it takes the default's. */
 export const ownValueIn = (
@@ -63,14 +62,10 @@ export interface Palette {
  * `brand`, made when there is none).
  */
 export const paletteOf = (ds: DesignSystem, name: string): Palette => {
-  const step = stepOf(name);
+  const shade = shadeOf(name);
   const holder = ds.colors.find((g) => g.tokens.some((t) => t.name === name));
-  if (step !== null && holder) {
-    return {
-      exists: true,
-      group: holder.name,
-      prefix: name.slice(0, -`-${step}`.length),
-    };
+  if (shade && holder) {
+    return { exists: true, group: holder.name, prefix: shade.prefix };
   }
   const group = shortName(name);
   return {

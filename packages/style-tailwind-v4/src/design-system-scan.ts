@@ -23,6 +23,7 @@ import {
   addTokens,
   DEFAULT_SPACING_BASE,
   SPACING_BASE,
+  shortName,
 } from "@ultrapaint/contracts/token-table";
 import {
   parseNumber,
@@ -31,13 +32,12 @@ import {
   toPx,
 } from "@ultrapaint/contracts/token-value";
 import type { SourceToken, TokenKind } from "@ultrapaint/contracts/tokens";
+import { shadeOf } from "@ultrapaint/design-document/ramp";
 import type {
   DesignSystemContext,
   DesignSystemScan,
 } from "@ultrapaint/framework-api/node";
 import { read } from "./tokens.ts";
-
-const PALETTE_RE = /^color-([a-z]+)-(\d{2,3})$/;
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true });
@@ -144,8 +144,8 @@ const classify = (
     if (name === SPACING_BASE) {
       spacingBase = t.value;
     } else if (kind === "color") {
-      const palette: RegExpExecArray | null = PALETTE_RE.exec(name);
-      const group = palette?.[1];
+      const shade = shadeOf(name);
+      const group = shade && shortName(shade.prefix);
       if (group) {
         palettes.set(group, [...(palettes.get(group) ?? []), tokenOf(t)]);
       } else {

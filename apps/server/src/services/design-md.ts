@@ -36,6 +36,7 @@ import { componentEntries, mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import { looksOf } from "@ultrapaint/system-components/defaults";
+import { lint } from "@google/design.md/linter";
 import {
   Clock,
   Context,
@@ -49,11 +50,36 @@ import {
 import { makeStampedCache } from "../file-stamp.ts";
 import { readComponents } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
-import { DesignMdLint } from "./design-md-lint.ts";
 import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
+
+/**
+ * What the format's own linter (`@google/design.md`, ADR 0027) says about a DESIGN.md: broken
+ * references, contrast of component pairs, section order, tokens it cannot type. What the
+ * file's reading finds (a section twice, YAML that does not read) comes first, as errors: the
+ * linter does not report a section given twice, which the format calls an error.
+ */
+export const lintDocument = (text: string): readonly DesignFinding[] => {
+  const read: DesignFinding[] = parse(text).problems.map((message) => ({
+    message,
+    severity: "error",
+  }));
+  let found: DesignFinding[] = [];
+  try {
+    found = lint(text).findings.map(
+      (f): DesignFinding => ({
+        message: f.message,
+        ...(f.path !== undefined && { path: f.path }),
+        severity: f.severity,
+      })
+    );
+  } catch {
+    // The linter gives up on a file it cannot read at all; the reading says why.
+  }
+  return [...read, ...found];
+};
 
 /** DESIGN.md as it was found: at the root, or in the designs directory (`legacy`). */
 interface Found {
@@ -184,7 +210,6 @@ export class DesignMd extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
-      const linter = yield* DesignMdLint;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const rootFile = path.join(paths.root, DESIGN_MD_FILE);
@@ -238,14 +263,13 @@ export class DesignMd extends Context.Service<
         readonly findings: readonly DesignFinding[];
         readonly text: string;
       } | null = null;
-      const lintOf = Effect.fnUntraced(function* (text: string) {
-        if (linted?.text === text) {
+      const lintOf = (text: string) =>
+        Effect.sync(() => {
+          if (linted?.text !== text) {
+            linted = { findings: lintDocument(text), text };
+          }
           return linted.findings;
-        }
-        const findings = yield* linter.lint(text);
-        linted = { findings, text };
-        return findings;
-      });
+        });
 
       const mirror = Effect.fnUntraced(function* (
         ds: DesignSystem,
@@ -460,5 +484,5 @@ export class DesignMd extends Context.Service<
         toWrite,
       });
     })
-  ).pipe(Layer.provide(DesignMdLint.layer));
+  );
 }
