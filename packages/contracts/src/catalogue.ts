@@ -91,6 +91,31 @@ export const metaOf = (
     (c) => c.name === instance.component && c.importFrom === instance.from
   );
 
+const UPPER_RE = /([a-z0-9])([A-Z])/g;
+
+/**
+ * The file the application keeps its own component for a component in (ADR 0040), by name in
+ * its components directory: `order-summary` for OrderSummary, a system component's under `ui/`
+ * (`ui/dialog`). The starter application is written with it and the Code tab imports from it.
+ */
+export const applicationFileOf = (component: string) =>
+  component.replace(UPPER_RE, "$1-$2").toLowerCase();
+
+/**
+ * The name the application gives a component, or one of its parts that holds nodes (ADR 0040):
+ * `Dialog`, `DialogFooter` for its `dialog-footer`, `DialogTrigger` for its `trigger`.
+ */
+export const applicationNameOf = (component: string, slot?: string) => {
+  if (slot === undefined) {
+    return component;
+  }
+  const own = applicationFileOf(component);
+  return (slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`)
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+};
+
 /**
  * A component in one line, as an agent picks one: the project's own marked (app), its variants,
  * with `props` its other props, and the slots its children fill, the default one marked `*`

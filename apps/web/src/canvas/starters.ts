@@ -1,9 +1,9 @@
 /**
  * The starters an empty canvas offers, and the look their thumbnails are drawn in. With a design
- * system they follow the library — a starter whose components it has none of is not offered —
- * and are drawn in its colours, radius and heading font; without one they are plain wireframes.
+ * system a starter names the system components it is built from, which every project has (ADR
+ * 0040), and is drawn in its colours, radius and heading font; without one it is a plain
+ * wireframe.
  */
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 
@@ -18,55 +18,47 @@ export type StarterId =
 export interface Starter {
   readonly id: StarterId;
   readonly label: string;
-  /** Offered only when the library has one of these; none means always. */
-  readonly needs: readonly string[];
   /** The page, as the prompt asks for it. */
   readonly page: string;
-  /** What it is built from, by export name. */
+  /** The system components it is built from. */
   readonly uses: readonly string[];
 }
 
-/** In the order they are offered: the first ones the library allows fill the strip. */
+/** In the order they are offered: the first ones fill the strip. */
 export const STARTERS: readonly Starter[] = [
   {
     id: "landing",
     label: "Landing",
-    needs: [],
     page: "a landing page with a navigation bar, a hero with a call to action and three feature cards",
     uses: ["Button", "Card", "Badge"],
   },
   {
     id: "dashboard",
     label: "Dashboard",
-    needs: ["Table", "Chart"],
     page: "a dashboard with a sidebar, stat cards, a chart and a table",
-    uses: ["Sidebar", "Card", "Chart", "Table"],
+    uses: ["Card", "Badge", "Tabs", "Avatar"],
   },
   {
     id: "settings",
     label: "Settings",
-    needs: ["Input", "Switch"],
     page: "a settings page with tabs over a form of fields and switches",
     uses: ["Tabs", "Input", "Switch", "Select"],
   },
   {
     id: "sign-in",
     label: "Sign in",
-    needs: ["Input"],
     page: "a sign-in page: a card with the email and password fields and a button",
-    uses: ["Card", "Input", "Label", "Button"],
+    uses: ["Card", "Input", "Button"],
   },
   {
     id: "pricing",
     label: "Pricing",
-    needs: ["Card"],
     page: "a pricing page with three plans side by side and an FAQ under them",
-    uses: ["Card", "Badge", "Button", "Accordion"],
+    uses: ["Card", "Badge", "Button", "Separator"],
   },
   {
     id: "article",
     label: "Article",
-    needs: [],
     page: "an article page with a title, a byline and long-form text",
     uses: ["Avatar", "Badge", "Separator"],
   },
@@ -74,45 +66,18 @@ export const STARTERS: readonly Starter[] = [
 
 const SHOWN = 4;
 
-/**
- * Whether the library has a component, or a family of them: `Chart` is there when only
- * `ChartContainer` is.
- */
-const CAPITAL = /[A-Z]/;
-
-const has = (catalogue: Catalogue, name: string) =>
-  catalogue.some(
-    (c) =>
-      c.name === name ||
-      (c.name.startsWith(name) && CAPITAL.test(c.name.charAt(name.length)))
-  );
-
 export interface Offered {
   readonly starter: Starter;
-  /** The components of the library it would use; empty for a plain wireframe. */
+  /** The system components it would use; empty for a plain wireframe. */
   readonly uses: readonly string[];
 }
 
-/**
- * The starters shown. Without a design system they are the first ones and plain: nothing of the
- * library goes into them.
- */
-export const offeredStarters = (
-  catalogue: Catalogue,
-  withSystem: boolean
-): readonly Offered[] => {
-  if (!withSystem) {
-    return STARTERS.slice(0, SHOWN).map((starter) => ({ starter, uses: [] }));
-  }
-  return STARTERS.filter(
-    (s) => s.needs.length === 0 || s.needs.some((n) => has(catalogue, n))
-  )
-    .slice(0, SHOWN)
-    .map((starter) => ({
-      starter,
-      uses: starter.uses.filter((n) => has(catalogue, n)),
-    }));
-};
+/** The starters shown: the first ones, plain without a design system. */
+export const offeredStarters = (withSystem: boolean): readonly Offered[] =>
+  STARTERS.slice(0, SHOWN).map((starter) => ({
+    starter,
+    uses: withSystem ? starter.uses : [],
+  }));
 
 const listed = (names: readonly string[]) =>
   names.length < 2
@@ -127,10 +92,7 @@ export const starterPrompt = (
 ) => {
   let how = "as a plain wireframe";
   if (withSystem) {
-    how =
-      uses.length > 0
-        ? `with the design system's ${listed(uses)}`
-        : "with the design system's components";
+    how = `with the design system's ${listed(uses)}`;
   }
   return `Design ${starter.page} on the ${canvas} canvas, ${how}. It is for `;
 };
