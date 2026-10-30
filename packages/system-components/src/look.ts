@@ -30,21 +30,47 @@ const RING = t("color-ring");
 const RADIUS_LG = t("radius-lg");
 
 /**
+ * The colours every design draws with until it says otherwise, in the light theme and the dark:
+ * the neutral palette, which Design system's Color board draws for a project without a design
+ * system (ADR 0045).
+ */
+export const NEUTRAL_COLORS: readonly {
+  readonly dark: string;
+  readonly light: string;
+  readonly name: string;
+}[] = [
+  { dark: "#09090b", light: "#ffffff", name: "color-background" },
+  { dark: "#fafafa", light: "#09090b", name: "color-foreground" },
+  { dark: "#fafafa", light: "#18181b", name: "color-primary" },
+  { dark: "#18181b", light: "#fafafa", name: "color-primary-foreground" },
+  { dark: "#27272a", light: "#f4f4f5", name: "color-secondary" },
+  { dark: "#fafafa", light: "#18181b", name: "color-secondary-foreground" },
+  { dark: "#27272a", light: "#f4f4f5", name: "color-muted" },
+  { dark: "#a1a1aa", light: "#71717a", name: "color-muted-foreground" },
+  { dark: "#27272a", light: "#f4f4f5", name: "color-accent" },
+  { dark: "#fafafa", light: "#18181b", name: "color-accent-foreground" },
+  { dark: "#ef4444", light: "#dc2626", name: "color-destructive" },
+  { dark: "#fafafa", light: "#ffffff", name: "color-destructive-foreground" },
+  { dark: "#27272a", light: "#e4e4e7", name: "color-border" },
+  { dark: "#3f3f46", light: "#e4e4e7", name: "color-input" },
+  { dark: "#71717a", light: "#a1a1aa", name: "color-ring" },
+  { dark: "#09090b", light: "#ffffff", name: "color-card" },
+  { dark: "#fafafa", light: "#09090b", name: "color-card-foreground" },
+  { dark: "#18181b", light: "#ffffff", name: "color-popover" },
+  { dark: "#fafafa", light: "#09090b", name: "color-popover-foreground" },
+];
+
+const neutralIn = (theme: "dark" | "light") =>
+  NEUTRAL_COLORS.map((c) => `--${c.name}: ${c[theme]};`).join(" ");
+
+/**
  * What every token the system components and a new canvas draw with is until the design says otherwise:
  * a neutral theme, so a project with no design system yet draws as one, on the frame's root
  * (`:host`). The design's own values (unlayered) win over these.
  */
 const DEFAULT_TOKENS = `
   :host {
-    --color-background: #ffffff; --color-foreground: #09090b;
-    --color-primary: #18181b; --color-primary-foreground: #fafafa;
-    --color-secondary: #f4f4f5; --color-secondary-foreground: #18181b;
-    --color-muted: #f4f4f5; --color-muted-foreground: #71717a;
-    --color-accent: #f4f4f5; --color-accent-foreground: #18181b;
-    --color-destructive: #dc2626; --color-destructive-foreground: #ffffff;
-    --color-border: #e4e4e7; --color-input: #e4e4e7; --color-ring: #a1a1aa;
-    --color-card: #ffffff; --color-card-foreground: #09090b;
-    --color-popover: #ffffff; --color-popover-foreground: #09090b;
+    ${neutralIn("light")}
     --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -52,15 +78,7 @@ const DEFAULT_TOKENS = `
     -webkit-font-smoothing: antialiased;
   }
   .dark, [data-theme~="dark"] {
-    --color-background: #09090b; --color-foreground: #fafafa;
-    --color-primary: #fafafa; --color-primary-foreground: #18181b;
-    --color-secondary: #27272a; --color-secondary-foreground: #fafafa;
-    --color-muted: #27272a; --color-muted-foreground: #a1a1aa;
-    --color-accent: #27272a; --color-accent-foreground: #fafafa;
-    --color-destructive: #ef4444; --color-destructive-foreground: #fafafa;
-    --color-border: #27272a; --color-input: #3f3f46; --color-ring: #71717a;
-    --color-card: #09090b; --color-card-foreground: #fafafa;
-    --color-popover: #18181b; --color-popover-foreground: #fafafa;
+    ${neutralIn("dark")}
   }
 `;
 

@@ -73,7 +73,7 @@ describe("openBoard", () => {
       leftTab: "designSystem",
       mode: "select",
       selection: null,
-      view: { x: 372, y: 72, zoom: 1 },
+      view: { x: 332, y: 72, zoom: 1 },
     });
     expect(readUrl().board).toEqual({ item: "color", view: "system" });
     // Opening a board from the page is a navigation of its own.
@@ -90,7 +90,7 @@ describe("openBoard", () => {
     openBoard({ item: "color", view: "system" });
     useEditor.setState({ view: { x: 1, y: 2, zoom: 2 } });
     openBoard({ item: "spacing", view: "system" });
-    expect(useEditor.getState().view).toEqual({ x: 372, y: 72, zoom: 1 });
+    expect(useEditor.getState().view).toEqual({ x: 332, y: 72, zoom: 1 });
     openBoard({ item: "color", view: "system" });
     expect(useEditor.getState().view).toEqual({ x: 1, y: 2, zoom: 2 });
     expect(fakeBrowser.history().entries).toHaveLength(2);

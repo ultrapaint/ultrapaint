@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOARD_GAP, boardLayout, UNMEASURED } from "./board-layout.ts";
+import { boardLayout, ROW_GAP, UNMEASURED } from "./board-layout.ts";
 
 const sizes = {
   a: { height: 200, width: 400 },
@@ -10,7 +10,7 @@ describe("boardLayout", () => {
   it("puts the boards side by side in a row, from the origin", () => {
     expect(boardLayout(["a", "b"], sizes, "row")).toEqual({
       a: { height: 200, width: 400, x: 0, y: 0 },
-      b: { height: 100, width: 300, x: 400 + BOARD_GAP, y: 0 },
+      b: { height: 100, width: 300, x: 400 + ROW_GAP, y: 0 },
     });
   });
 

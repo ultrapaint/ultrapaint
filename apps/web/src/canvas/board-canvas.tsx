@@ -11,6 +11,7 @@
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
+import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { cn } from "cn";
 import {
@@ -28,6 +29,7 @@ import { libraryBoards, OVERVIEW } from "../boards/library-boards.ts";
 import {
   type Board,
   type Boards,
+  guidelineId,
   systemBoards,
   systemItemName,
 } from "../boards/system-boards.ts";
@@ -69,16 +71,31 @@ const useBoards = (open: BoardPlace): Boards => {
   const document = useDesignSystem((s) => s.document);
   const catalogue = useComponents((s) => s.catalogue);
   const components = useComponents((s) => s.components);
+  const guideDraft = useBoard((s) => s.guideDraft);
   return useMemo(
     () =>
       open.view === "system"
-        ? systemBoards(open.item, ds, document)
+        ? systemBoards(open.item, ds, withGuideDraft(document, guideDraft))
         : libraryBoards(open.item, catalogue, (name) =>
             fileOf(components, name)
           ),
-    [open, ds, document, catalogue, components]
+    [open, ds, document, catalogue, components, guideDraft]
   );
 };
+
+/** DESIGN.md with a guideline's text as it is typed, for its board to draw. */
+const withGuideDraft = (
+  document: DesignDocument | null,
+  draft: { readonly item: string; readonly text: string } | null
+): DesignDocument | null =>
+  document && draft
+    ? {
+        ...document,
+        sections: document.sections.map((s) =>
+          guidelineId(s.heading) === draft.item ? { ...s, text: draft.text } : s
+        ),
+      }
+    : document;
 
 /** What the item open is called: over its boards, in its inspector. */
 export const useItemName = (open: BoardPlace) => {
@@ -89,8 +106,8 @@ export const useItemName = (open: BoardPlace) => {
   return open.item === OVERVIEW ? "Overview" : open.item;
 };
 
-/** What a board names for something a click picks: a token, a cell, a style, a component. */
-const PICKABLE = /^(token|cell|style|item):/;
+/** What a board names for something a click picks: a token, a group, a cell, a style, a component. */
+const PICKABLE = /^(token|group|cell|style|item):/;
 
 /** The tools that pick on a board: the pointer goes to the frame only in select. */
 const isSelecting = (s: { mode: string; spacePan: boolean }) =>
@@ -230,7 +247,6 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
               key={id}
               name={name}
               onSize={onSize}
-              open={open}
             />
           ) : null;
         })}
@@ -244,12 +260,16 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
   );
 };
 
-/** The theme a board is drawn in: the switch's, but on Color, which draws its own. */
-const useBoardDefaults = (open: BoardPlace) => {
-  const theme = useBoard((s) =>
-    open.view === "system" && open.item === "color" ? null : s.theme
+/**
+ * What a board is drawn in: its theme (Color's own, a board a theme, else the switch's), and the
+ * design's text colour, taken in that theme as a page's is.
+ */
+const useBoardDefaults = (board: Board) => {
+  const theme = useBoard((s) => board.theme ?? s.theme);
+  return useMemo(
+    () => ({ color: "$color-foreground", ...(theme && { theme }) }),
+    [theme]
   );
-  return useMemo(() => (theme ? { theme } : undefined), [theme]);
 };
 
 const HEADER_GAP = 6;
@@ -263,29 +283,28 @@ const BoardFrame = memo(
     frameId,
     name,
     onSize,
-    open,
   }: {
     board: Board;
     box: Box;
     frameId: string;
     name: string;
     onSize: (frame: string, size: { height: number; width: number }) => void;
-    open: BoardPlace;
   }) => {
     const designSystem = useDesignSystem((s) => s.designSystem);
-    const defaults = useBoardDefaults(open);
+    const defaults = useBoardDefaults(board);
     const selecting = useEditor(isSelecting);
     const interactive = useEditor((s) => s.mode === "interact" && !s.spacePan);
     useFrameDrawing(
       frameId,
       useMemo(
         () => ({
+          ...(board.css && { css: board.css }),
           defaults,
           designSystem,
           mode: "fit" as const,
           root: board.root,
         }),
-        [defaults, designSystem, board.root]
+        [board.css, defaults, designSystem, board.root]
       )
     );
     const listeners = useMemo(

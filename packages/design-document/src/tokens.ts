@@ -166,6 +166,7 @@ export const tokensUsed = (
 };
 
 const THEME_NAME_RE = /[^\w-]/g;
+const COLOR_PREFIX = "color-";
 
 /** What a theme's values apply under: its class (`.dark`, Tailwind's) and its `data-theme`. */
 const themeSelector = (theme: string) => {
@@ -184,28 +185,33 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
   if (!ds) {
     return "";
   }
+  const tokens = allTokens(ds).filter((t) => t.value !== "");
   const base: string[] = [];
-  const themed = new Map<string, string[]>();
-  for (const token of allTokens(ds)) {
-    if (token.value === "") {
-      continue;
-    }
+  for (const token of tokens) {
     base.push(`  --${token.name}: ${token.value};`);
     const { lineHeight } = token as { lineHeight?: string };
     if (lineHeight) {
       base.push(`  --${lineHeightName(token.name)}: ${lineHeight};`);
     }
-    for (const [theme, value] of Object.entries(token.values ?? {})) {
-      const list = themed.get(theme) ?? [];
-      list.push(`  --${token.name}: ${value};`);
-      themed.set(theme, list);
-    }
   }
+  // Every other theme declares every colour again, its own value or the default's: a token the
+  // design gives in one theme only is the same in the others, never the neutral look's value
+  // for that theme, which is declared on the theme's element and so wins over what it inherits.
+  const themes = new Set([
+    ...(ds.themes ?? []).slice(1),
+    ...tokens.flatMap((t) => Object.keys(t.values ?? {})),
+  ]);
+  const themed = [...themes].map((theme) => {
+    const declarations = tokens.flatMap((t) => {
+      const own = t.values?.[theme];
+      return own !== undefined || t.name.startsWith(COLOR_PREFIX)
+        ? [`  --${t.name}: ${own ?? t.value};`]
+        : [];
+    });
+    return `${themeSelector(theme)} {\n${declarations.join("\n")}\n}`;
+  });
   return [
     ...(base.length > 0 ? [`:host {\n${base.join("\n")}\n}`] : []),
-    ...[...themed].map(
-      ([theme, declarations]) =>
-        `${themeSelector(theme)} {\n${declarations.join("\n")}\n}`
-    ),
+    ...themed,
   ].join("\n\n");
 };

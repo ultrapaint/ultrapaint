@@ -70,6 +70,8 @@ export interface FrameListeners extends FrameEvents {
 export interface RenderRequest {
   /** The breakpoint the page is resolved at, which its app components are drawn at too. */
   readonly at?: string | undefined;
+  /** A stylesheet of the frame's own: a board's, for an easing's animation. */
+  readonly css?: string | undefined;
   /** What the canvas draws every page in (`CanvasLayout.defaults`). */
   readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
@@ -123,6 +125,7 @@ interface Mount {
 /** What the frame was last told to draw, by which runtime. */
 interface Shown {
   readonly at: string | undefined;
+  readonly css: string | undefined;
   readonly defaults: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   readonly isolate: RenderRequest["isolate"];
@@ -466,6 +469,7 @@ export class EditorFrame {
       shown !== null &&
       shown.runtime === runtime &&
       shown.at === request.at &&
+      shown.css === request.css &&
       shown.defaults === request.defaults &&
       shown.designSystem === request.designSystem &&
       shown.isolate === request.isolate &&
@@ -483,6 +487,7 @@ export class EditorFrame {
     }
     this.shown = {
       at: request.at,
+      css: request.css,
       defaults: request.defaults,
       designSystem: request.designSystem,
       isolate: request.isolate,
@@ -495,6 +500,7 @@ export class EditorFrame {
     };
     runtime.render({
       ...(request.at !== undefined && { at: request.at }),
+      ...(request.css !== undefined && { css: request.css }),
       defaults: request.defaults,
       designSystem: request.designSystem,
       ...(request.isolate && { isolate: request.isolate }),
