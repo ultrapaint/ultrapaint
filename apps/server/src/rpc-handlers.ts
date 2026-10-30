@@ -118,6 +118,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         components((c) => c.addNote(name, text, slot)),
       "components.change": ({ change, name }) =>
         components((c) => c.change(name, change)),
+      "components.create": ({ name }) => components((c) => c.create(name)),
       "components.fromDefault": ({ name }) =>
         components((c) => c.fromDefault(name)),
       "components.list": () => components((c) => c.list),

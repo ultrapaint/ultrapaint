@@ -28,6 +28,7 @@ import {
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { appComponentCycle } from "@ultrapaint/design-document/app-components";
 import { serialise } from "@ultrapaint/design-document/factories";
+import { withStyle } from "@ultrapaint/design-document/look-places";
 import {
   childrenOf,
   findNode,
@@ -432,6 +433,9 @@ export const changedComponent = (
     const { content: _c, hidden: _h, item: _i, ...envelope } = file;
     return { ...envelope, ...change.look };
   }
+  if (change.op === "setStyle") {
+    return styled(file, change);
+  }
   if (file.origin !== "app") {
     return {
       problem: `${file.name} is a system component's look: it has no properties or slots`,
@@ -440,9 +444,28 @@ export const changedComponent = (
   return changedApp(file, change);
 };
 
+/** One part's style set at one place of a system component's look, the rest as the file has it. */
+const styled = (
+  file: ComponentFile,
+  change: Extract<ComponentChange, { op: "setStyle" }>
+): Changed<ComponentFile> => {
+  if (file.origin !== "system") {
+    return { problem: `${file.name} is an app component: it has no look` };
+  }
+  const parts = (systemComponentOf(file.name)?.slots ?? []).map((s) => s.name);
+  return parts.includes(change.slot)
+    ? withStyle(file, change.place, change.slot, change.style)
+    : {
+        problem: `${file.name} has no part ${change.slot}; its parts are ${parts.join(", ")}`,
+      };
+};
+
 const changedApp = (
   file: AppComponentFile,
-  change: Exclude<ComponentChange, { op: "removeNote" | "setLook" }>
+  change: Exclude<
+    ComponentChange,
+    { op: "removeNote" | "setLook" | "setStyle" }
+  >
 ): Changed<AppComponentFile> => {
   switch (change.op) {
     case "addProperty":

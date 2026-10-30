@@ -775,8 +775,9 @@ const requestRpcs = [
   /** The components of the designs directory (ADR 0041), each read or with its problem. */
   Rpc.make("components.list", { error: NotConfigured, success: ComponentList }),
   /**
-   * A change to an app component's properties or slots (ADR 0042), made on its file as it is
-   * now; a rename follows into its variants and its instances' props. One undo step.
+   * A change to an app component's properties or slots (ADR 0042), or to a system component's
+   * look or one part's style in it (ADR 0045), made on its file as it is now; a rename follows
+   * into its variants and its instances' props. One undo step.
    */
   Rpc.make("components.change", {
     error: EditError,
@@ -818,6 +819,16 @@ const requestRpcs = [
       name: Schema.String,
       nodeIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
     },
+    success: ComponentEntry,
+  }),
+
+  /**
+   * A new app component, its tree an empty column, placed nowhere yet (ADR 0045): the Library's
+   * + New. One undo step.
+   */
+  Rpc.make("components.create", {
+    error: EditError,
+    payload: { name: Schema.String },
     success: ComponentEntry,
   }),
 

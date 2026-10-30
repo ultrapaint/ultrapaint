@@ -1,12 +1,15 @@
 /**
- * Where the Components tab edits a system component's look (ADRs 0041, 0044): its base, a variant
- * member, a state, or a state in one member, and what a part's fields there take from the places
- * they fall back to. The more specific wins: a member's state over the state, the state over the
- * member, the member over the base; the project's file over the default look.
+ * Where a system component's look is edited (ADRs 0041, 0044, 0045): its base, a variant member, a
+ * state, or a state in one member, and what a part's fields there take from the places they fall
+ * back to. The more specific wins: a member's state over the state, the state over the member,
+ * the member over the base; the project's file over the default look. A board's inspector reads
+ * a cell's place here, and the server sets one part's style at a place with `withStyle`
+ * (`setStyle`).
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
-  ComponentState,
+  LookMember,
+  LookPlace,
   PartStyle,
   PartStyles,
   SystemLook,
@@ -19,16 +22,10 @@ export type LookStyles = Pick<
 >;
 
 /** A variant member a place is in. */
-export interface Member {
-  readonly axis: string;
-  readonly member: string;
-}
+export type Member = LookMember;
 
 /** Where a field is set: the base when neither, a member, a state, or a state in a member. */
-export interface Place {
-  readonly state: ComponentState | null;
-  readonly variant: Member | null;
-}
+export type Place = LookPlace;
 
 export const BASE: Place = { state: null, variant: null };
 

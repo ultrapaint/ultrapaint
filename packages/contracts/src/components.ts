@@ -167,6 +167,23 @@ const lookFields = {
   ),
 };
 
+/** A variant axis's member a place of a look is in: `variant: outline`. */
+export const LookMember = Schema.Struct({
+  axis: Schema.String,
+  member: Schema.String,
+});
+export type LookMember = typeof LookMember.Type;
+
+/**
+ * Where a part's style is set in a system component's look (ADR 0044): its base when neither is
+ * given, a variant's member, a state, or a state as one member draws it.
+ */
+export const LookPlace = Schema.Struct({
+  state: Schema.NullOr(ComponentState),
+  variant: Schema.NullOr(LookMember),
+});
+export type LookPlace = typeof LookPlace.Type;
+
 /** A system component's look: its file but the envelope. */
 export const SystemLook = Schema.Struct(lookFields);
 export type SystemLook = typeof SystemLook.Type;
@@ -253,9 +270,9 @@ export type ComponentFile = typeof ComponentFile.Type;
 /**
  * A change to a component's file (ADR 0042), made on the file as it is when the server applies it,
  * so a change made meanwhile (a tree edited in place, a note added) is not lost: an app
- * component's properties or slots, a system component's look, a behaviour note taken out. A
- * property or a member renamed or taken out is followed by the variants its tree keeps
- * (`at["size=lg"]`) and by every instance's props, in one undo step.
+ * component's properties or slots, a system component's look or one part's style in it, a
+ * behaviour note taken out. A property or a member renamed or taken out is followed by the
+ * variants its tree keeps (`at["size=lg"]`) and by every instance's props, in one undo step.
  */
 export const ComponentChange = Schema.Union([
   Schema.Struct({
@@ -291,6 +308,16 @@ export const ComponentChange = Schema.Union([
   }),
   /** A system component's look, its notes and envelope kept. */
   Schema.Struct({ look: SystemLook, op: Schema.Literal("setLook") }),
+  /**
+   * One part's style at one place of a system component's look (ADR 0045), what the rest of the
+   * look says kept as it is in the file: an empty style takes the part out of that place.
+   */
+  Schema.Struct({
+    op: Schema.Literal("setStyle"),
+    place: LookPlace,
+    slot: Schema.String,
+    style: PartStyle,
+  }),
   Schema.Struct({ id: Schema.String, op: Schema.Literal("removeNote") }),
 ]);
 export type ComponentChange = typeof ComponentChange.Type;

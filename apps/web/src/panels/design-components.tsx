@@ -23,6 +23,16 @@ import {
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { presetSize } from "@ultrapaint/contracts/pages";
+import {
+  fallbacksOf,
+  type Inherited,
+  inheritedAt,
+  type Member,
+  type Place,
+  placeLabel,
+  styleAt,
+  withStyle,
+} from "@ultrapaint/design-document/look-places";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { designCss } from "@ultrapaint/system-components/look";
@@ -43,16 +53,6 @@ import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { ValueField } from "../components/value-field.tsx";
-import {
-  fallbacksOf,
-  type Inherited,
-  inheritedAt,
-  type Member,
-  type Place,
-  placeLabel,
-  styleAt,
-  withStyle,
-} from "../lib/look-places.ts";
 import { allSelected, nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import {

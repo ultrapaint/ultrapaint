@@ -4,10 +4,10 @@
  * (ADR 0040); one without a file is drawn in its default look (`defaults.ts`), taking its look
  * over starts the file from that default, and removing the file goes back to it. An app
  * component's file is its tree, its properties and its slots, made from nodes of a page or written
- * by an agent. Every file is read and validated by the `component-files` codec, whoever writes it,
- * and what the editor changes of a file (a look, properties and slots, notes) is changed on it as
- * it is now (`change`, `addNote`), an app component's instances following a rename in the same
- * undo step.
+ * by an agent, or started empty from the Library (`create`). Every file is read and validated by
+ * the `component-files` codec, whoever writes it, and what the editor changes of a file (a look or
+ * one part's style in it, properties and slots, notes) is changed on it as it is now (`change`,
+ * `addNote`), an app component's instances following a rename in the same undo step.
  */
 
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
@@ -31,7 +31,9 @@ import {
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import { appComponentFrom } from "@ultrapaint/design-document/app-components";
+import { newElement } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { placeLabel } from "@ultrapaint/design-document/look-places";
 import { childrenOf, findPath, idsOf } from "@ultrapaint/design-document/tree";
 import {
   catalogueOf,
@@ -75,6 +77,16 @@ const appNameOf = (
   return taken.some((c) => c.name === name)
     ? { problem: `there is a ${name} component already` }
     : { name };
+};
+
+/** The undo step a change is named by: a look's part at its place, else the component. */
+const labelOf = (name: string, made: ComponentChange) => {
+  if (made.op === "setStyle") {
+    return `Change ${name}'s ${made.slot === ROOT_SLOT ? "look" : made.slot} at ${placeLabel(made.place)}`;
+  }
+  return made.op === "setLook"
+    ? `Change ${name}'s look`
+    : `Change the ${name} component`;
 };
 
 /**
@@ -199,6 +211,13 @@ export class ComponentService extends Context.Service<
       nodeIds: readonly string[],
       name: string
     ) => Effect.Effect<ComponentEntry, EditFailure | NotFound | Conflict>;
+    /**
+     * A new app component, its tree an empty column, placed nowhere yet (ADR 0045): the Library's
+     * + New, its board opened to build it in place. One undo step.
+     */
+    readonly create: (
+      name: string
+    ) => Effect.Effect<ComponentEntry, EditFailure>;
   }
 >()("ultrapaint/server/ComponentService") {
   static readonly layer = Layer.effect(
@@ -330,9 +349,7 @@ export class ComponentService extends Context.Service<
       ) {
         return yield* changeFile(
           name,
-          made.op === "setLook"
-            ? `Change ${name}'s look`
-            : `Change the ${name} component`,
+          labelOf(name, made),
           (file) => changedComponent(file, made),
           made
         );
@@ -457,6 +474,27 @@ export class ComponentService extends Context.Service<
         return { component, file } satisfies ComponentEntry;
       });
 
+      const create = Effect.fn("ComponentService.create")(function* (
+        given: string
+      ) {
+        const named = appNameOf(given, yield* components);
+        if ("problem" in named) {
+          return yield* new BadRequest({ message: named.problem });
+        }
+        const { name } = named;
+        return yield* save(
+          {
+            name,
+            origin: "app",
+            properties: [],
+            slots: [],
+            tree: newElement("column", makeIdGenerator()),
+            version: 1,
+          },
+          `Make the ${name} component`
+        );
+      });
+
       // Whoever changes the files — an undo, an agent, a checkout — the editor hears of it.
       const prefix = `${paths.relative(dir)}/`;
       yield* events.subscribe("file.changed").pipe(
@@ -474,6 +512,7 @@ export class ComponentService extends Context.Service<
         catalogue,
         change,
         components,
+        create,
         fromDefault,
         list,
         makeApp,

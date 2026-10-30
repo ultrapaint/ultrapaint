@@ -296,6 +296,56 @@ describe("a change to any component's file", () => {
     ).toEqual({ problem: "Plan is an app component: it has no look" });
   });
 
+  it("sets one part's style at a place, the rest of the look as the file has it", () => {
+    const outlineHover = {
+      state: "hover" as const,
+      variant: { axis: "variant", member: "outline" },
+    };
+    const next = changedComponent(BUTTON, {
+      op: "setStyle",
+      place: outlineHover,
+      slot: "root",
+      style: { fill: "$color-accent" },
+    });
+    expect(next).toMatchObject({
+      base: { root: { radius: 4 } },
+      content: { root: [] },
+      notes: [{ id: "n1", text: "Submits on Enter" }],
+      variantStates: {
+        variant: { outline: { hover: { root: { fill: "$color-accent" } } } },
+      },
+    });
+    // An empty style takes the part out of the place, and the place with it.
+    expect(
+      changedComponent(next as SystemComponentFile, {
+        op: "setStyle",
+        place: outlineHover,
+        slot: "root",
+        style: {},
+      })
+    ).not.toHaveProperty("variantStates");
+    expect(
+      changedComponent(BUTTON, {
+        op: "setStyle",
+        place: { state: null, variant: null },
+        slot: "nope",
+        style: { fill: "red" },
+      })
+    ).toEqual({
+      problem: expect.stringContaining(
+        "Button has no part nope; its parts are root"
+      ),
+    });
+    expect(
+      changedComponent(PLAN, {
+        op: "setStyle",
+        place: { state: null, variant: null },
+        slot: "root",
+        style: {},
+      })
+    ).toEqual({ problem: "Plan is an app component: it has no look" });
+  });
+
   it("takes a note out of either origin, and says when there is none", () => {
     expect(
       changedComponent(BUTTON, { id: "n1", op: "removeNote" })
