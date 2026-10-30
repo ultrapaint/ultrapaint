@@ -1049,6 +1049,47 @@ describe("the tools for documents", () => {
   );
 });
 
+describe("a big page, read as a task gives it", () => {
+  inAProject(
+    "reads a page too big to give whole as its outline, and a part of it whole",
+    () =>
+      Effect.gen(function* () {
+        const deep = (id: string, child: Record<string, unknown>) => ({
+          children: [child],
+          id,
+          type: "group",
+        });
+        yield* tool("apply_operations", {
+          ops: [
+            inserted(
+              deep(
+                "a",
+                deep("b", {
+                  children: ["one", "two", "three"].map((id) => ({
+                    id,
+                    role: "paragraph",
+                    text: "word ".repeat(3000),
+                    type: "text",
+                  })),
+                  id: "c",
+                  type: "group",
+                })
+              )
+            ),
+          ],
+          route: "/home",
+        });
+        const whole = yield* tool("read_page", { route: "/home" });
+        assert.include(whole.outline ?? "", "read a part with node");
+        assert.notInclude(JSON.stringify(whole.document), "word word");
+        assert.include(JSON.stringify(whole.document), '"childCount":3');
+        const part = yield* tool("read_page", { route: "/home#two" });
+        assert.isUndefined(part.outline);
+        assert.include(JSON.stringify(part.document), "word word");
+      })
+  );
+});
+
 describe("where a tool works, named by a node reference (ADR 0018)", () => {
   inAProject("reads only the node a reference names", () =>
     Effect.gen(function* () {

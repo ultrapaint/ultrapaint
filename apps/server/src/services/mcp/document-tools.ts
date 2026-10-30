@@ -9,19 +9,19 @@ import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import {
-  canvasDocOf,
-  findNode,
-  outlineOf,
-  walk,
-} from "@ultrapaint/design-document/tree";
+import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { designSystemSchema, pageSchema } from "../threads/task-text.ts";
+import {
+  designSystemSchema,
+  OUTLINE_DEPTH,
+  pageSchema,
+  treeForAgent,
+} from "../threads/task-text.ts";
 import { CallingThread } from "./access.ts";
 import { makeLookup, nodeIdOf } from "./lookup.ts";
 import {
@@ -72,7 +72,7 @@ const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 
 export const ReadPage = Tool.make("read_page", {
   description:
-    "A page's nodes with ids, and a hash for apply_operations. node: its subtree only; depth: levels shown, deeper ones counted. A node reference (/orders#c_8x2k1q) names page and node.",
+    "A page's nodes with ids, and a hash for apply_operations; a big one as an outline, deeper levels counted. node: its subtree only; depth: levels shown. A node reference (/orders#c_8x2k1q) names page and node.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
@@ -87,6 +87,8 @@ export const ReadPage = Tool.make("read_page", {
     document: Json,
     file: Schema.String,
     hash: Schema.String,
+    /** Said when a tree too big to give whole is given as its outline. */
+    outline: Schema.optional(Schema.String),
   }),
 }).annotateMerge(doing("read"));
 
@@ -349,8 +351,17 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         depth,
         node,
       }) {
-        const shown = (tree: DesignNode) =>
-          depth === undefined ? tree : outlineOf(tree, Math.floor(depth));
+        /** The tree, or its outline when it is too big or the agent asked for one. */
+        const shown = (tree: DesignNode) => {
+          const read = treeForAgent(tree, depth);
+          return {
+            document: asJson(read.tree),
+            ...(read.outlined &&
+              depth === undefined && {
+                outline: `too big to give whole: ${OUTLINE_DEPTH} levels down, a node there counting its children; read a part with node`,
+              }),
+          };
+        };
         const { doc, file, nodeId } = yield* where({ canvas, node, route });
         const state = yield* documents((d) => d.get(doc));
         if (state.problem !== undefined) {
@@ -365,15 +376,21 @@ export const DocumentToolsLive = DocumentTools.toLayer(
               `no node ${nodeId} in ${file}; read it without a node to see its ids`
             );
           }
-          return { document: asJson(shown(found)), file, hash: state.hash };
+          return { file, hash: state.hash, ...shown(found) };
         }
+        if (!state.root) {
+          return {
+            document: asJson({ root: null, version: 1 }),
+            file,
+            hash: state.hash,
+          };
+        }
+        const { document, ...outlined } = shown(state.root);
         return {
-          document: asJson({
-            root: state.root && shown(state.root),
-            version: 1,
-          }),
+          document: asJson({ root: document, version: 1 }),
           file,
           hash: state.hash,
+          ...outlined,
         };
       }),
     });

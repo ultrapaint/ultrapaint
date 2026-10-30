@@ -23,7 +23,7 @@ import type {
   ImportFigmaTask,
   RedrawTask,
 } from "@ultrapaint/contracts/tasks";
-import { outlineOf, walk } from "@ultrapaint/design-document/tree";
+import { walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { OpenProject } from "../../project.ts";
@@ -38,7 +38,13 @@ import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
-import { needsTools, taskFailure, userAdds } from "./task-text.ts";
+import {
+  needsTools,
+  OUTLINE_DEPTH,
+  taskFailure,
+  treeForAgent,
+  userAdds,
+} from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
 
@@ -214,26 +220,22 @@ properties and its children in its slots; one the application does not have yet 
 `;
 };
 
-/** Past this many characters a page's design is given as an outline, read in parts with the tools. */
-const DESIGN_INLINE_LIMIT = 40_000;
-/** How deep the outline of a page too big to give whole goes. */
-const OUTLINE_DEPTH = 3;
-
 /**
- * A page's design as a task gives it: its tree as compact JSON, or, too big for that and with the
- * tools there to read it in parts, its outline and how to read the rest.
+ * A page's design as a task gives it, as `read_page` does (`treeForAgent`): its tree as compact
+ * JSON, or, too big for that and with the tools there to read it in parts, its outline and how to
+ * read the rest.
  */
 const designOf = (
   root: DesignNode | null,
   ways: AgentWays,
   page: Page
 ): string => {
-  const whole = JSON.stringify(root);
-  if (!(root && ways.tools && whole.length > DESIGN_INLINE_LIMIT)) {
-    return `The design, as the editor holds it:\n${whole}`;
+  const shown = root && ways.tools ? treeForAgent(root) : null;
+  if (!(shown?.outlined && ways.tools)) {
+    return `The design, as the editor holds it:\n${JSON.stringify(root)}`;
   }
   return `The design is large: its outline, ${OUTLINE_DEPTH} levels down (a node there counts its children). Read each part with ${ways.tools.read_page} (route "${page.file}", node its id) as you write it:
-${JSON.stringify(outlineOf(root, OUTLINE_DEPTH))}`;
+${JSON.stringify(shown.tree)}`;
 };
 
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
