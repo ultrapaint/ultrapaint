@@ -6,6 +6,7 @@ import type {
 import { canvasDocOf, childrenOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import {
   applyEdits,
   belongsTo,
@@ -77,7 +78,6 @@ const retitled = (from: string, hash: string, title: string) => ({
   rootId: "root",
 });
 const held = () => useDocuments.getState().docs[HOME];
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("a document's changes", () => {
   beforeEach(() => {
@@ -114,7 +114,7 @@ describe("a document's changes", () => {
     useDocuments.getState().take(retitled("h3", "h4", "Four"));
     expect(held()?.hash).toBe("h1");
     answer(stateAt("h3", "Three"));
-    await settle();
+    await until(useDocuments, () => held()?.hash === "h4");
     expect(held()).toEqual(stateAt("h4", "Four"));
     expect(fakeApi.calls).toHaveLength(1);
   });

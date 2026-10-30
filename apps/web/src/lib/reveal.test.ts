@@ -18,6 +18,7 @@ import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import { showScope } from "./add-to-chat.ts";
 import { reveal } from "./reveal.ts";
 
@@ -118,9 +119,6 @@ const thread = (scope: Thread["scope"]): Thread => ({
   updatedAt: 0,
 });
 
-/** Lets every answer on its way land: a canvas's layout, its documents. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 const initial = useEditor.getState();
 /** The canvas on screen, measured as `VIEWPORT`; called, it leaves the screen. */
 let hideCanvas: () => void = () => undefined;
@@ -139,9 +137,11 @@ beforeEach(async () => {
     pages: [home, about],
   });
   useEditor.setState(initial, true);
+  // Each test reads the canvas's documents anew: what another left there is not this one's.
+  useDocuments.setState({ canvas: null, docs: {}, loaded: false });
   hideCanvas();
   await goTo({ canvas: "main" });
-  await settle();
+  await until(useDocuments, (s) => s.canvas === "main" && s.loaded);
   useEditor.setState({ view: START, workspace: "design" });
   hideCanvas = measureViewportWith(() => VIEWPORT);
 });

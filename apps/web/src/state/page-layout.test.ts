@@ -52,7 +52,12 @@ const layoutOf = (frames: CanvasLayout["frames"] = {}): CanvasLayout => ({
 
 const initial = useEditor.getState();
 
-/** Lets what the answers given set off run its course. */
+/**
+ * Lets the promise jobs an answer queued run, and waits for no time: a timer of 0 runs after every
+ * job queued before it. Two tests need it, as nothing tells a save done but `layoutSaved`, which
+ * waits for all of them: one that a first save answered no longer holds its page, one that an undo
+ * has not gone out before the save it waits for is answered (what did not happen has no signal).
+ */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
@@ -244,7 +249,7 @@ describe("saving the layout", () => {
   let answers: (() => void)[] = [];
   let stop: () => void = () => undefined;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     answers = [];
     fakeApi.respond(
       "canvas.set",
@@ -254,7 +259,6 @@ describe("saving the layout", () => {
         })
     );
     stop = followServer({ report: () => undefined });
-    await settle();
     applyLayout("main", saved);
   });
 

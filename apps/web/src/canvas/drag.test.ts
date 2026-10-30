@@ -10,6 +10,7 @@ import {
   useBoard,
 } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
+import { editFrameAs } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { select } from "../state/selection.ts";
@@ -201,6 +202,8 @@ describe("a node dragged out of an app component's tree on its board (ADR 0045)"
   it("lands nowhere on the board view's ground, which is no document", async () => {
     fakeApi.reset();
     fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    // No component edited in place: neither its isolation nor the frame its edits went to.
+    editFrameAs(null);
     useIsolation.setState({ isolated: null });
     useComponents.setState({
       components: [

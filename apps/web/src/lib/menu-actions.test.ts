@@ -23,7 +23,7 @@ import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { useComponents } from "../state/components.ts";
 import type { MenuTarget } from "../state/context-menu.ts";
-import { useDocuments } from "../state/documents.ts";
+import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
 import { useIsolation } from "../state/isolation.ts";
@@ -273,6 +273,8 @@ const setUp = () => {
       },
     ],
   });
+  // No component edited in place: neither its isolation nor the frame its edits went to.
+  editFrameAs(null);
   useIsolation.setState({ isolated: null });
   useBoard.setState(initialBoard, true);
 };

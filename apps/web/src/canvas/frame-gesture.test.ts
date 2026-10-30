@@ -296,9 +296,8 @@ describe("a frame gesture", () => {
         layout: { frames: { [home.path]: frame }, version: 1 },
       });
 
-    beforeEach(async () => {
+    beforeEach(() => {
       stop = followServer({ report: () => undefined });
-      await new Promise((resolve) => setTimeout(resolve, 0));
       useEditor.setState({ frames: { [home.id]: start } });
     });
 
