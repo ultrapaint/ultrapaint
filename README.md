@@ -361,9 +361,10 @@ them. ⌘K (Ctrl+K) finds any command by its name: a panel, a tool, a zoom, what
 right-click menu offers, a page, a canvas or a chat.
 
 The editor is cards floating over the canvas: the project at the top left, the rail of panels
-under it (Agents first, then Layers, Assets, Design system, Comments and Changes) beside the left
-panel, the tools in a column next to it, and at the top right the commands, the prototype (▷)
-and the right panel, with the inspector and the code. Each side panel is put away on its own: with
+under it (Agents, Layers, Design system, Library and Changes) beside the left panel, the tools in
+a column next to it (the first, **+**, inserts a row, a column, a text or an image), and at the
+top right the commands, the prototype (▷) and the right panel, with the inspector, the code and
+the comments. Each side panel is put away on its own: with
 the right one away the canvas is the agent's, with the chat beside it. ⌃1 is the canvas and ⌃2
 the prototype on a Mac, Alt+1 and Alt+2 elsewhere. In the desktop app on a Mac the window's
 buttons sit in the project's card, and dragging the cards at the top moves the window.
@@ -397,7 +398,8 @@ but it keeps the link between the two:
 - **Behaviour notes.** A comment can be a behaviour note: what the code must do that a design
   cannot show ("only admins can delete", "disabled until the form is valid"). It is pinned to its
   element and goes to the code with the page. A component has its own, in its file (the
-  Components tab's **Behaviour**), and they go to the code when it is implemented.
+  **Notes** of its board's inspector, in the Library), and they go to the code when it is
+  implemented.
 - **Bringing a project in.** Pages built before the project came into the editor start as
   drafts. Pick several in the Pages panel (⌘ or Shift) to **Mark them ready** at once, or **Find
   their code with an agent** (`/implement --adopt`, also in a canvas's menu): an agent finds the
@@ -425,8 +427,23 @@ two origins, each kept as a file of the designs directory, `components/<Name>.co
 - **App components** are yours, built from system components and other app components: a
   pricing card, a site header.
 
-Layout, text and image nodes are **elements**. The Assets panel lists the elements, then the
-System and the App components.
+Layout, text and image nodes are **elements**, inserted from the **+** at the head of the tools.
+The **Library**, on the rail, lists the App components, then the System components, as a list or
+as thumbnails: a click inserts one into the selection, a drag places it anywhere, **↗** opens its
+board, and **+ New** makes an empty app component and opens its board. Colours, type and spacing
+are in **Design system**.
+
+**Boards.** Opening Design system, or a component in the Library, shows that item alone on a
+canvas of its own, blue-tinted and dotted so that it is never taken for the pages: its **boards**,
+drawn by the renderer that draws the pages from the design system and the component files, so
+they cannot drift from them. The camera is the canvas's (wheel, pan, zoom), an item first seen
+fits between the panels, the URL says where you are (`?view=library&item=Button`) so a reload or a
+link lands on it, and **Back to** the page, or the browser's back, returns to the page as it was.
+On a board the left panel is the list to go from item to item (the Library's **Overview** shows
+every component), and the right panel is the inspector of what is open and picked there. Its
+title has the chat button the element toolbar has on a page: what is picked (a token, a text
+style, a guideline, a component at a variant and a state) goes to the chat, and an agent is told
+what it is, what it is now and the file it is kept in.
 
 Select a component and the inspector lists its props and its **slots** — a Dialog's trigger,
 header, content and footer — with what fills each and a **+** that adds a text, a row, a column
@@ -439,19 +456,22 @@ open where its `open` prop says, and nothing in the frame takes the pointer; in 
 with the interact tool the system components behave (a menu opens, items take the hover, Escape
 and a click outside close it), each in its own frame.
 
-**A system component's look is yours.** The Design system panel's **Components** tab lists them,
-each in its **default look** (over your tokens) or **your look**: open one to **take the look
-over**, which starts its file from the default's values, and the panel draws it live in each
-variant and state (hover, focus, disabled, open, checked, highlighted…) while the fields set any
-part of it in your tokens. Pick a variant, a state, or both: both together set that state in that
-variant alone (an outline button's hover), over the state's own values, and a field left empty
-says what it takes and from where (the state, the variant, the base or the default look). The
+**A system component's look is yours.** Its board in the Library draws it in every variant and
+every state at full size (hover, focus, disabled, open, checked, highlighted…), the members and
+the states named, and a board for each further axis (Button's sizes); the interact tool makes
+hover and press live there. It is in its **default look** (over your tokens) until you **take the
+look over** (in the inspector, or its "…"), which starts its file from the default's values. Click
+a cell to pick its place, or pick a Variant and a State in the inspector: both together set that
+state in that variant alone (an outline button's hover), over the state's own values, and a field
+left empty says what it takes and from where (the state, the variant, the base or the default
+look). A value is drawn on every board and page as it is typed or gone through in a field's list,
+and a field committed is one step you can undo. The
 fields set: its fill, text, border, radius, padding (per side), size, gap, shadow,
 and how it lays out what it holds (direction, alignment, order); a value can be any CSS over your
 tokens' variables, a hover's `color-mix()`. It can leave out an optional
 part (a dialog's close, a card's description), give a slot content for when an instance gives it
 none, and draw a Select's or a Menu's items from nodes of yours (**Use selection**). **Reset to
-default** removes the file. **Implement** has an agent give your application's own component that
+default look**, in its "…", removes the file. **Implement** has an agent give your application's own component that
 look, in whatever library it is written with. A component that adds behaviour, or takes away a
 trigger, a popup or an item, is an app component built on the system one.
 
@@ -469,8 +489,10 @@ properties are its props in the inspector; **Detach** turns it back into plain n
 property or one of a choice's members, or taking one out, follows into its variants and every
 instance's props, in one step you can undo; two properties, slots or members cannot share a name.
 **Implement** writes an app component as a component of your application, a prop for each
-property and children for its slots. The Components tab draws one at its own width, or a page's,
-scaled to the panel.
+property and children for its slots. Its board in the Library draws each of its variants side by
+side: a click picks one, a double-click edits the tree in place there (Layers lists it, the edits
+landing on that variant), and the inspector lists its properties, variants (with how many fields
+each overrides), slots, where it is used and its notes.
 
 A page made before, with your application's own components, draws each of them as a stand-in.
 **Sync** offers to bring the designs up to date in one step you can undo: a component is matched
@@ -507,9 +529,16 @@ The design system is two files, both meant to be committed:
 the same in the [Design Tokens format](https://www.designtokens.org/tr/2025.10/) for Style
 Dictionary, Tokens Studio and Figma's variables. When one of those tools changes
 `design.tokens.json`, the editor does not write over it: Sync offers what it changed (**Take
-design.tokens.json's changes into the design system**), then writes the file again. Right-click a
-token in the Design system panel and **Edit** changes the design, one undo step; the canvas draws
-it at once, over your stylesheet's value. The code follows when you export it from Sync (**Bring
+design.tokens.json's changes into the design system**), then writes the file again. **Design system**,
+on the rail, lists the **Foundations** it has tokens for (Color, Typography, Spacing, Radius,
+Elevation, Motion, Breakpoints) and the **Guidelines**, `DESIGN.md`'s sections, with a search over
+the tokens, and opens each as boards: every palette as its ramp, 50 to 950, the light and the dark
+theme side by side, with the usual pairs of foreground and background and their contrast; the
+type scale and the text styles; the other tokens as specimens, the easings animated. Click a token
+and the inspector edits its value in each theme, its description and its group, says where it is
+used and deletes it; a palette offers **Generate ramp from…** one colour, and a text style its
+font, size, weight, leading and tracking. Each change is one undo step, and the canvas draws it
+as you type, over your stylesheet's value. The code follows when you export it from Sync (**Bring
 the code up to the design**, or `/sync code` for an agent to settle it with you), which writes
 your stylesheet in the theme block the token is declared in. Turn on **Write token changes to the
 code at once** there to have every edit reach the stylesheet as it is made.
@@ -517,10 +546,9 @@ code at once** there to have every edit reach the stylesheet as it is made.
 `DESIGN.md`'s front matter mirrors those values in the default theme; its body says how dark mode
 differs. When the design system changes a value, the front matter follows. When someone changes a
 value in `DESIGN.md`, by hand, from Stitch or in a pull, it waits in Sync, matched and compared
-with the design system's as a Figma file's tokens are, until you take it in. The panel's **DESIGN.md**
-tab shows the document section by section, with an **Edit** on each and what the linter says
-above them, and the colour, type, spacing and radius tabs show their section's prose above the
-tokens.
+with the design system's as a Figma file's tokens are, until you take it in. A guideline's board
+shows its section as a document, edited in the inspector beside it and drawn as you type; what
+the linter says is listed under the guidelines.
 
 ### Sync
 
@@ -603,13 +631,13 @@ A project takes a skill over with a markdown file in `skills/` inside the design
 **Replace…** and **Extend…** in Settings start that file for you, as one undo step. The file's
 first heading is its title and the paragraph after it the summary Settings show.
 
-The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
-spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Assets** panel lists the system components or shows them as a
-grid of thumbnails, drawn with the example props.
+**Design system**'s boards show them: swatches per theme, type specimens in your own fonts,
+spacing, radius, shadows, elevation, border widths, layout and motion tokens. The **Library**
+lists the components, or shows them as a grid of thumbnails drawn with the example props.
 
 ## Importing a Figma file
 
-**Import a Figma file…** (in the Design system panel, the Sync view, the canvas list or a
+**Import a Figma file…** (in Design system's Sync view, the canvas list or a
 canvas's right-click menu) takes a `.fig` file (File → Save local copy in Figma) and opens Sync on
 it. Its tokens come first: variables mode by mode (Light and Dark become your themes), aliases
 followed, and colour and shadow styles, named the way your code names tokens
@@ -680,11 +708,14 @@ type after it is added to it.
 
 | Where | What to do there |
 |---|---|
-| Design system panel → **Sync** (⟳), or its empty state | Bring the design system and the code together, whatever you start from |
-| Design system panel → **Import a Figma file…** | Take a `.fig` file's tokens, then its frames |
-| Design system panel → right-click a token | Copy it, apply it to the selection, **Edit the value in the code…** |
-| Design system panel → the wand | Run `/init` again |
-| Assets panel | Your components, as a list or thumbnails; drag one onto the canvas |
+| Design system → **Sync** (⟳), or its empty state | Bring the design system and the code together, whatever you start from |
+| Design system → Sync → **Import a Figma file…** | Take a `.fig` file's tokens, then its frames |
+| Design system → a foundation or a guideline | Its boards; click a token, a group or a text style to edit it in the inspector |
+| Design system → the wand | Run `/init` again |
+| Library, on a page | Your components, as a list or thumbnails: click to insert, drag onto the canvas, ↗ for its board, **+ New** |
+| Library → a component's board | Its look in every variant and state, or an app component's variants; the inspector edits it |
+| Tools → **+** | Insert a row, a column, a text or an image |
+| A board's inspector → the chat button | Send what is picked to the chat |
 | Pages panel → **Implement** | `/implement` for that page |
 | Settings → Repository | Where the components, stylesheets and designs are; **Write to git**, off unless you want the Changes panel to commit; **Rename to ultrapaint.config.json** for an old file |
 | Settings → Editor → **Display name** | The name your comments are signed with when git has none |

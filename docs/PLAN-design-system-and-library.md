@@ -1,9 +1,9 @@
 # Plan: the Design system and the Library
 
-Status: accepted, 2026-10-30; Phases 1 to 6 done (the merge of `feat/primitives`, the sketch, this
-plan and [ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system, Library but
-6.6, which goes with Phase 7). Amends 0028, 0029, 0032, 0040, 0041
-and 0044 as the ADR says.
+Status: accepted, 2026-10-30; done (the merge of `feat/primitives`, the sketch, this plan and
+[ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system, the Library, the
+agents told what is picked and what went); Phase 8 is what is left for later. Amends 0028, 0029,
+0032, 0040, 0041 and 0044 as the ADR says.
 
 ## Why
 
@@ -242,8 +242,8 @@ The boards' first view starts 32px past the left panel and Color's two themes 24
       component changes).
 - [x] 6.5 + New: `components.create {name}` (contract, `ComponentService`, handler), an app
       component with an empty column, its board opened; ↗ on a tile opens the board.
-- [ ] 6.6 The Components tab goes (`ComponentsView` and its list); `specimens-drawing.test.tsx`
-      tests the boards instead of `Matrix`.
+- [x] 6.6 The Components tab goes (`ComponentsView` and its list); `specimens-drawing.test.tsx`
+      tests the boards instead of `Matrix` (done with Phase 7).
 
 Tests: `boards/library-boards.test.ts` (the overview, the matrix's cells and states, an app
 component's frames per member); `component-files.test.ts` and the server's components test for
@@ -282,7 +282,7 @@ component wider than one to it, its width measured once drawn when its tree hugs
 
 ### Phase 7: agent context, and what goes
 
-- [ ] 7.1 A board's pick is an attachment: `PromptAttachment` gains `board {kind: "token" |
+- [x] 7.1 A board's pick is an attachment: `PromptAttachment` gains `board {kind: "token" |
       "component" | "guideline", name, variant?, state?, file}`
       (`packages/contracts/src/threads.ts`); `chipOfSelection` and `attachmentsOf`
       (`state/attachments.ts`) make it on a board; `scopeOf` and `attachmentBlocks`
@@ -290,13 +290,13 @@ component wider than one to it, its width measured once drawn when its tree hugs
       color-primary-600 of the design system: light #2563eb, dark #60a5fa") with its file
       (`design-system.json`, `components/<Name>.component.json`) as a resource link. The
       inspector's title has the chat button the element toolbar has on a page.
-- [ ] 7.2 The old Design system panel goes (`panels/design-system.tsx`'s Contents, `Swatches`,
+- [x] 7.2 The old Design system panel goes (`panels/design-system.tsx`'s Contents, `Swatches`,
       `TokenRows`, `ElevationRows`, the Tokens and DESIGN.md tabs) once the boards draw all of
       it; `panels/design-components.tsx` is gone by 6.6.
-- [ ] 7.3 The Assets panel goes (`panels/assets.tsx`); `useThumbnails` lives in
+- [x] 7.3 The Assets panel goes (`panels/assets.tsx`); `useThumbnails` lives in
       `lib/thumbnails.ts` for the Library; dead code found by the typecheck and by a search for
       `assets` goes with it.
-- [ ] 7.4 Docs: `README.md` (the rail, the Design system and Library sections, the table of
+- [x] 7.4 Docs: `README.md` (the rail, the Design system and Library sections, the table of
       where things are), `GLOSSARY.md` (Element offered by the Insert menu, the Components tab's
       look gone from "The design's look"), the ADR index, this plan's status.
 
@@ -306,7 +306,44 @@ Tests: `state/attachments.test.ts` for a board's chip; `threads.test.ts` /
 Checks: `pnpm -r test`, the typecheck, biome, `pnpm bench:canvas`, and the four sketched screens
 side by side with the editor's.
 
+As built: the attachment is `{kind: "board", pick, name, variant?, state?, detail?, file}`
+(`BoardAttachment`), `pick` one of `token`, `group`, `textStyle`, `foundation` (the item open with
+nothing picked), `guideline`, `systemComponent`, `appComponent`; `detail` is what it is now (a
+token's value in each theme, a group's tokens, a text style's fields, a component still in its
+default look, a variant that is its choice's default member). The web makes it in
+`lib/board-chip.ts` (`boardChipOf`, pure, tested in `lib/board-chip.test.ts`) and holds it as a
+chip like a node's (`state/attachments.ts`, keyed by what it is and where); the server tells it with
+`boardPickText` in `services/threads/turns.ts` (tested in `board-pick.test.ts`), saying where a
+system component's file keeps the look at the place picked (`variantStates.variant.outline.hover`),
+the file linked when it exists; it gives a thread no scope. The chat button is `BoardChatButton`
+(`canvas/element-toolbar-chat.tsx`) in `BoardInspector`'s title, and the composer sends the pick
+along, dashed, when nothing is attached. A click on an app component's board picks its variant
+(its sheet is `variant:tone=featured`); the board its tree is edited in place on is the variant
+told, and a node selected there is a node's chip with the component's file (`fileOfFrame` follows
+`editFrameAs`), on a page as on a board. What went: `panels/design-system.tsx`,
+`panels/design-components.tsx` (with `matrixOf`), `panels/design-md-view.tsx` (`placeDocument`
+moved to `lib/place-document.ts`), the token and text style right-click menus that only the old
+panel opened (with `lib/token-edit.ts`), the Library menu's element flag, `ELEMENTS` (now the type
+`ElementId`) and a few exports nothing read; `panels/assets.tsx` had gone in 4.1. DESIGN.md's
+linter findings, shown only by the old panel's DESIGN.md tab, are listed under the Guidelines.
+`specimens-drawing.test.tsx` is `canvas/board-drawing.test.tsx`. Polish from the Phase 6
+screenshots: an item first seen is fitted between the panels, never past 100% (`firstBoardView`
+in `lib/board-layout.ts`, `fitFirstView` once every board is measured, unless the camera was
+moved); Button's `icon` size draws a plus rather than its label; the inspectors' labels read
+whole ("Default" for a property's value when not set, a padding's sides as Top, Right, Bottom,
+Left under Padding, a note's part on a line of its own); and a frame's React root is unmounted
+right after the editor's commit rather than in it (`renderToCanvas`'s `unmount`), which ends the
+"synchronously unmount a root" warning on leaving or switching boards and the prototype. The
+bench's "Layers, open" (486 ms after Phase 6, 346 after Phase 4) was measured again interleaved
+against `b172574`, five runs each: 358 ms and 354 ms at the median, the first run of each server
+near 500 on both (Layers' chunk compiled by Vite the first time it is opened), so no regression.
+
 ### Phase 8: later, not now
 
-Renaming a token (pages and code rewritten), gradient tokens, an Everything canvas, icons and
-images in the Library.
+- Renaming a token (pages and code rewritten).
+- Gradient tokens.
+- An Everything canvas: every board of the design system and the Library on one canvas.
+- Icons and images in the Library.
+- Editing elevation levels and animations (easing, duration pairs) as tokens on their boards.
+- "Used in" across every canvas, not only the pages of the one open.
+- Layers showing the text a variant overrides, rather than the component's own.
