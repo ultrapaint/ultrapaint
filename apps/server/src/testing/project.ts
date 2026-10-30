@@ -7,21 +7,24 @@
  * `TEST_PORT`, so a thread's MCP address is known and its prompts reach the scripted agent.
  */
 import { NodeServices } from "@effect/platform-node";
+import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import {
   defaultSettings,
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import type { Tool, Toolkit } from "effect/ai";
+import { RpcTest } from "effect/rpc";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { ListenPort } from "../listen-port.ts";
 import { ProjectManager } from "../project.ts";
+import { RpcHandlers } from "../rpc-handlers.ts";
 import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
-import { makeFixture } from "./harness.ts";
+import { makeFixture, TestEnv } from "./harness.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** The port a test's server says it listens on: nothing does, and no scripted agent connects. */
@@ -161,6 +164,29 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
         : NodeServices.layer
     )
   );
+
+/**
+ * The editor's requests in-process: the RPC handlers, which only route, over a project of the
+ * test's own, called through an in-memory client with no socket and no port. It gives the socket
+ * harness's `TestEnv`, so a test of what the services do is written as the editor asks for it;
+ * what only the wire does (schema rejection, the origin and token guards, event streaming over a
+ * socket, health) stays on `TestServer`.
+ */
+export const ProjectRpc = (options: ProjectTestOptions = {}) =>
+  Layer.effect(
+    TestEnv,
+    Effect.gen(function* () {
+      const { home, repo, settings } = yield* ProjectFixture;
+      const client = yield* RpcTest.makeClient(UltrapaintRpcs);
+      return { client, home, port: 0, repo, settings };
+    })
+  ).pipe(Layer.provide(RpcHandlers), Layer.provideMerge(ProjectTest(options)));
+
+/** A test's own project, asked through `ProjectRpc`: each test builds its world. */
+export const inAProject =
+  (options: ProjectTestOptions = {}) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(ProjectRpc(options)), Effect.scoped);
 
 /**
  * One of the editor's MCP tools, called as an agent's call reaches its handler: the parameters
