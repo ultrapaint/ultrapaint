@@ -178,15 +178,17 @@ follow-ups.
 - **Migration**: what came before ADRs 0040 and 0041 brought up to date in one undo step, Sync's
   one step (the server's `Migration` and its `migration.run`, on system-components' pure
   `migrate.ts`).
-- **Element**: a layout, text or image node, what is not a component, which the Assets panel
-  offers above the components (`ELEMENTS`, `newElement`).
+- **Element**: a layout, text or image node, what is not a component, which the tools' **Insert**
+  menu offers (`ElementId`, `newElement`, `INSERTED_ELEMENTS`); the Library offers the components.
 - **Preview**: what draws the editor's frames (preview-core's `Preview`): the frames, a renderer
   mounted through the core's seam `RenderToCanvas` (the React renderer, or the scripted one of the
   tests), the system components. Nothing of the repository's runs in it.
 - **The design's look**: the project's components and the stylesheet drawn from them and the
   design system (`designCss`), set once on the preview (`setLook`, which `followLook` keeps
-  current) and shared by every frame; a frame given a look of its own with a request (the
-  Components tab's unsaved one) draws it in a stylesheet of its own.
+  current) and shared by every frame; a frame given a look of its own with a request draws it in
+  a stylesheet of its own. A look is edited live: the part's style being typed is laid
+  over the saved files as a **look draft** (`draftStyle`), drawn by every frame, until it is
+  committed as one `setStyle`.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool
   that parks it (`editor-frame`).
 - **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
@@ -249,7 +251,9 @@ follow-ups.
   item of the design system or the Library (ADR 0045): a palette's ramps in a theme, a type
   scale, a system component in every variant and state, an app component in one variant. Its
   nodes are named for what they stand for, so a click on one **picks** it (a token, a cell, a
-  variant), and the right panel is the inspector of what is picked.
+  variant), and the right panel is the inspector of what is picked. A pick sent to the chat is a
+  **board attachment**: what it is, what it is now and its file, told to the agent in a sentence
+  (`boardPickText`), with no tool added.
 - **Board view**: the main area while a Design system or Library item is open (ADR 0045): the
   canvas's pan and zoom over that item's boards only, on a tinted dotted background of its own
   and with a camera of its own, no element toolbar, the URL saying the item

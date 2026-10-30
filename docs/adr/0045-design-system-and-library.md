@@ -106,5 +106,17 @@ Overview and on Design system.
   selection and its performance as they were.
 - An agent is told what is picked on a board through what a task and a selection already carry,
   so what it reads does not grow.
+- What was learnt building it (the plan's "As built" notes have the detail): a board keeps a
+  layout the document format has no word for in a stylesheet of its own (Motion's animation, the
+  matrix's grid, the Overview's scaled tiles); an item first seen is fitted between the panels,
+  never zoomed in past 100%; a click on an app component's board picks its variant, and the tools'
+  Insert menu shows on a board while its tree is edited in place; the right-click menu on a token
+  went with the panel, its value edited in the inspector; what DESIGN.md's linter says is listed
+  under the guidelines.
+- What an agent is told of a board's pick is a prompt attachment of its own, `board`: what it is
+  (a token, a colour group, a text style, a foundation, a guideline, a system component at a
+  variant and a state, an app component at a variant), what it is now and its file, said in a
+  sentence by the server; a node of a tree edited in place is attached with the component's file.
 - Left for later: renaming a token, gradient tokens, a canvas of everything, icons and images in
-  the Library.
+  the Library, editing elevation levels and animations as tokens, "Used in" across every canvas
+  rather than the one open, and Layers showing what a variant overrides in a text.
