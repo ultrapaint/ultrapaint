@@ -96,6 +96,25 @@ export type TaskRequest = typeof TaskRequest.Type;
 export const taskPurpose = (request: TaskRequest): ThreadPurpose =>
   request._tag === "Implement" ? "implement" : "design";
 
+/**
+ * Whether the thread that runs a task draws designs, and is told the design skills, which the
+ * design evals were tuned with (ADR 0043): a canvas redrawn, a Figma file made pages, the design
+ * system imported or defined. Implementing, linking pages built already, mapping and migrating
+ * the code and matching tokens draw nothing.
+ */
+export const drawsDesigns = (request: TaskRequest): boolean => {
+  switch (request._tag) {
+    case "Init":
+    case "ImportFigma":
+    case "Redraw":
+      return true;
+    case "SetupStep":
+      return request.step === "define";
+    default:
+      return false;
+  }
+};
+
 const ROOT_CANVAS = '""';
 const ADOPT_FLAG = "--adopt";
 const WHITESPACE_RE = /\s+/;

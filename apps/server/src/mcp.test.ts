@@ -1,5 +1,14 @@
+import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Fiber, type Layer, Option, type Scope, Stream } from "effect";
+import {
+  Effect,
+  Fiber,
+  FileSystem,
+  type Layer,
+  Option,
+  type Scope,
+  Stream,
+} from "effect";
 import { McpSchema } from "effect/ai";
 import { EventBus } from "./events.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
@@ -310,6 +319,68 @@ describe("the editor's MCP server, over the wire", () => {
             (p) => p.route
           ),
           "/home"
+        );
+      })
+  );
+
+  onAServer(
+    "serves the design skills as resources, a project's own file in place of a built-in",
+    () =>
+      Effect.gen(function* () {
+        const { client, port, repo, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const { token } = yield* client["mcp.connection"]();
+        const fs = yield* FileSystem.FileSystem;
+        const json = (body: {
+          method: string;
+          params?: Record<string, unknown>;
+        }) =>
+          callMcp(port, token, body).pipe(
+            Effect.flatMap((response) =>
+              Effect.promise(
+                () =>
+                  response.json() as Promise<{
+                    result: {
+                      contents?: { text: string; uri: string }[];
+                      resources?: { name: string; uri: string }[];
+                    };
+                  }>
+              )
+            )
+          );
+        const listed = yield* json({ method: "resources/list" });
+        assert.includeMembers(
+          (listed.result.resources ?? []).map((r) => r.uri),
+          ["skill://ultrapaint/layout", "skill://ultrapaint/spacing"]
+        );
+        const read = (uri: string) =>
+          Effect.map(
+            json({ method: "resources/read", params: { uri } }),
+            (answer) =>
+              answer.result?.contents?.[0]?.text ?? JSON.stringify(answer)
+          );
+        assert.include(
+          yield* read("skill://ultrapaint/spacing"),
+          "Before you finish"
+        );
+        yield* fs.makeDirectory(path.join(repo, "designs/skills"), {
+          recursive: true,
+        });
+        yield* fs.writeFileString(
+          path.join(repo, "designs/skills/spacing.md"),
+          "# Spacing\n\nOurs: an 8px grid.\n"
+        );
+        yield* fs.writeFileString(
+          path.join(repo, "designs/skills/voice.md"),
+          "# Voice\n\nPlain words.\n"
+        );
+        assert.include(
+          yield* read("skill://ultrapaint/spacing"),
+          "Ours: an 8px grid."
+        );
+        assert.include(
+          yield* read("skill://ultrapaint/voice"),
+          "Plain words."
         );
       })
   );
