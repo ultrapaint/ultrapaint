@@ -30,7 +30,8 @@ import { makeExists } from "../fs-exists.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { toPosix } from "../hash.ts";
 import { safeCanvasId } from "../ids.ts";
-import { EditService, type EditTransaction } from "./edit.ts";
+import { canvasCodec, readCanvasText } from "./canvas-file.ts";
+import { EditService, type EditTransaction, updateFile } from "./edit.ts";
 import {
   canvasIdsIn,
   decodeOrder,
@@ -38,8 +39,6 @@ import {
   IGNORED_DIRS,
   pageListOf,
   pageOf,
-  parseCanvas,
-  renderCanvas,
 } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -78,7 +77,7 @@ export const makePagesReading = Effect.gen(function* () {
     if (text === null) {
       return emptyCanvasLayout();
     }
-    const { layout } = yield* parseCanvas(text).pipe(
+    const { layout } = yield* readCanvasText(text).pipe(
       Effect.mapError(
         (error) =>
           new Conflict({
@@ -95,13 +94,13 @@ export const makePagesReading = Effect.gen(function* () {
     );
   });
 
+  /** Changes the layout inside an action, read as the action has it. */
   const updateCanvas = Effect.fnUntraced(function* (
     tx: EditTransaction,
     canvas: string,
     update: (layout: CanvasLayout) => CanvasLayout
   ) {
-    const layout = yield* readCanvas(canvas);
-    yield* tx.write(yield* canvasFile(canvas), renderCanvas(update(layout)));
+    yield* updateFile(tx, yield* canvasFile(canvas), canvasCodec, update);
   });
 
   /**
@@ -117,14 +116,10 @@ export const makePagesReading = Effect.gen(function* () {
     canvas: string,
     update: (frames: CanvasLayout["frames"]) => CanvasLayout["frames"] | null
   ) {
-    const layout = yield* readCanvas(canvas);
-    const frames = update(layout.frames);
-    if (frames) {
-      yield* tx.write(
-        yield* canvasFile(canvas),
-        renderCanvas({ ...layout, frames })
-      );
-    }
+    yield* updateCanvas(tx, canvas, (layout) => {
+      const frames = update(layout.frames);
+      return frames ? { ...layout, frames } : layout;
+    });
   });
 
   // ---- the order of the list ----
