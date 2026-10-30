@@ -31,6 +31,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -123,17 +124,27 @@ const shotFrameOf = (
     ? frameIdOf(canvas)
     : (page?.id ?? "");
 
-const COMMAND_QUERY_RE = /^\/([a-z-]*)$/;
+const COMMAND_QUERY_RE = /^\/([\w-]*)$/;
 
-/** The commands a prompt may start with, read once for every composer. */
-const useCommands = () => {
+/**
+ * The commands a prompt may start with: the editor's, read once for every composer, then the
+ * ones the thread's agent says its session has (`create_plan`), which go to it as typed.
+ */
+const useCommands = (thread: Thread) => {
   const commands = useSlashCommands((s) => s.commands);
   useEffect(() => {
     if (!useSlashCommands.getState().loaded) {
       useSlashCommands.getState().load();
     }
   }, []);
-  return commands;
+  const { agentCommands } = thread;
+  return useMemo(() => {
+    const own = new Set(commands.map((c) => c.name));
+    return [
+      ...commands,
+      ...(agentCommands ?? []).filter((c) => !own.has(c.name)),
+    ];
+  }, [commands, agentCommands]);
 };
 
 export const Composer = ({ thread }: { thread: Thread }) => {
@@ -174,7 +185,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     dismissed.includes(chipKey(selectedChip))
       ? []
       : [selectedChip];
-  const commands = useCommands();
+  const commands = useCommands(thread);
   const [commandIndex, setCommandIndex] = useState(0);
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
@@ -222,7 +233,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     setText(e.target.value);
     setCommandIndex(0);
   };
-  // A `/` at the start offers the commands the server expands, until the name is typed.
+  // A `/` at the start offers the commands, the server's and the agent's, until the name is typed.
   const commandMatch: RegExpExecArray | null = COMMAND_QUERY_RE.exec(text);
   const commandQuery = commandMatch?.[1];
   const offered =

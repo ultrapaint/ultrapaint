@@ -789,6 +789,32 @@ describe("a turn", () => {
       assert.strictEqual(thread.configOptions?.[0]?.currentValue, "auto");
     }));
 
+  test("keeps the commands the agent's session says it has, for the composer to offer", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* started();
+      yield* turn.update({
+        availableCommands: [
+          {
+            description: "Review the changes",
+            input: { hint: "<branch>" },
+            name: "review",
+          },
+          { description: "Plan first", name: "create_plan" },
+        ],
+        sessionUpdate: "available_commands_update",
+      });
+      yield* turn.end();
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(thread.agentCommands, [
+        {
+          argument: "<branch>",
+          description: "Review the changes",
+          name: "review",
+        },
+        { description: "Plan first", name: "create_plan" },
+      ]);
+    }));
+
   test("briefs the agent once per session, for the thread's purpose", () =>
     Effect.gen(function* () {
       const { agent, threadId, turn } = yield* started();

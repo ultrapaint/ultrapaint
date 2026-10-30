@@ -703,6 +703,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       yield* transition(
         { _tag: "AgentSwitched" },
         {
+          agentCommands: undefined,
           configOptions: undefined,
           context: undefined,
           currentModeId: undefined,
