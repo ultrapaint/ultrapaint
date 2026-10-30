@@ -3,7 +3,11 @@
  * Pure: it returns what should happen, and the turn's cursor after it, and leaves persistence,
  * publishing and keeping the cursor to the caller.
  */
-import type { SessionNotification } from "@ultrapaint/acp/acp-agent";
+import type {
+  SessionConfigOption,
+  SessionConfigSelectOptions,
+  SessionNotification,
+} from "@ultrapaint/acp/acp-agent";
 import type {
   Thread,
   ThreadItem,
@@ -128,44 +132,32 @@ const withoutCdToRoot = (title: string, ctx: ProjectionContext) => {
     : title;
 };
 
-interface RawConfigOption {
-  readonly category?: string | null;
-  readonly currentValue: unknown;
-  readonly id: string;
-  readonly name: string;
-  readonly options?: readonly {
-    readonly description?: string | null;
-    readonly name: string;
-    readonly value: string;
-  }[];
-  readonly type: string;
-}
-
 const BOOLEAN_OPTIONS = [
   { name: "On", value: "true" },
   { name: "Off", value: "false" },
 ];
 
+/** A select's choices, the groups an agent sorts them in (a model's providers) laid flat. */
+const choicesOf = (options: SessionConfigSelectOptions) =>
+  options
+    .flatMap((o) => ("group" in o ? o.options : [o]))
+    .map((x) => ({
+      name: x.name,
+      value: x.value,
+      ...(x.description ? { description: x.description } : {}),
+    }));
+
 /** Agents describe select and boolean options; the editor renders both as a list of choices. */
-export const mapConfigOptions = (options: unknown): Thread["configOptions"] => {
-  if (!Array.isArray(options)) {
-    return;
-  }
-  return (options as RawConfigOption[]).map((opt) => ({
+export const mapConfigOptions = (
+  options: readonly SessionConfigOption[] | null | undefined
+): Thread["configOptions"] =>
+  options?.map((opt) => ({
     id: opt.id,
     name: opt.name,
     ...(opt.category ? { category: opt.category } : {}),
     currentValue: String(opt.currentValue),
-    options:
-      opt.type === "boolean"
-        ? BOOLEAN_OPTIONS
-        : (opt.options ?? []).map((x) => ({
-            name: x.name,
-            value: x.value,
-            ...(x.description ? { description: x.description } : {}),
-          })),
+    options: opt.type === "boolean" ? BOOLEAN_OPTIONS : choicesOf(opt.options),
   }));
-};
 
 interface RawQuota {
   readonly model_usage?: readonly {

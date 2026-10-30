@@ -26,6 +26,7 @@ import {
 import { Foundation, ThreadsLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
+import { ListenPort } from "../listen-port.ts";
 import { ProjectManager, type ProjectServices } from "../project.ts";
 import { RepoPaths } from "../services/repo-paths.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
@@ -34,6 +35,7 @@ import { SlashCommands } from "../services/threads/commands.ts";
 import { ThreadStore } from "../services/threads/thread-store.ts";
 import { WorkingTree } from "../services/working-tree.ts";
 import { makeFixture } from "./harness.ts";
+import { TEST_PORT } from "./project.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** Where the test's threads work: the fixture folder, and the home their state is kept in. */
@@ -178,9 +180,12 @@ export const SCRIPTED_SANDBOX_META = { scripted: { sandbox: false } };
 /**
  * Thread services on a fresh fixture, with the agents the test plays. Build one per test.
  * `sandboxed` says the machine confines its agents: nothing is wrapped, but the agents are told
- * what their configuration says to a confined one.
+ * what their configuration says to a confined one. `mcp` gives them the editor's MCP server, at
+ * the address of a server that says it listens on `TEST_PORT`, where nothing does.
  */
-export const threadTest = (options: { readonly sandboxed?: boolean } = {}) =>
+export const threadTest = (
+  options: { readonly mcp?: boolean; readonly sandboxed?: boolean } = {}
+) =>
   Layer.unwrap(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -204,7 +209,11 @@ export const threadTest = (options: { readonly sandboxed?: boolean } = {}) =>
           })
         );
       }
-      return ThreadsLayer.pipe(
+      // Where the editor's MCP server is said to be: no agent of a test connects to it.
+      const listening = Layer.effectDiscard(
+        Effect.flatMap(ListenPort, (port) => port.listening(TEST_PORT))
+      );
+      return Layer.mergeAll(ThreadsLayer, listening).pipe(
         Layer.provideMerge(
           Layer.mergeAll(
             briefing,
@@ -222,6 +231,7 @@ export const threadTest = (options: { readonly sandboxed?: boolean } = {}) =>
             briefing: true,
             cwd: repo,
             machine: { home },
+            mcp: options.mcp === true,
             storage: { home, mode: "managed" },
             userDir: home,
           })

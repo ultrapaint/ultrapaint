@@ -23,7 +23,10 @@ import {
 } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
-import { ScriptedAgents } from "./testing/scripted-agents.ts";
+import {
+  type LaunchedAgent,
+  ScriptedAgents,
+} from "./testing/scripted-agents.ts";
 import {
   briefingFor,
   HeldTask,
@@ -147,18 +150,30 @@ describe("a thread's session", () => {
       );
     }));
 
-  test("authenticates and asks again when the agent wants it", () =>
+  test("tells the user how the agent signs in when it says it must, and signs in with none", () =>
     Effect.gen(function* () {
+      const threads = yield* ThreadService;
       const agents = yield* ScriptedAgents;
-      yield* agents.script({ requiresAuth: true });
-      const { agent, threadId, turn } = yield* started();
-      yield* turn.end();
-      const { thread } = yield* threadWhen(threadId, turnEnded);
-      assert.isUndefined(thread.error);
-      assert.deepStrictEqual(methodsOf(yield* agent.calls).slice(0, 4), [
+      yield* agents.script({
+        authMethods: [
+          { description: "Opens the browser", id: "chatgpt", name: "ChatGPT" },
+          { id: "login", name: "Log in", type: "terminal" },
+        ],
+        requiresAuth: true,
+      });
+      const { id: threadId } = yield* threads.create("scripted");
+      yield* send(threadId, "hello");
+      const agent = yield* agents.next;
+      const { thread } = yield* threadWhen(
+        threadId,
+        (t) => t.status === "error"
+      );
+      assert.strictEqual(
+        thread.error,
+        "Scripted is not signed in. It signs in with ChatGPT (Opens the browser), or with Log in, in a terminal."
+      );
+      assert.deepStrictEqual(methodsOf(yield* agent.calls), [
         "initialize",
-        "session/new",
-        "authenticate",
         "session/new",
       ]);
     }));
@@ -501,6 +516,92 @@ describe("a turn", () => {
       assert.deepStrictEqual(uris, [pathToFileURL(path.join(repo, file)).href]);
     }));
 
+  test("sends what the agent takes: a file as a link, a picture as a note, where it says it takes neither", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const agents = yield* ScriptedAgents;
+      const { repo } = yield* ThreadFixture;
+      yield* agents.script({
+        capabilities: { promptCapabilities: {} },
+      });
+      const { id: threadId } = yield* threads.create("scripted");
+      yield* threads.prompt({
+        attachments: [
+          { kind: "file", path: "designs/home.page.json" },
+          {
+            dataUrl: "data:image/png;base64,AAAA",
+            kind: "image",
+            name: "shot",
+          },
+        ],
+        text: "look",
+        threadId,
+      });
+      const turn = yield* Effect.flatMap(agents.next, (a) => a.nextTurn);
+      assert.deepStrictEqual(
+        turn.prompt.map((b) => b.type),
+        ["text", "text", "resource_link", "text"]
+      );
+      assert.deepStrictEqual(turn.prompt[2], {
+        name: "home.page.json",
+        type: "resource_link",
+        uri: pathToFileURL(path.join(repo, "designs/home.page.json")).href,
+      });
+      assert.include(turn.texts.at(-1) ?? "", "picture");
+    }));
+
+  it.effect(
+    "offers the editor's MCP server to an agent that reaches one over http, and only then",
+    () =>
+      Effect.gen(function* () {
+        const agents = yield* ScriptedAgents;
+        /** How many MCP servers the agent's session was given. */
+        const serversOf = (agent: LaunchedAgent) =>
+          Effect.map(agent.calls, (calls) => {
+            const opened = calls.find((c) => c.method === "session/new");
+            return (opened?.params as { mcpServers?: unknown[] } | undefined)
+              ?.mcpServers?.length;
+          });
+        const reaches = yield* started();
+        assert.strictEqual(yield* serversOf(reaches.agent), 1);
+        yield* agents.script({ capabilities: { mcpCapabilities: {} } });
+        const cannot = yield* started();
+        assert.strictEqual(yield* serversOf(cannot.agent), 0);
+      }).pipe(Effect.provide(threadTest({ mcp: true })))
+  );
+
+  test("offers each choice of an option the agent groups", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({
+        configOptions: [
+          {
+            currentValue: "sonnet",
+            id: "model",
+            name: "Model",
+            options: [
+              {
+                group: "anthropic",
+                name: "Anthropic",
+                options: [
+                  { name: "Sonnet", value: "sonnet" },
+                  { name: "Opus", value: "opus" },
+                ],
+              },
+            ],
+            type: "select",
+          },
+        ],
+      });
+      const { threadId, turn } = yield* started();
+      yield* turn.end();
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(
+        thread.configOptions?.[0]?.options.map((o) => o.value),
+        ["sonnet", "opus"]
+      );
+    }));
+
   test("briefs the agent once per session, for the thread's purpose", () =>
     Effect.gen(function* () {
       const { agent, threadId, turn } = yield* started();
@@ -583,6 +684,28 @@ describe("a turn", () => {
       assert.include(
         yield* fs.readFileString(path.join(repo, "designs/agent.tsx")),
         "function Agent"
+      );
+    }));
+
+  test("reads a file for the agent, and says one that is not there is not found", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ThreadFixture;
+      const { agent, turn } = yield* started();
+      const read = yield* agent.host.readTextFile({
+        limit: 1,
+        path: path.join(repo, "designs/home.page.json"),
+        sessionId: turn.sessionId,
+      });
+      assert.strictEqual(read.content, "{");
+      const missing = yield* Effect.flip(
+        agent.host.readTextFile({
+          path: path.join(repo, "designs/gone.page.json"),
+          sessionId: turn.sessionId,
+        })
+      );
+      assert.strictEqual(
+        (missing as { readonly _tag?: string })._tag,
+        "ResourceNotFound"
       );
     }));
 

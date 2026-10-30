@@ -5,6 +5,7 @@
  * session's, which keeps the turn they belong to.
  */
 import type { AcpHandlers } from "@ultrapaint/acp/acp-agent";
+import { ResourceNotFound } from "@ultrapaint/acp/errors";
 import type { TerminalManager } from "@ultrapaint/acp/terminal-manager";
 import { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Path } from "effect";
@@ -40,7 +41,17 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
     onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
     readTextFile: Effect.fn("ThreadService.readTextFile")(function* (request) {
       const abs = yield* paths.resolve(request.path);
-      const content = yield* fs.readFileString(abs);
+      const content = yield* fs.readFileString(abs).pipe(
+        // The agent asked for a file that is not there: its to handle, as ACP names it.
+        Effect.catchReason("PlatformError", "NotFound", () =>
+          Effect.fail(
+            new ResourceNotFound({
+              message: `${paths.relative(abs)} is not there`,
+              path: abs,
+            })
+          )
+        )
+      );
       if (!(request.line || request.limit)) {
         return { content };
       }
