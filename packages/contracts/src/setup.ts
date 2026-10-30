@@ -165,7 +165,6 @@ export const applySuggestions = (
   const css = stylesheetIn(found, designsDir);
   return {
     ...settings,
-    componentPackages: library && !library.inApp ? [library.name] : [],
     designsDir,
     ...(found.styleSystem && { styleSystem: found.styleSystem }),
     hostCss: css ? [hostCssFor(designsDir, css)] : [],
