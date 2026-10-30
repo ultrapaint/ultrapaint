@@ -121,6 +121,30 @@ export interface AcpHandlers {
   ) => Effect.Effect<void, { readonly message: string }>;
 }
 
+/**
+ * What a host that does nothing for the agent answers: an agent started only to be asked
+ * something (its models, a sign-in) is refused whatever it asks of the host, for `why`, and its
+ * updates and output go nowhere.
+ */
+export const refusingHandlers = (why: string): AcpHandlers => {
+  const refuse = () => Effect.fail({ message: why });
+  return {
+    onElicitation: () => Effect.succeed({ action: "decline" }),
+    onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
+    onStderr: () => Effect.void,
+    onUpdate: () => Effect.void,
+    readTextFile: refuse,
+    terminal: {
+      create: refuse,
+      kill: () => Effect.void,
+      output: refuse,
+      release: () => Effect.void,
+      waitForExit: refuse,
+    },
+    writeTextFile: refuse,
+  };
+};
+
 /** An MCP server the agent may call, as ACP describes one. */
 export interface McpServerConfig {
   readonly headers: readonly {

@@ -10,6 +10,7 @@
  */
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Schema } from "effect";
+import type { AgentLaunch } from "./sandbox.ts";
 
 export const RuntimeAgent = Schema.Struct({
   /** The adapter, bundled into one file. */
@@ -47,20 +48,41 @@ export type AgentRuntime = typeof AgentRuntime.Type;
 /** The runtime as the desktop app hands it to the server, in `ULTRAPAINT_AGENT_RUNTIME`. */
 export const AgentRuntimeJson = Schema.fromJsonString(AgentRuntime);
 
+/**
+ * How the runtime starts a built-in agent's adapter: Electron's binary as Node, running the
+ * wrapper, which imports the adapter; the agent's own variables with it. Undefined for an agent
+ * the runtime does not bring.
+ */
+export const runtimeLaunch = (
+  runtime: AgentRuntime,
+  id: string
+): AgentLaunch | undefined => {
+  const agent = runtime.agents[id];
+  return agent
+    ? {
+        args: [runtime.wrapper, agent.adapter],
+        command: runtime.node,
+        env: { ...agent.env, ELECTRON_RUN_AS_NODE: "1" },
+      }
+    : undefined;
+};
+
 /** A built-in agent's launch with the runtime's adapter in place of `npx`. */
 export const withRuntime = (
   config: AgentConfig,
   runtime: AgentRuntime | undefined
 ): AgentConfig => {
-  const agent = config.builtIn ? runtime?.agents[config.id] : undefined;
-  if (!(runtime && agent)) {
+  const launch =
+    runtime && config.builtIn ? runtimeLaunch(runtime, config.id) : undefined;
+  if (!(runtime && launch)) {
     return config;
   }
+  const hint = runtime.agents[config.id]?.hint;
   return {
     ...config,
-    args: [runtime.wrapper, agent.adapter],
-    command: runtime.node,
-    env: { ...config.env, ...agent.env, ELECTRON_RUN_AS_NODE: "1" },
-    ...(agent.hint === undefined ? {} : { authHint: agent.hint }),
+    args: launch.args,
+    command: launch.command,
+    env: { ...config.env, ...launch.env },
+    ...(hint === undefined ? {} : { authHint: hint }),
   };
 };

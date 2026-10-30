@@ -19,7 +19,6 @@ import {
   type Negotiated,
   promptBlock,
 } from "@ultrapaint/acp/negotiated";
-import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
 import {
   AgentFailure,
   Conflict,
@@ -52,7 +51,6 @@ import {
   Semaphore,
   Stream,
 } from "effect";
-import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
@@ -61,7 +59,6 @@ import { ProjectManager } from "../../project.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
-import { makeAgentClient } from "./agent-client.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentDiscovery } from "./agent-discovery.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
@@ -250,8 +247,6 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const events = yield* EventBus;
   const log = yield* AppLog;
   const path = yield* Path.Path;
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const client = yield* makeAgentClient();
   const opener = yield* makeSessionOpener();
   const content = yield* makePromptContent();
   const newItemId = makeId("item");
@@ -318,35 +313,17 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const agent = yield* launcher
         .launch({
           config,
-          handlers: (confine) =>
-            Effect.map(
-              makeTerminalManager({
-                // A command we run for the agent must not reach further than one it runs itself.
-                confine,
-                onOutput: (terminalId, chunk) =>
-                  events.publish("agent.terminal", {
-                    chunk,
-                    terminalId,
-                    threadId,
-                  }),
-              }).pipe(
-                Effect.provideService(
-                  ChildProcessSpawner.ChildProcessSpawner,
-                  spawner
-                )
-              ),
-              (terminals) => ({
-                ...client.handlersFor({
-                  agentName: config.name,
-                  cards,
-                  onTerminalEnd: turn.keepTerminal,
-                  paths,
-                  terminals,
-                  writable,
-                }),
-                onUpdate: (n) => turn.place(n.update, relative),
-              })
-            ),
+          host: {
+            cards: {
+              onElicitation: cards.elicitation,
+              onPermission: cards.permission,
+            },
+            onTerminalEnd: turn.keepTerminal,
+            onTerminalOutput: (terminalId, chunk) =>
+              events.publish("agent.terminal", { chunk, terminalId, threadId }),
+            onUpdate: (n) => turn.place(n.update, relative),
+            paths,
+          },
           root: paths.root,
           writable,
         })

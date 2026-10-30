@@ -5,6 +5,8 @@
  * the turn. Nothing is spawned and nothing is confined: a command the agent asks the editor to
  * run is run as asked.
  */
+
+import { refusingHandlers } from "@ultrapaint/acp/acp-agent";
 import {
   type AgentScript,
   makeScriptedAgent,
@@ -13,9 +15,11 @@ import {
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer, Queue } from "effect";
 import { ServerConfig } from "../config.ts";
+import { makeAgentClient } from "../services/threads/agent-client.ts";
 import {
   AgentLauncher,
   type AgentLaunchOptions,
+  LISTING_ONLY,
 } from "../services/threads/agent-launcher.ts";
 
 /** An agent the launcher started, with what it was started for. */
@@ -46,13 +50,21 @@ export class ScriptedAgents extends Context.Service<
   static readonly layer = Layer.effectContext(
     Effect.gen(function* () {
       const { version } = yield* ServerConfig;
+      const client = yield* makeAgentClient();
       const started = yield* Queue.unbounded<LaunchedAgent>();
       const scripts = new Map<string | undefined, AgentScript>();
       let count = 0;
 
       const launch = Effect.fnUntraced(function* (options: AgentLaunchOptions) {
         count += 1;
-        const handlers = yield* options.handlers((command) => command);
+        // The editor's side as the live launcher builds it; nothing is confined.
+        const handlers = options.host
+          ? yield* client.handlersFor(options.host, {
+              agentName: options.config.name,
+              confine: (command) => command,
+              writable: options.writable,
+            })
+          : refusingHandlers(LISTING_ONLY);
         const { agent, control } = yield* makeScriptedAgent({
           clientVersion: version,
           handlers,

@@ -12,7 +12,7 @@
 import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { type AcpHandlers, spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
+import { refusingHandlers, spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import {
   BUILT_IN_AGENTS,
   type BuiltInAgent,
@@ -20,7 +20,11 @@ import {
   type ExecutableSource,
   type SignInAnswer,
 } from "@ultrapaint/acp/built-in";
-import type { AgentRuntime, RuntimeAgent } from "@ultrapaint/acp/runtime";
+import {
+  type AgentRuntime,
+  type RuntimeAgent,
+  runtimeLaunch,
+} from "@ultrapaint/acp/runtime";
 import type { PlatformAgent } from "@ultrapaint/contracts/shell-bridge";
 import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer, Option, Schema } from "effect";
@@ -130,24 +134,6 @@ export class SignInError extends Schema.TaggedError<SignInError>()(
   "SignInError",
   { message: Schema.String }
 ) {}
-
-/** A sign-in asks for nothing of the editor: whatever the adapter asks for is refused. */
-const refuse = Effect.fail({ message: "the app is only signing in" });
-const refusing: AcpHandlers = {
-  onElicitation: () => Effect.succeed({ action: "decline" }),
-  onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
-  onStderr: () => Effect.void,
-  onUpdate: () => Effect.void,
-  readTextFile: () => refuse,
-  terminal: {
-    create: () => refuse,
-    kill: () => Effect.void,
-    output: () => refuse,
-    release: () => Effect.void,
-    waitForExit: () => refuse,
-  },
-  writeTextFile: () => refuse,
-};
 
 /** How long the user has to sign in, in the browser, before the app gives up waiting. */
 const SIGN_IN_TIMEOUT = "10 minutes";
@@ -459,26 +445,27 @@ export class Agents extends Context.Service<
                 message: `${agent.name} is not installed: ${located.reason}`,
               });
             }
-            const launch = makeRuntime(
-              layout,
-              { [id]: { executable: located.executable } },
-              {},
-              agents
+            const launch = runtimeLaunch(
+              makeRuntime(
+                layout,
+                { [id]: { executable: located.executable } },
+                {},
+                agents
+              ),
+              id
             );
+            if (launch === undefined) {
+              return yield* new SignInError({
+                message: `${agent.name} has no adapter in this app.`,
+              });
+            }
             const adapter = yield* spawnAcpAgent(
-              {
-                args: [launch.wrapper, launch.agents[id]?.adapter ?? ""],
-                command: layout.node,
-                env: {
-                  ...env,
-                  ...launch.agents[id]?.env,
-                  ELECTRON_RUN_AS_NODE: "1",
-                },
-              },
+              { ...launch, env: { ...env, ...launch.env } },
               {
                 clientVersion: layout.version ?? "dev",
                 cwd: tmpdir(),
-                handlers: refusing,
+                // A sign-in asks for nothing of the editor: whatever the adapter asks is refused.
+                handlers: refusingHandlers("the app is only signing in"),
               }
             );
             const init = yield* adapter.initialize;

@@ -1,54 +1,74 @@
 /**
  * What a thread's agent asks of the editor while it works, as an ACP client answers it: the
  * permissions and forms it waits on go to the thread's cards (`pending-cards.ts`), and its file
- * and terminal calls are confined to the repository. Its session updates are the thread
- * session's, which keeps the turn they belong to.
+ * and terminal calls are confined to the repository, its terminals to the agent's own sandbox.
+ * Its session updates are the thread's, which keeps the turn they belong to. The launcher makes
+ * the handlers for each launch (`agent-launcher.ts`); a thread gives it a small host.
  */
 import type { AcpHandlers } from "@ultrapaint/acp/acp-agent";
 import { ResourceNotFound } from "@ultrapaint/acp/errors";
-import type { TerminalManager } from "@ultrapaint/acp/terminal-manager";
+import type { AgentLaunch } from "@ultrapaint/acp/sandbox";
+import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
 import { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import { TERMINAL_TAIL } from "@ultrapaint/contracts/threads";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, type Scope } from "effect";
+import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { EventBus } from "../../events.ts";
 import { hashContent } from "../../hash.ts";
 import type { RepoPaths } from "../repo-paths.ts";
-import type { PendingCards } from "./pending-cards.ts";
+
+/** What a thread gives the agent it launches: where it works, and where its news goes. */
+export interface AgentHost {
+  /** The permissions and forms the agent waits on: the thread's cards. */
+  readonly cards: Pick<AcpHandlers, "onElicitation" | "onPermission">;
+  /** A terminal the agent waited on or let go of: the tail of its output, to keep. */
+  readonly onTerminalEnd: (
+    terminalId: string,
+    output: string
+  ) => Effect.Effect<void>;
+  /** Output of a terminal as it arrives, for the editor to follow. */
+  readonly onTerminalOutput: (
+    terminalId: string,
+    chunk: string
+  ) => Effect.Effect<void>;
+  /** Every session update, in order. */
+  readonly onUpdate: AcpHandlers["onUpdate"];
+  readonly paths: RepoPaths["Service"];
+}
 
 export const makeAgentClient = Effect.fnUntraced(function* () {
   const log = yield* AppLog;
   const events = yield* EventBus;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const writeAtomic = makeWriteAtomic(fs, path);
 
-  // ---- what the host does for the agent, but for its updates, which are the session's ----
-  const handlersFor = ({
-    agentName,
-    cards,
-    onTerminalEnd,
-    paths,
-    terminals,
-    writable,
-  }: {
-    readonly agentName: string;
-    readonly cards: PendingCards;
-    /** A terminal the agent waited on or let go of: the tail of its output, to keep. */
-    readonly onTerminalEnd: (
-      terminalId: string,
-      output: string
-    ) => Effect.Effect<void>;
-    readonly paths: RepoPaths["Service"];
-    readonly terminals: TerminalManager;
-    /**
-     * The only directory the agent may write through the editor, when not the whole repository:
-     * a design thread's designs directory (ADR 0030). The sandbox closes the rest to its own
-     * tools; this closes it to the writes the editor makes for it.
-     */
-    readonly writable?: string | undefined;
-  }): Omit<AcpHandlers, "onUpdate"> => {
+  /**
+   * What the editor does for an agent of `agentName`, for as long as the scope: a command the
+   * agent asks it to run goes through `confine`, so that it reaches no further than one the
+   * agent runs itself, and `writable`, when not the whole repository, is the only directory it
+   * writes for the agent: a design thread's designs directory (ADR 0030). The sandbox closes the
+   * rest to the agent's own tools; this closes it to the writes the editor makes for it.
+   */
+  const handlersFor = Effect.fnUntraced(function* (
+    host: AgentHost,
+    launch: {
+      readonly agentName: string;
+      readonly confine: (launch: AgentLaunch) => AgentLaunch;
+      readonly writable?: string | undefined;
+    }
+  ): Effect.fn.Return<AcpHandlers, never, Scope.Scope> {
+    const { cards, onTerminalEnd, onUpdate, paths } = host;
+    const { agentName, writable } = launch;
+    const terminals = yield* makeTerminalManager({
+      confine: launch.confine,
+      onOutput: host.onTerminalOutput,
+    }).pipe(
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner)
+    );
     /** What a terminal printed, its tail, kept once the agent is done with it. */
     const keep = (terminalId: string) =>
       terminals.output(terminalId).pipe(
@@ -59,35 +79,34 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
         Effect.catchTag("TerminalError", () => Effect.void)
       );
     return {
-      onElicitation: cards.elicitation,
-      onPermission: cards.permission,
+      onElicitation: cards.onElicitation,
+      onPermission: cards.onPermission,
       onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
-      readTextFile: Effect.fn("ThreadService.readTextFile")(
-        function* (request) {
-          const abs = yield* paths.resolve(request.path);
-          const content = yield* fs.readFileString(abs).pipe(
-            // The agent asked for a file that is not there: its to handle, as ACP names it.
-            Effect.catchReason("PlatformError", "NotFound", () =>
-              Effect.fail(
-                new ResourceNotFound({
-                  message: `${paths.relative(abs)} is not there`,
-                  path: abs,
-                })
-              )
+      onUpdate,
+      readTextFile: Effect.fn("AgentClient.readTextFile")(function* (request) {
+        const abs = yield* paths.resolve(request.path);
+        const content = yield* fs.readFileString(abs).pipe(
+          // The agent asked for a file that is not there: its to handle, as ACP names it.
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.fail(
+              new ResourceNotFound({
+                message: `${paths.relative(abs)} is not there`,
+                path: abs,
+              })
             )
-          );
-          if (!(request.line || request.limit)) {
-            return { content };
-          }
-          const start = Math.max(0, (request.line ?? 1) - 1);
-          const end = request.limit ? start + request.limit : undefined;
-          return {
-            content: content.split("\n").slice(start, end).join("\n"),
-          };
+          )
+        );
+        if (!(request.line || request.limit)) {
+          return { content };
         }
-      ),
+        const start = Math.max(0, (request.line ?? 1) - 1);
+        const end = request.limit ? start + request.limit : undefined;
+        return {
+          content: content.split("\n").slice(start, end).join("\n"),
+        };
+      }),
       terminal: {
-        create: Effect.fn("ThreadService.createTerminal")(function* (request) {
+        create: Effect.fn("AgentClient.createTerminal")(function* (request) {
           const cwd = request.cwd
             ? yield* paths.resolve(request.cwd)
             : paths.root;
@@ -114,7 +133,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
             keep(request.terminalId)
           ),
       },
-      writeTextFile: Effect.fn("ThreadService.writeTextFile")(
+      writeTextFile: Effect.fn("AgentClient.writeTextFile")(
         function* (request) {
           const abs = yield* paths.resolve(request.path);
           // The editor writes this file, outside the sandbox that keeps `.git` read-only: an agent
@@ -141,7 +160,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
         }
       ),
     };
-  };
+  });
 
   return { handlersFor };
 });
