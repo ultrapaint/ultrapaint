@@ -31,7 +31,7 @@ const parameterOf = (segment: string): string | null =>
     ? segment.slice(1, -1)
     : null;
 
-export const ROOT_ROUTE = "/";
+const ROOT_ROUTE = "/";
 
 /** A leading slash, no trailing slash, no empty segment. `""` and `"//"` are the root. */
 export const normaliseRoute = (route: string): string => {
@@ -45,7 +45,7 @@ export const normaliseRoute = (route: string): string => {
     : `/${joined.replace(TRAILING_SLASHES_RE, "")}`;
 };
 
-export const routeSegments = (route: string): string[] => {
+const routeSegments = (route: string): string[] => {
   const normalised = normaliseRoute(route);
   return normalised === ROOT_ROUTE ? [] : normalised.slice(1).split("/");
 };
@@ -71,29 +71,6 @@ export const routeOf = (pagePath: string): string => {
       })
       .join("/")
   );
-};
-
-/**
- * The page path a route asks for, without an extension: the inverse of `routeOf` for the
- * static routes a person types when creating a page. `/` is `index`.
- */
-export const pagePathOf = (route: string): string => {
-  const segments = routeSegments(route).map((segment) =>
-    segment.startsWith(":") ? `[${segment.slice(1)}]` : segment
-  );
-  return segments.length === 0 ? "index" : segments.join("/");
-};
-
-/** `Home` for the root, otherwise the last segment made readable. */
-export const routeLabel = (route: string): string => {
-  const last = routeSegments(route).at(-1);
-  if (last === undefined) {
-    return "Home";
-  }
-  if (last === "*") {
-    return "Catch all";
-  }
-  return last.startsWith(":") ? humanise(last.slice(1)) : humanise(last);
 };
 
 /**
@@ -232,15 +209,6 @@ export const matchRoute = <T extends { readonly route?: string | undefined }>(
     }
   }
   return best ? { entry: best.entry, params: best.params } : null;
-};
-
-/**
- * What a `to` means: a route when it starts with a slash, otherwise the page file it names
- * inside the canvas (`settings/billing`, `settings/billing.page.json`).
- */
-export const resolveTarget = (to: string): string => {
-  const trimmed = toPosix(to).trim();
-  return trimmed.startsWith("/") ? normaliseRoute(trimmed) : routeOf(trimmed);
 };
 
 /** Whether a name can be a variant's: lowercase letters, digits and dashes. */

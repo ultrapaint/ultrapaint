@@ -69,8 +69,8 @@ export interface ProjectTestOptions {
 
 /**
  * Every service of the server, with a project open on a fresh fixture (`makeFixture`: a designs
- * package with a Home page, a component in `ui/`) and the editor's MCP tools' handlers. Build
- * one per test, or per group that shares it.
+ * package with a Home page, and a file of the application's code in `ui/`) and the editor's MCP
+ * tools' handlers. Build one per test, or per group that shares it.
  */
 export const ProjectTest = (options: ProjectTestOptions = {}) =>
   Layer.unwrap(
