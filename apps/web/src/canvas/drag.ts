@@ -27,13 +27,9 @@ import {
 } from "../lib/node-actions.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/components.ts";
-import {
-  docOfFrame,
-  isNodeFrame,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { docOfFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
@@ -129,10 +125,9 @@ const frameAt = (x: number, y: number, except?: string): string | null => {
     x <= f.x + f.width &&
     y <= f.y + f.height;
   const entries = Object.entries(allFrames());
-  const node = entries.filter(([id]) => isNodeFrame(id)).findLast(inside);
-  return (
-    (node ?? entries.find((e) => !isNodeFrame(e[0]) && inside(e)))?.[0] ?? null
-  );
+  const isNode = ([id]: [string, Box]) => frameRefOf(id).kind === "node";
+  const node = entries.filter(isNode).findLast(inside);
+  return (node ?? entries.find((e) => !isNode(e) && inside(e)))?.[0] ?? null;
 };
 
 const offset = (r: Rect, f: Box): Rect => ({

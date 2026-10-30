@@ -20,14 +20,12 @@ import { currentBreakpoints, useBreakpoints } from "./design-system.ts";
 import {
   drawnRootOf,
   editedAtOf,
-  isNodeFrame,
-  isViewFrame,
   nodeIn,
-  pageOfFrame,
   rootOfFrame,
   useDocuments,
 } from "./documents.ts";
 import { type EditorState, type Selection, useEditor } from "./editor.ts";
+import { frameRefOf, ownFrameOf, widthOf } from "./frame-ref.ts";
 
 /** What is selected, as the editor holds it. */
 type Picked = Pick<EditorState, "also" | "selection">;
@@ -39,7 +37,7 @@ const NONE: readonly string[] = [];
  * one rule of what is selected where.
  */
 export const showsIn = (made: string, frame: string) =>
-  pageOfFrame(made) === pageOfFrame(frame);
+  ownFrameOf(made) === ownFrameOf(frame);
 
 /**
  * The nodes selected as a frame shows them, the one the inspector shows first: those of the
@@ -95,12 +93,12 @@ export const pickedIn = (frame: string, picked: Picked): Picked | null => {
 export const editedFrameOf = (
   selection: Selection | null,
   frame: string
-): string =>
-  selection &&
-  isViewFrame(selection.frame) &&
-  pageOfFrame(selection.frame) === frame
+): string => {
+  const ref = selection ? frameRefOf(selection.frame) : null;
+  return ref?.kind === "view" && ref.page === frame && selection
     ? selection.frame
     : frame;
+};
 
 // ---- The breakpoint a frame is drawn at ----
 
@@ -118,10 +116,6 @@ const seenNow = (): Seen => ({
   docs: useDocuments.getState().docs,
   frames: useEditor.getState().frames,
 });
-
-/** The width a node on the canvas is drawn at: its own fixed width; the smallest screen's else. */
-const fixedWidth = (root: DesignNode | null): number | undefined =>
-  typeof root?.width === "number" ? root.width : undefined;
 
 const nameAt = (
   breakpoints: readonly Breakpoint[],
@@ -142,22 +136,31 @@ export const frameBreakpoint = (
   editedAtOf(frame) ??
   nameAt(
     seen.breakpoints,
-    isNodeFrame(frame)
-      ? fixedWidth(drawnRootOf(seen.docs, seen.canvas, frame))
-      : seen.frames[frame]?.width
+    widthOf(frameRefOf(frame), {
+      box: seen.frames[frame],
+      root: drawnRootOf(seen.docs, seen.canvas, frame),
+    })
   );
 
-/** `frameBreakpoint` for a component; null without a frame. */
+/**
+ * `frameBreakpoint` for a component; null without a frame. Its width read in two parts, each from
+ * its own store: the layout's box, and what a node on the canvas is.
+ */
 export const useFrameBreakpoint = (frame: string | null): string | null => {
   const breakpoints = useBreakpoints();
   const canvas = useEditor((s) => s.canvas);
   const pageWidth = useEditor((s) =>
-    frame === null || isNodeFrame(frame) ? undefined : s.frames[frame]?.width
+    frame === null
+      ? undefined
+      : widthOf(frameRefOf(frame), { box: s.frames[frame], root: null })
   );
   const nodeWidth = useDocuments((s) =>
-    frame !== null && isNodeFrame(frame)
-      ? fixedWidth(drawnRootOf(s.docs, canvas, frame))
-      : undefined
+    frame === null
+      ? undefined
+      : widthOf(frameRefOf(frame), {
+          box: undefined,
+          root: drawnRootOf(s.docs, canvas, frame),
+        })
   );
   const variant = useDocuments((s) =>
     s.edited !== null && s.edited.frame === frame ? s.edited.at : null

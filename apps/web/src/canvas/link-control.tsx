@@ -13,18 +13,23 @@ import {
 import { LinkField } from "../components/link-field.tsx";
 import { describeLink } from "../lib/links.ts";
 import { updateSelection } from "../lib/node-actions.ts";
-import { isNodeFrame } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
 
 /**
  * Where the element leads in the prototype, from the Vibe toolbar: the inspector's own field in a
  * popover. Only an icon, lit when the element leads somewhere, as the toolbar has to fit inside
- * the frame. A page's root and a node beside the pages have no link to set.
+ * the frame. Only a page's nodes lead somewhere: its root, a node beside the pages and a board's
+ * have no link to set.
  */
 export const LinkControl = ({ node }: { node: DesignNode }) => {
   const frame = useEditor((s) => s.selection?.frame ?? null);
   const canvas = useEditor((s) => s.canvas);
-  if (node.type === "page" || frame === null || isNodeFrame(frame)) {
+  if (
+    node.type === "page" ||
+    frame === null ||
+    !hasPrototypeLinks(frameRefOf(frame))
+  ) {
     return null;
   }
   const described = node.link

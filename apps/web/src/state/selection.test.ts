@@ -8,8 +8,9 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDesignSystem } from "./design-system.ts";
-import { nodeFrameOf, useDocuments } from "./documents.ts";
+import { useDocuments } from "./documents.ts";
 import { selectForMenu, useEditor } from "./editor.ts";
+import { nodeFrameOf } from "./frame-ref.ts";
 import {
   drawnNodes,
   frameBreakpoint,

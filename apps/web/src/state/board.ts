@@ -30,7 +30,7 @@ import {
 import { firstBoardView } from "../lib/board-layout.ts";
 import { setView, type View, viewportSize } from "./camera.ts";
 import { appComponentOf, useComponents } from "./components.ts";
-import { boardFrameOf, boardOfFrame, type useDocuments } from "./documents.ts";
+import type { useDocuments } from "./documents.ts";
 import {
   type LeftTab,
   type Mode,
@@ -40,6 +40,7 @@ import {
   unpicked,
   useEditor,
 } from "./editor.ts";
+import { boardFrameOf, frameRefOf } from "./frame-ref.ts";
 import { isolate, leaveIsolation, useIsolation } from "./isolation.ts";
 import { type BoardUrl, onUrlChange, readUrl, writeBoard } from "./url.ts";
 import type { Picked } from "./workspace-memory.ts";
@@ -111,13 +112,13 @@ showBoardFramesWith(() => {
 
 /** The variant a board of the app component open draws; undefined for no board of it. */
 const appBoardOf = (frame: string) => {
-  const at = boardOfFrame(frame);
+  const at = frameRefOf(frame);
   const { open } = useBoard.getState();
   const file =
-    at && open?.view === at.view && open.item === at.item
+    at.kind === "board" && open?.view === at.view && open.item === at.item
       ? appOpen(open)
       : undefined;
-  if (!(at && file)) {
+  if (!(at.kind === "board" && file)) {
     return;
   }
   const variants = appVariantsOf(file);

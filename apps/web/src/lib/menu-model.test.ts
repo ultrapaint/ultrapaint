@@ -24,10 +24,10 @@ const page: DesignNode = { children: [row], id: "home", type: "page" };
 const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
   canPaste: false,
   count: 1,
+  frame: { kind: "page", page: "home.page.json" },
   hidden: false,
   index: 1,
   node: row,
-  onPage: true,
   parentSelectable: true,
   siblings: 3,
   wrappable: true,
@@ -98,7 +98,9 @@ describe("the node menu", () => {
     expect(find(entries, { kind: "link", to: null })).toMatchObject({
       label: "Remove link",
     });
-    expect(kinds(nodeEntries(facts({ onPage: false })))).not.toContain("link");
+    expect(
+      kinds(nodeEntries(facts({ frame: { kind: "node", node: "r1" } })))
+    ).not.toContain("link");
   });
 
   it("offers text editing on text only, and unwrapping on containers only", () => {
@@ -148,7 +150,12 @@ describe("the node menu", () => {
 
   it("comments only on a page, and selects a parent only when there is one", () => {
     const loose = kinds(
-      nodeEntries(facts({ onPage: false, parentSelectable: false }))
+      nodeEntries(
+        facts({
+          frame: { kind: "node", node: "r1" },
+          parentSelectable: false,
+        })
+      )
     );
     expect(loose).not.toContain("comment");
     expect(loose).not.toContain("selectParent");

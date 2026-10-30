@@ -4,7 +4,7 @@ import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { undoOrRedo } from "../lib/shortcuts.ts";
 import { fakeApi } from "../testing/fake-api.ts";
-import { useDocuments, viewFrameOf } from "./documents.ts";
+import { useDocuments } from "./documents.ts";
 import {
   computeFrames,
   layoutSaved,
@@ -12,6 +12,7 @@ import {
   showFrame,
   useEditor,
 } from "./editor.ts";
+import { viewFrameOf } from "./frame-ref.ts";
 import { useProject } from "./project.ts";
 import { followServer } from "./server-data.ts";
 

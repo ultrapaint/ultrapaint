@@ -5,19 +5,16 @@
  * This is where an agent's work shows; nothing about it sits at the bottom of the canvas.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import {
-  canvasDocOf,
-  findNode,
-  findPath,
-} from "@ultrapaint/design-document/tree";
+import { findNode, findPath } from "@ultrapaint/design-document/tree";
 import { Check } from "lucide-react";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
+import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { documentShown, frameRefOf } from "../state/frame-ref.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { frameOf } from "./editor-frame.ts";
@@ -46,13 +43,10 @@ const outermost = (
 const useWorkOn = (frameId: string, canvas: string | null) =>
   useAgents(
     useShallow((s) => {
-      const canvasDoc = canvas === null ? null : canvasDocOf(canvas);
+      const shown = documentShown(frameRefOf(frameId), canvas);
       const here: Record<string, AgentWork> = {};
       for (const [threadId, work] of Object.entries(s.working)) {
-        if (
-          work.doc === frameId ||
-          (isNodeFrame(frameId) && work.doc === canvasDoc)
-        ) {
+        if (work.doc === frameId || (shown !== null && work.doc === shown)) {
           here[threadId] = work;
         }
       }

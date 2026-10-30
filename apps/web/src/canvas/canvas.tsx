@@ -14,13 +14,9 @@ import { nextView, setViewSoon } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import {
-  canvasNodes,
-  nodeFrameOf,
-  useDocuments,
-  viewFrameOf,
-} from "../state/documents.ts";
+import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { nodeFrameLayout, useEditor } from "../state/editor.ts";
+import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
@@ -376,7 +372,6 @@ export const Canvas = () => {
                     frame={box}
                     frameId={id}
                     key={id}
-                    kind="page"
                     onDragStart={beginFrameGesture}
                     page={page}
                     visible={inView.has(id)}
@@ -445,7 +440,6 @@ const NodeFrame = memo(
       <Frame
         frame={box}
         frameId={frameId}
-        kind="node"
         onDragStart={onDragStart}
         visible={visible}
       />
