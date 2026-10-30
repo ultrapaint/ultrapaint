@@ -17,7 +17,7 @@ import { TOOLS } from "../threads/agent-ways.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadSessions } from "../threads/thread-session.ts";
 import { CallingThread } from "./access.ts";
-import { opt, rawTool, said } from "./tool-helpers.ts";
+import { doing, opt, rawTool, said } from "./tool-helpers.ts";
 
 /** The key the answers come back under, on the agent's second call. */
 const ANSWERS = "answers";
@@ -46,7 +46,7 @@ export const AskUser = Tool.make("ask_user", {
       Schema.isMaxLength(4)
     ),
   }),
-});
+}).annotateMerge(doing("read"));
 
 /** What the agent hears, once the user has answered, declined or let the card go. */
 const replyOf = (

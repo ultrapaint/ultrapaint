@@ -375,6 +375,97 @@ describe("the editor's MCP server, over the wire", () => {
         }
       })
   );
+
+  onAServer(
+    "says of each tool whether it reads, changes or takes away, and that it reaches nothing outside",
+    () =>
+      Effect.gen(function* () {
+        const { client, port } = yield* TestEnv;
+        const { token } = yield* client["mcp.connection"]();
+        const listed = yield* callMcp(port, token, {
+          method: "tools/list",
+        }).pipe(
+          Effect.flatMap((response) =>
+            Effect.promise(
+              () =>
+                response.json() as Promise<{
+                  result: {
+                    tools: {
+                      annotations?: {
+                        destructiveHint?: boolean;
+                        idempotentHint?: boolean;
+                        openWorldHint?: boolean;
+                        readOnlyHint?: boolean;
+                      };
+                      name: string;
+                    }[];
+                  };
+                }>
+            )
+          )
+        );
+        const tools = listed.result.tools;
+        const named = (
+          hint: "destructiveHint" | "idempotentHint" | "readOnlyHint"
+        ) =>
+          tools
+            .filter((t) => t.annotations?.[hint] === true)
+            .map((t) => t.name)
+            .sort();
+        // A client asks before a tool it is told may destroy something, or reach the world.
+        assert.deepStrictEqual(
+          tools
+            .filter((t) => t.annotations?.openWorldHint !== false)
+            .map((t) => t.name),
+          []
+        );
+        assert.deepStrictEqual(named("readOnlyHint"), [
+          "ask_user",
+          "focus",
+          "get_component",
+          "get_context",
+          "get_document_format",
+          "get_screenshot",
+          "list_comments",
+          "list_components",
+          "list_figma_imports",
+          "list_links",
+          "list_pages",
+          "list_templates",
+          "read_canvas",
+          "read_design_system",
+          "read_figma_component",
+          "read_figma_frame",
+          "read_figma_import",
+          "read_page",
+          "scan_design_system",
+        ]);
+        // Taken away or written over: a page and its variants, pages moved out of their canvas,
+        // the design system replaced, token values written over on one side, the code rewritten.
+        assert.deepStrictEqual(named("destructiveHint"), [
+          "copy_pages",
+          "delete_page",
+          "handoff",
+          "next_batch",
+          "write_design_system",
+        ]);
+        // Called again with the same, they change nothing more.
+        assert.deepStrictEqual(
+          named("idempotentHint").filter(
+            (name) => !named("readOnlyHint").includes(name)
+          ),
+          [
+            "map_figma_component",
+            "map_values",
+            "resolve_comment",
+            "set_frame",
+            "set_home",
+            "set_page_url",
+            "write_design_system",
+          ]
+        );
+      })
+  );
 });
 
 const QUESTIONS = [
