@@ -17,7 +17,7 @@ import { makeId } from "../ids.ts";
 import { ProjectManager } from "../project.ts";
 import { readCanvasText } from "./canvas-file.ts";
 import { makeDesignRefs } from "./design-refs.ts";
-import { parseDocument } from "./documents.ts";
+import { parseDocument } from "./document-file.ts";
 import type { EditFailure } from "./edit.ts";
 import { canvasIdsIn, decodeOrder, pageListOf } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";

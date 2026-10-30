@@ -24,7 +24,7 @@ import {
   routesOf,
   variantPathOf,
 } from "@ultrapaint/shared/route";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Semaphore } from "effect";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { makeWalk } from "../fs-walk.ts";
@@ -104,11 +104,35 @@ export const makePagesReading = Effect.gen(function* () {
   });
 
   /**
-   * A page's text as the journal has it now. Read inside the action that writes from it, so
-   * an edit to the page cannot land between the reading and the writing and be lost.
+   * A page's text as the action has it. Read inside the action that writes from it, so an edit
+   * to the page cannot land between the reading and the writing and be lost.
    */
-  const contentOf = (file: string) =>
-    Effect.map(edit.read(file), (source) => source.content);
+  const contentIn = Effect.fnUntraced(function* (
+    tx: EditTransaction,
+    file: string
+  ) {
+    const content = yield* tx.read(file);
+    if (content === null) {
+      return yield* new NotFound({ message: `file not found: ${file}` });
+    }
+    return content;
+  });
+
+  /** A canvas's layout as the action has it. */
+  const canvasIn = Effect.fnUntraced(function* (
+    tx: EditTransaction,
+    canvas: string
+  ) {
+    return yield* tx.readDocument(yield* canvasFile(canvas), canvasCodec).pipe(
+      Effect.catchTag("Conflict", (error) =>
+        Effect.fail(
+          new Conflict({
+            message: `${error.message} (in ${canvas || "the designs root"})`,
+          })
+        )
+      )
+    );
+  });
 
   /** Rewrites the frames of a canvas; a missing source frame means there is nothing to do. */
   const updateFrames = Effect.fnUntraced(function* (
@@ -205,22 +229,28 @@ export const makePagesReading = Effect.gen(function* () {
    */
   let published: { files: Set<string>; json: string } | null = null;
 
+  // Read and sent one at a time: two actions done at once each send the list they leave, and
+  // the editors are left with the later one.
+  const publishing = yield* Semaphore.make(1);
+
   /** The list as it is now, sent to the editors if it is not what they have. */
-  const publishList = Effect.gen(function* () {
-    const { files, pageList } = yield* scan;
-    const json = JSON.stringify(pageList);
-    const changed = json !== published?.json;
-    published = { files: new Set(files), json };
-    if (changed) {
-      yield* events.publish("pages", pageList);
-    }
-    return pageList;
-  });
+  const publishList = publishing.withPermits(1)(
+    Effect.gen(function* () {
+      const { files, pageList } = yield* scan;
+      const json = JSON.stringify(pageList);
+      const changed = json !== published?.json;
+      published = { files: new Set(files), json };
+      if (changed) {
+        yield* events.publish("pages", pageList);
+      }
+      return pageList;
+    })
+  );
 
   // ---- lifecycle ----
-  /** The page of that id, in `all` when the caller has just listed the pages. */
-  const byId = Effect.fnUntraced(function* (id: string, all?: PageList) {
-    const page = (all ?? (yield* list)).pages.find((p) => p.id === id);
+  /** The page of that id, in the list as the action has it. */
+  const byId = Effect.fnUntraced(function* (id: string, all: PageList) {
+    const page = all.pages.find((p) => p.id === id);
     if (!page) {
       return yield* new NotFound({ message: `page not found: ${id}` });
     }
@@ -228,13 +258,13 @@ export const makePagesReading = Effect.gen(function* () {
     return { abs, page };
   });
 
-  const canvasById = Effect.fnUntraced(function* (id: string) {
-    const all = yield* list;
+  /** The canvas of that id, in the list as the action has it. */
+  const canvasById = Effect.fnUntraced(function* (id: string, all: PageList) {
     const canvas = all.canvases.find((c) => c.id === id);
     if (!canvas) {
       return yield* new NotFound({ message: `canvas not found: ${id}` });
     }
-    return { all, canvas };
+    return canvas;
   });
 
   const failIfExists = Effect.fnUntraced(function* (abs: string) {
@@ -331,9 +361,10 @@ export const makePagesReading = Effect.gen(function* () {
     byId,
     canvasById,
     canvasFile,
+    canvasIn,
     canvasPath,
     checkRoute,
-    contentOf,
+    contentIn,
     edit,
     events,
     exists,

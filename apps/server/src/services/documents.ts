@@ -12,7 +12,6 @@ import {
   type DocumentChange,
   type DocumentEdit,
   type DocumentState,
-  PageDocument,
 } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
@@ -25,7 +24,7 @@ import {
   type UploadAssetInput,
 } from "@ultrapaint/contracts/pages";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
-import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
@@ -58,43 +57,13 @@ import {
   readComponentFile,
   withTree,
 } from "./component-files.ts";
+import { decodePage, parseDocument, problemOf } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const decodePage = Schema.decodeUnknownEffect(PageDocument);
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
 const decodeNode = Schema.decodeUnknownEffect(DesignNode);
-
-/** What a document's text holds, with whether ids had to be filled in, or what is wrong with it. */
-export const parseDocument = (
-  text: string,
-  canvas: boolean
-): Effect.Effect<
-  | { readonly filled: boolean; readonly root: DesignNode }
-  | { readonly problem: string }
-> =>
-  canvas
-    ? readCanvasText(text).pipe(
-        Effect.map(({ filled, layout }) => ({
-          filled,
-          root: canvasRoot(layout.nodes ?? []),
-        })),
-        Effect.catch((error) => Effect.succeed({ problem: error.message }))
-      )
-    : Effect.try({
-        catch: (error) => `not JSON: ${problemOf(error)}`,
-        try: () => JSON.parse(text) as unknown,
-      }).pipe(
-        Effect.flatMap((json) => {
-          const filled = fillIds(json);
-          return decodePage(json).pipe(
-            Effect.map(({ root }) => ({ filled, root })),
-            Effect.mapError((error) => error.message)
-          );
-        }),
-        Effect.catch((problem) => Effect.succeed({ problem }))
-      );
 
 const IMAGE_EXTENSIONS = new Set([
   "avif",
@@ -116,9 +85,6 @@ interface Loaded {
   readonly root: DesignNode | null;
   readonly text: string | null;
 }
-
-const problemOf = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
 
 /** What `apply`'s `alongside` works with: the step's files, and the documents as they are in it. */
 export interface ApplyStep {

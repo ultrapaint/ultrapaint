@@ -1,8 +1,9 @@
+import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 import { ProjectManager } from "./project.ts";
 import { PagesService } from "./services/pages.ts";
-import { ProjectTest } from "./testing/project.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** The open project's pages, in a project of the test's own. */
 const pages = <A, E>(
@@ -47,6 +48,58 @@ describe("a canvas's home", () => {
           "/home"
         );
       })
+    )
+  );
+});
+
+/** An app component whose button leads to the Pricing page by its file. */
+const BANNER = `${JSON.stringify(
+  {
+    name: "Banner",
+    origin: "app",
+    properties: [],
+    slots: [],
+    tree: {
+      children: [
+        {
+          id: "go",
+          link: "pricing.page.json",
+          role: "paragraph",
+          text: "See the plans",
+          type: "text",
+        },
+      ],
+      id: "root",
+      type: "row",
+    },
+    version: 1,
+  },
+  null,
+  2
+)}\n`;
+
+describe("a page renamed", () => {
+  it.effect("takes the links of an app component's tree along", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ProjectFixture;
+      const fs = yield* FileSystem.FileSystem;
+      const pricing = yield* pages((p) =>
+        p.create("", { name: "Pricing", route: "/pricing" })
+      );
+      const renamed = yield* pages((p) => p.rename(pricing.id, "Plans"));
+      const banner = JSON.parse(
+        yield* fs.readFileString(
+          path.join(repo, "designs/components/Banner.component.json")
+        )
+      );
+      assert.strictEqual(banner.tree.children[0].link, renamed.path);
+    }).pipe(
+      Effect.provide(
+        ProjectTest({
+          files: { "designs/components/Banner.component.json": BANNER },
+        })
+      ),
+      Effect.scoped
     )
   );
 });

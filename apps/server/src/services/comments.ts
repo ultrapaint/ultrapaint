@@ -27,7 +27,13 @@ import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
-import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
+import {
+  type EditFailure,
+  EditService,
+  type EditTransaction,
+  type FileCodec,
+  updateFile,
+} from "./edit.ts";
 import { GitService } from "./git.ts";
 import { ProfileService } from "./profile.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -55,6 +61,22 @@ const renderComments = (list: CommentList) =>
   )}\n`;
 
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
+
+/** `comments.json` as a step reads and writes it: a canvas without one has no comments yet. */
+const commentsCodec = (canvas: string): FileCodec<CommentList, Conflict> => ({
+  decode: (text) =>
+    text === null
+      ? Effect.succeed(emptyList())
+      : decodeComments(text).pipe(
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `comments.json in ${canvas || "designs root"} is invalid: ${error.message}`,
+              })
+          )
+        ),
+  encode: renderComments,
+});
 
 /**
  * Comments pinned on the pages of a canvas. They live in `<canvas>/comments.json`, beside the
@@ -334,25 +356,32 @@ export class CommentsService extends Context.Service<
         canvas: string,
         revise: (comments: readonly Comment[]) => readonly Comment[]
       ) {
+        const file = paths.relative(
+          yield* paths.resolve(yield* fileOf(canvas))
+        );
+        let written: CommentList | null = null;
         // Comments that cannot be read are reported when the editor asks for them; a page's
         // rename or deletion is no reason to refuse, nor to write over what is there.
-        const before = yield* list(canvas).pipe(
-          Effect.catchTag("Conflict", () => Effect.succeed(null))
-        );
-        if (before === null) {
-          return [];
-        }
-        const next = revise(before.comments);
-        const same =
-          next.length === before.comments.length &&
-          next.every((comment, i) => comment === before.comments[i]);
-        if (!same) {
-          const file = yield* paths.resolve(yield* fileOf(canvas));
-          const written: CommentList = { comments: next, version: 1 };
-          yield* tx.write(paths.relative(file), renderComments(written));
+        const before = yield* updateFile(
+          tx,
+          file,
+          commentsCodec(canvas),
+          (saved) => {
+            const next = revise(saved.comments);
+            const same =
+              next.length === saved.comments.length &&
+              next.every((comment, i) => comment === saved.comments[i]);
+            if (same) {
+              return saved;
+            }
+            written = { comments: next, version: 1 };
+            return written;
+          }
+        ).pipe(Effect.catchTag("Conflict", () => Effect.succeed(null)));
+        if (written !== null) {
           yield* events.publish("comments", { canvas, list: written });
         }
-        return before.comments;
+        return before?.comments ?? [];
       });
 
       // A pull or a checkout changes the file behind the editor's back.

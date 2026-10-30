@@ -26,7 +26,6 @@ import {
   IMPLEMENTATION_FILE,
   type ImplementationChanges,
   type ImplementationEntry,
-  ImplementationFile,
   type ImplementationItem,
   type ImplementationList,
   implementedFileOf,
@@ -45,7 +44,6 @@ import {
   FileSystem,
   Layer,
   Path,
-  Schema,
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
@@ -56,13 +54,15 @@ import { componentsIn, readComponents } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
+import {
+  type EntryEdit,
+  emptyFile,
+  implementationCodec,
+  withEdits,
+} from "./implementation-files.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { handoffCall } from "./threads/agent-ways.ts";
-
-const decodeFile = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(ImplementationFile)
-);
 
 /** A behaviour note as the design's hash and an implementation task carry it. */
 export interface Note {
@@ -121,36 +121,7 @@ export interface Current {
   readonly target: string;
 }
 
-const emptyFile = (): ImplementationFile => ({ items: {}, version: 1 });
-
-/** A change to one entry of `implementation.json`, and the snapshot written or taken with it. */
-export interface EntryEdit {
-  readonly snapshot?: {
-    readonly rel: string;
-    /** Null takes the snapshot away. */
-    readonly text: string | null;
-  };
-  readonly target: string;
-  readonly update: (entry: ImplementationEntry) => ImplementationEntry | null;
-}
-
-/** The entries with the edits made, in order of their keys: the file is committed. */
-const withEdits = (
-  items: Readonly<Record<string, ImplementationEntry>>,
-  edits: readonly EntryEdit[]
-): Record<string, ImplementationEntry> => {
-  const next: Record<string, ImplementationEntry> = { ...items };
-  for (const { target, update } of edits) {
-    const entry = update(next[target] ?? {});
-    delete next[target];
-    if (entry !== null) {
-      next[target] = entry;
-    }
-  }
-  return Object.fromEntries(
-    Object.entries(next).sort(([a], [b]) => a.localeCompare(b))
-  );
-};
+export type { EntryEdit } from "./implementation-files.ts";
 
 /** What telling which tokens a design waits on needs, read once for a whole list. */
 interface TokenContext {
@@ -354,7 +325,7 @@ export class ImplementationService extends Context.Service<
       );
 
       const readFile = fs.readFileString(fileAbs).pipe(
-        Effect.flatMap(decodeFile),
+        Effect.flatMap(implementationCodec.decode),
         // None yet, or one that does not read: nothing is bound. A broken file is not
         // overwritten until something is marked, which writes it whole.
         Effect.orElseSucceed(emptyFile)
