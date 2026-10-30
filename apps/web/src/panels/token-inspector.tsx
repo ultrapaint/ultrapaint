@@ -34,6 +34,7 @@ import { Row, Section } from "../components/panel.tsx";
 import {
   ownValueIn,
   rampEdits,
+  type TokenUse,
   textStyleOp,
   themesOf,
   usesOf,
@@ -158,27 +159,34 @@ const ThemeValue = ({
   );
 };
 
-/** Where a token is used: the pages of the canvas open, the components, the text styles. */
-const UsedIn = ({ name }: { name: string }) => {
-  const ds = useDesignSystem((s) => s.designSystem);
+/** The pages of the canvas open the editor has read, named, for what counts their uses. */
+export const usePagesRead = () => {
   const docs = useDocuments((s) => s.docs);
   const pages = useProject((s) => s.pages);
-  const components = useComponents((s) => s.components);
-  const uses = useMemo(
+  return useMemo(
     () =>
-      usesOf(name, {
-        components,
-        ds,
-        pages: Object.values(docs).map((d) => ({
-          name:
-            pages.find((p) => p.id === d.doc)?.name ??
-            d.doc.split("/").at(-1) ??
-            d.doc,
-          root: d.root,
-        })),
-      }),
-    [name, components, ds, docs, pages]
+      Object.values(docs).map((d) => ({
+        name:
+          pages.find((p) => p.id === d.doc)?.name ??
+          d.doc.split("/").at(-1) ??
+          d.doc,
+        root: d.root,
+      })),
+    [docs, pages]
   );
+};
+
+/**
+ * Where something is used, the first few by name: a page, with what it counts there (`count`
+ * says it, or nothing), a component, a text style.
+ */
+export const UsesSection = ({
+  count,
+  uses,
+}: {
+  count: (use: TokenUse) => string | null;
+  uses: readonly TokenUse[];
+}) => {
   const SHOWN = 3;
   return (
     <Section title="Used in">
@@ -196,11 +204,7 @@ const UsedIn = ({ name }: { name: string }) => {
           {use.kind === "component" ? <Component /> : null}
           {use.kind === "style" ? <Type /> : null}
           <span className="truncate">{use.name}</span>
-          {use.kind === "page" ? (
-            <span className="text-muted-foreground">
-              {use.count} {use.count === 1 ? "node" : "nodes"}
-            </span>
-          ) : null}
+          <span className="text-muted-foreground">{count(use)}</span>
         </span>
       ))}
       {uses.length > SHOWN ? (
@@ -210,6 +214,24 @@ const UsedIn = ({ name }: { name: string }) => {
       ) : null}
     </Section>
   );
+};
+
+/** How many of a page's nodes name a token. */
+const nodesCount = (use: TokenUse) =>
+  use.kind === "page"
+    ? `${use.count} ${use.count === 1 ? "node" : "nodes"}`
+    : null;
+
+/** Where a token is used: the pages of the canvas open, the components, the text styles. */
+const UsedIn = ({ name }: { name: string }) => {
+  const ds = useDesignSystem((s) => s.designSystem);
+  const pages = usePagesRead();
+  const components = useComponents((s) => s.components);
+  const uses = useMemo(
+    () => usesOf(name, { components, ds, pages }),
+    [name, components, ds, pages]
+  );
+  return <UsesSection count={nodesCount} uses={uses} />;
 };
 
 /**
