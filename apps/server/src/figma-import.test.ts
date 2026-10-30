@@ -10,9 +10,12 @@ import {
   solid,
 } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, Path } from "effect";
+import { OpenProject } from "./project.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
 import { eachTest } from "./testing/each-test.ts";
 import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
+import { ProjectTest } from "./testing/project.ts";
 
 /** A login frame using a Button component set with a Label property, and a picture. */
 const loginFile = () => {
@@ -414,6 +417,21 @@ describe("importing a Figma file", () => {
           assert.strictEqual(twice._tag, "Failure");
         }),
       30_000
+    );
+  });
+
+  eachTest(ProjectTest())((it) => {
+    it.effect("lists two imported at the same instant newest first", () =>
+      Effect.gen(function* () {
+        const figma = (yield* OpenProject).service(FigmaImportService);
+        yield* figma((f) => f.create("first.fig", loginFile()));
+        yield* figma((f) => f.create("second.fig", loginFile()));
+        assert.deepStrictEqual(
+          (yield* figma((f) => f.list)).map((i) => i.name),
+          ["second.fig", "first.fig"]
+        );
+        assert.strictEqual((yield* figma((f) => f.latest))?.name, "second.fig");
+      })
     );
   });
 });
