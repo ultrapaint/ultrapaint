@@ -431,7 +431,7 @@ const makeAppOf = async (sel: Selection) => {
     confirmLabel: "Make component",
     defaultValue: nodeIds.length === 1 ? (node.name ?? "") : "",
     description:
-      "One of your own components, placed from the Assets panel like the system ones. Every instance draws its tree; implementing it writes it as your application's component.",
+      "One of your own components, placed from the Library like the system ones. Every instance draws its tree; implementing it writes it as your application's component.",
     placeholder: "Pricing card",
     title: "An app component",
   });

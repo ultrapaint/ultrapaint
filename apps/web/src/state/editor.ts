@@ -49,7 +49,12 @@ export type Workspace = "design" | "prototype";
 /** The order Ctrl+1..2 follow. */
 export const workspaceOrder: readonly Workspace[] = ["design", "prototype"];
 
-export type LeftTab = "chat" | "layers" | "assets" | "designSystem" | "changes";
+export type LeftTab =
+  | "chat"
+  | "layers"
+  | "designSystem"
+  | "library"
+  | "changes";
 
 /**
  * The workspace a reload or a shared link asks for, or the canvas. A link from before Vibe and
@@ -65,8 +70,8 @@ const workspaceInUrl = (): Workspace =>
 export const railTabs: readonly LeftTab[] = [
   "chat",
   "layers",
-  "assets",
   "designSystem",
+  "library",
   "changes",
 ];
 

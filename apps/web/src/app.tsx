@@ -76,9 +76,6 @@ import { useWindowChrome } from "./state/window-controls.ts";
  * Loaded when first opened: the chat is the panel the editor opens on, and the others, the
  * settings above all, bring code nobody needs until they are looked at.
  */
-const Assets = lazy(() =>
-  import("./panels/assets.tsx").then((m) => ({ default: m.Assets }))
-);
 const Changes = lazy(() =>
   import("./panels/changes.tsx").then((m) => ({ default: m.Changes }))
 );
@@ -93,6 +90,9 @@ const DesignSystemPanel = lazy(() =>
 const Layers = lazy(() =>
   import("./panels/layers.tsx").then((m) => ({ default: m.Layers }))
 );
+const Library = lazy(() =>
+  import("./panels/library.tsx").then((m) => ({ default: m.Library }))
+);
 const Pages = lazy(() =>
   import("./panels/pages.tsx").then((m) => ({ default: m.Pages }))
 );
@@ -102,11 +102,11 @@ const SettingsPage = lazy(() =>
 
 /** What each left panel of the canvas shows; its title and icon are the rail's. */
 const leftPanels: Record<LeftTab, ComponentType> = {
-  assets: Assets,
   changes: Changes,
   chat: Threads,
   designSystem: DesignSystemPanel,
   layers: Layers,
+  library: Library,
 };
 
 const leftBounds = { defaultWidth: 288, max: 480, min: 200 };

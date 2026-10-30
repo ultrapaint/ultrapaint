@@ -90,8 +90,8 @@ beforeEach(() => {
 
 describe("showLeftPanel", () => {
   it("shows a tab, the panel brought back and the canvas left as it is", async () => {
-    await showLeftPanel("assets");
-    expect(useEditor.getState().leftTab).toBe("assets");
+    await showLeftPanel("library");
+    expect(useEditor.getState().leftTab).toBe("library");
     expect(usePanels.getState()).toMatchObject({ left: false, right: true });
   });
 
@@ -176,7 +176,7 @@ describe("Rename", () => {
 
   it("with another panel on screen asks in a dialog", async () => {
     usePanels.setState({ left: false });
-    useEditor.setState({ leftTab: "assets" });
+    useEditor.setState({ leftTab: "library" });
     await renameNode(HERO);
     expect(takeRequest("rename")).toBeNull();
     expect(prompted.count).toBe(1);

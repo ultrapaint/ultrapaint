@@ -1,8 +1,13 @@
+import type { ElementId } from "@ultrapaint/design-document/factories";
 import {
+  ArrowDown,
+  ArrowRight,
   ChevronDown,
   Hand,
+  Image,
   MessageCircle,
   MousePointer2,
+  Plus,
   Pointer,
   Redo2,
   SquareDashed,
@@ -33,6 +38,11 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { keysOf } from "../lib/commands.ts";
+import {
+  INSERTED_ELEMENTS,
+  insertElement,
+  insertTarget,
+} from "../lib/node-actions.ts";
 import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
 import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
@@ -202,9 +212,66 @@ export const ZoomControl = () => {
   );
 };
 
+const ELEMENT_ICONS: Partial<Record<ElementId, React.ReactNode>> = {
+  column: <ArrowDown />,
+  image: <Image />,
+  paragraph: <Type />,
+  row: <ArrowRight />,
+};
+
+/** The elements, inserted into the selection as the Library inserts a component. */
+const InsertItems = () => {
+  // Read as the menu opens: where they go is the selection's at that moment.
+  const target = insertTarget();
+  return (
+    <DropdownMenuGroup>
+      {INSERTED_ELEMENTS.map((element) => (
+        <DropdownMenuItem
+          disabled={target === null}
+          key={element.id}
+          onClick={() => insertElement(element.id)}
+        >
+          {ELEMENT_ICONS[element.id]}
+          {element.name}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuGroup>
+  );
+};
+
+/** The first of the tools (ADR 0045): the elements a design is built of, in a plain menu. */
+const InsertMenu = () => (
+  <DropdownMenu>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label="Insert"
+                className="size-8 rounded-lg data-popup-open:bg-muted"
+                size="icon"
+                variant="ghost"
+              />
+            }
+          />
+        }
+      >
+        <Plus />
+      </TooltipTrigger>
+      <TooltipContent side="right">
+        Insert a row, a column, text or an image
+      </TooltipContent>
+    </Tooltip>
+    <DropdownMenuContent align="start" className="w-40" side="right">
+      <InsertItems />
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 /**
- * The canvas's tools, floating in a column at the top, beside the left panel: the tools, then
- * undo and redo. The app positions it.
+ * The canvas's tools, floating in a column at the top, beside the left panel: Insert, the tools,
+ * then undo and redo. The app positions it.
  */
 export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
@@ -213,6 +280,8 @@ export const Toolbar = () => {
 
   return (
     <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
+      <InsertMenu />
+      <Separator className="my-0.5 w-5" />
       <ToggleGroup
         onValueChange={onModeChange}
         orientation="vertical"

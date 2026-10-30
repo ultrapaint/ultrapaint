@@ -1,6 +1,7 @@
 /**
- * New nodes: what the Assets panel inserts and what a new page starts as. Ids come from the caller's
- * generator, so a node made in the editor can be selected as soon as the server has it.
+ * New nodes: what the Insert menu and the Library insert and what a new page starts as. Ids come
+ * from the caller's generator, so a node made in the editor can be selected as soon as the server
+ * has it.
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -13,7 +14,10 @@ import type {
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
 import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
 
-/** The elements the Assets panel offers above the system components (ADR 0040): layout, text, images. */
+/**
+ * The elements a design is built of (ADRs 0040, 0045): layout, text, images. The tools' Insert
+ * menu offers some of them; a group is drawn with the group tool.
+ */
 export const ELEMENTS = [
   { id: "column", name: "Column" },
   { id: "row", name: "Row" },

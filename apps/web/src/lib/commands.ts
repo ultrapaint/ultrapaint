@@ -41,6 +41,9 @@ import type { Item } from "./menu-model.ts";
 import {
   deleteSelection,
   duplicateSelection,
+  INSERTED_ELEMENTS,
+  insertElement,
+  insertTarget,
   setHidden,
   setLocked,
   wrapSelection,
@@ -210,11 +213,15 @@ const leftPanels: readonly {
 }[] = [
   { keywords: "chat threads agent", tab: "chat", title: "Agents" },
   { keywords: "tree outline", tab: "layers", title: "Layers" },
-  { keywords: "components images insert", tab: "assets", title: "Assets" },
   {
-    keywords: "tokens theme sync",
+    keywords: "tokens colours typography theme sync guidelines",
     tab: "designSystem",
     title: "Design system",
+  },
+  {
+    keywords: "components insert assets",
+    tab: "library",
+    title: "Library",
   },
   { keywords: "history diff git", tab: "changes", title: "Changes" },
 ];
@@ -339,6 +346,19 @@ const panelCommands = (): CommandSpec[] => [
     title: "Hide or show the panels",
   },
 ];
+
+/** The Insert menu's elements, each a command of the palette's while there is somewhere to put it. */
+const insertCommands = (): CommandSpec[] =>
+  INSERTED_ELEMENTS.map(
+    (element): CommandSpec => ({
+      group: "Edit",
+      id: `insert:${element.id}`,
+      keywords: "add new element",
+      offered: () => onCanvas() && insertTarget() !== null,
+      run: () => insertElement(element.id),
+      title: `Insert ${element.name.toLowerCase()}`,
+    })
+  );
 
 const viewCommands = (): CommandSpec[] => [
   ...workspaceOrder.map(workspaceCommand),
@@ -618,6 +638,7 @@ export const commandList = (): readonly CommandSpec[] => {
       },
       title: "Redo",
     },
+    ...insertCommands(),
     ...viewCommands(),
     ...projectCommands(),
     ...keyOnlyCommands(),

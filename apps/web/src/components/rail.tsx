@@ -2,10 +2,10 @@ import { cn } from "cn";
 import {
   GitCompareArrows,
   Layers as LayersIcon,
+  LibraryBig,
   type LucideIcon,
   Palette as PaletteIcon,
   Settings,
-  Shapes,
   Sparkles,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -22,7 +22,6 @@ export const railItems: Record<
   LeftTab,
   { label: string; rail: string; icon: LucideIcon }
 > = {
-  assets: { icon: Shapes, label: "Assets", rail: "Assets" },
   changes: { icon: GitCompareArrows, label: "Changes", rail: "Changes" },
   chat: { icon: Sparkles, label: "Agents", rail: "Agents" },
   designSystem: {
@@ -31,6 +30,7 @@ export const railItems: Record<
     rail: "Design system",
   },
   layers: { icon: LayersIcon, label: "Layers", rail: "Layers" },
+  library: { icon: LibraryBig, label: "Library", rail: "Library" },
 };
 
 const openSettings = () => useProject.getState().openSettings(true);

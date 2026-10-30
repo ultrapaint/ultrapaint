@@ -43,7 +43,7 @@ export type MenuTarget =
   | { kind: "comment"; commentId: string }
   | { kind: "token"; name: string; value: string; tokenKind: MenuTokenKind }
   | { kind: "textStyle"; name: string }
-  /** An entry of the Assets panel: a system component, or a component of the design system. */
+  /** An entry of the Library: a system component, or an app component. */
   | {
       kind: "component";
       name: string;
