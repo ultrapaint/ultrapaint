@@ -1,8 +1,5 @@
 import { BadRequest, ForbiddenPath } from "@ultrapaint/contracts/errors";
-import {
-  DEFAULT_DESIGNS_DIR,
-  defaultFramework,
-} from "@ultrapaint/contracts/settings";
+import { DEFAULT_DESIGNS_DIR } from "@ultrapaint/contracts/settings";
 import {
   type CreateDesignsInput,
   type CreateDesignsResult,
@@ -12,13 +9,14 @@ import {
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
 import { defaultStyleSystem } from "@ultrapaint/contracts/tokens";
+import { detect as detectApplication } from "@ultrapaint/framework-react-vite/detect";
+import { scaffold as scaffoldApplication } from "@ultrapaint/framework-react-vite/scaffold";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { runCommand } from "../process.ts";
-import { locateFramework } from "./framework.ts";
 import { locateStyleSystem } from "./style-system.ts";
 
 /** `"packageManager": "pnpm@10.0.0"` in a package.json. */
@@ -39,7 +37,8 @@ export interface Installed {
  * The first-run setup: looks at a repository before anything is configured, creates the
  * directory the pages will live in, and starts an application where there is none (ADR 0025).
  * It is the only part of the server that writes into a repository no project is open for, so it
- * checks every path itself.
+ * checks every path itself. Where an application is and how a new one is written are
+ * framework-react-vite's, a pure package this wraps.
  */
 export class SetupService extends Context.Service<
   SetupService,
@@ -93,12 +92,11 @@ export class SetupService extends Context.Service<
         repoPath: string
       ) {
         const root = yield* repository(repoPath);
-        const framework = yield* locateFramework(defaultFramework);
         // Reads manifests and directory listings, a few hundred milliseconds on a large
         // monorepo, and only when the setup asks for it.
-        const found = yield* Effect.sync(() => framework.detect(root));
-        // The stylesheets are looked for in the packages the framework proposed: the best
-        // anchors, and the libraries (ADR 0024).
+        const found = yield* Effect.sync(() => detectApplication(root));
+        // The stylesheets are looked for in the packages proposed: the best anchors, and the
+        // libraries (ADR 0024).
         const styleSystem = yield* Effect.orDie(
           locateStyleSystem(defaultStyleSystem)
         );
@@ -272,13 +270,7 @@ export class SetupService extends Context.Service<
             message: `${input.dir} already has a package.json: start the application somewhere else`,
           });
         }
-        const framework = yield* locateFramework(defaultFramework);
-        if (!framework.scaffold) {
-          return yield* new BadRequest({
-            message: `${framework.id} cannot start an application`,
-          });
-        }
-        const made = framework.scaffold({
+        const made = scaffoldApplication({
           dir,
           name: input.name,
           template: input.template ?? "starter",
