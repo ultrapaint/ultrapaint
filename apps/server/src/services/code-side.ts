@@ -11,7 +11,6 @@
 import {
   DESIGN_SYSTEM_FILE,
   type DesignSystem,
-  type DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import type { TokenComparison } from "@ultrapaint/contracts/sync";
@@ -30,7 +29,7 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeStampedCache } from "../file-stamp.ts";
-import { withAgreement } from "./design-system-files.ts";
+import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
@@ -71,10 +70,11 @@ export class CodeSide extends Context.Service<
     /** What the stylesheets say, as a first design system by the style system's fixed rules. */
     readonly scan: Effect.Effect<DesignSystemScan>;
     /**
-     * What a design system and the code agree on, kept in its `codeSync`: the last agreement,
-     * with every value they now share taken as agreed, and what neither has any more dropped.
+     * What a design system and the code agree on moved in its `codeSync`, outside the undo
+     * history: the last agreement, with every value they now share taken as agreed, and what
+     * neither has any more dropped. After either side is written.
      */
-    readonly agreement: (ds: DesignSystem) => Effect.Effect<DocumentBaseline>;
+    readonly settle: (ds: DesignSystem) => Effect.Effect<void>;
     /**
      * The code's tokens against the design system's (ADR 0028), against what the two last
      * agreed on: what waits for the code, what the code changed alone, and what both changed.
@@ -137,8 +137,7 @@ export class CodeSide extends Context.Service<
         Effect.orElseSucceed(() => nothingRead)
       );
 
-      const agreement = (ds: DesignSystem) =>
-        Effect.map(tokens, (code) => codeAgreement(ds, code.tokens));
+      const moveBaseline = baselineMover(edit, systemRel);
 
       const comparison = (ds: DesignSystem) =>
         Effect.map(tokens, (code): CodeComparison => {
@@ -167,19 +166,13 @@ export class CodeSide extends Context.Service<
         );
 
       /**
-       * What the design system and the code agree on, moved after the code was written. A
-       * `design-system.json` that does not read is left alone (reading it says why), and one
-       * taken away meanwhile stays away.
+       * What the design system and the code agree on, moved. A `design-system.json` that does
+       * not read is left alone (reading it says why), and one taken away meanwhile stays away.
        */
       const settle = Effect.fnUntraced(function* (ds: DesignSystem) {
-        const { agreed } = yield* agreement(ds);
+        const { agreed } = codeAgreement(ds, (yield* tokens).tokens);
         const at = yield* Clock.currentTimeMillis;
-        yield* edit.amend(systemRel, (content) => {
-          const next = withAgreement(content, "codeSync", agreed, at);
-          return next === null
-            ? Effect.fail("unread" as const)
-            : Effect.succeed([next, null] as const);
-        });
+        yield* Effect.ignore(moveBaseline("codeSync", agreeOn(agreed, at)));
       });
 
       /**
@@ -247,7 +240,7 @@ export class CodeSide extends Context.Service<
         if (edits.length > 0) {
           yield* cache.clear;
           if (against !== null) {
-            yield* Effect.ignore(settle(against));
+            yield* settle(against);
           }
           yield* PubSub.publish(changed, undefined);
         }
@@ -260,7 +253,6 @@ export class CodeSide extends Context.Service<
       );
 
       return CodeSide.of({
-        agreement,
         changes: Stream.fromPubSub(changed),
         comparison,
         follow: (changes, against) =>
@@ -271,6 +263,7 @@ export class CodeSide extends Context.Service<
           Effect.andThen(PubSub.publish(changed, undefined))
         ),
         scan: Effect.sync(() => styleSystem.scan(context)),
+        settle,
         tokens,
         write,
       });

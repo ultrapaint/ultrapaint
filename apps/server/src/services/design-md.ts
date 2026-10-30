@@ -50,7 +50,7 @@ import { makeStampedCache } from "../file-stamp.ts";
 import { readComponents } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
-import { withAgreement } from "./design-system-files.ts";
+import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
@@ -192,8 +192,10 @@ export class DesignMd extends Context.Service<
       const legacyCandidate = path.join(paths.designsDir, DESIGN_NOTES_FILE);
       // A designs directory at the root of the repository has one DESIGN.md, not two.
       const legacyFile = legacyCandidate === rootFile ? null : legacyCandidate;
-      const systemFile = path.join(paths.designsDir, DESIGN_SYSTEM_FILE);
-      const systemRel = paths.relative(systemFile);
+      const moveBaseline = baselineMover(
+        edit,
+        paths.relative(path.join(paths.designsDir, DESIGN_SYSTEM_FILE))
+      );
       // Whatever writes DESIGN.md or its baseline, one at a time.
       const serially = (yield* Semaphore.make(1)).withPermits(1);
 
@@ -344,14 +346,11 @@ export class DesignMd extends Context.Service<
             // Nothing agreed yet, and nothing now: Sync matches the document first.
             return;
           }
-          const now = yield* Clock.currentTimeMillis;
           // The baseline beside it, unless the file does not read (reading it says why).
-          yield* edit.amend(systemRel, (content) => {
-            const next = withAgreement(content, "designMd", after, now);
-            return next === null
-              ? Effect.fail("unread" as const)
-              : Effect.succeed([next, null] as const);
-          });
+          yield* moveBaseline(
+            "designMd",
+            agreeOn(after, yield* Clock.currentTimeMillis)
+          );
         },
         serially,
         Effect.ignore({ log: true }),
@@ -396,7 +395,6 @@ export class DesignMd extends Context.Service<
         }
         // What the document and the design system agree on from now: every value they share.
         const agreed = groups && mergeMirror(parse(text), groups, {}).agreed;
-        const at = yield* Clock.currentTimeMillis;
         yield* edit.transaction(
           legacy ? "Move DESIGN.md to the repository root" : "Write DESIGN.md",
           (tx) =>
@@ -405,19 +403,17 @@ export class DesignMd extends Context.Service<
                 yield* tx.move(legacy.path, file);
               }
               yield* tx.write(file, text);
-              const system =
-                agreed &&
-                withAgreement(
-                  yield* readOptional(systemFile),
-                  "designMd",
-                  agreed,
-                  at
-                );
-              if (system) {
-                yield* tx.write(systemRel, system);
-              }
             })
         );
+        // The baseline beside it, outside the undo history as every baseline moves.
+        if (agreed) {
+          yield* Effect.ignore(
+            moveBaseline(
+              "designMd",
+              agreeOn(agreed, yield* Clock.currentTimeMillis)
+            )
+          );
+        }
         return { path: file };
       }, serially);
 

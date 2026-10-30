@@ -5,9 +5,10 @@ import {
 import type { TokenValues } from "@ultrapaint/contracts/token-table";
 import { describe, expect, it } from "vitest";
 import {
+  agreeOn,
   readDesignSystem,
   readGivenDesignSystem,
-  withAgreement,
+  withBaseline,
   writeDesignSystem,
 } from "./services/design-system-files.ts";
 
@@ -240,25 +241,38 @@ describe("a design system a writer gives", () => {
   });
 });
 
-describe("an agreement set in design-system.json", () => {
+describe("a baseline moved in design-system.json", () => {
+  const match = { by: "user" as const, to: "color-a" };
+
   it("sets what is agreed, the matches kept, the rest as the file has it", () => {
     const text = json({
-      codeSync: { agreed: { "color-a": "#000" }, at: 1, matches: { m: 1 } },
+      codeSync: { agreed: { "color-a": "#000" }, at: 1, matches: { m: match } },
       other: true,
     });
     expect(
       JSON.parse(
-        withAgreement(text, "codeSync", { "color-b": "#fff" }, 5) ?? ""
+        withBaseline(text, "codeSync", agreeOn({ "color-b": "#fff" }, 5)) ?? ""
       )
     ).toEqual({
-      codeSync: { agreed: { "color-b": "#fff" }, at: 5, matches: { m: 1 } },
+      codeSync: {
+        agreed: { "color-b": "#fff" },
+        at: 5,
+        matches: { m: match },
+      },
       other: true,
     });
     expect(
       JSON.parse(
-        withAgreement(text, "designMd", { "colors.a": "#000" }, 7) ?? ""
+        withBaseline(text, "designMd", agreeOn({ "colors.a": "#000" }, 7)) ?? ""
       ).designMd
     ).toEqual({ agreed: { "colors.a": "#000" }, at: 7 });
+  });
+
+  it("sets Figma's baseline whole", () => {
+    const sync = { at: 3, code: {}, figma: {}, file: "brand.fig" };
+    expect(
+      JSON.parse(withBaseline(json({ other: true }), "sync", () => sync) ?? "")
+    ).toEqual({ other: true, sync });
   });
 
   it("leaves the file as it is when the side agrees on the same values already", () => {
@@ -266,17 +280,17 @@ describe("an agreement set in design-system.json", () => {
       codeSync: { agreed: { "color-a": "#000" }, at: 1 },
       other: true,
     });
-    expect(withAgreement(text, "codeSync", { "color-a": "#000" }, 5)).toBe(
-      text
-    );
+    expect(
+      withBaseline(text, "codeSync", agreeOn({ "color-a": "#000" }, 5))
+    ).toBe(text);
     // None kept is nothing agreed.
-    expect(withAgreement(text, "designMd", {}, 5)).toBe(text);
-    expect(withAgreement(text, "codeSync", {}, 5)).not.toBe(text);
+    expect(withBaseline(text, "designMd", agreeOn({}, 5))).toBe(text);
+    expect(withBaseline(text, "codeSync", agreeOn({}, 5))).not.toBe(text);
   });
 
   it("leaves a file that is not there or does not read alone", () => {
-    expect(withAgreement(null, "codeSync", {}, 1)).toBeNull();
-    expect(withAgreement("{", "designMd", {}, 1)).toBeNull();
-    expect(withAgreement("[]", "designMd", {}, 1)).toBeNull();
+    expect(withBaseline(null, "codeSync", agreeOn({}, 1))).toBeNull();
+    expect(withBaseline("{", "designMd", agreeOn({}, 1))).toBeNull();
+    expect(withBaseline("[]", "designMd", agreeOn({}, 1))).toBeNull();
   });
 });
