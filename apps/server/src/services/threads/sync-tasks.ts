@@ -15,7 +15,7 @@ import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { groupsOf } from "@ultrapaint/design-md/tokens";
 import { Effect } from "effect";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { CodeSide } from "../code-side.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
@@ -42,7 +42,7 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
   readonly ways: AgentWays;
 }) {
   const { ways } = deps;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const sync = yield* DesignSystemSyncService;
 
   /** `/sync describe`: the tokens and components of the code the design system does not list, described in it. */

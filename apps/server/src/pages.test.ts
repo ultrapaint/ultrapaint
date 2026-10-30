@@ -1,7 +1,7 @@
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
@@ -9,7 +9,7 @@ import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 const pages = <A, E>(
   f: (pages: PagesService["Service"]) => Effect.Effect<A, E>
 ) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.use(Effect.flatMap(PagesService, f))
   );
 

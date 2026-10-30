@@ -11,7 +11,7 @@ import {
 import { Effect, Fiber, FileSystem, Option, Path, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DocumentService } from "./services/documents.ts";
@@ -27,7 +27,7 @@ import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** The status of a component's link to its code, and the files it is linked to. */
 const linkOf = (component: string) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.service(ImplementationService)((s) =>
       s.item(componentTarget(component))
     )
@@ -94,7 +94,7 @@ describe("flows in the services", () => {
       "starts a system component's file from its default look, linked to no file until it is implemented",
       () =>
         Effect.gen(function* () {
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const components = project.service(ComponentService);
           const read = yield* components((c) => c.fromDefault("Button"));
           assert.strictEqual(read.file, "components/Button.component.json");
@@ -122,7 +122,7 @@ describe("flows in the services", () => {
       "deletes a page with its variants, and says which pages went",
       () =>
         Effect.gen(function* () {
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const pages = project.service(PagesService);
           const pricing = yield* pages((p) =>
             p.create("", { name: "Pricing", route: "/pricing" }, "blank")
@@ -140,7 +140,7 @@ describe("flows in the services", () => {
       "draws the pages' instances of the repository's components as system components, in one step",
       () =>
         Effect.gen(function* () {
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const pages = project.service(PagesService);
           const documents = project.service(DocumentService);
           const orders = yield* pages((p) =>
@@ -213,7 +213,7 @@ describe("flows in the services", () => {
       "gives the newest Figma import's default theme, and none without an import",
       () =>
         Effect.gen(function* () {
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const figma = project.service(FigmaImportService);
           assert.deepStrictEqual(yield* figma((f) => f.theme), {});
           const file = makeFigFile();
@@ -260,7 +260,7 @@ describe("flows in the services", () => {
   })((it) => {
     it.effect("tells the editor git's status after a commit it makes", () =>
       Effect.gen(function* () {
-        const project = yield* ProjectManager;
+        const project = yield* OpenProject;
         const git = project.service(GitService);
         const status = yield* nextEvent(
           "git",
@@ -286,7 +286,7 @@ describe("flows in the services", () => {
       () =>
         Effect.gen(function* () {
           const { repo } = yield* ProjectFixture;
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const comments = project.service(CommentsService);
           const comment = {
             canvas: "",
@@ -317,7 +317,7 @@ describe("flows in the services", () => {
         "brings the designs from before up to date in one undo step: instances, specs and their implementation",
         () =>
           Effect.gen(function* () {
-            const project = yield* ProjectManager;
+            const project = yield* OpenProject;
             const { repo } = yield* ProjectFixture;
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
@@ -453,7 +453,7 @@ describe("flows in the services", () => {
       "edits an app component's tree as a document, its properties following what its nodes show",
       () =>
         Effect.gen(function* () {
-          const project = yield* ProjectManager;
+          const project = yield* OpenProject;
           const components = project.service(ComponentService);
           const documents = project.service(DocumentService);
           const designsDir = yield* project.service(RepoPaths)((p) =>

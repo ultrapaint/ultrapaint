@@ -33,7 +33,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
@@ -143,7 +143,7 @@ export class DesignSystemSyncService extends Context.Service<
   static readonly layer = Layer.effect(
     DesignSystemSyncService,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const setup = yield* DesignSystemSetupService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;

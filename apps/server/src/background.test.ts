@@ -2,7 +2,7 @@ import path from "node:path";
 import { assert, describe, layer, it as test } from "@effect/vitest";
 import { isWholeDocument } from "@ultrapaint/contracts/document";
 import { Effect, FileSystem, Stream } from "effect";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { nextEvent, TestEnv, TestServer } from "./testing/harness.ts";
@@ -113,7 +113,7 @@ describe("the sync plan", () => {
 describe("the Figma imports", () => {
   test.effect("are listed when one of them does not read", () =>
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const listed = yield* project.use(
         Effect.flatMap(FigmaImportService, (figma) => figma.list)
       );

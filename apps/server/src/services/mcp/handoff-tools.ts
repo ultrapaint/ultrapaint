@@ -10,7 +10,7 @@ import { baselineKey } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import {
   type DesignTarget,
@@ -62,7 +62,7 @@ const lineOf = (item: ImplementationItem) => {
 const HandoffTools = Toolkit.make(Handoff);
 
 export const handoffToolHandlers = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const implementation = project.service(ImplementationService);
   const designTargets = project.service(DesignTargets);
   const tasks = yield* AgentTasks;

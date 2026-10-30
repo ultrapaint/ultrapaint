@@ -26,7 +26,7 @@ import type {
 import { outlineOf, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignTargets } from "../design-targets.ts";
@@ -272,7 +272,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   readonly ways: AgentWays;
 }) {
   const { ways } = deps;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
 
   /**
    * Implement (ADR 0030): a page or a component turned into the application's code. A

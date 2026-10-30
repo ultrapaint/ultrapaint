@@ -4,7 +4,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Ref, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import {
   type DesignChange,
   DesignFiles,
@@ -118,7 +118,7 @@ describe("the designs' changes", () => {
         const { repo } = yield* ProjectFixture;
         const events = yield* EventBus;
         const fs = yield* FileSystem.FileSystem;
-        const project = yield* ProjectManager;
+        const project = yield* OpenProject;
         const told = yield* events
           .subscribe("designSystem")
           .pipe(Stream.runHead, Effect.forkScoped);

@@ -27,7 +27,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -119,7 +119,7 @@ const FIG_HEADER = "x-file-name";
  */
 const FigmaImportRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const project = yield* ProjectManager;
+    const project = yield* OpenProject;
     yield* router.add(
       "POST",
       "/api/figma/import",

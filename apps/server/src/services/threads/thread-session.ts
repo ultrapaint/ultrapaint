@@ -50,7 +50,7 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
@@ -217,7 +217,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const access = yield* McpAccess;
   const checkpoints = yield* Checkpoints;
   const { mcp: mcpEnabled } = yield* ServerConfig;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const events = yield* EventBus;
   const log = yield* AppLog;
   const path = yield* Path.Path;

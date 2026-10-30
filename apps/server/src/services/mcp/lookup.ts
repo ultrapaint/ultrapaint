@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
 import { pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
@@ -10,7 +10,7 @@ import { missing, reported } from "./tool-helpers.ts";
  * miss is a sentence that says what there is instead.
  */
 export const makeLookup = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
 
   const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
 

@@ -1,7 +1,7 @@
 import { assert, describe, layer } from "@effect/vitest";
 import { emptySystemComponent } from "@ultrapaint/contracts/components";
 import { type Context, Effect } from "effect";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
@@ -33,7 +33,7 @@ const refusal = (
 const project = <I extends ProjectServices, S, A, E>(
   key: Context.Key<I, S>,
   f: (service: S) => Effect.Effect<A, E>
-) => Effect.flatMap(ProjectManager, (p) => p.service(key)(f));
+) => Effect.flatMap(OpenProject, (p) => p.service(key)(f));
 
 /** `/implement`'s task for a target, as the slash command or the Components panel asks. */
 const implementTask = (target: string) =>

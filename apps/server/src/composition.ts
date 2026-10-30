@@ -12,7 +12,11 @@ import { Layer } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
-import { ProjectManager, type ProjectRequirements } from "./project.ts";
+import {
+  type OpenProject,
+  ProjectManager,
+  type ProjectRequirements,
+} from "./project.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
@@ -59,7 +63,7 @@ import { Thumbnails } from "./services/thumbnails.ts";
 import { WorkingTree } from "./services/working-tree.ts";
 
 /** What the agents' adapters are built on: the server's own services and the project. */
-type AgentRequirements = ProjectRequirements | ProjectManager;
+type AgentRequirements = ProjectRequirements | OpenProject;
 
 /** What the designs' changes are heard with. */
 type DesignFilesLayer = Layer.Layer<
