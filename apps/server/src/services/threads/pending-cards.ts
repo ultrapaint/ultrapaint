@@ -6,7 +6,8 @@
  * when its turn is stopped or its session ends.
  *
  * One per thread, made with its session: the cards count the thread's whole life, across its
- * agent's sessions, while a choice remembered is the session's.
+ * agent's sessions. Nothing is answered from memory: an agent that offers "always" remembers the
+ * choice itself (`allow_always`, `reject_always`), for the commands it means it for.
  */
 import type {
   CreateElicitationRequest,
@@ -44,11 +45,10 @@ export interface PendingCards {
   ) => Effect.Effect<void, NotFound>;
   /** Whether the agent can be asked with a form, as far as the thread has seen. */
   readonly canWait: Effect.Effect<boolean>;
-  /** The user's pick on a permission card, remembered for the session when asked to be. */
+  /** The user's pick on a permission card. */
   readonly choose: (
     requestId: string,
-    optionId: string,
-    remember: boolean
+    optionId: string
   ) => Effect.Effect<void, NotFound>;
   /** The user will not answer a form the agent waits on: it hears "decline". */
   readonly decline: (itemId: string) => Effect.Effect<void, NotFound>;
@@ -65,31 +65,20 @@ export interface PendingCards {
   readonly elicitation: (
     request: CreateElicitationRequest
   ) => Effect.Effect<CreateElicitationResponse>;
-  /** The session ended: what it waited on is let go, and the choices it remembered go. */
-  readonly endSession: Effect.Effect<void>;
   /**
    * A form an MCP tool sends through the agent: the mark it is to come back with, the count of
    * cards the agent has waited on so far.
    */
   readonly formSent: Effect.Effect<string>;
-  /**
-   * A permission the agent asks for: answered by a choice remembered in this session for its
-   * kind of tool, else drawn as a card the agent waits on until the user picks an option.
-   */
+  /** A permission the agent asks for, drawn as a card it waits on until the user picks. */
   readonly permission: (
     request: RequestPermissionRequest
   ) => Effect.Effect<RequestPermissionResponse>;
   /**
-   * The agent stops waiting, as when its turn is stopped: each permission is answered
-   * `cancelled` and each form `cancel`, and their cards say so.
+   * The agent stops waiting, as when its turn is stopped or its session ends: each permission is
+   * answered `cancelled` and each form `cancel`, and their cards say so.
    */
   readonly releaseAll: Effect.Effect<void>;
-}
-
-interface PendingPermission {
-  readonly decision: Deferred.Deferred<RequestPermissionResponse>;
-  /** What "remember this choice" is keyed by: the tool kind, else its title. */
-  readonly rememberKey: string;
 }
 
 /** A form the agent is waiting on, by its card's item id. */
@@ -107,9 +96,11 @@ export const makePendingCards = (
   }
 ): PendingCards => {
   const { log, newItemId, store } = deps;
-  const permissions = new Map<string, PendingPermission>();
+  const permissions = new Map<
+    string,
+    Deferred.Deferred<RequestPermissionResponse>
+  >();
   const forms = new Map<string, PendingForm>();
-  const remembered = new Map<string, string>();
   let shown = 0;
   let cannotWait = false;
 
@@ -117,13 +108,6 @@ export const makePendingCards = (
     request: RequestPermissionRequest
   ) {
     const { toolCall } = request;
-    const rememberKey = toolCall.kind ?? toolCall.title ?? "tool";
-    const chosen = remembered.get(rememberKey);
-    if (chosen && request.options.some((o) => o.optionId === chosen)) {
-      return {
-        outcome: { optionId: chosen, outcome: "selected" },
-      } satisfies RequestPermissionResponse;
-    }
     const requestId = yield* makeId("perm");
     const detail = [
       ...(toolCall.locations ?? []).map((l) => l.path),
@@ -132,7 +116,7 @@ export const makePendingCards = (
         : []),
     ].join("\n");
     const decision = yield* Deferred.make<RequestPermissionResponse>();
-    permissions.set(requestId, { decision, rememberKey });
+    permissions.set(requestId, decision);
     yield* store.push(threadId, {
       at: yield* Clock.currentTimeMillis,
       decision: null,
@@ -162,19 +146,15 @@ export const makePendingCards = (
 
   const choose = Effect.fnUntraced(function* (
     requestId: string,
-    optionId: string,
-    remember: boolean
+    optionId: string
   ) {
-    const pending = permissions.get(requestId);
-    if (!pending) {
+    const decision = permissions.get(requestId);
+    if (!decision) {
       return yield* new NotFound({
         message: "permission request is no longer pending",
       });
     }
-    if (remember) {
-      remembered.set(pending.rememberKey, optionId);
-    }
-    yield* Deferred.succeed(pending.decision, {
+    yield* Deferred.succeed(decision, {
       outcome: { optionId, outcome: "selected" },
     });
   });
@@ -279,8 +259,8 @@ export const makePendingCards = (
 
   const releaseAll = Effect.gen(function* () {
     // Each permission's card is written by the request that waits on it, once it hears.
-    for (const pending of permissions.values()) {
-      yield* Deferred.succeed(pending.decision, CANCELLED);
+    for (const decision of permissions.values()) {
+      yield* Deferred.succeed(decision, CANCELLED);
     }
     for (const [itemId, pending] of forms) {
       yield* store.patchItem(threadId, itemId, (item) =>
@@ -308,10 +288,6 @@ export const makePendingCards = (
         return false;
       }),
     elicitation,
-    endSession: Effect.andThen(
-      releaseAll,
-      Effect.sync(() => remembered.clear())
-    ),
     formSent: Effect.sync(() => String(shown)),
     permission,
     releaseAll,
