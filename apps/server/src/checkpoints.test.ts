@@ -48,11 +48,7 @@ const read = (file: string) =>
     return (yield* fs.exists(abs)) ? yield* fs.readFileString(abs) : null;
   });
 
-/**
- * A turn of `threadId`'s: its checkpoint taken before it starts, and the turn taking a second.
- * The checkpoints are told apart by when they were taken, and on the test clock every one would
- * be taken at the same instant.
- */
+/** A turn of `threadId`'s: its checkpoint taken before it starts, and the turn taking a second. */
 const takeTurn = (threadId: string, label: string) =>
   Effect.andThen(
     Effect.flatMap(Checkpoints, (checkpoints) =>
@@ -196,6 +192,31 @@ describe("agent turn checkpoints", () => {
         assert.deepStrictEqual(
           diffs.map((d) => d.path),
           [KEPT_FILE]
+        );
+      })
+    );
+
+    it.effect("lists two taken at the same instant newest first", () =>
+      Effect.gen(function* () {
+        const checkpoints = yield* Checkpoints;
+        yield* checkpoints.create("t-4", "Before: the first");
+        yield* checkpoints.create("t-4", "Before: the second");
+        assert.deepStrictEqual(
+          (yield* checkpoints.list).map((c) => c.label),
+          ["Before: the second", "Before: the first"]
+        );
+      })
+    );
+
+    it.effect("lets go of the first of those taken at the same instant", () =>
+      Effect.gen(function* () {
+        const checkpoints = yield* Checkpoints;
+        for (let i = 0; i < KEPT + 1; i += 1) {
+          yield* checkpoints.create("t-5", `Before: turn ${i}`);
+        }
+        assert.deepStrictEqual(
+          (yield* checkpoints.list).map((c) => c.label),
+          Array.from({ length: KEPT }, (_, i) => `Before: turn ${KEPT - i}`)
         );
       })
     );

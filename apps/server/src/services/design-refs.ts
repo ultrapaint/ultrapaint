@@ -11,6 +11,7 @@ import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { basename } from "@ultrapaint/shared/path";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { makeWalk } from "../fs-walk.ts";
+import { newestFirst } from "../ids.ts";
 import { OpenProject } from "../project.ts";
 import { COMMENTS_FILE } from "./comments-file.ts";
 import { EditService } from "./edit.ts";
@@ -54,7 +55,7 @@ export interface DesignRefsOptions<N extends Located, I> {
 /** The designs kept in one namespace of the snapshot store. */
 export const makeDesignRefs = <
   N extends Located,
-  I extends { readonly at: number },
+  I extends { readonly at: number; readonly id: string },
 >(
   options: DesignRefsOptions<N, I>
 ) =>
@@ -124,9 +125,15 @@ export const makeDesignRefs = <
       );
     });
 
+    /** Newest first; of two kept in one millisecond, the one kept later (`newestFirst`). */
+    const byTime = newestFirst<I>(
+      (item) => item.at,
+      (item) => item.id
+    );
+
     /** The open repository's, as the editor lists them: newest first. */
     const list = Effect.map(ofOpenRepo, (refs) =>
-      refs.map(listed).sort((a, b) => b.at - a.at)
+      refs.map(listed).sort(byTime)
     );
 
     const publish = Effect.flatMap(list, options.publish);
@@ -137,7 +144,8 @@ export const makeDesignRefs = <
         return;
       }
       const oldest = (yield* every)
-        .sort((a, b) => listed(a).at - listed(b).at)
+        // Oldest first: the order of the list, turned round.
+        .sort((a, b) => byTime(listed(b), listed(a)))
         .slice(0, -options.keepLast);
       if (oldest.length > 0) {
         yield* store.release(namespace, oldest.map(idOf));

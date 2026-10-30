@@ -96,8 +96,9 @@ A behaviour that crosses no wire is not tested over the socket.
   web's `Platform`) are given to the module, so a test gives fixed ones.
 - Do not assert on the order of things the code does not order (a `Map` built from concurrent
   results, a directory listing): sort, or assert as a set.
-  Two things the code orders by time are a clock step apart (`TestClock.adjust`), never on one
-  instant.
+  Two things the code orders by time alone are a clock step apart (`TestClock.adjust`), never on
+  one instant. Checkpoints, named snapshots and Figma imports break a tie by the order their ids
+  were made (`newestFirst` in the server's `ids.ts`), and a test of that makes them on one instant.
 - Hermetic: no network, no real agent, no real Figma, no real `git` remote. The seams that have a
   test adapter (the agent launcher, the preview's renderer, the snapshot store, the sync sides)
   exist for this.

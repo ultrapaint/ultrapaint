@@ -54,7 +54,7 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeStamp } from "../file-stamp.ts";
-import { makeId, safeFileId } from "../ids.ts";
+import { makeId, newestFirst, safeFileId } from "../ids.ts";
 import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
@@ -334,6 +334,12 @@ export class FigmaImportService extends Context.Service<
         { readonly stamp: string; readonly summary: FigmaImport }
       >();
 
+      /** Newest first; of two made in one millisecond, the one made later (`newestFirst`). */
+      const byTime = newestFirst<FigmaImport>(
+        (summary) => summary.createdAt,
+        (summary) => summary.id
+      );
+
       /** Every import's summary, newest first, without the catalogue's guesses. */
       const listSummaries = Effect.gen(function* () {
         const root = path.join(yield* storage.stateDir, IMPORTS_DIR);
@@ -363,7 +369,7 @@ export class FigmaImportService extends Context.Service<
             return [read.value];
           })
         );
-        return found.flat().sort((a, b) => b.createdAt - a.createdAt);
+        return found.flat().sort(byTime);
       });
 
       const list = Effect.flatMap(listSummaries, (all) =>
