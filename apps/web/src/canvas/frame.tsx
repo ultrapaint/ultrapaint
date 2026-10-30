@@ -25,6 +25,7 @@ import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
+import { removeView } from "../state/page-layout.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
@@ -484,7 +485,7 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
         <button
           aria-label="Remove this view"
           className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => useEditor.getState().removeView(frameId)}
+          onClick={() => removeView(frameId)}
           onPointerDown={(e) => e.stopPropagation()}
           title="Remove this view"
           type="button"

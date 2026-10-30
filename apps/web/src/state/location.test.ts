@@ -4,7 +4,7 @@ import { matchRoute, pagesInVariant } from "@ultrapaint/shared/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { fakeBrowser } from "../testing/fake-browser.ts";
-import { computeFrames, pagesOfCanvas, useEditor } from "./editor.ts";
+import { pagesOfCanvas, useEditor } from "./editor.ts";
 import {
   followHistory,
   goTo,
@@ -12,6 +12,7 @@ import {
   openStartCanvas,
   pagesChanged,
 } from "./location.ts";
+import { computeFrames, setFrame } from "./page-layout.ts";
 import { useProject } from "./project.ts";
 import { readUrl } from "./url.ts";
 
@@ -363,7 +364,7 @@ describe("goTo", () => {
       x: 300,
       y: 40,
     } as const;
-    useEditor.getState().setFrame(home.id, moved);
+    setFrame(home.id, moved);
     await goTo({ canvas: "other" });
     expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toEqual([
       {

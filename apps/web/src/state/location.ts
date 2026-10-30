@@ -24,13 +24,12 @@ import {
 import { useDocuments } from "./documents.ts";
 import {
   type EditorState,
-  layoutOf,
-  openedCanvas,
   pagesOfCanvas,
   unpicked,
   useEditor,
 } from "./editor.ts";
 import { frameRefOf, pageOfRef } from "./frame-ref.ts";
+import { layoutOf, openedCanvas } from "./page-layout.ts";
 import { reportError, useProject } from "./project.ts";
 import {
   onUrlChange,

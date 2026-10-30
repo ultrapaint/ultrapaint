@@ -19,8 +19,9 @@ import {
 import { measureViewportWith, setView, zoomToFit } from "./camera.ts";
 import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
-import { allFrames, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
 import { isolate, useIsolation } from "./isolation.ts";
+import { allFrames } from "./page-layout.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
