@@ -2,6 +2,8 @@
 import "../testing/fake-browser.ts";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { leaveBoard, openBoard } from "../state/board.ts";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
@@ -101,6 +103,7 @@ beforeEach(() => {
   });
   useComments.setState({ draft: null, open: null, visible: false });
   useProject.setState({ settingsOpen: false });
+  useCanvasGrid.setState({ visible: false });
 });
 
 afterEach(() => {
@@ -286,6 +289,15 @@ describe("the scopes", () => {
 
   it("leave a key to the browser that its command declines: ⌘D with nothing selected", () => {
     expect(pressOn("mod+d")).toEqual({ prevented: false, ran: false });
+  });
+
+  it("leave the browser the keys of what a board view does not offer: the grid, the text tool", () => {
+    openBoard({ item: "color", view: "system" }, "none");
+    expect(pressOn("mod+'")).toEqual({ prevented: false, ran: false });
+    expect(useCanvasGrid.getState().visible).toBe(false);
+    expect(pressOn("t")).toEqual({ prevented: false, ran: false });
+    expect(useEditor.getState().mode).toBe("select");
+    leaveBoard("none");
   });
 });
 

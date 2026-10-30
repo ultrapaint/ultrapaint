@@ -1,8 +1,27 @@
+// @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dropAt, dropInside } from "./drag.ts";
+import {
+  openBoard,
+  setBoardSize,
+  showBoards,
+  useBoard,
+} from "../state/board.ts";
+import { useComponents } from "../state/components.ts";
+import { useEditor } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
+import { select } from "../state/selection.ts";
+import { fakeApi } from "../testing/fake-api.ts";
+import {
+  beginDrag,
+  dropAt,
+  dropInside,
+  endDrag,
+  moveDrag,
+  useDrag,
+} from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
 
 vi.mock(
@@ -171,5 +190,47 @@ describe("dropAt", () => {
     expect(dropAt(spotOf(text("b")), 10, 22)).toBeNull();
     measured({ a: rect(0, 0) });
     expect(dropAt({ ...spotOf(text("a")), parent: null }, 10, 5)).toBeNull();
+  });
+});
+
+describe("a node dragged out of an app component's tree on its board (ADR 0045)", () => {
+  const price = text("price");
+  /** Plan's board, its tree edited in place there. */
+  const BOARD = "board:library/Plan/component";
+
+  it("lands nowhere on the board view's ground, which is no document", async () => {
+    fakeApi.reset();
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    useIsolation.setState({ isolated: null });
+    useComponents.setState({
+      components: [
+        {
+          name: "Plan",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: { children: [price], id: "plan-root", type: "column" },
+          version: 1,
+        } as never,
+      ],
+    });
+    useEditor.setState({ canvas: "main", workspace: "design" });
+    openBoard({ item: "Plan", view: "library" }, "none");
+    showBoards([BOARD], "column");
+    setBoardSize(BOARD, { height: 300, width: 400 });
+    useEditor.setState({ view: { x: 0, y: 0, zoom: 1 } });
+    select({ frame: BOARD, nodeId: "price" });
+    beginDrag(
+      { frame: BOARD, kind: "node", node: price, rect: rect(10, 10) },
+      20,
+      20,
+      false
+    );
+    // Off the board, over the dotted ground.
+    moveDrag(2000, 2000, false);
+    expect(useDrag.getState().drop).toBeNull();
+    await endDrag();
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("documents.apply");
+    useBoard.setState({ open: null });
   });
 });

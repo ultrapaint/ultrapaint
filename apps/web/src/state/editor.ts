@@ -156,37 +156,6 @@ const sameRects = (
   );
 };
 
-/**
- * The frames of the board view open in the page canvas's place (ADR 0045), as `board.ts` says
- * them; null on the page canvas. Told here rather than read, as the board's module leans on this
- * one.
- */
-let boardFrames: () => Readonly<Record<string, Box>> | null = () => null;
-
-/** The board view's frames while one is open; null on the page canvas. */
-export const boardFramesNow = () => boardFrames();
-
-/** `board.ts` says where the frames of the board view open are, until the editor stops. */
-export const showBoardFramesWith = (
-  frames: () => Readonly<Record<string, Box>> | null
-) => {
-  boardFrames = frames;
-};
-
-/** Whether a board view is open in the page canvas's place: no node of a page is seen there. */
-export const onBoard = () => boardFrames() !== null;
-
-/**
- * Whether a board's frame takes a selection: one an app component's tree is edited in place on
- * (ADR 0045), as `board.ts` says it.
- */
-let boardTakesSelection: (frame: string) => boolean = () => false;
-
-/** `board.ts` says which of its frames take a selection. */
-export const takeBoardSelectionWith = (takes: (frame: string) => boolean) => {
-  boardTakesSelection = takes;
-};
-
 /** Nothing selected, hovered or picked with it: where a navigation leaves the selection. */
 export const unpicked = {
   also: [],
@@ -276,11 +245,3 @@ export const useEditor = create<EditorStore>((set, get) => ({
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: workspaceInUrl(),
 }));
-
-/**
- * Nothing shows a selection in the prototype, nor on a board view, which draws no page: nothing
- * may be selected there but in an app component's tree, on its board (`frame`).
- */
-export const hidesSelection = (frame?: string) =>
-  useEditor.getState().workspace === "prototype" ||
-  (onBoard() && !(frame !== undefined && boardTakesSelection(frame)));

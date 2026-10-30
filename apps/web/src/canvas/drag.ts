@@ -31,7 +31,8 @@ import { holdsChildren } from "../state/components.ts";
 import { docOfFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
-import { allFrames, holdUntil } from "../state/page-layout.ts";
+import { holdUntil } from "../state/page-layout.ts";
+import { allFrames, surfaceNow } from "../state/surface.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
@@ -356,8 +357,11 @@ const resolveDrop = (x: number, y: number, dragged: Dragged): Drop | null => {
   const except = dragged.kind === "loose" ? dragged.frame : undefined;
   const frameId = frameAt(x, y, except);
   if (!frameId) {
-    // A node on the canvas dragged over nothing is only being moved; anything else lands there.
-    return dragged.kind === "loose" ? null : { kind: "canvas" };
+    // A node on the canvas dragged over nothing is only being moved; anything else lands there,
+    // on a ground that is a document: a board view's is none (ADR 0045).
+    return dragged.kind === "loose" || !surfaceNow().groundDrops
+      ? null
+      : { kind: "canvas" };
   }
   return placementIn(frameId, x, y, dragged);
 };

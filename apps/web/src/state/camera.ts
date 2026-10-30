@@ -9,7 +9,7 @@
  */
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
-import { allFrames } from "./page-layout.ts";
+import { allFrames } from "./surface.ts";
 
 export interface View {
   x: number;

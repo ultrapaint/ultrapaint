@@ -41,6 +41,7 @@ import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
+import { onPageCanvas } from "../state/surface.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
   canvasById,
@@ -317,7 +318,8 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         target,
         componentEntries({
           name: target.name,
-          onCanvas: onCanvas() && useEditor.getState().canvas !== null,
+          // Inserted on the page canvas: not from a board view, whose ground is no document.
+          onCanvas: onPageCanvas() && useEditor.getState().canvas !== null,
           target: insertTarget()?.name ?? null,
         })
       );

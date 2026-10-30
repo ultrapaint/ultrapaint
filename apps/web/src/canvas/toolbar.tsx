@@ -57,7 +57,7 @@ import {
   insertTarget,
 } from "../lib/node-actions.ts";
 import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
-import { BOARD_MODES, setBoardTheme, useBoard } from "../state/board.ts";
+import { setBoardTheme, useBoard } from "../state/board.ts";
 import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
@@ -67,6 +67,7 @@ import { type Mode, useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
+import { useSurface } from "../state/surface.ts";
 
 /** `label` names the tool for a screen reader, as the tooltip names it on screen. */
 const modes: {
@@ -390,13 +391,12 @@ export const Toolbar = () => {
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
   // A board view has no elements to insert and a few tools (ADR 0045), and draws in a theme;
   // but an app component's tree edited in place on its board is built as on a page.
-  const onBoard = useBoard((s) => s.open !== null);
+  const surface = useSurface();
+  const onBoard = surface.kind === "board";
   const building = useIsolation(
     (s) => s.isolated !== null && frameRefOf(s.isolated.frame).kind === "board"
   );
-  const shown = onBoard
-    ? modes.filter((m) => BOARD_MODES.includes(m.value))
-    : modes;
+  const shown = modes.filter((m) => surface.modes.includes(m.value));
 
   return (
     <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">

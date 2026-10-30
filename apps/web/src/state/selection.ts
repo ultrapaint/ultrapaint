@@ -24,14 +24,10 @@ import {
   rootOfFrame,
   useDocuments,
 } from "./documents.ts";
-import {
-  type EditorState,
-  hidesSelection,
-  type Selection,
-  useEditor,
-} from "./editor.ts";
+import { type EditorState, type Selection, useEditor } from "./editor.ts";
 import { frameRefOf, ownFrameOf, widthOf } from "./frame-ref.ts";
 import { followFrame } from "./location.ts";
+import { surfaceNow } from "./surface.ts";
 
 /** What is selected, as the editor holds it. */
 type Picked = Pick<EditorState, "also" | "selection">;
@@ -108,7 +104,18 @@ export const editedFrameOf = (
 
 // ---- Changing it ----
 
-/** Selects a node, or nothing; the editor follows the frame it is in to its page. */
+/**
+ * Nothing shows a selection in the prototype, and the main area takes one only in frames of its
+ * own that can hold one: a board view only in an app component's tree, on its board (ADR 0045).
+ */
+const hidesSelection = (frame: string) =>
+  useEditor.getState().workspace === "prototype" ||
+  !surfaceNow().takesSelection(frame);
+
+/**
+ * Selects a node, or nothing; the editor follows the frame it is in to its page, and on a board
+ * the tree it is in is edited in place there.
+ */
 export const select = (selection: Selection | null) => {
   if (selection && hidesSelection(selection.frame)) {
     return;
@@ -116,6 +123,7 @@ export const select = (selection: Selection | null) => {
   useEditor.setState({ also: [], selectedPage: null, selection });
   if (selection) {
     followFrame(selection.frame);
+    surfaceNow().selectedIn(selection.frame);
   }
 };
 
@@ -140,7 +148,7 @@ export const selectMany = (selections: readonly Selection[]) => {
 
 /** A page selected as a whole (its frame), or none; a view's frame selects its page. */
 export const selectPage = (pageId: string | null) => {
-  if (pageId && hidesSelection()) {
+  if (pageId && hidesSelection(pageId)) {
     return;
   }
   // A view's frame selects its page, which every view of it shows (ADR 0036).
@@ -156,7 +164,7 @@ export const selectPage = (pageId: string | null) => {
 
 /** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
 export const toggleSelected = (target: Selection) => {
-  if (hidesSelection()) {
+  if (hidesSelection(target.frame)) {
     return;
   }
   // Another view of the page shows the selection: the node is added there, and the rest with it.

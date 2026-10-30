@@ -12,7 +12,12 @@ import { applyOps } from "@ultrapaint/design-document/ops";
 import { canvasDocOf, canvasOfDoc } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents } from "../state/agents.ts";
-import { openBoard, setBoardFrames, useBoard } from "../state/board.ts";
+import {
+  openBoard,
+  setBoardSize,
+  showBoards,
+  useBoard,
+} from "../state/board.ts";
 import { measureViewportWith, setView, viewTarget } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
@@ -523,7 +528,8 @@ describe("a node of an app component's tree on its board (ADR 0045)", () => {
 
   it("zooms to the node on the board, which stays open", async () => {
     onBoard();
-    setBoardFrames({ [BOARD]: { height: 300, width: 400, x: 0, y: 0 } });
+    showBoards([BOARD], "column");
+    setBoardSize(BOARD, { height: 300, width: 400 });
     const hide = measureViewportWith(() => ({ height: 520, width: 920, x: 0 }));
     await choose(nodeAt(BOARD, "sale"), { kind: "zoomTo" });
     hide();

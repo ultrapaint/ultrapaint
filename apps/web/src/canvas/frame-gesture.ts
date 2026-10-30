@@ -15,7 +15,6 @@ import { snapsToGrid } from "../state/canvas-grid.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import {
-  allFrames,
   doneDrawingFrame,
   drawingFrame,
   hold,
@@ -24,6 +23,7 @@ import {
   showFrame,
 } from "../state/page-layout.ts";
 import { select, selectPage } from "../state/selection.ts";
+import { allFrames } from "../state/surface.ts";
 import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";

@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   memo,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useEffectEvent,
@@ -46,16 +47,17 @@ import { useFramePointer } from "./use-frame-pointer.ts";
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
- * view it was typed in (ADR 0036).
+ * view it was typed in (ADR 0036): a page's, or an app component's tree edited on its board.
  */
-const commitText = (frame: string, nodeId: string, text: string) =>
+export const commitText = (frame: string, nodeId: string, text: string) =>
   updateNodes([{ frame, nodeId }], { text }, "Edit text");
 
-const isInteractive = (s: { mode: string; spacePan: boolean }) =>
+/** A frame takes input: the interact tool, Space not held. */
+export const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;
 
-/** The frame's select layer is up. */
-const isSelecting = (s: { mode: string; spacePan: boolean }) =>
+/** A frame's select layer is up (a board's pick layer too): the select tool, Space not held. */
+export const isSelecting = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "select" && !s.spacePan;
 
 /** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
@@ -580,6 +582,33 @@ const HEADER_HEIGHT = 26;
 const HEADER_GAP = 6;
 
 /**
+ * What is said over a frame's top edge, a page's or a board's: its name and beside it what the
+ * caller says, the same size and distance from the frame on screen at any zoom.
+ */
+export const FrameHeader = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+      className
+    )}
+    style={{
+      bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
+      height: HEADER_HEIGHT,
+      transform: UNZOOM,
+      transformOrigin: "bottom left",
+    }}
+  >
+    {children}
+  </div>
+);
+
+/**
  * Name and size above the frame, the frame's selection outline and, in Vibe, the toolbar of the
  * selected page.
  */
@@ -617,20 +646,12 @@ const FrameChrome = ({
   };
   return (
     <>
-      {/* Chrome: constant size and distance from the frame regardless of zoom. */}
-      <div
-        className={cn(
-          "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+      <FrameHeader
+        className={
           isSelected || holdsSelection
             ? "text-foreground"
             : "text-muted-foreground"
-        )}
-        style={{
-          bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
-          height: HEADER_HEIGHT,
-          transform: UNZOOM,
-          transformOrigin: "bottom left",
-        }}
+        }
       >
         <button
           className={cn(
@@ -652,7 +673,7 @@ const FrameChrome = ({
           </span>
         )}
         {isNode ? null : <ViewBadge frameId={frameId} />}
-      </div>
+      </FrameHeader>
       {frameRefOf(frameId).kind === "page" && isSelected ? (
         <PageToolbar
           headerHeight={HEADER_GAP + HEADER_HEIGHT}
