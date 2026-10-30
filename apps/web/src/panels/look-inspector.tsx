@@ -33,6 +33,7 @@ import {
 } from "@ultrapaint/design-document/look-places";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
+import { cn } from "cn";
 import { Code2, Ellipsis, RotateCcw, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -147,11 +148,14 @@ const Field = ({
   label,
   onChange,
   onPreview,
+  side = false,
   value,
 }: {
   inherited?: Inherited | undefined;
   kind: FieldTokenKind | "opacity";
   label: string;
+  /** One side of the padding, labelled by the side alone, set in under Padding. */
+  side?: boolean;
   onChange: (value: JsonValue) => void;
   /** The value gone through or typed, drawn before it is committed; undefined once none is. */
   onPreview?: ((value: JsonValue | undefined) => void) | undefined;
@@ -159,9 +163,17 @@ const Field = ({
 }) => {
   const options = useTokenOptions(kind === "opacity" ? "spacing" : kind);
   const color = useColorOf(value ?? inherited?.value);
+  const name = side ? `Padding ${label.toLowerCase()}` : label;
   return (
     <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
-      <span className="truncate font-body text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "truncate font-body text-muted-foreground",
+          side && "pl-3"
+        )}
+      >
+        {label}
+      </span>
       <ValueField
         {...(kind === "color" && {
           accept: (q: string) => CSS.supports("color", q),
@@ -174,8 +186,8 @@ const Field = ({
         placeholder={inherited ? displayOf(inherited.value) : "Not set"}
         title={
           inherited && value === undefined
-            ? `${label}: ${inheritedText(inherited)}`
-            : label
+            ? `${name}: ${inheritedText(inherited)}`
+            : name
         }
         value={value}
       />
@@ -419,7 +431,9 @@ const SlotFields = ({
           inherited={inherited[`padding.${side}`]}
           key={side}
           kind="spacing"
-          label={`Padding ${side}`}
+          label={`${side[0]?.toUpperCase()}${side.slice(1)}`}
+          // A side of the padding above: its label set in under Padding's, read whole.
+          side
           value={sideOf(style.padding, side)}
           {...field((value) => withSide(style, side, value))}
         />
@@ -638,12 +652,9 @@ const LookExtras = ({
  */
 export const Notes = ({
   component,
-  dirty = false,
   parts,
 }: {
   component: ComponentFile;
-  /** A look edited and not saved yet, in a panel that saves it whole: notes wait for it. */
-  dirty?: boolean;
   parts: readonly { readonly label?: string; readonly name: string }[];
 }) => {
   const [text, setText] = useState("");
@@ -693,7 +704,6 @@ export const Notes = ({
               </span>
               <Button
                 aria-label="Take the note out"
-                disabled={dirty}
                 onClick={() => remove(n.id)}
                 size="icon-xs"
                 variant="ghost"
@@ -704,22 +714,23 @@ export const Notes = ({
           ))}
         </ul>
       )}
+      {/* The part a note is about on a line of its own, so that neither it nor the note is cut. */}
+      {choices.length > 1 ? (
+        <NativeSelect
+          aria-label="About"
+          className="w-full"
+          onChange={(e) => setSlot(e.target.value)}
+          size="sm"
+          value={slot}
+        >
+          {choices.map((s) => (
+            <NativeSelectOption key={s.name} value={s.name}>
+              {s.label ?? s.name}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      ) : null}
       <div className="flex gap-1.5">
-        {choices.length > 1 ? (
-          <NativeSelect
-            aria-label="About"
-            className="w-28"
-            onChange={(e) => setSlot(e.target.value)}
-            size="sm"
-            value={slot}
-          >
-            {choices.map((s) => (
-              <NativeSelectOption key={s.name} value={s.name}>
-                {s.label ?? s.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
         <Input
           aria-label="A behaviour note"
           className="h-7 min-w-0 flex-1"
@@ -729,14 +740,13 @@ export const Notes = ({
               add();
             }
           }}
-          placeholder="Closes on Escape and gives the focus back"
+          placeholder="Closes on Escape"
           value={text}
         />
         <Button
-          disabled={dirty || text.trim() === ""}
+          disabled={text.trim() === ""}
           onClick={add}
           size="sm"
-          title={dirty ? "Save or discard the look's changes first" : undefined}
           variant="outline"
         >
           Note

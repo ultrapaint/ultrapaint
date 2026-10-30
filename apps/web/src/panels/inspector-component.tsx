@@ -246,7 +246,7 @@ export const PropertyRow = ({
           />
         </Row>
       ) : null}
-      <Row label="When not set">
+      <Row label="Default">
         <DefaultField
           onChange={(value) =>
             changeFile(file, {
