@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path, Ref, Stream } from "effect";
 import { readPngText } from "./png-text.ts";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { DocumentService } from "./services/documents.ts";
 import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
@@ -36,7 +36,7 @@ const anEditor = Effect.gen(function* () {
 });
 
 const project = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-  Effect.flatMap(ProjectManager, (manager) => manager.use(effect));
+  Effect.flatMap(OpenProject, (manager) => manager.use(effect));
 
 describe("page PNGs", () => {
   it.effect("are not drawn while the setting is off, whoever can draw", () =>

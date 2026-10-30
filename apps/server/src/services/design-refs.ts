@@ -11,7 +11,7 @@ import type { GitDiff } from "@ultrapaint/contracts/git";
 import { basename } from "@ultrapaint/shared/path";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { makeWalk } from "../fs-walk.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { COMMENTS_FILE } from "./comments-file.ts";
 import { EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -61,7 +61,7 @@ export const makeDesignRefs = <
   Effect.gen(function* () {
     const { idOf, listed, namespace, what } = options;
     const store = yield* SnapshotStore;
-    const project = yield* ProjectManager;
+    const project = yield* OpenProject;
     const storage = yield* Storage;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

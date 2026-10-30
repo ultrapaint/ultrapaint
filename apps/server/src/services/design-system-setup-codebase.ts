@@ -11,7 +11,7 @@ import type {
 import { Clock, Effect, FileSystem, Path } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { toPosix } from "../hash.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { refuse } from "./design-system-setup-store.ts";
@@ -38,7 +38,7 @@ export interface Codebase {
 }
 
 export const makeCodebaseReader = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const writeAtomic = makeWriteAtomic(fs, path);

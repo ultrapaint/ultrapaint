@@ -3,7 +3,7 @@ import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { GitService } from "./services/git.ts";
@@ -19,7 +19,7 @@ const DETECTED_PACKAGE = `${JSON.stringify({
 })}\n`;
 
 /** An edit the undo history keeps, so a project opened again shows by its empty history. */
-const nameTheTitle = Effect.flatMap(ProjectManager, (project) =>
+const nameTheTitle = Effect.flatMap(OpenProject, (project) =>
   project.use(
     Effect.flatMap(DocumentService, (documents) =>
       documents.apply({
@@ -35,7 +35,7 @@ const nameTheTitle = Effect.flatMap(ProjectManager, (project) =>
   )
 );
 
-const undoLabel = Effect.flatMap(ProjectManager, (project) =>
+const undoLabel = Effect.flatMap(OpenProject, (project) =>
   project.use(
     Effect.map(
       Effect.flatMap(EditService, (edit) => edit.state),
@@ -45,11 +45,11 @@ const undoLabel = Effect.flatMap(ProjectManager, (project) =>
 );
 
 /** The settings the open project runs. */
-const running = Effect.flatMap(ProjectManager, (project) =>
+const running = Effect.flatMap(OpenProject, (project) =>
   project.use(Effect.map(RepoPaths, (paths) => paths.settings))
 );
 
-const projectScope = Effect.flatMap(ProjectManager, (project) => project.scope);
+const projectScope = Effect.flatMap(OpenProject, (project) => project.scope);
 
 /**
  * The first project info the editor is told of that `holds`, once `trigger` has run. Started
@@ -232,7 +232,9 @@ describe("the settings in force", () => {
           assert.isFalse((yield* project.info).gitRepository);
           const made = yield* toldOf(
             (info) => info.gitRepository === true,
-            project.use(Effect.flatMap(GitService, (git) => git.init))
+            Effect.flatMap(OpenProject, (open) =>
+              open.use(Effect.flatMap(GitService, (git) => git.init))
+            )
           );
           assert.isDefined(made.told);
         })

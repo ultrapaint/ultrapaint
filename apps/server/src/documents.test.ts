@@ -2,7 +2,7 @@ import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { Effect, FileSystem } from "effect";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { PagesService } from "./services/pages.ts";
@@ -10,7 +10,7 @@ import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** Runs against the open project. */
 const project = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-  Effect.flatMap(ProjectManager, (manager) => manager.use(effect));
+  Effect.flatMap(OpenProject, (manager) => manager.use(effect));
 
 /** A canvas.json as a hand writes it: keys in its own order, a list left empty, a node without an id. */
 const HAND_WRITTEN = `${JSON.stringify(

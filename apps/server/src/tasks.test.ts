@@ -4,7 +4,7 @@ import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -48,7 +48,7 @@ const withDesignSystem = Effect.gen(function* () {
   yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
   yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
   yield* reopen({ hostCss: ["../../styles/app.css"] });
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   yield* project.use(Effect.flatMap(DesignSystemService, (d) => d.detect));
 });
 
@@ -76,7 +76,7 @@ const PRICING_CARD: AppComponentFile = {
 
 /** The design's value of a token changed, so that it waits for the code. */
 const designChanges = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   yield* project.use(
     Effect.flatMap(DesignSystemService, (d) =>
       d.setToken({ name: "color-ink", value: "#333333" })
@@ -214,7 +214,7 @@ describe("tasks, with the editor's MCP server", () => {
         "names a URL that pages of several canvases serve by its canvas",
         () =>
           Effect.gen(function* () {
-            const project = yield* ProjectManager;
+            const project = yield* OpenProject;
             const marketing = yield* project.use(
               Effect.gen(function* () {
                 const pages = yield* PagesService;
@@ -448,7 +448,7 @@ describe("the editor's tools in what an agent is told", () => {
       THEME.replace("#111827", "#222222")
     );
     yield* fs.writeFileString(path.join(repo, "DESIGN.md"), DESIGN_MD);
-    const imported = yield* Effect.flatMap(ProjectManager, (opened) =>
+    const imported = yield* Effect.flatMap(OpenProject, (opened) =>
       opened.use(
         Effect.gen(function* () {
           yield* (yield* DesignSystemService).refresh;

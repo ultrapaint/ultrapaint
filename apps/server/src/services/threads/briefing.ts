@@ -30,7 +30,7 @@ import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
@@ -182,7 +182,7 @@ export class ProjectBriefing extends Context.Service<
   static readonly layer = Layer.effect(
     ProjectBriefing,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const ways = agentWays((yield* ServerConfig).mcp);
       const sandbox = yield* AgentSandbox;
 

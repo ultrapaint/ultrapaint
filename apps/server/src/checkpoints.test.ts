@@ -2,7 +2,7 @@ import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { EditService } from "./services/edit.ts";
 import { COLLECT_EVERY, SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
@@ -26,7 +26,7 @@ const ONLY_FILE = "designs/only.md";
 
 /** An effect of the open project's services, run in it. */
 const inProject = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-  Effect.flatMap(ProjectManager, (project) => project.use(effect));
+  Effect.flatMap(OpenProject, (project) => project.use(effect));
 
 const undo = inProject(Effect.flatMap(EditService, (edit) => edit.undo));
 

@@ -7,7 +7,7 @@
 import path from "node:path";
 import { Effect, FileSystem } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 
 export const ASSET_ROUTE = "/api/asset";
@@ -41,7 +41,7 @@ const notFound = HttpServerResponse.text("not found", { status: 404 });
 
 export const AssetRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const project = yield* ProjectManager;
+    const project = yield* OpenProject;
     const fs = yield* FileSystem.FileSystem;
     yield* router.add(
       "GET",

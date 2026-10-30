@@ -7,7 +7,7 @@ import {
 import { Effect, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
@@ -44,6 +44,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
   Effect.gen(function* () {
     const setup = yield* SetupService;
     const project = yield* ProjectManager;
+    const open = yield* OpenProject;
     const events = yield* EventBus;
     const log = yield* AppLog;
     const agents = yield* AgentConfigs;
@@ -61,19 +62,19 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
 
-    const pages = project.service(PagesService);
-    const comments = project.service(CommentsService);
-    const edit = project.service(EditService);
-    const git = project.service(GitService);
-    const documents = project.service(DocumentService);
-    const designSystem = project.service(DesignSystemService);
-    const designMd = project.service(DesignMd);
-    const thumbnails = project.service(Thumbnails);
-    const skills = project.service(SkillsService);
-    const figma = project.service(FigmaImportService);
-    const components = project.service(ComponentService);
-    const migration = project.service(Migration);
-    const implementation = project.service(ImplementationService);
+    const pages = open.service(PagesService);
+    const comments = open.service(CommentsService);
+    const edit = open.service(EditService);
+    const git = open.service(GitService);
+    const documents = open.service(DocumentService);
+    const designSystem = open.service(DesignSystemService);
+    const designMd = open.service(DesignMd);
+    const thumbnails = open.service(Thumbnails);
+    const skills = open.service(SkillsService);
+    const figma = open.service(FigmaImportService);
+    const components = open.service(ComponentService);
+    const migration = open.service(Migration);
+    const implementation = open.service(ImplementationService);
 
     // Every event as the bus carries it, but a screenshot request: an editor listening for those
     // is one that can draw, which the screenshots count.

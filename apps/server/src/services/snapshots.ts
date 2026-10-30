@@ -14,7 +14,7 @@ import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { readCanvasText } from "./canvas-file.ts";
 import { makeDesignRefs } from "./design-refs.ts";
 import { parseDocument } from "./document-file.ts";
@@ -155,7 +155,7 @@ export class Snapshots extends Context.Service<
   static readonly layer = Layer.effect(
     Snapshots,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const checkpoints = yield* Checkpoints;
       const events = yield* EventBus;
       const refs = yield* makeDesignRefs({
