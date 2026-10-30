@@ -86,10 +86,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const fs = yield* FileSystem.FileSystem;
           const manifest = path.join(repo, "designs/package.json");
           yield* fs.writeFileString(manifest, '{ "name": "designs", ');
-          // The plan that runs on the project opening reads the broken manifest.
+          // The plan that runs on the project opening reads the broken manifest: settings other
+          // than those in force, whichever test ran first, so the project opens again.
           const { event: opened } = yield* nextEvent(
             client["events.syncPlan"](),
-            client["settings.set"]({ ...settings, libraryDirs: [] })
+            client["settings.set"]({ ...settings, libraryDirs: ["designs"] })
           );
           assert.isTrue(opened._tag === "Some" && !opened.value.facts.app);
           const plan = yield* client["sync.plan"]();
