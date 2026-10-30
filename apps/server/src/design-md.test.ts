@@ -1,7 +1,7 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
-import { Effect, FileSystem } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { Effect, FileSystem, Option, Stream } from "effect";
+import { nextEvent, TestEnv, TestServer } from "./testing/harness.ts";
 
 const THEME = `@theme {
   --color-brand: #2563eb;
@@ -77,13 +77,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.include(second, "Calm and dense.");
 
           // A value changed in the document is held for Sync, while the code's own changes
-          // still come in.
-          yield* fs.writeFileString(
-            file,
-            second.replace('ink: "#111111"', 'ink: "#000000"')
+          // still come in. The editor is told once the change to the document is seen.
+          const { event: held } = yield* nextEvent(
+            client["events.designSystem"]().pipe(
+              Stream.filter((s) => (s.document?.held.length ?? 0) > 0)
+            ),
+            fs.writeFileString(
+              file,
+              second.replace('ink: "#111111"', 'ink: "#000000"')
+            )
           );
-          const held = yield* client["designSystem.get"]();
-          assert.deepStrictEqual(held.document?.held, [
+          assert.deepStrictEqual(Option.getOrNull(held)?.document?.held, [
             {
               code: "#111111",
               doc: "#000000",

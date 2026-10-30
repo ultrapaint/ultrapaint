@@ -17,17 +17,18 @@ import {
   type TextStyle,
   type TextStyleSetting,
 } from "@ultrapaint/contracts/design-system";
+import { defaultTheme, themesOf } from "@ultrapaint/contracts/themes";
 import {
   tokenKindOf,
   tokenOf,
   tokenPrefix,
 } from "@ultrapaint/contracts/token-table";
 import { hexOf, parseColor } from "@ultrapaint/contracts/token-value";
+import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { Component, File, Palette, Type } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { stepOf } from "../boards/color-boards.ts";
 import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -37,7 +38,6 @@ import {
   rampEdits,
   type TokenUse,
   textStyleOp,
-  themesOf,
   usesOf,
   valueOp,
 } from "../lib/token-ops.ts";
@@ -83,7 +83,7 @@ const ThemeValue = ({
   name: string;
   theme: string;
 }) => {
-  const first = theme === themesOf(ds)[0];
+  const first = theme === defaultTheme(ds);
   const own = ownValueIn(ds, name, theme);
   const fallback = tokenOf(ds, name)?.value;
   // What the field held when typing began, and what is typed since; null while it is not typed in.
@@ -151,7 +151,7 @@ const ThemeValue = ({
             e.currentTarget.blur();
           }
         }}
-        placeholder={first ? undefined : `As ${themesOf(ds)[0]}: ${fallback}`}
+        placeholder={first ? undefined : `As ${defaultTheme(ds)}: ${fallback}`}
         value={shown}
       />
     </Row>
@@ -467,7 +467,8 @@ export const GroupInspector = ({
       </p>
     );
   }
-  const shade = group.tokens.find((t) => stepOf(t.name) !== null);
+  const shaded = group.tokens.find((t) => shadeOf(t.name));
+  const shade = shaded && shadeOf(shaded.name);
   const slug = name.toLowerCase().replace(NOT_SLUG, "-");
   return (
     <>
@@ -491,13 +492,9 @@ export const GroupInspector = ({
       <AddToken
         ds={ds}
         group={name}
-        prefix={
-          shade
-            ? `${shade.name.slice(0, -`${stepOf(shade.name)}`.length)}`
-            : `color-${slug}-`
-        }
+        prefix={shade ? `${shade.prefix}-` : `color-${slug}-`}
       />
-      <RampSection ds={ds} name={shade?.name ?? `color-${slug}`} />
+      <RampSection ds={ds} name={shaded?.name ?? `color-${slug}`} />
     </>
   );
 };

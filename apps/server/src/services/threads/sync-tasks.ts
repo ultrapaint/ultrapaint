@@ -76,9 +76,7 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
         doc && !doc.legacy && doc.unwritten > 0
           ? `${doc.path} has ${doc.unwritten === SECTIONS.length ? "none of the format's sections written yet" : `${doc.unwritten} of the format's sections with nothing under them`}.`
           : "";
-      const nothing =
-        drift.tokensUndescribed.length + drift.tokensGone.length === 0 &&
-        prose === "";
+      const nothing = drift.tokensUndescribed.length === 0 && prose === "";
       return `<ultrapaint-task command="sync">
 Describe in the design system what the code has that it does not list yet. The design system
 holds the values (ADR 0028) and the code follows it; a token the code declares that the design
@@ -88,9 +86,6 @@ ${nothing ? "\nThe design system already lists every token of the code, and DESI
 ${list(
   "Tokens the code declares that the design system does not list:",
   drift.tokensUndescribed.map((n) => `${n}: ${declaredValue(n)}`)
-)}${list(
-  "Tokens the design system lists that the code no longer declares:",
-  drift.tokensGone
 )}${prose ? `\n${prose}\n` : ""}
 1. Read the design system and DESIGN.md: ${ways.readDesignSystem(designsDir)}.
 2. Each new token: find where the code uses it, put it in the group it belongs to and say in

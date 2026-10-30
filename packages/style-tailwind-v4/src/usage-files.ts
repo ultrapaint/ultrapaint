@@ -1,17 +1,13 @@
 /**
  * The uses one file of the application's code makes, read by fixed rules: every string of a
- * script, as Tailwind reads it for classes, its inline styles and plain elements, and a
+ * script, as Tailwind reads it for classes, its inline styles, and a
  * stylesheet's declarations and `@apply` outside the theme.
  */
 import { parse } from "@babel/parser";
 import type { UsageOccurrence } from "@ultrapaint/framework-api/node";
 import { parseStylesheet } from "./stylesheet.ts";
 import { readClass } from "./usage-class.ts";
-import {
-  ELEMENT_COMPONENTS,
-  HEX_RE,
-  isColorLiteral,
-} from "./usage-vocabulary.ts";
+import { HEX_RE, isColorLiteral } from "./usage-vocabulary.ts";
 
 const SOURCE_RE = /\.(tsx|jsx|ts|js|mjs|css)$/;
 const SKIPPED_FILE_RE =
@@ -213,30 +209,6 @@ const fromStyle = (object: AstNode, out: UsageOccurrence[]) => {
   }
 };
 
-/** `<input type="checkbox">` is `input:checkbox`. */
-const elementOf = (opening: AstNode): string | null => {
-  const name = nameOf(opening.name);
-  if (!name || name !== name.toLowerCase()) {
-    return null;
-  }
-  if (name !== "input") {
-    return name in ELEMENT_COMPONENTS ? name : null;
-  }
-  for (const attribute of (opening.attributes as unknown[] | undefined) ?? []) {
-    if (
-      isNode(attribute) &&
-      attribute.type === "JSXAttribute" &&
-      nameOf(attribute.name) === "type" &&
-      isNode(attribute.value) &&
-      attribute.value.type === "StringLiteral"
-    ) {
-      const type = `input:${attribute.value.value as string}`;
-      return type in ELEMENT_COMPONENTS ? type : "input";
-    }
-  }
-  return "input";
-};
-
 /** The object of a JSX `style={{ … }}` attribute. */
 const styleObjectOf = (node: AstNode): AstNode | null => {
   if (node.type !== "JSXAttribute" || nameOf(node.name) !== "style") {
@@ -252,7 +224,7 @@ const styleObjectOf = (node: AstNode): AstNode | null => {
     : null;
 };
 
-/** The strings and plain elements of one node, its children aside. */
+/** The strings of one node, its children aside. */
 const fromNode = (node: AstNode, text: string, out: UsageOccurrence[]) => {
   if (node.type === "StringLiteral") {
     const value = node.value as string;
@@ -261,17 +233,6 @@ const fromNode = (node: AstNode, text: string, out: UsageOccurrence[]) => {
     const quasi = node.value as { cooked?: string | null; raw: string };
     const value = quasi.cooked ?? quasi.raw;
     fromString(value, lineOf(node), out, textStart(node, text, value, false));
-  } else if (node.type === "JSXOpeningElement") {
-    const element = elementOf(node);
-    if (element) {
-      const [tag, type] = element.split(":");
-      out.push({
-        line: lineOf(node),
-        raw: type ? `<${tag} type="${type}">` : `<${tag}>`,
-        use: "element",
-        value: element,
-      });
-    }
   }
 };
 

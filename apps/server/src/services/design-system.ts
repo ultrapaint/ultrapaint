@@ -7,8 +7,8 @@ import {
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import { withTokenChanges } from "@ultrapaint/contracts/token-table";
-import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
+import { tokenChangesBetween } from "@ultrapaint/contracts/token-table";
+import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import {
   type CodeOptions,
@@ -18,18 +18,8 @@ import {
 import {
   applyEdits,
   editLabel,
-  tokenChangesOf,
 } from "@ultrapaint/design-document/design-system-edits";
-import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
-import {
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Path,
-  Semaphore,
-  Stream,
-} from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { CodeSide } from "./code-side.ts";
@@ -37,7 +27,13 @@ import { ComponentService } from "./components.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DesignMd } from "./design-md.ts";
 import {
+  type BaselineMove,
+  type BaselineSide,
+  type Baselines,
+  baselineMover,
   type DesignSystemRead,
+  type DesignSystemTexts,
+  keepBaselines,
   readDesignSystem,
   readGivenDesignSystem,
   writeDesignSystem,
@@ -47,7 +43,6 @@ import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { FigmaBaseline } from "./figma-baseline.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
-import { designTokensOf } from "./sync-readings.ts";
 
 /**
  * The design system as the project records it: `design-system.json` at the root of the designs
@@ -56,6 +51,12 @@ import { designTokensOf } from "./sync-readings.ts";
  * what the fixed-rule scan finds, for a project without an agent. Each change is one undo step,
  * and the editor hears of every change once, whoever made it: the tool, an undo, an agent
  * writing the files by hand, a checkout, the code.
+ *
+ * Every write goes one way (`save`): the files are read inside the step, under the journal's
+ * lock, so an edit, an undo or a sync made meanwhile lands before it or after it; what the step
+ * changed in the tokens' values is what the code is told, with `codeTokens: auto`, whichever of
+ * `edit`, `write` or `replace` made it; and the sides' baselines are the file's, moved only by
+ * `moveBaseline`, outside the undo history.
  *
  * A token's value is the design's (ADR 0028): another tool's change to the tokens file is the
  * design's value as soon as it is read, and a value neither file has is read from the code. A
@@ -70,9 +71,9 @@ export class DesignSystemService extends Context.Service<
   {
     readonly detect: Effect.Effect<DesignSystem, EditFailure>;
     /**
-     * The editor's operations made in order (ADR 0045, `applyEdits`) and saved as one undo step;
-     * with `codeTokens: auto` the code follows the values. Nothing is written when one does not
-     * fit. Returns the files written.
+     * The editor's operations made in order (ADR 0045, `applyEdits`) and saved as one undo step.
+     * Nothing is written when one does not fit. Returns the files written, the code's with
+     * `codeTokens: auto`.
      */
     readonly edit: (
       ops: readonly DesignSystemEdit[],
@@ -84,25 +85,6 @@ export class DesignSystemService extends Context.Service<
      * them that the files read last time would not show, such as a stylesheet that was not there.
      */
     readonly refresh: Effect.Effect<DesignSystemState>;
-    /** What the stylesheets say, with the catalogue's categories for the components. */
-    readonly scan: Effect.Effect<DesignSystemScan>;
-    /**
-     * A token's value set in the design system, added when it does not list it yet, or taken out
-     * (ADR 0028); one undo step. With `codeTokens: auto` the code is written too. Returns the
-     * files written and the value before, for an undo.
-     */
-    readonly setToken: (change: TokenChange) => Effect.Effect<
-      {
-        readonly files: readonly string[];
-        readonly previous: string | null;
-      },
-      BadRequest
-    >;
-    /** Several token changes to the design system at once, in one undo step. */
-    readonly setTokens: (
-      changes: readonly TokenChange[],
-      label?: string
-    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
     /**
      * A node of the designs as the application's code writes it: the markup the design
      * document's, the classes the style system's (ADR 0024), at the design system's breakpoints.
@@ -111,6 +93,15 @@ export class DesignSystemService extends Context.Service<
       node: DesignNode,
       options: Omit<CodeOptions, "breakpoints" | "catalogue">
     ) => Effect.Effect<string>;
+    /**
+     * One side's baseline in `design-system.json` moved, outside the undo history (ADR 0025,
+     * 0027, 0028): what the code, DESIGN.md or Figma and the design system agree on, and the
+     * matches each keeps.
+     */
+    readonly moveBaseline: <S extends BaselineSide>(
+      side: S,
+      move: BaselineMove<S>
+    ) => Effect.Effect<void, BadRequest>;
     /** `DESIGN.md` written where it is looked for, from the design system as it is now. */
     readonly placeDocument: Effect.Effect<
       { readonly path: string },
@@ -118,17 +109,19 @@ export class DesignSystemService extends Context.Service<
     >;
     /**
      * Saves the design system and `DESIGN.md` as given, in one undo step: for Sync, which has
-     * merged them itself (ADR 0027).
+     * merged them itself (ADR 0027). The baselines it gives are moved, outside the undo history.
+     * Returns the files written.
      */
     readonly replace: (
       designSystem: DesignSystem,
       document: string,
       label: string
-    ) => Effect.Effect<void, EditFailure>;
+    ) => Effect.Effect<{ readonly files: readonly string[] }, EditFailure>;
     /**
      * Validates and saves; `document` replaces `DESIGN.md` when given, at the root. Its mirrored
      * token groups are the design system's, filled in whatever it says; `findings` are what the
-     * format's linter says and what was put back. A linter error refuses the whole write.
+     * format's linter says and what was put back. A linter error refuses the whole write. The
+     * baselines are the tool's, not the writer's: the ones there are stay.
      */
     readonly write: (
       designSystem: unknown,
@@ -160,6 +153,7 @@ export class DesignSystemService extends Context.Service<
       const systemRel = paths.relative(systemFile);
       const tokensFile = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
       const tokensRel = paths.relative(tokensFile);
+      const moveBaseline = baselineMover(journal, systemRel);
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -174,24 +168,31 @@ export class DesignSystemService extends Context.Service<
           Effect.all([readOptional(systemFile), readOptional(tokensFile)]),
           ([system, tokens]) => ({
             files: [systemFile, tokensFile],
-            value: { system, tokens },
+            value: { system, tokens } satisfies DesignSystemTexts,
           })
         )
       );
 
       /**
        * The design system the files come to with the code's values (`design-system-files.ts`):
-       * kept until the files or the code change.
+       * the last one kept while the texts and the code are the same.
        */
       let lastRead: {
         readonly code: ReadonlyMap<string, SourceToken>;
         readonly read: DesignSystemRead;
-        readonly texts: Effect.Success<typeof filesCache.get>;
+        readonly texts: DesignSystemTexts;
       } | null = null;
-      const filesRead = Effect.gen(function* () {
-        const texts = yield* filesCache.get;
+      const designSystemOf = Effect.fnUntraced(function* (
+        texts: DesignSystemTexts
+      ) {
         const { byName } = yield* code.tokens;
-        if (!(lastRead?.texts === texts && lastRead.code === byName)) {
+        if (
+          !(
+            lastRead?.code === byName &&
+            lastRead.texts.system === texts.system &&
+            lastRead.texts.tokens === texts.tokens
+          )
+        ) {
           lastRead = {
             code: byName,
             read: readDesignSystem(texts, byName),
@@ -200,40 +201,19 @@ export class DesignSystemService extends Context.Service<
         }
         return lastRead.read;
       });
+      const filesRead = Effect.flatMap(filesCache.get, designSystemOf);
 
-      /**
-       * Writes the design system: `design-system.json` without its values and `design.tokens.json`
-       * with them. Refused while the tokens file cannot be read: writing it again would lose the
-       * values it holds.
-       */
-      const writeFiles = Effect.fnUntraced(function* (
-        tx: EditTransaction,
-        ds: DesignSystem
-      ) {
-        const { tokensProblem } = yield* filesRead;
-        if (tokensProblem !== null) {
-          return yield* new BadRequest({
-            message: `${tokensProblem}. The design system is written again once it reads.`,
-          });
-        }
-        const texts = writeDesignSystem(ds);
-        yield* tx.write(systemRel, texts.system);
-        yield* tx.write(tokensRel, texts.tokens);
+      /** The design system as a step finds it: its own writes included, under the journal's lock. */
+      const readIn = Effect.fnUntraced(function* (tx: EditTransaction) {
+        return yield* designSystemOf({
+          system: yield* tx.read(systemRel),
+          tokens: yield* tx.read(tokensRel),
+        });
       });
 
       /**
-       * A write and what follows from it on disk (DESIGN.md's front matter, the code with
-       * `codeTokens: auto`) run one at a time, and finish before the write returns: whoever
-       * reads the files next reads them current. Only telling the editor waits for the changes
-       * to settle.
-       */
-      const writes = yield* Semaphore.make(1);
-      const serially = writes.withPermits(1);
-
-      /**
        * DESIGN.md's front matter brought up to the design system as the files read when its
-       * turn comes: inside a write, or under its lock, so a reading made before a write (or
-       * before DESIGN.md was placed) never follows after it.
+       * turn comes, after whatever wrote them.
        */
       const mirror = designMd.follow(
         Effect.map(filesRead, ({ designSystem }) => designSystem)
@@ -258,183 +238,191 @@ export class DesignSystemService extends Context.Service<
         };
       }).pipe(Effect.withSpan("DesignSystemService.get"));
 
-      const scan = code.scan.pipe(Effect.withSpan("DesignSystemService.scan"));
+      /** What a step saves: the design system, DESIGN.md beside it, the baselines it moves. */
+      interface Saving<R> {
+        readonly baselines?: Partial<Baselines>;
+        readonly designSystem: DesignSystem;
+        readonly document?: {
+          readonly text: string;
+          /** The designs directory's DESIGN.md, replaced by the root's. */
+          readonly replaces?: string;
+        };
+        /** What the write answers besides. */
+        readonly result: R;
+      }
 
       /**
-       * A design system the tool changed itself (a token, a sync) saved as it is, in one undo
-       * step, with what it and the code agree on worked out again.
+       * The one way the design system is written. `make` is given the design system as the step
+       * finds it, under the journal's lock, and says what to save; the files are written in one
+       * undo step, the baselines as the file has them. Then, outside the undo history: the
+       * baselines `make` gave are moved, the code is told what changed in the tokens' values
+       * (`codeTokens: auto`; nothing when there was no design system before, which the code is
+       * where it came from), what the code and the design system agree on is moved, and DESIGN.md's
+       * front matter follows. All of it is done before the write returns: whoever reads the
+       * files next reads them current.
        */
-      const save = Effect.fn("DesignSystemService.save")(function* (
-        designSystem: DesignSystem,
+      const save = <R, E>(
         label: string,
-        document?: string
-      ) {
-        const saved: DesignSystem = {
-          ...designSystem,
-          codeSync: yield* code.agreement(designSystem),
-        };
-        yield* journal.transaction(label, (tx) =>
-          Effect.gen(function* () {
-            yield* writeFiles(tx, saved);
-            if (document !== undefined) {
-              yield* tx.write(designMd.file, document);
-            }
-          })
-        );
-        yield* mirror;
-        return saved;
-      });
-
-      const write = Effect.fn("DesignSystemService.write")(function* (
-        input: unknown,
-        document?: string
-      ) {
-        const { byName } = yield* code.tokens;
-        const before = yield* get;
-        const given = readGivenDesignSystem(input, {
-          code: byName,
-          current: before.designSystem,
+        make: (read: DesignSystemRead) => Effect.Effect<Saving<R>, E>
+      ) =>
+        Effect.gen(function* () {
+          const { before, saved, saving } = yield* journal.transaction(
+            label,
+            (tx) =>
+              Effect.gen(function* () {
+                const read = yield* readIn(tx);
+                if (read.tokensProblem !== null) {
+                  return yield* new BadRequest({
+                    message: `${read.tokensProblem}. The design system is written again once it reads.`,
+                  });
+                }
+                const made = yield* make(read);
+                const kept = keepBaselines(
+                  made.designSystem,
+                  read.designSystem
+                );
+                const texts = writeDesignSystem(kept);
+                yield* tx.write(systemRel, texts.system);
+                yield* tx.write(tokensRel, texts.tokens);
+                if (made.document) {
+                  yield* tx.write(designMd.file, made.document.text);
+                  if (made.document.replaces) {
+                    yield* tx.remove(made.document.replaces);
+                  }
+                }
+                return { before: read.designSystem, saved: kept, saving: made };
+              })
+          );
+          for (const [side, baseline] of Object.entries(
+            saving.baselines ?? {}
+          ) as [BaselineSide, Baselines[BaselineSide]][]) {
+            yield* moveBaseline(side, () => baseline);
+          }
+          const followed = before
+            ? yield* code.follow(tokenChangesBetween(before, saved), saved)
+            : { files: [] };
+          if (followed.files.length === 0) {
+            yield* code.settle(saved);
+          }
+          yield* mirror;
+          return {
+            files: [
+              systemRel,
+              tokensRel,
+              ...(saving.document ? [designMd.file] : []),
+              ...followed.files,
+            ],
+            result: saving.result,
+            saved,
+          };
         });
-        if ("problem" in given) {
-          return yield* new BadRequest({ message: given.problem });
-        }
-        const filled = given.designSystem;
-        // A sync's baselines are the tool's, not the writer's: an agent rewriting the design
-        // system without them keeps the ones there are, or the one waiting for a design system.
-        const kept =
-          filled.sync ??
-          before.designSystem?.sync ??
-          (yield* figma.pending) ??
-          undefined;
-        const keptDocument = filled.designMd ?? before.designSystem?.designMd;
-        const keptCode = filled.codeSync ?? before.designSystem?.codeSync;
-        const designSystem: DesignSystem = {
-          ...filled,
-          codeSync: yield* code.agreement({
-            ...filled,
-            ...(keptCode && { codeSync: keptCode }),
-          }),
-        };
-        const written =
-          document === undefined
-            ? null
-            : yield* designMd.toWrite(document, {
-                ...designSystem,
-                ...(keptDocument && { designMd: keptDocument }),
-              });
-        const saved: DesignSystem = {
-          ...designSystem,
-          ...(kept && { sync: kept }),
-          ...(written
-            ? { designMd: written.designMd }
-            : keptDocument && { designMd: keptDocument }),
-        };
-        yield* journal.transaction("Update the design system", (tx) =>
-          Effect.gen(function* () {
-            yield* writeFiles(tx, saved);
-            if (written) {
-              yield* tx.write(designMd.file, written.text);
-              // The designs directory's DESIGN.md is replaced by the root's.
-              if (before.document?.legacy) {
-                yield* tx.remove(before.document.path);
-              }
-            }
-          })
-        );
-        yield* mirror;
-        return { designSystem, findings: written?.findings ?? [] };
-      }, serially);
-
-      const replace = Effect.fn("DesignSystemService.replace")(function* (
-        designSystem: DesignSystem,
-        document: string,
-        label: string
-      ) {
-        yield* save(designSystem, label, document);
-      }, serially);
-
-      const detect = Effect.flatMap(scan, (found) =>
-        Effect.map(write(found.designSystem), (w) => w.designSystem)
-      );
 
       const noDesignSystem = new BadRequest({
         message:
           "There is no design system yet to change a token in: Sync makes one.",
       });
 
-      /**
-       * A design system changed from the one the files read, saved in one undo step, and the
-       * code told the value changes made (`codeTokens: auto`): the one path a token edit takes.
-       */
-      const commit = Effect.fnUntraced(function* (
-        change: (
-          ds: DesignSystem
-        ) => DesignSystem | { readonly problem: string },
-        changes: (ds: DesignSystem) => readonly TokenChange[],
-        label: string
-      ) {
-        const { designSystem: ds } = yield* filesRead;
-        if (!ds) {
-          return yield* noDesignSystem;
-        }
-        const next = change(ds);
-        if ("problem" in next) {
-          return yield* new BadRequest({ message: next.problem });
-        }
-        const saved = yield* save(next, label).pipe(
-          Effect.mapError(
-            (error) =>
-              new BadRequest({
+      const edit = Effect.fn("DesignSystemService.edit")(
+        function* (ops: readonly DesignSystemEdit[], label?: string) {
+          const { files } = yield* save(label ?? editLabel(ops), (read) => {
+            if (!read.designSystem) {
+              return Effect.fail(noDesignSystem);
+            }
+            const next = applyEdits(read.designSystem, ops);
+            return "problem" in next
+              ? Effect.fail(new BadRequest({ message: next.problem }))
+              : Effect.succeed({ designSystem: next, result: null });
+          });
+          return { files };
+        },
+        Effect.mapError((error) =>
+          error._tag === "BadRequest"
+            ? error
+            : new BadRequest({
                 message: `the design system could not be written: ${error.message}`,
               })
-          )
-        );
-        const followed = yield* code.follow(changes(ds), saved);
-        return { files: [systemRel, tokensRel, ...followed.files] };
-      });
+        )
+      );
 
-      const editOps = Effect.fn("DesignSystemService.edit")(function* (
-        ops: readonly DesignSystemEdit[],
-        label?: string
+      const write = Effect.fn("DesignSystemService.write")(function* (
+        input: unknown,
+        document?: string
       ) {
-        return yield* commit(
-          (ds) => applyEdits(ds, ops),
-          (ds) => tokenChangesOf(ds, ops),
-          label ?? editLabel(ops)
+        const pending = yield* figma.pending;
+        const { result, saved } = yield* save(
+          "Update the design system",
+          (read) =>
+            Effect.gen(function* () {
+              const given = readGivenDesignSystem(input, {
+                code: (yield* code.tokens).byName,
+                current: read.designSystem,
+              });
+              if ("problem" in given) {
+                return yield* new BadRequest({ message: given.problem });
+              }
+              const current = keepBaselines(
+                given.designSystem,
+                read.designSystem
+              );
+              const written =
+                document === undefined
+                  ? null
+                  : yield* designMd.toWrite(document, current);
+              const found = written ? yield* designMd.document(null) : null;
+              return {
+                baselines: {
+                  ...(written && { designMd: written.designMd }),
+                  // A sync with Figma waiting for a design system is kept in it.
+                  ...(!current.sync && pending && { sync: pending }),
+                },
+                designSystem: current,
+                ...(written && {
+                  document: {
+                    text: written.text,
+                    ...(found?.legacy && { replaces: found.path }),
+                  },
+                }),
+                result: {
+                  findings: written?.findings ?? [],
+                  pendingTaken: !current.sync && pending !== null,
+                },
+              } satisfies Saving<{
+                readonly findings: readonly DesignFinding[];
+                readonly pendingTaken: boolean;
+              }>;
+            })
         );
-      }, serially);
-
-      const setTokens = Effect.fn("DesignSystemService.setTokens")(function* (
-        changes: readonly TokenChange[],
-        label = "Change tokens"
-      ) {
-        return yield* commit(
-          (ds) => withTokenChanges(ds, changes),
-          () => changes,
-          label
-        );
-      }, serially);
-
-      const setToken = Effect.fn("DesignSystemService.setToken")(function* (
-        change: TokenChange
-      ) {
-        const { designSystem: ds } = yield* filesRead;
-        if (!ds) {
-          return yield* noDesignSystem;
+        if (result.pendingTaken) {
+          yield* figma.clear;
         }
-        const before = designTokensOf(ds).find((t) => t.name === change.name);
-        const { files } = yield* setTokens(
-          [change],
-          `Change ${change.name}${change.theme ? ` in ${change.theme}` : ""}`
-        );
-        return {
-          files,
-          previous:
-            (change.theme ? before?.values?.[change.theme] : before?.value) ??
-            null,
-        };
+        return { designSystem: saved, findings: result.findings };
       });
 
+      const replace = Effect.fn("DesignSystemService.replace")(function* (
+        designSystem: DesignSystem,
+        document: string,
+        label: string
+      ) {
+        const { files } = yield* save(label, () =>
+          Effect.succeed({
+            baselines: {
+              ...(designSystem.codeSync && { codeSync: designSystem.codeSync }),
+              ...(designSystem.designMd && { designMd: designSystem.designMd }),
+              ...(designSystem.sync && { sync: designSystem.sync }),
+            },
+            designSystem,
+            document: { text: document },
+            result: null,
+          })
+        );
+        return { files };
+      });
+
+      const detect = Effect.flatMap(code.scan, (found) =>
+        Effect.map(write(found.designSystem), (w) => w.designSystem)
+      );
+
+      let lastTold: string | null = null;
       // The one place the editor hears of a change, whoever made it: the tool's own writes, an
       // undo, an agent writing the files by hand, a checkout (the files), DESIGN.md, the code.
       yield* Stream.mergeAll(
@@ -451,8 +439,15 @@ export class DesignSystemService extends Context.Service<
         Stream.debounce("50 millis"),
         Stream.runForEach(() =>
           Effect.gen(function* () {
-            yield* serially(mirror);
-            yield* events.publish("designSystem", yield* get);
+            yield* mirror;
+            // Told once per state: a component's file changing DESIGN.md's component tokens and
+            // nothing else of the design system, or a change seen twice, is told once.
+            const state = yield* get;
+            const told = JSON.stringify(state);
+            if (told !== lastTold) {
+              lastTold = told;
+              yield* events.publish("designSystem", state);
+            }
           })
         ),
         Effect.forkScoped
@@ -472,19 +467,17 @@ export class DesignSystemService extends Context.Service<
               })
           ),
         detect,
-        edit: editOps,
+        edit,
         get,
+        moveBaseline: (side, move) =>
+          moveBaseline(side, move).pipe(
+            Effect.withSpan("DesignSystemService.moveBaseline")
+          ),
         placeDocument: Effect.flatMap(get, ({ designSystem: ds }) =>
           designMd.place(ds)
         ),
-        refresh: code.refresh.pipe(
-          Effect.andThen(serially(mirror)),
-          Effect.andThen(get)
-        ),
+        refresh: code.refresh.pipe(Effect.andThen(mirror), Effect.andThen(get)),
         replace,
-        scan,
-        setToken,
-        setTokens,
         write,
       });
     })

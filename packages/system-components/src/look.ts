@@ -19,6 +19,7 @@ import {
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { themeSelector } from "@ultrapaint/contracts/themes";
 import { lookCss } from "@ultrapaint/design-document/component-look";
 import { makeStyleContext } from "@ultrapaint/design-document/css";
 import { designTokenCss } from "@ultrapaint/design-document/tokens";
@@ -77,7 +78,7 @@ const DEFAULT_TOKENS = `
     font-family: var(--font-sans); line-height: 1.5; color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
   }
-  .dark, [data-theme~="dark"] {
+  ${themeSelector("dark")} {
     ${neutralIn("dark")}
   }
 `;

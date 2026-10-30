@@ -55,6 +55,7 @@ import {
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeStamp } from "../file-stamp.ts";
 import { makeId, safeFileId } from "../ids.ts";
+import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import type { EditFailure } from "./edit.ts";
@@ -250,6 +251,7 @@ export class FigmaImportService extends Context.Service<
       const paths = yield* RepoPaths;
       const { catalogue } = yield* ComponentService;
       const designSystem = yield* DesignSystemService;
+      const code = yield* CodeSide;
       const pages = yield* PagesService;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -534,7 +536,7 @@ export class FigmaImportService extends Context.Service<
         const { designSystem: saved } = yield* designSystem.get;
         // Before a design system is written, the code's own tokens are what colours match
         // (ADR 0025): Figma's may have been taken into it already.
-        const ds = saved ?? (yield* designSystem.scan).designSystem;
+        const ds = saved ?? (yield* code.scan).designSystem;
         const components = yield* catalogue;
         return {
           mapping: summary.mapping,

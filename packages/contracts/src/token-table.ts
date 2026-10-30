@@ -489,6 +489,44 @@ export const withTokenChanges = (
     : { ...withAdded, spacing: { ...withAdded.spacing, base } };
 };
 
+/**
+ * What changed in the tokens' values from one design system to the next, as a side is told it: a
+ * value set in the default theme or another, another theme's value taken out, a token taken out.
+ * The spacing base is `spacing`; an empty value is no value.
+ */
+export const tokenChangesBetween = (
+  before: DesignSystem,
+  after: DesignSystem
+): TokenChange[] => {
+  const was = new Map(allTokens(before).map((t) => [t.name, t] as const));
+  const changes: TokenChange[] = [];
+  const now = allTokens(after);
+  for (const t of now) {
+    const old = was.get(t.name);
+    if (t.value !== "" && t.value !== old?.value) {
+      changes.push({ name: t.name, value: t.value });
+    }
+    const values = t.values ?? {};
+    for (const [theme, value] of Object.entries(values)) {
+      if (value !== "" && value !== old?.values?.[theme]) {
+        changes.push({ name: t.name, theme, value });
+      }
+    }
+    for (const theme of Object.keys(old?.values ?? {})) {
+      if (!values[theme]) {
+        changes.push({ name: t.name, remove: true, theme });
+      }
+    }
+  }
+  const kept = new Set(now.map((t) => t.name));
+  for (const name of was.keys()) {
+    if (!kept.has(name)) {
+      changes.push({ name, remove: true });
+    }
+  }
+  return changes;
+};
+
 /** A token's values, the default theme's and the others', as another side has them. */
 export interface TokenValues {
   readonly name: string;

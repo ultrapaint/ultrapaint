@@ -20,6 +20,28 @@ export const RAMP_STEPS = [
 ] as const;
 export type RampStep = (typeof RAMP_STEPS)[number];
 
+const SHADE_RE = /^(.+)-(\d+)$/;
+/** The highest step a palette's shade is named with: Tailwind's palettes go 0 to 1000 at most. */
+const LAST_STEP = 1000;
+
+/**
+ * A palette's shade read from its token's name: `color-primary-600` is the palette
+ * `color-primary` at step 600. Null for a name that is no shade: one with no step, or a step past
+ * 1000. Every reader of a palette (the colour boards, "Generate ramp from…", `/init`'s scan) asks
+ * here.
+ */
+export const shadeOf = (
+  name: string
+): { readonly prefix: string; readonly step: number } | null => {
+  const shade: RegExpExecArray | null = SHADE_RE.exec(name);
+  const [, prefix, step] = shade ?? [];
+  if (prefix === undefined || step === undefined) {
+    return null;
+  }
+  const n = Number(step);
+  return n <= LAST_STEP ? { prefix, step: n } : null;
+};
+
 /** Each step's lightness, after Tailwind's blue, lightest first. */
 const LIGHTNESS = [
   0.97, 0.932, 0.882, 0.809, 0.708, 0.623, 0.546, 0.488, 0.424, 0.379, 0.282,

@@ -14,13 +14,9 @@ import {
   tokensOfKind,
   type ValueLookup,
 } from "@ultrapaint/contracts/token-table";
-import type {
-  UsageContext,
-  UsageOccurrence,
-} from "@ultrapaint/framework-api/node";
+import type { UsageOccurrence } from "@ultrapaint/framework-api/node";
 import {
   COLOR_SET,
-  ELEMENT_COMPONENTS,
   FUNCTION_COLOR_RE,
   isColorLiteral,
   NAMED_COLORS,
@@ -349,7 +345,6 @@ const classifyClass = (
 const tokensOf = (kind: UsageKind, known: Known): Set<string> =>
   ({
     color: known.colors,
-    element: new Set<string>(),
     fontSize: known.sizes,
     fontWeight: known.weights,
     radius: known.radii,
@@ -466,25 +461,9 @@ const kindOfProperty = (property: string): UsageKind | null => {
   return STYLE_KIND[property] ?? null;
 };
 
-export const classify = (
-  use: UsageOccurrence,
-  known: Known,
-  ctx: UsageContext,
-  file: string
-): Classified[] => {
+export const classify = (use: UsageOccurrence, known: Known): Classified[] => {
   if (use.use === "literal") {
     return [rawColor(known, use.value)];
-  }
-  if (use.use === "element") {
-    if (ctx.libraryDirs.some((dir) => file.startsWith(`${dir}/`))) {
-      return [];
-    }
-    const component = (ELEMENT_COMPONENTS[use.value] ?? []).find((name) =>
-      ctx.components.includes(name)
-    );
-    return component
-      ? [{ kind: "element", status: "raw", token: component, value: use.value }]
-      : [];
   }
   if (use.use.startsWith("style:") || use.use.startsWith("css:")) {
     const property = camel(use.use.slice(use.use.indexOf(":") + 1));
