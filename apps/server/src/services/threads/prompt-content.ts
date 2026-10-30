@@ -7,6 +7,7 @@
  */
 import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
+import type { LookPlace } from "@ultrapaint/contracts/components";
 import {
   drawsDesigns,
   parseCommand,
@@ -21,6 +22,7 @@ import type {
   ThreadPurpose,
   ThreadScope,
 } from "@ultrapaint/contracts/threads";
+import { lookPathOf } from "@ultrapaint/design-document/look-places";
 import { Effect, FileSystem } from "effect";
 import { ServerConfig } from "../../config.ts";
 import type { RepoPaths } from "../repo-paths.ts";
@@ -97,29 +99,20 @@ export const scopeOf = (
   return file ? { file: file.path, name: pageNameOf(file.path) } : null;
 };
 
-/**
- * Where a system component's file keeps its look at a place: `variantStates.variant.outline.hover`
- * for an outline button's hover, `variants.size.lg`, `states.hover`, else `base`.
- */
-const lookPathOf = (variant: string | undefined, state: string | undefined) => {
-  const [axis, member] = variant?.split("=") ?? [];
-  if (axis && member) {
-    return state
-      ? `variantStates.${axis}.${member}.${state}`
-      : `variants.${axis}.${member}`;
-  }
-  return state ? `states.${state}` : "base";
-};
+/** A variant's member as a component's file keys it: `variant=outline`, `tone=featured`. */
+const memberKey = (place: LookPlace | undefined) =>
+  place?.variant ? `${place.variant.axis}=${place.variant.member}` : null;
 
 /** A system component's look at the place picked, or the component when none is. */
 const systemComponentText = (a: BoardAttachment, now: string) => {
-  if (!(a.variant || a.state)) {
+  const { place } = a;
+  if (!(place?.variant || place?.state)) {
     return `The user has picked the system component ${a.name}${now}, whose look is ${a.file}. Changes should target its look unless told otherwise.`;
   }
-  const place = [a.variant, a.state && `the ${a.state} state`]
+  const where = [memberKey(place), place.state && `the ${place.state} state`]
     .filter(Boolean)
     .join(" in ");
-  return `The user has picked the look of the system component ${a.name} at ${place}${now}: ${lookPathOf(a.variant, a.state)} of ${a.file}. Changes should target that place of its look unless told otherwise.`;
+  return `The user has picked the look of the system component ${a.name} at ${where}${now}: ${lookPathOf(place)} of ${a.file}. Changes should target that place of its look unless told otherwise.`;
 };
 
 /** What each kind of pick is told as, `now` what it is now in brackets, or nothing. */
@@ -127,10 +120,12 @@ const PICK_TEXT: Record<
   BoardPickKind,
   (a: BoardAttachment, now: string) => string
 > = {
-  appComponent: (a, now) =>
-    a.variant
-      ? `The user has picked the variant ${a.variant} of the app component ${a.name}${now || ` (what its nodes override under at["${a.variant}"])`}, kept in ${a.file}. Changes should target that variant unless told otherwise.`
-      : `The user has picked the app component ${a.name}${now}, kept in ${a.file}. Changes should target this component unless told otherwise.`,
+  appComponent: (a, now) => {
+    const key = memberKey(a.place);
+    return key
+      ? `The user has picked the variant ${key} of the app component ${a.name}${now || ` (what its nodes override under at["${key}"])`}, kept in ${a.file}. Changes should target that variant unless told otherwise.`
+      : `The user has picked the app component ${a.name}${now}, kept in ${a.file}. Changes should target this component unless told otherwise.`;
+  },
   foundation: (a, now) =>
     `The user is looking at the design system's ${a.name}${now}, kept in ${a.file}. Changes should target these tokens unless told otherwise.`,
   group: (a, now) =>
@@ -150,7 +145,7 @@ export const boardPickText = (a: BoardAttachment): string =>
 
 /** How the transcript names a board's pick: `Button variant=outline hover @ components/Button.component.json`. */
 const boardPickLabel = (a: BoardAttachment) =>
-  `${[a.name, a.variant, a.state].filter(Boolean).join(" ")} @ ${a.file}`;
+  `${[a.name, memberKey(a.place), a.place?.state].filter(Boolean).join(" ")} @ ${a.file}`;
 
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
 export const titleOf = (text: string) => {

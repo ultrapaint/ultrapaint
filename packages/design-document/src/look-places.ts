@@ -29,6 +29,20 @@ export const BASE: Place = { state: null, variant: null };
 export const placeLabel = ({ state, variant }: Place): string =>
   [variant?.member, state].filter(Boolean).join(", ") || "base";
 
+/**
+ * Where a system component's file keeps its look at a place, as a path into it:
+ * `variantStates.variant.outline.hover` for an outline button's hover, `variants.size.lg`,
+ * `states.hover`, else `base`.
+ */
+export const lookPathOf = ({ state, variant }: Place): string => {
+  if (variant) {
+    return state
+      ? `variantStates.${variant.axis}.${variant.member}.${state}`
+      : `variants.${variant.axis}.${variant.member}`;
+  }
+  return state ? `states.${state}` : "base";
+};
+
 /** The style record a place keeps its parts in. */
 const stylesAt = (
   look: LookStyles,
