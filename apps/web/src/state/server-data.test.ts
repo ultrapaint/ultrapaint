@@ -44,12 +44,10 @@ vi.mock(
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const settings: Settings = {
-  componentPackages: [],
   designsDir: "designs",
   hostCss: [],
   libraryDirs: [],
   repoPath: "/work/shop",
-  theme: "light",
 };
 
 const page = (id: string, name: string): Page => ({

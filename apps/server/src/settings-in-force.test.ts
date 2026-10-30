@@ -83,13 +83,11 @@ describe("the settings in force", () => {
           yield* nameTheTitle;
           // The same settings with their keys in another order, and a field set to nothing.
           const reordered: Settings = {
-            componentPackages: settings.componentPackages,
             designsDir: settings.designsDir,
             hostCss: settings.hostCss,
             libraryDirs: settings.libraryDirs,
             repoPath: settings.repoPath,
             resolveFrom: undefined,
-            theme: settings.theme,
           };
           assert.isTrue((yield* project.set(reordered)).ok);
           assert.strictEqual(yield* projectScope, scope);
@@ -97,10 +95,10 @@ describe("the settings in force", () => {
 
           // Other settings open it again.
           assert.isTrue(
-            (yield* project.set({ ...settings, theme: "dark" })).ok
+            (yield* project.set({ ...settings, codeTokens: "auto" })).ok
           );
           assert.notStrictEqual(yield* projectScope, scope);
-          assert.strictEqual((yield* running).theme, "dark");
+          assert.strictEqual((yield* running).codeTokens, "auto");
           assert.isUndefined(yield* undoLabel);
         })
     );
@@ -170,9 +168,11 @@ describe("the settings in force", () => {
             startImmediately: true,
           }
         );
-        assert.isTrue((yield* project.set({ ...settings, theme: "dark" })).ok);
+        assert.isTrue(
+          (yield* project.set({ ...settings, codeTokens: "auto" })).ok
+        );
         yield* Fiber.join(detecting);
-        assert.strictEqual((yield* running).theme, "dark");
+        assert.strictEqual((yield* running).codeTokens, "auto");
         const info = yield* project.info;
         assert.strictEqual(info.setup, "saved");
 
@@ -180,7 +180,7 @@ describe("the settings in force", () => {
         const scope = yield* projectScope;
         yield* project.adoptDetected(repo);
         assert.strictEqual(yield* projectScope, scope);
-        assert.strictEqual((yield* running).theme, "dark");
+        assert.strictEqual((yield* running).codeTokens, "auto");
       })
     );
   });

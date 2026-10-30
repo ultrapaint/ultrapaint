@@ -112,7 +112,7 @@ export class PagePngs extends Context.Service<
         const { pages: all } = yield* pages.list;
         const system = yield* designSystem.get;
         const context = hashContent(
-          JSON.stringify([DRAWING, system.designSystem, settings.theme])
+          JSON.stringify([DRAWING, system.designSystem])
         );
         const layouts = new Map<string, CanvasLayout | null>();
         const layoutOf = Effect.fnUntraced(function* (canvas: string) {

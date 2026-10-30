@@ -34,7 +34,6 @@ describe("first-run suggestions", () => {
 
   it("proposes a designs directory that needs no package", () => {
     expect(applySuggestions(defaultSettings("/repo"), found)).toMatchObject({
-      componentPackages: ["@acme/ui"],
       designsDir: "docs/designs",
       hostCss: ["../../../apps/web/src/app.css"],
       libraryDirs: ["packages/ui/src"],
@@ -69,7 +68,6 @@ describe("first-run suggestions", () => {
       ],
     });
     expect(settings).toMatchObject({
-      componentPackages: [],
       hostCss: ["../../../front/src/index.css"],
       libraryDirs: ["front/src/components"],
       resolveFrom: "front",

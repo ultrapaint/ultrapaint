@@ -12,4 +12,13 @@ describe("a configuration file", () => {
     });
     expect(config).toEqual({ designsDir: "docs/designs" });
   });
+
+  it("drops a theme and component packages, which nothing honoured (review D9)", () => {
+    const config = Schema.decodeUnknownSync(ProjectConfig)({
+      componentPackages: ["@acme/ui"],
+      designsDir: "docs/designs",
+      theme: "dark",
+    });
+    expect(config).toEqual({ designsDir: "docs/designs" });
+  });
 });

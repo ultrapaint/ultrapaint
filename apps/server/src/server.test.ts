@@ -99,7 +99,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client, settings } = yield* TestEnv;
         const exit = yield* Effect.exit(
-          client["settings.set"]({ ...settings, theme: "neon" as "light" })
+          client["settings.set"]({ ...settings, codeTokens: "neon" as "auto" })
         );
         assert.strictEqual(exit._tag, "Failure");
       })

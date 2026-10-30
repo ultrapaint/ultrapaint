@@ -11,11 +11,9 @@ export const toSettings = (
   const { $schema: _schema, repoPath, ...rest } = config;
   return {
     ...rest,
-    componentPackages: config.componentPackages ?? [],
     hostCss: config.hostCss ?? [],
     libraryDirs: config.libraryDirs ?? [],
     repoPath: path.resolve(baseDir, repoPath ?? "."),
-    theme: config.theme ?? "light",
   };
 };
 

@@ -87,12 +87,10 @@ describe("Connection", () => {
         const projects: boolean[] = [];
         connection.on("project", (info) => projects.push(info.configured));
         const settings: Settings = {
-          componentPackages: [],
           designsDir: "designs",
           hostCss: [],
           libraryDirs: [],
           repoPath: repo,
-          theme: "light",
         };
         const validation = yield* Effect.promise(() =>
           connection.request("settings.set", settings)
@@ -133,12 +131,10 @@ describe("Connection", () => {
         // Subscriptions made while offline are live on the new session.
         yield* Effect.promise(() =>
           connection.request("settings.validate", {
-            componentPackages: [],
             designsDir: "designs",
             hostCss: [],
             libraryDirs: [],
             repoPath: "/nonexistent",
-            theme: "light",
           })
         );
         const health = yield* Effect.promise(() =>

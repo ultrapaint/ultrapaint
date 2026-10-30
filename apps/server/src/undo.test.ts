@@ -153,12 +153,10 @@ describe("the edit journal", () => {
           Layer.provide(
             Layer.mergeAll(
               RepoPaths.layer({
-                componentPackages: [],
                 designsDir: "designs",
                 hostCss: [],
                 libraryDirs: [],
                 repoPath: repo,
-                theme: "light",
               }),
               EventBus.layer
             )
