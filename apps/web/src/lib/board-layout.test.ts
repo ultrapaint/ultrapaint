@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOARD_GAP,
   BOARD_MARGIN,
   boardLayout,
+  boardRoom,
   firstBoardView,
   ROW_GAP,
   UNMEASURED,
+  wrappedBoards,
 } from "./board-layout.ts";
 
 const sizes = {
@@ -32,6 +35,56 @@ describe("boardLayout", () => {
       a: { height: 200, width: 400, x: UNMEASURED.width, y: 0 },
       c: { ...UNMEASURED, x: 0, y: 0 },
     });
+  });
+});
+
+describe("wrappedBoards", () => {
+  it("keeps boards that fit side by side", () => {
+    expect(wrappedBoards(["a", "b"], sizes, 400 + ROW_GAP + 300)).toEqual({
+      a: { height: 200, width: 400, x: 0, y: 0 },
+      b: { height: 100, width: 300, x: 400 + ROW_GAP, y: 0 },
+    });
+  });
+
+  it("puts the one that would not fit under the tallest of its row", () => {
+    const wrapped = wrappedBoards(
+      ["a", "b", "c"],
+      { ...sizes, c: sizes.a },
+      750
+    );
+    expect(wrapped.b).toEqual({
+      height: 100,
+      width: 300,
+      x: 400 + ROW_GAP,
+      y: 0,
+    });
+    expect(wrapped.c).toEqual({
+      height: 200,
+      width: 400,
+      x: 0,
+      y: 200 + BOARD_GAP,
+    });
+  });
+
+  it("gives a board wider than the room a row of its own, none empty before it", () => {
+    const wrapped = wrappedBoards(["a", "b"], sizes, 100);
+    expect(wrapped.a).toEqual({ height: 200, width: 400, x: 0, y: 0 });
+    expect(wrapped.b).toEqual({
+      height: 100,
+      width: 300,
+      x: 0,
+      y: 200 + BOARD_GAP,
+    });
+  });
+
+  it("draws wide variants stacked at 100% where side by side they would shrink", () => {
+    const seen = { width: 640, x: 400 };
+    const wide = {
+      a: { height: 100, width: 552 },
+      b: { height: 100, width: 552 },
+    };
+    const boxes = wrappedBoards(["a", "b"], wide, boardRoom(seen));
+    expect(firstBoardView(Object.values(boxes), seen).zoom).toBe(1);
   });
 });
 

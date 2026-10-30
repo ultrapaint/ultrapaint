@@ -329,7 +329,8 @@ linter findings, shown only by the old panel's DESIGN.md tab, are listed under t
 `specimens-drawing.test.tsx` is `canvas/board-drawing.test.tsx`. Polish from the Phase 6
 screenshots: an item first seen is fitted between the panels, never past 100% (`firstBoardView`
 in `lib/board-layout.ts`, `fitFirstView` once every board is measured, unless the camera was
-moved); Button's `icon` size draws a plus rather than its label; the inspectors' labels read
+moved), and an app component's variants wrap when a row would not fit at 100%
+(`wrappedBoards`), so a wide header's stack rather than shrink; Button's `icon` size draws a plus rather than its label; the inspectors' labels read
 whole ("Default" for a property's value when not set, a padding's sides as Top, Right, Bottom,
 Left under Padding, a note's part on a line of its own); and a frame's React root is unmounted
 right after the editor's commit rather than in it (`renderToCanvas`'s `unmount`), which ends the

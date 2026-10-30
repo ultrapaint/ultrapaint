@@ -46,10 +46,10 @@ export interface Board {
   readonly title: string;
 }
 
-/** An item's boards, and whether they are laid out side by side or one under the other. */
+/** An item's boards, and whether they are laid out side by side, one under the other, or side by side as far as the canvas holds. */
 export interface Boards {
   readonly boards: readonly Board[];
-  readonly direction: "row" | "column";
+  readonly direction: "row" | "column" | "wrap";
 }
 
 /** An entry of Design system's list. */

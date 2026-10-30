@@ -615,7 +615,7 @@ export const libraryBoards = (
     return { boards: [], direction: "column" };
   }
   if (file.origin === "app") {
-    return { boards: appComponentBoards(file), direction: "row" };
+    return { boards: appComponentBoards(file), direction: "wrap" };
   }
   const meta = catalogue.find((c) => c.name === item);
   return {
