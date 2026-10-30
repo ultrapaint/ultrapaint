@@ -37,6 +37,7 @@ const onAServer = <A, E>(
   >,
   timeout = 60_000
 ) =>
+  // real clock: the server's IO over its socket.
   it.live(
     name,
     () => body().pipe(Effect.provide(TestServer), Effect.scoped),

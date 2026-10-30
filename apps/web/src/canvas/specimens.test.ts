@@ -60,6 +60,7 @@ beforeEach(() => {
     }),
   });
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
+    // fake clock: a frame is a timer of the fake clock set above.
     setTimeout(cb, 16)
   );
 });
