@@ -47,6 +47,7 @@ import { boardLayout } from "../lib/board-layout.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import {
   type BoardPlace,
+  fitFirstView,
   openBoard,
   pickOf,
   pickOnBoard,
@@ -191,7 +192,13 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
     () => boardLayout(ids, sizes, direction),
     [ids, sizes, direction]
   );
-  useLayoutEffect(() => setBoardFrames(layout), [layout]);
+  useLayoutEffect(() => {
+    setBoardFrames(layout);
+    // The first time an item is opened, once every board says its size: all of them in view.
+    if (ids.every((id) => sizes[id] !== undefined)) {
+      fitFirstView();
+    }
+  }, [layout, ids, sizes]);
 
   // Where the canvas is in the window, for a zoom about the pointer.
   const origin = useRef({ left: 0, top: 0 });

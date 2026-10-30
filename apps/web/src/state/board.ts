@@ -27,6 +27,7 @@ import {
   appVariantOfBoard,
   appVariantsOf,
 } from "../boards/library-boards.ts";
+import { firstBoardView } from "../lib/board-layout.ts";
 import { setView, type View, viewportSize } from "./camera.ts";
 import { appComponentOf, useComponents } from "./components.ts";
 import { boardFrameOf, boardOfFrame, type useDocuments } from "./documents.ts";
@@ -70,6 +71,11 @@ interface Left {
 interface BoardStore {
   /** The camera each item was left at, by `boardKey`. */
   cameras: Readonly<Record<string, View>>;
+  /**
+   * The item opened for the first time and the camera it was opened with, until its boards are
+   * measured and fitted between the panels; null once they are, or the camera was moved.
+   */
+  fitting: { readonly key: string; readonly view: View } | null;
   /** Where the boards of the item open are, by frame id, as the board canvas lays them out. */
   frames: Readonly<Record<string, Box>>;
   /** A guideline's text as it is typed in its inspector, drawn on its board until it is saved. */
@@ -88,6 +94,7 @@ interface BoardStore {
 
 export const useBoard = create<BoardStore>(() => ({
   cameras: {},
+  fitting: null,
   frames: {},
   guideDraft: null,
   last: {},
@@ -186,16 +193,10 @@ export const boardTree = (
 };
 
 /**
- * Where an item's boards begin the first time it is opened, from the seen part's corner: a
- * little in from its left, and low enough for the names over them.
+ * Where an item's boards begin the first time it is opened, before they are measured: from the
+ * seen part's corner, at 100%. Once they are, `fitFirstView` fits them between the panels.
  */
-const MARGIN = { x: 32, y: 72 } as const;
-
-const firstView = (): View => ({
-  x: viewportSize().x + MARGIN.x,
-  y: MARGIN.y,
-  zoom: 1,
-});
+const firstView = (): View => firstBoardView([], viewportSize());
 
 /** How a move writes the URL: an entry of its own, in the entry's place, or not at all (back). */
 type History = "push" | "replace" | "none";
@@ -232,8 +233,11 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
   const cameras = was
     ? { ...board.cameras, [boardKey(was)]: now.view }
     : board.cameras;
+  const saved = cameras[boardKey(place)];
+  const view = saved ?? firstView();
   useBoard.setState({
     cameras,
+    fitting: saved ? null : { key: boardKey(place), view },
     frames: {},
     last: { ...board.last, [place.view]: place.item },
     left,
@@ -244,7 +248,7 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
     leftTab: PANEL_OF[place.view],
     mode: boardMode(now.mode),
   });
-  setView(cameras[boardKey(place)] ?? firstView());
+  setView(view);
   if (history !== "none") {
     writeBoard(place, history === "push" && was === null);
   }
@@ -338,6 +342,23 @@ const sameBoxes = (
 export const setBoardFrames = (frames: Readonly<Record<string, Box>>) => {
   if (!sameBoxes(useBoard.getState().frames, frames)) {
     useBoard.setState({ frames });
+  }
+};
+
+/**
+ * The boards of the item open measured, the first time it is opened: every one fitted between
+ * the panels, unless the camera was moved meanwhile.
+ */
+export const fitFirstView = () => {
+  const { fitting, frames, open } = useBoard.getState();
+  if (!(fitting && open && fitting.key === boardKey(open))) {
+    return;
+  }
+  useBoard.setState({ fitting: null });
+  const now = useEditor.getState().view;
+  const { view } = fitting;
+  if (now.x === view.x && now.y === view.y && now.zoom === view.zoom) {
+    setView(firstBoardView(Object.values(frames), viewportSize()));
   }
 };
 

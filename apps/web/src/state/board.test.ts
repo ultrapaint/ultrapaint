@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
 import {
   boardTree,
+  fitFirstView,
   followBoardHistory,
   leaveBoard,
   openBoard,
@@ -15,7 +16,7 @@ import {
   setBoardFrames,
   useBoard,
 } from "./board.ts";
-import { measureViewportWith, zoomToFit } from "./camera.ts";
+import { measureViewportWith, setView, zoomToFit } from "./camera.ts";
 import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
 import { allFrames, useEditor } from "./editor.ts";
@@ -67,6 +68,37 @@ beforeEach(() => {
 });
 
 describe("openBoard", () => {
+  it("fits the boards between the panels once measured, the first time an item is opened only", () => {
+    const wide = {
+      "board:library/Plan/tone=a": { height: 200, width: 900, x: 0, y: 0 },
+      "board:library/Plan/tone=b": { height: 200, width: 900, x: 924, y: 0 },
+    };
+    openBoard({ item: "Plan", view: "library" });
+    setBoardFrames(wide);
+    fitFirstView();
+    const fitted = useEditor.getState().view;
+    // 1824 wide in the 1000 between the panels, the margins kept on both sides.
+    expect(fitted.zoom).toBeCloseTo((1000 - 64) / 1824);
+    expect(fitted.x).toBe(332);
+    // Moved and left, it is found where it was left: no fit the second time.
+    setView({ x: 500, zoom: 0.25 });
+    openBoard({ item: "color", view: "system" });
+    openBoard({ item: "Plan", view: "library" });
+    setBoardFrames(wide);
+    fitFirstView();
+    expect(useEditor.getState().view).toMatchObject({ x: 500, zoom: 0.25 });
+  });
+
+  it("leaves the camera where the user moved it before the boards were measured", () => {
+    openBoard({ item: "Plan", view: "library" });
+    setView({ x: 10 });
+    setBoardFrames({
+      "board:library/Plan/a": { height: 200, width: 3000, x: 0, y: 0 },
+    });
+    fitFirstView();
+    expect(useEditor.getState().view).toMatchObject({ x: 10, zoom: 1 });
+  });
+
   it("puts the page aside and opens the item at 100%, past the left panel", () => {
     openBoard({ item: "color", view: "system" });
     expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
