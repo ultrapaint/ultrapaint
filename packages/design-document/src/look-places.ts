@@ -8,7 +8,6 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
-  LookMember,
   LookPlace,
   PartStyle,
   PartStyles,
@@ -20,9 +19,6 @@ export type LookStyles = Pick<
   SystemLook,
   "base" | "states" | "variantStates" | "variants"
 >;
-
-/** A variant member a place is in. */
-export type Member = LookMember;
 
 /** Where a field is set: the base when neither, a member, a state, or a state in a member. */
 export type Place = LookPlace;

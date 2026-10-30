@@ -699,9 +699,7 @@ const EVERY_ACTION = {
     variant: true,
     zoomTo: true,
   },
-  textStyle: { apply: true, copyName: true },
   thread: { delete: true, follow: true, open: true, stop: true },
-  token: { apply: true, copyRef: true, copyValue: true, edit: true },
 } satisfies {
   [A in MenuAction as A["on"]]: Record<A["act"]["kind"], true>;
 };
@@ -718,8 +716,6 @@ const everyTarget = (): MenuTarget[] => [
   { canvasId: "", kind: "canvasEntry" },
   { at: { x: 100, y: 100 }, kind: "canvas" },
   { commentId: "c1", kind: "comment" },
-  { kind: "token", name: "primary", tokenKind: "color", value: "#000" },
-  { kind: "textStyle", name: "Body" },
   {
     kind: "component",
     make: () => text("made"),

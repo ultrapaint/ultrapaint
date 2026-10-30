@@ -17,7 +17,6 @@ import {
   isRepositoryInstance,
   systemComponentFor,
 } from "@ultrapaint/system-components/migrate";
-import type { MenuTokenKind } from "../state/context-menu.ts";
 import type { Arrangement, Wrapper } from "./node-actions.ts";
 import { viewportPresets } from "./presets.ts";
 
@@ -36,7 +35,6 @@ export interface Item<A> {
 
 /** The submenus, by what they gather: their icon is told by it. */
 export type SubmenuId =
-  | "apply"
   | "arrange"
   | "copyTo"
   | "link"
@@ -650,149 +648,6 @@ export const commentEntries = (f: CommentFacts): Entry<CommentAction>[] =>
     separator,
     item({ kind: "delete" }, "Delete…", { destructive: true }),
   ]);
-
-// ---- Tokens ----
-
-/** A field of a node a token can go in, and what the item says. */
-export interface TokenField {
-  field:
-    | "border.color"
-    | "border.width"
-    | "color"
-    | "fill"
-    | "font"
-    | "gap"
-    | "margin"
-    | "maxWidth"
-    | "minWidth"
-    | "padding"
-    | "radius"
-    | "shadow"
-    | "size";
-  label: string;
-}
-
-const hasGap = (node: DesignNode) =>
-  node.type === "page" || node.type === "row" || node.type === "column";
-
-/** The fields of this node a token of this kind fits. */
-export const tokenFields = (
-  kind: MenuTokenKind,
-  node: DesignNode | null
-): TokenField[] => {
-  if (!node) {
-    return [];
-  }
-  const text = node.type === "text";
-  switch (kind) {
-    case "color":
-      return [
-        { field: "fill", label: "Fill" },
-        ...(text ? [{ field: "color", label: "Text colour" } as const] : []),
-        { field: "border.color", label: "Border colour" },
-      ];
-    case "font":
-      return text ? [{ field: "font", label: "Font" }] : [];
-    case "radius":
-      return [{ field: "radius", label: "Radius" }];
-    case "shadow":
-      return [{ field: "shadow", label: "Shadow" }];
-    case "borderWidth":
-      return [{ field: "border.width", label: "Border width" }];
-    case "container":
-      return [
-        { field: "maxWidth", label: "Max width" },
-        { field: "minWidth", label: "Min width" },
-      ];
-    case "fontSize":
-      return text ? [{ field: "size", label: "Font size" }] : [];
-    case "spacing":
-      return [
-        ...(hasGap(node) ? [{ field: "gap", label: "Gap" } as const] : []),
-        { field: "padding", label: "Padding" },
-        { field: "margin", label: "Margin" },
-      ];
-    default:
-      return [];
-  }
-};
-
-/** The fields every one of these nodes has that a token of this kind fits. */
-export const sharedTokenFields = (
-  kind: MenuTokenKind,
-  nodes: readonly DesignNode[]
-): TokenField[] => {
-  const [first, ...rest] = nodes;
-  const others = rest.map((n) => tokenFields(kind, n).map((t) => t.field));
-  return tokenFields(kind, first ?? null).filter((t) =>
-    others.every((fields) => fields.includes(t.field))
-  );
-};
-
-/** What a token or a text style is applied to: the node selected, or how many are. */
-const appliedTo = (selected: readonly DesignNode[], none: string) => {
-  const [first] = selected;
-  if (!first) {
-    return none;
-  }
-  return selected.length === 1
-    ? `Apply to ${nodeLabel(first)}`
-    : `Apply to ${selected.length} elements`;
-};
-
-export type TokenAction =
-  | { kind: "copyRef" }
-  | { kind: "copyValue" }
-  | { kind: "edit" }
-  /** Sets the field of every node selected to the token. */
-  | { field: TokenField["field"]; kind: "apply" };
-
-export interface TokenFacts {
-  kind: MenuTokenKind;
-  name: string;
-  /** What is selected, which is what the token is applied to. */
-  selected: readonly DesignNode[];
-  value: string;
-}
-
-export const tokenEntries = (f: TokenFacts): Entry<TokenAction>[] => {
-  const fields = sharedTokenFields(f.kind, f.selected);
-  return tidy<TokenAction>([
-    item({ kind: "copyRef" }, `Copy $${f.name}`),
-    item({ kind: "copyValue" }, `Copy ${f.value}`),
-    // The value is the code's (ADR 0025): it is changed where the code declares it.
-    item({ kind: "edit" }, "Edit the value in the code…"),
-    separator,
-    {
-      disabled: fields.length === 0,
-      entries: fields.map((t) =>
-        item<TokenAction>({ field: t.field, kind: "apply" }, t.label)
-      ),
-      id: "apply",
-      kind: "submenu",
-      label: appliedTo(f.selected, "Apply to the selection"),
-    },
-  ]);
-};
-
-export type TextStyleAction = { kind: "apply" } | { kind: "copyName" };
-
-export const textStyleEntries = (f: {
-  name: string;
-  /** What is selected, which the style is applied to when every one of it is text. */
-  selected: readonly DesignNode[];
-}): Entry<TextStyleAction>[] => {
-  const texts =
-    f.selected.length > 0 && f.selected.every((n) => n.type === "text");
-  return [
-    item<TextStyleAction>(
-      { kind: "apply" },
-      appliedTo(texts ? f.selected : [], "Apply to the selected text"),
-      { disabled: !texts }
-    ),
-    item<TextStyleAction>({ kind: "copyName" }, `Copy ${f.name}`),
-  ];
-};
 
 // ---- The Library ----
 
