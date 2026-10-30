@@ -13,7 +13,7 @@ import { Tool, Toolkit } from "effect/ai";
 import type { CopyTarget } from "../pages.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
+import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 export const CopyPages = Tool.make("copy_pages", {
   description:
@@ -41,14 +41,14 @@ export const CopyPages = Tool.make("copy_pages", {
       })
     ),
   }),
-});
+}).annotateMerge(doing("destructive"));
 
 export const CreateCanvas = Tool.make("create_canvas", {
   description: "Make an empty canvas, its id its name made safe.",
   failure: ToolFailure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({ id: Schema.String, name: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 export const SetHome = Tool.make("set_home", {
   description:
@@ -60,7 +60,7 @@ export const SetHome = Tool.make("set_home", {
     route: Schema.String,
   }),
   success: Schema.Struct({ canvas: Schema.String, home: Schema.String }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const LinkSummary = Schema.Struct({
   /** Why the link leads nowhere; absent when it leads somewhere. */
@@ -90,7 +90,7 @@ export const ListLinks = Tool.make("list_links", {
     broken: Schema.Number,
     links: Schema.Array(LinkSummary),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 /**
  * Where a link leads in a canvas whose pages are these, read as the editor reads it

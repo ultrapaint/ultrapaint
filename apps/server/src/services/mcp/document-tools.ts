@@ -27,6 +27,7 @@ import { CallingThread } from "./access.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   asJson,
+  doing,
   finite,
   missing,
   opt,
@@ -88,7 +89,7 @@ export const ReadPage = Tool.make("read_page", {
     file: Schema.String,
     hash: Schema.String,
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const ReadCanvas = Tool.make("read_canvas", {
   description:
@@ -96,7 +97,7 @@ export const ReadCanvas = Tool.make("read_canvas", {
   failure: ToolFailure,
   parameters: Schema.Struct({ canvas: opt(Schema.String) }),
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const GetDocumentFormat = Tool.make("get_document_format", {
   description:
@@ -106,7 +107,7 @@ export const GetDocumentFormat = Tool.make("get_document_format", {
     kind: opt(Schema.Literals(["page", "design-system"])),
   }),
   success: Schema.Struct({ rules: Schema.String, schema: Json }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const ApplyOperations = Tool.make("apply_operations", {
   description: `Change a page (loose: true the nodes beside the pages) as one undo step. ops in order, ids or node references:
@@ -140,7 +141,7 @@ Inserting into an instance showing "text" makes the text its first child. Number
     /** Nodes of the document whose fill has no room to take, and why. */
     warnings: Schema.optional(Schema.Array(Schema.String)),
   }),
-});
+}).annotateMerge(doing("edit"));
 
 export const Focus = Tool.make("focus", {
   description:
@@ -156,7 +157,7 @@ export const Focus = Tool.make("focus", {
     route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const DocumentTools = Toolkit.make(
   ReadPage,

@@ -17,7 +17,14 @@ import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import { finite, missing, opt, rawTool, reported } from "./tool-helpers.ts";
+import {
+  doing,
+  finite,
+  missing,
+  opt,
+  rawTool,
+  reported,
+} from "./tool-helpers.ts";
 
 /** The width a node on the canvas is drawn in, when it fills its parent. */
 const CANVAS_WIDTH = 1200;
@@ -38,7 +45,7 @@ export const GetScreenshot = Tool.make("get_screenshot", {
     /** Viewport width in CSS pixels, for a page: 390 for a phone, 1440 for a desktop. */
     width: opt(finite(200, 4000)),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 /** `get_screenshot`, answered with the picture and a line on what it shows. */
 export const screenshotTool = Effect.gen(function* () {

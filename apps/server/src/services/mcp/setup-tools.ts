@@ -15,7 +15,7 @@ import { Tool, Toolkit } from "effect/ai";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { CallingThread } from "./access.ts";
-import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
+import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const FinishSetupStep = Tool.make("finish_setup_step", {
   description:
@@ -23,7 +23,7 @@ const FinishSetupStep = Tool.make("finish_setup_step", {
   failure: ToolFailure,
   parameters: Schema.Struct({ summary: Schema.String }),
   success: Schema.Struct({ status: Schema.String, step: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 /**
  * A decision as an agent passes it: optional keys, not unions with null. Kinds `figma` and
@@ -49,7 +49,7 @@ const MapValues = Tool.make("map_values", {
     saved: Schema.Number,
     undecided: Schema.Number,
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const NextBatch = Tool.make("next_batch", {
   description:
@@ -67,7 +67,7 @@ const NextBatch = Tool.make("next_batch", {
     ),
     remaining: Schema.Number,
   }),
-});
+}).annotateMerge(doing("destructive"));
 
 export const SetupTools = Toolkit.make(FinishSetupStep, MapValues, NextBatch);
 

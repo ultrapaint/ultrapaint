@@ -16,6 +16,7 @@ import { makeLookup } from "./lookup.ts";
 import {
   AnyJson,
   asJson,
+  doing,
   missing,
   opt,
   reported,
@@ -35,7 +36,7 @@ export const ScanDesignSystem = Tool.make("scan_design_system", {
     files: Schema.Array(Schema.String),
     notes: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const ReadDesignSystem = Tool.make("read_design_system", {
   description:
@@ -48,7 +49,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
     findings: Schema.Array(Schema.String),
     problem: Schema.optional(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
@@ -64,7 +65,7 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
     findings: Schema.Array(Schema.String),
     saved: Schema.Boolean,
   }),
-});
+}).annotateMerge(doing("destructive", { idempotent: true }));
 
 export const ListComponents = Tool.make("list_components", {
   description:
@@ -76,7 +77,7 @@ export const ListComponents = Tool.make("list_components", {
   }),
   /** `Dialog — size: md|sm|lg; props: title; slots: trigger, dialog-content*` (`componentLine`). */
   success: Schema.Struct({ components: Schema.Array(Schema.String) }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const GetComponent = Tool.make("get_component", {
   description:
@@ -94,7 +95,7 @@ export const GetComponent = Tool.make("get_component", {
     slots: Schema.Array(Schema.String),
     variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const DesignSystemTools = Toolkit.make(
   ScanDesignSystem,

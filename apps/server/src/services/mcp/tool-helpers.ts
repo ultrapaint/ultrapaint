@@ -74,6 +74,28 @@ export const leanSchema = <S>(schema: S): S => {
   ) as S;
 };
 
+/**
+ * What a tool does to the project, as its definition tells a client, which may ask the user before
+ * a tool that takes something away: a `read` changes nothing; an `edit` adds or changes in place,
+ * one undo step; a `destructive` one takes away or writes over (a page deleted, pages moved out of
+ * their canvas, the design system replaced, token values written over, the code rewritten).
+ * `idempotent`: called again with the same, it changes nothing more, as a read never does. Every
+ * tool says which, since a tool that says nothing is taken for a destructive one, and none reaches
+ * beyond the project. `.annotateMerge(doing("read"))`.
+ */
+export const doing = (
+  kind: "read" | "edit" | "destructive",
+  options: { readonly idempotent?: boolean } = {}
+) =>
+  Context.make(Tool.Readonly, kind === "read").pipe(
+    Context.add(Tool.Destructive, kind === "destructive"),
+    Context.add(
+      Tool.Idempotent,
+      kind === "read" || options.idempotent === true
+    ),
+    Context.add(Tool.OpenWorld, false)
+  );
+
 /** A tool's hints, as an MCP client reads them from its definition. */
 const hintsOf = (tool: Tool.Any) => ({
   destructiveHint: Context.get(tool.annotations, Tool.Destructive),

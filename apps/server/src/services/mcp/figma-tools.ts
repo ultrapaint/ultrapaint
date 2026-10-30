@@ -21,6 +21,7 @@ import { makeLookup } from "./lookup.ts";
 import {
   AnyJson,
   asJson,
+  doing,
   missing,
   opt,
   reported,
@@ -50,7 +51,7 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
       })
     ),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
@@ -65,7 +66,7 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
     pages: Schema.Array(FigmaPage),
     warnings: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
@@ -84,7 +85,7 @@ const ReadFigmaFrame = Tool.make("read_figma_frame", {
     unmapped: Schema.Record(Schema.String, Schema.Number),
     warnings: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaComponent = Tool.make("read_figma_component", {
   description:
@@ -102,7 +103,7 @@ const ReadFigmaComponent = Tool.make("read_figma_component", {
     outline: Schema.String,
     usedIn: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const MapFigmaComponent = Tool.make("map_figma_component", {
   description: `What every instance of a Figma component becomes; mapping, or null to forget it:
@@ -122,7 +123,7 @@ const MapFigmaComponent = Tool.make("map_figma_component", {
     /** Components still without a decision, by key. */
     undecided: Schema.Array(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
@@ -141,7 +142,7 @@ const WriteFigmaFrame = Tool.make("write_figma_frame", {
     unmapped: Schema.Record(Schema.String, Schema.Number),
     warnings: Schema.Array(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit"));
 
 export const FigmaTools = Toolkit.make(
   ListFigmaImports,

@@ -10,7 +10,14 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { RepoPaths } from "../repo-paths.ts";
 import { makeLookup } from "./lookup.ts";
-import { asJson, finite, opt, reported, ToolFailure } from "./tool-helpers.ts";
+import {
+  asJson,
+  doing,
+  finite,
+  opt,
+  reported,
+  ToolFailure,
+} from "./tool-helpers.ts";
 
 /**
  * What a thread's briefing explains and the tools' descriptions therefore leave out, for an agent
@@ -52,14 +59,14 @@ export const GetContext = Tool.make("get_context", {
     resolveFrom: Schema.String,
     root: Schema.String,
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const ListPages = Tool.make("list_pages", {
   description:
     "Every page: canvas, name, file and URL. A variant (pricing@bold.page.json) shares its base's URL: name it by file.",
   failure: ToolFailure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const SetFrame = Tool.make("set_frame", {
   description:
@@ -78,7 +85,7 @@ export const SetFrame = Tool.make("set_frame", {
     height: Schema.Number,
     width: Schema.Number,
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 export const CreatePage = Tool.make("create_page", {
   description:
@@ -98,7 +105,7 @@ export const CreatePage = Tool.make("create_page", {
     file: Schema.String,
     route: Schema.optional(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit"));
 
 export const RenamePage = Tool.make("rename_page", {
   description: "Rename a page and its variants' files; its URL and links stay.",
@@ -110,7 +117,7 @@ export const RenamePage = Tool.make("rename_page", {
     route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 export const SetPageUrl = Tool.make("set_page_url", {
   description:
@@ -127,7 +134,7 @@ export const SetPageUrl = Tool.make("set_page_url", {
     file: Schema.String,
     route: Schema.optional(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 export const DeletePage = Tool.make("delete_page", {
   description:
@@ -142,7 +149,7 @@ export const DeletePage = Tool.make("delete_page", {
     /** Every file deleted: the page's, then its variants'. */
     deleted: Schema.Array(Schema.String),
   }),
-});
+}).annotateMerge(doing("destructive"));
 
 export const DuplicatePage = Tool.make("duplicate_page", {
   description:
@@ -154,7 +161,7 @@ export const DuplicatePage = Tool.make("duplicate_page", {
     route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
-});
+}).annotateMerge(doing("edit"));
 
 export const ListTemplates = Tool.make("list_templates", {
   description: "The templates create_page starts from.",
@@ -164,7 +171,7 @@ export const ListTemplates = Tool.make("list_templates", {
       Schema.Struct({ id: Schema.String, name: Schema.String })
     ),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const PageTools = Toolkit.make(
   GetContext,

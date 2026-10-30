@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { CommentsService } from "../comments.ts";
 import { makeLookup } from "./lookup.ts";
-import { opt, reported, ToolFailure } from "./tool-helpers.ts";
+import { doing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const CommentSummary = Schema.Struct({
   element: Schema.NullOr(Schema.String),
@@ -27,7 +27,7 @@ export const ListComments = Tool.make("list_comments", {
     includeResolved: opt(Schema.Boolean),
   }),
   success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 export const ReplyToComment = Tool.make("reply_to_comment", {
   description: "Answer a comment in its thread.",
@@ -38,7 +38,7 @@ export const ReplyToComment = Tool.make("reply_to_comment", {
     text: Schema.String,
   }),
   success: Schema.Struct({ replies: Schema.Number }),
-});
+}).annotateMerge(doing("edit"));
 
 export const ResolveComment = Tool.make("resolve_comment", {
   description: "Mark a comment done once its work is.",
@@ -48,7 +48,7 @@ export const ResolveComment = Tool.make("resolve_comment", {
     id: Schema.String,
   }),
   success: Schema.Struct({ resolved: Schema.Boolean }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 export const CommentTools = Toolkit.make(
   ListComments,

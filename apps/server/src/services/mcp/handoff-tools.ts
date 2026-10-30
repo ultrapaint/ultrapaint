@@ -21,7 +21,7 @@ import { ImplementationService } from "../implementation.ts";
 import { codeDirection } from "../sync-readings.ts";
 import { HANDOFF_ACTIONS } from "../threads/agent-ways.ts";
 import { AgentTasks } from "../threads/tasks.ts";
-import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
+import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 export const Handoff = Tool.make("handoff", {
   description:
@@ -40,7 +40,7 @@ export const Handoff = Tool.make("handoff", {
     tokens: opt(Schema.Array(Schema.String)),
   }),
   success: Schema.Struct({ text: Schema.String }),
-});
+}).annotateMerge(doing("destructive"));
 
 /** A design's line in the list: what it is, where it stands, and what implements it. */
 const lineOf = (item: ImplementationItem) => {
