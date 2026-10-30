@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   type Color,
+  contrastRatio,
   hexOf,
   inCodeUnits,
+  inSrgbGamut,
   isColor,
   parseColor,
   parseLength,
@@ -10,11 +12,13 @@ import {
   parseValue,
   printColor,
   printLength,
+  relativeLuminance,
   resolveCalc,
   resolveCss,
   resolveVars,
   sameValue,
   toMs,
+  toOklch,
   toPx,
   toSrgb,
 } from "./token-value.ts";
@@ -323,5 +327,25 @@ describe("a value of the code as plain CSS", () => {
     expect(resolveCalc("calc(1em + 2px)")).toBeNull();
     expect(resolveCalc("calc(100% - 2px)")).toBeNull();
     expect(resolveCalc("calc(2px * 3px)")).toBeNull();
+  });
+});
+
+describe("contrast and OKLCH", () => {
+  it("measures WCAG's contrast ratio, whichever colour is the lighter", () => {
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#ffffff", "#ffffff")).toBeCloseTo(1, 5);
+    expect(contrastRatio("#ffffff", "#2563eb")).toBeCloseTo(5.17, 2);
+    expect(contrastRatio("#2563eb", "#ffffff")).toBeCloseTo(5.17, 2);
+    expect(contrastRatio("var(--x)", "#ffffff")).toBeNull();
+  });
+
+  it("reads a colour as OKLCH, a grey without a hue", () => {
+    const [l, c, h] = toOklch(parseColor("#2563eb") as Color);
+    expect(l).toBeCloseTo(0.546, 2);
+    expect(c).toBeCloseTo(0.215, 2);
+    expect(h).toBeCloseTo(262.9, 0);
+    expect(toOklch(parseColor("#808080") as Color)[2]).toBe(0);
+    expect(relativeLuminance(parseColor("white") as Color)).toBeCloseTo(1, 5);
+    expect(inSrgbGamut(parseColor("oklch(0.9 0.4 140)") as Color)).toBe(false);
   });
 });
