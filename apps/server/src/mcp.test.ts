@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Fiber, type Layer, Option, type Scope, Stream } from "effect";
 import { McpSchema } from "effect/ai";
 import { EventBus } from "./events.ts";
-import { OpenProject } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
 import { EditorTools } from "./services/mcp/route.ts";
@@ -1219,6 +1219,29 @@ describe("get_context", () => {
       const context = yield* tool("get_context", {});
       assert.strictEqual(context.root, repo);
       assert.include(context.guide, "canvases");
+    })
+  );
+});
+
+describe("a tool's failure, in the tools' words", () => {
+  inAProject("sends an agent with a stale hash back to read the page", () =>
+    Effect.gen(function* () {
+      const said = yield* refusal("apply_operations", {
+        expectedHash: "an old one",
+        ops: [{ id: "heading", op: "update", set: { text: "Hi" } }],
+        route: "/home",
+      });
+      assert.include(said, "read_page again");
+      assert.notInclude(said, "reloading");
+    })
+  );
+
+  inAProject("says what to do when no project is open", () =>
+    Effect.gen(function* () {
+      yield* Effect.flatMap(ProjectManager, (project) => project.close);
+      const said = yield* refusal("list_pages", {});
+      assert.notInclude(said, "no target repository configured");
+      assert.include(said, "no project is open in the editor");
     })
   );
 });
