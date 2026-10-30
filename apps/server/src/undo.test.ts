@@ -3,7 +3,12 @@ import { assert, describe, it, layer } from "@effect/vitest";
 import { Conflict } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { EventBus } from "./events.ts";
-import { EditService, withinLimits } from "./services/edit.ts";
+import {
+  EditService,
+  type FileCodec,
+  updateFile,
+  withinLimits,
+} from "./services/edit.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
@@ -135,7 +140,70 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   }
 );
 
+/** The journal alone, over a repository whose designs are in `designs/`. */
+const journalIn = (repo: string) =>
+  EditService.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        RepoPaths.layer({
+          componentPackages: [],
+          designsDir: "designs",
+          hostCss: [],
+          libraryDirs: [],
+          repoPath: repo,
+          theme: "light",
+        }),
+        EventBus.layer
+      )
+    ),
+    Layer.provide(NodeServices.layer)
+  );
+
+/** A count kept in a file, as a codec reads and writes it. */
+const countCodec: FileCodec<number> = {
+  decode: (text) => Effect.succeed(text === null ? 0 : Number(text)),
+  encode: (n) => `${n}`,
+};
+
 describe("the edit journal", () => {
+  it.effect(
+    "reads what a step writes from inside the step, so no change made meanwhile is lost",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* fs.makeDirectory(path.join(repo, "designs"), {
+          recursive: true,
+        });
+        yield* Effect.gen(function* () {
+          const edit = yield* EditService;
+          // Twenty steps at once, each adding one to what the file holds as it reads it.
+          yield* Effect.forEach(
+            Array.from({ length: 20 }, (_, i) => i),
+            (i) =>
+              edit.transaction(`Count ${i}`, (tx) =>
+                updateFile(tx, "designs/count.txt", countCodec, (n) => n + 1)
+              ),
+            { concurrency: "unbounded", discard: true }
+          );
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(repo, "designs/count.txt")),
+            "20"
+          );
+          // A read sees the step's own writes, and a file that is not there as nothing.
+          const seen = yield* edit.transaction("Look", (tx) =>
+            Effect.gen(function* () {
+              const before = yield* tx.read("designs/none.txt");
+              yield* tx.write("designs/none.txt", "here");
+              return [before, yield* tx.read("designs/none.txt")] as const;
+            })
+          );
+          assert.deepStrictEqual(seen, [null, "here"]);
+        }).pipe(Effect.provide(journalIn(repo)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
   it.effect(
     "puts back every file it can when an action fails, past one it cannot",
     () =>
@@ -149,22 +217,7 @@ describe("the edit journal", () => {
         });
         yield* fs.writeFileString(path.join(designs, "a.json"), "A1");
         yield* fs.writeFileString(path.join(designs, "sub/b.json"), "B1");
-        const services = EditService.layer.pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              RepoPaths.layer({
-                componentPackages: [],
-                designsDir: "designs",
-                hostCss: [],
-                libraryDirs: [],
-                repoPath: repo,
-                theme: "light",
-              }),
-              EventBus.layer
-            )
-          ),
-          Layer.provide(NodeServices.layer)
-        );
+        const services = journalIn(repo);
         const failed = yield* Effect.flatMap(EditService, (edit) =>
           edit.transaction("Two files", (tx) =>
             Effect.gen(function* () {
