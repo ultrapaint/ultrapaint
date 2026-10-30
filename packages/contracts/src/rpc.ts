@@ -663,12 +663,12 @@ const requestRpcs = [
     error: ThreadError,
     payload: { ...ThreadRef, itemId: Schema.String },
   }),
+  /** The user's pick on a permission card; an "always" the agent offers is the agent's to keep. */
   Rpc.make("threads.permission", {
     error: ThreadError,
     payload: {
       ...ThreadRef,
       optionId: Schema.String,
-      remember: Schema.Boolean,
       requestId: Schema.String,
     },
   }),

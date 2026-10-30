@@ -700,10 +700,10 @@ describe("the thread's status", () => {
 });
 
 describe("a permission request", () => {
-  test("is answered by the user, and remembered when asked to", () =>
+  test("is answered by the user's pick, which the card records", () =>
     Effect.gen(function* () {
       const threads = yield* ThreadService;
-      const { agent, threadId, turn } = yield* started();
+      const { threadId, turn } = yield* started();
       const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
       const { items } = yield* threadWhen(threadId, has("permission"));
       const card = items.find((i) => i.kind === "permission");
@@ -712,7 +712,7 @@ describe("a permission request", () => {
         card?.kind === "permission" && card.title,
         "Edit home"
       );
-      yield* threads.resolvePermission(threadId, card?.id ?? "", "allow", true);
+      yield* threads.resolvePermission(threadId, card?.id ?? "", "allow");
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { optionId: "allow", outcome: "selected" },
       });
@@ -723,19 +723,6 @@ describe("a permission request", () => {
         answered?.kind === "permission" && answered.decision,
         "allow"
       );
-
-      // The same kind of tool again: answered from memory, with no second card.
-      yield* send(threadId, "again");
-      const second = yield* agent.nextTurn;
-      assert.deepStrictEqual(yield* second.requestPermission(EDIT_HOME), {
-        outcome: { optionId: "allow", outcome: "selected" },
-      });
-      yield* second.end();
-      const after = yield* threadWhen(threadId, turnsEnded(2));
-      assert.lengthOf(
-        after.items.filter((i) => i.kind === "permission"),
-        1
-      );
     }));
 
   test("is declined by the user, and asked again next time", () =>
@@ -745,12 +732,7 @@ describe("a permission request", () => {
       const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
       const { items } = yield* threadWhen(threadId, has("permission"));
       const card = items.find((i) => i.kind === "permission");
-      yield* threads.resolvePermission(
-        threadId,
-        card?.id ?? "",
-        "reject",
-        false
-      );
+      yield* threads.resolvePermission(threadId, card?.id ?? "", "reject");
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { optionId: "reject", outcome: "selected" },
       });
@@ -798,7 +780,7 @@ describe("a permission request", () => {
       const threads = yield* ThreadService;
       const { threadId } = yield* started();
       const error = yield* Effect.flip(
-        threads.resolvePermission(threadId, "perm_missing", "allow", false)
+        threads.resolvePermission(threadId, "perm_missing", "allow")
       );
       assert.strictEqual(error._tag, "NotFound");
     }));

@@ -295,8 +295,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.delete": ({ threadId }) => threads.delete(threadId),
       "threads.items": ({ threadId }) => store.items(threadId),
       "threads.list": () => store.list,
-      "threads.permission": ({ threadId, requestId, optionId, remember }) =>
-        threads.resolvePermission(threadId, requestId, optionId, remember),
+      "threads.permission": ({ threadId, requestId, optionId }) =>
+        threads.resolvePermission(threadId, requestId, optionId),
       "threads.prompt": (input) => threads.prompt(input),
       "threads.sendQueued": ({ threadId }) => threads.sendQueued(threadId),
       "threads.setAgent": ({ threadId, agentId }) =>

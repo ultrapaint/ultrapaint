@@ -1,7 +1,6 @@
 /**
  * The cards a thread's agent waits on, through their module's interface: each kind opened,
- * answered, declined and let go, the choices remembered for a session, and the mark a form
- * comes back with.
+ * answered, declined and let go, and the mark a form comes back with.
  */
 import { assert, describe, it } from "@effect/vitest";
 import type {
@@ -105,7 +104,7 @@ describe("a permission card", () => {
       const asking = yield* Effect.forkChild(cards.permission(EDIT_HOME));
       const [card] = yield* cardsWhen(threadId, "permission");
       assert.isNull(decisionOf(card));
-      yield* cards.choose(card?.id ?? "", "reject", false);
+      yield* cards.choose(card?.id ?? "", "reject");
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { optionId: "reject", outcome: "selected" },
       });
@@ -114,26 +113,30 @@ describe("a permission card", () => {
       );
       assert.strictEqual(decisionOf(after), "reject");
       // Answered once: it is no longer pending.
-      const again = yield* Effect.flip(
-        cards.choose(card?.id ?? "", "allow", false)
-      );
+      const again = yield* Effect.flip(cards.choose(card?.id ?? "", "allow"));
       assert.strictEqual(again._tag, "NotFound");
     }));
 
-  test("is answered by a choice remembered, until the session ends", () =>
+  test("allowing one command does not answer the next, different one", () =>
     Effect.gen(function* () {
       const { cards, threadId } = yield* cardsOfNewThread;
-      const asking = yield* Effect.forkChild(cards.permission(EDIT_HOME));
+      const run = (command: string, toolCallId: string) =>
+        ({
+          options: [
+            { kind: "allow_once", name: "Allow", optionId: "allow" },
+            { kind: "reject_once", name: "Reject", optionId: "reject" },
+          ],
+          sessionId: "session_1",
+          toolCall: { kind: "execute", title: command, toolCallId },
+        }) as RequestPermissionRequest;
+      const asking = yield* Effect.forkChild(
+        cards.permission(run("pnpm test", "call_1"))
+      );
       const [card] = yield* cardsWhen(threadId, "permission");
-      yield* cards.choose(card?.id ?? "", "allow", true);
+      yield* cards.choose(card?.id ?? "", "allow");
       yield* Fiber.join(asking);
-      // The same kind of tool: no second card.
-      assert.deepStrictEqual(yield* cards.permission(EDIT_HOME), {
-        outcome: { optionId: "allow", outcome: "selected" },
-      });
-      // A new session asks again.
-      yield* cards.endSession;
-      yield* Effect.forkChild(cards.permission(EDIT_HOME));
+      // Another command: the user is asked about it, whatever was allowed before.
+      yield* Effect.forkChild(cards.permission(run("rm -rf src", "call_2")));
       const open = yield* cardsWhen(threadId, "permission", 2);
       assert.isNull(decisionOf(open.at(-1)));
     }));

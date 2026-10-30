@@ -102,7 +102,6 @@ const program = Effect.gen(function* () {
           yield* Effect.log(`permission: ${item.title} -> ${allow?.name}`);
           yield* client["threads.permission"]({
             optionId: allow?.optionId ?? "",
-            remember: false,
             requestId: item.requestId,
             threadId: thread.id,
           });

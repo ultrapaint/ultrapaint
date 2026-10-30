@@ -365,7 +365,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           if (live === session) {
             live = null;
           }
-          yield* cards.endSession;
+          yield* cards.releaseAll;
           yield* transition({ _tag: "SessionClosed" });
         })
       );

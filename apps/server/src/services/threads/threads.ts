@@ -75,8 +75,7 @@ export class ThreadService extends Context.Service<
     readonly resolvePermission: (
       threadId: string,
       requestId: string,
-      optionId: string,
-      remember: boolean
+      optionId: string
     ) => Effect.Effect<void, ThreadFailure>;
     /**
      * Stops the thread's turn and waits for it to end, briefly: what comes next must not run
@@ -196,10 +195,8 @@ export class ThreadService extends Context.Service<
         delete: sessions.delete,
         prompt: (input) =>
           on(input.threadId, (session) => session.prompt(input)),
-        resolvePermission: (threadId, requestId, optionId, remember) =>
-          on(threadId, (session) =>
-            session.cards.choose(requestId, optionId, remember)
-          ),
+        resolvePermission: (threadId, requestId, optionId) =>
+          on(threadId, (session) => session.cards.choose(requestId, optionId)),
         sendQueued: (threadId) => on(threadId, (session) => session.sendQueued),
         setAgent,
         setConfigOption: (threadId, optionId, value) =>
