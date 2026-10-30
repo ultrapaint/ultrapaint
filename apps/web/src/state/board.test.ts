@@ -222,6 +222,18 @@ describe("picks", () => {
 });
 
 describe("frames", () => {
+  it("keep the box of a board that did not move when another says its size", () => {
+    const [a, b] = ["board:system/color/a", "board:system/color/b"];
+    openBoard({ item: "color", view: "system" });
+    showBoards([a, b], "column");
+    setBoardSize(a, { height: 100, width: 400 });
+    setBoardSize(b, { height: 100, width: 400 });
+    const first = useBoard.getState().frames[a];
+    setBoardSize(b, { height: 300, width: 400 });
+    expect(useBoard.getState().frames[a]).toBe(first);
+    expect(useBoard.getState().frames[b]).toMatchObject({ height: 300 });
+  });
+
   it("are the camera's while a board view is open, the pages' after", () => {
     openBoard({ item: "color", view: "system" });
     const box = { height: 200, width: 400, x: 0, y: 0 };

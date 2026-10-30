@@ -370,26 +370,12 @@ export const pickOnBoard = (pick: BoardPick | null) => {
 export const pickOf = (s: BoardStore): BoardPick | null =>
   s.open ? (s.picks[boardKey(s.open)] ?? null) : null;
 
-const sameBoxes = (
-  a: Readonly<Record<string, Box>>,
-  b: Readonly<Record<string, Box>>
-) => {
-  const keys = Object.keys(a);
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((k) => {
-      const x = a[k] as Box;
-      const y = b[k];
-      return (
-        y !== undefined &&
-        x.x === y.x &&
-        x.y === y.y &&
-        x.width === y.width &&
-        x.height === y.height
-      );
-    })
-  );
-};
+const sameBox = (x: Box | undefined, y: Box) =>
+  x !== undefined &&
+  x.x === y.x &&
+  x.y === y.y &&
+  x.width === y.width &&
+  x.height === y.height;
 
 /**
  * Lays the boards out from what they are and their sizes (`board-layout.ts`), the same object kept
@@ -398,11 +384,23 @@ const sameBoxes = (
  */
 const layOut = () => {
   const { boards, frames, sizes } = useBoard.getState();
-  const next =
+  const laid =
     boards.direction === "wrap"
       ? wrappedBoards(boards.ids, sizes, boardRoom(viewportSize()))
       : boardLayout(boards.ids, sizes, boards.direction);
-  if (!sameBoxes(frames, next)) {
+  // A board that did not move keeps its box, and is not drawn again for another's size.
+  let moved = Object.keys(frames).length !== Object.keys(laid).length;
+  const next: Record<string, Box> = {};
+  for (const [id, box] of Object.entries(laid)) {
+    const was = frames[id];
+    if (was && sameBox(was, box)) {
+      next[id] = was;
+    } else {
+      next[id] = box;
+      moved = true;
+    }
+  }
+  if (moved) {
     useBoard.setState({ frames: next });
   }
   if (boards.ids.length > 0 && boards.ids.every((id) => sizes[id])) {
