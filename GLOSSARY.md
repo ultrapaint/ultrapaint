@@ -13,14 +13,20 @@ refactor and the board view left.
 
 - **Design system**: the tokens and typography a canvas is drawn with, kept in
   `design-system.json` (everything but values) and `design.tokens.json` (every token's value)
-  (ADRs 0028, 0035); the components' looks are their own files (ADR 0041). Read and written by the server's `design-system-files` codec.
+  (ADRs 0028, 0035); the components' looks are their own files (ADR 0041). Read and written by the server's `design-system-files` codec,
+  through one write path that reads the files under the journal; after every write the code
+  follows what changed (`tokenChangesBetween` of before and after, with `codeTokens: auto`),
+  whoever wrote it. Its **themes** (contracts' `themes`): which is the default, what a token holds
+  in a theme (the default's when it says nothing, references followed), how a frame is put in one
+  and whether one is dark.
 - **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
   Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the
   design system has data for it, each opened as its boards. The **Guidelines** are DESIGN.md's
   sections (ADR 0027), listed under them and each opened as a document to read and edit.
   Both are changed through `designSystem.edit`, a list of typed operations (a value in a theme,
   a description, a token added, taken out or moved, a group added or renamed, a text style set
-  or taken out) applied by design-document's `applyEdits` in one undo step.
+  or taken out) applied by design-document's `applyEdits` in one undo step. This is the one
+  operation language for values: Sync gives what it takes as operations too (`editsOf`).
 - **Token**: a named value of the design system (`color-primary`, `text-xl`, `radius-md`), of a
   **kind** its name's prefix says. The **token table** (contracts' `token-table`) says which list
   of the design system holds each kind; the **spacing base** is the token named `spacing`. The
@@ -30,7 +36,8 @@ refactor and the board view left.
   kind's prefix (`card` for `color-card`). **The tokens with a value** are the tokens of a kind
   that hold it, by the token value's notion of the same value, in the design's order
   (`tokensByValue`); which of several to take is the caller's (Figma and the usage inventory the
-  first, Sync only one).
+  first, Sync only one). A palette's **shade** is a colour token's step of a ramp, 50 to 950
+  (`shadeOf`, beside the ramp's steps).
 - **Token naming**: how a token another tool writes (a Figma variable or style, a Design Tokens
   file's token) becomes one of the design's: its **foreign path** (`Color/Text/Primary`,
   `font.size.sm`) and a **value hint** (what the tool says the value is) give its kind and name
@@ -43,14 +50,17 @@ refactor and the board view left.
   code's `var()` and `calc()` worked out.
 - **Side**: somewhere else a design system's tokens live: the code, Figma, DESIGN.md (ADRs 0025,
   0027, 0028). Each is compared with the design against its **baseline**, what the two last
-  agreed on; the **agreement** rule gives a token's outcome. The **sync engine** compares any
+  agreed on; the **agreement** rule gives a token's outcome. A baseline moves one way, outside
+  the undo history, under the design system's one write path (`moveBaseline`); an edit or an
+  undo keeps the file's baselines as they are. The **sync engine** compares any
   side, with what each side is to it in `sync-readings`; a **side adapter** (`sync-sides`) says
   how one side is read, matched and kept. Each side owns what it knows: the **code side**
   (`CodeSide`) the code's tokens, read once for every caller, its stylesheets written all or
   nothing, its agreement and the preview's CSS; `DesignMd` the document, its **mirror** of the
-  tokens, its baseline and its lint; `FigmaBaseline` Figma's baseline while there is no design
+  tokens, its baseline and its lint (a pure `lintDocument`); `FigmaBaseline` Figma's baseline while there is no design
   system. The **target tokens** a side is matched to are the design's, else the code's own. The
-  **sync plan** (`sync-plan`) is the steps that bring the design system and the code together.
+  **sync plan** (`sync-plan`) is the steps that bring the design system and the code together;
+  its **drift** is the tokens the code's comparison finds new in the code.
 - **Node style**: what a node's fields mean, as CSS declarations at the base and at each
   breakpoint, tokens kept by name (design-document's `declarationsOf`). The canvas draws them,
   over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
@@ -143,7 +153,10 @@ refactor and the board view left.
   once, compactly (ADR 0043): a component in one line (`componentLine`), a schema compacted
   (`compactSchema`), a tool's schema without JSON Schema's defaults (`leanSchema`).
 - **Setup step**: one of the design system's five set-up steps (ADR 0023), run with its thread
-  by `SetupSteps`.
+  by `SetupSteps`; how a step moves (started, finished, stopped, resumed) is one pure rule
+  (`stepAfter`). The **usage inventory** the first step takes is what the code's classes use, by
+  kind (colour, spacing, size, weight, radius, shadow, layer), each value on the system, close to
+  it or off it; the style system names whose defaults count as its own (`defaultsOf`).
 
 ## Preview
 
