@@ -422,6 +422,7 @@ export class DesignSystemService extends Context.Service<
         Effect.map(write(found.designSystem), (w) => w.designSystem)
       );
 
+      let lastTold: string | null = null;
       // The one place the editor hears of a change, whoever made it: the tool's own writes, an
       // undo, an agent writing the files by hand, a checkout (the files), DESIGN.md, the code.
       yield* Stream.mergeAll(
@@ -439,7 +440,14 @@ export class DesignSystemService extends Context.Service<
         Stream.runForEach(() =>
           Effect.gen(function* () {
             yield* mirror;
-            yield* events.publish("designSystem", yield* get);
+            // Told once per state: a component's file changing DESIGN.md's component tokens and
+            // nothing else of the design system, or a change seen twice, is told once.
+            const state = yield* get;
+            const told = JSON.stringify(state);
+            if (told !== lastTold) {
+              lastTold = told;
+              yield* events.publish("designSystem", state);
+            }
           })
         ),
         Effect.forkScoped
