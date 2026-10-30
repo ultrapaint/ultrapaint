@@ -2,7 +2,7 @@
  * The tools of a Figma import, offered to agents over MCP.
  *
  * Importing a Figma file is a conversation: the file is read by rules, but which component of
- * this repository stands in for a Figma one is a judgement, and sometimes the user's. These
+ * the design stands in for a Figma one is a judgement, and sometimes the user's. These
  * tools let an agent see what the file holds, decide component by component, put a question
  * to the user (with ask_user) where it cannot decide, and write frames as pages once the mapping is settled.
  */
@@ -21,13 +21,12 @@ import { makeLookup } from "./lookup.ts";
 import {
   AnyJson,
   asJson,
+  doing,
   missing,
   opt,
   reported,
   ToolFailure,
 } from "./tool-helpers.ts";
-
-const Failure = ToolFailure;
 
 const decodeMapping = Schema.decodeUnknownEffect(ComponentMapping);
 
@@ -39,7 +38,7 @@ const importRef = {
 const ListFigmaImports = Tool.make("list_figma_imports", {
   description:
     "The Figma files brought in, newest first; the figma tools take the newest without import.",
-  failure: Failure,
+  failure: ToolFailure,
   success: Schema.Struct({
     imports: Schema.Array(
       Schema.Struct({
@@ -52,12 +51,12 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
       })
     ),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
     "A Figma file: its frames (the screens), components with variants, properties, uses and candidates, and the mapping so far. Start here.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct(importRef),
   success: Schema.Struct({
     components: Schema.Array(FigmaComponent),
@@ -67,12 +66,12 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
     pages: Schema.Array(FigmaPage),
     warnings: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
     "One frame, by id (12:345) or name: its layers, its instances, mapped or not, and the page it makes now.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     /** The frame's id (12:345) or its name. */
@@ -86,12 +85,12 @@ const ReadFigmaFrame = Tool.make("read_figma_frame", {
     unmapped: Schema.Record(Schema.String, Schema.Number),
     warnings: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const ReadFigmaComponent = Tool.make("read_figma_component", {
   description:
     "One Figma component, by key: variants, properties, candidates, the frames using it, its layers and what expanding makes.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     /** The component's key, as read_figma_import lists it. */
@@ -104,14 +103,14 @@ const ReadFigmaComponent = Tool.make("read_figma_component", {
     outline: Schema.String,
     usedIn: Schema.Array(Schema.String),
   }),
-}).annotate(Tool.Readonly, true);
+}).annotateMerge(doing("read"));
 
 const MapFigmaComponent = Tool.make("map_figma_component", {
   description: `What every instance of a Figma component becomes; mapping, or null to forget it:
 {kind:"component", component, from?, props?, propMap?, text?}: a component by name, props on every instance; propMap maps Figma properties ({"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}); text is "children" or a text property's name
 {kind:"expand"}: built from rows, columns, text and images
 {kind:"skip"}: left out`,
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     component: Schema.String,
@@ -124,12 +123,12 @@ const MapFigmaComponent = Tool.make("map_figma_component", {
     /** Components still without a decision, by key. */
     undecided: Schema.Array(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit", { idempotent: true }));
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
     "Write a frame as a page named after it, with the mapping so far and its images; route for a screen. Unmapped components are expanded and reported.",
-  failure: Failure,
+  failure: ToolFailure,
   parameters: Schema.Struct({
     ...importRef,
     canvas: opt(Schema.String),
@@ -143,7 +142,7 @@ const WriteFigmaFrame = Tool.make("write_figma_frame", {
     unmapped: Schema.Record(Schema.String, Schema.Number),
     warnings: Schema.Array(Schema.String),
   }),
-});
+}).annotateMerge(doing("edit"));
 
 export const FigmaTools = Toolkit.make(
   ListFigmaImports,
@@ -171,7 +170,7 @@ export const FigmaToolsLive = FigmaTools.toLayer(
       return (
         latest ??
         (yield* missing(
-          "no Figma file has been imported; the user imports one from the Pages panel"
+          'no Figma file has been imported; the user imports one with "Import a Figma file…" under the canvases'
         ))
       );
     });

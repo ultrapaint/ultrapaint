@@ -23,8 +23,9 @@ export const callMcp = (
 ) => {
   const params = body.params ?? {};
   const meta = (params._meta ?? {}) as Record<string, unknown>;
-  const name =
-    typeof params.name === "string" ? { "mcp-name": params.name } : {};
+  // What a call names goes in a header too: a tool or a prompt by its name, a resource by its URI.
+  const named = params.name ?? params.uri;
+  const name = typeof named === "string" ? { "mcp-name": named } : {};
   return Effect.promise(() =>
     fetch(`http://127.0.0.1:${port}${path}`, {
       body: JSON.stringify({

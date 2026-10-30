@@ -244,7 +244,7 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
         const started = yield* initializeLegacy(port, token, "2025-06-18");
         assert.include(
           JSON.stringify(started),
-          'call handoff with action \\"list\\"'
+          'handoff with action \\"list\\"'
         );
 
         yield* client["implementation.setReady"]({

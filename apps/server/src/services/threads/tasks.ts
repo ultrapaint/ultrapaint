@@ -18,7 +18,7 @@ import { ServerConfig } from "../../config.ts";
 import { OpenProject } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { agentWays } from "./agent-ways.ts";
+import { type AgentWays, agentWays } from "./agent-ways.ts";
 import { makePageTasks } from "./page-tasks.ts";
 import { makeSetupTasks } from "./setup-tasks.ts";
 import { makeSyncTasks } from "./sync-tasks.ts";
@@ -33,9 +33,13 @@ export interface AgentTask {
 export class AgentTasks extends Context.Service<
   AgentTasks,
   {
-    /** The task a request stands for, with what the project knows filled in. */
+    /**
+     * The task a request stands for, with what the project knows filled in, for an agent that has
+     * the editor's tools (`tools`), or not; the server's MCP setting when it is not said.
+     */
     readonly task: (
-      request: TaskRequest
+      request: TaskRequest,
+      options?: { readonly tools?: boolean }
     ) => Effect.Effect<AgentTask, TaskFailure>;
   }
 >()("ultrapaint/server/AgentTasks") {
@@ -44,35 +48,36 @@ export class AgentTasks extends Context.Service<
     Effect.gen(function* () {
       const project = yield* OpenProject;
       const { mcp } = yield* ServerConfig;
-      const ways = agentWays(mcp);
 
-      /** What `/init` asks for, which Define asks for too when it adopts the theme. */
-      const importSteps = project.use(
-        Effect.gen(function* () {
-          const paths = yield* RepoPaths;
-          const { designSystem, document } = yield* (yield* DesignSystemService)
-            .get;
-          const { settings } = paths;
-          const libraries =
-            settings.libraryDirs.join(", ") || "the component library";
-          const before = `${
-            designSystem
-              ? `
+      /** The texts, worded for an agent with the editor's tools or without them. */
+      const writtenFor = Effect.fnUntraced(function* (ways: AgentWays) {
+        /** What `/init` asks for, which Define asks for too when it adopts the theme. */
+        const importSteps = project.use(
+          Effect.gen(function* () {
+            const paths = yield* RepoPaths;
+            const { designSystem, document } =
+              yield* (yield* DesignSystemService).get;
+            const { settings } = paths;
+            const libraries =
+              settings.libraryDirs.join(", ") || "the component library";
+            const before = `${
+              designSystem
+                ? `
    A design system was imported before: ${ways.readDesignSystem(settings.designsDir)}. Update
    it rather than start over, and ask only about what changed.`
-              : ""
-          }${
-            document && !designSystem
-              ? `
+                : ""
+            }${
+              document && !designSystem
+                ? `
    The repository has a DESIGN.md (${document.path}): it says what the product is meant to
    look like. Start from it, keep what it says, and keep its sections; its tokens are compared
    with the design system's in Sync afterwards.`
-              : ""
-          }`;
-          return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
-2. Look at what the scan cannot see: the design system's packages (${libraries}), their READMEs,
-   AGENTS.md and docs, Storybook stories, style guides, and how the application's own screens use
-   the tokens and components.
+                : ""
+            }`;
+            return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
+2. Look at what the scan cannot see, in the repository: the design system's packages (${libraries}),
+   their READMEs, AGENTS.md and docs, its Storybook stories and style guides, and how the
+   application's own screens use the tokens.
 3. Ask the user, here in the thread, what you cannot find out yourself, a few questions at a
    time, and wait for the answers: what the application is and who uses it, which colours are
    the brand and which are semantic, which text styles the product uses, what to always or never
@@ -98,53 +103,59 @@ export class AgentTasks extends Context.Service<
    - icons: the package the product's icons come from, the sizes it uses, and in
      \`description\` how they are used (stroke width, with or without labels).
    - DESIGN.md: ${DESIGN_MD_GUIDE}`;
-        })
-      );
+          })
+        );
 
-      /**
-       * What a task says when the editor sees no components: the settings point nowhere. The
-       * agent must not try to fix them itself (it has guessed paths before); the user does, in
-       * the Sync view, which detects them.
-       */
-      const init = (extra: string | undefined) =>
-        Effect.map(
-          importSteps,
-          (steps) => `<ultrapaint-task command="init">
+        /**
+         * What a task says when the editor sees no components: the settings point nowhere. The
+         * agent must not try to fix them itself (it has guessed paths before); the user does, in
+         * the Sync view, which detects them.
+         */
+        const init = (extra: string | undefined) =>
+          Effect.map(
+            importSteps,
+            (steps) => `<ultrapaint-task command="init">
 Import this repository's design system into ultrapaint, so that designs are drawn with its
 tokens and every agent knows its conventions. Only Tailwind v4 is supported.
 
 ${steps}
 5. End with a short summary: what you wrote, and what you were unsure of.
 ${userAdds(extra)}</ultrapaint-task>`
-        );
+          );
 
-      const pageTasks = yield* makePageTasks({ ways });
-      const { setupStep } = yield* makeSetupTasks({ importSteps, ways });
-      const { sync } = yield* makeSyncTasks({ ways });
+        const pageTasks = yield* makePageTasks({ ways });
+        const { setupStep } = yield* makeSetupTasks({ importSteps, ways });
+        const { sync } = yield* makeSyncTasks({ ways });
 
-      const textOf = Effect.fnUntraced(function* (request: TaskRequest) {
-        switch (request._tag) {
-          case "Init":
-            return yield* init(request.extra);
-          case "Implement":
-            return yield* pageTasks.implement(request);
-          case "Adopt":
-            return yield* pageTasks.adopt(request.targets);
-          case "ImportFigma":
-            return yield* pageTasks.importFigma(request);
-          case "Redraw":
-            return yield* pageTasks.redraw(request);
-          case "SetupStep":
-            return yield* setupStep(request);
-          case "Sync":
-            return yield* sync(request);
-          default:
-            return request satisfies never;
-        }
+        return Effect.fnUntraced(function* (request: TaskRequest) {
+          switch (request._tag) {
+            case "Init":
+              return yield* init(request.extra);
+            case "Implement":
+              return yield* pageTasks.implement(request);
+            case "Adopt":
+              return yield* pageTasks.adopt(request.targets);
+            case "ImportFigma":
+              return yield* pageTasks.importFigma(request);
+            case "Redraw":
+              return yield* pageTasks.redraw(request);
+            case "SetupStep":
+              return yield* setupStep(request);
+            case "Sync":
+              return yield* sync(request);
+            default:
+              return request satisfies never;
+          }
+        });
       });
+      const withTools = yield* writtenFor(agentWays(true));
+      const withoutTools = yield* writtenFor(agentWays(false));
 
-      const task = (request: TaskRequest) =>
-        textOf(request).pipe(
+      const task = (
+        request: TaskRequest,
+        options: { readonly tools?: boolean } = {}
+      ) =>
+        ((options.tools ?? mcp) ? withTools : withoutTools)(request).pipe(
           Effect.map((text) => ({ purpose: taskPurpose(request), text })),
           // What the project or a service could not give: the reason is the error's own.
           Effect.mapError((error) =>

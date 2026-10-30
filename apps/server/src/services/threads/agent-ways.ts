@@ -13,17 +13,13 @@ import {
 import type { Toolkit } from "effect/ai";
 import { DESIGN_TOKENS_FILE } from "../dtcg.ts";
 import type { AskUser } from "../mcp/ask-user.ts";
-import type { FigmaTools } from "../mcp/figma-tools.ts";
+import type { EditorTools } from "../mcp/route.ts";
 import type { GetScreenshot } from "../mcp/screenshot.ts";
-import type { SetupTools } from "../mcp/setup-tools.ts";
-import type { EditorTools } from "../mcp/tools.ts";
 import { designSystemSchema, pageSchema } from "./task-text.ts";
 
 /** A tool the editor's MCP server offers, by the name its definition (`Tool.make`) gives it. */
 export type ToolName =
   | keyof Toolkit.Tools<typeof EditorTools>
-  | keyof Toolkit.Tools<typeof FigmaTools>
-  | keyof Toolkit.Tools<typeof SetupTools>
   | (typeof AskUser)["name"]
   | (typeof GetScreenshot)["name"];
 
@@ -31,50 +27,15 @@ export type ToolName =
 export type ToolNames = { readonly [N in ToolName]: N };
 
 /**
- * Every tool the server offers: one renamed, added or taken out fails to compile here. A text an
+ * Every tool the server offers, each by its name: a text writes `${TOOLS.read_page}`, and one
+ * renamed or taken out fails to compile where a text names it. The names are the toolkits' own
+ * (`ToolName`), so nothing lists them again: each reads as the name it is asked for. A text an
  * agent may read without the server takes them from `AgentWays.tools`; what a tool answers, and
  * what the MCP server tells its clients, only an agent with the tools reads, and names them here.
  */
-export const TOOLS: ToolNames = {
-  apply_operations: "apply_operations",
-  ask_user: "ask_user",
-  copy_pages: "copy_pages",
-  create_canvas: "create_canvas",
-  create_page: "create_page",
-  delete_page: "delete_page",
-  duplicate_page: "duplicate_page",
-  finish_setup_step: "finish_setup_step",
-  focus: "focus",
-  get_component: "get_component",
-  get_context: "get_context",
-  get_document_format: "get_document_format",
-  get_screenshot: "get_screenshot",
-  handoff: "handoff",
-  list_comments: "list_comments",
-  list_components: "list_components",
-  list_figma_imports: "list_figma_imports",
-  list_links: "list_links",
-  list_pages: "list_pages",
-  list_templates: "list_templates",
-  map_figma_component: "map_figma_component",
-  map_values: "map_values",
-  next_batch: "next_batch",
-  read_canvas: "read_canvas",
-  read_design_system: "read_design_system",
-  read_figma_component: "read_figma_component",
-  read_figma_frame: "read_figma_frame",
-  read_figma_import: "read_figma_import",
-  read_page: "read_page",
-  rename_page: "rename_page",
-  reply_to_comment: "reply_to_comment",
-  resolve_comment: "resolve_comment",
-  scan_design_system: "scan_design_system",
-  set_frame: "set_frame",
-  set_home: "set_home",
-  set_page_url: "set_page_url",
-  write_design_system: "write_design_system",
-  write_figma_frame: "write_figma_frame",
-};
+export const TOOLS: ToolNames = new Proxy({} as ToolNames, {
+  get: (_, name) => (typeof name === "string" ? name : undefined),
+});
 
 /** The actions of the `handoff` tool. */
 export const HANDOFF_ACTIONS = [
@@ -133,8 +94,6 @@ export interface AgentWays {
   readonly noteBehaviour: string;
   /** What Define, proposing a design system, works with. */
   readonly proposeWith: string;
-  /** Reading a component's props and variants: a clause, its verb first. */
-  readonly readComponent: string;
   /** Where the design system is read, with DESIGN.md: a clause, "it" the design system. */
   readonly readDesignSystem: (designsDir: string) => string;
   /**
@@ -183,15 +142,14 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
     `mark it implemented: call ${handoffCall("mark")}, target ${target} and files, every repository file you wrote or changed for it. The editor then knows which code implements it, and tells the next implementation what changed.`,
   noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component (target component:<Name>, node a part)`,
   proposeWith: `${TOOLS.scan_design_system} has what the theme declares; ${TOOLS.ask_user} puts a card of questions to the user; ${TOOLS.write_design_system} saves the result.`,
-  readComponent: `call ${TOOLS.get_component}`,
   readDesignSystem: () =>
     `${TOOLS.read_design_system} returns it with DESIGN.md`,
   readTheme: (
     stylesheets,
     before
   ) => `Call ${TOOLS.scan_design_system}. It reads the Tailwind v4 @theme blocks of the stylesheets the
-   preview imports (${stylesheets}) and answers with a
-   first design system, the files it read, and notes on what it could not interpret.${before}`,
+   code's tokens are in (${stylesheets}) and answers with a first design system, the files it
+   read, and notes on what it could not interpret.${before}`,
   saveDesignSystem:
     () => `Save it with ${TOOLS.write_design_system}: \`designSystem\` is the design-system.json object and
    \`designMd\` the whole of DESIGN.md. ${TOOLS.get_document_format} with kind "design-system" has its JSON
@@ -222,12 +180,11 @@ page format: ${pageSchema()}`,
   noteBehaviour: "write it down as a comment on the node",
   proposeWith:
     "Without the editor's MCP server, read the code yourself, ask in the thread and write the files by hand.",
-  readComponent: "read its code",
   readDesignSystem: (designsDir) =>
     `it is ${designsDir}/${DESIGN_SYSTEM_FILE}, every token's value in ${designsDir}/${DESIGN_TOKENS_FILE}, and ${DESIGN_MD_FILE} at the root of the repository`,
   readTheme: (stylesheets, before) =>
-    `Read the stylesheets the preview imports (${stylesheets}) and
-   their @theme blocks.${before}`,
+    `Read the stylesheets the code's tokens are in (${stylesheets})
+   and their @theme blocks.${before}`,
   saveDesignSystem: (
     designsDir
   ) => `Write ${designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:

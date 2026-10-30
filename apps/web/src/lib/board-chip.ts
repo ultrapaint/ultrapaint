@@ -22,7 +22,6 @@ import { defaultTheme } from "@ultrapaint/contracts/themes";
 import type { BoardAttachment } from "@ultrapaint/contracts/threads";
 import { tokenOf } from "@ultrapaint/contracts/token-table";
 import {
-  appBoardName,
   appInPlace,
   appVariantOfBoard,
   OVERVIEW,
@@ -182,7 +181,10 @@ const libraryChip = (
         kind: "board",
         name: item,
         pick: "appComponent",
-        variant: appBoardName(variant),
+        place: {
+          state: null,
+          variant: { axis: variant.property, member: variant.member },
+        },
       },
       own
         ? "its choice's default member: the component's own fields"
@@ -196,10 +198,7 @@ const libraryChip = (
       kind: "board",
       name: item,
       pick: "systemComponent",
-      ...(place?.variant && {
-        variant: `${place.variant.axis}=${place.variant.member}`,
-      }),
-      ...(place?.state && { state: place.state }),
+      ...(place && (place.variant || place.state) && { place }),
     },
     saved ? undefined : "in its default look: it has no file yet"
   );
@@ -217,6 +216,15 @@ export const boardChipOf = (
 
 /** How a board's chip reads: `Button · variant=outline, hover`. */
 export const boardChipLabel = (chip: BoardAttachment) => {
-  const place = [chip.variant, chip.state].filter(Boolean).join(", ");
+  const place = placeWords(chip);
   return place ? `${chip.name} · ${place}` : chip.name;
 };
+
+/** Where in its component a chip is, in words: `variant=outline, hover`; empty for none. */
+const placeWords = ({ place }: BoardAttachment) =>
+  [
+    place?.variant && `${place.variant.axis}=${place.variant.member}`,
+    place?.state,
+  ]
+    .filter(Boolean)
+    .join(", ");

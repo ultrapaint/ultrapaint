@@ -69,6 +69,7 @@ import { Checkpoints } from "./checkpoints.ts";
 import { makePendingCards, type PendingCards } from "./pending-cards.ts";
 import {
   makePromptContent,
+  purposeFor,
   scopeOf,
   titleOf,
   UNTITLED,
@@ -507,16 +508,34 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
      * needs, and the designs are checkpointed. The thread already shows as running.
      */
     const openTurn = Effect.fnUntraced(function* (
+      thread: Thread,
       input: PromptInput,
       earlier: readonly ThreadItem[],
       blocks: ContentBlock[]
     ) {
       const { session, sessionId } = yield* liveSession;
+      // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
+      // Written once the session is open, for the ways this agent has (ADR 0039): the editor's
+      // tools when it was given them.
+      const task = yield* content.taskFor(
+        thread,
+        input.text,
+        session.editorMcp
+      );
+      if (task !== null) {
+        blocks[0] = { text: task, type: "text" };
+      }
       if (!session.briefed) {
         session.briefed = true;
         const purpose = (yield* store.get(threadId))?.purpose ?? "design";
         blocks.unshift(
-          ...(yield* content.sessionContext(session.resumed, earlier, purpose))
+          ...(yield* content.sessionContext(
+            session.resumed,
+            earlier,
+            purpose,
+            session.editorMcp,
+            input.text
+          ))
         );
       }
       // The folder's files before the turn, by time and size, to tell after it what it changed.
@@ -570,10 +589,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const paths = yield* currentPaths;
       const { blocks, labels } = yield* content.attachmentBlocks(input, paths);
       // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
-      const task = yield* content.taskFor(thread, input.text);
-      if (task !== null) {
-        blocks[0] = { text: task.text, type: "text" };
-      }
+      // What a command makes the thread for is known before its session starts, which it decides.
+      const purpose = purposeFor(thread, input.text);
       // A copy: the store's own list grows with the prompt about to be pushed.
       const earlier = [...(yield* store.items(threadId))];
       yield* store.push(threadId, {
@@ -585,11 +602,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       });
       yield* transition(
         { _tag: "Prompted" },
-        prompted(thread, input, earlier, task?.purpose)
+        prompted(thread, input, earlier, purpose ?? undefined)
       );
       // The request returns now. Whatever the agent takes to start is part of the turn, and
       // the turn reports through the transcript.
-      yield* turn.begin(openTurn(input, earlier, blocks), projectScope);
+      yield* turn.begin(openTurn(thread, input, earlier, blocks), projectScope);
     });
 
     // ---- the queue ----
