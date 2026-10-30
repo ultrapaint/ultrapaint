@@ -1,4 +1,4 @@
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
@@ -15,6 +15,7 @@ import { ImplementationService } from "./services/implementation.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { writeComponentFile } from "./testing/components.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** The status of a component's link to its code, and the files it is linked to. */
@@ -62,7 +63,7 @@ const LEGACY_PAGE = `${JSON.stringify({
 })}\n`;
 
 describe("flows in the services", () => {
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "starts a system component's file from its default look, linked to no file until it is implemented",
       () =>
@@ -90,7 +91,7 @@ describe("flows in the services", () => {
     );
   });
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "changes one thing of a look on the file as it is, what was set since kept (review D6)",
       () =>
@@ -128,7 +129,7 @@ describe("flows in the services", () => {
     );
   });
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "deletes a page with its variants, and says which pages went",
       () =>
@@ -193,9 +194,7 @@ describe("flows in the services", () => {
     );
   });
 
-  layer(ProjectTest({ git: true, settings: { git: "on" } }), {
-    excludeTestServices: true,
-  })((it) => {
+  eachTest(ProjectTest({ git: true, settings: { git: "on" } }))((it) => {
     it.effect("tells the editor git's status after a commit it makes", () =>
       Effect.gen(function* () {
         const project = yield* OpenProject;
@@ -249,27 +248,27 @@ describe("flows in the services", () => {
     );
   });
 
-  layer(ProjectTest({ files: { "designs/orders.page.json": LEGACY_PAGE } }), {
-    excludeTestServices: true,
-  })((it) => {
-    it.effect(
-      "reads a page from before ADR 0041 as a problem that says where its instance is and that nothing migrates it",
-      () =>
-        Effect.gen(function* () {
-          const project = yield* OpenProject;
-          const documents = project.service(DocumentService);
-          const orders = yield* documents((d) => d.get("orders.page.json"));
-          assert.isNull(orders.root);
-          assert.include(
-            orders.problem,
-            'at ["root"]["children"][0]["children"][0]["from"]'
-          );
-          assert.include(orders.problem, "no longer migrated");
-        })
-    );
-  });
+  eachTest(ProjectTest({ files: { "designs/orders.page.json": LEGACY_PAGE } }))(
+    (it) => {
+      it.effect(
+        "reads a page from before ADR 0041 as a problem that says where its instance is and that nothing migrates it",
+        () =>
+          Effect.gen(function* () {
+            const project = yield* OpenProject;
+            const documents = project.service(DocumentService);
+            const orders = yield* documents((d) => d.get("orders.page.json"));
+            assert.isNull(orders.root);
+            assert.include(
+              orders.problem,
+              'at ["root"]["children"][0]["children"][0]["from"]'
+            );
+            assert.include(orders.problem, "no longer migrated");
+          })
+      );
+    }
+  );
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "edits an app component's tree as a document, its properties following what its nodes show",
       () =>
