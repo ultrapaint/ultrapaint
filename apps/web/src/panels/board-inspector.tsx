@@ -57,16 +57,6 @@ const useKind = (open: BoardPlace) => {
   return app ? "App component" : "System component";
 };
 
-/** What a click on the item's boards picks, said before anything is. */
-const hintOf = (open: BoardPlace) => {
-  if (open.view === "system") {
-    return "Pick a token on the board to see it here.";
-  }
-  return open.item === OVERVIEW
-    ? "Click a component to open its board."
-    : "Pick a cell of the board to see it here.";
-};
-
 /** A picked node's id says what it stands for: `token:color-primary` is the token. */
 const pickedName = (nodeId: string) => {
   const at = nodeId.indexOf(":");
@@ -180,7 +170,7 @@ const SystemBody = ({
   return (
     <>
       <p className="border-b p-3 font-body text-muted-foreground">
-        {hintOf(open)}
+        Pick a token on the board to see it here.
       </p>
       <FoundationActions ds={ds} item={open.item} />
     </>
@@ -210,7 +200,7 @@ const LibraryBody = ({ open }: { open: BoardPlace }) => {
   if (open.item === OVERVIEW) {
     return (
       <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
-        {hintOf(open)}
+        Click a component to open its board.
         {ds ? null : (
           <>
             <span>

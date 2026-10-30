@@ -490,15 +490,14 @@ describe("text styles", () => {
   });
 });
 
-describe("the Assets menu", () => {
+describe("the Library's menu", () => {
   it("inserts only where there is somewhere to insert", () => {
     const got = componentEntries({
-      isComponent: false,
-      name: "Row",
+      name: "Card",
       onCanvas: true,
       target: null,
     });
     expect(find(got, "insert")).toMatchObject({ disabled: true });
-    expect(kinds(got)).not.toContain("copyName");
+    expect(find(got, "copyName")).toMatchObject({ label: "Copy Card" });
   });
 });

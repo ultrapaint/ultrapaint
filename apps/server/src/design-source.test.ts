@@ -544,7 +544,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           });
           const look = taken.component;
           assert(look?.origin === "system");
-          // A note added after the Components tab read the file, which saves its look after.
+          // A note added after the look inspector read the file, which saves its look after.
           const note = yield* client["components.addNote"]({
             name: "Badge",
             text: "Reads its count aloud",

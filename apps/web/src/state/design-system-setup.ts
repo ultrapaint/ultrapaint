@@ -41,9 +41,9 @@ interface SetupStore {
   /** The user's decision on a value of the mapping. */
   setMapping: (change: MappingChange) => Promise<void>;
   setup: DesignSystemSetup | null;
-  /** Shows the steps in the Design system panel, or its tokens. */
+  /** Shows the steps in the Design system panel, or its list. */
   show: (shown: boolean) => void;
-  /** Whether the Design system panel shows the steps rather than the tokens. */
+  /** Whether the Design system panel shows the steps rather than its list. */
   shown: boolean;
   start: (step: SetupStepId, mode?: DefineMode) => Promise<void>;
   stop: (step: SetupStepId) => Promise<void>;

@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
+import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
 import { platform } from "../platform.ts";
@@ -41,7 +42,6 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
-import { placeDocument } from "./design-md-view.tsx";
 import {
   ChatDefaultsGroup,
   MachineAgentsGroup,

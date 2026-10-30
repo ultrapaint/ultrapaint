@@ -73,10 +73,6 @@ export const PartStyle = Schema.Struct({
   width: Schema.optional(Length),
 });
 export type PartStyle = typeof PartStyle.Type;
-export const PART_STYLE_FIELDS = Object.keys(
-  PartStyle.fields
-) as readonly (keyof PartStyle)[];
-
 /** Style fields per part, by the part's name (its `data-slot`, or `root`). */
 export const PartStyles = Schema.Record(Schema.String, PartStyle);
 export type PartStyles = typeof PartStyles.Type;
@@ -105,7 +101,7 @@ export type ComponentOrigin = typeof ComponentOrigin.Type;
 
 /** What every component's file has, whatever its origin. */
 const envelope = {
-  /** Where the Assets panel lists it. */
+  /** Where the Library lists it. */
   category: Schema.optional(Schema.String),
   /** What the component is for, in a sentence. */
   description: Schema.optional(Schema.String),

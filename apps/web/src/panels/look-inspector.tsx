@@ -80,7 +80,7 @@ import { UsesSection, usePagesRead } from "./token-inspector.tsx";
  * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
  * stays; what the server refuses is said. True when it went through.
  */
-export const change = async (name: string, made: ComponentChange) => {
+const change = async (name: string, made: ComponentChange) => {
   try {
     await api().request("components.change", { change: made, name });
     return true;
@@ -91,7 +91,7 @@ export const change = async (name: string, made: ComponentChange) => {
 };
 
 /** A system component's look: its file but the envelope. */
-export const lookOf = (file: SystemComponentFile): SystemLook => ({
+const lookOf = (file: SystemComponentFile): SystemLook => ({
   base: file.base,
   ...(file.content && { content: file.content }),
   ...(file.hidden && { hidden: file.hidden }),
@@ -102,7 +102,7 @@ export const lookOf = (file: SystemComponentFile): SystemLook => ({
 });
 
 /** A system component's parts, the root first, as the catalogue names them. */
-export const partsOf = (name: string) =>
+const partsOf = (name: string) =>
   systemComponentOf(name)?.slots.map((s) => ({
     label: s.label,
     name: s.name,
@@ -126,7 +126,7 @@ export const removeComponent = async (
 };
 
 /** Starts a system component's file from its default look, so the design edits real values. */
-export const takeOver = async (name: string) => {
+const takeOver = async (name: string) => {
   try {
     await api().request("components.fromDefault", { name });
     return true;
@@ -141,7 +141,7 @@ const inheritedText = (inherited: Inherited | undefined) =>
   inherited ? `${String(inherited.value)} (${inherited.from})` : "Not set";
 
 /** One style field of a part, over the design system's tokens. */
-export const Field = ({
+const Field = ({
   inherited,
   kind,
   label,
@@ -212,7 +212,7 @@ const withSide = (
 };
 
 /** One field of a part that takes one of a few words. */
-export const Choice = ({
+const Choice = ({
   inherited,
   label,
   onChange,
@@ -278,7 +278,7 @@ const withBorder = (
  * look, its text, its layout. A value is committed with `onChange`; `onPreview`, when given, is
  * told the style a field would set while it is gone through (null once none is).
  */
-export const SlotFields = ({
+const SlotFields = ({
   inherited,
   onChange,
   onPreview,
@@ -476,7 +476,7 @@ const firstOf = (
  * holds when an instance gives it nothing, and what a Select's or a Menu's item draws. Content and
  * templates are taken from the nodes selected on the page.
  */
-export const LookExtras = ({
+const LookExtras = ({
   file,
   onChange,
 }: {

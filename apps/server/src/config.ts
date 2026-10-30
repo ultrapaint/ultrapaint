@@ -85,7 +85,7 @@ export class ServerConfig extends Context.Service<
     readonly agentRuntime?: AgentRuntime | undefined;
     /**
      * Whether a session's first prompt carries the project briefing: where the designs live, how
-     * pages route, what the Assets panel holds. On unless a measurement wants it off.
+     * pages route, what the Library holds. On unless a measurement wants it off.
      */
     readonly briefing: boolean;
     /**

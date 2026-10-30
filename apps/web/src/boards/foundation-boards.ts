@@ -189,7 +189,7 @@ const bar = (id: string, width: number, height = 10): DesignNode => ({
   width: Math.max(2, Math.round(width)),
 });
 
-/** The steps of the spacing scale drawn beside the base: a few, as the old panel had. */
+/** The steps of the spacing scale drawn beside the base: a few, as the panel before the boards had. */
 const SPACING_SAMPLE = [1, 2, 3, 4, 6, 8, 12, 16];
 
 const spacingBoards = (ds: DesignSystem, q: string): Boards => {

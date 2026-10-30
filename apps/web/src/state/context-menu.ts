@@ -47,8 +47,6 @@ export type MenuTarget =
   | {
       kind: "component";
       name: string;
-      /** A design system component, as opposed to one of the format's own nodes. */
-      isComponent: boolean;
       make: () => DesignNode;
     }
   | { kind: "thread"; threadId: string };

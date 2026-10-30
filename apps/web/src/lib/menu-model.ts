@@ -802,7 +802,6 @@ export type ComponentAction =
   | { kind: "copyName" };
 
 export interface ComponentFacts {
-  isComponent: boolean;
   name: string;
   onCanvas: boolean;
   /** Where Insert puts it, as the Library says it: `the page`, `Card`; null when nowhere. */
@@ -815,8 +814,8 @@ export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
       disabled: f.target === null,
     }),
     f.onCanvas && item({ kind: "insertCanvas" }, "Insert on the canvas"),
-    f.isComponent && separator,
-    f.isComponent && item({ kind: "copyName" }, `Copy ${f.name}`),
+    separator,
+    item({ kind: "copyName" }, `Copy ${f.name}`),
   ]);
 
 // ---- Threads ----

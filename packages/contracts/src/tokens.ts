@@ -88,17 +88,3 @@ export const FileEdit = Schema.Struct({
   text: Schema.String,
 });
 export type FileEdit = typeof FileEdit.Type;
-
-/** The value a token has in a theme, falling back to the default theme's. */
-export const tokenValueIn = (token: SourceToken, theme?: string): string =>
-  (theme ? token.values?.[theme] : undefined) ?? token.value;
-
-/**
- * A token's value as the design holds it (ADR 0028), for one theme: `theme` is left out for the
- * default theme. The value is CSS, as the design writes it.
- */
-export interface DesignTokenValue {
-  readonly name: string;
-  readonly theme?: string;
-  readonly value: string;
-}

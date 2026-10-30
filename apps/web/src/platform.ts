@@ -38,9 +38,6 @@ export type NewDesigns = ShellPlatform["newDesign"];
 /** The shell's status, as it changes. */
 export type ShellStatusSource = ShellPlatform["shellStatus"];
 
-/** The window's buttons where the shell draws no title bar, as they change. */
-export type WindowControls = ShellPlatform["windowControls"];
-
 /**
  * What the editor runs on: the browser's server, and what a shell adds, each part absent in a
  * browser (no agents of this machine, no native folder picker, no projects but the server's
