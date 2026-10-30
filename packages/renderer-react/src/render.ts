@@ -760,7 +760,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
 
   const mounted: Mounted = {
     render: draw,
-    unmount: () => root.unmount(),
+    // A frame is put away as the editor's own React commits (a surface's layout effect let go):
+    // its root unmounted then would be unmounted while React renders, so it goes right after.
+    unmount: () => queueMicrotask(() => root.unmount()),
   };
   return mounted;
 };
