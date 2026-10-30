@@ -21,6 +21,7 @@
     "prepare": "effect-tsgo patch --typescript --skip-missing",
     "start": "node scripts/cli.ts",
     "test": "pnpm -r test",
+    "test:shuffle": "pnpm -r --no-bail test -- --sequence.shuffle",
     "typecheck": "tsc --noEmit -p . && pnpm -r typecheck"
   },
   "devDependencies": {
