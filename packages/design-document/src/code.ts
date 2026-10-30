@@ -12,7 +12,12 @@
  * application has.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
+import {
+  applicationFileOf,
+  applicationNameOf,
+  type Catalogue,
+  metaOf,
+} from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -110,16 +115,8 @@ interface Levels {
 // ---- System components as the application's components ----
 
 const DEFAULT_COMPONENTS_FROM = "@/components/ui";
-const UPPER_RE = /([a-z0-9])([A-Z])/g;
 const PROPERTY_WORD_RE = /[\s_-]+(\w)/g;
 const FIRST_UPPER_RE = /^[A-Z]/;
-
-const kebabOf = (name: string) => name.replace(UPPER_RE, "$1-$2").toLowerCase();
-const pascalOf = (kebab: string) =>
-  kebab
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
 
 /**
  * Where the application's own component for a system component is imported from (ADR 0040): the first
@@ -204,8 +201,7 @@ const asSystemComponentCode = (
   children: readonly DesignNode[],
   w: Written
 ): DesignNode => {
-  const own = kebabOf(node.component);
-  const from = `${w.base}/${own}`;
+  const from = `${w.base}/${applicationFileOf(node.component)}`;
   w.modules.set(node.id, from);
   const entry = metaOf(w.catalogue, node);
   if (!(entry && node.children)) {
@@ -229,9 +225,7 @@ const asSystemComponentCode = (
       return [
         {
           children: held,
-          component: pascalOf(
-            slot.startsWith(`${own}-`) ? slot : `${own}-${slot}`
-          ),
+          component: applicationNameOf(node.component, slot),
           from: SYSTEM_FROM,
           id,
           type: "instance",
@@ -259,7 +253,7 @@ const asAppComponentCode = (
   w: Written
 ): DesignNode => {
   const parent = w.base.endsWith("/ui") ? w.base.slice(0, -3) : w.base;
-  w.modules.set(node.id, `${parent}/${kebabOf(node.component)}`);
+  w.modules.set(node.id, `${parent}/${applicationFileOf(node.component)}`);
   const props = node.props
     ? Object.fromEntries(
         Object.entries(node.props).map(([name, value]) => [
