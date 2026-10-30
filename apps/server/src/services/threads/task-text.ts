@@ -3,7 +3,8 @@
  * task, and the formats an agent writes without the editor's tools.
  */
 import { DesignSystem } from "@ultrapaint/contracts/design-system";
-import { PageDocument } from "@ultrapaint/contracts/document";
+import { type DesignNode, PageDocument } from "@ultrapaint/contracts/document";
+import { outlineOf } from "@ultrapaint/design-document/tree";
 import { Schema } from "effect";
 import { compactSchema } from "./compact-schema.ts";
 
@@ -46,6 +47,28 @@ export const designSystemSchema = () =>
 /** The page format's schema, for agents. */
 export const pageSchema = () =>
   JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(PageDocument)));
+
+/** Past this many characters of compact JSON, a tree is given as its outline. */
+const WHOLE_LIMIT = 40_000;
+/** How deep the outline of a tree too big to give whole goes. */
+export const OUTLINE_DEPTH = 3;
+
+/**
+ * A tree of a design as an agent reads it, a task or `read_page` alike: whole while its compact
+ * JSON fits, else its outline `OUTLINE_DEPTH` levels down (a node there counts its children), to
+ * be read a part at a time; `depth` asks for an outline that deep. `outlined` says which it is.
+ */
+export const treeForAgent = (
+  tree: DesignNode,
+  depth?: number
+): { readonly outlined: boolean; readonly tree: DesignNode } => {
+  if (depth !== undefined) {
+    return { outlined: true, tree: outlineOf(tree, Math.floor(depth)) };
+  }
+  return JSON.stringify(tree).length > WHOLE_LIMIT
+    ? { outlined: true, tree: outlineOf(tree, OUTLINE_DEPTH) }
+    : { outlined: false, tree };
+};
 
 /** What the user typed after the command's argument, passed on as it is. */
 export const userAdds = (extra: string | undefined) =>
