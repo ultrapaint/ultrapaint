@@ -2,7 +2,7 @@
  * The tools of a Figma import, offered to agents over MCP.
  *
  * Importing a Figma file is a conversation: the file is read by rules, but which component of
- * this repository stands in for a Figma one is a judgement, and sometimes the user's. These
+ * the design stands in for a Figma one is a judgement, and sometimes the user's. These
  * tools let an agent see what the file holds, decide component by component, put a question
  * to the user (with ask_user) where it cannot decide, and write frames as pages once the mapping is settled.
  */
@@ -170,7 +170,7 @@ export const FigmaToolsLive = FigmaTools.toLayer(
       return (
         latest ??
         (yield* missing(
-          "no Figma file has been imported; the user imports one from the Pages panel"
+          'no Figma file has been imported; the user imports one with "Import a Figma file…" under the canvases'
         ))
       );
     });

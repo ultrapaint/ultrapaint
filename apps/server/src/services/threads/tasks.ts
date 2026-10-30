@@ -75,9 +75,9 @@ export class AgentTasks extends Context.Service<
                 : ""
             }`;
             return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
-2. Look at what the scan cannot see: the design system's packages (${libraries}), their READMEs,
-   AGENTS.md and docs, Storybook stories, style guides, and how the application's own screens use
-   the tokens and components.
+2. Look at what the scan cannot see, in the repository: the design system's packages (${libraries}),
+   their READMEs, AGENTS.md and docs, its Storybook stories and style guides, and how the
+   application's own screens use the tokens.
 3. Ask the user, here in the thread, what you cannot find out yourself, a few questions at a
    time, and wait for the answers: what the application is and who uses it, which colours are
    the brand and which are semantic, which text styles the product uses, what to always or never

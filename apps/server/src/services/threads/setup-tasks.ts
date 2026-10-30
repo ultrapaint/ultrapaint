@@ -55,7 +55,7 @@ export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
       (steps) => `<ultrapaint-task command="design-system">
 This is the Define step of the design-system setup, adopting the theme, which the user follows in
 the Design system panel's Setup view. The theme is the design system: import it into ultrapaint, so that designs are
-drawn with its tokens and components and every agent knows its conventions. Only Tailwind v4 is
+drawn with its tokens and every agent knows its conventions. Only Tailwind v4 is
 supported. Change no other file: bringing the code onto the design system is a later step.
 
 ${brief}
@@ -103,13 +103,13 @@ ${ways.proposeWith}
 3. Put the decisions to the user ${ways.askUser}, a few questions at a time: the brand colour,
    which near-duplicates are one colour, what to call them, the base of the scale. Give the values
    (hex, px) in the options and your choice first. Wait for the answers.
-4. Write the tokens into the stylesheet the preview imports (${stylesheets}) as @theme variables:
+4. Write the tokens into the stylesheet the code's tokens are in (${stylesheets}) as @theme variables:
    --color-*, --spacing, --text-*, --font-weight-*, --radius-*, --shadow-*. Keep what it has. A
    colour that changes with the theme is a custom property set in :root and .dark and named in
    \`@theme inline\` (--color-primary: var(--primary)).
 5. ${ways.readTheme(stylesheets, "")} Curate the design system as /init does: semantic colours
-   first with what each is for, the text styles, the components with their category and example
-   props, the elevation levels. And DESIGN.md: ${DESIGN_MD_GUIDE}
+   first with what each is for, the text styles, the elevation levels. And DESIGN.md:
+   ${DESIGN_MD_GUIDE}
    Its Do's and Don'ts say what the code must stop doing.
 6. ${ways.saveDesignSystem(settings.designsDir)}
 7. ${finishing("Define")}
