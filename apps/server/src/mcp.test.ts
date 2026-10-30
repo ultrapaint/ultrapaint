@@ -146,24 +146,30 @@ describe("the editor's MCP server, over the wire", () => {
       Effect.gen(function* () {
         const { client, port } = yield* TestEnv;
         const { token } = yield* client["mcp.connection"]();
-        for (const path of ["/MCP", "//mcp", "/%6dcp", "/mcp/", "/Mcp?x=1"]) {
+        for (const spelled of [
+          "/MCP",
+          "//mcp",
+          "/%6dcp",
+          "/mcp/",
+          "/Mcp?x=1",
+        ]) {
           const refused = yield* callMcp(
             port,
             undefined,
             { method: "tools/list" },
             {},
-            path
+            spelled
           );
-          assert.strictEqual(refused.status, 403, path);
+          assert.strictEqual(refused.status, 403, spelled);
           // The same spelling with the token reaches the tools: the router does route it.
           const answered = yield* callMcp(
             port,
             token,
             { method: "tools/list" },
             {},
-            path
+            spelled
           );
-          assert.strictEqual(answered.status, 200, path);
+          assert.strictEqual(answered.status, 200, spelled);
         }
       })
   );
