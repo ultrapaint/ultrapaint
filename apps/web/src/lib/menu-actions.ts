@@ -27,14 +27,21 @@ import {
 } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
-import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
+import {
+  frameRefOf,
+  hasPrototypeLinks,
+  takesComments,
+} from "../state/frame-ref.ts";
 import { useImplementation } from "../state/implementation.ts";
 import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
+import { onPageCanvas } from "../state/surface.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
   canvasById,
@@ -184,15 +191,15 @@ const nodeMenu = (target: Selection) => {
   }
   const place = placeOf(ctx);
   const targets = actedOn(target);
-  const onPage = !isNodeFrame(target.frame);
+  const frame = frameRefOf(target.frame);
   return nodeEntries({
     canPaste: canPaste(),
     count: targets.length,
+    frame,
     hidden: allHidden(targets),
     index: place?.siblings.findIndex((c) => c.id === current.node.id) ?? 0,
-    linkTargets: onPage ? linkTargets() : [],
+    linkTargets: hasPrototypeLinks(frame) ? linkTargets() : [],
     node: current.node,
-    onPage,
     parentSelectable: !!place?.parent && place.parent.type !== "page",
     siblings: place?.siblings.length ?? 1,
     wrappable: targets.length === 1 || areSiblings(targets),
@@ -309,7 +316,8 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         target,
         componentEntries({
           name: target.name,
-          onCanvas: onCanvas() && useEditor.getState().canvas !== null,
+          // Inserted on the page canvas: not from a board view, whose ground is no document.
+          onCanvas: onPageCanvas() && useEditor.getState().canvas !== null,
           target: insertTarget()?.name ?? null,
         })
       );
@@ -330,8 +338,6 @@ const copyText = (text: string, what = text) =>
     () => undefined
   );
 
-const select = (target: Selection) => useEditor.getState().select(target);
-
 /**
  * Starts a comment on the node: where it was clicked, else in the middle of it. Comments are
  * pinned on pages, so a node of the canvas has none.
@@ -344,7 +350,7 @@ const commentOn = (target: Selection, at?: Point) => {
     target.frame,
     target.nodeId
   );
-  if (!node || isNodeFrame(target.frame)) {
+  if (!(node && takesComments(frameRefOf(target.frame)))) {
     return;
   }
   let point = at;

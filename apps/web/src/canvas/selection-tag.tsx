@@ -25,6 +25,7 @@ import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { select } from "../state/selection.ts";
 
 /** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
 export const useChatLink = () => {
@@ -76,11 +77,9 @@ export const SelectionTag = ({
   const thread = useChatLink()?.thread ?? null;
   const parents = (path ?? []).slice(0, -1).reverse();
   const children = childrenOf(node);
-  const select = (target: DesignNode) => {
+  const selectNode = (target: DesignNode) => {
     if (selection) {
-      useEditor
-        .getState()
-        .select({ frame: selection.frame, nodeId: target.id });
+      select({ frame: selection.frame, nodeId: target.id });
     }
   };
   return (
@@ -142,7 +141,7 @@ export const SelectionTag = ({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Inside</DropdownMenuLabel>
               {parents.map((p) => (
-                <DropdownMenuItem key={p.id} onClick={() => select(p)}>
+                <DropdownMenuItem key={p.id} onClick={() => selectNode(p)}>
                   <CornerLeftUp />
                   <span className="truncate">{nodeLabel(p)}</span>
                 </DropdownMenuItem>
@@ -156,7 +155,7 @@ export const SelectionTag = ({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Holds</DropdownMenuLabel>
               {children.map((c) => (
-                <DropdownMenuItem key={c.id} onClick={() => select(c)}>
+                <DropdownMenuItem key={c.id} onClick={() => selectNode(c)}>
                   <NodeIcon node={c} />
                   <span className="truncate">{nodeLabel(c)}</span>
                 </DropdownMenuItem>

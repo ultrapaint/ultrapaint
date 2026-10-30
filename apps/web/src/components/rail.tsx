@@ -11,11 +11,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
-import { railTabsFor, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { type LeftTab, useEditor } from "../state/editor.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
 import { GitUserButton } from "./git-user.tsx";
 
@@ -134,9 +134,9 @@ export const Rail = () => {
   const panelHidden = usePanels((s) => s.left);
   // A board view has no Layers but where there is a tree (ADR 0045): an app component's, known
   // once the components are.
-  const open = useBoard((s) => s.open);
+  const surface = useSurface();
   useComponents((s) => s.components);
-  const tabs = railTabsFor(open);
+  const tabs = surface.railTabs();
   return (
     <nav
       aria-label="Panels"

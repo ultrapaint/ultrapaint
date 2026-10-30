@@ -27,7 +27,12 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { OVERVIEW } from "../boards/library-boards.ts";
-import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
+import {
+  beginDrag,
+  cancelDrag,
+  LIBRARY_MIME,
+  useDrag,
+} from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { BackToPage } from "../components/back-to-page.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
@@ -49,14 +54,9 @@ import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
 const VIEW_KEY = "ultrapaint:library-view";
-/** Where the choice was kept while the list was the Assets panel's. */
-const FORMER_VIEW_KEY = "ultrapaint:assets-view";
 
-const storedView = (): View => {
-  const stored =
-    localStorage.getItem(VIEW_KEY) ?? localStorage.getItem(FORMER_VIEW_KEY);
-  return stored === "grid" ? "grid" : "list";
-};
+const storedView = (): View =>
+  localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
 
 /** Ids are the server's to settle; these only have to be unique within the node. */
 const nextId = () => makeIdGenerator();
@@ -84,7 +84,7 @@ const entryHandlers = (make: () => DesignNode, name: string) => ({
       return;
     }
     e.dataTransfer.effectAllowed = "copy";
-    e.dataTransfer.setData(ASSET_MIME, JSON.stringify(make()));
+    e.dataTransfer.setData(LIBRARY_MIME, JSON.stringify(make()));
     beginDrag({ kind: "new", name }, e.clientX, e.clientY, false);
   },
 });
@@ -242,7 +242,7 @@ const useThumbnails = (
 };
 
 /** The catalogue's components matching a search, in the Library's two sections, each by name. */
-export const librarySections = (
+const librarySections = (
   components: readonly ComponentMeta[],
   query: string
 ) => {

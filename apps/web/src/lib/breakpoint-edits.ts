@@ -15,13 +15,16 @@ import {
   sourceOf,
 } from "@ultrapaint/design-document/breakpoints";
 import { currentBreakpoints } from "../state/design-system.ts";
-import { editedAtOf, pageOfFrame, useDocuments } from "../state/documents.ts";
+import { editedAtOf, useDocuments } from "../state/documents.ts";
 import { type EditorState, useEditor } from "../state/editor.ts";
+import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import { frameBreakpoint, useFrameBreakpoint } from "../state/selection.ts";
 import { unsetValueOf } from "./node-fields.ts";
 
-const viewsIn = (frames: EditorState["frames"], frame: string) =>
-  (frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0;
+const viewsIn = (frames: EditorState["frames"], frame: string) => {
+  const page = pageOfRef(frameRefOf(frame));
+  return page !== null && (frames[page]?.views?.length ?? 0) > 0;
+};
 
 /**
  * Whether the page a frame shows is drawn in views: its edits then land where they are made. A

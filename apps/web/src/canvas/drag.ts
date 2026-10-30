@@ -10,6 +10,7 @@
  * the canvas lands on the grid, unless ⌘/Ctrl is held.
  */
 
+import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { runsInRow } from "@ultrapaint/design-document/css";
@@ -27,18 +28,16 @@ import {
 } from "../lib/node-actions.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/components.ts";
-import {
-  docOfFrame,
-  isNodeFrame,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
-import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
+import { docOfFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
+import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
+import { holdUntil } from "../state/page-layout.ts";
+import { allFrames, surfaceNow } from "../state/surface.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
 /** Type of the data a Library entry's drag carries: the node it inserts, as JSON. */
-export const ASSET_MIME = "application/ultrapaint-node";
+export const LIBRARY_MIME = "application/ultrapaint-node";
 
 export type Dragged =
   | {
@@ -129,10 +128,9 @@ const frameAt = (x: number, y: number, except?: string): string | null => {
     x <= f.x + f.width &&
     y <= f.y + f.height;
   const entries = Object.entries(allFrames());
-  const node = entries.filter(([id]) => isNodeFrame(id)).findLast(inside);
-  return (
-    (node ?? entries.find((e) => !isNodeFrame(e[0]) && inside(e)))?.[0] ?? null
-  );
+  const isNode = ([id]: [string, Box]) => frameRefOf(id).kind === "node";
+  const node = entries.filter(isNode).findLast(inside);
+  return (node ?? entries.find((e) => !isNode(e) && inside(e)))?.[0] ?? null;
 };
 
 const offset = (r: Rect, f: Box): Rect => ({
@@ -359,8 +357,11 @@ const resolveDrop = (x: number, y: number, dragged: Dragged): Drop | null => {
   const except = dragged.kind === "loose" ? dragged.frame : undefined;
   const frameId = frameAt(x, y, except);
   if (!frameId) {
-    // A node on the canvas dragged over nothing is only being moved; anything else lands there.
-    return dragged.kind === "loose" ? null : { kind: "canvas" };
+    // A node on the canvas dragged over nothing is only being moved; anything else lands there,
+    // on a ground that is a document: a board view's is none (ADR 0045).
+    return dragged.kind === "loose" || !surfaceNow().groundDrops
+      ? null
+      : { kind: "canvas" };
   }
   return placementIn(frameId, x, y, dragged);
 };
