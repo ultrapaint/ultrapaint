@@ -4,7 +4,7 @@ import { shareUnchanged, takesChildren } from "./tree.ts";
 
 const instance = (children?: DesignNode[]): DesignNode => ({
   component: "Card",
-  from: "@ui/card",
+  from: "@ultrapaint/system",
   id: "i",
   type: "instance",
   ...(children && { children }),

@@ -172,14 +172,8 @@ describe("a system component", () => {
     expect(turned.at("body")?.style.alignSelf).toBe("stretch");
   });
 
-  it("stands in for an instance of the repository's, and for a name no system component has", async () => {
-    const { at } = await draw(
-      column([
-        instance("old", "Button", { from: "@/components/ui/button" }),
-        instance("typo", "Buton"),
-      ])
-    );
-    expect(at("old")?.textContent).toContain("component of the repository's");
+  it("stands in for a name no system component has", async () => {
+    const { at } = await draw(column([instance("typo", "Buton")]));
     expect(at("typo")?.textContent).toContain(
       "not one of the system components"
     );

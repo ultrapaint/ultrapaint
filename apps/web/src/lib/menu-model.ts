@@ -12,11 +12,6 @@ import {
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
-import {
-  isRepositoryInstance,
-  systemComponentFor,
-} from "@ultrapaint/system-components/migrate";
 import type { Arrangement, Wrapper } from "./node-actions.ts";
 import { viewportPresets } from "./presets.ts";
 
@@ -42,7 +37,6 @@ export type SubmenuId =
   | "preset"
   | "send"
   | "state"
-  | "toSystem"
   | "variant"
   | "wrap";
 
@@ -130,8 +124,6 @@ export type NodeAction =
   /** An app component's instance: its component edited in place, or the instance detached from it (ADR 0041). */
   | { kind: "editComponent" }
   | { kind: "detach" }
-  /** An instance of the repository's drawn as this system component (ADR 0040). */
-  | { kind: "toSystem"; name: string }
   /** Leads to a page, by its file, or `back`; `null` takes the link away. */
   | { kind: "link"; to: string | null }
   /** Asks for a URL or another site to lead to. */
@@ -248,19 +240,6 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     node.type === "instance" &&
       node.from === APP_FROM &&
       item({ kind: "detach" }, "Detach"),
-    // An instance of a component of the repository's, from before the system components: a stand-in.
-    node.type === "instance" &&
-      isRepositoryInstance(node) && {
-        disabled: several,
-        entries: SYSTEM_COMPONENTS.map((p) =>
-          item<NodeAction>({ kind: "toSystem", name: p.name }, p.name, {
-            checked: systemComponentFor(node.component) === p,
-          })
-        ),
-        id: "toSystem",
-        kind: "submenu",
-        label: "Replace with a system component",
-      },
     linkEntries(f),
     f.parentSelectable &&
       item({ kind: "selectParent" }, "Select parent", {

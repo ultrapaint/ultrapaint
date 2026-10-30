@@ -1,25 +1,17 @@
 import { assert, describe, layer } from "@effect/vitest";
-import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
-import { findNode } from "@ultrapaint/design-document/tree";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import {
-  LEGACY_DRAFT_FROM,
-  LEGACY_SYSTEM_FROM,
-} from "@ultrapaint/system-components/migrate";
-import { Effect, Fiber, FileSystem, Option, Path, Stream } from "effect";
+import { Effect, Fiber, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
 import { ProjectManager } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DocumentService } from "./services/documents.ts";
-import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
-import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { writeComponentFile } from "./testing/components.ts";
@@ -46,47 +38,28 @@ const nextEvent = <A, E, R>(name: "git", effect: Effect.Effect<A, E, R>) =>
     return Option.getOrNull(yield* Fiber.join(heard));
   });
 
-/** A spec's file from before ADR 0041: a look the design owned, a draft, or a mirror of the code. */
-const legacySpec = (component: string, fields: Record<string, unknown>) =>
-  `${JSON.stringify({
-    base: {},
-    component,
-    defaults: {},
-    from: "@ultrapaint/primitives",
-    look: "design",
-    slots: [{ name: "root" }],
-    states: {},
-    variants: {},
-    version: 1,
-    ...fields,
-  })}\n`;
-
-const LEGACY_FILES = {
-  "designs/_implemented/specs/Button.implemented.json": `${JSON.stringify({
-    kind: "spec",
-    spec: JSON.parse(
-      legacySpec("Button", {
-        base: { root: { fill: "$color-brand" } },
-        notes: [{ id: "n1", text: "Submits its form" }],
-      })
-    ),
-  })}\n`,
-  "designs/specs/Badge.spec.json": legacySpec("Badge", { look: "code" }),
-  "designs/specs/Button.spec.json": legacySpec("Button", {
-    base: { root: { fill: "$color-brand" } },
-    notes: [{ id: "n1", text: "Submits its form" }],
-  }),
-  "designs/specs/Promo.spec.json": legacySpec("Promo", {
-    draft: {
-      children: [
-        { id: "p-title", role: "heading", text: "Sale", type: "text" },
-      ],
-      id: "p-root",
-      type: "column",
-    },
-    from: "#draft",
-  }),
-};
+/** A page from before ADR 0041: an instance of a component of the repository's, deep in a column. */
+const LEGACY_PAGE = `${JSON.stringify({
+  root: {
+    children: [
+      {
+        children: [
+          {
+            component: "Button",
+            from: "@/components/ui/button",
+            id: "new-order",
+            type: "instance",
+          },
+        ],
+        id: "c",
+        type: "column",
+      },
+    ],
+    id: "orders",
+    type: "page",
+  },
+  version: 1,
+})}\n`;
 
 describe("flows in the services", () => {
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
@@ -133,79 +106,6 @@ describe("flows in the services", () => {
             gone.map((p) => p.file),
             ["designs/pricing.page.json", "designs/pricing@bold.page.json"]
           );
-        })
-    );
-
-    it.effect(
-      "draws the pages' instances of the repository's components as system components, in one step",
-      () =>
-        Effect.gen(function* () {
-          const project = yield* ProjectManager;
-          const pages = project.service(PagesService);
-          const documents = project.service(DocumentService);
-          const orders = yield* pages((p) =>
-            p.create("", { name: "Orders", route: "/orders" }, "blank")
-          );
-          const { root } = yield* documents((d) => d.get(orders.id));
-          yield* documents((d) =>
-            d.apply({
-              edits: [
-                {
-                  doc: orders.id,
-                  ops: [
-                    {
-                      node: {
-                        component: "Button",
-                        from: "@/components/ui/button",
-                        id: "new-order",
-                        props: { size: "default", variant: "default" },
-                        text: "New order",
-                        type: "instance",
-                      },
-                      op: "insert",
-                      parent: root?.id ?? null,
-                    },
-                    {
-                      node: {
-                        component: "RevenueChart",
-                        from: "@/components/revenue-chart",
-                        id: "chart",
-                        type: "instance",
-                      },
-                      op: "insert",
-                      parent: root?.id ?? null,
-                    },
-                  ],
-                },
-              ],
-            })
-          );
-          const migration = project.service(Migration);
-          assert.deepStrictEqual(yield* migration((m) => m.left), {
-            drawn: 1,
-            left: 1,
-            specs: 0,
-          });
-          assert.deepStrictEqual(yield* migration((m) => m.run), {
-            components: 0,
-            documents: 1,
-            drawn: 1,
-          });
-          const after = yield* documents((d) => d.get(orders.id));
-          const button = after.root && findNode(after.root, "new-order");
-          assert.deepStrictEqual(button, {
-            component: "Button",
-            from: SYSTEM_FROM,
-            id: "new-order",
-            props: { size: "md", variant: "primary" },
-            text: "New order",
-            type: "instance",
-          });
-          assert.deepStrictEqual(yield* migration((m) => m.left), {
-            drawn: 0,
-            left: 1,
-            specs: 0,
-          });
         })
     );
 
@@ -311,142 +211,25 @@ describe("flows in the services", () => {
     );
   });
 
-  layer(ProjectTest({ files: LEGACY_FILES }), { excludeTestServices: true })(
-    (it) => {
-      it.effect(
-        "brings the designs from before up to date in one undo step: instances, specs and their implementation",
-        () =>
-          Effect.gen(function* () {
-            const project = yield* ProjectManager;
-            const { repo } = yield* ProjectFixture;
-            const fs = yield* FileSystem.FileSystem;
-            const path = yield* Path.Path;
-            const at = (file: string) => path.join(repo, "designs", file);
-            const implementation = project.service(ImplementationService);
-            const documents = project.service(DocumentService);
-            const components = project.service(ComponentService);
-            yield* fs.writeFileString(
-              at("implementation.json"),
-              `${JSON.stringify({
-                items: {
-                  "spec:Button": {
-                    implemented: {
-                      at: 1,
-                      code: {},
-                      design: "old",
-                      files: ["src/button.tsx"],
-                    },
-                  },
-                },
-                version: 1,
-              })}\n`
-            );
-            const pages = project.service(PagesService);
-            const orders = yield* pages((p) =>
-              p.create("", { name: "Orders", route: "/orders" }, "blank")
-            );
-            const { root } = yield* documents((d) => d.get(orders.id));
-            yield* documents((d) =>
-              d.apply({
-                edits: [
-                  {
-                    doc: orders.id,
-                    ops: [
-                      {
-                        node: {
-                          component: "Button",
-                          from: LEGACY_SYSTEM_FROM,
-                          id: "go",
-                          text: "Go",
-                          type: "instance",
-                        },
-                        op: "insert",
-                        parent: root?.id ?? null,
-                      },
-                      {
-                        node: {
-                          component: "Promo",
-                          from: LEGACY_DRAFT_FROM,
-                          id: "promo",
-                          text: "Spring sale",
-                          type: "instance",
-                        },
-                        op: "insert",
-                        parent: root?.id ?? null,
-                      },
-                    ],
-                  },
-                ],
-              })
-            );
-            const migration = project.service(Migration);
-            assert.deepStrictEqual(yield* migration((m) => m.left), {
-              drawn: 2,
-              left: 0,
-              specs: 3,
-            });
-
-            assert.deepStrictEqual(yield* migration((m) => m.run), {
-              components: 2,
-              documents: 1,
-              drawn: 2,
-            });
-            const after = yield* documents((d) => d.get(orders.id));
-            assert.deepInclude(after.root && findNode(after.root, "go"), {
-              from: SYSTEM_FROM,
-            });
-            assert.deepInclude(after.root && findNode(after.root, "promo"), {
-              from: APP_FROM,
-              props: { text: "Spring sale" },
-            });
-            const files = yield* components((c) => c.components);
-            const promo = files.find((c) => c.name === "Promo");
-            assert.strictEqual(promo?.origin, "app");
-            assert.deepStrictEqual(
-              promo?.origin === "app" ? promo.properties : null,
-              [
-                {
-                  default: "Sale",
-                  kind: "text",
-                  name: "text",
-                  targets: [{ node: "p-title" }],
-                },
-              ]
-            );
-            assert.deepStrictEqual(
-              files.find((c) => c.name === "Button")?.notes,
-              [{ id: "n1", text: "Submits its form" }]
-            );
-            // A spec that mirrored the code drew nothing: it is gone, with no file of its own.
-            assert.isUndefined(files.find((c) => c.name === "Badge"));
-            assert.isFalse(yield* fs.exists(at("specs/Button.spec.json")));
-            assert.isTrue(
-              yield* fs.exists(
-                at("_implemented/components/Button.implemented.json")
-              )
-            );
-            // The link follows: implemented as it was, the design as it was implemented.
-            const button = yield* implementation((i) =>
-              i.item("component:Button")
-            );
-            assert.isFalse(button.designChanged);
-            assert.deepStrictEqual(button.files, ["src/button.tsx"]);
-
-            // One step back puts everything as it was.
-            yield* project.service(EditService)((e) => e.undo);
-            assert.isTrue(yield* fs.exists(at("specs/Button.spec.json")));
-            assert.isFalse(
-              yield* fs.exists(at("components/Button.component.json"))
-            );
-            assert.include(
-              yield* fs.readFileString(at("implementation.json")),
-              "spec:Button"
-            );
-          }),
-        60_000
-      );
-    }
-  );
+  layer(ProjectTest({ files: { "designs/orders.page.json": LEGACY_PAGE } }), {
+    excludeTestServices: true,
+  })((it) => {
+    it.effect(
+      "reads a page from before ADR 0041 as a problem that says where its instance is and that nothing migrates it",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const documents = project.service(DocumentService);
+          const orders = yield* documents((d) => d.get("orders.page.json"));
+          assert.isNull(orders.root);
+          assert.include(
+            orders.problem,
+            'at ["root"]["children"][0]["children"][0]["from"]'
+          );
+          assert.include(orders.problem, "no longer migrated");
+        })
+    );
+  });
 
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
     it.effect(

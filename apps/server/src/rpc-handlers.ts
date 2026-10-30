@@ -16,7 +16,6 @@ import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
-import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
@@ -72,7 +71,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const skills = project.service(SkillsService);
     const figma = project.service(FigmaImportService);
     const components = project.service(ComponentService);
-    const migration = project.service(Migration);
     const implementation = project.service(ImplementationService);
 
     return UltrapaintRpcs.of({
@@ -233,7 +231,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
             url,
           })
         ),
-      "migration.run": () => migration((m) => m.run),
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>

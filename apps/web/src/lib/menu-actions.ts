@@ -90,7 +90,6 @@ import {
   nodesOf,
   placeOf,
   renameNode,
-  replaceWithSystemComponent,
   selected,
   selectParent,
   setHidden,
@@ -450,8 +449,6 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
     }
     case "detach":
       return ensureEditable() && detachInstances(sel);
-    case "toSystem":
-      return ensureEditable() && replaceWithSystemComponent(act.name, sel);
     case "link":
       return setLink(sel, act.to);
     case "linkUrl":

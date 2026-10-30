@@ -319,16 +319,6 @@ export class ImplementationService extends Context.Service<
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
-    /**
-     * Entries changed inside another action, in its undo step (the migration's): `edits` gives
-     * the changes from the entries as they are in it.
-     */
-    readonly editIn: (
-      tx: EditTransaction,
-      edits: (
-        items: Readonly<Record<string, ImplementationEntry>>
-      ) => readonly EntryEdit[]
-    ) => Effect.Effect<void, EditFailure>;
   }
 >()("ultrapaint/server/ImplementationService") {
   static readonly layer = Layer.effect(
@@ -829,7 +819,6 @@ export class ImplementationService extends Context.Service<
       return ImplementationService.of({
         changes,
         current,
-        editIn,
         implemented,
         item,
         list,
