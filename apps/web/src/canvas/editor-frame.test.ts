@@ -42,7 +42,6 @@ const fakePreview = () => {
         scrollIntoView: vi.fn(),
         show: vi.fn(),
         skeleton: vi.fn(),
-        tokens: vi.fn(() => ({ "--color-primary": "red" })),
         unmount: vi.fn(),
         watchRects: vi.fn(),
       };
@@ -100,7 +99,6 @@ describe("a frame opened in the editor's page", () => {
     expect(frame.measure(["n"])).toEqual({
       n: { height: 1, width: 2, x: 3, y: 4 },
     });
-    expect(frame.tokens()).toEqual({ "--color-primary": "red" });
   });
 
   it("tells a frame opened later what it was asked before: rects, skeletons, how it is shown", () => {
