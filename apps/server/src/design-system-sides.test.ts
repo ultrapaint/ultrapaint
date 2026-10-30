@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, layer, it as plain } from "@effect/vitest";
+import { assert, describe, it as plain } from "@effect/vitest";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { allTokens } from "@ultrapaint/contracts/token-table";
 import { makeFixture as makeFigmaFile } from "@ultrapaint/figma-import/testing/fixture";
@@ -13,6 +13,7 @@ import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { figmaBaselineOf } from "./services/sync-sides.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** An effect of the open project's services, run in it. */
@@ -63,13 +64,12 @@ const BRAND = "@theme {\n  --color-brand: #2563eb;\n}\n";
 const INK = "@theme {\n  --color-ink: #111827;\n}\n";
 
 describe("the code's side", () => {
-  layer(
+  eachTest(
     ProjectTest({
       fileSystem: failingRenames,
       files: { "styles/brand.css": BRAND, "styles/ink.css": INK },
       settings: { hostCss: ["../../styles/brand.css", "../../styles/ink.css"] },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "writes every stylesheet or none: the first goes back when the second cannot be written",
@@ -119,12 +119,11 @@ describe("the code's side", () => {
     );
   });
 
-  layer(
+  eachTest(
     ProjectTest({
       files: { "styles/app.css": INK },
       settings: { hostCss: ["../../styles/app.css"] },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "reads the code once for every caller, and again once a stylesheet changes",
@@ -223,7 +222,7 @@ const brandFile = () => {
 };
 
 describe("Figma's side", () => {
-  layer(
+  eachTest(
     ProjectTest({
       files: {
         "node_modules/tailwindcss/package.json": '{ "name": "tailwindcss" }\n',
@@ -232,8 +231,7 @@ describe("Figma's side", () => {
         "styles/app.css": `@import "tailwindcss";\n${INK}`,
       },
       settings: { hostCss: ["../../styles/app.css"] },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "is matched to the code's own tokens while there is no design system, in Sync as in its task",
@@ -268,7 +266,7 @@ describe("Figma's side", () => {
     );
   });
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "keeps its baseline until there is a design system, and says nothing of another file",
       () =>
@@ -303,12 +301,11 @@ describe("Figma's side", () => {
 });
 
 describe("DESIGN.md's side", () => {
-  layer(
+  eachTest(
     ProjectTest({
       files: { "styles/app.css": INK },
       settings: { codeTokens: "auto", hostCss: ["../../styles/app.css"] },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "moves its baseline with the design system, placed then mirrored, before a token set returns",
