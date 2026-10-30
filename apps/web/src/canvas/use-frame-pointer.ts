@@ -19,9 +19,18 @@ import {
 import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
-import { selectForMenu, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { isolate } from "../state/isolation.ts";
-import { isSelected, selectedIn } from "../state/selection.ts";
+import {
+  isSelected,
+  select,
+  selectedIn,
+  selectForMenu,
+  selectMany,
+  selectPage,
+  toggleSelected,
+} from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
 import {
   beginDrag,
@@ -75,20 +84,21 @@ export const useFramePointer = ({
   canvas,
   frame,
   frameId,
-  kind,
   root,
 }: {
   canvas: string | null;
   /** Where the frame is on the canvas, which a node dragged off it starts from. */
   frame: { x: number; y: number };
-  frameId: string;
   /**
-   * A page, a node placed on the canvas (which a drag of its root moves about), or a board's
-   * frame an app component is edited in place in (ADR 0045), which stays where its board is.
+   * A page's frame or a view of it, a node placed on the canvas (which a drag of its root moves
+   * about), or a board's frame an app component is edited in place in (ADR 0045), which stays
+   * where its board is: its id says which.
    */
-  kind: "page" | "node" | "board";
+  frameId: string;
   root: DesignNode | null;
 }) => {
+  const ref = frameRefOf(frameId);
+  const kind = ref.kind === "view" ? "page" : ref.kind;
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
   /**
@@ -129,16 +139,14 @@ export const useFramePointer = ({
       store.setHover(null);
     }
   };
-  const select = (id: string) =>
-    useEditor.getState().select({ frame: frameId, nodeId: id });
+  const selectId = (id: string) => select({ frame: frameId, nodeId: id });
   const selectFrame = () => {
-    const store = useEditor.getState();
     if (kind === "page") {
-      store.selectPage(frameId);
+      selectPage(frameId);
     } else if (root && !root.locked) {
-      store.select({ frame: frameId, nodeId: root.id });
+      select({ frame: frameId, nodeId: root.id });
     } else {
-      store.select(null);
+      select(null);
     }
   };
   const onClick = (e: ReactMouseEvent) => {
@@ -150,9 +158,9 @@ export const useFramePointer = ({
     }
     const id = nodeAt(e);
     if (id && e.shiftKey) {
-      useEditor.getState().toggleSelected({ frame: frameId, nodeId: id });
+      toggleSelected({ frame: frameId, nodeId: id });
     } else if (id) {
-      select(id);
+      selectId(id);
     } else {
       selectFrame();
     }
@@ -165,7 +173,7 @@ export const useFramePointer = ({
       ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
       : null;
     if (id && node?.type === "text") {
-      select(id);
+      selectId(id);
       frameOf(frameId).editText(id);
     }
     // An app component's instance is edited in place (ADR 0041).
@@ -319,7 +327,7 @@ export const useFramePointer = ({
     // What is dragged is what is selected, as it would be after a click on it.
     const id = draggedId(target);
     if (id && useEditor.getState().selection?.nodeId !== id) {
-      select(id);
+      selectId(id);
     }
     beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
     moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
@@ -412,9 +420,7 @@ export const useFramePointer = ({
         level = childrenOf(only);
         continue;
       }
-      useEditor
-        .getState()
-        .selectMany(hits.map((n) => ({ frame: frameId, nodeId: n.id })));
+      selectMany(hits.map((n) => ({ frame: frameId, nodeId: n.id })));
       return;
     }
   };
@@ -460,12 +466,11 @@ export const useFramePointer = ({
     const at = toFrame(e);
     const id = pickAt(at.x, at.y, e.altKey);
     const current = currentRoot();
-    const store = useEditor.getState();
     if (id && current && (kind === "node" || id !== current.id)) {
       selectForMenu({ frame: frameId, nodeId: id });
       showMenu({ at, frame: frameId, kind: "node", nodeId: id }, anchor);
     } else if (kind === "page") {
-      store.selectPage(frameId);
+      selectPage(frameId);
       showMenu({ at, kind: "page", pageId: frameId }, anchor);
     } else if (current) {
       selectForMenu({ frame: frameId, nodeId: current.id });
@@ -476,7 +481,7 @@ export const useFramePointer = ({
     }
   };
   const onCommentContextMenu = (e: ReactMouseEvent) => {
-    useEditor.getState().selectPage(frameId);
+    selectPage(frameId);
     openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
   };
 

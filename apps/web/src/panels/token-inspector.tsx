@@ -28,6 +28,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { stepOf } from "../boards/color-boards.ts";
+import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
@@ -41,7 +42,7 @@ import {
   valueOp,
 } from "../lib/token-ops.ts";
 import { type FieldTokenKind, Swatch } from "../lib/token-options.tsx";
-import { pickOnBoard, useBoard } from "../state/board.ts";
+import { pickOf, pickOnBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import {
   commitEdits,
@@ -62,12 +63,10 @@ const pickerHex = (css: string | undefined) => {
 };
 
 /** Re-picks on the board what was renamed: the pick follows the group. */
-const repick = (nodeId: string) => {
-  const pick = useBoard.getState();
-  const key = pick.open ? `${pick.open.view}/${pick.open.item}` : null;
-  const was = key ? pick.picks[key] : undefined;
+const repick = (picked: Pick) => {
+  const was = pickOf(useBoard.getState());
   if (was) {
-    pickOnBoard({ frame: was.frame, nodeId });
+    pickOnBoard({ frame: was.frame, nodeId: pickId(picked) });
   }
 };
 
@@ -479,7 +478,7 @@ export const GroupInspector = ({
               to.trim() &&
               (await commitEdits([{ name, op: "renameGroup", to: to.trim() }]))
             ) {
-              repick(`group:${to.trim()}`);
+              repick({ kind: "group", name: to.trim() });
             }
           }}
           value={name}
