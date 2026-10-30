@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { type EventName, UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
@@ -15,6 +15,7 @@ import {
 import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
 import { ServerConfig, type StorageTarget } from "../config.ts";
+import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
 import { runCommand } from "../process.ts";
 import { ServerLive } from "../server.ts";
@@ -101,6 +102,8 @@ export class TestEnv extends Context.Service<
       typeof UltrapaintRpcs,
       RpcClientError.RpcClientError
     >;
+    /** The events the client starts following, once the server holds each subscription. */
+    readonly followed: Stream.Stream<EventName>;
     readonly home: string;
     readonly port: number;
     readonly repo: string;
@@ -195,9 +198,10 @@ export const makeTestServer = (
       const env = Layer.effect(
         TestEnv,
         Effect.map(
-          Effect.all([RpcClient.make(UltrapaintRpcs), listening]),
-          ([client, port]) => ({
+          Effect.all([RpcClient.make(UltrapaintRpcs), listening, EventBus]),
+          ([client, port, events]) => ({
             client,
+            followed: events.followed,
             home,
             port,
             repo,
@@ -210,11 +214,11 @@ export const makeTestServer = (
           })
         )
       );
-      // The client connects only after the server layer is up. Its `ListenPort` is the
-      // server's: a layer is built once for the whole of a build.
+      // The client connects only after the server layer is up. Its `ListenPort` and its
+      // `EventBus` are the server's: a layer is built once for the whole of a build.
       return env.pipe(
         Layer.provide(protocol),
-        Layer.provide(ListenPort.layer),
+        Layer.provide(Layer.mergeAll(ListenPort.layer, EventBus.layer)),
         Layer.provide(server)
       );
     })
@@ -226,15 +230,20 @@ export const TestServer = makeTestServer(({ home }) =>
 );
 
 /**
- * Consumes an event stream in the background once the server has the subscription. The
- * request goes out at once, and an answer to one sent after it on the same socket means the
- * server has started the stream's handler: no wait for a subscription to arrive.
+ * Consumes an event stream in the background once the server holds its subscription, as the
+ * server says (`followed`): an answer to a request sent after it says only that the server has
+ * the request, and a stream subscribes when first pulled, which may come later.
  */
 export const subscribed = <A, E, R>(consume: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
-    const { client } = yield* TestEnv;
+    const { followed } = yield* TestEnv;
+    // Started at once, the fiber has subscribed by the time the fork returns.
+    const holds = yield* Effect.forkScoped(Stream.runHead(followed), {
+      startImmediately: true,
+    });
     const fiber = yield* Effect.forkScoped(consume, { startImmediately: true });
-    yield* client["project.info"]();
+    // A stream that ends before the server holds it has nothing more to wait for.
+    yield* Effect.raceFirst(Fiber.join(holds), Fiber.await(fiber));
     return fiber;
   });
 

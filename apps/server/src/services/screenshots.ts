@@ -63,7 +63,7 @@ export class Screenshots extends Context.Service<
             SubscriptionRef.update(editors, (n) => n + 1),
             () => SubscriptionRef.update(editors, (n) => n - 1)
           ),
-          events.subscribe("screenshot")
+          events.follow("screenshot")
         )
       );
 

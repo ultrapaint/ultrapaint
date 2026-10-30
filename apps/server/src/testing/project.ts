@@ -17,6 +17,7 @@ import type { Tool, Toolkit } from "effect/ai";
 import { RpcTest } from "effect/rpc";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
+import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
 import { ProjectManager } from "../project.ts";
 import { RpcHandlers } from "../rpc-handlers.ts";
@@ -178,7 +179,8 @@ export const ProjectRpc = (options: ProjectTestOptions = {}) =>
     Effect.gen(function* () {
       const { home, repo, settings } = yield* ProjectFixture;
       const client = yield* RpcTest.makeClient(UltrapaintRpcs);
-      return { client, home, port: 0, repo, settings };
+      const { followed } = yield* EventBus;
+      return { client, followed, home, port: 0, repo, settings };
     })
   ).pipe(Layer.provide(RpcHandlers), Layer.provideMerge(ProjectTest(options)));
 
