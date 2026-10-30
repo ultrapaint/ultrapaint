@@ -82,6 +82,12 @@ A behaviour that crosses no wire is not tested over the socket.
   time is a polluter by construction; new code exposes an explicit `start`/`stop` or a scope.
 - Files go in a temporary directory acquired with `Effect.acquireRelease` (or `tmpdir` plus
   cleanup), never in the repository or a fixed path. A server listens on port 0.
+- On the server, `eachTest(world)` (or `perTest`) in `testing/each-test.ts` builds a test's world
+  afresh for every test and every repeat, on the test clock from `TEST_EPOCH` (never 0, which the
+  server reads as "never"). A block written `layer(world)((it) => …)` without a name closes its
+  world after as many tests as it holds, repeats included: name it, or use `eachTest`.
+- In the web, wait for what the code does, not for time: `until` (a store's change),
+  `fakeApi.requested` (a request sent) and `caughtUp()` (the reads of a connection landed).
 
 ### 4. Make the nondeterministic things inputs
 
@@ -90,6 +96,8 @@ A behaviour that crosses no wire is not tested over the socket.
   web's `Platform`) are given to the module, so a test gives fixed ones.
 - Do not assert on the order of things the code does not order (a `Map` built from concurrent
   results, a directory listing): sort, or assert as a set.
+  Two things the code orders by time are a clock step apart (`TestClock.adjust`), never on one
+  instant.
 - Hermetic: no network, no real agent, no real Figma, no real `git` remote. The seams that have a
   test adapter (the agent launcher, the preview's renderer, the snapshot store, the sync sides)
   exist for this.
