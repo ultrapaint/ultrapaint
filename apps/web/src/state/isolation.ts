@@ -146,20 +146,31 @@ export const editVariant = (variant: VariantEdited | null) => {
   editIn(next);
 };
 
-// Another canvas, or the prototype, leaves the component.
-useEditor.subscribe((now, before) => {
-  if (now.canvas !== before.canvas || now.workspace !== before.workspace) {
-    leaveIsolation();
-  }
-});
-
-// A file gone leaves the component; a canvas read again puts its tree back.
-useComponents.subscribe(showTree);
-useDocuments.subscribe((now, before) => {
-  if (now.docs !== before.docs) {
-    showTree();
-  }
-});
+/**
+ * Starts following what an edit in place depends on: another canvas, or the prototype, leaves the
+ * component; its file gone leaves it too; a canvas read again puts its tree back. The app starts
+ * it, as a test that needs it does; the answer stops it.
+ */
+export const startIsolation = (): (() => void) => {
+  const offs = [
+    useEditor.subscribe((now, before) => {
+      if (now.canvas !== before.canvas || now.workspace !== before.workspace) {
+        leaveIsolation();
+      }
+    }),
+    useComponents.subscribe(showTree),
+    useDocuments.subscribe((now, before) => {
+      if (now.docs !== before.docs) {
+        showTree();
+      }
+    }),
+  ];
+  return () => {
+    for (const off of offs) {
+      off();
+    }
+  };
+};
 
 /** What a frame is told of the instance edited in it: the one, drawn at the variant edited. */
 export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {

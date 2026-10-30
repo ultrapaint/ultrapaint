@@ -126,12 +126,6 @@ export const hasPrototypeLinks = (ref: FrameRef): boolean =>
   pageOfRef(ref) !== null;
 
 /**
- * Whether a node dragged out of a frame can land on the ground around it: the page canvas's
- * ground is its loose nodes' document; a board view's is no document at all.
- */
-export const dropsOnGround = (ref: FrameRef): boolean => ref.kind !== "board";
-
-/**
  * The document a frame shows: the page it draws, or the canvas's loose nodes. Null for a board,
  * which draws what it generates (an app component's tree edited on it is `editedAs`'s).
  */

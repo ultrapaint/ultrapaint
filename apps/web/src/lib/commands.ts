@@ -13,7 +13,7 @@ import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import type { LayerItem } from "../panels/layer-tree.ts";
 import { useAgents } from "../state/agents.ts";
-import { BOARD_MODES, useBoard } from "../state/board.ts";
+
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
@@ -22,13 +22,13 @@ import {
   type LeftTab,
   type Mode,
   pagesOfCanvas,
-  railTabs,
   useEditor,
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
 import { showLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { surfaceNow } from "../state/surface.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
 import { type Keys, keysLabel } from "./keys.ts";
@@ -193,7 +193,7 @@ const pickTool = (tool: Mode) => {
     return;
   }
   // A board view has its own few tools.
-  if (useBoard.getState().open && !BOARD_MODES.includes(tool)) {
+  if (!surfaceNow().modes.includes(tool)) {
     return;
   }
   editor().setMode(tool);
@@ -291,7 +291,7 @@ const panelCommands = (): CommandSpec[] => [
       group: "Panels",
       id: `panel:${p.tab}`,
       ...(p.keywords ? { keywords: p.keywords } : {}),
-      offered: () => onCanvas() && railTabs.includes(p.tab),
+      offered: onCanvas,
       run: () => showLeftPanel(p.tab),
       title: `Show ${p.title}`,
     })
@@ -778,11 +778,16 @@ const paletteCommand = (c: CommandSpec): Command => ({
   title: titleOf(c),
 });
 
+/**
+ * Whether a command makes sense now: what it says of itself, and what the main area offers (a
+ * board view has no code, comments or grid of its own). Its keys are let go of where it does not.
+ */
+export const isOffered = (c: CommandSpec) =>
+  (c.offered?.() ?? true) && surfaceNow().offers(c.id);
+
 /** The commands that make sense now: the panels the workspace offers, the canvas's tools on it. */
 export const commands = (): Command[] =>
-  commandList()
-    .filter((c) => c.offered?.() ?? true)
-    .map(paletteCommand);
+  commandList().filter(isOffered).map(paletteCommand);
 
 /** Every key, in the palette's groups, whatever the moment offers: the sheet lists them all. */
 export const shortcuts = (): Shortcut[] => {

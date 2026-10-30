@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
 import {
   boardTree,
-  fitFirstView,
   followBoardHistory,
   leaveBoard,
   openBoard,
@@ -13,7 +12,9 @@ import {
   pickOnBoard,
   placeOfUrl,
   railTabsFor,
-  setBoardFrames,
+  setBoardSize,
+  showBoards,
+  startBoardView,
   useBoard,
 } from "./board.ts";
 import { measureViewportWith, setView, zoomToFit } from "./camera.ts";
@@ -21,8 +22,8 @@ import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { isolate, useIsolation } from "./isolation.ts";
-import { allFrames } from "./page-layout.ts";
 import { select } from "./selection.ts";
+import { allFrames } from "./surface.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -71,13 +72,16 @@ beforeEach(() => {
 
 describe("openBoard", () => {
   it("fits the boards between the panels once measured, the first time an item is opened only", () => {
-    const wide = {
-      "board:library/Plan/tone=a": { height: 200, width: 900, x: 0, y: 0 },
-      "board:library/Plan/tone=b": { height: 200, width: 900, x: 924, y: 0 },
+    const boards = ["board:library/Plan/tone=a", "board:library/Plan/tone=b"];
+    /** The two boards drawn side by side, 900 wide each with 24 between them. */
+    const drawn = () => {
+      showBoards(boards, "row");
+      for (const id of boards) {
+        setBoardSize(id, { height: 200, width: 900 });
+      }
     };
     openBoard({ item: "Plan", view: "library" });
-    setBoardFrames(wide);
-    fitFirstView();
+    drawn();
     const fitted = useEditor.getState().view;
     // 1824 wide in the 1000 between the panels, the margins kept on both sides.
     expect(fitted.zoom).toBeCloseTo((1000 - 64) / 1824);
@@ -86,18 +90,15 @@ describe("openBoard", () => {
     setView({ x: 500, zoom: 0.25 });
     openBoard({ item: "color", view: "system" });
     openBoard({ item: "Plan", view: "library" });
-    setBoardFrames(wide);
-    fitFirstView();
+    drawn();
     expect(useEditor.getState().view).toMatchObject({ x: 500, zoom: 0.25 });
   });
 
   it("leaves the camera where the user moved it before the boards were measured", () => {
     openBoard({ item: "Plan", view: "library" });
+    showBoards(["board:library/Plan/a"], "column");
     setView({ x: 10 });
-    setBoardFrames({
-      "board:library/Plan/a": { height: 200, width: 3000, x: 0, y: 0 },
-    });
-    fitFirstView();
+    setBoardSize("board:library/Plan/a", { height: 200, width: 3000 });
     expect(useEditor.getState().view).toMatchObject({ x: 10, zoom: 1 });
   });
 
@@ -184,8 +185,10 @@ describe("leaveBoard", () => {
   });
 
   it("gives way to the prototype, the page's selection put aside for the canvas", () => {
+    const stop = startBoardView();
     openBoard({ item: "color", view: "system" });
     useEditor.getState().setWorkspace("prototype");
+    stop();
     expect(useBoard.getState().open).toBeNull();
     expect(useEditor.getState().view).toEqual(PAGE_VIEW);
     expect(readUrl().board).toBeNull();
@@ -218,7 +221,8 @@ describe("frames", () => {
   it("are the camera's while a board view is open, the pages' after", () => {
     openBoard({ item: "color", view: "system" });
     const box = { height: 200, width: 400, x: 0, y: 0 };
-    setBoardFrames({ "board:system/color/palette": box });
+    showBoards(["board:system/color/palette"], "column");
+    setBoardSize("board:system/color/palette", { height: 200, width: 400 });
     expect(allFrames()).toEqual({ "board:system/color/palette": box });
     zoomToFit();
     // 1000 pixels seen, less 60 a side, over 400.

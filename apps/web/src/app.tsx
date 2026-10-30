@@ -47,7 +47,12 @@ import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
-import { followBoardHistory, openBoardInUrl, useBoard } from "./state/board.ts";
+import {
+  followBoardHistory,
+  openBoardInUrl,
+  startBoardView,
+  useBoard,
+} from "./state/board.ts";
 import { setView } from "./state/camera.ts";
 import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
@@ -59,6 +64,7 @@ import {
   type Workspace,
 } from "./state/editor.ts";
 import { useImplementation } from "./state/implementation.ts";
+import { startIsolation } from "./state/isolation.ts";
 import {
   followHistory,
   openStartCanvas,
@@ -70,6 +76,7 @@ import { usePanels } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { followServer } from "./state/server-data.ts";
+import { useSurface } from "./state/surface.ts";
 import { useSync } from "./state/sync.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
@@ -248,6 +255,7 @@ const RightPanel = ({
   onWidthChange: (width: number) => void;
 }) => {
   const rightTab = useEditor((s) => s.rightTab);
+  const surface = useSurface();
   const board = useBoard((s) => s.open);
   const handle = (
     <ResizeHandle
@@ -258,7 +266,7 @@ const RightPanel = ({
     />
   );
   // On a board view, the inspector of what it shows (ADR 0045), in the tabs' place.
-  if (board) {
+  if (surface.rightPanel === "inspector" && board) {
     return (
       <aside
         className="floating pointer-events-auto relative flex min-h-0 flex-1 flex-col"
@@ -328,6 +336,7 @@ export const App = () => {
   const leftTab = useEditor((s) => s.leftTab);
   const settingsOpen = useProject((s) => s.settingsOpen);
   const board = useBoard((s) => s.open);
+  const surface = useSurface();
   const leftPanel =
     workspace === "design" && leftTab === "chat" ? chatBounds : leftBounds;
   const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
@@ -402,6 +411,10 @@ export const App = () => {
   // The browser's back and forward buttons are the prototype's, and the board views'.
   useEffect(() => followHistory(), []);
   useEffect(() => followBoardHistory(), []);
+  // What follows the editor's other stores: a board view gives way to the prototype, an app
+  // component edited in place to another canvas.
+  useEffect(() => startBoardView(), []);
+  useEffect(() => startIsolation(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {
@@ -434,7 +447,9 @@ export const App = () => {
                 } as CSSProperties
               }
             >
-              {workspace !== "prototype" && board === null && <Canvas />}
+              {workspace !== "prototype" && surface.kind === "page" && (
+                <Canvas />
+              )}
               {workspace !== "prototype" && board !== null && (
                 <Suspense
                   fallback={<div className="absolute inset-0 bg-board" />}

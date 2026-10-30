@@ -23,12 +23,7 @@ import type {
 import { sizeForPreset } from "../lib/presets.ts";
 import { api } from "./connection.ts";
 import { canvasNodes, useDocuments } from "./documents.ts";
-import {
-  boardFramesNow,
-  type EditorState,
-  pagesOfCanvas,
-  useEditor,
-} from "./editor.ts";
+import { type EditorState, pagesOfCanvas, useEditor } from "./editor.ts";
 import { frameRefOf, nodeFrameOf, viewFrameOf } from "./frame-ref.ts";
 import { reportError } from "./project.ts";
 import { pickedIn } from "./selection.ts";
@@ -427,7 +422,7 @@ export const applyLayout = (canvas: string, pushed: CanvasLayout) => {
  * The page canvas's frames, pages, their views and the nodes beside the pages alike: what fits,
  * zooms and drops look at there.
  */
-const pageCanvasFrames = (): Record<string, Box> => {
+export const pageCanvasFrames = (): Record<string, Box> => {
   const { frames, held, sizes, canvas } = useEditor.getState();
   const out: Record<string, Box> = { ...frames };
   for (const node of canvasNodes(useDocuments.getState().docs, canvas)) {
@@ -435,15 +430,6 @@ const pageCanvasFrames = (): Record<string, Box> => {
     out[frame] = { ...nodeFrameLayout(node, sizes[frame]), ...held[frame] };
   }
   return out;
-};
-
-/**
- * Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. On a
- * board view, the boards' frames.
- */
-export const allFrames = (): Record<string, Box> => {
-  const board = boardFramesNow();
-  return board ? { ...board } : pageCanvasFrames();
 };
 
 /** What a canvas draws every page in (`CanvasLayout.defaults`): the open one's, or the server's. */

@@ -5,10 +5,11 @@
  * camera, its selection, its tool and the left panel shown) and found again on leaving.
  *
  * While a board view is open the editor's camera is the board's: `useEditor.view`, moved by
- * `camera.ts` as on the page canvas, and `allFrames` the boards' frames, which this module tells
- * the editor (`showBoardFramesWith`). The page's camera waits here, and so does the camera each
- * item was left at. What is picked on a board is the board's own (B6), kept per item; the page's
- * selection is not touched by it.
+ * `camera.ts` as on the page canvas, and the frames it fits and zooms to the boards', laid out
+ * here (`showBoards`, `setBoardSize`, by `board-layout.ts`) and read through the board surface
+ * (`surface.ts`). The page's camera waits here, and so does the camera each item was left at.
+ * What is picked on a board is the board's own (B6), kept per item; the page's selection is not
+ * touched by it.
  *
  * The URL says where (`?view=system&item=color`, `url.ts`): opening a board view from the page
  * is a navigation, which back walks; going from item to item replaces it.
@@ -27,7 +28,12 @@ import {
   appVariantOfBoard,
   appVariantsOf,
 } from "../boards/library-boards.ts";
-import { firstBoardView } from "../lib/board-layout.ts";
+import {
+  boardLayout,
+  boardRoom,
+  firstBoardView,
+  wrappedBoards,
+} from "../lib/board-layout.ts";
 import { setView, type View, viewportSize } from "./camera.ts";
 import { appComponentOf, useComponents } from "./components.ts";
 import type { useDocuments } from "./documents.ts";
@@ -35,8 +41,6 @@ import {
   type LeftTab,
   type Mode,
   railTabs,
-  showBoardFramesWith,
-  takeBoardSelectionWith,
   unpicked,
   useEditor,
 } from "./editor.ts";
@@ -61,6 +65,14 @@ export interface BoardPick {
   readonly nodeId: string;
 }
 
+/** How an item's boards are laid out: in a row, in a column, or in rows as wide as the canvas. */
+export type BoardDirection = "row" | "column" | "wrap";
+
+interface Size {
+  readonly height: number;
+  readonly width: number;
+}
+
 /** The page canvas as a board view found it, put back on leaving. */
 interface Left {
   readonly leftTab: LeftTab;
@@ -70,6 +82,11 @@ interface Left {
 }
 
 interface BoardStore {
+  /** The boards of the item open, by frame id, and how they are laid out: the board canvas says. */
+  boards: {
+    readonly direction: BoardDirection;
+    readonly ids: readonly string[];
+  };
   /** The camera each item was left at, by `boardKey`. */
   cameras: Readonly<Record<string, View>>;
   /**
@@ -77,7 +94,7 @@ interface BoardStore {
    * measured and fitted between the panels; null once they are, or the camera was moved.
    */
   fitting: { readonly key: string; readonly view: View } | null;
-  /** Where the boards of the item open are, by frame id, as the board canvas lays them out. */
+  /** Where the boards of the item open are, by frame id: laid out from their sizes. */
   frames: Readonly<Record<string, Box>>;
   /** A guideline's text as it is typed in its inspector, drawn on its board until it is saved. */
   guideDraft: { readonly item: string; readonly text: string } | null;
@@ -89,11 +106,16 @@ interface BoardStore {
   open: BoardPlace | null;
   /** What is picked on each item's boards, by `boardKey`. */
   picks: Readonly<Record<string, BoardPick>>;
+  /** Each board's size as its frame drew it, by frame id. */
+  sizes: Readonly<Record<string, Size>>;
   /** The theme the boards are drawn in; null for the design's first. */
   theme: string | null;
 }
 
+const NO_BOARDS: BoardStore["boards"] = { direction: "column", ids: [] };
+
 export const useBoard = create<BoardStore>(() => ({
+  boards: NO_BOARDS,
   cameras: {},
   fitting: null,
   frames: {},
@@ -102,13 +124,9 @@ export const useBoard = create<BoardStore>(() => ({
   left: null,
   open: null,
   picks: {},
+  sizes: {},
   theme: null,
 }));
-
-showBoardFramesWith(() => {
-  const { frames, open } = useBoard.getState();
-  return open ? frames : null;
-});
 
 /** The variant a board of the app component open draws; undefined for no board of it. */
 const appBoardOf = (frame: string) => {
@@ -130,8 +148,28 @@ const appBoardOf = (frame: string) => {
   return known ? { file, variant } : undefined;
 };
 
-// An app component's boards take a selection: its tree is edited in place there.
-takeBoardSelectionWith((frame) => appBoardOf(frame) !== undefined);
+/**
+ * Whether a frame of the board view takes a selection: an app component's board, whose tree is
+ * edited in place there (ADR 0045). Nothing else of a board view is selected.
+ */
+export const boardTakesSelection = (frame: string) =>
+  appBoardOf(frame) !== undefined;
+
+/**
+ * What is selected in an app component's board (from Layers, or a node of its tree) is edited in
+ * place there: the board's instance is isolated, what was selected kept.
+ */
+export const editSelectedOnBoard = (frame: string) => {
+  if (useIsolation.getState().isolated?.frame === frame) {
+    return;
+  }
+  const board = appBoardOf(frame);
+  if (!board) {
+    return;
+  }
+  const { instance, variant } = appInPlace(board.file, board.variant);
+  isolate(frame, instance, { select: false, variant });
+};
 
 /** An item's key among the cameras and the picks. */
 export const boardKey = (place: BoardPlace) => `${place.view}/${place.item}`;
@@ -237,6 +275,7 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
   const saved = cameras[boardKey(place)];
   const view = saved ?? firstView();
   useBoard.setState({
+    boards: NO_BOARDS,
     cameras,
     fitting: saved ? null : { key: boardKey(place), view },
     frames: {},
@@ -271,6 +310,7 @@ const close = (): { left: Left | null; view: BoardView } | null => {
   }
   leaveIsolation();
   useBoard.setState({
+    boards: NO_BOARDS,
     cameras: { ...cameras, [boardKey(open)]: useEditor.getState().view },
     frames: {},
     left: null,
@@ -339,18 +379,57 @@ const sameBoxes = (
   );
 };
 
-/** Where the boards of the item open are now: the board canvas lays them out as they draw. */
-export const setBoardFrames = (frames: Readonly<Record<string, Box>>) => {
-  if (!sameBoxes(useBoard.getState().frames, frames)) {
-    useBoard.setState({ frames });
+/**
+ * Lays the boards out from what they are and their sizes (`board-layout.ts`), the same object kept
+ * while no box moves; the first time an item is opened, once every board says its size, they are
+ * fitted between the panels.
+ */
+const layOut = () => {
+  const { boards, frames, sizes } = useBoard.getState();
+  const next =
+    boards.direction === "wrap"
+      ? wrappedBoards(boards.ids, sizes, boardRoom(viewportSize()))
+      : boardLayout(boards.ids, sizes, boards.direction);
+  if (!sameBoxes(frames, next)) {
+    useBoard.setState({ frames: next });
   }
+  if (boards.ids.length > 0 && boards.ids.every((id) => sizes[id])) {
+    fitFirstView();
+  }
+};
+
+/** The boards the item open draws, by frame id, in order, and how they are laid out. */
+export const showBoards = (
+  ids: readonly string[],
+  direction: BoardDirection
+) => {
+  const { boards } = useBoard.getState();
+  if (
+    boards.direction !== direction ||
+    boards.ids.length !== ids.length ||
+    boards.ids.some((id, i) => ids[i] !== id)
+  ) {
+    useBoard.setState({ boards: { direction, ids } });
+  }
+  layOut();
+};
+
+/** A board's size as its frame drew it: the boards are laid out again when it changed. */
+export const setBoardSize = (frame: string, size: Size) => {
+  const { sizes } = useBoard.getState();
+  const known = sizes[frame];
+  if (known?.width === size.width && known.height === size.height) {
+    return;
+  }
+  useBoard.setState({ sizes: { ...sizes, [frame]: size } });
+  layOut();
 };
 
 /**
  * The boards of the item open measured, the first time it is opened: every one fitted between
  * the panels, unless the camera was moved meanwhile.
  */
-export const fitFirstView = () => {
+const fitFirstView = () => {
   const { fitting, frames, open } = useBoard.getState();
   if (!(fitting && open && fitting.key === boardKey(open))) {
     return;
@@ -400,34 +479,10 @@ export const followBoardHistory = (): (() => void) =>
   });
 
 /**
- * What is selected in an app component's board (from Layers, or a node of its tree) is edited in
- * place there: the board's instance is isolated, what was selected kept.
- */
-useEditor.subscribe((now, before) => {
-  const frame = now.selection?.frame;
-  if (
-    frame === undefined ||
-    frame === before.selection?.frame ||
-    useIsolation.getState().isolated?.frame === frame
-  ) {
-    return;
-  }
-  const board = appBoardOf(frame);
-  if (!board) {
-    return;
-  }
-  const { instance, variant } = appInPlace(board.file, board.variant);
-  isolate(frame, instance, { select: false, variant });
-});
-
-/**
  * The prototype shows the page: a board view open gives way to it, and what the page was left
  * with is what the canvas is found with when the prototype is left.
  */
-useEditor.subscribe((now, before) => {
-  if (now.workspace !== "prototype" || before.workspace === "prototype") {
-    return;
-  }
+const giveWayToPrototype = () => {
   const closed = close();
   if (!closed) {
     return;
@@ -444,4 +499,15 @@ useEditor.subscribe((now, before) => {
     setView(left.view);
   }
   writeBoard(null, false);
-});
+};
+
+/**
+ * Starts the board view following the editor: the prototype opened closes it. The app starts it,
+ * as a test that needs it does; the answer stops it.
+ */
+export const startBoardView = (): (() => void) =>
+  useEditor.subscribe((now, before) => {
+    if (now.workspace === "prototype" && before.workspace !== "prototype") {
+      giveWayToPrototype();
+    }
+  });

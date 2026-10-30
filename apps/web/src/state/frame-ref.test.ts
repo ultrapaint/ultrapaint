@@ -2,7 +2,6 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { describe, expect, it } from "vitest";
 import {
   documentShown,
-  dropsOnGround,
   type FrameRef,
   frameIdOf,
   frameRefOf,
@@ -68,15 +67,6 @@ describe("what a frame takes", () => {
       true,
       true,
       false,
-      false,
-    ]);
-  });
-
-  it("a drop on the ground around it on the page canvas, none on a board view", () => {
-    expect([PAGE, VIEW, NODE, BOARD].map(dropsOnGround)).toEqual([
-      true,
-      true,
-      true,
       false,
     ]);
   });
