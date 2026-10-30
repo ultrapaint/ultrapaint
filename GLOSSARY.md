@@ -13,6 +13,13 @@ follow-ups.
 - **Design system**: the tokens and typography a canvas is drawn with, kept in
   `design-system.json` (everything but values) and `design.tokens.json` (every token's value)
   (ADRs 0028, 0035); the components' looks are their own files (ADR 0041). Read and written by the server's `design-system-files` codec.
+- **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
+  Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the
+  design system has data for it, each opened as its boards. The **Guidelines** are DESIGN.md's
+  sections (ADR 0027), listed under them and each opened as a document to read and edit.
+  Both are changed through `designSystem.edit`, a list of typed operations (a value in a theme,
+  a description, a token added, taken out or moved, a group added or renamed, a text style set
+  or taken out) applied by design-document's `applyEdits` in one undo step.
 - **Token**: a named value of the design system (`color-primary`, `text-xl`, `radius-md`), of a
   **kind** its name's prefix says. The **token table** (contracts' `token-table`) says which list
   of the design system holds each kind; the **spacing base** is the token named `spacing`. The
@@ -232,6 +239,22 @@ follow-ups.
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
   rename in its Layers row) that waits until the panel takes it up (`useRequest`).
+- **Library**: the components as the rail's Library place lists them (ADR 0045): **App
+  components**, then **System components**. On a page canvas it is the **insert list** (a click
+  inserts into the selection, a drag places anywhere, ↗ opens a component's board, + New makes an
+  app component); on a board view the same list is the navigation, with Back to the page left and
+  an **Overview** of every component in its default look. The elements are not in it: the tools'
+  **Insert** menu offers them.
+- **Board**: a generated document drawn as a frame, by the renderer that draws pages, to show one
+  item of the design system or the Library (ADR 0045): a palette's ramps in a theme, a type
+  scale, a system component in every variant and state, an app component in one variant. Its
+  nodes are named for what they stand for, so a click on one **picks** it (a token, a cell, a
+  variant), and the right panel is the inspector of what is picked.
+- **Board view**: the main area while a Design system or Library item is open (ADR 0045): the
+  canvas's pan and zoom over that item's boards only, on a tinted dotted background of its own
+  and with a camera of its own, no element toolbar, the URL saying the item
+  (`?view=system&item=color`, `?view=library&item=Button`). Leaving it goes back to the page and
+  its camera as they were.
 - **Revealing**: bringing a page's frame or a node into view, the canvas's counterpart of showing
   a panel (the web's `reveal`): the canvas it is on is opened, the prototype left, it is
   selected, and the camera glides to it once its frame is **laid out**, the canvas on screen and

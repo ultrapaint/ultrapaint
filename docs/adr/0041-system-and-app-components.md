@@ -1,6 +1,7 @@
 # ADR 0041: System and app components
 
-Status: accepted, 2026-10-29; a state in one variant member: amended by 0044. Renames 0040's
+Status: accepted, 2026-10-29; a state in one variant member: amended by 0044; the Assets panel's
+components and a view of their own: amended by 0045 (the Library). Renames 0040's
 primitives and replaces 0029's specs and drafts.
 Amends 0030 (a component is a design target as `component:<Name>`, its snapshot in
 `_implemented/components/`) and 0027 (DESIGN.md's component tokens are read off the system
