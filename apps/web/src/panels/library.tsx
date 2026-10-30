@@ -71,7 +71,7 @@ const entryHandlers = (make: () => DesignNode, name: string) => ({
   draggable: true,
   onClick: () => insertNode(make()),
   onContextMenu: (e: React.MouseEvent) =>
-    openMenuAt(e, { isComponent: true, kind: "component", make, name }),
+    openMenuAt(e, { kind: "component", make, name }),
   // Dropped somewhere that is not the canvas: nothing lands.
   onDragEnd: () => {
     if (useDrag.getState().dragged?.kind === "new") {

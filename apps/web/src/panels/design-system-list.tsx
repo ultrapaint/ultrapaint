@@ -1,11 +1,14 @@
 /**
  * Design system's panel (ADR 0045): the navigation of its board view. The Foundations the design
  * system has data for, then the Guidelines, DESIGN.md's sections, with a search over the tokens;
- * the item open is lit, a click opens another. The Sync and `/init` are in its title, and the
- * Sync's view takes its place while the set-up is shown, as it did in the old panel. A project
- * with no design system yet sees the neutral palette its designs draw with, and a Set up.
+ * the item open is lit, a click opens another, and what DESIGN.md's linter finds is under them.
+ * The Sync and `/init` are in its title, and the Sync's view takes its place while the set-up is
+ * shown. A project with no design system yet sees the neutral palette its designs draw with, and
+ * a Set up.
  */
-import { RefreshCw, Search, Wand2 } from "lucide-react";
+import type { DesignFinding } from "@ultrapaint/contracts/design-system";
+import { cn } from "cn";
+import { AlertTriangle, RefreshCw, Search, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +40,35 @@ const Heading = ({ children }: { children: string }) => (
     {children}
   </div>
 );
+
+/** DESIGN.md's linter's errors and warnings, under the guidelines; its information says nothing to act on. */
+const Findings = ({ findings }: { findings: readonly DesignFinding[] }) => {
+  const shown = findings.filter((f) => f.severity !== "info");
+  if (shown.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="mx-3 mt-2 flex flex-col gap-1 font-body">
+      {shown.map((f) => (
+        <li
+          className={cn(
+            "flex items-start gap-1.5",
+            f.severity === "error"
+              ? "text-destructive"
+              : "text-muted-foreground"
+          )}
+          key={`${f.path ?? ""}${f.message}`}
+        >
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {f.path ? <span className="font-code">{f.path}: </span> : null}
+            {f.message}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 /** An item of the list: lit while its boards are open, a click opening them. */
 const ItemRow = ({ item, open }: { item: SystemItem; open: boolean }) => (
@@ -120,6 +152,7 @@ export const DesignSystemList = () => {
         {guidelines.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
         ))}
+        {document ? <Findings findings={document.findings} /> : null}
       </div>
       {designSystem || !loaded ? null : (
         <div className="flex shrink-0 flex-col items-start gap-2 border-t px-3 py-2.5 font-body text-muted-foreground">

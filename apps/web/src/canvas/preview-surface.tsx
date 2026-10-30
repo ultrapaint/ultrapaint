@@ -1,6 +1,6 @@
 /**
  * A page drawn by the repository's components outside the canvas (ADR 0034): the prototype, the
- * type samples, a component's matrix. A frame of the editor's page (`editor-frame.ts`), opened
+ * boards of Design system and the Library. A frame of the editor's page (`editor-frame.ts`), opened
  * while this is shown and thrown away after; a page that froze the editor before is a
  * placeholder until it is asked for.
  */

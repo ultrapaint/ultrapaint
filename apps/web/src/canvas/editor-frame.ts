@@ -1,6 +1,6 @@
 /**
  * The frames the editor draws pages in, shadow roots of its own page (ADR 0034): a frame of the
- * canvas, the prototype, the type samples, a component's matrix, the pictures. `frameOf(id)` is
+ * canvas, the prototype, the boards, the pictures. `frameOf(id)` is
  * the one handle on frame `id`; it opens the frame (`open`: its host, placed in a holder and drawn
  * by the preview), says what it says (`listen`, one listener per kind), tells it what to draw
  * (`render`, which skips what it shows already) and asks it what is where, answered at once

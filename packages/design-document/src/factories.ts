@@ -18,16 +18,13 @@ import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
  * The elements a design is built of (ADRs 0040, 0045): layout, text, images. The tools' Insert
  * menu offers some of them; a group is drawn with the group tool.
  */
-export const ELEMENTS = [
-  { id: "column", name: "Column" },
-  { id: "row", name: "Row" },
-  { id: "group", name: "Group" },
-  { id: "heading", name: "Heading" },
-  { id: "paragraph", name: "Paragraph" },
-  { id: "image", name: "Image" },
-] as const;
-
-export type ElementId = (typeof ELEMENTS)[number]["id"];
+export type ElementId =
+  | "column"
+  | "row"
+  | "group"
+  | "heading"
+  | "paragraph"
+  | "image";
 
 /** Placeholder picture for an image nobody has chosen yet: a grey box, inline. */
 export const PLACEHOLDER_IMAGE =

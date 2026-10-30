@@ -2,7 +2,7 @@
  * A board view's canvas (ADR 0045), in the page canvas's place while one is open: the same camera
  * (its wheel, its pan, Space held, the zoom control), on a blue-tinted ground of dots of its own,
  * over the boards of the item open and nothing else. A board is a generated document drawn as a
- * frame by the page's renderer, as the Components tab's matrix is: nothing here draws a design.
+ * frame by the page's renderer, as a page is: nothing here draws a design.
  *
  * Its frames are `board:<view>/<item>/<name>`, laid out in a row or a column as they report their
  * size (`boardLayout`), and told to the camera through `setBoardFrames`. A click picks the node a

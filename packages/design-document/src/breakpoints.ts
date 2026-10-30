@@ -28,9 +28,6 @@ export const DEFAULT_BREAKPOINTS: readonly Breakpoint[] = [
   { min: 1536, name: "2xl" },
 ];
 
-/** What the base, below every breakpoint, is called where a breakpoint's name would be. */
-export const BASE_NAME = "base";
-
 /** The design system's breakpoints, smallest first; Tailwind's when it names none. */
 export const breakpointsOf = (
   ds: DesignSystem | null | undefined

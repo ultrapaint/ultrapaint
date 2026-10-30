@@ -7,7 +7,7 @@ const KEY_RE = /^[\w-]{1,64}$/;
 const UNSAFE_RE = /[^\w.-]+/g;
 
 /**
- * Thumbnails of the Assets panel's components, drawn by the editor's own preview and kept in the
+ * Thumbnails of the Library's components, drawn by the editor's own preview and kept in the
  * state directory under the key of what they were drawn from — the catalogue and the design
  * system — so they are drawn once, and again only when either changes.
  */

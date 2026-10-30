@@ -60,9 +60,7 @@ export const rowAxisOf = (
 };
 
 /** The states a look is drawn in: those it sets, in every member or in one, and the usual three. */
-export const drawnStates = (
-  component: SystemComponentFile
-): ComponentState[] => {
+const drawnStates = (component: SystemComponentFile): ComponentState[] => {
   const set = new Set<string>(Object.keys(component.states));
   for (const members of Object.values(component.variantStates ?? {})) {
     for (const states of Object.values(members)) {
@@ -74,77 +72,6 @@ export const drawnStates = (
   return COMPONENT_STATES.filter(
     (s) => set.has(s) || ["hover", "focus", "disabled"].includes(s)
   );
-};
-
-/**
- * The matrix the Components tab's preview draws (a board's is `systemComponentBoards`'s): a row per member of an axis (the default alone when there is
- * none), a column for the base and each state, every cell the real component pinned in it, so
- * each member shows each state with its own values. An app component is drawn once, as an
- * instance with its properties' defaults.
- */
-export const matrixOf = (
-  component: ComponentFile,
-  meta: ComponentMeta | undefined,
-  pageWidth: number,
-  rowAxis: string | undefined,
-  /** A row of many states goes on below, as in a narrow panel; on a board it stays one row. */
-  wrap = true
-): DesignNode => {
-  if (component.origin === "app") {
-    // At its own width when it has one, else as wide as a page: a header that fills a page is
-    // not squeezed into the panel, the picture is scaled down to it instead.
-    const { width } = component.tree;
-    return {
-      children: [
-        {
-          component: component.name,
-          from: APP_FROM,
-          id: "cell-app",
-          type: "instance",
-        },
-      ],
-      id: "matrix",
-      padding: 12,
-      type: "column",
-      width: typeof width === "number" ? width + 24 : pageWidth,
-    };
-  }
-  const axes = axesOf(component, meta);
-  const axis = rowAxisOf(component, axes, rowAxis);
-  const members = axis ? (axes[axis] ?? []) : [];
-  const states: (ComponentState | null)[] = [null, ...drawnStates(component)];
-  const rows = (members.length > 0 ? members : [null]).map(
-    (member, r): DesignNode => ({
-      children: states.map(
-        (state): DesignNode => ({
-          component: component.name,
-          from: SYSTEM_FROM,
-          // Named for what it stands for (B6): a click on it picks that member in that state.
-          id: `cell:${member ?? "default"}:${state ?? "base"}`,
-          props: {
-            ...(axis && member ? { [axis]: member } : {}),
-            ...(state ? { [STATE_ATTRIBUTE]: state } : {}),
-            ...(state === "disabled" ? { disabled: true } : {}),
-          },
-          text: component.name,
-          type: "instance",
-        })
-      ),
-      crossAlign: "center",
-      gap: 8,
-      id: `row-${r}`,
-      type: "row",
-      wrap,
-    })
-  );
-  return {
-    children: rows,
-    gap: 12,
-    id: "matrix",
-    padding: 12,
-    type: "column",
-    width: "fill",
-  };
 };
 
 /** How wide a board draws what a page would fill: an app component without a width of its own. */

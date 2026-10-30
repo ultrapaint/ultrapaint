@@ -721,7 +721,6 @@ const everyTarget = (): MenuTarget[] => [
   { kind: "token", name: "primary", tokenKind: "color", value: "#000" },
   { kind: "textStyle", name: "Body" },
   {
-    isComponent: true,
     kind: "component",
     make: () => text("made"),
     name: "Card",

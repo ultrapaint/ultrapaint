@@ -341,7 +341,6 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         "component",
         target,
         componentEntries({
-          isComponent: target.isComponent,
           name: target.name,
           onCanvas: onCanvas() && useEditor.getState().canvas !== null,
           target: insertTarget()?.name ?? null,

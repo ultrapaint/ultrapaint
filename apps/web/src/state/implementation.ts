@@ -1,6 +1,6 @@
 /**
  * Which designs are implemented, ready, or changed since (ADR 0030): the Pages panel, the
- * inspector and the Components tab read each design's status from here. The server pushes it
+ * inspector and the Library's boards read each design's status from here. The server pushes it
  * whenever a design, a binding or a component's file changes; a change to the code is seen when the list is
  * read again, which the panels do when they open.
  */
