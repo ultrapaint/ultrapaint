@@ -1,5 +1,5 @@
 import { assert, describe, layer } from "@effect/vitest";
-import { emptySystemComponent } from "@ultrapaint/contracts/components";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { type Context, Effect } from "effect";
 import { ProjectManager, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";

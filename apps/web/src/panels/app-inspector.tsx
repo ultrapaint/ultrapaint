@@ -48,10 +48,7 @@ import { ComponentUsedIn, Notes, removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
 const useAppFile = (name: string) =>
-  useComponents((s) => {
-    const file = appComponentOf(s.components, name);
-    return file?.origin === "app" ? file : undefined;
-  });
+  useComponents((s) => appComponentOf(s.components, name));
 
 /** How many fields the tree's nodes override for a variant: what it draws differently. */
 const overridesOf = (tree: DesignNode, key: string) => {
