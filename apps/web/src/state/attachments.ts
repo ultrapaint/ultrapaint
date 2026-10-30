@@ -10,7 +10,12 @@ import type { Page } from "@ultrapaint/contracts/pages";
 import type { PromptAttachment } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
-import { frameOfCanvasNode, nodeIn, useDocuments } from "./documents.ts";
+import {
+  frameOfCanvasNode,
+  isBoardFrame,
+  nodeIn,
+  useDocuments,
+} from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
 
@@ -92,6 +97,10 @@ const canvasFileOf = (designsDir: string, canvas: string) =>
 
 /** The file a node of a frame lives in: its page's, or the canvas's own for a loose node. */
 export const fileOfFrame = (frame: string): string | null => {
+  // A board's frame is generated: it has no file of the designs (ADR 0045).
+  if (isBoardFrame(frame)) {
+    return null;
+  }
   const page = useProject.getState().pages.find((p) => p.id === frame);
   if (page) {
     return page.file;

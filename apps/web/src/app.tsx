@@ -47,6 +47,7 @@ import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
+import { followBoardHistory, openBoardInUrl, useBoard } from "./state/board.ts";
 import { setView } from "./state/camera.ts";
 import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
@@ -82,9 +83,19 @@ const Changes = lazy(() =>
 const Comments = lazy(() =>
   import("./panels/comments.tsx").then((m) => ({ default: m.Comments }))
 );
-const DesignSystemPanel = lazy(() =>
-  import("./panels/design-system.tsx").then((m) => ({
-    default: m.DesignSystemPanel,
+const BoardCanvas = lazy(() =>
+  import("./canvas/board-canvas.tsx").then((m) => ({
+    default: m.BoardCanvas,
+  }))
+);
+const BoardInspector = lazy(() =>
+  import("./panels/board-inspector.tsx").then((m) => ({
+    default: m.BoardInspector,
+  }))
+);
+const DesignSystemList = lazy(() =>
+  import("./panels/design-system-list.tsx").then((m) => ({
+    default: m.DesignSystemList,
   }))
 );
 const Layers = lazy(() =>
@@ -104,10 +115,18 @@ const SettingsPage = lazy(() =>
 const leftPanels: Record<LeftTab, ComponentType> = {
   changes: Changes,
   chat: Threads,
-  designSystem: DesignSystemPanel,
+  designSystem: DesignSystemList,
   layers: Layers,
   library: Library,
 };
+
+/** The left panels with a heading of their own. */
+const headsItself: readonly LeftTab[] = [
+  "chat",
+  "layers",
+  "designSystem",
+  "library",
+];
 
 const leftBounds = { defaultWidth: 288, max: 480, min: 200 };
 /** A conversation reads better wide; switching to any other panel caps the width again. */
@@ -147,9 +166,9 @@ const LeftPanel = ({
       style={{ width }}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
-        {/* The chat heads itself, its list and each thread; the pages and the layers have their
-          own actions in their heading. */}
-        {prototype || leftTab === "chat" || leftTab === "layers" ? null : (
+        {/* The chat heads itself, its list and each thread; the pages, the layers, Design system
+          and the Library have their own actions in their heading. */}
+        {prototype || headsItself.includes(leftTab) ? null : (
           <div className="flex h-9 shrink-0 items-center px-3 font-heading-xsmall">
             {railItems[leftTab].label}
           </div>
@@ -229,6 +248,30 @@ const RightPanel = ({
   onWidthChange: (width: number) => void;
 }) => {
   const rightTab = useEditor((s) => s.rightTab);
+  const board = useBoard((s) => s.open);
+  const handle = (
+    <ResizeHandle
+      defaultWidth={rightBounds.defaultWidth}
+      onWidthChange={onWidthChange}
+      side="right"
+      width={width}
+    />
+  );
+  // On a board view, the inspector of what it shows (ADR 0045), in the tabs' place.
+  if (board) {
+    return (
+      <aside
+        className="floating pointer-events-auto relative flex min-h-0 flex-1 flex-col"
+        data-canvas-cover="right"
+        style={{ width }}
+      >
+        <Suspense fallback={null}>
+          <BoardInspector open={board} />
+        </Suspense>
+        {handle}
+      </aside>
+    );
+  }
   return (
     <aside
       className="floating pointer-events-auto relative flex min-h-0 flex-1 flex-col"
@@ -269,12 +312,7 @@ const RightPanel = ({
           </Suspense>
         </TabsContent>
       </Tabs>
-      <ResizeHandle
-        defaultWidth={rightBounds.defaultWidth}
-        onWidthChange={onWidthChange}
-        side="right"
-        width={width}
-      />
+      {handle}
     </aside>
   );
 };
@@ -289,6 +327,7 @@ export const App = () => {
   const workspace = useEditor((s) => s.workspace);
   const leftTab = useEditor((s) => s.leftTab);
   const settingsOpen = useProject((s) => s.settingsOpen);
+  const board = useBoard((s) => s.open);
   const leftPanel =
     workspace === "design" && leftTab === "chat" ? chatBounds : leftBounds;
   const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
@@ -346,11 +385,13 @@ export const App = () => {
   }, [configured, canvas]);
 
   // The canvas the URL names, or the last one, or the first; the first view opens a margin past
-  // the panel's edge, as the canvas starts behind it.
+  // the panel's edge, as the canvas starts behind it. A board view the URL names opens over it,
+  // the page's camera put aside as it was set.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the canvases known and the one open decide.
   useEffect(() => {
     if (configured && openStartCanvas()) {
       setView({ x: leftCover + 80 });
+      openBoardInUrl();
     }
   }, [configured, canvases, canvas, leftCover]);
 
@@ -358,8 +399,9 @@ export const App = () => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the list and the canvas are the news.
   useEffect(() => pagesChanged(), [pages, canvases, canvas]);
 
-  // The browser's back and forward buttons are the prototype's.
+  // The browser's back and forward buttons are the prototype's, and the board views'.
   useEffect(() => followHistory(), []);
+  useEffect(() => followBoardHistory(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {
@@ -392,7 +434,14 @@ export const App = () => {
                 } as CSSProperties
               }
             >
-              {workspace !== "prototype" && <Canvas />}
+              {workspace !== "prototype" && board === null && <Canvas />}
+              {workspace !== "prototype" && board !== null && (
+                <Suspense
+                  fallback={<div className="absolute inset-0 bg-board" />}
+                >
+                  <BoardCanvas open={board} />
+                </Suspense>
+              )}
               {/* What floats over the canvas belongs in the part the panels leave to be seen, and
                 so does the prototype, which is centred rather than panned. */}
               <div
@@ -403,7 +452,9 @@ export const App = () => {
                 <ShellNotices />
                 <CanvasStatus />
                 <SnapshotBanner />
-                {workspace === "prototype" ? null : <IsolationBanner />}
+                {workspace === "prototype" || board ? null : (
+                  <IsolationBanner />
+                )}
                 {workspace === "prototype" ? (
                   <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
                     <NoUrlWarning />

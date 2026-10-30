@@ -6,14 +6,18 @@
  * often than the view.
  */
 import {
+  type CSSProperties,
   type RefObject,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { isTyping } from "../lib/keys.ts";
 import {
   measureViewportWith,
+  nextView,
+  setViewSoon,
   type Viewport,
   viewTarget,
 } from "../state/camera.ts";
@@ -21,7 +25,6 @@ import { useDocuments } from "../state/documents.ts";
 import { allFrames, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
-import { gridBackground } from "./grid.ts";
 import { framesNear, framesToShow, NEAR_MARGIN } from "./mounting.ts";
 
 interface View {
@@ -58,7 +61,7 @@ const GRID_STYLES = [
 const follow = (
   canvasEl: HTMLElement,
   layerEl: HTMLElement,
-  grid: boolean
+  background: Background | null
 ): (() => void) => {
   let settle: ReturnType<typeof setTimeout> | undefined;
   let drawnZoom: number | null = null;
@@ -69,10 +72,10 @@ const follow = (
       drawnZoom = zoom;
       layerEl.style.setProperty("--inv", String(1 / zoom));
     }
-    if (grid) {
-      const background = gridBackground(view);
+    if (background) {
+      const drawn = background(view);
       for (const key of GRID_STYLES) {
-        canvasEl.style[key] = String(background[key] ?? "");
+        canvasEl.style[key] = String(drawn[key] ?? "");
       }
     }
   };
@@ -123,15 +126,19 @@ const seenOf = (el: HTMLElement): Viewport => {
   return { height: rect.height, width: rect.width - left - right, x: left };
 };
 
+/** What a canvas draws under its frames at a view: the page canvas's grid, a board's dots. */
+export type Background = (view: View) => CSSProperties;
+
 /**
- * Moves the canvas's layer of frames and its grid with the view (see `follow`), and measures what
- * of the canvas is seen for the camera while it is on screen: from the moment it is laid out, as
- * the panels beside it are, before the browser paints.
+ * Moves the canvas's layer of frames and what is drawn under them (the grid, when it is shown)
+ * with the view (see `follow`), and measures what of the canvas is seen for the camera while it
+ * is on screen: from the moment it is laid out, as the panels beside it are, before the browser
+ * paints.
  */
 export const useCamera = (
   canvas: RefObject<HTMLDivElement | null>,
   layer: RefObject<HTMLDivElement | null>,
-  grid: boolean
+  background: Background | null
 ) => {
   useLayoutEffect(() => {
     const el = canvas.current;
@@ -141,8 +148,66 @@ export const useCamera = (
     if (!(canvas.current && layer.current)) {
       return;
     }
-    return follow(canvas.current, layer.current, grid);
-  }, [canvas, layer, grid]);
+    return follow(canvas.current, layer.current, background);
+  }, [canvas, layer, background]);
+};
+
+const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
+
+/**
+ * A wheel over a canvas, the page canvas's or a board view's: a pan, or with ctrl or meta (a
+ * pinch arrives with ctrl) a zoom about the pointer. `origin` is where the canvas is in the window.
+ */
+export const wheelView = (
+  e: WheelEvent,
+  origin: { left: number; top: number }
+) => {
+  const { x, y, zoom } = nextView();
+  if (e.ctrlKey || e.metaKey) {
+    const cx = e.clientX - origin.left;
+    const cy = e.clientY - origin.top;
+    const next = clampZoom(
+      zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
+    );
+    const k = next / zoom;
+    setViewSoon({
+      x: cx - (cx - x) * k,
+      y: cy - (cy - y) * k,
+      zoom: next,
+    });
+  } else {
+    setViewSoon({ x: x - e.deltaX, y: y - e.deltaY });
+  }
+};
+
+/** Space held pans whatever the tool, while a canvas is on screen. */
+export const useSpacePan = () => {
+  useEffect(() => {
+    const store = useEditor.getState;
+    const down = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !isTyping(e)) {
+        e.preventDefault();
+        if (!store().spacePan) {
+          store().setSpacePan(true);
+        }
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space" && store().spacePan) {
+        store().setSpacePan(false);
+      }
+    };
+    // A key released while the window is in the background never reaches keyup.
+    const blur = () => store().setSpacePan(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
 };
 
 const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>

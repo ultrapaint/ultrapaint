@@ -260,8 +260,32 @@ export const holdUntil = async <T>(
   }
 };
 
-/** Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. */
+/**
+ * The frames of the board view open in the page canvas's place (ADR 0045), as `board.ts` says
+ * them; null on the page canvas. Told here rather than read, as the board's module leans on this
+ * one.
+ */
+let boardFrames: () => Readonly<Record<string, Box>> | null = () => null;
+
+/** `board.ts` says where the frames of the board view open are, until the editor stops. */
+export const showBoardFramesWith = (
+  frames: () => Readonly<Record<string, Box>> | null
+) => {
+  boardFrames = frames;
+};
+
+/** Whether a board view is open in the page canvas's place: no node of a page is seen there. */
+export const onBoard = () => boardFrames() !== null;
+
+/**
+ * Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. On a
+ * board view, the boards' frames.
+ */
 export const allFrames = (): Record<string, Box> => {
+  const board = boardFrames();
+  if (board) {
+    return { ...board };
+  }
   const { frames, held, sizes, canvas } = useEditor.getState();
   const out: Record<string, Box> = { ...frames };
   for (const node of canvasNodes(useDocuments.getState().docs, canvas)) {
@@ -723,9 +747,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
   workspace: workspaceInUrl(),
 }));
 
-/** Nothing shows a selection in the prototype, so nothing may be selected there. */
+/**
+ * Nothing shows a selection in the prototype, nor on a board view, which draws no page: nothing
+ * may be selected there.
+ */
 const hidesSelection = (get: () => EditorStore) =>
-  get().workspace === "prototype";
+  get().workspace === "prototype" || onBoard();
 
 /**
  * Selects a node for a right-click. One that is already selected keeps the selection, in the view

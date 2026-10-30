@@ -213,6 +213,46 @@ export const isNodeFrame = (frame: string) =>
   frame.startsWith(NODE_FRAME_PREFIX);
 
 /**
+ * Prefix of the id of a board's frame (ADR 0045), `board:<view>/<item>/<name>`: a document the
+ * editor generates for the item a board view shows, which is no page and no node of the canvas.
+ */
+export const BOARD_FRAME_PREFIX = "board:";
+
+/** Where a board's frame is: the board view, the item it shows, and the board's own name. */
+export interface BoardFrame {
+  readonly item: string;
+  readonly name: string;
+  readonly view: string;
+}
+
+export const boardFrameOf = ({ item, name, view }: BoardFrame) =>
+  `${BOARD_FRAME_PREFIX}${view}/${item}/${name}`;
+
+export const isBoardFrame = (frame: string) =>
+  frame.startsWith(BOARD_FRAME_PREFIX);
+
+/**
+ * The board a frame id names; null for any other frame. An item may hold a slash (a guideline's
+ * heading): the view is before the first, the board's name after the last.
+ */
+export const boardOfFrame = (frame: string): BoardFrame | null => {
+  if (!isBoardFrame(frame)) {
+    return null;
+  }
+  const rest = frame.slice(BOARD_FRAME_PREFIX.length);
+  const first = rest.indexOf("/");
+  const last = rest.lastIndexOf("/");
+  if (first < 0 || last === first) {
+    return null;
+  }
+  return {
+    item: rest.slice(first + 1, last),
+    name: rest.slice(last + 1),
+    view: rest.slice(0, first),
+  };
+};
+
+/**
  * What separates a page from one of its views in a view's frame id, `<page>#<view>` (ADR 0036):
  * a view is a frame of its own whose document is the page's.
  */
@@ -222,7 +262,8 @@ export const viewFrameOf = (page: string, view: string) =>
   `${page}${VIEW_SEPARATOR}${view}`;
 
 export const isViewFrame = (frame: string) =>
-  !isNodeFrame(frame) && frame.includes(VIEW_SEPARATOR);
+  !(isNodeFrame(frame) || isBoardFrame(frame)) &&
+  frame.includes(VIEW_SEPARATOR);
 
 /** The page a frame shows: itself, or the page a view of it draws again. */
 export const pageOfFrame = (frame: string): string =>
@@ -292,12 +333,18 @@ export const rootOfFrame = (
     ? (docs[editedAs.doc]?.root ?? null)
     : drawnRootOf(docs, canvas, frame);
 
-/** What a frame draws: a page's root, or the node on the canvas it stands for. */
+/**
+ * What a frame draws: a page's root, or the node on the canvas it stands for. A board's frame
+ * draws what its board generates, none of the documents.
+ */
 export const drawnRootOf = (
   docs: Record<string, DocumentState>,
   canvas: string | null,
   frame: string
 ): DesignNode | null => {
+  if (isBoardFrame(frame)) {
+    return null;
+  }
   if (isNodeFrame(frame)) {
     const id = frame.slice(NODE_FRAME_PREFIX.length);
     return canvasNodes(docs, canvas).find((n) => n.id === id) ?? null;

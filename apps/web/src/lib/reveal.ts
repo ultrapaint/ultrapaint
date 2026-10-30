@@ -1,9 +1,11 @@
 /**
  * Bringing something into view on the canvas, the canvas's counterpart of showing a panel: a
- * page's frame or a node, wherever it is. The canvas it is on is opened, the prototype left
- * for the design workspace, it is selected, and the camera glides to it once its frame is laid
- * out (`zoomToSelectionOnceLaidOut`), so a caller neither measures the canvas nor waits a frame.
+ * page's frame or a node, wherever it is. The canvas it is on is opened, the prototype or a
+ * board view left for the page canvas, it is selected, and the camera glides to it once its frame
+ * is laid out (`zoomToSelectionOnceLaidOut`), so a caller neither measures the canvas nor waits
+ * a frame.
  */
+import { leaveBoard } from "../state/board.ts";
 import { zoomToSelectionOnceLaidOut } from "../state/camera.ts";
 import {
   frameOfCanvasNode,
@@ -70,6 +72,8 @@ const frameHolding = (
 export const reveal = async (target: Revealed): Promise<void> => {
   revealing += 1;
   const asked = revealing;
+  // What is revealed is on the page canvas: a board view open gives way to it.
+  leaveBoard();
   if ("canvas" in target) {
     useEditor.getState().setWorkspace("design");
     if (target.canvas !== useEditor.getState().canvas) {

@@ -4,7 +4,8 @@
  * page that serves no URL.
  * A prototype can be reloaded, bookmarked and handed to someone else, and the browser's back
  * and forward buttons are the prototype's, because every navigation is a history entry.
- * The workspace rides along as `?mode=prototype`, so a reload comes back to the same one.
+ * The workspace rides along as `?mode=prototype`, so a reload comes back to the same one, and a
+ * board view (ADR 0045) as `?view=system&item=color`, beside the canvas and the page it left.
  */
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
@@ -24,19 +25,32 @@ const defaults: Record<string, string> = { mode: "design", route: "/" };
 /** Values older links carry for what is now the default: Vibe and Design are one workspace. */
 const formerDefaults: Record<string, readonly string[]> = { mode: ["vibe"] };
 
-export const readUrl = (): UrlState & {
+/** A board view as the URL says it: which one, and the item it shows. */
+export interface BoardUrl {
+  item: string | null;
+  view: string;
+}
+
+export type UrlRead = UrlState & {
+  /** The board view open in the canvas's place; null on the page canvas. */
+  board: BoardUrl | null;
   mode: string | null;
   /** A node to open on, selected and in view: a link copied from its menu. */
   node: string | null;
   settings: string | null;
-} => {
+};
+
+export const readUrl = (): UrlRead => {
   const params = new URLSearchParams(window.location.search);
   const canvas = params.get("canvas");
   const route = params.get("route");
   const page = params.get("page");
   const variant = params.get("variant");
+  const view = params.get("view");
+  const item = params.get("item");
   const onPage = page !== null && page !== "";
   return {
+    board: view ? { item: item || null, view } : null,
     canvas: canvas === "" ? null : canvas,
     mode: params.get("mode"),
     node: params.get("node"),
@@ -90,7 +104,7 @@ export const clearNodeParam = () =>
 /**
  * A link to a node, as the editor's own URL: its canvas, its page's route or the page itself when
  * it has none (neither for a node on the canvas beside the pages), and the node, which the editor
- * selects and brings into view.
+ * selects and brings into view. A board view open is no part of it: the link leads to the page.
  */
 export const linkToNode = (target: {
   nodeId: string;
@@ -116,6 +130,19 @@ export const linkToNode = (target: {
   return `${url.origin}${url.pathname}?${params.toString()}`;
 };
 
+/**
+ * Records the board view open and its item, or that none is (ADR 0045). Opening one from the
+ * page is a navigation (`push`), which back walks; going from item to item replaces it.
+ */
+export const writeBoard = (
+  board: { item: string; view: string } | null,
+  push: boolean
+) =>
+  writeQuery((params) => {
+    params.set("view", board?.view ?? "");
+    params.set("item", board?.item ?? "");
+  }, push);
+
 /** Records the workspace; switching it is not a navigation, so back does not undo it. */
 export const writeMode = (mode: string) =>
   writeQuery((params) => params.set("mode", mode), false);
@@ -132,7 +159,7 @@ export const writeUrl = (state: UrlState, push: boolean) =>
     params.set("variant", state.variant ?? "");
   }, push);
 
-export const onUrlChange = (listener: (state: UrlState) => void) => {
+export const onUrlChange = (listener: (state: UrlRead) => void) => {
   const handle = () => listener(readUrl());
   window.addEventListener("popstate", handle);
   return () => window.removeEventListener("popstate", handle);

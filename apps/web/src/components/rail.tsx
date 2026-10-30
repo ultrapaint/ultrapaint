@@ -11,7 +11,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
-import { type LeftTab, railTabs, useEditor } from "../state/editor.ts";
+import { railTabsFor, useBoard } from "../state/board.ts";
+import { type LeftTab, useEditor } from "../state/editor.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
@@ -124,11 +125,13 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 
 /**
  * The left panels the workspace offers, in a column at the window's left, each named under its
- * icon: the agents always first. Settings and who the user is at its foot. It shares one card with
+ * icon: the agents always first. Design system's opens its board view. Settings and who the user is at its foot. It shares one card with
  * the left panel, a shade darker; with the panel put away it is the whole card.
  */
 export const Rail = () => {
   const panelHidden = usePanels((s) => s.left);
+  // A board view has no Layers but where there is a tree (ADR 0045).
+  const tabs = railTabsFor(useBoard((s) => s.open));
   return (
     <nav
       aria-label="Panels"
@@ -137,7 +140,7 @@ export const Rail = () => {
         panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
       )}
     >
-      {railTabs.map((value) => (
+      {tabs.map((value) => (
         <RailButton key={value} value={value} />
       ))}
       <div className="flex-1" />

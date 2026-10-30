@@ -214,6 +214,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --color-background: var(--background);
   --color-canvas: var(--canvas);
   --color-canvas-grid: var(--canvas-grid);
+  --color-board: var(--board);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -262,6 +263,10 @@ input[type="number"]::-webkit-inner-spin-button {
      in lines of this colour, faded with the zoom. */
   --canvas: oklch(0.965 0.001 286);
   --canvas-grid: oklch(0.141 0.005 285.823 / 9%);
+  /* A board view (ADR 0045): a blue-tinted canvas with a faint grid of dots, never taken for the
+     page canvas. */
+  --board: oklch(0.95 0.012 255);
+  --board-grid: oklch(0.3 0.03 255 / 22%);
   --sidebar: oklch(0.985 0 0);
   /* The rail, a shade under the panel it opens. */
   --rail: oklch(0.95 0.002 286);
@@ -281,6 +286,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --warning: oklch(0.8 0.15 80);
   --canvas: oklch(0.17 0.005 286);
   --canvas-grid: oklch(1 0 0 / 7%);
+  --board: oklch(0.19 0.022 258);
+  --board-grid: oklch(0.85 0.04 255 / 16%);
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);

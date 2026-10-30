@@ -1,6 +1,6 @@
 # Plan: the Design system and the Library
 
-Status: accepted, 2026-10-30; Phases 1 to 3 done (the merge of `feat/primitives`, the sketch, this
+Status: accepted, 2026-10-30; Phases 1 to 4 done (the merge of `feat/primitives`, the sketch, this
 plan and [ADR 0045](adr/0045-design-system-and-library.md)). Amends 0028, 0029, 0032, 0040, 0041
 and 0044 as the ADR says.
 
@@ -88,7 +88,7 @@ its screens compared with the sketch.
 The rail, the Insert menu, the board view and its URL, and the inspector's slot, with boards
 that are placeholders until Phases 5 and 6.
 
-- [ ] 4.1 Rail: `LeftTab` becomes `"chat" | "layers" | "designSystem" | "library" | "changes"`
+- [x] 4.1 Rail: `LeftTab` becomes `"chat" | "layers" | "designSystem" | "library" | "changes"`
       and `railTabs` that order (`state/editor.ts`); `railItems` gains Library (`LibraryBig`)
       and loses Assets, the sync dot staying on Design system (`components/rail.tsx`); the
       `leftPanels` map (`app.tsx`) gets `library`, for now the Assets panel without its
@@ -97,38 +97,48 @@ that are placeholders until Phases 5 and 6.
       entries follow (`lib/commands.ts`), the context menu's "The Assets panel" entries are the
       Library's (`lib/menu-model.ts`), and the list/grid choice keeps its stored value under
       `ultrapaint:library-view`.
-- [ ] 4.2 Insert: a + at the head of the tools (`canvas/toolbar.tsx`, a `DropdownMenu` as
+- [x] 4.2 Insert: a + at the head of the tools (`canvas/toolbar.tsx`, a `DropdownMenu` as
       `ZoomControl`'s) listing Row, Column, Text and Image from `ELEMENTS`
       (`packages/design-document/src/factories.ts`), each `insertNode(newElement(…))`
       (`lib/node-actions.ts`), as a click on Assets' tile did; a command each in
       `lib/commands.ts` so the palette has them.
-- [ ] 4.3 The board view's state: `state/board.ts`, `useBoard` with `view` (`"system" |
+- [x] 4.3 The board view's state: `state/board.ts`, `useBoard` with `view` (`"system" |
       "library" | null`), `item`, the pick (B6) and the board camera's `View`; `openBoard`,
       `leaveBoard` (back to the page and its camera as they were), `pickOnBoard`. Not a
       `Workspace` (B4): `showLeftPanel` and `setWorkspace` leave a board view as they leave the
       prototype, isolation leaves with it (`state/isolation.ts`).
-- [ ] 4.4 Frames: `BOARD_FRAME_PREFIX = "board:"` and `isBoardFrame` beside `isNodeFrame`
+- [x] 4.4 Frames: `BOARD_FRAME_PREFIX = "board:"` and `isBoardFrame` beside `isNodeFrame`
       (`state/documents.ts`), refused or skipped by `pageOfFrame`'s callers listed above;
       `allFrames()` (`state/editor.ts`) gives the board's layouts while a board view is open, so
       `zoomToFit`, `useFramesInView` (`canvas/camera.ts`) and `frameAt` (`canvas/drag.ts`) work
       on it unchanged.
-- [ ] 4.5 The board canvas: `canvas/board-canvas.tsx`, mounted by `app.tsx` in `Canvas`'s
+- [x] 4.5 The board canvas: `canvas/board-canvas.tsx`, mounted by `app.tsx` in `Canvas`'s
       place while a board view is open; the same camera (`useCamera`), wheel and pan, the tinted
       background with its dots (`--board`, `--board-grid` in `styles.css`), a `Frame` of kind
       `board` (`canvas/frame.tsx`) drawing a request's root as `Matrix` does, with the board's
       frame labels; tools: select, interact, pan, the theme switch (not on Color), undo, redo.
       Boards are laid out in a row or a column by a pure `boardLayout` (`lib/board-layout.ts`).
-- [ ] 4.6 The URL: `view` and `item` read and written by `state/url.ts` (`readUrl`,
+- [x] 4.6 The URL: `view` and `item` read and written by `state/url.ts` (`readUrl`,
       `writeUrl`, kept by `linkToNode`'s query when on a board), arrived at by
       `state/location.ts` (`arrive`, `wentTo`), so a reload, a link and Back land on the item.
-- [ ] 4.7 The right panel's slot: `RightPanel` (`app.tsx`) shows `BoardInspector`
+- [x] 4.7 The right panel's slot: `RightPanel` (`app.tsx`) shows `BoardInspector`
       (`panels/board-inspector.tsx`, empty for now) on a board view, the tabs on the page
       canvas.
-- [ ] 4.8 The left panels on a board: Library's list as navigation with Back to the page left
+- [x] 4.8 The left panels on a board: Library's list as navigation with Back to the page left
       and Overview (`panels/library.tsx`); Design system's Foundations and Guidelines list with
       token search (`panels/design-system-list.tsx`), the Sync and `/init` buttons in its title,
       `SyncView` in its place while the set-up is shown, as today. Layers is on the rail on a
       board only with a tree (`railTabs` read through a `railTabsFor(view, item)`).
+
+As built: a board is drawn by `BoardFrame` in `canvas/board-canvas.tsx` (a `PreviewSurface`
+frame, not `Frame`, which stays the page's), every board of the item mounted at once; the
+camera while a board view is open is `useEditor.view` (the page's waits in `useBoard.left`, each
+item's in `useBoard.cameras`), and `allFrames` asks `board.ts` through `showBoardFramesWith`;
+the prototype, `reveal`, `goToPage` and a canvas switch leave a board view. The boards are the
+shell's: `boards/system-boards.ts` (a palette's swatches, a foundation's tokens as rows, the
+text styles and scale, a guideline's paragraphs) and `boards/library-boards.ts` (the Overview,
+`matrixOf` moved there with its cells `cell:<member>:<state>`); guidelines are
+`guide-<heading as a slug>` in the URL.
 
 Tests: `state/board.test.ts` (open, leave back to the page and its camera, isolation left, a
 pick kept per item); `state/location.test.ts` and a `state/url.test.ts` (`?view=system&item=color`
