@@ -73,7 +73,7 @@ describe("contracts", () => {
             children: [
               {
                 component: "Button",
-                from: "@ui/button",
+                from: "@ultrapaint/system",
                 id: "b1",
                 props: { size: "sm" },
                 text: "Go",

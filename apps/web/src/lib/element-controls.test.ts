@@ -9,7 +9,7 @@ import {
 
 const instance = {
   component: "Table",
-  from: "ui/table",
+  from: "@ultrapaint/system",
   id: "i_1",
   type: "instance",
 } as DesignNode;

@@ -6,6 +6,7 @@
 import { Schema } from "effect";
 import { Json } from "./base.ts";
 import { APP_FROM } from "./component-names.ts";
+import { InstanceFrom } from "./document.ts";
 
 export const PropType = Schema.Struct({
   kind: Schema.Literals(["string", "number", "boolean", "enum", "list"]),
@@ -57,7 +58,7 @@ export const ComponentMeta = Schema.Struct({
   /** The props a new instance starts with, and its thumbnail is drawn with. */
   example: Schema.optional(Schema.Record(Schema.String, Json)),
   /** What an instance names as `from`: `@ultrapaint/system` or `#app`. */
-  importFrom: Schema.String,
+  importFrom: InstanceFrom,
   name: Schema.String,
   props: Schema.Array(PropMeta),
   /** Its parts, the root first. */
@@ -72,14 +73,14 @@ export type ComponentMeta = typeof ComponentMeta.Type;
 /** The system components, then the project's app components. */
 export type Catalogue = readonly ComponentMeta[];
 
-/** The catalogue's entry for an instance: the same name from the same origin, else by name. */
+/** The catalogue's entry for an instance: the same name from the same origin. */
 export const metaOf = (
   catalogue: Catalogue,
   instance: { readonly component: string; readonly from: string }
 ): ComponentMeta | undefined =>
   catalogue.find(
     (c) => c.name === instance.component && c.importFrom === instance.from
-  ) ?? catalogue.find((c) => c.name === instance.component);
+  );
 
 /**
  * A component in one line, as an agent picks one: the project's own marked (app), its variants,

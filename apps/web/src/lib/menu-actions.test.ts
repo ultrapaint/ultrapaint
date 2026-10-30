@@ -212,14 +212,6 @@ const setUp = () => {
             id: "hero",
             type: "column",
           },
-          // An instance of the repository's, from before the system components.
-          {
-            component: "Button",
-            from: "@/components/ui/button",
-            id: "old",
-            text: "Go",
-            type: "instance",
-          },
           // An instance of one of the project's own components.
           { component: "Promo", from: "#app", id: "promo", type: "instance" },
         ],
@@ -672,7 +664,6 @@ const EVERY_ACTION = {
     paste: true,
     rename: true,
     selectParent: true,
-    toSystem: true,
     unwrap: true,
     viewCode: true,
     wrap: true,
@@ -708,7 +699,6 @@ const EVERY_ACTION = {
 const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
   nodeAt(HOME, "hero"),
-  nodeAt(HOME, "old"),
   nodeAt(HOME, "promo"),
   homePage,
   { kind: "page", pageId: ABOUT },

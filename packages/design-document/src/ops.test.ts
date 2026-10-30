@@ -39,7 +39,7 @@ const card = (
   words?: string
 ): InstanceNode => ({
   component: "Card",
-  from: "@ui/card",
+  from: "@ultrapaint/system",
   id,
   type: "instance",
   ...(children && { children }),
@@ -189,7 +189,12 @@ describe("applyOps", () => {
   it("sets and clears instance props", () => {
     const start: PageNode = {
       children: [
-        { component: "Button", from: "@ui/button", id: "b", type: "instance" },
+        {
+          component: "Button",
+          from: "@ultrapaint/system",
+          id: "b",
+          type: "instance",
+        },
       ],
       id: "root",
       type: "page",

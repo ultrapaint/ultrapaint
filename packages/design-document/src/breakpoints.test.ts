@@ -104,7 +104,7 @@ describe("breakpoints", () => {
     const node = {
       at: { md: { props: { size: "lg" } } },
       component: "Button",
-      from: "ui",
+      from: "@ultrapaint/system" as const,
       id: "b",
       props: { size: "sm", variant: "outline" },
       type: "instance" as const,
@@ -171,7 +171,12 @@ describe("writing at a breakpoint", () => {
   it("sets an instance's props from a breakpoint on", () => {
     const withButton: PageNode = {
       children: [
-        { component: "Button", from: "ui", id: "b", type: "instance" },
+        {
+          component: "Button",
+          from: "@ultrapaint/system",
+          id: "b",
+          type: "instance",
+        },
       ],
       id: "root",
       type: "page",

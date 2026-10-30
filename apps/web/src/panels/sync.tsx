@@ -7,7 +7,6 @@
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
 import { stylesheetOf } from "@ultrapaint/contracts/setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
-import { plural } from "@ultrapaint/shared/text";
 import { cn } from "cn";
 import {
   Check,
@@ -32,7 +31,6 @@ import { placeDocument } from "../lib/place-document.ts";
 import { detect, save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { useAgents } from "../state/agents.ts";
-import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
@@ -163,48 +161,6 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
   </SyncCard>
 );
 
-/** Brings the designs from before up to date, in one undo step (ADRs 0040, 0041). */
-const bringUpToDate = async () => {
-  try {
-    const { components, documents, drawn } = await api().request(
-      "migration.run",
-      undefined
-    );
-    toast.success(
-      [
-        drawn > 0
-          ? `${plural(drawn, "instance")} in ${plural(documents, "document")} drawn as now`
-          : null,
-        components > 0
-          ? `${plural(components, "component")} in components/`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(", ") || "Nothing was left to bring up to date."
-    );
-  } catch (error) {
-    reportError(error);
-  }
-  useSync.getState().load();
-};
-
-const SystemComponentsStep = ({
-  index,
-  step,
-}: {
-  index: number;
-  step: SyncStep;
-}) => (
-  <SyncCard index={index} step={step}>
-    <div className="flex flex-wrap gap-1.5">
-      <Button onClick={bringUpToDate} size="sm">
-        <Wand2 />
-        Bring them up to date
-      </Button>
-    </div>
-  </SyncCard>
-);
-
 const DocumentStep = ({ index, step }: { index: number; step: SyncStep }) => (
   <SyncCard index={index} step={step}>
     {step.state === "done" ? null : (
@@ -299,9 +255,6 @@ const PlanStep = ({
   }
   if (step.kind === "settings") {
     return <SettingsStep index={index} step={step} />;
-  }
-  if (step.kind === "system") {
-    return <SystemComponentsStep index={index} step={step} />;
   }
   if (step.kind === "describe") {
     return <DescribeStep index={index} step={step} />;

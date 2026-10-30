@@ -125,7 +125,6 @@ const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
   moveTo: FolderInput,
   preset: MonitorSmartphone,
   send: Send,
-  toSystem: Shapes,
   variant: Split,
   wrap: Group,
 };

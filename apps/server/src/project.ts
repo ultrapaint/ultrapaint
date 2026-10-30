@@ -41,7 +41,6 @@ import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import type { ImplementationService } from "./services/implementation.ts";
-import type { Migration } from "./services/migration.ts";
 import type { PagePngs } from "./services/page-pngs.ts";
 import type { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
@@ -60,7 +59,6 @@ export type ProjectServices =
   | CodeSide
   | CommentsService
   | ComponentService
-  | Migration
   | DesignMd
   | DesignSystemService
   | DesignTargets

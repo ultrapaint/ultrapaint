@@ -832,19 +832,6 @@ const requestRpcs = [
     success: ComponentEntry,
   }),
 
-  /**
-   * Everything from before brought up to date, as one undo step (ADRs 0040, 0041): instances of
-   * the repository's components, of system components and drafts as they were named, and the
-   * specs' files, with their implementations: the `Migration`'s.
-   */
-  Rpc.make("migration.run", {
-    error: EditError,
-    success: Schema.Struct({
-      components: Schema.Number,
-      documents: Schema.Number,
-      drawn: Schema.Number,
-    }),
-  }),
   /** Every page and component, with whether it is ready, implemented, or changed since (ADR 0030). */
   Rpc.make("implementation.list", {
     error: NotConfigured,

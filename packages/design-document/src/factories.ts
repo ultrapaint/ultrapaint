@@ -7,6 +7,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   DesignNode,
+  InstanceFrom,
   InstanceNode,
   PageDocument,
   PageNode,
@@ -92,7 +93,7 @@ export const newElement = (id: ElementId, next: IdGenerator): DesignNode => {
 export interface ComponentShape {
   /** The props a new instance starts with. */
   readonly example?: Readonly<Record<string, JsonValue>> | undefined;
-  readonly importFrom: string;
+  readonly importFrom: InstanceFrom;
   readonly name: string;
   readonly props?: readonly {
     readonly name: string;
