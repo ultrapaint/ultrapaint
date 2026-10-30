@@ -6,6 +6,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { Context, Effect, Schema } from "effect";
 import { McpSchema, type McpServer, Tool } from "effect/ai";
+import { TOOLS } from "../threads/agent-ways.ts";
 
 /**
  * What a tool says when it cannot answer: the reason, in words the agent can act on. An error
@@ -37,15 +38,35 @@ export const finite = (minimum: number, maximum: number) =>
 export const AnyJson = Schema.Unknown;
 
 /**
+ * What a failure of a kind says to an agent, where its own message is the editor's words, written
+ * for the user (`Stale`'s "reloading" is what the web editor does with it) or for a log. A kind
+ * not here says its own message: a missing page or component already says what there is instead.
+ */
+const FOR_AN_AGENT: Readonly<Record<string, string>> = {
+  NotConfigured:
+    "no project is open in the editor: ask the user to open this repository in it",
+  Stale: `the page changed since you read it: ${TOOLS.read_page} again for its hash, and make your change to it as it is now`,
+};
+
+/**
  * Every failure reaches the agent as a sentence it can do something about: no project open, a
  * route that does not exist, a component that is not in the catalogue.
  */
-export const reported = <A, E extends { readonly message: string }, R>(
+export const reported = <
+  A,
+  E extends { readonly _tag?: string; readonly message: string },
+  R,
+>(
   effect: Effect.Effect<A, E, R>
 ) =>
   Effect.mapError(
     effect,
-    (error) => new ToolFailure({ message: error.message })
+    (error) =>
+      new ToolFailure({
+        message:
+          (error._tag === undefined ? undefined : FOR_AN_AGENT[error._tag]) ??
+          error.message,
+      })
   );
 
 export const missing = (message: string) =>

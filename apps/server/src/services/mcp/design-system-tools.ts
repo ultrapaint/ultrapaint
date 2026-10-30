@@ -186,8 +186,8 @@ export const DesignSystemToolsLive = DesignSystemTools.toLayer(
       scan_design_system: Effect.fn("EditorTools.scan_design_system")(
         function* () {
           const found = yield* reported(
-          project.use(Effect.flatMap(CodeSide, (c) => c.scan))
-        );
+            project.use(Effect.flatMap(CodeSide, (c) => c.scan))
+          );
           return {
             designSystem: asJson(found.designSystem),
             files: found.files,
