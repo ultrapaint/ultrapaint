@@ -12,13 +12,11 @@
 import type {
   DesignDocument,
   DesignSystem,
-  Token,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
-import { sheet } from "./board-nodes.ts";
+import { found, sheet, tokensFound } from "./board-nodes.ts";
 import { colorBoards } from "./color-boards.ts";
 import { foundationBoards } from "./foundation-boards.ts";
 
@@ -84,19 +82,6 @@ export const FOUNDATIONS: readonly {
   },
 ];
 
-const matches = (token: { name: string; value: string }, q: string) =>
-  !q ||
-  token.name.toLowerCase().includes(q) ||
-  token.value.toLowerCase().includes(q);
-
-/** A foundation's tokens, those a search finds. */
-const tokensOf = (
-  ds: DesignSystem,
-  kinds: readonly TokenKind[],
-  q: string
-): Token[] =>
-  kinds.flatMap((kind) => tokensOfKind(ds, kind)).filter((t) => matches(t, q));
-
 /** What a foundation has besides its tokens: a typography's styles, an elevation's levels. */
 const extrasOf = (ds: DesignSystem, id: string, q: string) => {
   const named = (list: readonly { name: string }[]) =>
@@ -119,12 +104,12 @@ export const foundationsOf = (
   const q = query.trim().toLowerCase();
   if (!ds) {
     const count = NEUTRAL_COLORS.filter((c) =>
-      matches({ name: c.name, value: "" }, q)
+      found({ name: c.name, value: "" }, q)
     ).length;
     return count > 0 || !q ? [{ count, id: "color", name: "Color" }] : [];
   }
   return FOUNDATIONS.flatMap((f) => {
-    const count = tokensOf(ds, f.kinds, q).length + extrasOf(ds, f.id, q);
+    const count = tokensFound(ds, f.kinds, q).length + extrasOf(ds, f.id, q);
     // The spacing base is always there: a design system always has spacing.
     const shown = count > 0 || (f.id === "spacing" && !q);
     return shown ? [{ count, id: f.id, name: f.name }] : [];
@@ -135,6 +120,9 @@ const GUIDE_PREFIX = "guide-";
 const BLANK_LINE = /\n\s*\n/;
 const NOT_WORD = /[^a-z0-9]+/g;
 const EDGE_DASHES = /^-|-$/g;
+
+/** Whether an item of Design system is a guideline, by its id. */
+export const isGuideline = (item: string) => item.startsWith(GUIDE_PREFIX);
 
 /** A guideline's id, from its heading: `Do's and Don'ts` is `guide-do-s-and-don-ts`. */
 export const guidelineId = (heading: string) =>
@@ -249,7 +237,7 @@ export const systemBoards = (
   if (item === "color") {
     return colorBoards(ds, q);
   }
-  if (item.startsWith(GUIDE_PREFIX)) {
+  if (isGuideline(item)) {
     return guidelineBoards(document, item);
   }
   return ds

@@ -9,6 +9,7 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect } from "react";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { surfaceNow } from "../state/surface.ts";
 import {
   commandList,
   type FocusScope,
@@ -76,8 +77,12 @@ const windowScopes = (e: Event): readonly WindowScope[] => {
 /** Runs the command a key pressed in the window is; true when it ran, the key's default then prevented. */
 export const pressWindowKey = (e: KeyboardEvent): boolean => {
   const binding = bindingFor(e, commandList(), windowScopes(e));
-  // A clipboard chord is left to the browser, whose clipboard event the editor takes.
-  if (!binding?.run || binding.run(e.key) === false) {
+  // A clipboard chord is left to the browser, whose clipboard event the editor takes; a key of
+  // what the main area does not offer (the grid on a board view) is the browser's too.
+  if (
+    !(binding?.run && surfaceNow().offers(binding.id)) ||
+    binding.run(e.key) === false
+  ) {
     return false;
   }
   e.preventDefault();

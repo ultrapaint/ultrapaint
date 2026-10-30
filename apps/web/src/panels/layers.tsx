@@ -57,18 +57,18 @@ import {
 import { renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
-import {
-  canvasNodes,
-  nodeFrameOf,
-  pageOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
-import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
+import { canvasNodes, useDocuments } from "../state/documents.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
+import { nodeFrameOf, ownFrameOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import {
   editedFrameOf,
+  select,
+  selectForMenu,
+  selectPage,
+  toggleSelected,
   useDrawnIn,
   useIsSelected,
 } from "../state/selection.ts";
@@ -84,11 +84,10 @@ import {
   isOpenIn,
   type LayerItem,
   layerKey,
-  looseItem,
+  layerScope,
   NO_FOLDS,
   oneLevelFolded,
   oneLevelOpen,
-  pageItem,
   pageKey,
   revealed,
   treeMove,
@@ -121,9 +120,8 @@ const rowFrame = (frame: string) =>
 
 /** Selects what a row names: the page as a whole, or the node, Shift adding it to the rest. */
 const selectItem = (item: LayerItem, add: boolean) => {
-  const editor = useEditor.getState();
   if (item.page) {
-    editor.selectPage(item.page.id);
+    selectPage(item.page.id);
     return;
   }
   if (!item.node) {
@@ -131,9 +129,9 @@ const selectItem = (item: LayerItem, add: boolean) => {
   }
   const at = { frame: rowFrame(item.frame), nodeId: item.node.id };
   if (add) {
-    editor.toggleSelected(at);
+    toggleSelected(at);
   } else {
-    editor.select(at);
+    select(at);
   }
 };
 
@@ -144,7 +142,7 @@ const selectedKeyOf = (
 ) => {
   // A node selected in a view of a page is the page's row (ADR 0036).
   if (selection) {
-    return layerKey(pageOfFrame(selection.frame), selection.nodeId);
+    return layerKey(ownFrameOf(selection.frame), selection.nodeId);
   }
   return selectedPage ? pageKey(selectedPage) : null;
 };
@@ -183,7 +181,7 @@ const useRevealSelection = (
   const [revealedFor, setRevealedFor] = useState<Selection | null>(null);
   if (selection && selection !== revealedFor) {
     setRevealedFor(selection);
-    const key = layerKey(pageOfFrame(selection.frame), selection.nodeId);
+    const key = layerKey(ownFrameOf(selection.frame), selection.nodeId);
     onReveal(key);
     setFolds((folds) => revealed(folds, items, key));
   }
@@ -299,17 +297,6 @@ type Line =
   | { kind: "heading"; text: string }
   | { kind: "row"; row: VisibleRow };
 
-/** What the tree listed is: a component edited in place, an app component's, or the canvas's. */
-const headingOf = (
-  isolated: string | null,
-  board: ReturnType<typeof useBoard.getState>["open"]
-) => {
-  if (isolated) {
-    return `Editing ${isolated}`;
-  }
-  return board ? board.item : "On the canvas";
-};
-
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
   const allPages = useProject((s) => s.pages);
@@ -334,31 +321,22 @@ export const Layers = () => {
   const listed = useListWindow(listRef);
   // The tree is built again only when the documents change: a canvas holds thousands of layers,
   // and a selection or a fold changes none of them.
-  const { items, nodes } = useMemo(() => {
-    // An app component edited in place is what its frame's selection and edits are in: its tree
-    // is listed alone, as the rest of the canvas is out of reach.
-    const component =
-      isolated && docs[componentDocOf(isolated.component)]?.root;
-    if (isolated && component) {
-      return {
-        items: [looseItem(isolated.frame, component)],
-        nodes: [component],
-      };
-    }
+  const { heading, items, nodes } = useMemo(() => {
     const tree = boardTree(board, docs);
-    if (tree) {
-      return { items: [looseItem(tree.frame, tree.root)], nodes: [tree.root] };
-    }
-    const placed = canvasNodes(docs, canvas);
-    return {
-      items: [
-        ...allPages
-          .filter((p) => p.canvas === canvas)
-          .map((page) => pageItem(page, docs[page.id]?.root ?? null)),
-        ...placed.map((node) => looseItem(nodeFrameOf(node.id), node)),
-      ],
-      nodes: placed,
-    };
+    return layerScope({
+      canvasNodes: canvasNodes(docs, canvas).map((node) => ({
+        frame: nodeFrameOf(node.id),
+        node,
+      })),
+      edited: isolated && {
+        component: isolated.component,
+        frame: isolated.frame,
+        root: docs[componentDocOf(isolated.component)]?.root ?? null,
+      },
+      pages: allPages.filter((p) => p.canvas === canvas),
+      roots: (id) => docs[id]?.root ?? null,
+      tree: tree && board && { ...tree, name: board.item },
+    });
   }, [allPages, board, canvas, docs, isolated]);
 
   const { query } = folds;
@@ -379,10 +357,7 @@ export const Layers = () => {
   for (const row of rows) {
     if (!headed && row.level === 1 && !row.item.page) {
       headed = true;
-      lines.push({
-        kind: "heading",
-        text: headingOf(isolated?.component ?? null, board),
-      });
+      lines.push({ kind: "heading", text: heading });
       heights.push(HEADING);
     }
     lines.push({ kind: "row", row });
@@ -740,11 +715,11 @@ const PageRow = ({
   const selected = useEditor((s) => s.selectedPage === page.id);
   const dropHere = useDropHere(key);
   const dropHandlers = rowDrop(item, shared);
-  const select = () => {
-    useEditor.getState().selectPage(page.id);
+  const selectThePage = () => {
+    selectPage(page.id);
   };
   const onContextMenu = (e: MouseEvent) => {
-    select();
+    selectThePage();
     openMenuAt(e, { kind: "page", pageId: page.id });
   };
   const row = (
@@ -759,7 +734,7 @@ const PageRow = ({
         FOCUS_RING
       )}
       data-row={key}
-      onClick={select}
+      onClick={selectThePage}
       {...dropHandlers}
       style={{ paddingLeft: ROW_PAD }}
     >
@@ -867,7 +842,7 @@ const RowMenu = ({ row }: { row: Row }) => {
   );
   const onClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    useEditor.getState().select({ frame, nodeId: node.id });
+    select({ frame, nodeId: node.id });
     showMenu({ frame, kind: "node", nodeId: node.id }, e.currentTarget);
   };
   return (
@@ -989,7 +964,7 @@ const LayerRow = ({
   const hovered = useEditor(
     (s) =>
       s.hover !== null &&
-      pageOfFrame(s.hover.frame) === frame &&
+      ownFrameOf(s.hover.frame) === frame &&
       s.hover.nodeId === node.id
   );
   const dropHere = useDropHere(key);

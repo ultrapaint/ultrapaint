@@ -3,11 +3,11 @@
  * panel a board view is navigated from: named for the page left, or its canvas when it was on none.
  */
 import { ArrowLeft } from "lucide-react";
-import { leaveBoard } from "../state/board.ts";
 import { useEditor } from "../state/editor.ts";
+import { toPageCanvas } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 
-const back = () => leaveBoard();
+const back = () => toPageCanvas();
 
 export const BackToPage = () => {
   const activePage = useEditor((s) => s.activePage);
