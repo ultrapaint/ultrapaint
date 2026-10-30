@@ -20,6 +20,7 @@ import { isToken, tokenRef } from "@ultrapaint/design-document/tokens";
 import {
   label,
   MONO,
+  nodeCss,
   section,
   sheet,
   text,
@@ -357,8 +358,6 @@ const track = (name: string): DesignNode => ({
   width: TRACK,
 });
 
-const NODE = "data-ed-node";
-
 /**
  * The motion board's stylesheet (B12): one movement along the track, each easing's dot moved by
  * it over a second and a half with its curve, each duration's with the default curve over it.
@@ -371,13 +370,13 @@ const motionCss = (
     `@keyframes ed-board-move { from { translate: 0 0; } to { translate: ${TRACK - DOT}px 0; } }`,
     ...easings.map(
       (t) =>
-        `[${NODE}="dot:${t.name}"] { animation: ed-board-move 1.5s var(--${t.name}, ${t.value}) infinite alternate; }`
+        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move 1.5s var(--${t.name}, ${t.value}) infinite alternate; }`
     ),
     ...durations.map(
       (t) =>
-        `[${NODE}="dot:${t.name}"] { animation: ed-board-move var(--${t.name}, ${t.value}) ease-in-out infinite alternate; }`
+        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move var(--${t.name}, ${t.value}) ease-in-out infinite alternate; }`
     ),
-    "@media (prefers-reduced-motion: reduce) { [data-ed-node^='dot:'] { animation: none; } }",
+    `@media (prefers-reduced-motion: reduce) { ${nodeCss("dot:", "^=")} { animation: none; } }`,
   ].join("\n");
 
 const motionBoards = (ds: DesignSystem, q: string): Boards => {

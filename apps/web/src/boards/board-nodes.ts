@@ -8,6 +8,15 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { tokenOf, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
+import { NODE_ATTRIBUTE } from "@ultrapaint/preview-core/preview";
+
+/**
+ * The selector of what the renderer draws for a board's node (its `NODE_ATTRIBUTE`), for what a
+ * board's own stylesheet says that a document cannot: every node whose id is `id`, or with `^=`
+ * every one whose id starts so. Board ids are the editor's own, written without quotes.
+ */
+export const nodeCss = (id: string, match: "=" | "^=" = "=") =>
+  `[${NODE_ATTRIBUTE}${match}"${id}"]`;
 
 /** Whether a search (lower-cased) finds a token, by its name or its value; any, with none. */
 export const found = (token: { name: string; value: string }, q: string) =>
