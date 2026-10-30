@@ -4,8 +4,9 @@ import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDocuments } from "./documents.ts";
-import { type Selection, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
+import { select, toggleSelected } from "./selection.ts";
 
 vi.mock(
   "./connection.ts",
@@ -76,54 +77,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("selection", () => {
-  const a: Selection = { frame: home.id, nodeId: "a" };
-  const b: Selection = { frame: home.id, nodeId: "b" };
-  const c: Selection = { frame: home.id, nodeId: "c" };
-  const elsewhere: Selection = { frame: pricing.id, nodeId: "p" };
-
-  it("toggleSelected adds, takes out and hands the primary on", () => {
-    const { select, toggleSelected } = useEditor.getState();
-    select(a);
-    toggleSelected(b);
-    expect(useEditor.getState()).toMatchObject({ also: [a], selection: b });
-    toggleSelected(c);
-    expect(useEditor.getState()).toMatchObject({ also: [a, b], selection: c });
-    // Taking out one of the others leaves the primary.
-    toggleSelected(a);
-    expect(useEditor.getState()).toMatchObject({ also: [b], selection: c });
-    // Taking out the primary makes the last one added the primary.
-    toggleSelected(c);
-    expect(useEditor.getState()).toMatchObject({ also: [], selection: b });
-  });
-
-  it("toggleSelected in another frame starts over there", () => {
-    const { select, toggleSelected } = useEditor.getState();
-    select(a);
-    toggleSelected(b);
-    toggleSelected(elsewhere);
-    expect(useEditor.getState()).toMatchObject({
-      also: [],
-      selection: elsewhere,
-    });
-  });
-
-  it("selectMany keeps only the first one's frame, and empties on nothing", () => {
-    const { selectMany } = useEditor.getState();
-    selectMany([a, elsewhere, b]);
-    expect(useEditor.getState()).toMatchObject({ also: [b], selection: a });
-    selectMany([]);
-    expect(useEditor.getState()).toMatchObject({ also: [], selection: null });
-  });
-
-  it("selects nothing in the prototype", () => {
-    useEditor.setState({ workspace: "prototype" });
-    useEditor.getState().select(a);
-    useEditor.getState().selectMany([a, b]);
-    expect(useEditor.getState().selection).toBeNull();
-  });
-});
-
 describe("setWorkspace", () => {
   it("puts the selection aside in the prototype and finds it again without what was deleted", () => {
     useDocuments.setState({
@@ -131,8 +84,8 @@ describe("setWorkspace", () => {
       docs: { [home.id]: doc(home.id, ["a", "b"]) },
     });
     useEditor.setState({ leftTab: "layers", workspace: "design" });
-    useEditor.getState().select({ frame: home.id, nodeId: "a" });
-    useEditor.getState().toggleSelected({ frame: home.id, nodeId: "b" });
+    select({ frame: home.id, nodeId: "a" });
+    toggleSelected({ frame: home.id, nodeId: "b" });
 
     useEditor.getState().setWorkspace("prototype");
     expect(useEditor.getState()).toMatchObject({

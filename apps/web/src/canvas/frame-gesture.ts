@@ -23,6 +23,7 @@ import {
   setFrame,
   showFrame,
 } from "../state/page-layout.ts";
+import { select, selectPage } from "../state/selection.ts";
 import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
@@ -275,7 +276,7 @@ export const beginFrameGesture = (
     if (!box) {
       return;
     }
-    s.select({ frame: frameId, nodeId });
+    select({ frame: frameId, nodeId });
     // A locked node is picked up by its name, and stays where it is and the size it is.
     if (isFrameLocked(frameId)) {
       return;
@@ -297,7 +298,7 @@ export const beginFrameGesture = (
   }
   capture();
   followFrame(frameId, kind, corner, frame, e);
-  s.selectPage(frameId);
+  selectPage(frameId);
 };
 
 /**

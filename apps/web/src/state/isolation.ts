@@ -23,6 +23,7 @@ import { appComponentOf, useComponents } from "./components.ts";
 import { editFrameAs, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { frameRefOf } from "./frame-ref.ts";
+import { select } from "./selection.ts";
 
 /** A choice's member edits land on. */
 export interface VariantEdited {
@@ -94,7 +95,7 @@ export const isolate = (
   frame: string,
   node: InstanceNode,
   {
-    select = true,
+    select: selects = true,
     variant = null,
   }: { readonly select?: boolean; readonly variant?: VariantEdited | null } = {}
 ): boolean => {
@@ -113,8 +114,8 @@ export const isolate = (
   useIsolation.setState({ isolated });
   editIn(isolated);
   showTree();
-  if (select) {
-    useEditor.getState().select({ frame, nodeId: file.tree.id });
+  if (selects) {
+    select({ frame, nodeId: file.tree.id });
   }
   return true;
 };
@@ -127,13 +128,11 @@ export const leaveIsolation = () => {
   }
   useIsolation.setState({ isolated: null });
   editIn(null);
-  useEditor
-    .getState()
-    .select(
-      frameRefOf(isolated.frame).kind === "board"
-        ? null
-        : { frame: isolated.frame, nodeId: isolated.entered }
-    );
+  select(
+    frameRefOf(isolated.frame).kind === "board"
+      ? null
+      : { frame: isolated.frame, nodeId: isolated.entered }
+  );
 };
 
 /** The member edits land on from now on; null for the component's own fields. */

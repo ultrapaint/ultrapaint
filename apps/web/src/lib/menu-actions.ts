@@ -39,6 +39,7 @@ import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
@@ -336,8 +337,6 @@ const copyText = (text: string, what = text) =>
     () => toast(`Copied ${what}`),
     () => undefined
   );
-
-const select = (target: Selection) => useEditor.getState().select(target);
 
 /**
  * Starts a comment on the node: where it was clicked, else in the middle of it. Comments are

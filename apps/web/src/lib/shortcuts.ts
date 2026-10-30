@@ -15,6 +15,7 @@ import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { allFrames, layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { select, selectPage } from "../state/selection.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import { isTyping, overlayOpen } from "./keys.ts";
 import { selected } from "./node-actions.ts";
@@ -65,12 +66,12 @@ export const walkSelection = (key: string) => {
     return false;
   }
   const parent = path?.at(-2);
-  const go = (id: string) => s.select({ frame: selection.frame, nodeId: id });
+  const go = (id: string) => select({ frame: selection.frame, nodeId: id });
   if (key === "Escape" || key === "ArrowLeft") {
     if (parent && parent.type !== "page") {
       go(parent.id);
     } else if (key === "Escape") {
-      s.select(null);
+      select(null);
     }
   } else if (key === "ArrowRight") {
     const [child] = childrenOf(node);
@@ -106,7 +107,7 @@ export const dismiss = () => {
     return true;
   }
   if (s.selectedPage) {
-    s.selectPage(null);
+    selectPage(null);
     return true;
   }
   return false;

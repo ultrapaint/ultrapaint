@@ -14,6 +14,7 @@ import {
 } from "./location.ts";
 import { computeFrames, setFrame } from "./page-layout.ts";
 import { useProject } from "./project.ts";
+import { select, selectPage } from "./selection.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -265,7 +266,7 @@ describe("goTo", () => {
   beforeEach(startOnMain);
 
   it("goes to a URL as an entry of the history, and lets the selection go", () => {
-    useEditor.getState().select({ frame: home.id, nodeId: "a" });
+    select({ frame: home.id, nodeId: "a" });
     goTo({ route: "/pricing" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(useEditor.getState().selection).toBeNull();
@@ -298,7 +299,7 @@ describe("goTo", () => {
 
   it("stays on a page already shown at its URL", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: pricing.id, nodeId: "a" });
+    select({ frame: pricing.id, nodeId: "a" });
     goTo({ page: pricing.id });
     expect(useEditor.getState().selection).not.toBeNull();
     expect(fakeBrowser.history().entries).toHaveLength(2);
@@ -307,7 +308,7 @@ describe("goTo", () => {
 
   it("draws the same place in a variant, keeping the selection", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: pricing.id, nodeId: "a" });
+    select({ frame: pricing.id, nodeId: "a" });
     goTo({ variant: "bold" });
     expect(at()).toMatchObject({ activePage: boldPricing.id, variant: "bold" });
     expect(useEditor.getState().selection).not.toBeNull();
@@ -387,7 +388,7 @@ describe("back and forward", () => {
   it("restore the page, the URL and the variant of each entry", async () => {
     goTo({ route: "/pricing", variant: "bold" });
     goTo({ page: draft.id });
-    useEditor.getState().select({ frame: draft.id, nodeId: "a" });
+    select({ frame: draft.id, nodeId: "a" });
 
     window.history.back();
     await settle();
@@ -456,7 +457,7 @@ describe("followFrame", () => {
   beforeEach(startOnMain);
 
   it("goes to the URL and variant of a page selected in, in place of the entry", () => {
-    useEditor.getState().select({ frame: boldPricing.id, nodeId: "x" });
+    select({ frame: boldPricing.id, nodeId: "x" });
     expect(at()).toMatchObject({
       activePage: boldPricing.id,
       route: "/pricing",
@@ -471,21 +472,21 @@ describe("followFrame", () => {
   });
 
   it("goes to a page without a URL as itself", () => {
-    useEditor.getState().selectPage(draft.id);
+    selectPage(draft.id);
     expect(at()).toMatchObject({ activePage: draft.id, route: null });
     expect(useEditor.getState().selectedPage).toBe(draft.id);
     expect(outOfStep()).toEqual([]);
   });
 
   it("goes to the page of a view selected in", () => {
-    useEditor.getState().select({ frame: `${pricing.id}#w390`, nodeId: "x" });
+    select({ frame: `${pricing.id}#w390`, nodeId: "x" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(outOfStep()).toEqual([]);
   });
 
   it("stays where it is for a node on the canvas", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: "node:n1", nodeId: "n1" });
+    select({ frame: "node:n1", nodeId: "n1" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(outOfStep()).toEqual([]);
   });

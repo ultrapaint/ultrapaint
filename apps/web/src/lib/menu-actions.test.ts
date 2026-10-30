@@ -25,6 +25,7 @@ import { useIsolation } from "../state/isolation.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { select, selectMany } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useClipboard } from "./clipboard.ts";
 import { commandList } from "./commands.ts";
@@ -449,7 +450,7 @@ describe("a node's menu", () => {
   });
 
   it("acts on the whole selection when the node is one of it, and on it alone when not", async () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: HOME, nodeId: "title" },
       { frame: HOME, nodeId: "lede" },
     ]);
@@ -461,7 +462,7 @@ describe("a node's menu", () => {
       { doc: HOME, ids: ["title", "lede"], op: "wrap", type: "group" },
     ]);
 
-    useEditor.getState().select({ frame: HOME, nodeId: "hero" });
+    select({ frame: HOME, nodeId: "hero" });
     await choose(nodeAt(HOME, "cta"), { kind: "hide" });
     expect(lastEdit().ops).toEqual([
       { doc: HOME, id: "cta", op: "update", set: { hidden: true } },
@@ -498,7 +499,7 @@ describe("a node of an app component's tree on its board (ADR 0045)", () => {
   const BOARD = "board:library/Promo/component";
   const onBoard = () => {
     openBoard({ item: "Promo", view: "library" });
-    useEditor.getState().select({ frame: BOARD, nodeId: "sale" });
+    select({ frame: BOARD, nodeId: "sale" });
   };
 
   it("offers nothing of a page's: no comment, link, app component, code or address", () => {
@@ -785,7 +786,7 @@ const CONTACT = "contact.page.json";
 const setUpForEvery = () => {
   setUp();
   useClipboard.setState({ nodes: [text("copied")] });
-  useEditor.getState().select({ frame: HOME, nodeId: "title" });
+  select({ frame: HOME, nodeId: "title" });
   useProject.setState((s) => ({
     pages: [...s.pages, page(CONTACT, "Contact")],
   }));

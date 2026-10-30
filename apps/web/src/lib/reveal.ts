@@ -13,6 +13,7 @@ import { type Selection, useEditor } from "../state/editor.ts";
 import { type FrameRef, frameRefOf } from "../state/frame-ref.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
+import { select, selectPage } from "../state/selection.ts";
 
 /**
  * What is brought into view: a page's frame (a view's selects its page), a node of a frame, a
@@ -103,7 +104,7 @@ const revealBesidePages = async (
   }
   const frame = await frameHolding(target.canvas, target.nodeId, asked);
   if (frame !== null) {
-    useEditor.getState().select({ frame, nodeId: target.nodeId });
+    select({ frame, nodeId: target.nodeId });
     zoomToSelectionOnceLaidOut(frame);
   }
 };
@@ -135,9 +136,9 @@ const revealInFrame = async (
     }
   }
   if ("page" in target) {
-    useEditor.getState().selectPage(target.page);
+    selectPage(target.page);
   } else {
-    useEditor.getState().select(target);
+    select(target);
   }
   zoomToSelectionOnceLaidOut(frame);
 };
@@ -157,6 +158,6 @@ const revealOnBoard = (
   if (!(open && open.view === board.view && open.item === board.item)) {
     return;
   }
-  useEditor.getState().select(target);
+  select(target);
   zoomToSelectionOnceLaidOut(target.frame);
 };

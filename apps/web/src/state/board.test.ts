@@ -22,6 +22,7 @@ import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { isolate, useIsolation } from "./isolation.ts";
 import { allFrames } from "./page-layout.ts";
+import { select } from "./selection.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -116,7 +117,7 @@ describe("openBoard", () => {
 
   it("selects nothing of a page while it is open", () => {
     openBoard({ item: "Button", view: "library" });
-    useEditor.getState().select(HERO);
+    select(HERO);
     expect(useEditor.getState().selection).toBeNull();
   });
 
@@ -276,7 +277,7 @@ describe("an app component's board", () => {
       frame: "board:library/Plan/tone=default",
       root: PLAN.tree,
     });
-    useEditor.getState().select({ frame: FEATURED, nodeId: "price" });
+    select({ frame: FEATURED, nodeId: "price" });
     expect(useEditor.getState().selection).toEqual({
       frame: FEATURED,
       nodeId: "price",
@@ -288,9 +289,7 @@ describe("an app component's board", () => {
     });
     expect(boardTree(useBoard.getState().open, {})?.frame).toBe(FEATURED);
     // Nothing else of a board takes a selection.
-    useEditor
-      .getState()
-      .select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
+    select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
     expect(useEditor.getState().selection?.frame).toBe(FEATURED);
     // Another item leaves the tree, and selects nothing.
     openBoard({ item: "Button", view: "library" });

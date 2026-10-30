@@ -26,7 +26,12 @@ import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
 import { removeView } from "../state/page-layout.ts";
-import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
+import {
+  select,
+  selectPage,
+  useFrameBreakpoint,
+  useSelectedIn,
+} from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { screenPx, UNZOOM } from "./camera.ts";
@@ -186,7 +191,7 @@ export const Frame = memo(
     useEffect(() => {
       const [lead] = selectedHere;
       if (lead !== undefined && root && !findNode(root, lead)) {
-        useEditor.getState().select(null);
+        select(null);
       }
     }, [selectedHere, root]);
 
@@ -596,11 +601,10 @@ const FrameChrome = ({
   const isSelected = useFrameSelected(frameId, isNode, root);
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
-    const store = useEditor.getState();
     if (!isNode) {
-      store.selectPage(frameId);
+      selectPage(frameId);
     } else if (root) {
-      store.select({ frame: frameId, nodeId: root.id });
+      select({ frame: frameId, nodeId: root.id });
     }
   };
   const onContextMenu = (e: ReactMouseEvent) => {
