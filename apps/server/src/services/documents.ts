@@ -57,6 +57,7 @@ import {
   readComponentFile,
   withTree,
 } from "./component-files.ts";
+import { DesignFiles } from "./design-files.ts";
 import { decodePage, parseDocument, problemOf } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
@@ -146,6 +147,7 @@ export class DocumentService extends Context.Service<
       const edit = yield* EditService;
       const pages = yield* PagesService;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
@@ -587,7 +589,7 @@ export class DocumentService extends Context.Service<
         return isPageFile(rel) ? rel : null;
       };
 
-      yield* events.subscribe("file.changed").pipe(
+      yield* designFiles.changes(["page", "canvas", "component"]).pipe(
         Stream.mapEffect(({ file }) => {
           const doc = docOfFile(file);
           if (doc === null) {

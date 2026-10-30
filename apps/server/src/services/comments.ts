@@ -1,10 +1,9 @@
-import {
-  type Comment,
-  type CommentList,
-  CommentList as CommentListSchema,
-  type CreateCommentInput,
-  type ReplyInput,
-  type UpdateCommentInput,
+import type {
+  Comment,
+  CommentList,
+  CreateCommentInput,
+  ReplyInput,
+  UpdateCommentInput,
 } from "@ultrapaint/contracts/comments";
 import {
   Conflict,
@@ -20,7 +19,6 @@ import {
   FileSystem,
   Layer,
   Path,
-  Schema,
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
@@ -28,55 +26,24 @@ import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
 import {
+  COMMENTS_FILE,
+  commentsCodec,
+  decodeComments,
+  emptyList,
+  renderComments,
+} from "./comments-file.ts";
+import { DesignFiles } from "./design-files.ts";
+import {
   type EditFailure,
   EditService,
   type EditTransaction,
-  type FileCodec,
   updateFile,
 } from "./edit.ts";
 import { GitService } from "./git.ts";
 import { ProfileService } from "./profile.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-export const COMMENTS_FILE = "comments.json";
-
-const decodeComments = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(CommentListSchema)
-);
-
-const emptyList = (): CommentList => ({ comments: [], version: 1 });
-
-/** The text of `comments.json`, the same whoever writes it. */
-/** The file as it is written: a plain comment says nothing of its kind, as before there were kinds. */
-const renderComments = (list: CommentList) =>
-  `${JSON.stringify(
-    {
-      ...list,
-      comments: list.comments.map(({ kind, ...rest }) =>
-        kind === "behaviour" ? { ...rest, kind } : rest
-      ),
-    },
-    null,
-    2
-  )}\n`;
-
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
-
-/** `comments.json` as a step reads and writes it: a canvas without one has no comments yet. */
-const commentsCodec = (canvas: string): FileCodec<CommentList, Conflict> => ({
-  decode: (text) =>
-    text === null
-      ? Effect.succeed(emptyList())
-      : decodeComments(text).pipe(
-          Effect.mapError(
-            (error) =>
-              new Conflict({
-                message: `comments.json in ${canvas || "designs root"} is invalid: ${error.message}`,
-              })
-          )
-        ),
-  encode: renderComments,
-});
 
 /**
  * Comments pinned on the pages of a canvas. They live in `<canvas>/comments.json`, beside the
@@ -126,6 +93,7 @@ export class CommentsService extends Context.Service<
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
@@ -384,33 +352,28 @@ export class CommentsService extends Context.Service<
         return before?.comments ?? [];
       });
 
-      // A pull or a checkout changes the file behind the editor's back.
-      if (yield* exists(root)) {
-        yield* fs.watch(root, { recursive: true }).pipe(
-          Stream.filter(
-            (event) =>
-              event._tag !== "Remove" &&
-              path.basename(event.path) === COMMENTS_FILE
-          ),
-          Stream.mapEffect((event) => {
-            const dir = toPosix(
-              path.relative(root, path.dirname(path.resolve(root, event.path)))
-            );
-            const canvas = dir === "" || dir === "." ? ROOT_CANVAS : dir;
-            // An invalid file is reported when the editor asks for it; the watcher lives on.
-            return Effect.exit(list(canvas)).pipe(
-              Effect.flatMap((exit) =>
-                exit._tag === "Success"
-                  ? events.publish("comments", { canvas, list: exit.value })
-                  : Effect.void
-              )
-            );
-          }),
-          Stream.runDrain,
-          Effect.ignore({ log: true }),
-          Effect.forkScoped
-        );
-      }
+      // A pull, a checkout or an undo changes the file behind the editor's back.
+      yield* designFiles.changes(["comments"]).pipe(
+        Stream.mapEffect(({ file, hash }) => {
+          if (hash === "") {
+            return Effect.void;
+          }
+          const dir = toPosix(
+            path.relative(root, path.dirname(path.resolve(paths.root, file)))
+          );
+          const canvas = dir === "" || dir === "." ? ROOT_CANVAS : dir;
+          // An invalid file is reported when the editor asks for it; the subscription lives on.
+          return Effect.exit(list(canvas)).pipe(
+            Effect.flatMap((exit) =>
+              exit._tag === "Success"
+                ? events.publish("comments", { canvas, list: exit.value })
+                : Effect.void
+            )
+          );
+        }),
+        Stream.runDrain,
+        Effect.forkScoped
+      );
 
       // Every change, these and a page's, is made under the journal's lock, one at a time.
       return CommentsService.of({

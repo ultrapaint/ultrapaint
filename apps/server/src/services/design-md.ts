@@ -43,9 +43,9 @@ import {
   Semaphore,
   Stream,
 } from "effect";
-import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { componentsIn, readComponents } from "./components.ts";
+import { DesignFiles } from "./design-files.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
 import { withAgreement } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
@@ -181,7 +181,6 @@ export class DesignMd extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
-      const events = yield* EventBus;
       const linter = yield* DesignMdLint;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -443,8 +442,8 @@ export class DesignMd extends Context.Service<
         Stream.catch(() => Stream.empty)
       );
       const changes = Stream.merge(
-        events
-          .subscribe("file.changed")
+        (yield* DesignFiles)
+          .changes(["notes"])
           .pipe(Stream.filter((changed) => names.has(changed.file))),
         rootChanges
       ).pipe(Stream.as(undefined));

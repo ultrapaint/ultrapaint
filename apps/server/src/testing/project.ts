@@ -17,6 +17,7 @@ import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { ListenPort } from "../listen-port.ts";
 import { ProjectManager } from "../project.ts";
+import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
@@ -26,9 +27,13 @@ import { ScriptedAgents } from "./scripted-agents.ts";
 /** The port a test's server says it listens on: nothing does, and no scripted agent connects. */
 export const TEST_PORT = 1;
 
-/** The tests' adapters: a preview that is never started, agents the test plays, no sandbox. */
+/**
+ * The tests' adapters: agents the test plays, no sandbox, and the designs' changes the journal
+ * and the test tell of (`DesignFiles.report`), no watcher.
+ */
 export const TestAdapters = {
   agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
+  designFiles: DesignFiles.layerTest,
 } satisfies Adapters<ScriptedAgents | AgentSandbox>;
 
 /** The project the test opened: its folder, its home, and the settings it was opened with. */
@@ -65,6 +70,11 @@ export interface ProjectTestOptions {
    * with nothing saved.
    */
   readonly storage?: "managed" | "ephemeral";
+  /**
+   * Whether the designs directory is watched, as the server watches it: for the one test of a
+   * file written by hand that the watcher must see. Without, a test tells `DesignFiles` itself.
+   */
+  readonly watch?: boolean;
 }
 
 /**
@@ -120,7 +130,13 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
       );
       return Layer.mergeAll(opened, listening).pipe(
         Layer.provideMerge(ToolkitHandlers),
-        Layer.provideMerge(ApplicationLayer(TestAdapters)),
+        Layer.provideMerge(
+          ApplicationLayer(
+            options.watch
+              ? { ...TestAdapters, designFiles: DesignFiles.layer }
+              : TestAdapters
+          )
+        ),
         Layer.provideMerge(
           ServerConfig.layerTest({
             cwd: repo,

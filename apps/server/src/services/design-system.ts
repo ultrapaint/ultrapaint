@@ -1,8 +1,4 @@
 import {
-  COMPONENT_EXTENSION,
-  COMPONENTS_DIR,
-} from "@ultrapaint/contracts/component-names";
-import {
   DESIGN_SYSTEM_FILE,
   type DesignFinding,
   type DesignSystem,
@@ -38,6 +34,7 @@ import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
+import { DesignFiles } from "./design-files.ts";
 import { DesignMd } from "./design-md.ts";
 import {
   type DesignSystemRead,
@@ -163,7 +160,6 @@ export class DesignSystemService extends Context.Service<
       const systemRel = paths.relative(systemFile);
       const tokensFile = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
       const tokensRel = paths.relative(tokensFile);
-      const componentsPrefix = `${paths.relative(path.join(paths.designsDir, COMPONENTS_DIR))}/`;
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -443,17 +439,10 @@ export class DesignSystemService extends Context.Service<
       // undo, an agent writing the files by hand, a checkout (the files), DESIGN.md, the code.
       yield* Stream.mergeAll(
         [
-          events.subscribe("file.changed").pipe(
-            Stream.filter(
-              ({ file }) =>
-                file === systemRel ||
-                file === tokensRel ||
-                // A system component's look is DESIGN.md's component tokens (ADRs 0027, 0041).
-                (file.startsWith(componentsPrefix) &&
-                  file.endsWith(COMPONENT_EXTENSION))
-            ),
-            Stream.as(undefined)
-          ),
+          // A system component's look is DESIGN.md's component tokens (ADRs 0027, 0041).
+          (yield* DesignFiles)
+            .changes(["designSystem", "tokens", "component"])
+            .pipe(Stream.as(undefined)),
           designMd.changes,
           code.changes,
         ],
