@@ -100,27 +100,24 @@ describe("the sync's case", () => {
 });
 
 describe("drift between the design system and the code", () => {
-  it("names what one side has and the other does not, leaving out what is omitted", () => {
-    const drift = driftOf(
-      ds,
+  it("is the tokens the code's comparison finds new in the code, leaving out what is omitted", () => {
+    const diffs = compareCode(
       [
         token("color-primary"),
         token("color-new"),
         token("color-internal"),
         token("color-red-500", false),
       ],
-      true
+      designTokensOf(ds),
+      null,
+      new Set(ds.omitted)
     );
-    expect(drift).toEqual({
-      // A token the code does not declare waits for an export (ADR 0028), it is not gone.
-      tokensGone: [],
-      tokensUndescribed: ["color-new"],
-    });
+    // A token the code does not declare waits for an export (ADR 0028): it is no drift.
+    expect(driftOf(diffs)).toEqual({ tokensUndescribed: ["color-new"] });
   });
 
-  it("says nothing is gone when the stylesheets could not be read", () => {
-    expect(driftOf(ds, [], false).tokensGone).toEqual([]);
-    expect(driftOf(null, [token("x")], true)).toEqual(emptyDrift);
+  it("says nothing without a comparison: no design system, or no stylesheet read", () => {
+    expect(driftOf(null)).toEqual(emptyDrift);
   });
 });
 

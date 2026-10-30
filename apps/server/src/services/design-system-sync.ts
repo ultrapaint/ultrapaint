@@ -206,11 +206,7 @@ export class DesignSystemSyncService extends Context.Service<
             baseline !== null &&
             baseline.at >= latest.createdAt;
           return {
-            drift: driftOf(
-              state.designSystem,
-              source.tokens,
-              source.files.length > 0
-            ),
+            drift: driftOf(comparison?.read ? comparison.diffs : null),
             facts,
             figmaSynced,
           };
