@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, layer, it as test } from "@effect/vitest";
+import { assert, describe, it as test } from "@effect/vitest";
 import { isWholeDocument } from "@ultrapaint/contracts/document";
 import { Effect, FileSystem, Stream } from "effect";
 import { OpenProject } from "./project.ts";
@@ -13,76 +13,69 @@ const PAGE = `${JSON.stringify({
   version: 1,
 })}\n`;
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "the server's background work",
-  (it) => {
-    it.effect(
-      "goes on watching the designs after a file that cannot be read",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* client["settings.set"](settings);
-          const designs = path.join(repo, "designs");
-          // A canvas.json and a page that are directories: reading either is an I/O error. The
-          // watchers have seen all of it once the list they send has the page.
-          const seen = yield* nextEvent(
-            client["events.pages"]().pipe(
-              Stream.filter((list) =>
-                list.pages.some((p) => p.id === "broken/a.page.json")
-              )
-            ),
-            Effect.gen(function* () {
-              yield* fs.makeDirectory(
-                path.join(designs, "broken/canvas.json"),
-                { recursive: true }
-              );
-              yield* fs.writeFileString(
-                path.join(designs, "broken/a.page.json"),
-                PAGE
-              );
-              yield* fs.makeDirectory(path.join(designs, "odd.page.json"));
-            })
-          );
-          assert.isTrue(seen.event._tag === "Some");
+describe("the server's background work", () => {
+  // A server of its own, on a fixture of its own: what it writes is new to it, run after run. The
+  // real clock: the watcher of the designs is real I/O, and gives a writer a moment to finish.
+  test.live(
+    "goes on watching the designs after a file that cannot be read",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["settings.set"](settings);
+        const designs = path.join(repo, "designs");
+        // A canvas.json and a page that are directories: reading either is an I/O error. The
+        // watchers have seen all of it once the list they send has the page.
+        const seen = yield* nextEvent(
+          client["events.pages"]().pipe(
+            Stream.filter((list) =>
+              list.pages.some((p) => p.id === "broken/a.page.json")
+            )
+          ),
+          Effect.gen(function* () {
+            yield* fs.makeDirectory(path.join(designs, "broken/canvas.json"), {
+              recursive: true,
+            });
+            yield* fs.writeFileString(
+              path.join(designs, "broken/a.page.json"),
+              PAGE
+            );
+            yield* fs.makeDirectory(path.join(designs, "odd.page.json"));
+          })
+        );
+        assert.isTrue(seen.event._tag === "Some");
 
-          const listed = yield* client["pages.list"]();
-          assert.include(
-            listed.pages.map((p) => p.id),
-            "broken/a.page.json"
-          );
+        const listed = yield* client["pages.list"]();
+        assert.include(
+          listed.pages.map((p) => p.id),
+          "broken/a.page.json"
+        );
 
-          const { event: pages } = yield* nextEvent(
-            client["events.pages"](),
-            fs.writeFileString(path.join(designs, "later.page.json"), PAGE)
-          );
-          assert.include(
-            pages._tag === "Some" ? pages.value.pages.map((p) => p.id) : [],
-            "later.page.json"
-          );
+        const { event: pages } = yield* nextEvent(
+          client["events.pages"](),
+          fs.writeFileString(path.join(designs, "later.page.json"), PAGE)
+        );
+        assert.include(
+          pages._tag === "Some" ? pages.value.pages.map((p) => p.id) : [],
+          "later.page.json"
+        );
 
-          const { event: document } = yield* nextEvent(
-            client["events.document"]().pipe(
-              Stream.filter((d) => d.doc === "home.page.json")
-            ),
-            fs.writeFileString(path.join(designs, "home.page.json"), PAGE)
-          );
-          // The first state of a page is told whole.
-          const told = document._tag === "Some" ? document.value : null;
-          assert.deepStrictEqual(
-            told && isWholeDocument(told) ? told.root : null,
-            { children: [], id: "root", type: "page" }
-          );
-
-          yield* fs.remove(path.join(designs, "broken"), { recursive: true });
-          yield* fs.remove(path.join(designs, "odd.page.json"), {
-            recursive: true,
-          });
-        }),
-      30_000
-    );
-  }
-);
+        const { event: document } = yield* nextEvent(
+          client["events.document"]().pipe(
+            Stream.filter((d) => d.doc === "home.page.json")
+          ),
+          fs.writeFileString(path.join(designs, "home.page.json"), PAGE)
+        );
+        // The first state of a page is told whole.
+        const told = document._tag === "Some" ? document.value : null;
+        assert.deepStrictEqual(
+          told && isWholeDocument(told) ? told.root : null,
+          { children: [], id: "root", type: "page" }
+        );
+      }).pipe(Effect.provide(TestServer), Effect.scoped),
+    30_000
+  );
+});
 
 describe("the sync plan", () => {
   test.effect(
