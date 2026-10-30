@@ -557,6 +557,16 @@ describe("the code against the design system (ADR 0028)", () => {
     expect(codeChanges(diffs, [], "export").toDesign).toEqual([]);
   });
 
+  it("offers the design none of the code's tokens whose name says no kind: the design system has no list for one", () => {
+    const diffs = compareCode(
+      [code("blur-sm", "4px"), code("color-new", "#abc")],
+      [],
+      null,
+      new Set()
+    );
+    expect(diffs.map((d) => d.name)).toEqual(["color-new"]);
+  });
+
   it("takes what an agent names one way, conflicts included, and leaves the rest of them to the user", () => {
     const diffs = compareCode(
       [code("color-a", "#111"), code("color-b", "#999")],
@@ -614,7 +624,7 @@ describe("the code against the design system (ADR 0028)", () => {
   });
 
   it("lists a new token of any kind where its kind goes, not only colours, radii and spacing", () => {
-    // A token only design.tokens.json has, or one set through setTokens, Figma or DESIGN.md.
+    // A token only design.tokens.json has, or one taken from the code, Figma or DESIGN.md.
     const next = withTokenChanges(ds, [
       { name: "text-xl", value: "1.25rem" },
       { name: "shadow-lg", value: "0 10px 15px rgb(0 0 0 / 0.1)" },
