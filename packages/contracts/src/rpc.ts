@@ -15,6 +15,7 @@ import {
   ComponentNote,
 } from "./components.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
+import { DesignSystemEditInput } from "./design-system-edit.ts";
 import {
   DefineMode,
   DesignSystemSetup,
@@ -107,7 +108,6 @@ import {
   ThreadItem,
   ThreadPurpose,
 } from "./threads.ts";
-import { TokenChange } from "./tokens.ts";
 
 const PagesError = Schema.Union([
   NotConfigured,
@@ -360,16 +360,13 @@ const requestRpcs = [
     success: DesignSystemState,
   }),
   /**
-   * A token's value set in the code, where the style system declares it (ADR 0025). Returns the
-   * files written and the value before, for an undo.
+   * The design system changed by the editor's operations (ADR 0045), in order, as one undo
+   * step; the code follows the values with `codeTokens: auto`. Returns the files written.
    */
-  Rpc.make("designSystem.setToken", {
+  Rpc.make("designSystem.edit", {
     error: Schema.Union([BadRequest, NotConfigured]),
-    payload: TokenChange,
-    success: Schema.Struct({
-      files: Schema.Array(Schema.String),
-      previous: Schema.NullOr(Schema.String),
-    }),
+    payload: DesignSystemEditInput,
+    success: Schema.Struct({ files: Schema.Array(Schema.String) }),
   }),
   /** Runs the fixed-rule scan and saves what it finds, without an agent. */
   Rpc.make("designSystem.detect", {

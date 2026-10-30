@@ -97,15 +97,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               .flatMap((g) => g.tokens)
               .find((t) => t.name === "color-brand")?.value;
 
-          const { files, previous } = yield* client["designSystem.setToken"]({
-            name: "color-brand",
-            value: "#1d4ed8",
+          const { files } = yield* client["designSystem.edit"]({
+            ops: [{ name: "color-brand", op: "setValue", value: "#1d4ed8" }],
           });
           assert.deepStrictEqual(files, [
             "designs/design-system.json",
             "designs/design.tokens.json",
           ]);
-          assert.strictEqual(previous, "#2563eb");
           // The application is not touched: the design leads.
           assert.include(
             yield* fs.readFileString(css),
@@ -158,9 +156,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.strictEqual(saved.codeSync.agreed["color-brand"], "#1d4ed8");
 
           // Changed on both sides: the user picks, and the design's is written to the code.
-          yield* client["designSystem.setToken"]({
-            name: "color-brand",
-            value: "#1e40af",
+          yield* client["designSystem.edit"]({
+            ops: [{ name: "color-brand", op: "setValue", value: "#1e40af" }],
           });
           yield* fs.writeFileString(
             css,
@@ -186,9 +183,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           // With codeTokens auto, an edit reaches the code at once, as before ADR 0028.
           const current = (yield* client["settings.get"]()) ?? settings;
           yield* client["settings.set"]({ ...current, codeTokens: "auto" });
-          const auto = yield* client["designSystem.setToken"]({
-            name: "radius-card",
-            value: "1.25rem",
+          const auto = yield* client["designSystem.edit"]({
+            ops: [{ name: "radius-card", op: "setValue", value: "1.25rem" }],
           });
           assert.include(auto.files, "styles/app.css");
           assert.include(
