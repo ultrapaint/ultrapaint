@@ -13,6 +13,7 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { themeSelector } from "@ultrapaint/contracts/themes";
 import {
   allTokens,
   lineHeightName,
@@ -165,14 +166,7 @@ export const tokensUsed = (
   return used;
 };
 
-const THEME_NAME_RE = /[^\w-]/g;
 const COLOR_PREFIX = "color-";
-
-/** What a theme's values apply under: its class (`.dark`, Tailwind's) and its `data-theme`. */
-const themeSelector = (theme: string) => {
-  const name = theme.replace(THEME_NAME_RE, "");
-  return `.${name}, [data-theme~="${name}"]`;
-};
 
 /**
  * Every token of the design system as the custom property it is (`--color-primary`), on the

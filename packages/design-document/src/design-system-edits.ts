@@ -11,6 +11,7 @@ import type {
   TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
+import { defaultTheme } from "@ultrapaint/contracts/themes";
 import {
   addTokens,
   mapTokens,
@@ -27,13 +28,9 @@ export type Edited = DesignSystem | { readonly problem: string };
 
 const TOKEN_NAME_RE = /^[a-z0-9][\w.-]*$/i;
 
-/** The theme a design system's plain values are in: its first, `light` when it names none. */
-export const defaultThemeOf = (ds: DesignSystem): string =>
-  ds.themes?.[0] ?? "light";
-
 /** The theme an operation names, as a change says it: left out for the default theme. */
 const themeOf = (ds: DesignSystem, theme: string | undefined) =>
-  theme === undefined || theme === defaultThemeOf(ds) ? undefined : theme;
+  theme === undefined || theme === defaultTheme(ds) ? undefined : theme;
 
 /** What an operation is called in a problem and in the undo history. */
 const named = (op: DesignSystemEdit): string => {

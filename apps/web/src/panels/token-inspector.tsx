@@ -17,6 +17,7 @@ import {
   type TextStyle,
   type TextStyleSetting,
 } from "@ultrapaint/contracts/design-system";
+import { defaultTheme, themesOf } from "@ultrapaint/contracts/themes";
 import {
   tokenKindOf,
   tokenOf,
@@ -37,7 +38,6 @@ import {
   rampEdits,
   type TokenUse,
   textStyleOp,
-  themesOf,
   usesOf,
   valueOp,
 } from "../lib/token-ops.ts";
@@ -83,7 +83,7 @@ const ThemeValue = ({
   name: string;
   theme: string;
 }) => {
-  const first = theme === themesOf(ds)[0];
+  const first = theme === defaultTheme(ds);
   const own = ownValueIn(ds, name, theme);
   const fallback = tokenOf(ds, name)?.value;
   // What the field held when typing began, and what is typed since; null while it is not typed in.
@@ -151,7 +151,7 @@ const ThemeValue = ({
             e.currentTarget.blur();
           }
         }}
-        placeholder={first ? undefined : `As ${themesOf(ds)[0]}: ${fallback}`}
+        placeholder={first ? undefined : `As ${defaultTheme(ds)}: ${fallback}`}
         value={shown}
       />
     </Row>

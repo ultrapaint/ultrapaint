@@ -11,11 +11,16 @@ import {
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import {
+  isDarkTheme,
+  themesOf,
+  valueInTheme,
+} from "@ultrapaint/contracts/themes";
 import { shortName } from "@ultrapaint/contracts/token-table";
 import { contrastRatio } from "@ultrapaint/contracts/token-value";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
-import { isDark, label, MONO, sheet, text, valueIn } from "./board-nodes.ts";
+import { label, MONO, sheet, text } from "./board-nodes.ts";
 import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
@@ -205,14 +210,14 @@ const pairNode = (
   [fg, bg]: readonly [string, string],
   theme: string
 ): DesignNode | null => {
-  const a = valueIn(ds, fg, theme);
-  const b = valueIn(ds, bg, theme);
+  const a = valueInTheme(ds, fg, theme, { follow: true });
+  const b = valueInTheme(ds, bg, theme, { follow: true });
   const ratio = a && b ? contrastRatio(a, b) : null;
   if (ratio === null) {
     return null;
   }
   const grade = gradeOf(ratio);
-  const dark = isDark(theme);
+  const dark = isDarkTheme(theme);
   const [fill, color] = dark
     ? [GRADE_COLORS[grade][2], GRADE_COLORS[grade][3]]
     : [GRADE_COLORS[grade][0], GRADE_COLORS[grade][1]];
@@ -270,7 +275,7 @@ const themeBoard = (
   theme: string,
   groups: readonly { group: TokenGroup; names: readonly string[] }[]
 ): DesignNode => {
-  const dark = isDark(theme);
+  const dark = isDarkTheme(theme);
   const ramps = groups.some((g) => isRamp(g.group));
   const names = new Set(ds.colors.flatMap((g) => g.tokens.map((t) => t.name)));
   const pairs = contrastPairs(names).flatMap((pair) => {
@@ -320,7 +325,7 @@ const themeBoard = (
  */
 export const colorBoards = (given: DesignSystem | null, q: string): Boards => {
   const ds = given ?? neutralDesignSystem();
-  const themes = ds.themes && ds.themes.length > 0 ? ds.themes : ["light"];
+  const themes = themesOf(ds);
   const boards = themes.map((theme): Board => {
     // The palettes first, as ramps, then the colours named for what they do.
     const ordered = [
@@ -332,7 +337,8 @@ export const colorBoards = (given: DesignSystem | null, q: string): Boards => {
         group,
         names: group.tokens
           .filter((t) => {
-            const value = valueIn(ds, t.name, theme) ?? "";
+            const value =
+              valueInTheme(ds, t.name, theme, { follow: true }) ?? "";
             return (
               !q ||
               t.name.toLowerCase().includes(q) ||

@@ -13,16 +13,16 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import {
+  defaultTheme,
+  isDarkTheme,
+  themesOf,
+} from "@ultrapaint/contracts/themes";
 import { shortName, tokenOf } from "@ultrapaint/contracts/token-table";
 import { RAMP_STEPS, rampOf } from "@ultrapaint/design-document/ramp";
 import { tokensIn } from "@ultrapaint/design-document/tokens";
 import { childrenOf } from "@ultrapaint/design-document/tree";
-import { isDark } from "../boards/board-nodes.ts";
 import { stepOf } from "../boards/color-boards.ts";
-
-/** The themes a design system gives its values in, the default first. */
-export const themesOf = (ds: DesignSystem): readonly string[] =>
-  ds.themes && ds.themes.length > 0 ? ds.themes : ["light"];
 
 /** A token's own value in a theme, as it is written; undefined where it takes the default's. */
 export const ownValueIn = (
@@ -34,7 +34,7 @@ export const ownValueIn = (
   if (!token) {
     return undefined;
   }
-  return theme === themesOf(ds)[0] ? token.value : token.values?.[theme];
+  return theme === defaultTheme(ds) ? token.value : token.values?.[theme];
 };
 
 /** A value typed into a theme's field, as the operation that sets it: null takes another theme's out. */
@@ -44,7 +44,7 @@ export const valueOp = (
   theme: string,
   value: string | null
 ): DesignSystemEdit =>
-  theme === themesOf(ds)[0]
+  theme === defaultTheme(ds)
     ? { name, op: "setValue", value: value ?? "" }
     : { name, op: "setValue", theme, value };
 
@@ -106,7 +106,10 @@ export const rampEdits = (
   const runs = new Map(
     themes.map((theme) => [
       theme,
-      rampOf(base, isDark(theme) && theme !== themes[0] ? "dark" : "light"),
+      rampOf(
+        base,
+        isDarkTheme(theme) && theme !== defaultTheme(ds) ? "dark" : "light"
+      ),
     ])
   );
   if ([...runs.values()].some((run) => run === null)) {
