@@ -15,6 +15,7 @@ import {
   showFrame,
 } from "./page-layout.ts";
 import { useProject } from "./project.ts";
+import { selectMany } from "./selection.ts";
 import { followServer } from "./server-data.ts";
 
 vi.mock(
@@ -183,7 +184,7 @@ describe("a page's views", () => {
       },
     });
     const view = viewFrameOf(home.id, "w390");
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: view, nodeId: "a" },
       { frame: view, nodeId: "b" },
     ]);

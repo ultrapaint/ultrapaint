@@ -25,6 +25,7 @@ import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { addView, setPreset } from "../state/page-layout.ts";
+import { selectPage } from "../state/selection.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { useDrag } from "./drag.ts";
 import { Divider, MoreButton } from "./element-toolbar.tsx";
@@ -88,7 +89,7 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
   const add = (width: number, height?: number) => {
     const view = addView(pageId, width, height);
     if (view) {
-      useEditor.getState().selectPage(view);
+      selectPage(view);
     }
   };
   return (

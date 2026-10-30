@@ -19,6 +19,7 @@ import { useEditor } from "../state/editor.ts";
 import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
 import { nodeFrameLayout } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
+import { selectPage } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import {
@@ -250,7 +251,7 @@ export const Canvas = () => {
     }
     if (!pan) {
       if (e.target === e.currentTarget) {
-        useEditor.getState().selectPage(null);
+        selectPage(null);
         useComments.getState().setDraft(null);
         useComments.getState().setOpen(null);
       }

@@ -13,6 +13,7 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
+import { select } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Inspector } from "./inspector.tsx";
 
@@ -94,14 +95,14 @@ afterEach(() => {
 
 describe("the inspector's sections", () => {
   it("say where a node of a page leads in the prototype", () => {
-    act(() => useEditor.getState().select({ frame: HOME, nodeId: "title" }));
+    act(() => select({ frame: HOME, nodeId: "title" }));
     expect(container.textContent).toContain("Prototype");
   });
 
   it("have no prototype for a node of an app component's tree on its board", () => {
     act(() => {
       openBoard({ item: "Promo", view: "library" });
-      useEditor.getState().select({ frame: PROMO_BOARD, nodeId: "sale" });
+      select({ frame: PROMO_BOARD, nodeId: "sale" });
     });
     expect(useEditor.getState().selection?.nodeId).toBe("sale");
     expect(container.textContent).toContain("sale");

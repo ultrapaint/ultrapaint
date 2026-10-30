@@ -24,8 +24,14 @@ import {
   rootOfFrame,
   useDocuments,
 } from "./documents.ts";
-import { type EditorState, type Selection, useEditor } from "./editor.ts";
+import {
+  type EditorState,
+  hidesSelection,
+  type Selection,
+  useEditor,
+} from "./editor.ts";
 import { frameRefOf, ownFrameOf, widthOf } from "./frame-ref.ts";
+import { followFrame } from "./location.ts";
 
 /** What is selected, as the editor holds it. */
 type Picked = Pick<EditorState, "also" | "selection">;
@@ -98,6 +104,96 @@ export const editedFrameOf = (
   return ref?.kind === "view" && ref.page === frame && selection
     ? selection.frame
     : frame;
+};
+
+// ---- Changing it ----
+
+/** Selects a node, or nothing; the editor follows the frame it is in to its page. */
+export const select = (selection: Selection | null) => {
+  if (selection && hidesSelection(selection.frame)) {
+    return;
+  }
+  useEditor.setState({ also: [], selectedPage: null, selection });
+  if (selection) {
+    followFrame(selection.frame);
+  }
+};
+
+/**
+ * Several nodes of one frame at once, the first of them the one the inspector shows: those the
+ * first's frame shows, taken there.
+ */
+export const selectMany = (selections: readonly Selection[]) => {
+  const [first, ...rest] = selections;
+  if (!first || hidesSelection(first.frame)) {
+    select(null);
+    return;
+  }
+  select(first);
+  const frame = useEditor.getState().selection?.frame ?? first.frame;
+  useEditor.setState({
+    also: rest
+      .filter((s) => showsIn(first.frame, s.frame))
+      .map((s) => ({ ...s, frame })),
+  });
+};
+
+/** A page selected as a whole (its frame), or none; a view's frame selects its page. */
+export const selectPage = (pageId: string | null) => {
+  if (pageId && hidesSelection()) {
+    return;
+  }
+  // A view's frame selects its page, which every view of it shows (ADR 0036).
+  useEditor.setState({
+    also: [],
+    selectedPage: pageId && ownFrameOf(pageId),
+    selection: null,
+  });
+  if (pageId) {
+    followFrame(pageId);
+  }
+};
+
+/** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
+export const toggleSelected = (target: Selection) => {
+  if (hidesSelection()) {
+    return;
+  }
+  // Another view of the page shows the selection: the node is added there, and the rest with it.
+  const picked = pickedIn(target.frame, useEditor.getState());
+  if (!picked?.selection) {
+    select(target);
+    return;
+  }
+  const { also, selection } = picked;
+  const same = (a: Selection) => a.nodeId === target.nodeId;
+  if (same(selection)) {
+    // The last one added before it takes its place.
+    const next = also.at(-1) ?? null;
+    useEditor.setState({ also: also.slice(0, -1), selection: next });
+    return;
+  }
+  useEditor.setState({
+    also: also.some(same) ? also.filter((a) => !same(a)) : [...also, selection],
+    selection: also.some(same) ? selection : target,
+  });
+};
+
+/**
+ * Selects a node for a right-click. One that is already selected keeps the selection, in the view
+ * it is clicked in: the menu then acts on all of it, as a menu does in Figma, at that view's
+ * breakpoint.
+ */
+export const selectForMenu = (target: Selection) => {
+  const editor = useEditor.getState();
+  if (!isSelected(target.frame, target.nodeId, editor)) {
+    select(target);
+    return;
+  }
+  const picked = pickedIn(target.frame, editor);
+  if (picked?.selection && picked.selection !== editor.selection) {
+    useEditor.setState(picked);
+  }
 };
 
 // ---- The breakpoint a frame is drawn at ----

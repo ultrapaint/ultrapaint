@@ -58,13 +58,17 @@ import { renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import { canvasNodes, useDocuments } from "../state/documents.ts";
-import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { nodeFrameOf, ownFrameOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import {
   editedFrameOf,
+  select,
+  selectForMenu,
+  selectPage,
+  toggleSelected,
   useDrawnIn,
   useIsSelected,
 } from "../state/selection.ts";
@@ -117,9 +121,8 @@ const rowFrame = (frame: string) =>
 
 /** Selects what a row names: the page as a whole, or the node, Shift adding it to the rest. */
 const selectItem = (item: LayerItem, add: boolean) => {
-  const editor = useEditor.getState();
   if (item.page) {
-    editor.selectPage(item.page.id);
+    selectPage(item.page.id);
     return;
   }
   if (!item.node) {
@@ -127,9 +130,9 @@ const selectItem = (item: LayerItem, add: boolean) => {
   }
   const at = { frame: rowFrame(item.frame), nodeId: item.node.id };
   if (add) {
-    editor.toggleSelected(at);
+    toggleSelected(at);
   } else {
-    editor.select(at);
+    select(at);
   }
 };
 
@@ -736,11 +739,11 @@ const PageRow = ({
   const selected = useEditor((s) => s.selectedPage === page.id);
   const dropHere = useDropHere(key);
   const dropHandlers = rowDrop(item, shared);
-  const select = () => {
-    useEditor.getState().selectPage(page.id);
+  const selectThePage = () => {
+    selectPage(page.id);
   };
   const onContextMenu = (e: MouseEvent) => {
-    select();
+    selectThePage();
     openMenuAt(e, { kind: "page", pageId: page.id });
   };
   const row = (
@@ -755,7 +758,7 @@ const PageRow = ({
         FOCUS_RING
       )}
       data-row={key}
-      onClick={select}
+      onClick={selectThePage}
       {...dropHandlers}
       style={{ paddingLeft: ROW_PAD }}
     >
@@ -863,7 +866,7 @@ const RowMenu = ({ row }: { row: Row }) => {
   );
   const onClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    useEditor.getState().select({ frame, nodeId: node.id });
+    select({ frame, nodeId: node.id });
     showMenu({ frame, kind: "node", nodeId: node.id }, e.currentTarget);
   };
   return (

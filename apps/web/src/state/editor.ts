@@ -7,10 +7,7 @@ import type {
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { create } from "zustand";
 import { nodeIn, useDocuments } from "./documents.ts";
-import { ownFrameOf } from "./frame-ref.ts";
-import { followFrame } from "./location.ts";
 import { useProject } from "./project.ts";
-import { isSelected, pickedIn, showsIn } from "./selection.ts";
 import { readUrl, writeMode } from "./url.ts";
 import {
   emptyMemory,
@@ -104,13 +101,9 @@ interface EditorStore {
    * editor is on a page that serves no URL.
    */
   route: string | null;
-  select: (selection: Selection | null) => void;
   /** Page selected as a whole (its frame), as opposed to a node inside it. */
   selectedPage: string | null;
   selection: Selection | null;
-  /** Several nodes of one frame at once, the first of them the one the inspector shows. */
-  selectMany: (selections: readonly Selection[]) => void;
-  selectPage: (pageId: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
   setMode: (mode: Mode) => void;
   setRects: (frame: string, rects: Record<string, Rect>) => void;
@@ -123,8 +116,6 @@ interface EditorStore {
   sizes: Record<string, { height: number; width: number }>;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
-  /** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
-  toggleSelected: (selection: Selection) => void;
   /** The variant the router is in: its pages serve their routes, the base's the rest. */
   variant: string | null;
   /** Where the canvas is looked at from; `camera.ts` alone moves it. */
@@ -218,45 +209,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   rects: {},
   rightTab: "design",
   route: "/",
-  select: (selection) => {
-    if (selection && hidesSelection(get, selection.frame)) {
-      return;
-    }
-    set({ also: [], selectedPage: null, selection });
-    if (selection) {
-      followFrame(selection.frame);
-    }
-  },
   selectedPage: null,
   selection: null,
-  selectMany: (selections) => {
-    const [first, ...rest] = selections;
-    if (!first || hidesSelection(get, first.frame)) {
-      get().select(null);
-      return;
-    }
-    get().select(first);
-    const frame = get().selection?.frame ?? first.frame;
-    set({
-      also: rest
-        .filter((s) => showsIn(first.frame, s.frame))
-        .map((s) => ({ ...s, frame })),
-    });
-  },
-  selectPage: (pageId) => {
-    if (pageId && hidesSelection(get)) {
-      return;
-    }
-    // A view's frame selects its page, which every view of it shows (ADR 0036).
-    set({
-      also: [],
-      selectedPage: pageId && ownFrameOf(pageId),
-      selection: null,
-    });
-    if (pageId) {
-      followFrame(pageId);
-    }
-  },
   // The pointer reports the same node many times a second; only a change is news.
   setHover: (hover) =>
     set((s) =>
@@ -318,31 +272,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   sizes: {},
   spacePan: false,
-  toggleSelected: (target) => {
-    if (hidesSelection(get)) {
-      return;
-    }
-    // Another view of the page shows the selection: the node is added there, and the rest with it.
-    const picked = pickedIn(target.frame, get());
-    if (!picked?.selection) {
-      get().select(target);
-      return;
-    }
-    const { also, selection } = picked;
-    const same = (a: Selection) => a.nodeId === target.nodeId;
-    if (same(selection)) {
-      // The last one added before it takes its place.
-      const next = also.at(-1) ?? null;
-      set({ also: also.slice(0, -1), selection: next });
-      return;
-    }
-    set({
-      also: also.some(same)
-        ? also.filter((a) => !same(a))
-        : [...also, selection],
-      selection: also.some(same) ? selection : target,
-    });
-  },
   variant: null,
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: workspaceInUrl(),
@@ -352,23 +281,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
  * Nothing shows a selection in the prototype, nor on a board view, which draws no page: nothing
  * may be selected there but in an app component's tree, on its board (`frame`).
  */
-const hidesSelection = (get: () => EditorStore, frame?: string) =>
-  get().workspace === "prototype" ||
+export const hidesSelection = (frame?: string) =>
+  useEditor.getState().workspace === "prototype" ||
   (onBoard() && !(frame !== undefined && boardTakesSelection(frame)));
-
-/**
- * Selects a node for a right-click. One that is already selected keeps the selection, in the view
- * it is clicked in: the menu then acts on all of it, as a menu does in Figma, at that view's
- * breakpoint.
- */
-export const selectForMenu = (target: Selection) => {
-  const editor = useEditor.getState();
-  if (!isSelected(target.frame, target.nodeId, editor)) {
-    editor.select(target);
-    return;
-  }
-  const picked = pickedIn(target.frame, editor);
-  if (picked?.selection && picked.selection !== editor.selection) {
-    useEditor.setState(picked);
-  }
-};
