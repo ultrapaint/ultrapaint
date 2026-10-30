@@ -8,6 +8,7 @@ import {
   leaveBoard,
   openBoard,
   openBoardInUrl,
+  pageSelectionLeft,
   pickOf,
   pickOnBoard,
   placeOfUrl,
@@ -116,10 +117,13 @@ describe("openBoard", () => {
     expect(fakeBrowser.history().entries).toHaveLength(2);
   });
 
-  it("selects nothing of a page while it is open", () => {
+  it("selects nothing of a page while it is open, and keeps what the page had selected", () => {
+    expect(pageSelectionLeft()).toEqual([HERO]);
     openBoard({ item: "Button", view: "library" });
     select(HERO);
     expect(useEditor.getState().selection).toBeNull();
+    // What a look takes its content from: the page's selection, put aside.
+    expect(pageSelectionLeft()).toEqual([HERO]);
   });
 
   it("goes from item to item in the same entry, each item's camera kept", () => {

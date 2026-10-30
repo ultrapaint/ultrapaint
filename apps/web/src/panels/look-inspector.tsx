@@ -15,7 +15,6 @@ import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   COMPONENT_STATES,
   type ComponentChange,
-  type ComponentFile,
   type ComponentState,
   type LookPlace,
   type PartStyle,
@@ -45,7 +44,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -56,7 +54,6 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
-import { componentUsesOf } from "../lib/component-uses.ts";
 import { nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import {
@@ -65,13 +62,19 @@ import {
   useColorOf,
   useTokenOptions,
 } from "../lib/token-options.tsx";
-import { pickOf, pickOnBoard, useBoard } from "../state/board.ts";
+import {
+  pageSelectionLeft,
+  pickOf,
+  pickOnBoard,
+  useBoard,
+} from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
-import { UsesSection, usePagesRead } from "./token-inspector.tsx";
+import { Notes } from "./component-notes.tsx";
+import { ComponentUsedIn } from "./component-used-in.tsx";
 
 /**
  * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
@@ -456,13 +459,10 @@ const SlotFields = ({
  * The nodes selected on the page the board view was opened from (or on the canvas, outside one),
  * copied without the slot each fills: what a look can take.
  */
-const selectedNodes = (): DesignNode[] => {
-  const left = useBoard.getState().left?.picked;
-  const { also, selection } = left ?? { also: [], selection: null };
-  return nodesOf(selection ? [selection, ...also] : []).map(
+const selectedNodes = (): DesignNode[] =>
+  nodesOf(pageSelectionLeft()).map(
     ({ node: { slot: _slot, ...node } }) => node as DesignNode
   );
-};
 
 /** The first node of a tree of a type, by id. */
 const firstOf = (
@@ -638,139 +638,6 @@ const LookExtras = ({
         </div>
       ) : null}
     </div>
-  );
-};
-
-/**
- * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
- * about one part or the whole of it. They go with the component to `/implement`. Added and taken
- * out on the server, on the file as it is there.
- */
-export const Notes = ({
-  component,
-  parts,
-}: {
-  component: ComponentFile;
-  parts: readonly { readonly label?: string; readonly name: string }[];
-}) => {
-  const [text, setText] = useState("");
-  const [slot, setSlot] = useState(ROOT_SLOT);
-  const notes = component.notes ?? [];
-  const add = async () => {
-    if (text.trim() === "") {
-      return;
-    }
-    try {
-      await api().request("components.addNote", {
-        name: component.name,
-        ...(slot !== ROOT_SLOT && { slot }),
-        text: text.trim(),
-      });
-      setText("");
-    } catch (error) {
-      reportError(error);
-    }
-  };
-  const remove = (id: string) =>
-    change(component.name, { id, op: "removeNote" });
-  const partOf = (name: string | undefined) =>
-    parts.find((s) => s.name === name)?.label ?? name;
-  const choices = [
-    { label: "The component", name: ROOT_SLOT },
-    ...parts.filter((p) => p.name !== ROOT_SLOT),
-  ];
-  return (
-    <div className="flex flex-col gap-1.5 font-body">
-      {notes.length === 0 ? (
-        <p className="text-muted-foreground">
-          What the code must do that the design cannot show: it goes to the code
-          when the component is implemented.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {notes.map((n) => (
-            <li className="flex items-start gap-1.5" key={n.id}>
-              <span className="min-w-0 flex-1">
-                {n.slot ? (
-                  <span className="text-muted-foreground">
-                    {partOf(n.slot)}:{" "}
-                  </span>
-                ) : null}
-                {n.text}
-              </span>
-              <Button
-                aria-label="Take the note out"
-                onClick={() => remove(n.id)}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* The part a note is about on a line of its own, so that neither it nor the note is cut. */}
-      {choices.length > 1 ? (
-        <NativeSelect
-          aria-label="About"
-          className="w-full"
-          onChange={(e) => setSlot(e.target.value)}
-          size="sm"
-          value={slot}
-        >
-          {choices.map((s) => (
-            <NativeSelectOption key={s.name} value={s.name}>
-              {s.label ?? s.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      ) : null}
-      <div className="flex gap-1.5">
-        <Input
-          aria-label="A behaviour note"
-          className="h-7 min-w-0 flex-1"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              add();
-            }
-          }}
-          placeholder="Closes on Escape"
-          value={text}
-        />
-        <Button
-          disabled={text.trim() === ""}
-          onClick={add}
-          size="sm"
-          variant="outline"
-        >
-          Note
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-/** Where a component is used: the pages of the canvas open, and the app components placing it. */
-export const ComponentUsedIn = ({
-  from,
-  name,
-}: {
-  from: string;
-  name: string;
-}) => {
-  const pages = usePagesRead();
-  const components = useComponents((s) => s.components);
-  const uses = useMemo(
-    () => componentUsesOf(name, from, { components, pages }),
-    [name, from, components, pages]
-  );
-  return (
-    <UsesSection
-      count={(use) => (use.count > 1 ? String(use.count) : null)}
-      uses={uses}
-    />
   );
 };
 

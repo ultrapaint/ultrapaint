@@ -84,11 +84,10 @@ import {
   isOpenIn,
   type LayerItem,
   layerKey,
-  looseItem,
+  layerScope,
   NO_FOLDS,
   oneLevelFolded,
   oneLevelOpen,
-  pageItem,
   pageKey,
   revealed,
   treeMove,
@@ -298,17 +297,6 @@ type Line =
   | { kind: "heading"; text: string }
   | { kind: "row"; row: VisibleRow };
 
-/** What the tree listed is: a component edited in place, an app component's, or the canvas's. */
-const headingOf = (
-  isolated: string | null,
-  board: ReturnType<typeof useBoard.getState>["open"]
-) => {
-  if (isolated) {
-    return `Editing ${isolated}`;
-  }
-  return board ? board.item : "On the canvas";
-};
-
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
   const allPages = useProject((s) => s.pages);
@@ -333,31 +321,22 @@ export const Layers = () => {
   const listed = useListWindow(listRef);
   // The tree is built again only when the documents change: a canvas holds thousands of layers,
   // and a selection or a fold changes none of them.
-  const { items, nodes } = useMemo(() => {
-    // An app component edited in place is what its frame's selection and edits are in: its tree
-    // is listed alone, as the rest of the canvas is out of reach.
-    const component =
-      isolated && docs[componentDocOf(isolated.component)]?.root;
-    if (isolated && component) {
-      return {
-        items: [looseItem(isolated.frame, component)],
-        nodes: [component],
-      };
-    }
+  const { heading, items, nodes } = useMemo(() => {
     const tree = boardTree(board, docs);
-    if (tree) {
-      return { items: [looseItem(tree.frame, tree.root)], nodes: [tree.root] };
-    }
-    const placed = canvasNodes(docs, canvas);
-    return {
-      items: [
-        ...allPages
-          .filter((p) => p.canvas === canvas)
-          .map((page) => pageItem(page, docs[page.id]?.root ?? null)),
-        ...placed.map((node) => looseItem(nodeFrameOf(node.id), node)),
-      ],
-      nodes: placed,
-    };
+    return layerScope({
+      canvasNodes: canvasNodes(docs, canvas).map((node) => ({
+        frame: nodeFrameOf(node.id),
+        node,
+      })),
+      edited: isolated && {
+        component: isolated.component,
+        frame: isolated.frame,
+        root: docs[componentDocOf(isolated.component)]?.root ?? null,
+      },
+      pages: allPages.filter((p) => p.canvas === canvas),
+      roots: (id) => docs[id]?.root ?? null,
+      tree: tree && board && { ...tree, name: board.item },
+    });
   }, [allPages, board, canvas, docs, isolated]);
 
   const { query } = folds;
@@ -378,10 +357,7 @@ export const Layers = () => {
   for (const row of rows) {
     if (!headed && row.level === 1 && !row.item.page) {
       headed = true;
-      lines.push({
-        kind: "heading",
-        text: headingOf(isolated?.component ?? null, board),
-      });
+      lines.push({ kind: "heading", text: heading });
       heights.push(HEADING);
     }
     lines.push({ kind: "row", row });
