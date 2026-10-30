@@ -1,0 +1,324 @@
+/**
+ * The board view (ADR 0045, B4): the main area showing the item picked in Design system or the
+ * Library as boards, generated documents drawn as frames on a canvas of their own. It is a view
+ * of the canvas workspace, not a third workspace: the page canvas is put aside as it was (its
+ * camera, its selection, its tool and the left panel shown) and found again on leaving.
+ *
+ * While a board view is open the editor's camera is the board's: `useEditor.view`, moved by
+ * `camera.ts` as on the page canvas, and `allFrames` the boards' frames, which this module tells
+ * the editor (`showBoardFramesWith`). The page's camera waits here, and so does the camera each
+ * item was left at. What is picked on a board is the board's own (B6), kept per item; the page's
+ * selection is not touched by it.
+ *
+ * The URL says where (`?view=system&item=color`, `url.ts`): opening a board view from the page
+ * is a navigation, which back walks; going from item to item replaces it.
+ */
+import type { Box } from "@ultrapaint/contracts/canvas-layout";
+import { create } from "zustand";
+import { setView, type View, viewportSize } from "./camera.ts";
+import {
+  type LeftTab,
+  type Mode,
+  railTabs,
+  showBoardFramesWith,
+  unpicked,
+  useEditor,
+} from "./editor.ts";
+import { leaveIsolation } from "./isolation.ts";
+import { type BoardUrl, onUrlChange, readUrl, writeBoard } from "./url.ts";
+import type { Picked } from "./workspace-memory.ts";
+
+export type BoardView = "system" | "library";
+
+const VIEWS: readonly BoardView[] = ["system", "library"];
+
+/** Where a board view is: which one, and the item it shows. */
+export interface BoardPlace {
+  readonly item: string;
+  readonly view: BoardView;
+}
+
+/** What is picked on a board: a node of one of its frames, named for what it stands for. */
+export interface BoardPick {
+  readonly frame: string;
+  readonly nodeId: string;
+}
+
+/** The page canvas as a board view found it, put back on leaving. */
+interface Left {
+  readonly leftTab: LeftTab;
+  readonly mode: Mode;
+  readonly picked: Picked;
+  readonly view: View;
+}
+
+interface BoardStore {
+  /** The camera each item was left at, by `boardKey`. */
+  cameras: Readonly<Record<string, View>>;
+  /** Where the boards of the item open are, by frame id, as the board canvas lays them out. */
+  frames: Readonly<Record<string, Box>>;
+  /** The item each view showed last, which its button opens again. */
+  last: Readonly<Partial<Record<BoardView, string>>>;
+  /** The page canvas, while a board view is open. */
+  left: Left | null;
+  /** The board view open; null on the page canvas. */
+  open: BoardPlace | null;
+  /** What is picked on each item's boards, by `boardKey`. */
+  picks: Readonly<Record<string, BoardPick>>;
+  /** The theme the boards are drawn in; null for the design's first. */
+  theme: string | null;
+}
+
+export const useBoard = create<BoardStore>(() => ({
+  cameras: {},
+  frames: {},
+  last: {},
+  left: null,
+  open: null,
+  picks: {},
+  theme: null,
+}));
+
+showBoardFramesWith(() => {
+  const { frames, open } = useBoard.getState();
+  return open ? frames : null;
+});
+
+/** An item's key among the cameras and the picks. */
+export const boardKey = (place: BoardPlace) => `${place.view}/${place.item}`;
+
+/** The item a view opens on the first time: Color, and the Library's Overview. */
+export const FIRST_ITEM: Readonly<Record<BoardView, string>> = {
+  library: "overview",
+  system: "color",
+};
+
+/** The left panel a board view is navigated from. */
+export const PANEL_OF: Readonly<Record<BoardView, LeftTab>> = {
+  library: "library",
+  system: "designSystem",
+};
+
+/** The tools a board has: no group, no text and no comment is drawn on one. */
+export const BOARD_MODES: readonly Mode[] = ["select", "interact", "pan"];
+
+const boardMode = (mode: Mode): Mode =>
+  BOARD_MODES.includes(mode) ? mode : "select";
+
+/**
+ * The rail's places on a board view: Layers only where there is a tree, which no board has yet
+ * (an app component's will, ADR 0045).
+ */
+export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] =>
+  open ? railTabs.filter((tab) => tab !== "layers") : railTabs;
+
+/** How far from the seen part's corner an item's boards begin, the first time it is opened. */
+const MARGIN = 72;
+
+const firstView = (): View => ({
+  x: viewportSize().x + MARGIN,
+  y: MARGIN,
+  zoom: 1,
+});
+
+/** How a move writes the URL: an entry of its own, in the entry's place, or not at all (back). */
+type History = "push" | "replace" | "none";
+
+/**
+ * Opens a board view on `place`, the page canvas put aside the first time; from one item to
+ * another, the camera each was left at is kept. The prototype gives way to it, and an app
+ * component edited in place is left.
+ */
+export const openBoard = (place: BoardPlace, history: History = "push") => {
+  if (useEditor.getState().workspace !== "design") {
+    useEditor.getState().setWorkspace("design");
+  }
+  const board = useBoard.getState();
+  const was = board.open;
+  if (was && boardKey(was) === boardKey(place)) {
+    useEditor.setState({ leftTab: PANEL_OF[place.view] });
+    return;
+  }
+  // Left before the page is put aside: the instance it was entered from is what is selected.
+  if (!was) {
+    leaveIsolation();
+  }
+  const now = useEditor.getState();
+  const left: Left = board.left ?? {
+    leftTab: now.leftTab,
+    mode: now.mode,
+    picked: {
+      also: now.also,
+      selectedPage: now.selectedPage,
+      selection: now.selection,
+    },
+    view: now.view,
+  };
+  const cameras = was
+    ? { ...board.cameras, [boardKey(was)]: now.view }
+    : board.cameras;
+  useBoard.setState({
+    cameras,
+    frames: {},
+    last: { ...board.last, [place.view]: place.item },
+    left,
+    open: place,
+  });
+  useEditor.setState({
+    ...unpicked,
+    leftTab: PANEL_OF[place.view],
+    mode: boardMode(now.mode),
+  });
+  setView(cameras[boardKey(place)] ?? firstView());
+  if (history !== "none") {
+    writeBoard(place, history === "push" && was === null);
+  }
+};
+
+/** The left panel the page is found with: Design system's list is a board view's. */
+const tabOnPage = (tab: LeftTab, view: BoardView): LeftTab => {
+  if (tab !== "designSystem") {
+    return tab;
+  }
+  return view === "library" ? "library" : "chat";
+};
+
+/** The board view closed, its item's camera kept; what the page was left with is the answer. */
+const close = (): { left: Left | null; view: BoardView } | null => {
+  const { cameras, left, open } = useBoard.getState();
+  if (!open) {
+    return null;
+  }
+  useBoard.setState({
+    cameras: { ...cameras, [boardKey(open)]: useEditor.getState().view },
+    frames: {},
+    left: null,
+    open: null,
+  });
+  return { left, view: open.view };
+};
+
+/** Back to the page canvas as the board view found it: its camera, its selection, its tool. */
+export const leaveBoard = (history: History = "push") => {
+  const closed = close();
+  if (!closed) {
+    return;
+  }
+  const { left, view } = closed;
+  if (left) {
+    useEditor.setState({
+      ...left.picked,
+      leftTab: tabOnPage(left.leftTab, view),
+      mode: left.mode,
+    });
+    setView(left.view);
+  }
+  if (history !== "none") {
+    writeBoard(null, history === "push");
+  }
+};
+
+/** Picks a node of a board of the item open, or lets the pick go. */
+export const pickOnBoard = (pick: BoardPick | null) => {
+  const { open, picks } = useBoard.getState();
+  if (!open) {
+    return;
+  }
+  const key = boardKey(open);
+  if (pick) {
+    useBoard.setState({ picks: { ...picks, [key]: pick } });
+  } else if (key in picks) {
+    const { [key]: _gone, ...rest } = picks;
+    useBoard.setState({ picks: rest });
+  }
+};
+
+/** What is picked on the item open; null when nothing is, or no board view is open. */
+export const pickOf = (s: BoardStore): BoardPick | null =>
+  s.open ? (s.picks[boardKey(s.open)] ?? null) : null;
+
+const sameBoxes = (
+  a: Readonly<Record<string, Box>>,
+  b: Readonly<Record<string, Box>>
+) => {
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((k) => {
+      const x = a[k] as Box;
+      const y = b[k];
+      return (
+        y !== undefined &&
+        x.x === y.x &&
+        x.y === y.y &&
+        x.width === y.width &&
+        x.height === y.height
+      );
+    })
+  );
+};
+
+/** Where the boards of the item open are now: the board canvas lays them out as they draw. */
+export const setBoardFrames = (frames: Readonly<Record<string, Box>>) => {
+  if (!sameBoxes(useBoard.getState().frames, frames)) {
+    useBoard.setState({ frames });
+  }
+};
+
+/** The theme the boards are drawn in; null for the design's first. */
+export const setBoardTheme = (theme: string | null) =>
+  useBoard.setState({ theme });
+
+/** The board view a URL names, its item the view's first when it names none. */
+export const placeOfUrl = (url: BoardUrl | null): BoardPlace | null => {
+  const view = VIEWS.find((v) => v === url?.view);
+  return view ? { item: url?.item ?? FIRST_ITEM[view], view } : null;
+};
+
+/** Opens the board view the URL names, if it names one: a reload or a link lands on it. */
+export const openBoardInUrl = () => {
+  const place = placeOfUrl(readUrl().board);
+  if (place) {
+    openBoard(place, "replace");
+  }
+};
+
+/**
+ * Follows the browser's back and forward buttons to a board view and from it, until the answer
+ * is called: the URL says it already, so nothing is written.
+ */
+export const followBoardHistory = (): (() => void) =>
+  onUrlChange((url) => {
+    const place = placeOfUrl(url.board);
+    if (place) {
+      openBoard(place, "none");
+    } else {
+      leaveBoard("none");
+    }
+  });
+
+/**
+ * The prototype shows the page: a board view open gives way to it, and what the page was left
+ * with is what the canvas is found with when the prototype is left.
+ */
+useEditor.subscribe((now, before) => {
+  if (now.workspace !== "prototype" || before.workspace === "prototype") {
+    return;
+  }
+  const closed = close();
+  if (!closed) {
+    return;
+  }
+  const { left, view } = closed;
+  if (left) {
+    useEditor.setState((s) => ({
+      leftTab: tabOnPage(left.leftTab, view),
+      memory: {
+        modes: { ...s.memory.modes, design: left.mode },
+        putAside: left.picked,
+      },
+    }));
+    setView(left.view);
+  }
+  writeBoard(null, false);
+});

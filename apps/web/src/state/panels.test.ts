@@ -7,6 +7,8 @@ import { renameNode } from "../lib/node-actions.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useAgents } from "./agents.ts";
 import { useAttachments } from "./attachments.ts";
+import { openBoard, useBoard } from "./board.ts";
+import { measureViewportWith } from "./camera.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { showLeftPanel, takeRequest, usePanels } from "./panels.ts";
@@ -56,6 +58,7 @@ const read = () =>
     .map((c) => (c.input as { threadId: string }).threadId);
 
 const initial = useEditor.getState();
+const initialBoard = useBoard.getState();
 
 beforeEach(() => {
   fakeApi.reset();
@@ -76,8 +79,10 @@ beforeEach(() => {
     ],
   });
   useDocuments.setState({ canvas: "", docs: { [HOME]: home } });
+  useBoard.setState(initialBoard, true);
   useEditor.setState(initial, true);
   useEditor.setState({ canvas: "", leftTab: "layers", workspace: "design" });
+  measureViewportWith(() => ({ height: 800, width: 1000, x: 300 }));
   useAgents.setState({
     current: "t1",
     threads: [thread("t1"), thread("t2")],
@@ -93,6 +98,41 @@ describe("showLeftPanel", () => {
     await showLeftPanel("library");
     expect(useEditor.getState().leftTab).toBe("library");
     expect(usePanels.getState()).toMatchObject({ left: false, right: true });
+  });
+
+  it("opens Design system's board view, on the item it showed last", async () => {
+    await showLeftPanel("designSystem");
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    expect(useEditor.getState().leftTab).toBe("designSystem");
+    openBoard({ item: "radius", view: "system" });
+    openBoard({ item: "Button", view: "library" });
+    await showLeftPanel("designSystem");
+    expect(useBoard.getState().open).toEqual({
+      item: "radius",
+      view: "system",
+    });
+  });
+
+  it("shows the Library's insert list on the page, and its board view's navigation on one", async () => {
+    await showLeftPanel("library");
+    expect(useBoard.getState().open).toBeNull();
+    expect(useEditor.getState().leftTab).toBe("library");
+    await showLeftPanel("designSystem");
+    await showLeftPanel("library");
+    expect(useBoard.getState().open).toEqual({
+      item: "overview",
+      view: "library",
+    });
+  });
+
+  it("keeps a board view for the chat, and leaves it for Layers", async () => {
+    await showLeftPanel("designSystem");
+    await showLeftPanel("chat");
+    expect(useBoard.getState().open).not.toBeNull();
+    expect(useEditor.getState().leftTab).toBe("chat");
+    await showLeftPanel("layers");
+    expect(useBoard.getState().open).toBeNull();
+    expect(useEditor.getState().leftTab).toBe("layers");
   });
 
   it("brings the canvas back from the prototype", async () => {

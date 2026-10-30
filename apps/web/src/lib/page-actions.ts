@@ -6,6 +6,7 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
+import { leaveBoard } from "../state/board.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
@@ -23,7 +24,11 @@ export const pageById = (id: string): Page | undefined =>
   useProject.getState().pages.find((p) => p.id === id);
 
 /** Goes to the page, unless it is already on screen with the parameters it was reached with. */
-export const goToPage = (page: Page) => goTo({ page: page.id });
+export const goToPage = (page: Page) => {
+  // The page is on the page canvas: a board view open gives way to it.
+  leaveBoard();
+  return goTo({ page: page.id });
+};
 
 /** Brings the page's frame into view on the canvas, selected. */
 export const zoomToPage = (page: Page) => reveal({ page: page.id });

@@ -52,3 +52,33 @@ export const gridBackground = (view: {
     }),
   };
 };
+
+/** The spacing of a board view's dots, in canvas pixels. */
+const DOTS = 24;
+
+/**
+ * A board view's background at `view` (ADR 0045): a faint dot every few cells, fading out as the
+ * zoom brings them too close to tell apart, so it is never taken for the page canvas.
+ */
+export const dotsBackground = (view: {
+  x: number;
+  y: number;
+  zoom: number;
+}): CSSProperties => {
+  const px = DOTS * view.zoom;
+  const opacity = Math.min(
+    1,
+    Math.max(0, (px - FADE_FROM * 2) / (FADE_TO * 2 - FADE_FROM * 2))
+  );
+  if (opacity === 0) {
+    return { backgroundImage: "", backgroundPosition: "", backgroundSize: "" };
+  }
+  const dot = Math.max(1, Math.min(1.5, view.zoom * 1.25));
+  return {
+    backgroundImage: `radial-gradient(circle, color-mix(in oklab, var(--board-grid) ${Math.round(
+      opacity * 100
+    )}%, transparent) ${dot}px, transparent ${dot}px)`,
+    backgroundPosition: `${view.x}px ${view.y}px`,
+    backgroundSize: `${px}px ${px}px`,
+  };
+};

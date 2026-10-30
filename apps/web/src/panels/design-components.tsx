@@ -9,7 +9,6 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
-  APP_FROM,
   type AppComponentFile,
   COMPONENT_STATES,
   type ComponentChange,
@@ -24,7 +23,6 @@ import {
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentTarget } from "@ultrapaint/contracts/implementation";
 import { presetSize } from "@ultrapaint/contracts/pages";
-import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { designCss } from "@ultrapaint/system-components/look";
@@ -39,6 +37,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { axesOf, matrixOf } from "../boards/library-boards.ts";
 import { useFrameDrawing } from "../canvas/editor-frame.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -149,117 +148,6 @@ const partsOf = (name: string) =>
     label: s.label,
     name: s.name,
   })) ?? [{ label: "The component", name: ROOT_SLOT }];
-
-/** The axes and members a look is drawn in: the catalogue's, and its own besides. */
-const axesOf = (spec: SystemComponentFile, meta: ComponentMeta | undefined) => {
-  const axes: Record<string, string[]> = {};
-  for (const [axis, members] of Object.entries(meta?.variants ?? {})) {
-    axes[axis] = [...members];
-  }
-  for (const [axis, members] of Object.entries(spec.variants)) {
-    axes[axis] = [...new Set([...(axes[axis] ?? []), ...Object.keys(members)])];
-  }
-  return axes;
-};
-
-/** The axis the matrix draws a row per member of: the one asked for, else one a state is set in a member of, else the first. */
-const rowAxisOf = (
-  component: SystemComponentFile,
-  axes: Readonly<Record<string, readonly string[]>>,
-  asked: string | undefined
-) => {
-  const names = Object.keys(axes);
-  if (asked && names.includes(asked)) {
-    return asked;
-  }
-  return (
-    names.find((a) => component.variantStates?.[a] !== undefined) ?? names[0]
-  );
-};
-
-/** The states a look is drawn in: those it sets, in every member or in one, and the usual three. */
-const drawnStates = (component: SystemComponentFile): ComponentState[] => {
-  const set = new Set<string>(Object.keys(component.states));
-  for (const members of Object.values(component.variantStates ?? {})) {
-    for (const states of Object.values(members)) {
-      for (const s of Object.keys(states)) {
-        set.add(s);
-      }
-    }
-  }
-  return COMPONENT_STATES.filter(
-    (s) => set.has(s) || ["hover", "focus", "disabled"].includes(s)
-  );
-};
-
-/**
- * The matrix the preview draws: a row per member of an axis (the default alone when there is
- * none), a column for the base and each state, every cell the real component pinned in it, so
- * each member shows each state with its own values. An app component is drawn once, as an
- * instance with its properties' defaults.
- */
-const matrixOf = (
-  component: ComponentFile,
-  meta: ComponentMeta | undefined,
-  pageWidth: number,
-  rowAxis: string | undefined
-): DesignNode => {
-  if (component.origin === "app") {
-    // At its own width when it has one, else as wide as a page: a header that fills a page is
-    // not squeezed into the panel, the picture is scaled down to it instead.
-    const { width } = component.tree;
-    return {
-      children: [
-        {
-          component: component.name,
-          from: APP_FROM,
-          id: "cell-app",
-          type: "instance",
-        },
-      ],
-      id: "matrix",
-      padding: 12,
-      type: "column",
-      width: typeof width === "number" ? width + 24 : pageWidth,
-    };
-  }
-  const axes = axesOf(component, meta);
-  const axis = rowAxisOf(component, axes, rowAxis);
-  const members = axis ? (axes[axis] ?? []) : [];
-  const states: (ComponentState | null)[] = [null, ...drawnStates(component)];
-  const rows = (members.length > 0 ? members : [null]).map(
-    (member, r): DesignNode => ({
-      children: states.map(
-        (state, c): DesignNode => ({
-          component: component.name,
-          from: SYSTEM_FROM,
-          id: `cell-${r}-${c}`,
-          props: {
-            ...(axis && member ? { [axis]: member } : {}),
-            ...(state ? { [STATE_ATTRIBUTE]: state } : {}),
-            ...(state === "disabled" ? { disabled: true } : {}),
-          },
-          text: component.name,
-          type: "instance",
-        })
-      ),
-      crossAlign: "center",
-      gap: 8,
-      id: `row-${r}`,
-      type: "row",
-      // The panel is narrow: a row of many states goes on below.
-      wrap: true,
-    })
-  );
-  return {
-    children: rows,
-    gap: 12,
-    id: "matrix",
-    padding: 12,
-    type: "column",
-    width: "fill",
-  };
-};
 
 /** How wide a page is drawn: the selected page's frame, else the canvas's widest, else a desktop's. */
 const usePageWidth = () =>

@@ -13,6 +13,7 @@ import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import type { LayerItem } from "../panels/layer-tree.ts";
 import { useAgents } from "../state/agents.ts";
+import { BOARD_MODES, useBoard } from "../state/board.ts";
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
@@ -189,6 +190,10 @@ const pickTool = (tool: Mode) => {
     if (tool === "comment") {
       toggleCommenting();
     }
+    return;
+  }
+  // A board view has its own few tools.
+  if (useBoard.getState().open && !BOARD_MODES.includes(tool)) {
     return;
   }
   editor().setMode(tool);

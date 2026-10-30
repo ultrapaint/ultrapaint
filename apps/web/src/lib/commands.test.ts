@@ -1,6 +1,8 @@
 import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
-import { type Command, searchCommands } from "./commands.ts";
+import { openBoard } from "../state/board.ts";
+import { useEditor } from "../state/editor.ts";
+import { type Command, commandList, searchCommands } from "./commands.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -52,5 +54,42 @@ describe("searchCommands", () => {
 
   it("finds a command by its group", () => {
     expect(titles(searchCommands(list, "go to"))).toEqual(["Pricing"]);
+  });
+});
+
+describe("the rail's places", () => {
+  const ids = () => commandList().map((c) => c.id);
+
+  it("are the palette's panels: Design system and the Library, no Assets", () => {
+    expect(ids()).toEqual(
+      expect.arrayContaining([
+        "panel:chat",
+        "panel:layers",
+        "panel:designSystem",
+        "panel:library",
+        "panel:changes",
+      ])
+    );
+    expect(ids()).not.toContain("panel:assets");
+  });
+
+  it("offer the Insert menu's elements as commands", () => {
+    expect(ids()).toEqual(
+      expect.arrayContaining([
+        "insert:row",
+        "insert:column",
+        "insert:paragraph",
+        "insert:image",
+      ])
+    );
+  });
+
+  it("leave a board view its own tools", () => {
+    const tool = (id: string) => commandList().find((c) => c.id === id);
+    openBoard({ item: "color", view: "system" }, "none");
+    tool("tool:group")?.run?.();
+    expect(useEditor.getState().mode).toBe("select");
+    tool("tool:pan")?.run?.();
+    expect(useEditor.getState().mode).toBe("pan");
   });
 });

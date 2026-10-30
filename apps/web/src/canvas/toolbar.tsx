@@ -6,17 +6,20 @@ import {
   Hand,
   Image,
   MessageCircle,
+  Moon,
   MousePointer2,
   Plus,
   Pointer,
   Redo2,
   SquareDashed,
+  Sun,
   Type,
   Undo2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import type * as React from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -44,9 +47,11 @@ import {
   insertTarget,
 } from "../lib/node-actions.ts";
 import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
+import { BOARD_MODES, setBoardTheme, useBoard } from "../state/board.ts";
 import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
@@ -270,25 +275,90 @@ const InsertMenu = () => (
 );
 
 /**
+ * The theme a board view's boards are drawn in, its first two (light and dark): not on Color,
+ * which draws them side by side, nor for a design with one theme.
+ */
+const ThemeSwitch = () => {
+  const themes = useDesignSystem(
+    useShallow((s) => s.designSystem?.themes ?? ["light", "dark"])
+  );
+  const color = useBoard(
+    (s) => s.open?.view === "system" && s.open.item === "color"
+  );
+  const theme = useBoard((s) => s.theme);
+  const [light, dark] = themes;
+  if (color || light === undefined || dark === undefined) {
+    return null;
+  }
+  // The first theme is the design's own: drawn in it, a board names none.
+  const onChange = (next: readonly unknown[]) => {
+    const picked = next[0] as string | undefined;
+    if (picked !== undefined) {
+      setBoardTheme(picked === light ? null : picked);
+    }
+  };
+  return (
+    <>
+      <Separator className="my-0.5 w-5" />
+      <ToggleGroup
+        onValueChange={onChange}
+        orientation="vertical"
+        spacing={0.5}
+        value={[theme ?? light]}
+      >
+        {[
+          { icon: <Sun />, label: `Draw in ${light}`, value: light },
+          { icon: <Moon />, label: `Draw in ${dark}`, value: dark },
+        ].map((t) => (
+          <Tooltip key={t.value}>
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem
+                  aria-label={t.label}
+                  className="size-8 rounded-lg aria-pressed:bg-muted data-pressed:bg-muted"
+                  value={t.value}
+                >
+                  {t.icon}
+                </ToggleGroupItem>
+              }
+            />
+            <TooltipContent side="right">{t.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </ToggleGroup>
+    </>
+  );
+};
+
+/**
  * The canvas's tools, floating in a column at the top, beside the left panel: Insert, the tools,
- * then undo and redo. The app positions it.
+ * then undo and redo. On a board view, its few tools and the theme it draws in.
  */
 export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
   // Holding Space pans for as long as it is held; the strip shows the tool in effect.
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
+  // A board view has no elements to insert and a few tools (ADR 0045), and draws in a theme.
+  const onBoard = useBoard((s) => s.open !== null);
+  const shown = onBoard
+    ? modes.filter((m) => BOARD_MODES.includes(m.value))
+    : modes;
 
   return (
     <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
-      <InsertMenu />
-      <Separator className="my-0.5 w-5" />
+      {onBoard ? null : (
+        <>
+          <InsertMenu />
+          <Separator className="my-0.5 w-5" />
+        </>
+      )}
       <ToggleGroup
         onValueChange={onModeChange}
         orientation="vertical"
         spacing={0.5}
         value={[effective]}
       >
-        {modes.map((m) => (
+        {shown.map((m) => (
           <Tooltip key={m.value}>
             <TooltipTrigger
               render={
@@ -305,6 +375,7 @@ export const Toolbar = () => {
           </Tooltip>
         ))}
       </ToggleGroup>
+      {onBoard ? <ThemeSwitch /> : null}
       <Separator className="my-0.5 w-5" />
       <IconButton
         className="size-8 rounded-lg"

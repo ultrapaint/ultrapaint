@@ -22,6 +22,7 @@ import {
   pagesInVariant,
 } from "@ultrapaint/shared/route";
 import {
+  isBoardFrame,
   isNodeFrame,
   isViewFrame,
   pageOfFrame,
@@ -258,7 +259,7 @@ export const goTo = (to: GoTo, options?: { push?: boolean }): Promise<void> => {
  * keeps the selection being made. A node on the canvas beside the pages is at no page.
  */
 export const followFrame = (frame: string) => {
-  if (isNodeFrame(frame)) {
+  if (isNodeFrame(frame) || isBoardFrame(frame)) {
     return;
   }
   const page = pagesOfCanvas(useEditor.getState().canvas).find(

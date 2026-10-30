@@ -7,6 +7,7 @@ import { BillingPage } from "./pages/billing.tsx";
 import { PricingPage } from "./pages/pricing.tsx";
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
+import { leaveBoard, openBoard, useBoard } from "./state/board.ts";
 import { setView, zoomToFit } from "./state/camera.ts";
 import { api } from "./state/connection.ts";
 import { useDocuments } from "./state/documents.ts";
@@ -22,12 +23,15 @@ if (import.meta.env.DEV) {
     frameErrors,
     frameOf,
     goTo,
+    leaveBoard,
+    openBoard,
     // What `pnpm bench:canvas` drives the canvas with.
     openCanvas,
     setView,
     showLeftPanel,
     useAgents,
     useAttachments,
+    useBoard,
     useDocuments,
     useEditor,
     useProject,

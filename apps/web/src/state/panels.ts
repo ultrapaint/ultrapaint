@@ -3,6 +3,13 @@ import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
 import { useAgents } from "./agents.ts";
 import {
+  FIRST_ITEM,
+  leaveBoard,
+  openBoard,
+  railTabsFor,
+  useBoard,
+} from "./board.ts";
+import {
   type LeftTab,
   type RightTab,
   type Selection,
@@ -186,6 +193,27 @@ const showThread = async (chat: string | Thread, draft: string | undefined) => {
 };
 
 /**
+ * The left panel `tab` on the canvas, and the main area beside it (ADR 0045): Design system's
+ * list opens its board view, on the item it showed last; the Library's is the navigation of its
+ * board view while one is open, and the insert list on the page; a place the board view has no
+ * room for on the rail (Layers) is the page's.
+ */
+const showTab = (tab: LeftTab) => {
+  const { last, open } = useBoard.getState();
+  if (tab === "designSystem" || (tab === "library" && open)) {
+    const view = tab === "library" ? "library" : "system";
+    const item =
+      open?.view === view ? open.item : (last[view] ?? FIRST_ITEM[view]);
+    openBoard({ item, view });
+    return;
+  }
+  if (open && !railTabsFor(open).includes(tab)) {
+    leaveBoard();
+  }
+  useEditor.setState({ leftTab: tab });
+};
+
+/**
  * Shows a left panel with what it is asked to show, bringing the panel back when it was put
  * away. The left panels are the canvas's: one asked for from the prototype brings the canvas
  * back. A thread asked for opens in the chat, unless it is the one open; done once its transcript
@@ -193,7 +221,7 @@ const showThread = async (chat: string | Thread, draft: string | undefined) => {
  */
 export const showLeftPanel = async (shown: LeftShown) => {
   useEditor.getState().setWorkspace("design");
-  useEditor.setState({ leftTab: tabOf(shown) });
+  showTab(tabOf(shown));
   if (usePanels.getState().left) {
     usePanels.getState().setHidden({ left: false });
   }

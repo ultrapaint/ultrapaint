@@ -1,15 +1,17 @@
 /**
  * The Library (ADR 0045): the components a design places, the App components then the System
  * components, as a list or as a grid of thumbnails. On a page canvas it is the insert list: a
- * click inserts into the selection, a drag puts one anywhere, on a page or on the canvas. The
- * elements (rows, columns, text, images) are the tools' Insert menu's.
+ * click inserts into the selection, a drag puts one anywhere, on a page or on the canvas, and a
+ * ↗ opens the component's board. On a board view it is that view's navigation. The elements
+ * (rows, columns, text, images) are the tools' Insert menu's.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import { LayoutGrid, List, Palette, Search } from "lucide-react";
+import { cn } from "cn";
+import { ArrowUpRight, LayoutGrid, List, Palette, Search } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import {
@@ -17,11 +19,15 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { OVERVIEW } from "../boards/library-boards.ts";
 import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
+import { BackToPage } from "../components/back-to-page.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
+import { openBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -75,18 +81,44 @@ const entryHandlers = (make: () => DesignNode, name: string) => ({
   },
 });
 
-const ListItem = ({ component: c }: { component: ComponentMeta }) => (
-  <button
-    className="flex h-7 w-full items-center gap-2 px-3 text-left font-body text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-    title={c.description ?? c.importFrom}
-    type="button"
-    {...entryHandlers(() => instanceOf(c), c.name)}
+/** Opens a component's board (ADR 0045), from the Library's list or grid. */
+const OpenBoard = ({
+  className,
+  name,
+}: {
+  className?: string;
+  name: string;
+}) => (
+  <IconButton
+    className={cn(
+      "size-6 shrink-0 rounded-md text-muted-foreground hover:text-foreground",
+      className
+    )}
+    onClick={() => openBoard({ item: name, view: "library" })}
+    tooltip={`Open ${name}'s board`}
   >
-    <span className="truncate font-medium text-foreground/90">{c.name}</span>
-    <span className="ml-auto truncate font-body text-muted-foreground/70">
-      {Object.keys(c.variants).join(" · ")}
-    </span>
-  </button>
+    <ArrowUpRight />
+  </IconButton>
+);
+
+const ListItem = ({ component: c }: { component: ComponentMeta }) => (
+  <div className="group/item flex h-7 w-full items-center pr-1.5 hover:bg-muted/60">
+    <button
+      className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left font-body text-muted-foreground hover:text-foreground"
+      title={c.description ?? c.importFrom}
+      type="button"
+      {...entryHandlers(() => instanceOf(c), c.name)}
+    >
+      <span className="truncate font-medium text-foreground/90">{c.name}</span>
+      <span className="ml-auto truncate font-body text-muted-foreground/70">
+        {Object.keys(c.variants).join(" · ")}
+      </span>
+    </button>
+    <OpenBoard
+      className="opacity-0 focus-visible:opacity-100 group-hover/item:opacity-100"
+      name={c.name}
+    />
+  </div>
 );
 
 const GridItem = ({
@@ -96,16 +128,16 @@ const GridItem = ({
   component: ComponentMeta;
   thumbnail: string | undefined;
 }) => (
-  <button
-    className="group flex min-w-0 flex-col overflow-hidden rounded-md border bg-background/40 text-left hover:border-ring"
-    title={c.description ?? c.importFrom}
-    type="button"
-    {...entryHandlers(() => instanceOf(c), c.name)}
-  >
-    <span className="flex h-20 items-center justify-center overflow-hidden bg-white p-2">
+  <div className="flex min-w-0 flex-col overflow-hidden rounded-md border bg-background/40 hover:border-ring">
+    <button
+      className="flex h-20 items-center justify-center overflow-hidden bg-white p-2"
+      title={c.description ?? c.importFrom}
+      type="button"
+      {...entryHandlers(() => instanceOf(c), c.name)}
+    >
       {thumbnail ? (
         <img
-          alt=""
+          alt={c.name}
           className="size-full object-contain"
           draggable={false}
           height={80}
@@ -115,11 +147,14 @@ const GridItem = ({
       ) : (
         <span className="size-full animate-pulse rounded bg-zinc-100" />
       )}
-    </span>
-    <span className="truncate border-t px-2 py-1 font-body text-foreground/90">
-      {c.name}
-    </span>
-  </button>
+    </button>
+    <div className="flex items-center border-t pr-1 pl-2">
+      <span className="min-w-0 flex-1 truncate py-1 font-body text-foreground/90">
+        {c.name}
+      </span>
+      <OpenBoard name={c.name} />
+    </div>
+  </div>
 );
 
 /**
@@ -230,7 +265,17 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-/** The search and the list or grid choice, at the head of the Library. */
+/** The panel's title, as the rail names it. */
+const Title = () => (
+  <div className="flex h-10 shrink-0 items-center px-3 font-heading-xsmall">
+    Library
+  </div>
+);
+
+/**
+ * The search, and the list or grid choice on the page (the board view's navigation is a list),
+ * at the head of the Library.
+ */
 const SearchBar = ({
   onQuery,
   onView,
@@ -238,9 +283,9 @@ const SearchBar = ({
   view,
 }: {
   onQuery: (query: string) => void;
-  onView: (view: View) => void;
+  onView?: (view: View) => void;
   query: string;
-  view: View;
+  view?: View;
 }) => (
   <div className="flex items-center gap-1 px-2 pb-1.5">
     <InputGroup>
@@ -253,22 +298,89 @@ const SearchBar = ({
         value={query}
       />
     </InputGroup>
-    <div className="w-16 shrink-0">
-      <Segmented
-        onChange={onView}
-        options={[
-          { label: <List className="size-3" />, title: "List", value: "list" },
-          {
-            label: <LayoutGrid className="size-3" />,
-            title: "Grid",
-            value: "grid",
-          },
-        ]}
-        value={view}
-      />
-    </div>
+    {onView && view ? (
+      <div className="w-16 shrink-0">
+        <Segmented
+          onChange={onView}
+          options={[
+            {
+              label: <List className="size-3" />,
+              title: "List",
+              value: "list",
+            },
+            {
+              label: <LayoutGrid className="size-3" />,
+              title: "Grid",
+              value: "grid",
+            },
+          ]}
+          value={view}
+        />
+      </div>
+    ) : null}
   </div>
 );
+
+/** A place of the board view's navigation: lit while it is open, a click opening it. */
+const NavRow = ({
+  children,
+  item,
+  lit,
+}: {
+  children: React.ReactNode;
+  item: string;
+  lit: boolean;
+}) => (
+  <button
+    aria-current={lit ? "page" : undefined}
+    className="mx-1 flex h-7 w-[calc(100%-0.5rem)] items-center gap-2 rounded-md px-2 text-left font-body text-foreground/90 hover:bg-muted/60 aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+    onClick={() => openBoard({ item, view: "library" })}
+    type="button"
+  >
+    {children}
+  </button>
+);
+
+/**
+ * The Library on a board view (ADR 0045): the same list, now the navigation. Back to the page
+ * left at its top, the Overview, then every component; the one open is lit.
+ */
+const LibraryNav = ({ open }: { open: string }) => {
+  const components = useComponents((s) => s.catalogue);
+  const [query, setQuery] = useState("");
+  const sections = librarySections(components, query);
+  return (
+    <div className="flex h-full flex-col">
+      <BackToPage />
+      <Title />
+      <SearchBar onQuery={setQuery} query={query} />
+      <div className="min-h-0 flex-1 overflow-auto pb-2">
+        <div className="pt-1">
+          <NavRow item={OVERVIEW} lit={open === OVERVIEW}>
+            <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground" />
+            Overview
+          </NavRow>
+        </div>
+        {sections.map((section) =>
+          section.items.length === 0 ? null : (
+            <section key={section.title}>
+              <SectionTitle>{section.title}</SectionTitle>
+              {section.items.map((c) => (
+                <NavRow item={c.name} key={c.name} lit={open === c.name}>
+                  <span className="truncate">{c.name}</span>
+                  <span className="ml-auto truncate text-muted-foreground/70">
+                    {Object.keys(c.variants).join(" · ")}
+                  </span>
+                </NavRow>
+              ))}
+            </section>
+          )
+        )}
+      </div>
+      <ToDesignSystem />
+    </div>
+  );
+};
 
 /** The quiet way from the components to the values they are drawn with. */
 const ToDesignSystem = () => (
@@ -287,6 +399,17 @@ const ToDesignSystem = () => (
 
 export const Library = () => {
   const configured = useProject((s) => s.info.configured);
+  const open = useBoard((s) =>
+    s.open?.view === "library" ? s.open.item : null
+  );
+  if (!configured) {
+    return <SetupEmpty />;
+  }
+  return open === null ? <InsertList /> : <LibraryNav open={open} />;
+};
+
+/** The Library on a page canvas: the insert list. */
+const InsertList = () => {
   const components = useComponents((s) => s.catalogue);
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
@@ -307,10 +430,6 @@ export const Library = () => {
     localStorage.setItem(VIEW_KEY, next);
   };
 
-  if (!configured) {
-    return <SetupEmpty />;
-  }
-
   const target = insertTarget({
     activePage,
     canvas,
@@ -321,6 +440,7 @@ export const Library = () => {
 
   return (
     <div className="flex h-full flex-col">
+      <Title />
       <SearchBar onQuery={setQuery} onView={onView} query={query} view={view} />
       <div className="border-b px-3 pb-1.5 font-body text-muted-foreground">
         {target ? (

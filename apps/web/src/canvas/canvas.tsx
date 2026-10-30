@@ -24,7 +24,12 @@ import { nodeFrameLayout, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
-import { useCamera, useFramesInView } from "./camera.ts";
+import {
+  useCamera,
+  useFramesInView,
+  useSpacePan,
+  wheelView,
+} from "./camera.ts";
 import {
   beginCreate,
   cancelCreate,
@@ -53,10 +58,9 @@ import {
   isFollowing,
 } from "./frame-gesture.ts";
 import { fromFrame } from "./from-frame.ts";
+import { gridBackground } from "./grid.ts";
 import { addImages, imageFiles } from "./items.ts";
 import { holdsFree } from "./snap.ts";
-
-const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
 export const Canvas = () => {
   useFollowAgent();
@@ -74,7 +78,7 @@ export const Canvas = () => {
   const [panning, setPanning] = useState(false);
   // Virtualisation: only the frames near the screen have a preview mounted.
   const inView = useFramesInView(size);
-  useCamera(ref, layer, grid);
+  useCamera(ref, layer, grid ? gridBackground : null);
   /** The canvas being panned by the pointer: where it was pressed and where the view was then. */
   const panFrom = useRef<{
     startX: number;
@@ -123,22 +127,7 @@ export const Canvas = () => {
         return;
       }
       e.preventDefault();
-      const { x, y, zoom } = nextView();
-      if (e.ctrlKey || e.metaKey) {
-        const cx = e.clientX - origin.current.left;
-        const cy = e.clientY - origin.current.top;
-        const next = clampZoom(
-          zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
-        );
-        const k = next / zoom;
-        setViewSoon({
-          x: cx - (cx - x) * k,
-          y: cy - (cy - y) * k,
-          zoom: next,
-        });
-      } else {
-        setViewSoon({ x: x - e.deltaX, y: y - e.deltaY });
-      }
+      wheelView(e, origin.current);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -249,32 +238,7 @@ export const Canvas = () => {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  useEffect(() => {
-    const store = useEditor.getState;
-    const down = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !isTyping(e)) {
-        e.preventDefault();
-        if (!store().spacePan) {
-          store().setSpacePan(true);
-        }
-      }
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "Space" && store().spacePan) {
-        store().setSpacePan(false);
-      }
-    };
-    // A key released while the window is in the background never reaches keyup.
-    const blur = () => store().setSpacePan(false);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-    };
-  }, []);
+  useSpacePan();
 
   const onPointerDown = (e: ReactPointerEvent) => {
     const pan = e.button === 1 || spacePan || mode === "pan";
