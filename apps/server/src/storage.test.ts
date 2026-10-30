@@ -443,15 +443,23 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.strictEqual(again._tag, "BadRequest");
 
           // The old name is no longer the configuration: a file that takes it again is not read.
+          // Its news comes before that of the file written after it, which is read.
           yield* fs.writeFileString(
             legacy,
-            JSON.stringify({ designsDir: "designs", theme: "light" })
+            JSON.stringify({ designsDir: "elsewhere", theme: "dark" })
           );
-          yield* Effect.sleep("600 millis");
-          assert.strictEqual(
-            (yield* client["project.info"]()).settings?.theme,
-            "dark"
+          yield* fs.writeFileString(
+            renamed,
+            JSON.stringify({
+              ...JSON.parse(yield* fs.readFileString(renamed)),
+              theme: "light",
+            })
           );
+          const rewritten = yield* waitFor(
+            client["project.info"](),
+            (now) => now.settings?.theme === "light"
+          );
+          assert.strictEqual(rewritten.settings?.designsDir, "designs");
           yield* fs.remove(legacy);
         })
     );
