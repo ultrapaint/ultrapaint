@@ -1,7 +1,8 @@
 # Plan: the Design system and the Library
 
-Status: accepted, 2026-10-30; Phases 1 to 5 done (the merge of `feat/primitives`, the sketch, this
-plan and [ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system). Amends 0028, 0029, 0032, 0040, 0041
+Status: accepted, 2026-10-30; Phases 1 to 6 done (the merge of `feat/primitives`, the sketch, this
+plan and [ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system, Library but
+6.6, which goes with Phase 7). Amends 0028, 0029, 0032, 0040, 0041
 and 0044 as the ADR says.
 
 ## Why
@@ -219,27 +220,27 @@ The boards' first view starts 32px past the left panel and Color's two themes 24
 
 ### Phase 6: Library
 
-- [ ] 6.1 Overview: `overviewBoard(catalogue)` (`apps/web/src/boards/library-boards.ts`): every
+- [x] 6.1 Overview: `overviewBoard(catalogue)` (`apps/web/src/boards/library-boards.ts`): every
       component in its default look (the catalogue's example), named; a click opens its board.
-- [ ] 6.2 A system component's board: `matrixOf` (`panels/design-components.tsx`) moves to
+- [x] 6.2 A system component's board: `matrixOf` (`panels/design-components.tsx`) moves to
       `library-boards.ts` at full size, a row per member, a column per state, ids
       `cell:<member>:<state>`, and a board of its sizes; a click on a cell picks it; the
       interact tool makes the board run (hover and press live).
-- [ ] 6.3 Its inspector: `SystemDetail`'s fields (`Field`, `SlotFields`, `LookExtras`, `Notes`,
+- [x] 6.3 Its inspector: `SystemDetail`'s fields (`Field`, `SlotFields`, `LookExtras`, `Notes`,
       the inheritance from `lib/look-places.ts`) in `panels/look-inspector.tsx` for the cell
       picked, Variant and State as selects, Used in. Live (B9): a `lookDraft` in
       `state/look.ts` laid over the saved files by `followLook`, so every frame draws the value
       typed; committed as a new component change `setStyle {place, slot, style}`
       (`packages/contracts/src/components.ts`, `ComponentService.change` in
       `apps/server/src/services/components.ts`, the file as it is, one undo step).
-- [ ] 6.4 An app component's board: a frame per member of each choice
+- [x] 6.4 An app component's board: a frame per member of each choice
       (`<property>=<member>`), its root an instance with that member
       (`board:library/<Name>/<property>=<member>`); a double-click isolates it there
       (`isolate`, `editFrameAs`), its edits landing on that member (`editVariant`); Layers shows
       the tree (`panels/layers.tsx`'s isolated branch). Its inspector: `AppDetail` and
       `component-props.tsx`, editable (properties, variants, slots through the existing
       component changes).
-- [ ] 6.5 + New: `components.create {name}` (contract, `ComponentService`, handler), an app
+- [x] 6.5 + New: `components.create {name}` (contract, `ComponentService`, handler), an app
       component with an empty column, its board opened; ↗ on a tile opens the board.
 - [ ] 6.6 The Components tab goes (`ComponentsView` and its list); `specimens-drawing.test.tsx`
       tests the boards instead of `Matrix`.
@@ -251,6 +252,33 @@ component's frames per member); `component-files.test.ts` and the server's compo
 a new `state/look.test.ts` for the draft laid over the saved files.
 
 Checks: as Phase 4.
+
+As built: a system component's board is `systemComponentBoards` (`matrixOf` stays for the old
+tab until 7.2 takes it): the matrix's cells are the catalogue's example in each place,
+`cell:variant=outline:hover` (`cellId`, `placeOfCell`; `cell:base:base` for the base), under the
+states' names and beside the members', laid out as a grid by the board's own stylesheet (a
+document has rows and columns only, as Motion's animation is B12's); a further axis (Button's size)
+is a board of its own. The cell picked is the place edited: the inspector
+(`panels/look-inspector.tsx`, where `Field`, `SlotFields`, `LookExtras` and `Notes` moved) reads
+the place from the pick and its Variant and State selects move the pick; the fields read the saved
+file, the draft being drawn only, so a value picked is always a change. The live draft is
+`useLookDraft` in `state/look.ts` (`draftStyle`, `commitStyle`), fed by an `onPreview` on the
+style combobox (the option an open list highlights, a value typed); the look's other parts
+(optional parts, a slot's content, an item's template) still save with `setLook`, being a click
+each. `look-places` moved to `design-document` for the server's `setStyle`. An app component's
+boards are a board a member of each choice (`appComponentBoards`, `appInPlace`): the choice's
+default member edits the component's own fields, the others their member; a double-click isolates
+the board's instance (`isolate` takes `select` and `variant`), the board then taking the pointer
+as a page's frame (`BoardTree` in `board-canvas.tsx`, `useFramePointer` of kind `board`, which
+moves nothing about the canvas), without the element toolbar but with the page's inspector on the
+right for the node selected. A selection is refused on a board view but on an app component's
+own boards (`takeBoardSelectionWith`, so `editor.ts` still imports nothing of `board.ts`), and a
+selection landing there (from Layers) isolates that board; `boardTree` gives Layers the tree.
+Found on the way: a new app component is an empty column with nothing on a board to fill it, so
+the tools' Insert menu shows on a board while a tree is edited in place, with a Component submenu
+(the Library is the navigation there); and the Overview clips its tiles and scales an app
+component wider than one to it, its width measured once drawn when its tree hugs
+(`drawnWidths`). 6.6 waits for Phase 7, which deletes the Components tab with the old panel.
 
 ### Phase 7: agent context, and what goes
 
