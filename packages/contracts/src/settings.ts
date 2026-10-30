@@ -3,14 +3,6 @@ import { RepoRelativePath } from "./base.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
-/**
- * Where a repository's application is, and how a new one is written (ADR 0042): what the setup
- * detects and scaffolds with. Nothing draws with it.
- */
-export const FrameworkId = Schema.Literals(["react-vite"]);
-export type FrameworkId = typeof FrameworkId.Type;
-export const defaultFramework: FrameworkId = "react-vite";
-
 export const Theme = Schema.Literals(["light", "dark"]);
 
 /** Whether the tool may write to git (PLAN-desktop D9). */
