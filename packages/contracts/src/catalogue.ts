@@ -14,11 +14,10 @@ export const PropType = Schema.Struct({
 });
 export type PropType = typeof PropType.Type;
 
+/** What an instance sets, by name: its type, and the value it falls to when it sets none. */
 export const PropMeta = Schema.Struct({
   defaultValue: Schema.optional(Json),
-  description: Schema.optional(Schema.String),
   name: Schema.String,
-  required: Schema.Boolean,
   type: PropType,
 });
 export type PropMeta = typeof PropMeta.Type;
@@ -72,6 +71,16 @@ export type ComponentMeta = typeof ComponentMeta.Type;
 
 /** The system components, then the project's app components. */
 export type Catalogue = readonly ComponentMeta[];
+
+/**
+ * Whether what is put inside an instance has a place in it: its component has a default slot,
+ * which a child naming no slot fills (`fillSlots`). An insert or a drop names none, so it lands
+ * in the default slot, whatever other slots hold nodes; a component whose slots are all named
+ * (an app component's may be) is filled from the inspector's slots, which name theirs.
+ */
+export const componentTakesChildren = (component: {
+  readonly slots: readonly Pick<ComponentSlot, "holds">[];
+}) => component.slots.some((s) => s.holds === "default");
 
 /** The catalogue's entry for an instance: the same name from the same origin. */
 export const metaOf = (

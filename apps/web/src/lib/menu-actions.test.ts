@@ -5,6 +5,7 @@ import type {
   ApplyInput,
   DesignNode,
   DocumentState,
+  PageNode,
 } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
@@ -451,6 +452,31 @@ describe("a node's menu", () => {
     await choose(nodeAt(HOME, "cta"), { kind: "hide" });
     expect(lastEdit().ops).toEqual([
       { doc: HOME, id: "cta", op: "update", set: { hidden: true } },
+    ]);
+  });
+
+  it("inserts into a component that holds nodes, in its default slot (review D1)", async () => {
+    const home = useDocuments.getState().docs[HOME]?.root as PageNode;
+    const card: DesignNode = {
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+    };
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, { ...home, children: [...home.children, card] }),
+      },
+    }));
+    useEditor.getState().select({ frame: HOME, nodeId: "card" });
+    await choose(
+      { kind: "component", make: () => text("made"), name: "Text" },
+      { kind: "insert" }
+    );
+    // Named in no slot, it fills the default one, the card's content.
+    expect(lastEdit().ops).toMatchObject([
+      { doc: HOME, node: { id: "made" }, op: "insert", parent: "card" },
     ]);
   });
 

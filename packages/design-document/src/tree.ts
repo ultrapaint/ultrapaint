@@ -3,6 +3,9 @@
  * the layers panel calls it. Pure and synchronous, shared by the server, the editor and the
  * preview so that all three agree on what a document holds.
  */
+
+import type { ComponentSlot } from "@ultrapaint/contracts/catalogue";
+import { componentTakesChildren } from "@ultrapaint/contracts/catalogue";
 import type {
   ContainerNode,
   DesignNode,
@@ -55,23 +58,16 @@ export const childrenOf = (node: DesignNode): readonly DesignNode[] => {
 export const acceptsChildren = (node: DesignNode) =>
   isContainer(node) || node.type === "instance";
 
-/** What the catalogue says of a component that decides whether it takes children. */
-export interface ChildrenShape {
-  readonly props?: readonly { readonly name: string }[];
-}
-
-/** Whether a component renders what it is given as children: it declares a `children` prop. */
-export const componentTakesChildren = (component: ChildrenShape) =>
-  (component.props ?? []).some((p) => p.name === "children");
-
 /**
  * Whether something may be put inside a node in the editor: a container always, an instance
- * when its component takes children. Without the component's entry, an instance that already
- * holds nodes is taken at its word.
+ * when its component has a default slot (`componentTakesChildren`). Without the component's
+ * entry, an instance that already holds nodes is taken at its word.
  */
 export const takesChildren = (
   node: DesignNode,
-  component: ChildrenShape | undefined
+  component:
+    | { readonly slots: readonly Pick<ComponentSlot, "holds">[] }
+    | undefined
 ): boolean => {
   if (isContainer(node)) {
     return true;
