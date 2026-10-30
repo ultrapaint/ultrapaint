@@ -55,7 +55,13 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
-import { asDrawnIn, editedFrameOf, isSelected } from "../state/selection.ts";
+import {
+  asDrawnIn,
+  editedFrameOf,
+  isSelected,
+  select,
+  selectMany,
+} from "../state/selection.ts";
 import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
 import type { NodeField } from "./node-fields.ts";
@@ -186,7 +192,7 @@ const selectLanded = (
     return;
   }
   const loose = canvas !== null && doc === canvasDocOf(canvas);
-  useEditor.getState().selectMany(
+  selectMany(
     ids.flatMap((id) => {
       const shown = loose ? frameOfCanvasNode(docs, canvas, id) : frame;
       return shown ? [{ frame: shown, nodeId: id }] : [];
@@ -482,9 +488,7 @@ export const arrangeNode = async (to: Arrangement, target?: Selection) => {
 export const selectParent = (target?: Selection) => {
   const place = placeOf(nodeContext(target));
   if (place?.parent && place.parent.type !== "page") {
-    useEditor
-      .getState()
-      .select({ frame: place.current.frame, nodeId: place.parent.id });
+    select({ frame: place.current.frame, nodeId: place.parent.id });
   }
 };
 
@@ -525,7 +529,7 @@ export const renameNode = async (target?: Selection) => {
     editor.selection?.frame !== at.frame ||
     editor.selection.nodeId !== at.nodeId
   ) {
-    editor.select(at);
+    select(at);
   }
   if (leftPanelShows("layers")) {
     showLeftPanel({ layers: { rename: at } });
@@ -705,7 +709,7 @@ export const deleteNodes = async (targets: readonly Selection[]) => {
     labelFor("Delete", gone.length)
   );
   if (result) {
-    useEditor.getState().select(null);
+    select(null);
   }
 };
 
@@ -734,7 +738,7 @@ const unwrapNodes = async (targets: readonly Selection[]) => {
     "Unwrap"
   );
   if (result) {
-    useEditor.getState().select(null);
+    select(null);
   }
 };
 

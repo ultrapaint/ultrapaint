@@ -104,6 +104,7 @@ interface BenchWindow {
   };
   __ed: {
     openCanvas: (id: string) => void;
+    select: (s: { frame: string; nodeId: string } | null) => void;
     setView: (v: Partial<View>) => void;
     showLeftPanel: (tab: string) => Promise<void>;
     useDocuments: {
@@ -115,7 +116,6 @@ interface BenchWindow {
       getState: () => {
         canvas: string | null;
         frames: Record<string, Box>;
-        select: (s: { frame: string; nodeId: string } | null) => void;
         setHover: (s: { frame: string; nodeId: string } | null) => void;
         view: View;
       };
@@ -896,7 +896,7 @@ const benchLayers = async (page: Page, cdp: CDPSession): Promise<Result> => {
       const select: number[] = [];
       for (const target of picked) {
         // biome-ignore lint/performance/noAwaitInLoops: one change at a time, as a person makes them.
-        select.push(await time(() => editor().select(target)));
+        select.push(await time(() => w.__ed.select(target)));
       }
       const hover: number[] = [];
       for (const target of picked) {
@@ -904,7 +904,7 @@ const benchLayers = async (page: Page, cdp: CDPSession): Promise<Result> => {
         hover.push(await time(() => editor().setHover(target)));
       }
       performance.mark("bench-end");
-      editor().select(null);
+      w.__ed.select(null);
       editor().setHover(null);
       await w.__ed.showLeftPanel("chat");
       return {

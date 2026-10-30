@@ -16,13 +16,14 @@ import { contrastRatio } from "@ultrapaint/contracts/token-value";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
 import { isDark, label, MONO, sheet, text, valueIn } from "./board-nodes.ts";
+import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 /**
  * The neutral palette every design draws with until it has a design system, as one: light and
  * dark, the way `system-components/look` writes it.
  */
-export const neutralDesignSystem = (): DesignSystem => ({
+const neutralDesignSystem = (): DesignSystem => ({
   ...emptyDesignSystem(),
   colors: [
     {
@@ -62,7 +63,7 @@ const shade = (name: string, dark: boolean): DesignNode => ({
   children: [],
   fill: tokenRef(name),
   height: 28,
-  id: `token:${name}`,
+  id: pickId({ kind: "token", name }),
   radius: 4,
   type: "group",
   width: "fill",
@@ -87,7 +88,7 @@ const swatch = (name: string, dark: boolean): DesignNode => ({
     label(`name:${name}`, shortName(name), 10),
   ],
   gap: 4,
-  id: `token:${name}`,
+  id: pickId({ kind: "token", name }),
   type: "column",
   width: SWATCH,
 });
@@ -98,7 +99,11 @@ const groupNode = (
   names: readonly string[],
   dark: boolean
 ): DesignNode => {
-  const title = label(`group:${group.name}`, group.name, 11);
+  const title = label(
+    pickId({ kind: "group", name: group.name }),
+    group.name,
+    11
+  );
   if (isRamp(group)) {
     return {
       children: [

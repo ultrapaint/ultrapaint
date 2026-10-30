@@ -14,12 +14,10 @@ import { describe, expect, it } from "vitest";
 import { contrastPairs, gradeOf, isRamp } from "./color-boards.ts";
 import {
   appComponentBoards,
-  cellId,
   drawnWidths,
   libraryBoards,
   OVERVIEW,
   overviewBoard,
-  placeOfCell,
 } from "./library-boards.ts";
 import {
   type Board,
@@ -342,21 +340,6 @@ describe("the Library's boards", () => {
     expect(cell("cell:size=sm:base")?.children[0]).toMatchObject({
       text: "Button",
     });
-  });
-
-  it("reads a cell's place back from its id", () => {
-    const outlineHover = {
-      state: "hover" as const,
-      variant: { axis: "variant", member: "outline" },
-    };
-    expect(cellId(outlineHover)).toBe("cell:variant=outline:hover");
-    expect(placeOfCell(cellId(outlineHover))).toEqual(outlineHover);
-    expect(placeOfCell("cell:base:base")).toEqual({
-      state: null,
-      variant: null,
-    });
-    expect(placeOfCell("cell:base:nope")).toBeNull();
-    expect(placeOfCell("token:color-x")).toBeNull();
   });
 
   it("draws an app component a board a member of each choice, edited in place on the member", () => {

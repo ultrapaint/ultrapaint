@@ -22,7 +22,8 @@ import {
   viewTarget,
 } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
-import { allFrames, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { allFrames } from "../state/surface.ts";
 import { useDrag } from "./drag.ts";
 import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
 import { framesNear, framesToShow, NEAR_MARGIN } from "./mounting.ts";

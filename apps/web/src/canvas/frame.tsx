@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   memo,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useEffectEvent,
@@ -21,17 +22,17 @@ import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import {
-  drawnRootOf,
-  isNodeFrame,
-  pageOfFrame,
-  rootOfFrame,
-  useDocuments,
-  viewOfFrame,
-} from "../state/documents.ts";
+import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
-import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
+import { removeView } from "../state/page-layout.ts";
+import {
+  select,
+  selectPage,
+  useFrameBreakpoint,
+  useSelectedIn,
+} from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { screenPx, UNZOOM } from "./camera.ts";
@@ -46,16 +47,17 @@ import { useFramePointer } from "./use-frame-pointer.ts";
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
- * view it was typed in (ADR 0036).
+ * view it was typed in (ADR 0036): a page's, or an app component's tree edited on its board.
  */
-const commitText = (frame: string, nodeId: string, text: string) =>
+export const commitText = (frame: string, nodeId: string, text: string) =>
   updateNodes([{ frame, nodeId }], { text }, "Edit text");
 
-const isInteractive = (s: { mode: string; spacePan: boolean }) =>
+/** A frame takes input: the interact tool, Space not held. */
+export const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;
 
-/** The frame's select layer is up. */
-const isSelecting = (s: { mode: string; spacePan: boolean }) =>
+/** A frame's select layer is up (a board's pick layer too): the select tool, Space not held. */
+export const isSelecting = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "select" && !s.spacePan;
 
 /** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
@@ -95,8 +97,8 @@ interface FrameBox {
 
 interface Props {
   frame: FrameBox;
+  /** A page's frame, one of its views, or a node's beside the pages: its id says which. */
   frameId: string;
-  kind: "page" | "node";
   onDragStart: (
     e: ReactPointerEvent,
     frameId: string,
@@ -123,8 +125,9 @@ export const useWatchedRects = (
 };
 
 export const Frame = memo(
-  ({ frameId, kind, page, frame, visible, onDragStart }: Props) => {
+  ({ frameId, page, frame, visible, onDragStart }: Props) => {
     const preview = usePreview();
+    const isNode = frameRefOf(frameId).kind === "node";
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
     const hoverHere = useHoverIn(frameId);
@@ -133,9 +136,10 @@ export const Frame = memo(
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
     const drawnRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
     const isolate = useIsolatedRequest(frameId);
-    const problem = useDocuments((s) =>
-      isNodeFrame(frameId) ? undefined : s.docs[pageOfFrame(frameId)]?.problem
-    );
+    const problem = useDocuments((s) => {
+      const shown = pageOfRef(frameRefOf(frameId));
+      return shown === null ? undefined : s.docs[shown]?.problem;
+    });
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
     const held = useEditor((s) => s.held[frameId]);
@@ -178,10 +182,10 @@ export const Frame = memo(
         designSystem,
         held,
         isolate,
-        mode: kind === "page" ? "page" : "fit",
+        mode: isNode ? "fit" : "page",
         problem,
         root: drawnRoot,
-        width: kind === "page" ? frame.width : undefined,
+        width: isNode ? undefined : frame.width,
       })
     );
 
@@ -189,7 +193,7 @@ export const Frame = memo(
     useEffect(() => {
       const [lead] = selectedHere;
       if (lead !== undefined && root && !findNode(root, lead)) {
-        useEditor.getState().select(null);
+        select(null);
       }
     }, [selectedHere, root]);
 
@@ -219,11 +223,8 @@ export const Frame = memo(
       canvas,
       frame,
       frameId,
-      kind,
       root,
     });
-
-    const isNode = kind === "node";
 
     return (
       <div
@@ -241,7 +242,7 @@ export const Frame = memo(
           frame={frame}
           frameId={frameId}
           holdsSelection={selectedHere !== null}
-          kind={kind}
+          isNode={isNode}
           name={name}
           onDragStart={onDragStart}
           root={root}
@@ -293,7 +294,7 @@ export const Frame = memo(
 
         <ResizeHandles
           frameId={frameId}
-          kind={kind}
+          isNode={isNode}
           onDragStart={onDragStart}
           root={root}
         />
@@ -472,9 +473,9 @@ export const Marquee = ({
  */
 const ViewBadge = ({ frameId }: { frameId: string }) => {
   const breakpoint = useFrameBreakpoint(frameId);
-  const isView = viewOfFrame(frameId) !== null;
+  const isView = frameRefOf(frameId).kind === "view";
   const hasViews = useEditor(
-    (s) => (s.frames[pageOfFrame(frameId)]?.views?.length ?? 0) > 0
+    (s) => (s.frames[ownFrameOf(frameId)]?.views?.length ?? 0) > 0
   );
   if (!(isView || hasViews)) {
     return null;
@@ -491,7 +492,7 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
         <button
           aria-label="Remove this view"
           className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => useEditor.getState().removeView(frameId)}
+          onClick={() => removeView(frameId)}
           onPointerDown={(e) => e.stopPropagation()}
           title="Remove this view"
           type="button"
@@ -506,13 +507,13 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
   frameId: string,
-  kind: "page" | "node",
+  isNode: boolean,
   root: DesignNode | null
 ) =>
   useEditor(
     (s) =>
-      s.selectedPage === pageOfFrame(frameId) ||
-      (kind === "node" &&
+      s.selectedPage === ownFrameOf(frameId) ||
+      (isNode &&
         s.selection?.frame === frameId &&
         s.selection.nodeId === root?.id)
   );
@@ -520,13 +521,14 @@ const useFrameSelected = (
 /** A handle on each corner, shown while the frame is selected or the pointer is over it. */
 const ResizeHandles = ({
   frameId,
-  kind,
+  isNode,
   onDragStart,
   root,
-}: Pick<Props, "frameId" | "kind" | "onDragStart"> & {
+}: Pick<Props, "frameId" | "onDragStart"> & {
+  isNode: boolean;
   root: DesignNode | null;
 }) => {
-  const isSelected = useFrameSelected(frameId, kind, root);
+  const isSelected = useFrameSelected(frameId, isNode, root);
   return CORNERS.map((corner) => (
     <ResizeHandle
       corner={corner}
@@ -580,6 +582,33 @@ const HEADER_HEIGHT = 26;
 const HEADER_GAP = 6;
 
 /**
+ * What is said over a frame's top edge, a page's or a board's: its name and beside it what the
+ * caller says, the same size and distance from the frame on screen at any zoom.
+ */
+export const FrameHeader = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+      className
+    )}
+    style={{
+      bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
+      height: HEADER_HEIGHT,
+      transform: UNZOOM,
+      transformOrigin: "bottom left",
+    }}
+  >
+    {children}
+  </div>
+);
+
+/**
  * Name and size above the frame, the frame's selection outline and, in Vibe, the toolbar of the
  * selected page.
  */
@@ -587,29 +616,29 @@ const FrameChrome = ({
   frameId,
   frame,
   holdsSelection,
-  kind,
+  isNode,
   name,
   onDragStart,
   root,
-}: Pick<Props, "frame" | "frameId" | "kind" | "onDragStart"> & {
+}: Pick<Props, "frame" | "frameId" | "onDragStart"> & {
   /** Something in the frame is selected: the label is lit while it is, not after. */
   holdsSelection: boolean;
+  isNode: boolean;
   name: string;
   root: DesignNode | null;
 }) => {
-  const isSelected = useFrameSelected(frameId, kind, root);
+  const isSelected = useFrameSelected(frameId, isNode, root);
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
-    const store = useEditor.getState();
-    if (kind === "page") {
-      store.selectPage(frameId);
+    if (!isNode) {
+      selectPage(frameId);
     } else if (root) {
-      store.select({ frame: frameId, nodeId: root.id });
+      select({ frame: frameId, nodeId: root.id });
     }
   };
   const onContextMenu = (e: ReactMouseEvent) => {
     selectFrame();
-    if (kind === "page") {
+    if (!isNode) {
       openMenuAt(e, { kind: "page", pageId: frameId });
     } else if (root) {
       openMenuAt(e, { frame: frameId, kind: "node", nodeId: root.id });
@@ -617,20 +646,12 @@ const FrameChrome = ({
   };
   return (
     <>
-      {/* Chrome: constant size and distance from the frame regardless of zoom. */}
-      <div
-        className={cn(
-          "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+      <FrameHeader
+        className={
           isSelected || holdsSelection
             ? "text-foreground"
             : "text-muted-foreground"
-        )}
-        style={{
-          bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
-          height: HEADER_HEIGHT,
-          transform: UNZOOM,
-          transformOrigin: "bottom left",
-        }}
+        }
       >
         <button
           className={cn(
@@ -646,14 +667,14 @@ const FrameChrome = ({
         >
           {name}
         </button>
-        {kind === "page" && (
+        {isNode ? null : (
           <span className="font-body text-muted-foreground">
             {Math.round(frame.width)} × {Math.round(frame.height)}
           </span>
         )}
-        {kind === "page" && <ViewBadge frameId={frameId} />}
-      </div>
-      {kind === "page" && isSelected && viewOfFrame(frameId) === null ? (
+        {isNode ? null : <ViewBadge frameId={frameId} />}
+      </FrameHeader>
+      {frameRefOf(frameId).kind === "page" && isSelected ? (
         <PageToolbar
           headerHeight={HEADER_GAP + HEADER_HEIGHT}
           pageId={frameId}
@@ -667,7 +688,7 @@ const FrameChrome = ({
           }}
         />
       ) : null}
-      {kind === "page" && <FramePresence pageId={frameId} />}
+      {isNode ? null : <FramePresence pageId={frameId} />}
     </>
   );
 };

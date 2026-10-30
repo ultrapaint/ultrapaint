@@ -2,19 +2,15 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
 import { useAgents } from "./agents.ts";
-import {
-  FIRST_ITEM,
-  leaveBoard,
-  openBoard,
-  railTabsFor,
-  useBoard,
-} from "./board.ts";
+import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
 import {
   type LeftTab,
   type RightTab,
   type Selection,
   useEditor,
 } from "./editor.ts";
+import { toPageCanvas } from "./location.ts";
+import { surfaceNow } from "./surface.ts";
 
 /**
  * Whether the side panels are put away, for a clear look at the canvas. A preference of this
@@ -207,8 +203,8 @@ const showTab = (tab: LeftTab) => {
     openBoard({ item, view });
     return;
   }
-  if (open && !railTabsFor(open).includes(tab)) {
-    leaveBoard();
+  if (open && !surfaceNow().railTabs().includes(tab)) {
+    toPageCanvas();
   }
   useEditor.setState({ leftTab: tab });
 };
