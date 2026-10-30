@@ -217,12 +217,18 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(button?.status, "implemented");
           assert.deepStrictEqual(button?.files, ["designs/ui/button.tsx"]);
 
-          const note = yield* client["components.addNote"]({
+          const noted = yield* client["components.change"]({
+            change: {
+              op: "addNote",
+              slot: "button-spinner",
+              text: "Spins while the action runs",
+            },
             name: "Button",
-            slot: "button-spinner",
-            text: "Spins while the action runs",
           });
-          assert.strictEqual(note.slot, "button-spinner");
+          assert.strictEqual(
+            noted.component?.notes?.at(-1)?.slot,
+            "button-spinner"
+          );
           assert.include(
             yield* handoff({
               action: "note",

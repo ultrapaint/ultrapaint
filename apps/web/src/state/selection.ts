@@ -20,14 +20,14 @@ import { currentBreakpoints, useBreakpoints } from "./design-system.ts";
 import {
   drawnRootOf,
   editedAtOf,
-  isNodeFrame,
-  isViewFrame,
   nodeIn,
-  pageOfFrame,
   rootOfFrame,
   useDocuments,
 } from "./documents.ts";
 import { type EditorState, type Selection, useEditor } from "./editor.ts";
+import { frameRefOf, ownFrameOf, widthOf } from "./frame-ref.ts";
+import { followFrame } from "./location.ts";
+import { surfaceNow } from "./surface.ts";
 
 /** What is selected, as the editor holds it. */
 type Picked = Pick<EditorState, "also" | "selection">;
@@ -39,7 +39,7 @@ const NONE: readonly string[] = [];
  * one rule of what is selected where.
  */
 export const showsIn = (made: string, frame: string) =>
-  pageOfFrame(made) === pageOfFrame(frame);
+  ownFrameOf(made) === ownFrameOf(frame);
 
 /**
  * The nodes selected as a frame shows them, the one the inspector shows first: those of the
@@ -95,12 +95,114 @@ export const pickedIn = (frame: string, picked: Picked): Picked | null => {
 export const editedFrameOf = (
   selection: Selection | null,
   frame: string
-): string =>
-  selection &&
-  isViewFrame(selection.frame) &&
-  pageOfFrame(selection.frame) === frame
+): string => {
+  const ref = selection ? frameRefOf(selection.frame) : null;
+  return ref?.kind === "view" && ref.page === frame && selection
     ? selection.frame
     : frame;
+};
+
+// ---- Changing it ----
+
+/**
+ * Nothing shows a selection in the prototype, and the main area takes one only in frames of its
+ * own that can hold one: a board view only in an app component's tree, on its board (ADR 0045).
+ */
+const hidesSelection = (frame: string) =>
+  useEditor.getState().workspace === "prototype" ||
+  !surfaceNow().takesSelection(frame);
+
+/**
+ * Selects a node, or nothing; the editor follows the frame it is in to its page, and on a board
+ * the tree it is in is edited in place there.
+ */
+export const select = (selection: Selection | null) => {
+  if (selection && hidesSelection(selection.frame)) {
+    return;
+  }
+  useEditor.setState({ also: [], selectedPage: null, selection });
+  if (selection) {
+    followFrame(selection.frame);
+    surfaceNow().selectedIn(selection.frame);
+  }
+};
+
+/**
+ * Several nodes of one frame at once, the first of them the one the inspector shows: those the
+ * first's frame shows, taken there.
+ */
+export const selectMany = (selections: readonly Selection[]) => {
+  const [first, ...rest] = selections;
+  if (!first || hidesSelection(first.frame)) {
+    select(null);
+    return;
+  }
+  select(first);
+  const frame = useEditor.getState().selection?.frame ?? first.frame;
+  useEditor.setState({
+    also: rest
+      .filter((s) => showsIn(first.frame, s.frame))
+      .map((s) => ({ ...s, frame })),
+  });
+};
+
+/** A page selected as a whole (its frame), or none; a view's frame selects its page. */
+export const selectPage = (pageId: string | null) => {
+  if (pageId && hidesSelection(pageId)) {
+    return;
+  }
+  // A view's frame selects its page, which every view of it shows (ADR 0036).
+  useEditor.setState({
+    also: [],
+    selectedPage: pageId && ownFrameOf(pageId),
+    selection: null,
+  });
+  if (pageId) {
+    followFrame(pageId);
+  }
+};
+
+/** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
+export const toggleSelected = (target: Selection) => {
+  if (hidesSelection(target.frame)) {
+    return;
+  }
+  // Another view of the page shows the selection: the node is added there, and the rest with it.
+  const picked = pickedIn(target.frame, useEditor.getState());
+  if (!picked?.selection) {
+    select(target);
+    return;
+  }
+  const { also, selection } = picked;
+  const same = (a: Selection) => a.nodeId === target.nodeId;
+  if (same(selection)) {
+    // The last one added before it takes its place.
+    const next = also.at(-1) ?? null;
+    useEditor.setState({ also: also.slice(0, -1), selection: next });
+    return;
+  }
+  useEditor.setState({
+    also: also.some(same) ? also.filter((a) => !same(a)) : [...also, selection],
+    selection: also.some(same) ? selection : target,
+  });
+};
+
+/**
+ * Selects a node for a right-click. One that is already selected keeps the selection, in the view
+ * it is clicked in: the menu then acts on all of it, as a menu does in Figma, at that view's
+ * breakpoint.
+ */
+export const selectForMenu = (target: Selection) => {
+  const editor = useEditor.getState();
+  if (!isSelected(target.frame, target.nodeId, editor)) {
+    select(target);
+    return;
+  }
+  const picked = pickedIn(target.frame, editor);
+  if (picked?.selection && picked.selection !== editor.selection) {
+    useEditor.setState(picked);
+  }
+};
 
 // ---- The breakpoint a frame is drawn at ----
 
@@ -118,10 +220,6 @@ const seenNow = (): Seen => ({
   docs: useDocuments.getState().docs,
   frames: useEditor.getState().frames,
 });
-
-/** The width a node on the canvas is drawn at: its own fixed width; the smallest screen's else. */
-const fixedWidth = (root: DesignNode | null): number | undefined =>
-  typeof root?.width === "number" ? root.width : undefined;
 
 const nameAt = (
   breakpoints: readonly Breakpoint[],
@@ -142,22 +240,31 @@ export const frameBreakpoint = (
   editedAtOf(frame) ??
   nameAt(
     seen.breakpoints,
-    isNodeFrame(frame)
-      ? fixedWidth(drawnRootOf(seen.docs, seen.canvas, frame))
-      : seen.frames[frame]?.width
+    widthOf(frameRefOf(frame), {
+      box: seen.frames[frame],
+      root: drawnRootOf(seen.docs, seen.canvas, frame),
+    })
   );
 
-/** `frameBreakpoint` for a component; null without a frame. */
+/**
+ * `frameBreakpoint` for a component; null without a frame. Its width read in two parts, each from
+ * its own store: the layout's box, and what a node on the canvas is.
+ */
 export const useFrameBreakpoint = (frame: string | null): string | null => {
   const breakpoints = useBreakpoints();
   const canvas = useEditor((s) => s.canvas);
   const pageWidth = useEditor((s) =>
-    frame === null || isNodeFrame(frame) ? undefined : s.frames[frame]?.width
+    frame === null
+      ? undefined
+      : widthOf(frameRefOf(frame), { box: s.frames[frame], root: null })
   );
   const nodeWidth = useDocuments((s) =>
-    frame !== null && isNodeFrame(frame)
-      ? fixedWidth(drawnRootOf(s.docs, canvas, frame))
-      : undefined
+    frame === null
+      ? undefined
+      : widthOf(frameRefOf(frame), {
+          box: undefined,
+          root: drawnRootOf(s.docs, canvas, frame),
+        })
   );
   const variant = useDocuments((s) =>
     s.edited !== null && s.edited.frame === frame ? s.edited.at : null

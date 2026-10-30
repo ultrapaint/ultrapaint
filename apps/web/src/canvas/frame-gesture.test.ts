@@ -8,7 +8,8 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useDocuments } from "../state/documents.ts";
-import { layoutSaved, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { layoutSaved } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
 import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -295,9 +296,8 @@ describe("a frame gesture", () => {
         layout: { frames: { [home.path]: frame }, version: 1 },
       });
 
-    beforeEach(async () => {
+    beforeEach(() => {
       stop = followServer({ report: () => undefined });
-      await new Promise((resolve) => setTimeout(resolve, 0));
       useEditor.setState({ frames: { [home.id]: start } });
     });
 

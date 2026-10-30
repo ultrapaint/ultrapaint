@@ -32,7 +32,8 @@ import { Foundation, ThreadsLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
-import { ProjectManager, type ProjectServices } from "../project.ts";
+import { OpenProject, type ProjectServices } from "../project.ts";
+import { DesignFiles } from "../services/design-files.ts";
 import { RepoPaths } from "../services/repo-paths.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "../services/threads/briefing.ts";
@@ -58,17 +59,25 @@ export const briefingFor = (purpose: string) =>
   `<ultrapaint>\nThe project, for a ${purpose} thread.\n</ultrapaint>`;
 
 /**
- * The project as threads use it: the fixture's paths and its working tree, open from the start.
- * `close` ends its scope, and every session with it, and `apply` opens it again, as saving
- * other settings does. A project service threads do not use is not there.
+ * The fixture's project closed, as saving other settings closes it, and opened again: every
+ * session of the project ends with it.
+ */
+export class FixtureProject extends Context.Service<
+  FixtureProject,
+  { readonly close: Effect.Effect<void>; readonly reopen: Effect.Effect<void> }
+>()("ultrapaint/server/testing/FixtureProject") {}
+
+/**
+ * The project as threads use it: the fixture's paths, its working tree and what changed in its
+ * designs (only what the threads tell, no watcher), open from the start;
+ * `FixtureProject` closes and reopens it. A project service threads do not use is not there.
  */
 const projectOf = (repo: string) =>
-  Layer.effect(
-    ProjectManager,
+  Layer.effectContext(
     Effect.gen(function* () {
       const managerScope = yield* Effect.scope;
       const services = yield* Layer.build(
-        WorkingTree.layer.pipe(
+        Layer.mergeAll(WorkingTree.layer, DesignFiles.layerTest).pipe(
           Layer.provideMerge(
             RepoPaths.layer({ ...defaultSettings(repo), designsDir: "designs" })
           )
@@ -94,31 +103,30 @@ const projectOf = (repo: string) =>
                 )
               : Effect.fail(notConfigured)
         );
-      return ProjectManager.of({
-        adoptDetected: () =>
-          Effect.die(new Error("thread tests detect nothing")),
-        // Whatever the settings, the fixture's project opens again.
-        apply: () =>
-          Effect.andThen(
-            close,
-            Effect.map(Scope.fork(managerScope), (scope) => {
-              current = scope;
-            })
+      return Context.make(
+        OpenProject,
+        OpenProject.of({
+          scope: Effect.suspend(() =>
+            current ? Effect.succeed(current) : Effect.fail(notConfigured)
           ),
-        close,
-        info: Effect.die(new Error("thread tests have no project info")),
-        persist: () =>
-          Effect.die(new Error("thread tests save no configuration")),
-        renameConfig: Effect.die(
-          new Error("thread tests save no configuration")
-        ),
-        scope: Effect.suspend(() =>
-          current ? Effect.succeed(current) : Effect.fail(notConfigured)
-        ),
-        service: (key) => (f) => use(Effect.flatMap(key, f)),
-        set: () => Effect.die(new Error("thread tests save no settings")),
-        use,
-      });
+          service: (key) => (f) => use(Effect.flatMap(key, f)),
+          use,
+        })
+      ).pipe(
+        Context.add(
+          FixtureProject,
+          FixtureProject.of({
+            close,
+            // Whatever the settings, the fixture's project opens again.
+            reopen: Effect.andThen(
+              close,
+              Effect.map(Scope.fork(managerScope), (scope) => {
+                current = scope;
+              })
+            ),
+          })
+        )
+      );
     })
   );
 

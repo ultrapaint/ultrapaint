@@ -4,7 +4,7 @@
  * the one handle on frame `id`; it opens the frame (`open`: its host, placed in a holder and drawn
  * by the preview), says what it says (`listen`, one listener per kind), tells it what to draw
  * (`render`, which skips what it shows already) and asks it what is where, answered at once
- * (`hitTest`, `measure`, `tokens`). How its host is shown (its class, style, title, whether it
+ * (`hitTest`, `measure`). How its host is shown (its class, style, title, whether it
  * takes input, whether it is away) it tells the preview, which writes the host (`show`).
  *
  * The handle outlives the frame it speaks to. What it was asked to keep (the nodes it watches,
@@ -36,7 +36,6 @@ import type {
   RenderRequest as FrameRequest,
   FrameRuntime,
   FrameShown,
-  Look,
   PageError,
   Preview,
 } from "@ultrapaint/preview-core/preview";
@@ -77,8 +76,6 @@ export interface RenderRequest {
   readonly designSystem: DesignSystem | null;
   /** An app component's instance edited in place (ADR 0041). */
   readonly isolate?: FrameRequest["isolate"];
-  /** A look of its own (a component's unsaved one); the preview's when left out (ADR 0042). */
-  readonly look?: Look | undefined;
   readonly message?: string;
   readonly mode: RenderMode;
   readonly root: DesignNode | null;
@@ -129,7 +126,6 @@ interface Shown {
   readonly defaults: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   readonly isolate: RenderRequest["isolate"];
-  readonly look: Look | undefined;
   readonly message: string | undefined;
   readonly mode: RenderMode;
   readonly renderId: number;
@@ -475,8 +471,7 @@ export class EditorFrame {
       shown.isolate === request.isolate &&
       shown.root === request.root &&
       shown.mode === request.mode &&
-      shown.message === request.message &&
-      shown.look === request.look
+      shown.message === request.message
     ) {
       return shown.renderId;
     }
@@ -491,7 +486,6 @@ export class EditorFrame {
       defaults: request.defaults,
       designSystem: request.designSystem,
       isolate: request.isolate,
-      look: request.look,
       message: request.message,
       mode: request.mode,
       renderId: renders,
@@ -507,7 +501,6 @@ export class EditorFrame {
       mode: request.mode,
       renderId: renders,
       root: request.root,
-      ...(request.look && { look: request.look }),
       ...(request.message !== undefined && { message: request.message }),
     });
     return renders;
@@ -521,11 +514,6 @@ export class EditorFrame {
   /** Where these nodes are right now, in the page's own coordinates. */
   measure(nodeIds: readonly string[]): Readonly<Record<string, FrameRect>> {
     return this.mount?.runtime.measure(nodeIds) ?? {};
-  }
-
-  /** The CSS variables the frame's stylesheets define, resolved in its theme. */
-  tokens(prefixes?: readonly string[]): Readonly<Record<string, string>> {
-    return this.mount?.runtime.tokens(prefixes) ?? {};
   }
 
   /** A PNG of what the frame draws, or of one node of it in place. */

@@ -6,6 +6,7 @@
  * Dialog's footer is a `DialogFooter` among its children, as the Code tab writes it. Implementing
  * a design then gives each its component file's look, part by part.
  */
+import { applicationFileOf } from "@ultrapaint/contracts/catalogue";
 
 const CHECK_ICON = `<svg
             aria-hidden="true"
@@ -923,25 +924,32 @@ function Toast({
 export { Toast, toastVariants };
 `;
 
-/** The starter's components, one per system component, by file inside `src/`. */
+/** The starter's components, one per system component, by file inside `src/` (`applicationFileOf`). */
 export const STARTER_COMPONENTS: Readonly<Record<string, string>> = {
-  "components/ui/avatar.tsx": AVATAR,
-  "components/ui/badge.tsx": BADGE,
-  "components/ui/button.tsx": BUTTON,
-  "components/ui/card.tsx": CARD,
-  "components/ui/checkbox.tsx": CHECKBOX,
-  "components/ui/dialog.tsx": DIALOG,
-  "components/ui/input.tsx": INPUT,
-  "components/ui/menu.tsx": MENU,
-  "components/ui/popover.tsx": POPOVER,
-  "components/ui/select.tsx": SELECT,
-  "components/ui/separator.tsx": SEPARATOR,
-  "components/ui/spinner.tsx": SPINNER,
-  "components/ui/switch.tsx": SWITCH,
-  "components/ui/tabs.tsx": TABS,
-  "components/ui/textarea.tsx": TEXTAREA,
-  "components/ui/toast.tsx": TOAST,
-  "components/ui/tooltip.tsx": TOOLTIP,
+  ...Object.fromEntries(
+    Object.entries({
+      Avatar: AVATAR,
+      Badge: BADGE,
+      Button: BUTTON,
+      Card: CARD,
+      Checkbox: CHECKBOX,
+      Dialog: DIALOG,
+      Input: INPUT,
+      Menu: MENU,
+      Popover: POPOVER,
+      Select: SELECT,
+      Separator: SEPARATOR,
+      Spinner: SPINNER,
+      Switch: SWITCH,
+      Tabs: TABS,
+      Textarea: TEXTAREA,
+      Toast: TOAST,
+      Tooltip: TOOLTIP,
+    }).map(([name, text]) => [
+      `components/ui/${applicationFileOf(name)}.tsx`,
+      text,
+    ])
+  ),
   "lib/parts.ts": PARTS,
 };
 

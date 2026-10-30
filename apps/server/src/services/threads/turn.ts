@@ -9,7 +9,7 @@ import type { PromptResponse, SessionUpdate } from "@ultrapaint/acp/acp-agent";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Clock, Deferred, Effect, Fiber, type Scope } from "effect";
 import type { AppLog } from "../../app-log.ts";
-import type { ProjectManager } from "../../project.ts";
+import type { OpenProject } from "../../project.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import type { ThreadStore } from "./thread-store.ts";
 import {
@@ -77,7 +77,7 @@ export const makeTurn = (
   deps: {
     readonly log: AppLog["Service"];
     readonly newItemId: Effect.Effect<string>;
-    readonly project: ProjectManager["Service"];
+    readonly project: OpenProject["Service"];
     readonly store: ThreadStore["Service"];
     readonly transition: (event: TurnStatusEvent) => Effect.Effect<void>;
   }

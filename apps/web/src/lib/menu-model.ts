@@ -12,11 +12,12 @@ import {
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
 import {
-  isRepositoryInstance,
-  systemComponentFor,
-} from "@ultrapaint/system-components/migrate";
+  type FrameRef,
+  hasPrototypeLinks,
+  pageOfRef,
+  takesComments,
+} from "../state/frame-ref.ts";
 import type { Arrangement, Wrapper } from "./node-actions.ts";
 import { viewportPresets } from "./presets.ts";
 
@@ -42,7 +43,6 @@ export type SubmenuId =
   | "preset"
   | "send"
   | "state"
-  | "toSystem"
   | "variant"
   | "wrap";
 
@@ -130,8 +130,6 @@ export type NodeAction =
   /** An app component's instance: its component edited in place, or the instance detached from it (ADR 0041). */
   | { kind: "editComponent" }
   | { kind: "detach" }
-  /** An instance of the repository's drawn as this system component (ADR 0040). */
-  | { kind: "toSystem"; name: string }
   /** Leads to a page, by its file, or `back`; `null` takes the link away. */
   | { kind: "link"; to: string | null }
   /** Asks for a URL or another site to lead to. */
@@ -159,6 +157,12 @@ export interface NodeFacts {
    * alone otherwise. What is about one node only is greyed out for several.
    */
   count: number;
+  /**
+   * The frame it is in: a page's (or a view's) takes comments and links, and its nodes can be
+   * made an app component; a board's (an app component's tree edited on it) has no code, link or
+   * reference of its own, being generated (ADR 0045).
+   */
+  frame: FrameRef;
   /** Every node it acts on is hidden, so the item shows them; else it hides them all. */
   hidden: boolean;
   /** Where it sits among its siblings. */
@@ -167,8 +171,6 @@ export interface NodeFacts {
   linkTargets?: readonly { name: string; path: string }[];
   /** The node clicked, or the one of the selection the inspector shows. */
   node: DesignNode;
-  /** The frame is a page, which is what comments are pinned on. */
-  onPage: boolean;
   /** It is inside something other than a page's root, which Select parent goes to. */
   parentSelectable: boolean;
   siblings: number;
@@ -181,7 +183,7 @@ export interface NodeFacts {
  * a node in a page has one: one beside the pages is never in the prototype.
  */
 const linkEntries = (f: NodeFacts): Entry<NodeAction> | false => {
-  if (!f.onPage || f.node.type === "page") {
+  if (!hasPrototypeLinks(f.frame) || f.node.type === "page") {
     return false;
   }
   const { link } = f.node;
@@ -216,6 +218,52 @@ const headingOf = (node: DesignNode) => {
 /** A page's root is the page: it is not copied, moved, deleted or duplicated as a node. */
 export const isPageRoot = (node: DesignNode) => node.type === "page";
 
+/**
+ * What a node's frame gives it: its code, a comment and an app component made of it on a page;
+ * the code alone beside the pages; none of them on a board, whose document is generated.
+ */
+const frameEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
+  const one = { disabled: f.count > 1 };
+  return [
+    f.frame.kind !== "board" && item({ kind: "viewCode" }, "View code", one),
+    takesComments(f.frame) && item({ kind: "comment" }, "Comment on this", one),
+    // Part of the page, siblings, made one of the project's own components (ADR 0041).
+    pageOfRef(f.frame) !== null &&
+      !isPageRoot(f.node) &&
+      item({ kind: "makeApp" }, "Make an app component…", {
+        disabled: !f.wrappable,
+      }),
+  ];
+};
+
+/** An instance's own: an app component's edited or detached. */
+const instanceEntries = (f: NodeFacts): (Entry<NodeAction> | false)[] => {
+  const { node } = f;
+  if (node.type !== "instance") {
+    return [];
+  }
+  const several = f.count > 1;
+  const app = node.from === APP_FROM;
+  return [
+    app &&
+      item({ kind: "editComponent" }, "Edit component", {
+        disabled: several,
+      }),
+    app && item({ kind: "detach" }, "Detach"),
+  ];
+};
+
+/** Where the node is found again: a link to it and its reference; a board's has neither. */
+const addressEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
+  const one = { disabled: f.count > 1 };
+  return f.frame.kind === "board"
+    ? []
+    : [
+        item({ kind: "copyLink" }, "Copy link to element", one),
+        item({ kind: "copyRef" }, "Copy element ID", one),
+      ];
+};
+
 export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
   const { node } = f;
   const root = isPageRoot(node);
@@ -234,42 +282,16 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
         command: "editText",
       }),
     item({ kind: "rename" }, "Rename…", one),
-    item({ kind: "viewCode" }, "View code", one),
-    f.onPage && item({ kind: "comment" }, "Comment on this", one),
-    // Part of the page, siblings, made one of the project's own components (ADR 0041).
-    f.onPage &&
-      !root &&
-      item({ kind: "makeApp" }, "Make an app component…", {
-        disabled: !f.wrappable,
-      }),
-    node.type === "instance" &&
-      node.from === APP_FROM &&
-      item({ kind: "editComponent" }, "Edit component", one),
-    node.type === "instance" &&
-      node.from === APP_FROM &&
-      item({ kind: "detach" }, "Detach"),
-    // An instance of a component of the repository's, from before the system components: a stand-in.
-    node.type === "instance" &&
-      isRepositoryInstance(node) && {
-        disabled: several,
-        entries: SYSTEM_COMPONENTS.map((p) =>
-          item<NodeAction>({ kind: "toSystem", name: p.name }, p.name, {
-            checked: systemComponentFor(node.component) === p,
-          })
-        ),
-        id: "toSystem",
-        kind: "submenu",
-        label: "Replace with a system component",
-      },
+    ...frameEntries(f),
+    ...instanceEntries(f),
     linkEntries(f),
     f.parentSelectable &&
       item({ kind: "selectParent" }, "Select parent", {
         ...one,
-        command: "selectParent",
+        command: "escape",
       }),
     separator,
-    item({ kind: "copyLink" }, "Copy link to element", one),
-    item({ kind: "copyRef" }, "Copy element ID", one),
+    ...addressEntries(f),
     separator,
     !root && item({ kind: "copy" }, "Copy", { command: "copy" }),
     !root && item({ kind: "cut" }, "Cut", { command: "cut" }),
@@ -525,7 +547,6 @@ export type CanvasEntryAction =
   | { kind: "rename" }
   | { kind: "duplicate" }
   | { kind: "duplicateWithAgent" }
-  | { kind: "componentSheet" }
   | { kind: "readyAll" }
   | { kind: "adopt" }
   /** Up (-1) or down (1) the list. */
@@ -549,7 +570,6 @@ export const canvasListEntries = (
     item({ kind: "rename" }, "Rename…"),
     item({ kind: "duplicate" }, "Duplicate…"),
     item({ kind: "duplicateWithAgent" }, "Duplicate with an agent…"),
-    item({ kind: "componentSheet" }, "Draw the components with an agent"),
     separator,
     item({ kind: "readyAll" }, "Mark every page ready to implement"),
     item({ kind: "adopt" }, "Find the pages' code with an agent"),

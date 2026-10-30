@@ -95,4 +95,23 @@ describe("a document's changed nodes", () => {
     expect(changedNodes(big, JSON.parse(JSON.stringify(big)))).toEqual([]);
     expect(withChangedNodes(big, "page", [])).toBe(big);
   });
+
+  it("count a field set to nothing as the field left out, as the agents' diff does", () => {
+    const unset = page(
+      section(
+        "a",
+        {
+          hidden: undefined,
+          id: "a1",
+          text: "One",
+          type: "text",
+        } as DesignNode,
+        text("a2", "Two"),
+        text("a3", "Three")
+      ),
+      childrenOf(big)[1] as DesignNode,
+      childrenOf(big)[2] as DesignNode
+    );
+    expect(changedNodes(big, unset)).toEqual([]);
+  });
 });

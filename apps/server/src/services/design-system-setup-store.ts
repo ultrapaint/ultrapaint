@@ -17,7 +17,7 @@ import { Clock, Effect, FileSystem, Path, Schema } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 
@@ -53,7 +53,7 @@ export const withStep = (
 });
 
 export const makeSetupStore = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const storage = yield* Storage;
   const events = yield* EventBus;
   const fs = yield* FileSystem.FileSystem;

@@ -12,7 +12,6 @@ import {
   ComponentChange,
   ComponentEntry,
   ComponentList,
-  ComponentNote,
 } from "./components.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
 import { DesignSystemEditInput } from "./design-system-edit.ts";
@@ -43,7 +42,6 @@ import {
   NotFound,
   Stale,
 } from "./errors.ts";
-import { FigmaImport } from "./figma.ts";
 import { GitCommitInput, GitCommitResult, GitStatus } from "./git.ts";
 import {
   ImplementationChanges,
@@ -150,15 +148,6 @@ const ThreadRef = { threadId: FileId };
 
 /** Every request the editor can make. Tags are the method names the editor already uses. */
 const requestRpcs = [
-  Rpc.make("health", {
-    success: Schema.Struct({ ok: Schema.Boolean, version: Schema.String }),
-  }),
-
-  Rpc.make("settings.get", { success: Schema.NullOr(Settings) }),
-  Rpc.make("settings.validate", {
-    payload: Settings,
-    success: SettingsValidation,
-  }),
   Rpc.make("settings.set", { payload: Settings, success: SettingsValidation }),
   // Only while nothing is saved: writes the configuration file and keeps saving from then on.
   Rpc.make("settings.persist", {
@@ -195,12 +184,6 @@ const requestRpcs = [
   Rpc.make("logs.recent", { success: Schema.Array(LogLine) }),
 
   Rpc.make("pages.list", { error: NotConfigured, success: PageList }),
-  Rpc.make("pages.templates", {
-    error: NotConfigured,
-    success: Schema.Array(
-      Schema.Struct({ id: Schema.String, name: Schema.String })
-    ),
-  }),
   /** A page named as typed, its file that name made safe, serving a URL when one is given. */
   Rpc.make("pages.create", {
     error: PagesError,
@@ -291,15 +274,6 @@ const requestRpcs = [
   Rpc.make("canvases.delete", {
     error: PagesError,
     payload: { id: CanvasId },
-  }),
-  /**
-   * The URL the canvas's prototype opens on. A page of the canvas must serve it; when that page
-   * later serves another URL the canvas follows it, and when it goes another page's URL is taken.
-   */
-  Rpc.make("canvases.setHome", {
-    error: PagesError,
-    payload: { id: CanvasId, route: Schema.String },
-    success: Canvas,
   }),
   Rpc.make("canvases.reorder", {
     error: PagesError,
@@ -682,11 +656,6 @@ const requestRpcs = [
 
   Rpc.make("git.status", { error: GitError, success: GitStatus }),
 
-  /** The Figma files imported so far, newest first. The file itself arrives over HTTP. */
-  Rpc.make("figma.list", {
-    error: NotConfigured,
-    success: Schema.Array(FigmaImport),
-  }),
   Rpc.make("git.diff", {
     error: GitError,
     payload: { path: Schema.String },
@@ -792,16 +761,6 @@ const requestRpcs = [
     error: EditError,
     payload: { name: Schema.String },
   }),
-  /** A behaviour note added to a component, about a part or the whole of it (ADR 0030). */
-  Rpc.make("components.addNote", {
-    error: EditError,
-    payload: {
-      name: Schema.String,
-      slot: Schema.optional(Schema.String),
-      text: Schema.String,
-    },
-    success: ComponentNote,
-  }),
   /**
    * Nodes of a page made an app component (ADR 0041): they become its tree, and an instance of it
    * takes their place. One undo step.
@@ -826,19 +785,6 @@ const requestRpcs = [
     success: ComponentEntry,
   }),
 
-  /**
-   * Everything from before brought up to date, as one undo step (ADRs 0040, 0041): instances of
-   * the repository's components, of system components and drafts as they were named, and the
-   * specs' files, with their implementations: the `Migration`'s.
-   */
-  Rpc.make("migration.run", {
-    error: EditError,
-    success: Schema.Struct({
-      components: Schema.Number,
-      documents: Schema.Number,
-      drawn: Schema.Number,
-    }),
-  }),
   /** Every page and component, with whether it is ready, implemented, or changed since (ADR 0030). */
   Rpc.make("implementation.list", {
     error: NotConfigured,
@@ -920,85 +866,23 @@ export const eventSchemas = {
   syncPlan: SyncPlan,
 } as const;
 
-const eventRpcs = [
-  Rpc.make("events.agent", { stream: true, success: eventSchemas.agent }),
-  Rpc.make("events.agent.edited", {
-    stream: true,
-    success: eventSchemas["agent.edited"],
-  }),
-  Rpc.make("events.agent.focus", {
-    stream: true,
-    success: eventSchemas["agent.focus"],
-  }),
-  Rpc.make("events.agent.terminal", {
-    stream: true,
-    success: eventSchemas["agent.terminal"],
-  }),
-  Rpc.make("events.canvas", { stream: true, success: eventSchemas.canvas }),
-  Rpc.make("events.checkpoints", {
-    stream: true,
-    success: eventSchemas.checkpoints,
-  }),
-  Rpc.make("events.document", { stream: true, success: eventSchemas.document }),
-  Rpc.make("events.designSystem", {
-    stream: true,
-    success: eventSchemas.designSystem,
-  }),
-  Rpc.make("events.dsSetup", {
-    stream: true,
-    success: eventSchemas.dsSetup,
-  }),
-  Rpc.make("events.dsSetupMapping", {
-    stream: true,
-    success: eventSchemas.dsSetupMapping,
-  }),
-  Rpc.make("events.comments", {
-    stream: true,
-    success: eventSchemas.comments,
-  }),
-  Rpc.make("events.edit.state", {
-    stream: true,
-    success: eventSchemas["edit.state"],
-  }),
-  Rpc.make("events.file.changed", {
-    stream: true,
-    success: eventSchemas["file.changed"],
-  }),
-  Rpc.make("events.git", { stream: true, success: eventSchemas.git }),
-  Rpc.make("events.log", { stream: true, success: eventSchemas.log }),
-  Rpc.make("events.project", { stream: true, success: eventSchemas.project }),
-  Rpc.make("events.pages", { stream: true, success: eventSchemas.pages }),
-  Rpc.make("events.screenshot", {
-    stream: true,
-    success: eventSchemas.screenshot,
-  }),
-  Rpc.make("events.skills", { stream: true, success: eventSchemas.skills }),
-  Rpc.make("events.snapshots", {
-    stream: true,
-    success: eventSchemas.snapshots,
-  }),
-  Rpc.make("events.syncPlan", {
-    stream: true,
-    success: eventSchemas.syncPlan,
-  }),
-  Rpc.make("events.components", {
-    stream: true,
-    success: eventSchemas.components,
-  }),
-  Rpc.make("events.implementation", {
-    stream: true,
-    success: eventSchemas.implementation,
-  }),
-] as const;
-
-export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}
-
-export type UltrapaintRpc = RpcGroup.Rpcs<typeof UltrapaintRpcs>;
-
 export type EventName = keyof typeof eventSchemas;
 export type EventPayload<E extends EventName> =
   (typeof eventSchemas)[E]["Type"];
 export const eventNames = Object.keys(eventSchemas) as EventName[];
+
+/** An event's streaming RPC, `events.<name>`, which stays open for the life of the socket. */
+const eventRpc = <E extends EventName>(name: E) =>
+  Rpc.make(`events.${name}`, { stream: true, success: eventSchemas[name] });
+
+/** One streaming RPC per event, derived from `eventSchemas`: an event is declared once. */
+const eventRpcs = eventNames.map(eventRpc) as readonly {
+  readonly [E in EventName]: ReturnType<typeof eventRpc<E>>;
+}[EventName][];
+
+export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}
+
+export type UltrapaintRpc = RpcGroup.Rpcs<typeof UltrapaintRpcs>;
 
 export type RequestName = Exclude<UltrapaintRpc["_tag"], `events.${string}`>;
 // Distributive on purpose: callers pass unions such as `"edit.undo" | "edit.redo"`.

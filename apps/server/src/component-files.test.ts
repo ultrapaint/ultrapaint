@@ -273,27 +273,104 @@ describe("a change to any component's file", () => {
     version: 1,
   };
 
-  it("sets a system component's look, its notes and description kept", () => {
-    const next = changedComponent(BUTTON, {
-      look: { base: { root: { radius: 8 } }, states: {}, variants: {} },
-      op: "setLook",
+  // What the editor read before is not what it sends: each change is made on the file as it is.
+  const CARD: SystemComponentFile = {
+    base: { "card-title": { fill: "$color-card" } },
+    name: "Card",
+    origin: "system",
+    states: {},
+    variants: {},
+    version: 1,
+  };
+  const label = {
+    id: "l",
+    role: "paragraph" as const,
+    text: "Item",
+    type: "text" as const,
+  };
+
+  it("leaves an optional part out and shows it again, the rest of the look as the file has it (review D6)", () => {
+    const left = changedComponent(CARD, {
+      hidden: true,
+      op: "setHidden",
+      part: "card-description",
     });
-    expect(next).toEqual({
-      base: { root: { radius: 8 } },
-      description: "Starts an action",
-      name: "Button",
-      notes: [{ id: "n1", text: "Submits on Enter" }],
-      origin: "system",
-      states: {},
-      variants: {},
-      version: 1,
+    expect(left).toEqual({ ...CARD, hidden: ["card-description"] });
+    expect(
+      changedComponent(left as SystemComponentFile, {
+        hidden: false,
+        op: "setHidden",
+        part: "card-description",
+      })
+    ).toEqual(CARD);
+    expect(
+      changedComponent(CARD, { hidden: true, op: "setHidden", part: "nope" })
+    ).toEqual({
+      problem: expect.stringContaining("Card has no part nope"),
+    });
+  });
+
+  it("gives a slot its content when empty, or takes it away, the rest of the look as the file has it", () => {
+    const given = changedComponent(CARD, {
+      nodes: [label],
+      op: "setContent",
+      slot: "card-content",
+    });
+    expect(given).toEqual({ ...CARD, content: { "card-content": [label] } });
+    expect(
+      changedComponent(given as SystemComponentFile, {
+        nodes: [],
+        op: "setContent",
+        slot: "card-content",
+      })
+    ).toEqual(CARD);
+  });
+
+  it("draws the items by a template, or by their label again", () => {
+    const select = { ...CARD, name: "Select" };
+    const item = { label: "l", tree: label };
+    const templated = changedComponent(select, { item, op: "setItem" });
+    expect(templated).toEqual({ ...select, item });
+    expect(
+      changedComponent(templated as SystemComponentFile, {
+        item: null,
+        op: "setItem",
+      })
+    ).toEqual(select);
+  });
+
+  it("adds a note about a part or the whole, under the id it is given", () => {
+    expect(
+      changedComponent(
+        BUTTON,
+        { op: "addNote", slot: "root", text: " Opens the menu " },
+        { noteId: "n2" }
+      )
+    ).toMatchObject({
+      notes: [
+        { id: "n1", text: "Submits on Enter" },
+        { id: "n2", text: "Opens the menu" },
+      ],
     });
     expect(
-      changedComponent(PLAN, {
-        look: { base: {}, states: {}, variants: {} },
-        op: "setLook",
-      })
-    ).toEqual({ problem: "Plan is an app component: it has no look" });
+      changedComponent(
+        PLAN,
+        { op: "addNote", slot: "s", text: "Scrolls" },
+        { noteId: "n2" }
+      )
+    ).toMatchObject({ notes: [{ id: "n2", slot: "s", text: "Scrolls" }] });
+    expect(
+      changedComponent(
+        BUTTON,
+        { op: "addNote", slot: "nope", text: "x" },
+        { noteId: "n2" }
+      )
+    ).toEqual({
+      problem: "Button has no part nope; its parts are root, button-spinner",
+    });
+    expect(
+      changedComponent(BUTTON, { op: "addNote", text: " " }, { noteId: "n2" })
+    ).toEqual({ problem: "say what the component must do" });
   });
 
   it("sets one part's style at a place, the rest of the look as the file has it", () => {

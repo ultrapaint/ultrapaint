@@ -1,8 +1,7 @@
 /**
- * A page drawn by the repository's components outside the canvas (ADR 0034): the prototype, the
- * boards of Design system and the Library. A frame of the editor's page (`editor-frame.ts`), opened
- * while this is shown and thrown away after; a page that froze the editor before is a
- * placeholder until it is asked for.
+ * A frame drawn outside the page canvas (ADR 0034): the prototype, the boards of Design system and
+ * the Library. A frame of the editor's page (`editor-frame.ts`), opened while this is shown and
+ * put away after; what it draws its caller says with `useFrameDrawing`.
  */
 import { type CSSProperties, useLayoutEffect, useRef } from "react";
 import {

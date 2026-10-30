@@ -10,12 +10,10 @@ import type {
   CreateElicitationRequest,
   SessionUpdate,
 } from "@ultrapaint/acp/acp-agent";
-import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Fiber, FileSystem, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import {
@@ -29,6 +27,7 @@ import {
 } from "./testing/scripted-agents.ts";
 import {
   briefingFor,
+  FixtureProject,
   HeldTask,
   onThread,
   promptThread,
@@ -390,10 +389,9 @@ describe("a thread's session", () => {
 
   test("ends with the project, and starts again with the next prompt", () =>
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* FixtureProject;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
-      const { repo } = yield* ThreadFixture;
       const { agent, threadId, turn } = yield* started();
       yield* turn.say("working");
       yield* project.close;
@@ -401,7 +399,7 @@ describe("a thread's session", () => {
       // A thread that was mid-turn does not stay running.
       assert.strictEqual((yield* store.get(threadId))?.status, "idle");
 
-      yield* project.apply(defaultSettings(repo), "the test's settings");
+      yield* project.reopen;
       yield* send(threadId, "again");
       const next = yield* agents.next;
       yield* Effect.andThen(next.nextTurn, (t) => t.end());
@@ -412,7 +410,7 @@ describe("a thread's session", () => {
   test("cannot prompt before a project is open", () =>
     Effect.gen(function* () {
       const threads = yield* ThreadSessions;
-      const project = yield* ProjectManager;
+      const project = yield* FixtureProject;
       const store = yield* ThreadStore;
       yield* project.close;
       const { id: threadId } = yield* threads.create({ agentId: "scripted" });

@@ -15,14 +15,12 @@ import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   COMPONENT_STATES,
   type ComponentChange,
-  type ComponentFile,
   type ComponentState,
   type LookPlace,
   type PartStyle,
   ROOT_SLOT,
   SYSTEM_FROM,
   type SystemComponentFile,
-  type SystemLook,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
@@ -45,22 +43,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import {
-  axesOf,
-  cellId,
-  placeOfCell,
-  rowAxisOf,
-} from "../boards/library-boards.ts";
+import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
+import { cellId, placeOfCell } from "../boards/pick.ts";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
-import { componentUsesOf } from "../lib/component-uses.ts";
 import { nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import {
@@ -69,13 +61,19 @@ import {
   useColorOf,
   useTokenOptions,
 } from "../lib/token-options.tsx";
-import { pickOf, pickOnBoard, useBoard } from "../state/board.ts";
+import {
+  pageSelectionLeft,
+  pickOf,
+  pickOnBoard,
+  useBoard,
+} from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
-import { boardFrameOf } from "../state/documents.ts";
+import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
-import { UsesSection, usePagesRead } from "./token-inspector.tsx";
+import { Notes } from "./component-notes.tsx";
+import { ComponentUsedIn } from "./component-used-in.tsx";
 
 /**
  * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
@@ -90,17 +88,6 @@ const change = async (name: string, made: ComponentChange) => {
     return false;
   }
 };
-
-/** A system component's look: its file but the envelope. */
-const lookOf = (file: SystemComponentFile): SystemLook => ({
-  base: file.base,
-  ...(file.content && { content: file.content }),
-  ...(file.hidden && { hidden: file.hidden }),
-  ...(file.item && { item: file.item }),
-  states: file.states,
-  variants: file.variants,
-  ...(file.variantStates && { variantStates: file.variantStates }),
-});
 
 /** A system component's parts, the root first, as the catalogue names them. */
 const partsOf = (name: string) =>
@@ -460,13 +447,10 @@ const SlotFields = ({
  * The nodes selected on the page the board view was opened from (or on the canvas, outside one),
  * copied without the slot each fills: what a look can take.
  */
-const selectedNodes = (): DesignNode[] => {
-  const left = useBoard.getState().left?.picked;
-  const { also, selection } = left ?? { also: [], selection: null };
-  return nodesOf(selection ? [selection, ...also] : []).map(
+const selectedNodes = (): DesignNode[] =>
+  nodesOf(pageSelectionLeft()).map(
     ({ node: { slot: _slot, ...node } }) => node as DesignNode
   );
-};
 
 /** The first node of a tree of a type, by id. */
 const firstOf = (
@@ -488,15 +472,10 @@ const firstOf = (
 /**
  * What a look says beyond its parts' style (ADR 0041): the optional parts it shows, what each slot
  * holds when an instance gives it nothing, and what a Select's or a Menu's item draws. Content and
- * templates are taken from the nodes selected on the page.
+ * templates are taken from the nodes selected on the page. Each is a change of its own, made on
+ * the file as the server has it, so nothing else of the look goes back to what was read here.
  */
-const LookExtras = ({
-  file,
-  onChange,
-}: {
-  file: SystemComponentFile;
-  onChange: (file: SystemComponentFile) => void;
-}) => {
+const LookExtras = ({ file }: { file: SystemComponentFile }) => {
   const meta = systemComponentOf(file.name);
   if (!meta) {
     return null;
@@ -504,34 +483,23 @@ const LookExtras = ({
   const optional = meta.slots.filter((s) => s.optional);
   const holding = meta.slots.filter((s) => s.holds !== undefined);
   const hidden = new Set(file.hidden ?? []);
-  const show = (part: string, shown: boolean) => {
-    const next = shown
-      ? [...hidden].filter((p) => p !== part)
-      : [...hidden, part];
-    const { hidden: _old, ...rest } = file;
-    onChange(next.length === 0 ? rest : { ...rest, hidden: next });
-  };
-  const setContent = (slot: string, nodes: readonly DesignNode[]) => {
-    const { [slot]: _old, ...others } = file.content ?? {};
-    const content = nodes.length === 0 ? others : { ...others, [slot]: nodes };
-    const { content: _content, ...rest } = file;
-    onChange(Object.keys(content).length === 0 ? rest : { ...rest, content });
-  };
+  const show = (part: string, shown: boolean) =>
+    change(file.name, { hidden: !shown, op: "setHidden", part });
+  const setContent = (slot: string, nodes: readonly DesignNode[]) =>
+    change(file.name, { nodes, op: "setContent", slot });
   const setItem = (tree: DesignNode | null) => {
-    const { item: _old, ...rest } = file;
     if (!tree) {
-      onChange(rest);
-      return;
+      return change(file.name, { item: null, op: "setItem" });
     }
     const label = firstOf(tree, "text");
     const image = firstOf(tree, "image");
-    onChange({
-      ...rest,
+    return change(file.name, {
       item: {
         tree,
         ...(label !== undefined && { label }),
         ...(image !== undefined && { image }),
       },
+      op: "setItem",
     });
   };
   const fromSelection = (use: (nodes: DesignNode[]) => void) => {
@@ -642,139 +610,6 @@ const LookExtras = ({
         </div>
       ) : null}
     </div>
-  );
-};
-
-/**
- * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
- * about one part or the whole of it. They go with the component to `/implement`. Added and taken
- * out on the server, on the file as it is there.
- */
-export const Notes = ({
-  component,
-  parts,
-}: {
-  component: ComponentFile;
-  parts: readonly { readonly label?: string; readonly name: string }[];
-}) => {
-  const [text, setText] = useState("");
-  const [slot, setSlot] = useState(ROOT_SLOT);
-  const notes = component.notes ?? [];
-  const add = async () => {
-    if (text.trim() === "") {
-      return;
-    }
-    try {
-      await api().request("components.addNote", {
-        name: component.name,
-        ...(slot !== ROOT_SLOT && { slot }),
-        text: text.trim(),
-      });
-      setText("");
-    } catch (error) {
-      reportError(error);
-    }
-  };
-  const remove = (id: string) =>
-    change(component.name, { id, op: "removeNote" });
-  const partOf = (name: string | undefined) =>
-    parts.find((s) => s.name === name)?.label ?? name;
-  const choices = [
-    { label: "The component", name: ROOT_SLOT },
-    ...parts.filter((p) => p.name !== ROOT_SLOT),
-  ];
-  return (
-    <div className="flex flex-col gap-1.5 font-body">
-      {notes.length === 0 ? (
-        <p className="text-muted-foreground">
-          What the code must do that the design cannot show: it goes to the code
-          when the component is implemented.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {notes.map((n) => (
-            <li className="flex items-start gap-1.5" key={n.id}>
-              <span className="min-w-0 flex-1">
-                {n.slot ? (
-                  <span className="text-muted-foreground">
-                    {partOf(n.slot)}:{" "}
-                  </span>
-                ) : null}
-                {n.text}
-              </span>
-              <Button
-                aria-label="Take the note out"
-                onClick={() => remove(n.id)}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* The part a note is about on a line of its own, so that neither it nor the note is cut. */}
-      {choices.length > 1 ? (
-        <NativeSelect
-          aria-label="About"
-          className="w-full"
-          onChange={(e) => setSlot(e.target.value)}
-          size="sm"
-          value={slot}
-        >
-          {choices.map((s) => (
-            <NativeSelectOption key={s.name} value={s.name}>
-              {s.label ?? s.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      ) : null}
-      <div className="flex gap-1.5">
-        <Input
-          aria-label="A behaviour note"
-          className="h-7 min-w-0 flex-1"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              add();
-            }
-          }}
-          placeholder="Closes on Escape"
-          value={text}
-        />
-        <Button
-          disabled={text.trim() === ""}
-          onClick={add}
-          size="sm"
-          variant="outline"
-        >
-          Note
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-/** Where a component is used: the pages of the canvas open, and the app components placing it. */
-export const ComponentUsedIn = ({
-  from,
-  name,
-}: {
-  from: string;
-  name: string;
-}) => {
-  const pages = usePagesRead();
-  const components = useComponents((s) => s.components);
-  const uses = useMemo(
-    () => componentUsesOf(name, from, { components, pages }),
-    [name, from, components, pages]
-  );
-  return (
-    <UsesSection
-      count={(use) => (use.count > 1 ? String(use.count) : null)}
-      uses={uses}
-    />
   );
 };
 
@@ -1013,12 +848,7 @@ export const LookInspector = ({
         (s) => s.optional || s.holds !== undefined
       ) || systemComponentOf(name)?.templatedItems ? (
         <Section title="Parts">
-          <LookExtras
-            file={file}
-            onChange={(next) =>
-              change(name, { look: lookOf(next), op: "setLook" })
-            }
-          />
+          <LookExtras file={file} />
         </Section>
       ) : null}
       <ComponentUsedIn from={SYSTEM_FROM} name={name} />

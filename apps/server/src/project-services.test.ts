@@ -5,7 +5,7 @@ import { allTokens } from "@ultrapaint/contracts/token-table";
 import { renderTemplate } from "@ultrapaint/design-document/factories";
 import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
@@ -34,14 +34,14 @@ const HOME_WITH_A_VIEW: CanvasLayout = {
 const pages = <A, E>(
   f: (service: PagesService["Service"]) => Effect.Effect<A, E>
 ) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.use(Effect.flatMap(PagesService, f))
   );
 
 const designSystem = <A, E>(
   f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
 ) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.use(Effect.flatMap(DesignSystemService, f))
   );
 

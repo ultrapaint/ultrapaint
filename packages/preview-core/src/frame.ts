@@ -31,12 +31,11 @@ import type {
 import { renderSetup } from "./render-setup.ts";
 import {
   BODY_ATTRIBUTE,
+  frameSheet,
   frameSheets,
-  ownDesignSheet,
   setComponentsCss,
   setDesignCss,
 } from "./styles.ts";
-import { readTokens } from "./tokens.ts";
 
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 /** A frame's host, marked with the frame's name. */
@@ -115,7 +114,7 @@ export const createPreview = (
       look = next;
       setDesignCss(next.css);
       for (const frame of frames) {
-        frame.relook();
+        frame.redraw();
       }
     },
   };
@@ -123,8 +122,8 @@ export const createPreview = (
 
 /** A frame as the preview keeps it. */
 interface MountedFrame {
-  /** Draws its last request again with the preview's look, unless it has one of its own. */
-  readonly relook: () => void;
+  /** Draws its last request again, with the preview's look as it is now. */
+  readonly redraw: () => void;
   readonly runtime: FrameRuntime;
 }
 
@@ -278,40 +277,30 @@ const mountFrame = (
 
   /** The last request, drawn again when the preview's look changes. */
   let last: RenderRequest | null = null;
-  /** The look given with a request, in a stylesheet of the frame's own. */
-  let own: { readonly look: Look; readonly sheet: CSSStyleSheet } | null = null;
-  /** The stylesheet given with a request besides the look (a board's). */
+  /** The stylesheet given with a request after the look (a board's). */
   let extra: { readonly css: string; readonly sheet: CSSStyleSheet } | null =
     null;
-  const adopt = (look: Look | undefined, css: string | undefined) => {
-    if (look === own?.look && css === extra?.css) {
+  const adopt = (css: string | undefined) => {
+    if (css === extra?.css) {
       return;
     }
-    if (look !== own?.look) {
-      own = look ? { look, sheet: ownDesignSheet(look.css) } : null;
-    }
-    if (css !== extra?.css) {
-      extra = css ? { css, sheet: ownDesignSheet(css) } : null;
-    }
-    shadow.adoptedStyleSheets = frameSheets(own?.sheet, extra?.sheet);
+    extra = css ? { css, sheet: frameSheet(css) } : null;
+    shadow.adoptedStyleSheets = frameSheets(extra?.sheet);
   };
   const render = (request: RenderRequest) => {
     if (editing) {
       finishTextEdit(false);
     }
     last = request;
-    adopt(request.look, request.css);
+    adopt(request.css);
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
-    const { css: _css, look: _look, ...drawing } = request;
-    mounted.render({
-      ...drawing,
-      components: (request.look ?? previewLook()).components,
-    });
+    const { css: _css, ...drawing } = request;
+    mounted.render({ ...drawing, components: previewLook().components });
   };
-  const relook = () => {
-    if (last && !last.look) {
+  const redraw = () => {
+    if (last) {
       render(last);
     }
   };
@@ -590,8 +579,6 @@ const mountFrame = (
       skeletons = [...nodeIds];
       applySkeletons();
     },
-    tokens: (prefixes) =>
-      readTokens(prefixes, shadow.adoptedStyleSheets.slice(1), body),
     unmount: () => {
       finishTextEdit(false);
       mo.disconnect();
@@ -607,5 +594,5 @@ const mountFrame = (
       scheduleRects();
     },
   };
-  return { relook, runtime };
+  return { redraw, runtime };
 };

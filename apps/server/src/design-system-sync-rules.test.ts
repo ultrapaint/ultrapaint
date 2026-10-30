@@ -135,36 +135,6 @@ describe("the plan", () => {
     expect(steps.map((s) => s.kind)).not.toContain("settings");
   });
 
-  it("offers to bring the designs from before up to date, first, while there is anything to", () => {
-    const steps = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 9, left: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(steps[0]).toMatchObject({ kind: "system", state: "attention" });
-    expect(steps[0]?.detail).toContain("9 instances from before");
-    expect(steps[0]?.detail).toContain(
-      "2 instances of components no system component"
-    );
-    const none = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 0, left: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(none.map((s) => s.kind)).not.toContain("system");
-    const specs = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 0, left: 0, specs: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(specs[0]?.detail).toBe(
-      "2 component specs can be made components of the components/ directory, in one step you can undo."
-    );
-  });
-
   it("goes through the setup for code, Figma's tokens first when there is a file", () => {
     const code = planOf({
       drift: emptyDrift,

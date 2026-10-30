@@ -5,7 +5,13 @@
  * synchronous.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { childrenOf, nodeLabel } from "./tree.ts";
+import {
+  childrenOf,
+  type IndexedNode,
+  indexTree,
+  nodeLabel,
+  sameJson,
+} from "./tree.ts";
 
 /** A node as the diff names it: its id, what it is, and what the layers panel calls it. */
 export interface NodeRef {
@@ -62,46 +68,15 @@ export interface TreeDiff {
   readonly removed: readonly RemovedNode[];
 }
 
-interface Entry extends Place {
-  readonly node: DesignNode;
-}
-
-/** Every node by id with its place, in document order (a map keeps insertion order). */
-const indexTree = (root: DesignNode): Map<string, Entry> => {
-  const entries = new Map<string, Entry>();
-  const visit = (node: DesignNode, parent: string | null, index: number) => {
-    entries.set(node.id, { index, node, parent });
-    childrenOf(node).forEach((child, i) => {
-      visit(child, node.id, i);
-    });
-  };
-  visit(root, null, 0);
-  return entries;
-};
+/** Every node by id with its place, in document order. */
+const indexOf = (root: DesignNode): Map<string, IndexedNode> =>
+  indexTree(root).nodes;
 
 const refOf = (node: DesignNode): NodeRef => ({
   id: node.id,
   label: nodeLabel(node),
   type: node.type,
 });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** Equality of JSON values, whatever the order of their keys; a key set to undefined is absent. */
-const sameJson = (a: unknown, b: unknown): boolean => {
-  if (a === b) {
-    return true;
-  }
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((item, i) => sameJson(item, b[i]));
-  }
-  if (isRecord(a) && isRecord(b)) {
-    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-    return Array.from(keys).every((key) => sameJson(a[key], b[key]));
-  }
-  return false;
-};
 
 /** Fields that are the tree itself rather than the node's own. */
 const STRUCTURAL = new Set(["children", "id"]);
@@ -170,20 +145,20 @@ const longestIncreasing = (values: readonly number[]): Set<number> => {
  */
 const reordered = (
   parent: DesignNode,
-  before: ReadonlyMap<string, Entry>
+  before: ReadonlyMap<string, IndexedNode>
 ): Set<string> => {
   const common = childrenOf(parent).filter(
     (child) => before.get(child.id)?.parent === parent.id
   );
   const kept = longestIncreasing(
-    common.map((child) => (before.get(child.id) as Entry).index)
+    common.map((child) => (before.get(child.id) as IndexedNode).index)
   );
   return new Set(
     common.filter((_, i) => !kept.has(i)).map((child) => child.id)
   );
 };
 
-const placeOf = (entry: Entry): Place => ({
+const placeOf = (entry: IndexedNode): Place => ({
   index: entry.index,
   parent: entry.parent,
 });
@@ -193,9 +168,9 @@ const placeOf = (entry: Entry): Place => ({
  * each subtree only one of them holds, in the first tree's order.
  */
 const topmostMissing = (
-  tree: ReadonlyMap<string, Entry>,
-  other: ReadonlyMap<string, Entry>
-): Entry[] =>
+  tree: ReadonlyMap<string, IndexedNode>,
+  other: ReadonlyMap<string, IndexedNode>
+): IndexedNode[] =>
   Array.from(tree.values()).filter(
     (entry) =>
       !other.has(entry.node.id) &&
@@ -208,8 +183,8 @@ const topmostMissing = (
  * siblings it had before; a node's fields are compared, `children` and `id` aside, as JSON.
  */
 export const diffTrees = (before: DesignNode, after: DesignNode): TreeDiff => {
-  const was = indexTree(before);
-  const is = indexTree(after);
+  const was = indexOf(before);
+  const is = indexOf(after);
   const added: AddedNode[] = [];
   const removed: RemovedNode[] = [];
   const moved: MovedNode[] = [];

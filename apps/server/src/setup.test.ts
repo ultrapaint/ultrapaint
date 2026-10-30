@@ -1,31 +1,38 @@
-import { assert, layer } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { SettingsService } from "./services/settings.ts";
+import { SetupService } from "./services/setup.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "first-run setup",
-  (it) => {
-    it.effect("looks at a repository before anything is configured", () =>
+/** Each test on a fixture of its own: one of them takes the fixture's manifest away. */
+const inAFixture = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(Effect.provide(ProjectTest()), Effect.scoped);
+
+describe("first-run setup", () => {
+  it.effect("looks at a repository before anything is configured", () =>
+    inAFixture(
       Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
+        const { repo } = yield* ProjectFixture;
+        const setup = yield* SetupService;
         const path = yield* Path.Path;
-        const found = yield* client["setup.detect"]({ repoPath: repo });
+        const found = yield* setup.detect(repo);
         assert.strictEqual(found.repoName, path.basename(repo));
         // Nothing in the fixture depends on React, so nothing is proposed.
         assert.deepStrictEqual(found.anchors, []);
         assert.strictEqual(found.tailwind, "none");
-        const missing = yield* Effect.flip(
-          client["setup.detect"]({ repoPath: `${repo}/nowhere` })
-        );
+        const missing = yield* Effect.flip(setup.detect(`${repo}/nowhere`));
         assert.strictEqual(missing._tag, "BadRequest");
       })
-    );
+    )
+  );
 
-    it.effect("creates a designs directory, and nothing else", () =>
+  it.effect("creates a designs directory, and nothing else", () =>
+    inAFixture(
       Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
+        const { repo, settings } = yield* ProjectFixture;
+        const setup = yield* SetupService;
         const fs = yield* FileSystem.FileSystem;
-        const result = yield* client["setup.createDesigns"]({
+        const result = yield* setup.createDesigns({
           designsDir: "docs/screens",
           repoPath: repo,
         });
@@ -36,38 +43,43 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
 
         // The settings validate without a package in the designs directory.
-        const { settings } = yield* TestEnv;
-        const validation = yield* client["settings.validate"]({
+        const validation = yield* (yield* SettingsService).validate({
           ...settings,
           designsDir: "docs/screens",
           resolveFrom: "designs",
         });
         assert.deepStrictEqual(validation.problems, []);
 
-        const again = yield* client["setup.createDesigns"]({
+        const again = yield* setup.createDesigns({
           designsDir: "docs/screens",
           repoPath: repo,
         });
         assert.deepStrictEqual(again.created, []);
       })
-    );
+    )
+  );
 
-    it.effect("refuses settings whose application is not a package", () =>
+  it.effect("refuses settings whose application is not a package", () =>
+    inAFixture(
       Effect.gen(function* () {
-        const { client, settings } = yield* TestEnv;
-        const validation = yield* client["settings.validate"]({
+        const { settings } = yield* ProjectFixture;
+        const validation = yield* (yield* SettingsService).validate({
           ...settings,
           resolveFrom: "ui",
         });
         assert.isFalse(validation.ok);
       })
-    );
+    )
+  );
 
-    it.effect(
-      "sets up an app in front/ when the repository's root has no package.json",
-      () =>
+  it.effect(
+    "sets up an app in front/ when the repository's root has no package.json",
+    () =>
+      inAFixture(
         Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
+          const { repo, settings } = yield* ProjectFixture;
+          const setup = yield* SetupService;
+          const { validate } = yield* SettingsService;
           const fs = yield* FileSystem.FileSystem;
           // The fixture's root manifest goes; the app is a package of its own in front/.
           yield* fs.remove(`${repo}/package.json`);
@@ -84,7 +96,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           yield* fs.makeDirectory(`${repo}/docs/designs`, { recursive: true });
 
-          const found = yield* client["setup.detect"]({ repoPath: repo });
+          const found = yield* setup.detect(repo);
           assert.isFalse(found.rootManifest ?? true);
           assert.strictEqual(found.anchors[0]?.dir, "front");
           assert.strictEqual(
@@ -98,15 +110,15 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             libraryDirs: ["front/src/components"],
             resolveFrom: "front",
           };
-          const ok = yield* client["settings.validate"](front);
+          const ok = yield* validate(front);
           assert.deepStrictEqual(ok.problems, []);
 
           // Without saying where the pages import from, there is nothing to resolve them in.
           const { resolveFrom: _gone, ...unanchored } = front;
-          const missing = yield* client["settings.validate"](unanchored);
+          const missing = yield* validate(unanchored);
           assert.isFalse(missing.ok);
           assert.include(missing.problems.join(" "), "Resolve imports from");
         })
-    );
-  }
-);
+      )
+  );
+});

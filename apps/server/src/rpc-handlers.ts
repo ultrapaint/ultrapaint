@@ -1,9 +1,13 @@
-import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import { Effect } from "effect";
+import {
+  UltrapaintRpcs,
+  type EventName,
+  type EventPayload,
+  eventNames,
+} from "@ultrapaint/contracts/rpc";
+import { Effect, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
-import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
@@ -16,11 +20,9 @@ import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
-import { Migration } from "./services/migration.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
-import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
@@ -42,10 +44,9 @@ const RECENT_LOG_LINES = 200;
 /** One handler per RPC. They only route: every decision lives in a service. */
 export const RpcHandlers = UltrapaintRpcs.toLayer(
   Effect.gen(function* () {
-    const config = yield* ServerConfig;
-    const settings = yield* SettingsService;
     const setup = yield* SetupService;
     const project = yield* ProjectManager;
+    const open = yield* OpenProject;
     const events = yield* EventBus;
     const log = yield* AppLog;
     const agents = yield* AgentConfigs;
@@ -67,21 +68,35 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const setupSteps = yield* SetupSteps;
     const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
-    const { mcp: mcpEnabled } = yield* ServerConfig;
 
-    const pages = project.service(PagesService);
-    const comments = project.service(CommentsService);
-    const edit = project.service(EditService);
-    const git = project.service(GitService);
-    const documents = project.service(DocumentService);
-    const designSystem = project.service(DesignSystemService);
-    const designMd = project.service(DesignMd);
-    const thumbnails = project.service(Thumbnails);
-    const skills = project.service(SkillsService);
-    const figma = project.service(FigmaImportService);
-    const components = project.service(ComponentService);
-    const migration = project.service(Migration);
-    const implementation = project.service(ImplementationService);
+    const pages = open.service(PagesService);
+    const comments = open.service(CommentsService);
+    const edit = open.service(EditService);
+    const git = open.service(GitService);
+    const documents = open.service(DocumentService);
+    const designSystem = open.service(DesignSystemService);
+    const designMd = open.service(DesignMd);
+    const thumbnails = open.service(Thumbnails);
+    const skills = open.service(SkillsService);
+    const figma = open.service(FigmaImportService);
+    const components = open.service(ComponentService);
+    const implementation = open.service(ImplementationService);
+
+    // Every event as the bus carries it, but a screenshot request: an editor listening for those
+    // is one that can draw, which the screenshots count.
+    const eventHandlers = {
+      ...(Object.fromEntries(
+        eventNames.map((name) => [
+          `events.${name}`,
+          () => events.subscribe(name),
+        ])
+      ) as {
+        readonly [E in EventName as `events.${E}`]: () => Stream.Stream<
+          EventPayload<E>
+        >;
+      }),
+      "events.screenshot": () => screenshots.requests,
+    };
 
     return UltrapaintRpcs.of({
       "agents.discover": ({ agentId }) => discovery.discover(agentId),
@@ -98,7 +113,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.rename": ({ id, name }) =>
         pages((s) => s.renameCanvas(id, name)),
       "canvases.reorder": ({ order }) => pages((s) => s.reorderCanvases(order)),
-      "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
@@ -107,11 +121,11 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
 
       "code.write": ({ node, ...options }) =>
-        components((c) => c.catalogue).pipe(
-          Effect.flatMap((catalogue) =>
-            designSystem((d) => d.codeOf(node, { ...options, catalogue }))
-          ),
-          Effect.map((code) => ({ code, language: "tsx" }))
+        designSystem((d) =>
+          Effect.map(d.codeOf(node, options), (code) => ({
+            code,
+            language: "tsx",
+          }))
         ),
       "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),
@@ -122,8 +136,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.list": ({ canvas }) => comments((c) => c.list(canvas)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
-      "components.addNote": ({ name, slot, text }) =>
-        components((c) => c.addNote(name, text, slot)),
       "components.change": ({ change, name }) =>
         components((c) => c.change(name, change)),
       "components.create": ({ name }) => components((c) => c.create(name)),
@@ -137,18 +149,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "designSystem.edit": ({ label, ops }) =>
         designSystem((d) => d.edit(ops, label)),
       "designSystem.get": () => designSystem((d) => d.get),
-      "designSystem.placeDocument": () =>
-        designSystem((d) =>
-          Effect.flatMap(d.get, ({ designSystem: ds }) =>
-            designMd((m) => m.place(ds))
-          )
-        ),
+      "designSystem.placeDocument": () => designSystem((d) => d.placeDocument),
       "designSystem.setSection": ({ name, text }) =>
         designMd((m) => m.setSection(name, text)),
       "documents.apply": (input) =>
         documents((d) =>
-          Effect.map(d.apply(input), ({ created, documents: changed }) => ({
-            changes: changed.map(d.changeOf),
+          Effect.map(d.apply(input), ({ changes, created }) => ({
+            changes,
             created,
           }))
         ),
@@ -175,37 +182,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "edit.state": () => edit((e) => e.state),
       "edit.undo": () => edit((e) => e.undo),
 
-      "events.agent": () => events.subscribe("agent"),
-      "events.agent.edited": () => events.subscribe("agent.edited"),
-      "events.agent.focus": () => events.subscribe("agent.focus"),
-      "events.agent.terminal": () => events.subscribe("agent.terminal"),
-      "events.canvas": () => events.subscribe("canvas"),
-      "events.checkpoints": () => events.subscribe("checkpoints"),
-      "events.comments": () => events.subscribe("comments"),
-      "events.components": () => events.subscribe("components"),
-      "events.designSystem": () => events.subscribe("designSystem"),
-      "events.document": () => events.subscribe("document"),
-      "events.dsSetup": () => events.subscribe("dsSetup"),
-      "events.dsSetupMapping": () => events.subscribe("dsSetupMapping"),
-      "events.edit.state": () => events.subscribe("edit.state"),
-      "events.file.changed": () => events.subscribe("file.changed"),
-      "events.git": () => events.subscribe("git"),
-      "events.implementation": () => events.subscribe("implementation"),
-      "events.log": () => events.subscribe("log"),
-      "events.pages": () => events.subscribe("pages"),
-      "events.project": () => events.subscribe("project"),
-      "events.screenshot": () => screenshots.requests,
-      "events.skills": () => events.subscribe("skills"),
-      "events.snapshots": () => events.subscribe("snapshots"),
-      "events.syncPlan": () => events.subscribe("syncPlan"),
-      "figma.list": () => figma((f) => f.list),
+      ...eventHandlers,
       "git.commit": ({ message, paths }) =>
         git((g) => Effect.map(g.commit(message, paths), (sha) => ({ sha }))),
       "git.diff": ({ path }) => git((g) => g.diff(path)),
       "git.init": () => git((g) => g.init),
 
       "git.status": () => git((g) => g.status),
-      health: () => Effect.succeed({ ok: true, version: config.version }),
       "implementation.changes": ({ target }) =>
         implementation((s) => s.changes(target)),
       "implementation.list": () => implementation((s) => s.list),
@@ -222,26 +205,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "implementation.unbind": ({ target }) =>
         implementation((s) => s.unbind(target)),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
-      "mcp.connection": () =>
-        Effect.map(
-          Effect.all({
-            endpoint: access.endpoint,
-            tokens: mcpEnabled
-              ? Effect.all({
-                  replaced: access.replaced,
-                  token: access.external,
-                })
-              : Effect.succeed({ replaced: false, token: "" }),
-          }),
-          ({ endpoint: { header, url }, tokens: { replaced, token } }) => ({
-            enabled: mcpEnabled,
-            header,
-            replaced,
-            token,
-            url,
-          })
-        ),
-      "migration.run": () => migration((m) => m.run),
+      "mcp.connection": () => access.connection,
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>
@@ -256,7 +220,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "pages.list": () => pages((s) => s.list),
       "pages.rename": ({ id, name }) => pages((s) => s.rename(id, name)),
       "pages.setRoute": ({ id, route }) => pages((s) => s.setRoute(id, route)),
-      "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
       "profile.get": () => profile.get,
       "profile.set": (input) => profile.set(input),
 
@@ -264,11 +227,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       "screenshots.deliver": (result) => screenshots.deliver(result),
 
-      "settings.get": () => settings.get,
       "settings.persist": (input) => project.persist(input),
       "settings.renameConfig": () => project.renameConfig,
       "settings.set": (input) => project.set(input),
-      "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
       "setup.scaffold": (input) =>

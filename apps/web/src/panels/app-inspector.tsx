@@ -34,9 +34,11 @@ import { Section } from "../components/panel.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import { openBoard } from "../state/board.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
-import { boardFrameOf } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
+import { Notes } from "./component-notes.tsx";
+import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
 import {
   changeFile,
@@ -44,14 +46,11 @@ import {
   newProperty,
   PropertyRow,
 } from "./inspector-component.tsx";
-import { ComponentUsedIn, Notes, removeComponent } from "./look-inspector.tsx";
+import { removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
 const useAppFile = (name: string) =>
-  useComponents((s) => {
-    const file = appComponentOf(s.components, name);
-    return file?.origin === "app" ? file : undefined;
-  });
+  useComponents((s) => appComponentOf(s.components, name));
 
 /** How many fields the tree's nodes override for a variant: what it draws differently. */
 const overridesOf = (tree: DesignNode, key: string) => {

@@ -13,6 +13,7 @@ import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import { builtInSkills } from "../skills/index.ts";
+import { DesignFiles } from "./design-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { agentWays } from "./threads/agent-ways.ts";
@@ -164,12 +165,7 @@ export class SkillsService extends Context.Service<
       });
 
       // Whoever changes the files: an undo, an agent, an editor, a checkout.
-      const prefix = `${relDir}/`;
-      yield* events.subscribe("file.changed").pipe(
-        Stream.filter(
-          ({ file }) =>
-            file.startsWith(prefix) && file.endsWith(SKILL_EXTENSION)
-        ),
+      yield* (yield* DesignFiles).changes(["skill"]).pipe(
         Stream.debounce("50 millis"),
         Stream.runForEach(() =>
           Effect.flatMap(list, (state) => events.publish("skills", state))

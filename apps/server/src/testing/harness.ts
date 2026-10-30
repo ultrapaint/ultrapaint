@@ -42,7 +42,11 @@ const HOME_PAGE = `${JSON.stringify(
   2
 )}\n`;
 
-const BUTTON_COMPONENT = `export interface ButtonProps {
+/**
+ * A file of the application's code, which nothing reads as a component (the components are the
+ * designs' files, ADR 0041): what a design is implemented in, and what the setup restores.
+ */
+const APP_CODE = `export interface ButtonProps {
   disabled?: boolean;
   label: string;
   variant?: "primary" | "ghost";
@@ -73,7 +77,7 @@ export const makeFixture = Effect.fnUntraced(function* (options: {
   yield* write("package.json", '{ "name": "fixture", "private": true }\n');
   yield* write("designs/package.json", '{ "name": "designs" }\n');
   yield* write("designs/home.page.json", HOME_PAGE);
-  yield* write("ui/button.tsx", BUTTON_COMPONENT);
+  yield* write("ui/button.tsx", APP_CODE);
   if (!options.git) {
     return repo;
   }
@@ -198,12 +202,10 @@ export const makeTestServer = (
             port,
             repo,
             settings: {
-              componentPackages: [],
               designsDir: "designs",
               hostCss: [],
               libraryDirs: [],
               repoPath: repo,
-              theme: "light",
             } satisfies Settings,
           })
         )
@@ -232,7 +234,7 @@ export const subscribed = <A, E, R>(consume: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const { client } = yield* TestEnv;
     const fiber = yield* Effect.forkScoped(consume, { startImmediately: true });
-    yield* client.health();
+    yield* client["project.info"]();
     return fiber;
   });
 

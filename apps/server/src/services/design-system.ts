@@ -1,8 +1,4 @@
 import {
-  COMPONENT_EXTENSION,
-  COMPONENTS_DIR,
-} from "@ultrapaint/contracts/component-names";
-import {
   DESIGN_SYSTEM_FILE,
   type DesignFinding,
   type DesignSystem,
@@ -37,6 +33,8 @@ import {
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { CodeSide } from "./code-side.ts";
+import { ComponentService } from "./components.ts";
+import { DesignFiles } from "./design-files.ts";
 import { DesignMd } from "./design-md.ts";
 import {
   type DesignSystemRead,
@@ -111,8 +109,13 @@ export class DesignSystemService extends Context.Service<
      */
     readonly codeOf: (
       node: DesignNode,
-      options: Omit<CodeOptions, "breakpoints">
+      options: Omit<CodeOptions, "breakpoints" | "catalogue">
     ) => Effect.Effect<string>;
+    /** `DESIGN.md` written where it is looked for, from the design system as it is now. */
+    readonly placeDocument: Effect.Effect<
+      { readonly path: string },
+      EditFailure
+    >;
     /**
      * Saves the design system and `DESIGN.md` as given, in one undo step: for Sync, which has
      * merged them itself (ADR 0027).
@@ -148,6 +151,8 @@ export class DesignSystemService extends Context.Service<
       const designMd = yield* DesignMd;
       const figma = yield* FigmaBaseline;
       const styleSystem = yield* ProjectStyleSystem;
+      // The Code tab lays an instance's children out as the components' slots do (ADR 0042).
+      const { catalogue } = yield* ComponentService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -155,7 +160,6 @@ export class DesignSystemService extends Context.Service<
       const systemRel = paths.relative(systemFile);
       const tokensFile = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
       const tokensRel = paths.relative(tokensFile);
-      const componentsPrefix = `${paths.relative(path.join(paths.designsDir, COMPONENTS_DIR))}/`;
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -435,17 +439,10 @@ export class DesignSystemService extends Context.Service<
       // undo, an agent writing the files by hand, a checkout (the files), DESIGN.md, the code.
       yield* Stream.mergeAll(
         [
-          events.subscribe("file.changed").pipe(
-            Stream.filter(
-              ({ file }) =>
-                file === systemRel ||
-                file === tokensRel ||
-                // A system component's look is DESIGN.md's component tokens (ADRs 0027, 0041).
-                (file.startsWith(componentsPrefix) &&
-                  file.endsWith(COMPONENT_EXTENSION))
-            ),
-            Stream.as(undefined)
-          ),
+          // A system component's look is DESIGN.md's component tokens (ADRs 0027, 0041).
+          (yield* DesignFiles)
+            .changes(["designSystem", "tokens", "component"])
+            .pipe(Stream.as(undefined)),
           designMd.changes,
           code.changes,
         ],
@@ -463,17 +460,23 @@ export class DesignSystemService extends Context.Service<
 
       return DesignSystemService.of({
         codeOf: (node, options) =>
-          Effect.map(get, ({ designSystem: ds }) =>
-            toCode(node, styleSystem.nodeClasses(ds), {
-              componentsFrom: componentsImportBase(paths.settings),
-              ...options,
-              breakpoints: breakpointsOf(ds),
-              designSystem: ds,
-            })
+          Effect.map(
+            Effect.all([get, catalogue]),
+            ([{ designSystem: ds }, components]) =>
+              toCode(node, styleSystem.nodeClasses(ds), {
+                componentsFrom: componentsImportBase(paths.settings),
+                ...options,
+                breakpoints: breakpointsOf(ds),
+                catalogue: components,
+                designSystem: ds,
+              })
           ),
         detect,
         edit: editOps,
         get,
+        placeDocument: Effect.flatMap(get, ({ designSystem: ds }) =>
+          designMd.place(ds)
+        ),
         refresh: code.refresh.pipe(
           Effect.andThen(serially(mirror)),
           Effect.andThen(get)

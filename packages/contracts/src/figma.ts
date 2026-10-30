@@ -7,9 +7,9 @@
 import { Schema } from "effect";
 import { Json } from "./base.ts";
 
-/** What a Figma property of a component becomes on the repository's component. */
+/** What a Figma property of a component becomes on the catalogue's component. */
 export const PropRule = Schema.Struct({
-  /** The prop of the repository's component the value goes to. */
+  /** The prop of the catalogue's component the value goes to. */
   prop: Schema.optional(Schema.String),
   /** The property's value becomes the instance's text instead of a prop. */
   text: Schema.optional(Schema.Boolean),
@@ -20,15 +20,14 @@ export type PropRule = typeof PropRule.Type;
 
 /**
  * How instances of one Figma component are converted: replaced by a component of the
- * repository, expanded into the plain nodes the Figma component is made of (custom), or left
- * out.
+ * catalogue, expanded into the plain nodes the Figma component is made of (custom), or left
+ * out. A mapping kept from before ADR 0041 that names a `from` still reads; the catalogue says
+ * the component's origin.
  */
 export const ComponentMapping = Schema.Union([
   Schema.Struct({
-    /** Export name of the repository's component, `Button`. */
+    /** The catalogue's component, `Button`. */
     component: Schema.String,
-    /** Module it is imported from; where the catalogue imports it from when left out. */
-    from: Schema.optional(Schema.String),
     kind: Schema.Literal("component"),
     /** Figma property name → what it becomes. Properties not listed are dropped. */
     propMap: Schema.optional(Schema.Record(Schema.String, PropRule)),

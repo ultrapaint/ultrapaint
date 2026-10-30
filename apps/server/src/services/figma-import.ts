@@ -5,6 +5,7 @@
  * page with the mapping as it stands; the conversion itself is `@ultrapaint/figma-import`.
  */
 
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, PageDocument } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
@@ -221,10 +222,9 @@ export class FigmaImportService extends Context.Service<
     readonly theme: Effect.Effect<Record<string, string>, BadRequest>;
     readonly list: Effect.Effect<readonly FigmaImport[]>;
     /**
-     * Says what a component becomes; null forgets the decision. A component of this repository
-     * must be in the catalogue, and is imported from where the design system says, else from
-     * where the catalogue found it, unless the mapping says; the notes are its props the
-     * component does not declare, which are passed on anyway.
+     * Says what a component becomes; null forgets the decision. A component must be in the
+     * catalogue; the notes are its props the component does not declare, which are passed on
+     * anyway.
      */
     readonly map: (
       id: string,
@@ -457,7 +457,6 @@ export class FigmaImportService extends Context.Service<
             message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. ${TOOLS.list_components} has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
           });
         }
-        const from = mapping.from ?? component.importFrom;
         const known = new Set(component.props.map((p) => p.name));
         const named = [
           ...Object.keys(mapping.props ?? {}),
@@ -471,7 +470,7 @@ export class FigmaImportService extends Context.Service<
             (prop) =>
               `${component.name} does not declare a prop ${prop}; it is passed on anyway`
           );
-        return { mapping: { ...mapping, from }, notes };
+        return { mapping, notes };
       });
 
       const map = Effect.fn("FigmaImportService.map")(function* (
@@ -536,9 +535,12 @@ export class FigmaImportService extends Context.Service<
         // Before a design system is written, the code's own tokens are what colours match
         // (ADR 0025): Figma's may have been taken into it already.
         const ds = saved ?? (yield* designSystem.scan).designSystem;
+        const components = yield* catalogue;
         return {
           mapping: summary.mapping,
           next: makeIdGenerator(["root"]),
+          originOf: (name: string) =>
+            components.find((c) => c.name === name)?.importFrom ?? SYSTEM_FROM,
           tokens: makeTokenMatcher(ds),
         };
       });

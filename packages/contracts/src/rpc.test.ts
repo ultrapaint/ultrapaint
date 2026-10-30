@@ -4,7 +4,7 @@ import { DesignSystem, emptyDesignSystem } from "./design-system.ts";
 import { DesignSystemEditInput } from "./design-system-edit.ts";
 import { DocOp, PageDocument } from "./document.ts";
 import { CommandFailed, errorCodes, NotFound } from "./errors.ts";
-import { UltrapaintRpcs, eventNames } from "./rpc.ts";
+import { eventNames, UltrapaintRpcs } from "./rpc.ts";
 import { Settings } from "./settings.ts";
 import { ThreadItem } from "./threads.ts";
 
@@ -20,12 +20,10 @@ const overTheWire = <S extends Schema.Codec<unknown, unknown>>(
 describe("contracts", () => {
   it("round-trips settings and leaves optional fields out", () => {
     const settings: Settings = {
-      componentPackages: [],
       designsDir: "designs",
       hostCss: [],
       libraryDirs: [],
       repoPath: "/tmp/repo",
-      theme: "light",
     };
     expect(overTheWire(Settings, settings)).toEqual(settings);
   });
@@ -34,12 +32,10 @@ describe("contracts", () => {
     const decode = Schema.decodeUnknownSync(Settings);
     expect(() =>
       decode({
-        componentPackages: [],
         designsDir: "../outside",
         hostCss: [],
         libraryDirs: [],
         repoPath: "/tmp/repo",
-        theme: "light",
       })
     ).toThrow();
   });
@@ -73,7 +69,7 @@ describe("contracts", () => {
             children: [
               {
                 component: "Button",
-                from: "@ui/button",
+                from: "@ultrapaint/system",
                 id: "b1",
                 props: { size: "sm" },
                 text: "Go",

@@ -7,12 +7,13 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   DesignNode,
+  InstanceFrom,
   InstanceNode,
   PageDocument,
   PageNode,
 } from "@ultrapaint/contracts/document";
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
-import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
+import { DOCUMENT_VERSION } from "./tree.ts";
 
 /**
  * The elements a design is built of (ADRs 0040, 0045): layout, text, images. The tools' Insert
@@ -92,59 +93,25 @@ export const newElement = (id: ElementId, next: IdGenerator): DesignNode => {
 export interface ComponentShape {
   /** The props a new instance starts with. */
   readonly example?: Readonly<Record<string, JsonValue>> | undefined;
-  readonly importFrom: string;
+  readonly importFrom: InstanceFrom;
   readonly name: string;
-  readonly props?: readonly {
-    readonly name: string;
-    readonly required: boolean;
-    readonly type: {
-      readonly kind: string;
-      readonly members?: readonly string[];
-    };
-  }[];
   /** The text a new instance shows. */
   readonly text?: string | undefined;
 }
 
-/** Values for the props a component requires, when nothing better is known. */
-const requiredProps = (component: ComponentShape) => {
-  const props: Record<string, JsonValue> = {};
-  for (const prop of component.props ?? []) {
-    if (!prop.required || prop.name === "children") {
-      continue;
-    }
-    if (prop.type.kind === "enum" && prop.type.members?.[0] !== undefined) {
-      props[prop.name] = prop.type.members[0].replaceAll('"', "");
-    } else if (prop.type.kind === "string") {
-      props[prop.name] = "";
-    } else if (prop.type.kind === "number") {
-      props[prop.name] = 0;
-    }
-  }
-  return props;
-};
-
-/**
- * A new instance of a component, as the catalogue's example of it (ADR 0042), or with what its
- * props require and its name as its text when it takes children.
- */
+/** A new instance of a component, as the catalogue's example of it (ADR 0042). */
 export const newInstance = (
   component: ComponentShape,
   next: IdGenerator
-): InstanceNode => {
-  const props = component.example ?? requiredProps(component);
-  const text =
-    component.text ??
-    (componentTakesChildren(component) ? component.name : undefined);
-  return {
-    component: component.name,
-    from: component.importFrom,
-    id: next(idPrefix("instance")),
-    ...(Object.keys(props).length > 0 && { props }),
-    ...(text !== undefined && { text }),
-    type: "instance",
-  };
-};
+): InstanceNode => ({
+  component: component.name,
+  from: component.importFrom,
+  id: next(idPrefix("instance")),
+  ...(component.example &&
+    Object.keys(component.example).length > 0 && { props: component.example }),
+  ...(component.text !== undefined && { text: component.text }),
+  type: "instance",
+});
 
 export const pageTemplates = [
   { id: "blank", name: "Blank" },

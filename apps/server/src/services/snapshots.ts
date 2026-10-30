@@ -14,16 +14,12 @@ import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
+import { readCanvasText } from "./canvas-file.ts";
 import { makeDesignRefs } from "./design-refs.ts";
-import { parseDocument } from "./documents.ts";
+import { parseDocument } from "./document-file.ts";
 import type { EditFailure } from "./edit.ts";
-import {
-  canvasIdsIn,
-  decodeOrder,
-  pageListOf,
-  parseCanvas,
-} from "./pages-layout.ts";
+import { canvasIdsIn, decodeOrder, pageListOf } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Checkpoints } from "./threads/checkpoints.ts";
 
@@ -80,7 +76,7 @@ const layoutsOf = Effect.fnUntraced(function* (files: {
     layouts[canvas] =
       text === undefined
         ? emptyCanvasLayout()
-        : yield* parseCanvas(text).pipe(
+        : yield* readCanvasText(text).pipe(
             Effect.map(({ layout }): CanvasLayout => layout),
             Effect.orElseSucceed(() => emptyCanvasLayout())
           );
@@ -159,7 +155,7 @@ export class Snapshots extends Context.Service<
   static readonly layer = Layer.effect(
     Snapshots,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const checkpoints = yield* Checkpoints;
       const events = yield* EventBus;
       const refs = yield* makeDesignRefs({

@@ -36,11 +36,6 @@ import {
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
-import {
-  asSystemComponent,
-  isRepositoryInstance,
-} from "@ultrapaint/system-components/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
 import {
   appComponentOf,
@@ -60,7 +55,13 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
-import { asDrawnIn, editedFrameOf, isSelected } from "../state/selection.ts";
+import {
+  asDrawnIn,
+  editedFrameOf,
+  isSelected,
+  select,
+  selectMany,
+} from "../state/selection.ts";
 import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
 import type { NodeField } from "./node-fields.ts";
@@ -191,7 +192,7 @@ const selectLanded = (
     return;
   }
   const loose = canvas !== null && doc === canvasDocOf(canvas);
-  useEditor.getState().selectMany(
+  selectMany(
     ids.flatMap((id) => {
       const shown = loose ? frameOfCanvasNode(docs, canvas, id) : frame;
       return shown ? [{ frame: shown, nodeId: id }] : [];
@@ -487,9 +488,7 @@ export const arrangeNode = async (to: Arrangement, target?: Selection) => {
 export const selectParent = (target?: Selection) => {
   const place = placeOf(nodeContext(target));
   if (place?.parent && place.parent.type !== "page") {
-    useEditor
-      .getState()
-      .select({ frame: place.current.frame, nodeId: place.parent.id });
+    select({ frame: place.current.frame, nodeId: place.parent.id });
   }
 };
 
@@ -530,7 +529,7 @@ export const renameNode = async (target?: Selection) => {
     editor.selection?.frame !== at.frame ||
     editor.selection.nodeId !== at.nodeId
   ) {
-    editor.select(at);
+    select(at);
   }
   if (leftPanelShows("layers")) {
     showLeftPanel({ layers: { rename: at } });
@@ -564,31 +563,6 @@ export const nodesOf = (targets: readonly Selection[]) => {
       ? [{ doc: docOfFrame(t.frame, canvas), frame: t.frame, node }]
       : [];
   });
-};
-
-/**
- * Instances of the repository's components drawn as a system component (ADR 0040), each where it was:
- * its props, children and text kept where the system component has them (`migrate.ts`).
- */
-export const replaceWithSystemComponent = (
-  name: string,
-  target?: Selection
-) => {
-  const meta = systemComponentOf(name);
-  const byDoc = new Map<string, DocOp[]>();
-  for (const { doc, node } of nodesOf(outermost(actedOn(target)))) {
-    if (!(meta && isRepositoryInstance(node))) {
-      continue;
-    }
-    byDoc.set(doc, [
-      ...(byDoc.get(doc) ?? []),
-      { ids: [node.id], node: asSystemComponent(node, meta), op: "replace" },
-    ]);
-  }
-  const edits = [...byDoc].map(([doc, ops]) => ({ doc, ops }));
-  return edits.length > 0
-    ? applyEdits(edits, `Draw as ${name}`)
-    : Promise.resolve(null);
 };
 
 /**
@@ -735,7 +709,7 @@ export const deleteNodes = async (targets: readonly Selection[]) => {
     labelFor("Delete", gone.length)
   );
   if (result) {
-    useEditor.getState().select(null);
+    select(null);
   }
 };
 
@@ -764,7 +738,7 @@ const unwrapNodes = async (targets: readonly Selection[]) => {
     "Unwrap"
   );
   if (result) {
-    useEditor.getState().select(null);
+    select(null);
   }
 };
 
