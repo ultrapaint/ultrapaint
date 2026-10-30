@@ -10,6 +10,7 @@ import { leaveBoard } from "../state/board.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
+import { setPreset } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { linksToPage } from "./links.ts";
@@ -34,7 +35,7 @@ export const goToPage = (page: Page) => {
 export const zoomToPage = (page: Page) => reveal({ page: page.id });
 
 export const setPagePreset = (page: Page, preset: ViewportPreset) =>
-  useEditor.getState().setPreset(page.id, preset);
+  setPreset(page.id, preset);
 
 /** What a URL is typed as: a slash in front, and nothing at all for none. */
 const typedUrl = (value: string): string | null => {

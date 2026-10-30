@@ -53,7 +53,6 @@ import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
 import { useDesignSystem } from "./state/design-system.ts";
 import {
-  canvasDefaults,
   type LeftTab,
   type RightTab,
   useEditor,
@@ -66,6 +65,7 @@ import {
   pagesChanged,
 } from "./state/location.ts";
 import { followLook } from "./state/look.ts";
+import { canvasDefaults } from "./state/page-layout.ts";
 import { usePanels } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";

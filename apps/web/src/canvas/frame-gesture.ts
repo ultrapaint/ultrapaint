@@ -7,20 +7,22 @@
  * drag (`drag.ts`, which knows where it lands), followed the same way. Escape puts away a marquee
  * a frame draws (`use-frame-pointer.ts`) through here too.
  */
+
+import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
+import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import {
   allFrames,
-  type Box,
   doneDrawingFrame,
   drawingFrame,
   hold,
   holdUntil,
+  setFrame,
   showFrame,
-  useEditor,
-} from "../state/editor.ts";
-import { frameRefOf } from "../state/frame-ref.ts";
+} from "../state/page-layout.ts";
 import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
@@ -194,7 +196,7 @@ const followFrame = (
       const s = useEditor.getState();
       const f = s.frames[pageId];
       if (moved && f) {
-        s.setFrame(pageId, { ...f, ...roundBox(f) });
+        setFrame(pageId, { ...f, ...roundBox(f) });
       } else if (pushed) {
         showFrame(pushed.page, pushed.frame);
       }

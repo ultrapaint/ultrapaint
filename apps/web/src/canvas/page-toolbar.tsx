@@ -24,6 +24,7 @@ import {
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
+import { addView, setPreset } from "../state/page-layout.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { useDrag } from "./drag.ts";
 import { Divider, MoreButton } from "./element-toolbar.tsx";
@@ -56,9 +57,7 @@ const ViewportSelect = ({
       <DropdownMenuGroup>
         <MenuHead name="viewport" />
         <DropdownMenuRadioGroup
-          onValueChange={(v) =>
-            useEditor.getState().setPreset(pageId, v as ViewportPreset)
-          }
+          onValueChange={(v) => setPreset(pageId, v as ViewportPreset)}
           value={preset}
         >
           {DEVICES.map((d) => {
@@ -87,10 +86,9 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
   const count = useEditor((s) => s.frames[pageId]?.views?.length ?? 0);
   const breakpoints = useBreakpoints();
   const add = (width: number, height?: number) => {
-    const s = useEditor.getState();
-    const view = s.addView(pageId, width, height);
+    const view = addView(pageId, width, height);
     if (view) {
-      s.selectPage(view);
+      useEditor.getState().selectPage(view);
     }
   };
   return (

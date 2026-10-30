@@ -10,6 +10,7 @@
  * the canvas lands on the grid, unless ⌘/Ctrl is held.
  */
 
+import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { runsInRow } from "@ultrapaint/design-document/css";
@@ -28,8 +29,9 @@ import {
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/components.ts";
 import { docOfFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
-import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
+import { allFrames, holdUntil } from "../state/page-layout.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 

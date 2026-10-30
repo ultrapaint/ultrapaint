@@ -68,6 +68,7 @@ import {
   tokensWaiting,
   useImplementation,
 } from "../state/implementation.ts";
+import { setPreset } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useInspected } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
@@ -326,9 +327,7 @@ const PageSection = ({ frame }: { frame: string }) => {
       </Row>
       <Row label="Viewport">
         <OptionSelect
-          onChange={(v) =>
-            useEditor.getState().setPreset(frame, v as ViewportPreset)
-          }
+          onChange={(v) => setPreset(frame, v as ViewportPreset)}
           options={viewportPresets}
           size="sm"
           value={presetOf(layout)}
