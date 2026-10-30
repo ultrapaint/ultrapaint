@@ -7,6 +7,7 @@ import {
   Fiber,
   FileSystem,
   type Layer,
+  Queue,
   type Scope,
   Stream,
 } from "effect";
@@ -17,7 +18,6 @@ import {
   type ProjectRpc,
   type ProjectTestOptions,
 } from "./testing/project.ts";
-import { waitFor } from "./testing/wait-for.ts";
 
 const HOME = "home.page.json";
 const HOME_FILE = "designs/home.page.json";
@@ -164,14 +164,13 @@ describe("the editor's requests on a project", () => {
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         yield* client["pages.create"]({ canvas: "", name: "Listed once" });
-        const seen: string[] = [];
+        // Home's writes as the editors are told of them, in order.
+        const seen = yield* Queue.unbounded<string>();
         yield* subscribed(
           Stream.runForEach(client["events.file.changed"](), (changed) =>
-            Effect.sync(() => {
-              if (changed.file === HOME_FILE) {
-                seen.push(changed.hash);
-              }
-            })
+            changed.file === HOME_FILE
+              ? Queue.offer(seen, changed.hash)
+              : Effect.void
           )
         );
         const { event } = yield* nextEvent(
@@ -187,12 +186,11 @@ describe("the editor's requests on a project", () => {
                 ],
               });
             }
-            // The watcher has seen the edits' writes, which change no list.
+            // The editors are told of the edits' last write, which changes no list.
             const { hash } = yield* client["documents.get"]({ doc: HOME });
-            yield* waitFor(
-              Effect.sync(() => seen.includes(hash)),
-              Boolean
-            );
+            while ((yield* Queue.take(seen)) !== hash) {
+              // An earlier write's news.
+            }
             yield* client["pages.create"]({
               canvas: "",
               name: "Listed twice",
