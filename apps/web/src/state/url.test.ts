@@ -34,7 +34,10 @@ describe("a board view in the URL", () => {
 
   it("stays while the editor catches up with its place", () => {
     writeBoard({ item: "color", view: "system" }, false);
-    writeUrl({ canvas: "main", page: null, route: "/", variant: null }, false);
+    writeUrl({ canvas: "main", page: null, route: "/", variant: null }, false, {
+      item: "color",
+      view: "system",
+    });
     expect(readUrl()).toMatchObject({
       board: { item: "color", view: "system" },
       route: "/",

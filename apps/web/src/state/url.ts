@@ -149,14 +149,21 @@ export const writeMode = (mode: string) =>
 
 /**
  * `push` for a navigation the user made (a link, a route in the panel), `replace` for state
- * the editor is only catching up with, so back does not walk through it.
+ * the editor is only catching up with, so back does not walk through it. The board view open in
+ * the canvas's place, or none, is written with it: one entry for a navigation that leaves one.
  */
-export const writeUrl = (state: UrlState, push: boolean) =>
+export const writeUrl = (
+  state: UrlState,
+  push: boolean,
+  board: { item: string; view: string } | null
+) =>
   writeQuery((params) => {
     params.set("canvas", state.canvas ?? "");
     params.set("route", state.route ?? "");
     params.set("page", state.route === null ? (state.page ?? "") : "");
     params.set("variant", state.variant ?? "");
+    params.set("view", board?.view ?? "");
+    params.set("item", board?.item ?? "");
   }, push);
 
 export const onUrlChange = (listener: (state: UrlRead) => void) => {

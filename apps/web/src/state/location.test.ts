@@ -4,6 +4,12 @@ import { matchRoute, pagesInVariant } from "@ultrapaint/shared/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { fakeBrowser } from "../testing/fake-browser.ts";
+import {
+  followBoardHistory,
+  leaveBoard,
+  openBoard,
+  useBoard,
+} from "./board.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
 import {
   followHistory,
@@ -379,6 +385,38 @@ describe("goTo", () => {
       1
     );
     expect(outOfStep()).toEqual([]);
+  });
+});
+
+describe("a board view (ADR 0045)", () => {
+  beforeEach(async () => {
+    await goTo({ canvas: "main" });
+    await settle();
+  });
+
+  afterEach(() => {
+    leaveBoard("none");
+  });
+
+  it("is left by a navigation, in one entry of the history that back walks to it again", () => {
+    const stop = followBoardHistory();
+    openBoard({ item: "color", view: "system" });
+    const entries = fakeBrowser.history().entries.length;
+    goTo({ page: pricing.id });
+    expect(useBoard.getState().open).toBeNull();
+    expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
+    expect(readUrl().board).toBeNull();
+    expect(fakeBrowser.history().entries).toHaveLength(entries + 1);
+    window.history.back();
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    stop();
+  });
+
+  it("is kept while the editor only follows the frame worked in or the page list", () => {
+    openBoard({ item: "color", view: "system" });
+    pagesChanged();
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    expect(readUrl().board).toEqual({ item: "color", view: "system" });
   });
 });
 

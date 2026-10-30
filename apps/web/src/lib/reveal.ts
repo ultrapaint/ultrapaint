@@ -6,12 +6,12 @@
  * a frame.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
-import { leaveBoard, useBoard } from "../state/board.ts";
+import { useBoard } from "../state/board.ts";
 import { zoomToSelectionOnceLaidOut } from "../state/camera.ts";
 import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { type FrameRef, frameRefOf } from "../state/frame-ref.ts";
-import { goTo } from "../state/location.ts";
+import { goTo, toPageCanvas } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 import { select, selectPage } from "../state/selection.ts";
 
@@ -94,7 +94,7 @@ const revealBesidePages = async (
   asked: number
 ) => {
   // What is revealed is on the page canvas: a board view open gives way to it.
-  leaveBoard();
+  toPageCanvas();
   useEditor.getState().setWorkspace("design");
   if (target.canvas !== useEditor.getState().canvas) {
     await goTo({ canvas: target.canvas });
@@ -120,7 +120,7 @@ const revealInFrame = async (
 ) => {
   const frame = frameOfTarget(target);
   // What is revealed is on the page canvas: a board view open gives way to it.
-  leaveBoard();
+  toPageCanvas();
   const editor = useEditor.getState();
   editor.setWorkspace("design");
   if (page && page.canvas !== editor.canvas) {
