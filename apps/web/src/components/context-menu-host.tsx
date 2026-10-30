@@ -36,7 +36,6 @@ import {
   MessageSquarePlus,
   Monitor,
   MonitorSmartphone,
-  Paintbrush,
   Pencil,
   Plus,
   Rows3,
@@ -99,7 +98,6 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
   copyName: Copy,
   copyRef: Copy,
   copyText: Copy,
-  copyValue: Copy,
   cut: Scissors,
   delete: Trash2,
   duplicate: CopyPlus,
@@ -122,7 +120,6 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
 };
 
 const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
-  apply: Paintbrush,
   arrange: ArrowUpDown,
   copyTo: Copy,
   moveTo: FolderInput,
@@ -183,9 +180,6 @@ const iconOf = ({ act }: MenuAction): LucideIcon | undefined => {
       return act.resolved ? CircleCheck : Undo2;
     case "send":
       return act.threadId === null ? Bot : MessageSquarePlus;
-    // A text style's; a token's go in the fields of its submenu, which has the icon.
-    case "apply":
-      return "field" in act ? undefined : Paintbrush;
     case "command":
       return COMMAND_ICONS[act.id];
     default:

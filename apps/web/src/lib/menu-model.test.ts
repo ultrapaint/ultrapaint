@@ -9,11 +9,7 @@ import {
   type NodeFacts,
   nodeEntries,
   pageEntries,
-  sharedTokenFields,
-  textStyleEntries,
   tidy,
-  tokenEntries,
-  tokenFields,
 } from "./menu-model.ts";
 
 const text: DesignNode = {
@@ -410,83 +406,6 @@ describe("the comment menu", () => {
       label: "Current chat",
     });
     expect(find(none, "resolve")).toMatchObject({ label: "Reopen" });
-  });
-});
-
-describe("tokens", () => {
-  it("fit the fields the selected node has", () => {
-    expect(tokenFields("color", text).map((f) => f.field)).toEqual([
-      "fill",
-      "color",
-      "border.color",
-    ]);
-    expect(tokenFields("color", row).map((f) => f.field)).toEqual([
-      "fill",
-      "border.color",
-    ]);
-    expect(tokenFields("spacing", row).map((f) => f.field)).toEqual([
-      "gap",
-      "padding",
-      "margin",
-    ]);
-    expect(tokenFields("spacing", text).map((f) => f.field)).toEqual([
-      "padding",
-      "margin",
-    ]);
-    expect(tokenFields("font", row)).toEqual([]);
-    expect(tokenFields("fontSize", text).map((f) => f.field)).toEqual(["size"]);
-    expect(tokenFields("borderWidth", row).map((f) => f.field)).toEqual([
-      "border.width",
-    ]);
-    expect(tokenFields("container", row).map((f) => f.field)).toEqual([
-      "maxWidth",
-      "minWidth",
-    ]);
-    expect(tokenFields("other", row)).toEqual([]);
-  });
-
-  it("cannot be applied with nothing selected", () => {
-    const got = tokenEntries({
-      kind: "radius",
-      name: "radius-lg",
-      selected: [],
-      value: "0.5rem",
-    });
-    expect(find(got, "apply")).toMatchObject({ disabled: true });
-    expect(kinds(got)).toContain("copyRef");
-    // Its value is the code's, edited there.
-    expect(kinds(got)).toContain("edit");
-  });
-
-  it("fit only the fields every selected node has", () => {
-    expect(sharedTokenFields("color", [text, row]).map((f) => f.field)).toEqual(
-      ["fill", "border.color"]
-    );
-    expect(sharedTokenFields("font", [text, row])).toEqual([]);
-    expect(sharedTokenFields("color", [])).toEqual([]);
-    const got = tokenEntries({
-      kind: "color",
-      name: "primary",
-      selected: [text, row],
-      value: "#000",
-    });
-    expect(find(got, "apply")).toMatchObject({
-      disabled: false,
-      label: "Apply to 2 elements",
-    });
-  });
-});
-
-describe("text styles", () => {
-  it("apply when every selected node is text", () => {
-    const other: DesignNode = { ...text, id: "t2" };
-    const texts = textStyleEntries({ name: "Body", selected: [text, other] });
-    expect(find(texts, "apply")).toMatchObject({
-      disabled: false,
-      label: "Apply to 2 elements",
-    });
-    const mixed = textStyleEntries({ name: "Body", selected: [text, row] });
-    expect(find(mixed, "apply")).toMatchObject({ disabled: true });
   });
 });
 

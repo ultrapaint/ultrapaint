@@ -1,10 +1,9 @@
 /**
  * The one context menu of the editor. Whatever is right-clicked — a node on the canvas or its
- * row in the layers, a page, a comment, a token — asks for the menu of a target, and
- * `<ContextMenuHost />` draws it. The same target gives the same menu wherever it was clicked.
+ * row in the layers, a page, a comment, a component of the Library — asks for the menu of a
+ * target, and `<ContextMenuHost />` draws it. The same target gives the same menu wherever it was clicked.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { create } from "zustand";
 
@@ -13,23 +12,6 @@ export interface Point {
   x: number;
   y: number;
 }
-
-/**
- * The kinds of token a token's menu knows what to apply to. Breakpoints, easings, durations and
- * the rest are `other`: copied into code, not applied to a node.
- */
-export type MenuTokenKind = Extract<
-  TokenKind,
-  | "borderWidth"
-  | "color"
-  | "container"
-  | "font"
-  | "fontSize"
-  | "other"
-  | "radius"
-  | "shadow"
-  | "spacing"
->;
 
 export type MenuTarget =
   /** A node of a frame; `at` is where in the frame it was clicked. */
@@ -41,8 +23,6 @@ export type MenuTarget =
   /** A canvas of the list in the Pages panel. */
   | { kind: "canvasEntry"; canvasId: string }
   | { kind: "comment"; commentId: string }
-  | { kind: "token"; name: string; value: string; tokenKind: MenuTokenKind }
-  | { kind: "textStyle"; name: string }
   /** An entry of the Library: a system component, or an app component. */
   | {
       kind: "component";

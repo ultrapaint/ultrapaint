@@ -5,11 +5,9 @@
  * the menus hold is `menu-model.ts`'s.
  */
 
-import type { JsonValue } from "@ultrapaint/contracts/base";
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
-import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
 import { frameOf } from "../canvas/editor-frame.ts";
@@ -29,7 +27,6 @@ import {
 } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
-import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
@@ -76,13 +73,8 @@ import {
   nodeEntries,
   type PageAction,
   pageEntries,
-  type TextStyleAction,
   type ThreadAction,
-  type TokenAction,
-  type TokenField,
-  textStyleEntries,
   threadEntries,
-  tokenEntries,
 } from "./menu-model.ts";
 import {
   actedOn,
@@ -101,15 +93,12 @@ import {
   replaceWithSystemComponent,
   selected,
   selectParent,
-  setField,
   setHidden,
   setLocked,
   unwrapSelection,
   updateSelection,
-  updateSelectionWith,
   wrapSelection,
 } from "./node-actions.ts";
-import { TEXT_STYLE } from "./node-fields.ts";
 import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
   adoptPages,
@@ -131,7 +120,6 @@ import {
 } from "./page-actions.ts";
 import { reveal } from "./reveal.ts";
 import { deleteThread, openChat, stopThread } from "./thread-actions.ts";
-import { editTokenValue } from "./token-edit.ts";
 
 // ---- An action, bound to what it acts on ----
 
@@ -145,9 +133,7 @@ interface Actions extends Record<MenuTarget["kind"], unknown> {
   component: ComponentAction;
   node: NodeAction;
   page: PageAction;
-  textStyle: TextStyleAction;
   thread: ThreadAction;
-  token: TokenAction;
 }
 
 type ActionOn<K extends keyof Actions> = {
@@ -319,23 +305,6 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
       const entries = commentMenu(target.commentId);
       return entries && bind("comment", target, entries);
     }
-    case "token":
-      return bind(
-        "token",
-        target,
-        tokenEntries({
-          kind: target.tokenKind,
-          name: target.name,
-          selected: nodesAt(actedOn()),
-          value: target.value,
-        })
-      );
-    case "textStyle":
-      return bind(
-        "textStyle",
-        target,
-        textStyleEntries({ name: target.name, selected: nodesAt(actedOn()) })
-      );
     case "component":
       return bind(
         "component",
@@ -674,61 +643,6 @@ const runComment = async (
   }
 };
 
-/** What setting a field to a token writes: a border keeps the rest of itself. */
-const tokenSet = (
-  field: TokenField["field"],
-  ref: string,
-  node: DesignNode
-): Record<string, JsonValue> => {
-  switch (field) {
-    case "border.color":
-      return { border: { ...node.border, color: ref } };
-    case "border.width":
-      return { border: { ...node.border, width: ref } };
-    default:
-      return { [field]: ref };
-  }
-};
-
-const runToken = (target: TargetOf<"token">, act: TokenAction): unknown => {
-  switch (act.kind) {
-    case "copyRef":
-      return copyText(tokenRef(target.name));
-    case "copyValue":
-      return copyText(target.value);
-    case "edit":
-      return editTokenValue(target.name, target.value);
-    case "apply":
-      return updateSelectionWith(
-        (node) => tokenSet(act.field, tokenRef(target.name), node),
-        `Apply ${target.name}`
-      );
-    default:
-      return unhandled(act);
-  }
-};
-
-const runTextStyle = (
-  target: TargetOf<"textStyle">,
-  act: TextStyleAction
-): unknown => {
-  switch (act.kind) {
-    case "copyName":
-      return copyText(target.name);
-    case "apply": {
-      const style = useDesignSystem
-        .getState()
-        .designSystem?.typography.styles.find((s) => s.name === target.name);
-      const nodes = nodesAt(actedOn());
-      return style && nodes.length > 0 && nodes.every((n) => n.type === "text")
-        ? setField(TEXT_STYLE, style)
-        : undefined;
-    }
-    default:
-      return unhandled(act);
-  }
-};
-
 /** Puts a new node on the canvas, in the middle of what can be seen of it. */
 const insertOnCanvas = (node: DesignNode) => {
   const el = document.querySelector("[data-canvas]");
@@ -790,10 +704,6 @@ export const runMenuAction = (action: MenuAction): unknown => {
       return runCanvas(action.target, action.act);
     case "comment":
       return runComment(action.target, action.act);
-    case "token":
-      return runToken(action.target, action.act);
-    case "textStyle":
-      return runTextStyle(action.target, action.act);
     case "component":
       return runComponent(action.target, action.act);
     case "thread":
