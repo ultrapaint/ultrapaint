@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assert, describe, it, layer } from "@effect/vitest";
+import { assert, describe, layer, it as test } from "@effect/vitest";
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
@@ -267,7 +267,10 @@ describe("tasks, without the editor's MCP server", () => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
-        assert.include(init, "1. Read the stylesheets the code's tokens are in");
+        assert.include(
+          init,
+          "1. Read the stylesheets the code's tokens are in"
+        );
         assert.include(init, "valid against this JSON Schema");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
@@ -579,7 +582,7 @@ describe("the editor's tools in what an agent is told", () => {
 });
 
 describe("the briefing", () => {
-  it.effect(
+  test.effect(
     "tells the design skills to a thread that draws designs, and to no other",
     () =>
       Effect.gen(function* () {

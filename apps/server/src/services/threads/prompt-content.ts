@@ -258,8 +258,8 @@ export const makePromptContent = Effect.fnUntraced(function* () {
       ? yield* briefing.text(purpose, { designs, tools })
       : undefined;
     const recap = resumed ? null : recapOf(earlier);
-    return [about, recap].flatMap((text): ContentBlock[] =>
-      text ? [{ text, type: "text" }] : []
+    return [about, recap].flatMap((said): ContentBlock[] =>
+      said ? [{ text: said, type: "text" }] : []
     );
   });
 
