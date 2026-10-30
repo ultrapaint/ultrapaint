@@ -157,11 +157,10 @@ describe("a node dragged inside a page", () => {
     current().onPointerDown(pointerAt(20, 20));
     current().onPointerMove(pointerAt(2000, 2000));
     current().onPointerUp();
-    await vi.waitFor(() =>
-      expect(
-        fakeApi.calls.filter((c) => c.method === "documents.apply")
-      ).toHaveLength(1)
-    );
+    await fakeApi.requested("documents.apply");
+    expect(
+      fakeApi.calls.filter((c) => c.method === "documents.apply")
+    ).toHaveLength(1);
   });
 });
 
