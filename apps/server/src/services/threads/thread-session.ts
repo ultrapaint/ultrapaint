@@ -35,6 +35,7 @@ import {
   type QueuedPrompt,
   type Thread,
   type ThreadItem,
+  type ThreadPurpose,
   type ThreadStatus,
 } from "@ultrapaint/contracts/threads";
 import {
@@ -62,10 +63,18 @@ import { RepoPaths } from "../repo-paths.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { makeAgentClient } from "./agent-client.ts";
 import { AgentConfigs } from "./agent-configs.ts";
+import { AgentDiscovery } from "./agent-discovery.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
 import { agentFailure, makeSessionOpener } from "./agent-session.ts";
+import { ChatPreferences } from "./chat-preferences.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { makePendingCards, type PendingCards } from "./pending-cards.ts";
+import {
+  makePromptContent,
+  scopeOf,
+  titleOf,
+  UNTITLED,
+} from "./prompt-content.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
   mapConfigOptions,
@@ -74,7 +83,6 @@ import {
   optionValue,
 } from "./transcript.ts";
 import { makeTurn } from "./turn.ts";
-import { makePromptContent, scopeOf, titleOf, UNTITLED } from "./turns.ts";
 
 export type ThreadFailure =
   | NotFound
@@ -85,9 +93,6 @@ export type ThreadFailure =
 
 /** How long a stopped turn is waited for before what comes next goes ahead without it. */
 const TURN_END_WAIT = "10 seconds";
-
-/** A switch of agent leaves this in the transcript, with the agent's name. */
-export const SWITCHED = "Switched to";
 
 // ---- status ----
 
@@ -146,6 +151,28 @@ export const statusAfter = (
   }
 };
 
+/**
+ * What a prompt changes of its thread besides its status: the first one names it and says what
+ * it works on, and a task that implements, in a thread whose agent has not started, makes it an
+ * implement thread.
+ */
+const prompted = (
+  thread: Thread,
+  input: PromptInput,
+  earlier: readonly ThreadItem[],
+  purpose: ThreadPurpose | undefined
+): Partial<Thread> => {
+  const first = !earlier.some((i) => i.kind === "user");
+  const scope = first && !thread.scope ? scopeOf(input.attachments) : null;
+  return {
+    ...(thread.title === UNTITLED && first
+      ? { title: titleOf(input.text) }
+      : {}),
+    ...(scope ? { scope } : {}),
+    ...(purpose && purpose !== (thread.purpose ?? "design") ? { purpose } : {}),
+  };
+};
+
 // ---- the session ----
 
 /** The live ACP session, while there is one. */
@@ -193,14 +220,12 @@ export interface ThreadSession {
    */
   readonly stop: Effect.Effect<void>;
   /**
-   * The session ends with the agent it belongs to; the thread takes `patch` (its new agent and
-   * that agent's options), is idle, and its transcript says `note`. Refused while a prompt is
-   * being accepted or a turn runs: the turn would lose its session, or run on a thread shown idle.
+   * The agent the next prompt goes to. The session ends with the agent it belongs to; the
+   * thread takes the new agent's options as its last session offered them, is idle, and its
+   * transcript says it was switched. Refused while a prompt is being accepted or a turn runs:
+   * the turn would lose its session, or run on a thread shown idle.
    */
-  readonly switchAgent: (
-    patch: Partial<Thread>,
-    note: string
-  ) => Effect.Effect<void, Conflict>;
+  readonly switchAgent: (agentId: string) => Effect.Effect<void, ThreadFailure>;
   /** Takes a queued prompt back out; null when it was already sent. */
   readonly unqueue: (
     id: string
@@ -215,6 +240,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const { detached, serviceScope } = deps;
   const store = yield* ThreadStore;
   const agents = yield* AgentConfigs;
+  const preferences = yield* ChatPreferences;
+  const discovery = yield* AgentDiscovery;
   const launcher = yield* AgentLauncher;
   const access = yield* McpAccess;
   const checkpoints = yield* Checkpoints;
@@ -558,7 +585,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
       const task = yield* content.taskFor(thread, input.text);
       if (task !== null) {
-        blocks[0] = { text: task, type: "text" };
+        blocks[0] = { text: task.text, type: "text" };
       }
       // A copy: the store's own list grows with the prompt about to be pushed.
       const earlier = [...(yield* store.items(threadId))];
@@ -569,16 +596,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         kind: "user",
         text: input.text,
       });
-      const first = !earlier.some((i) => i.kind === "user");
-      const scope = first && !thread.scope ? scopeOf(input.attachments) : null;
       yield* transition(
         { _tag: "Prompted" },
-        {
-          ...(thread.title === UNTITLED && first
-            ? { title: titleOf(input.text) }
-            : {}),
-          ...(scope ? { scope } : {}),
-        }
+        prompted(thread, input, earlier, task?.purpose)
       );
       // The request returns now. Whatever the agent takes to start is part of the turn, and
       // the turn reports through the transcript.
@@ -687,28 +707,57 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       });
 
     /** Under `prompting`, so that no prompt is half accepted while the agent changes. */
-    const switchAgent = Effect.fnUntraced(function* (
-      patch: Partial<Thread>,
-      note: string
-    ) {
-      if (isBusy((yield* store.get(threadId))?.status)) {
+    const switchAgent = Effect.fnUntraced(function* (agentId: string) {
+      const thread = yield* store.get(threadId);
+      if (!thread) {
+        return yield* new NotFound({ message: `unknown thread ${threadId}` });
+      }
+      if (thread.agentId === agentId) {
+        return;
+      }
+      if (isBusy(thread.status)) {
         return yield* busy();
       }
+      const agent = yield* agents.get(agentId);
+      const options = yield* preferences.optionsFor(agentId);
+      // A session belongs to its agent: the next one starts with the next prompt, and is told
+      // what was said before it.
       yield* stopLive;
-      yield* transition({ _tag: "AgentSwitched" }, patch);
+      yield* transition(
+        { _tag: "AgentSwitched" },
+        {
+          configOptions: undefined,
+          context: undefined,
+          currentModeId: undefined,
+          modes: undefined,
+          sandboxed: undefined,
+          sandboxProblem: undefined,
+          ...options,
+          agentId,
+          sessionId: undefined,
+        }
+      );
+      const note = {
+        switchedTo: agentId,
+        text: `Switched to ${agent.name}`,
+      };
       const last = (yield* store.items(threadId)).at(-1);
       // Switching again before a prompt replaces the note rather than stacking another.
-      if (last?.kind === "status" && last.text.startsWith(SWITCHED)) {
+      if (last?.kind === "status" && last.switchedTo !== undefined) {
         yield* store.patchItem(threadId, last.id, (item) =>
-          item.kind === "status" ? { ...item, text: note } : item
+          item.kind === "status" ? { ...item, ...note } : item
         );
       } else if (last) {
         yield* store.push(threadId, {
           at: yield* Clock.currentTimeMillis,
           id: yield* newItemId,
           kind: "status",
-          text: note,
+          ...note,
         });
+      }
+      // Its models are not known yet: they reach the thread when the agent has said.
+      if (options.configOptions === undefined) {
+        yield* discovery.discoverInBackground(agentId);
       }
     });
 
@@ -779,10 +828,10 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       setConfigOption,
       setMode,
       stop,
-      switchAgent: (patch, note) =>
+      switchAgent: (agentId) =>
         detached(
           prompting
-            .withPermitsIfAvailable(1)(switchAgent(patch, note))
+            .withPermitsIfAvailable(1)(switchAgent(agentId))
             .pipe(
               Effect.flatMap(
                 Option.match({
@@ -798,14 +847,28 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   };
 });
 
-/** Every thread's session, by thread, each made the first time its thread is asked for. */
+/**
+ * Agent threads. A thread has at most one ACP session at a time, with the target repository as
+ * working directory, and starts it with the first prompt that needs one: creating a thread
+ * spawns nothing, and the agent boots while the prompt already shows as running. The agent is
+ * the thread's to change between prompts; the next session is then told what was said.
+ *
+ * Every thread's session, by thread, each made the first time its thread is asked for: what a
+ * thread does is its session's.
+ */
 export class ThreadSessions extends Context.Service<
   ThreadSessions,
   {
-    /** The thread's session. */
-    readonly of: (threadId: string) => Effect.Effect<ThreadSession>;
+    /** A new thread, with the chat's default agent unless one is named. Nothing is started. */
+    readonly create: (options?: {
+      readonly agentId?: string | undefined;
+      readonly purpose?: ThreadPurpose | undefined;
+      readonly title?: string | undefined;
+    }) => Effect.Effect<Thread, ThreadFailure>;
     /** Deletes the thread: its session stops what it has under way, and is forgotten. */
     readonly delete: (threadId: string) => Effect.Effect<void>;
+    /** The thread's session. */
+    readonly of: (threadId: string) => Effect.Effect<ThreadSession>;
   }
 >()("ultrapaint/server/ThreadSessions") {
   static readonly layer = Layer.effect(
@@ -831,7 +894,51 @@ export class ThreadSessions extends Context.Service<
           sessions.set(threadId, made);
           return made;
         });
+      const store = yield* ThreadStore;
+      const agents = yield* AgentConfigs;
+      const preferences = yield* ChatPreferences;
+      const discovery = yield* AgentDiscovery;
+
+      const create = Effect.fn("ThreadSessions.create")(function* (
+        options: {
+          readonly agentId?: string | undefined;
+          readonly purpose?: ThreadPurpose | undefined;
+          readonly title?: string | undefined;
+        } = {}
+      ) {
+        const { agentId, purpose, title } = options;
+        const known = yield* agents.list;
+        const defaults = yield* preferences.defaults;
+        const agent =
+          agentId === undefined
+            ? (known.find((a) => a.id === defaults.agentId) ?? known[0])
+            : yield* agents.get(agentId);
+        if (!agent) {
+          return yield* new NotFound({ message: "no agent is configured" });
+        }
+        const now = yield* Clock.currentTimeMillis;
+        const offered = yield* preferences.optionsFor(agent.id);
+        // Its models are not known yet: they reach the thread when the agent has said.
+        if (offered.configOptions === undefined) {
+          yield* discovery.discoverInBackground(agent.id);
+        }
+        const thread: Thread = {
+          ...offered,
+          agentId: agent.id,
+          createdAt: now,
+          id: yield* makeId("thread"),
+          ...(purpose === "implement" && { purpose }),
+          status: "idle",
+          title: title ?? UNTITLED,
+          updatedAt: now,
+        };
+        // Nothing is started: the first prompt brings the agent up.
+        yield* store.add(thread);
+        return thread;
+      });
+
       return ThreadSessions.of({
+        create,
         delete: (threadId) =>
           Effect.flatMap(of(threadId), (session) => session.delete).pipe(
             Effect.ensuring(Effect.sync(() => sessions.delete(threadId)))

@@ -10,9 +10,10 @@ import {
   Checkpoints,
   CheckpointsKept,
 } from "./services/threads/checkpoints.ts";
-import { ThreadService } from "./services/threads/threads.ts";
+import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
+import { promptThread } from "./testing/threads.ts";
 
 const HOME_FILE = "designs/home.page.json";
 const ABOUT_FILE = "designs/about.page.json";
@@ -327,15 +328,15 @@ describe("agent turn checkpoints", () => {
       () =>
         Effect.gen(function* () {
           const events = yield* EventBus;
-          const threads = yield* ThreadService;
+          const threads = yield* ThreadSessions;
           const agents = yield* ScriptedAgents;
           // Started at once, the fiber has subscribed by the time the fork returns.
           const published = yield* Effect.forkScoped(
             Stream.runHead(events.subscribe("checkpoints")),
             { startImmediately: true }
           );
-          const { id } = yield* threads.create("scripted");
-          yield* threads.prompt({
+          const { id } = yield* threads.create({ agentId: "scripted" });
+          yield* promptThread({
             attachments: [],
             text: "Only look",
             threadId: id,

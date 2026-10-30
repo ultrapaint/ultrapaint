@@ -52,7 +52,6 @@ import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
-import { ThreadService } from "./services/threads/threads.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
 import { WorkingTree } from "./services/working-tree.ts";
 
@@ -134,8 +133,7 @@ export const Foundation = ProfileService.layer.pipe(
  * and its sandbox, and the project. The server gives them its own; a test of threads may give
  * stand-ins.
  */
-export const ThreadsLayer = ThreadService.layer.pipe(
-  Layer.provideMerge(ThreadSessions.layer),
+export const ThreadsLayer = ThreadSessions.layer.pipe(
   Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(AgentDiscovery.layer),
   Layer.provideMerge(

@@ -1,5 +1,5 @@
 /**
- * `ThreadService` in-process, for a test that plays the agent (`scripted-agents.ts`): the thread
+ * The thread services in-process, for a test that plays the agent (`scripted-agents.ts`): the thread
  * services as the composition root builds them (`ThreadsLayer`), with the tests' agents, on a
  * fixture folder and a home of their own, without the HTTP server, the preview or the project's
  * other services. The briefing and the slash commands are
@@ -11,7 +11,11 @@ import { NodeServices } from "@effect/platform-node";
 import { NotConfigured } from "@ultrapaint/contracts/errors";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import type {
+  PromptInput,
+  Thread,
+  ThreadItem,
+} from "@ultrapaint/contracts/threads";
 import {
   Context,
   Deferred,
@@ -33,6 +37,10 @@ import { RepoPaths } from "../services/repo-paths.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "../services/threads/briefing.ts";
 import { SlashCommands } from "../services/threads/commands.ts";
+import {
+  type ThreadSession,
+  ThreadSessions,
+} from "../services/threads/thread-session.ts";
 import { ThreadStore } from "../services/threads/thread-store.ts";
 import { WorkingTree } from "../services/working-tree.ts";
 import { makeFixture } from "./harness.ts";
@@ -241,6 +249,19 @@ export const threadTest = (
       );
     })
   ).pipe(Layer.provideMerge(NodeServices.layer));
+
+/** What a test does to a thread, through its session, as the server's handlers do. */
+export const onThread = <A, E>(
+  threadId: string,
+  act: (session: ThreadSession) => Effect.Effect<A, E>
+) =>
+  Effect.flatMap(ThreadSessions, (sessions) =>
+    Effect.flatMap(sessions.of(threadId), act)
+  );
+
+/** A prompt sent to its thread. */
+export const promptThread = (input: PromptInput) =>
+  onThread(input.threadId, (session) => session.prompt(input));
 
 /** Thread services on a machine without a sandbox. */
 export const ThreadTest = threadTest();

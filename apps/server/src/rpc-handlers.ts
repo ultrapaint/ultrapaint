@@ -30,8 +30,11 @@ import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
+import {
+  type ThreadSession,
+  ThreadSessions,
+} from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
-import { ThreadService } from "./services/threads/threads.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
 
 const RECENT_LOG_LINES = 200;
@@ -49,7 +52,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const store = yield* ThreadStore;
     const preferences = yield* ChatPreferences;
     const discovery = yield* AgentDiscovery;
-    const threads = yield* ThreadService;
+    const threads = yield* ThreadSessions;
+    /** What a thread's session does. */
+    const thread = <A, E>(
+      threadId: string,
+      act: (session: ThreadSession) => Effect.Effect<A, E>
+    ) => Effect.flatMap(threads.of(threadId), act);
     const checkpoints = yield* Checkpoints;
     const snapshots = yield* Snapshots;
     const access = yield* McpAccess;
@@ -286,26 +294,29 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "sync.plan": () => sync.plan,
       "sync.tokens": ({ source }) => sync.tokens(source),
       "threads.answer": ({ threadId, itemId, answers }) =>
-        threads.answer(threadId, itemId, answers),
-      "threads.cancel": ({ threadId }) => threads.cancel(threadId),
+        thread(threadId, (s) => s.answer(itemId, answers)),
+      "threads.cancel": ({ threadId }) => thread(threadId, (s) => s.cancel),
       "threads.create": ({ agentId, purpose, title }) =>
-        threads.create(agentId, title, purpose),
+        threads.create({ agentId, purpose, title }),
       "threads.decline": ({ threadId, itemId }) =>
-        threads.decline(threadId, itemId),
+        thread(threadId, (s) => s.cards.decline(itemId)),
       "threads.delete": ({ threadId }) => threads.delete(threadId),
       "threads.items": ({ threadId }) => store.items(threadId),
       "threads.list": () => store.list,
       "threads.permission": ({ threadId, requestId, optionId }) =>
-        threads.resolvePermission(threadId, requestId, optionId),
-      "threads.prompt": (input) => threads.prompt(input),
-      "threads.sendQueued": ({ threadId }) => threads.sendQueued(threadId),
+        thread(threadId, (s) => s.cards.choose(requestId, optionId)),
+      "threads.prompt": (input) =>
+        thread(input.threadId, (s) => s.prompt(input)),
+      "threads.sendQueued": ({ threadId }) =>
+        thread(threadId, (s) => s.sendQueued),
       "threads.setAgent": ({ threadId, agentId }) =>
-        threads.setAgent(threadId, agentId),
+        thread(threadId, (s) => s.switchAgent(agentId)),
       "threads.setConfigOption": ({ threadId, optionId, value }) =>
-        threads.setConfigOption(threadId, optionId, value),
+        thread(threadId, (s) => s.setConfigOption(optionId, value)),
       "threads.setMode": ({ threadId, modeId }) =>
-        threads.setMode(threadId, modeId),
-      "threads.unqueue": ({ id, threadId }) => threads.unqueue(threadId, id),
+        thread(threadId, (s) => s.setMode(modeId)),
+      "threads.unqueue": ({ id, threadId }) =>
+        thread(threadId, (s) => s.unqueue(id)),
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),
       "thumbnails.put": ({ dataUrl, key, name }) =>
         thumbnails((t) => t.put(key, name, dataUrl)),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardPickText, scopeOf } from "./turns.ts";
+import { boardPickText, scopeOf } from "./prompt-content.ts";
 
 const DS = "docs/designs/design-system.json";
 const BUTTON = "docs/designs/components/Button.component.json";
