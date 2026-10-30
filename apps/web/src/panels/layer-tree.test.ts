@@ -11,6 +11,7 @@ import {
   flip,
   isOpenIn,
   type LayerItem,
+  layerScope,
   looseItem,
   NO_FOLDS,
   oneLevelFolded,
@@ -80,6 +81,53 @@ const outline = (list: readonly LayerItem[], depth = 0): string[] =>
     `${"  ".repeat(depth)}${item.key}`,
     ...outline(item.children, depth + 1),
   ]);
+
+describe("what the panel lists", () => {
+  const note = text("note", "Remember the footer");
+  const promo = column("promo-root", [text("sale", "Sale")]);
+  const scope = (more: Partial<Parameters<typeof layerScope>[0]>) =>
+    layerScope({
+      canvasNodes: [{ frame: "node:note", node: note }],
+      edited: null,
+      pages: [page],
+      roots: (id) => (id === page.id ? root : null),
+      tree: null,
+      ...more,
+    });
+
+  it("is the canvas's pages, then the nodes beside them", () => {
+    const listed = scope({});
+    expect(listed.heading).toBe("On the canvas");
+    expect(listed.items.map((i) => i.key)).toEqual([
+      "home#page",
+      "node:note#note",
+    ]);
+    expect(listed.nodes).toEqual([note]);
+  });
+
+  it("is the tree of an app component edited in place, alone, once it is read", () => {
+    const edited = { component: "Promo", frame: page.id, root: promo };
+    expect(scope({ edited })).toMatchObject({
+      heading: "Editing Promo",
+      items: [{ frame: page.id, key: "home#promo-root" }],
+    });
+    // Its tree not read yet: the canvas as it is.
+    expect(scope({ edited: { ...edited, root: null } }).heading).toBe(
+      "On the canvas"
+    );
+  });
+
+  it("is an app component's tree on its board, under its name", () => {
+    const board = "board:library/Promo/component";
+    expect(
+      scope({ tree: { frame: board, name: "Promo", root: promo } })
+    ).toMatchObject({
+      heading: "Promo",
+      items: [{ frame: board, key: `${board}#promo-root` }],
+      nodes: [promo],
+    });
+  });
+});
 
 describe("filtering the layers", () => {
   it("leaves every row when nothing is typed", () => {

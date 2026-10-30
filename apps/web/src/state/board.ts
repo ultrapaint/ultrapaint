@@ -41,6 +41,7 @@ import {
   type LeftTab,
   type Mode,
   railTabs,
+  type Selection,
   unpicked,
   useEditor,
 } from "./editor.ts";
@@ -337,6 +338,17 @@ export const leaveBoard = (history: History = "push") => {
   if (history !== "none") {
     writeBoard(null, history === "push");
   }
+};
+
+/**
+ * What is selected on the page canvas: what the page was left with while a board view is open
+ * (a look takes its content from it), the selection itself otherwise; the node the inspector shows
+ * first.
+ */
+export const pageSelectionLeft = (): readonly Selection[] => {
+  const { also, selection } =
+    useBoard.getState().left?.picked ?? useEditor.getState();
+  return selection ? [selection, ...also] : [];
 };
 
 /** Picks a node of a board of the item open, or lets the pick go. */

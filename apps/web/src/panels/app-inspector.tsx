@@ -37,6 +37,8 @@ import { appComponentOf, useComponents } from "../state/components.ts";
 import { useEditor } from "../state/editor.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
+import { Notes } from "./component-notes.tsx";
+import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
 import {
   changeFile,
@@ -44,7 +46,7 @@ import {
   newProperty,
   PropertyRow,
 } from "./inspector-component.tsx";
-import { ComponentUsedIn, Notes, removeComponent } from "./look-inspector.tsx";
+import { removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
 const useAppFile = (name: string) =>
