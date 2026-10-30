@@ -67,8 +67,9 @@ A behaviour that crosses no wire is not tested over the socket.
 - `waitFor` (server `testing/wait-for.ts`) is only for IO a test cannot be told about (a file a
   real watcher writes, a server over its socket). It polls and has a bounded timeout; it is never
   how a test orders two things it controls.
-- `setTimeout`, `Effect.sleep` and `it.live` in a test need a comment saying why the real clock
-  is the behaviour under test.
+- `setTimeout`, `Effect.sleep`, `it.live` and a retry in a test need a `// real clock:` comment on
+  the line or just above it saying why the real clock is the behaviour under test (`// fake clock:`
+  for a timer `vi.useFakeTimers` fakes); `pnpm test` fails without one (`scripts/test-guards.test.ts`).
 
 ### 3. Every test builds its own world
 
