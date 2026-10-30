@@ -1,6 +1,6 @@
 # ADR 0044: A state in a variant, and a document's changes
 
-Status: accepted, 2026-10-29. Follows 0043. Amends 0041 (a system component's look sets a state
+Status: accepted, 2026-10-29; the Components tab: amended by 0045 (a component's board). Follows 0043. Amends 0041 (a system component's look sets a state
 per variant member) and 0043 (the editor is told what an edit changed, not the whole document).
 The terms are in `GLOSSARY.md`.
 
