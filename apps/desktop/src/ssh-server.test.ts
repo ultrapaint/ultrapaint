@@ -69,6 +69,7 @@ const health = (url: string) =>
 
 const eventually = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
+    // real clock: a real sshd and the server it starts, asked again until they answer.
     Effect.retry(Schedule.spaced("100 millis")),
     Effect.timeout("10 seconds")
   );
@@ -76,6 +77,7 @@ const eventually = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 describe.skipIf(SSHD === undefined)(
   "RemoteServers, over a throwaway sshd",
   () => {
+    // real clock: a real sshd, a real ssh and the server's process over it.
     it.live(
       "starts the server in the folder, forwards its port, attaches to it, and stops it with the scope",
       () =>
@@ -135,6 +137,7 @@ describe.skipIf(SSHD === undefined)(
       30_000
     );
 
+    // real clock: a real sshd and a real ssh, which time out on their own.
     it.live(
       "says the folder is missing, the command is not installed, the host is unreachable",
       () =>

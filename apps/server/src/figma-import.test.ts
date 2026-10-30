@@ -1,5 +1,5 @@
 import { request } from "node:http";
-import { assert, layer } from "@effect/vitest";
+import { assert, describe, layer } from "@effect/vitest";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { type FigmaImport, MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import type { FigGuid } from "@ultrapaint/figma-import/fig";
@@ -10,6 +10,7 @@ import {
   solid,
 } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, Path } from "effect";
+import { eachTest } from "./testing/each-test.ts";
 import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
 
@@ -164,26 +165,48 @@ const uploadChunked = (port: number, total: number) =>
     }
   );
 
-layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
-  "importing a Figma file",
-  (it) => {
-    it.effect("answers a file name that is not URI-encoded with a 400", () =>
-      Effect.gen(function* () {
-        const { port } = yield* TestEnv;
-        const response = yield* Effect.promise(() =>
-          fetch(`http://127.0.0.1:${port}/api/figma/import`, {
-            body: new Uint8Array(8),
-            headers: {
-              "content-type": "application/octet-stream",
-              "x-file-name": "%E0%A4%A",
-            },
-            method: "POST",
-          })
-        );
-        assert.strictEqual(response.status, 400);
-      })
-    );
+describe("importing a Figma file", () => {
+  // Turned away before anything is read or written: the server is left as it was, so these
+  // share one (docs/TESTING.md rule 3), and its shutdown is paid once.
+  layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+    "a request turned away",
+    (it) => {
+      it.effect("answers a file name that is not URI-encoded with a 400", () =>
+        Effect.gen(function* () {
+          const { port } = yield* TestEnv;
+          const response = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${port}/api/figma/import`, {
+              body: new Uint8Array(8),
+              headers: {
+                "content-type": "application/octet-stream",
+                "x-file-name": "%E0%A4%A",
+              },
+              method: "POST",
+            })
+          );
+          assert.strictEqual(response.status, 400);
+        })
+      );
 
+      it.effect(
+        "turns away a body past the cap that declared no length, without reading it all",
+        () =>
+          Effect.gen(function* () {
+            const { port } = yield* TestEnv;
+            const total = MAX_FIG_BYTES * 2;
+            const { sent, status } = yield* uploadChunked(port, total);
+            // Answered before the client had sent it all; a reset is the server hanging up on it.
+            assert.include([413, -1], status);
+            assert.isBelow(sent, total);
+          })
+      );
+    }
+  );
+
+  eachTest(TestServer, {
+    realClock:
+      "the upload and the MCP tools are the server's routes over a real socket, and the agent a real process",
+  })((it) => {
     it.effect(
       "reads the file, lets an agent map its components, and writes a frame as a page",
       () =>
@@ -392,18 +415,5 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
         }),
       30_000
     );
-
-    it.effect(
-      "turns away a body past the cap that declared no length, without reading it all",
-      () =>
-        Effect.gen(function* () {
-          const { port } = yield* TestEnv;
-          const total = MAX_FIG_BYTES * 2;
-          const { sent, status } = yield* uploadChunked(port, total);
-          // Answered before the client had sent it all; a reset is the server hanging up on it.
-          assert.include([413, -1], status);
-          assert.isBelow(sent, total);
-        })
-    );
-  }
-);
+  });
+});

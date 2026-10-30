@@ -19,6 +19,7 @@ import {
 import {
   anotherClient,
   nextEvent,
+  subscribed,
   TestEnv,
   TestServer,
 } from "./testing/harness.ts";
@@ -37,6 +38,7 @@ const onAServer = <A, E>(
   >,
   timeout = 60_000
 ) =>
+  // real clock: the server's IO over its socket.
   it.live(
     name,
     () => body().pipe(Effect.provide(TestServer), Effect.scoped),
@@ -241,17 +243,15 @@ describe("server over WebSocket RPC", () => {
               copy.root && withChangedNodes(copy.root, next.rootId, next.nodes);
             return { doc: next.doc, hash: next.hash, root };
           };
-          const heard = yield* Effect.forkScoped(
+          // Listening once the server holds the other editor's subscription.
+          const heard = yield* subscribed(
             other["events.document"]().pipe(
               Stream.filter((e) => e.doc === HOME),
               Stream.take(2),
               Stream.runCollect,
               Effect.timeout("20 seconds")
-            ),
-            { startImmediately: true }
+            )
           );
-          // Answered once the subscription before it is the server's.
-          yield* other["project.info"]();
           const applied = yield* client["documents.apply"]({
             edits: [
               {

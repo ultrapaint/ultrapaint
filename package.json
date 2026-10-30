@@ -20,7 +20,8 @@
     "pack:local": "node --experimental-strip-types scripts/pack.ts",
     "prepare": "effect-tsgo patch --typescript --skip-missing",
     "start": "node scripts/cli.ts",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:guards",
+    "test:guards": "node --experimental-strip-types --test scripts/test-guards.test.ts",
     "test:shuffle": "pnpm -r --no-bail test -- --sequence.shuffle",
     "typecheck": "tsc --noEmit -p . && pnpm -r typecheck"
   },

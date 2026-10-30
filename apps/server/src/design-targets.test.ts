@@ -1,4 +1,4 @@
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { type Context, Effect } from "effect";
 import { OpenProject, type ProjectServices } from "./project.ts";
@@ -7,6 +7,7 @@ import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { callTool, ProjectTest } from "./testing/project.ts";
 
 /** The Button, with a file of its own: the project owns its look. */
@@ -42,11 +43,10 @@ const implementTask = (target: string) =>
   );
 
 describe("a design target, named once", () => {
-  layer(
+  eachTest(
     ProjectTest({
       files: { "designs/components/Button.component.json": BUTTON_FILE },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect("pins a note on a node reference to its node", () =>
       Effect.gen(function* () {
@@ -162,7 +162,7 @@ describe("a design target, named once", () => {
     );
   });
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect("names a page for the other tools by the same rule", () =>
       Effect.gen(function* () {
         const { id } = yield* callTool(EditorTools, "create_canvas", {

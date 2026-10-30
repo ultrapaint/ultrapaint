@@ -1,4 +1,4 @@
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
@@ -10,6 +10,7 @@ import { GitService } from "./services/git.ts";
 import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** A package detection recognises as the designs: it depends on React. */
@@ -72,7 +73,7 @@ const toldOf = <A, E, R>(
   });
 
 describe("the settings in force", () => {
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
       "leaves the project open when it is given the settings it runs",
       () =>
@@ -104,12 +105,11 @@ describe("the settings in force", () => {
     );
   });
 
-  layer(
+  eachTest(
     ProjectTest({
       files: { "designs/package.json": DETECTED_PACKAGE },
       storage: "ephemeral",
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "tells the editor when detected settings are saved, and keeps the project open",
@@ -149,12 +149,11 @@ describe("the settings in force", () => {
     );
   });
 
-  layer(
+  eachTest(
     ProjectTest({
       files: { "designs/package.json": DETECTED_PACKAGE },
       storage: "ephemeral",
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect("puts a user's settings in force over detection", () =>
       Effect.gen(function* () {
@@ -185,38 +184,37 @@ describe("the settings in force", () => {
     );
   });
 
-  layer(ProjectTest({ storage: "ephemeral" }), { excludeTestServices: true })(
-    (it) => {
-      it.effect(
-        "tells the editor of settings someone else changed in the file, whatever field",
-        () =>
-          Effect.gen(function* () {
-            const project = yield* ProjectManager;
-            const settings = yield* SettingsService;
-            const fs = yield* FileSystem.FileSystem;
-            const { repo } = yield* ProjectFixture;
-            const configPath = `${repo}/ultrapaint.config.json`;
-            yield* project.persist({ configPath, settings: yield* running });
-            // Only the components' directories change: nothing else the info carries.
-            yield* fs.makeDirectory(`${repo}/src/ui`, { recursive: true });
-            const written = JSON.parse(yield* fs.readFileString(configPath));
-            const { told } = yield* toldOf(
-              (info) => info.settings?.libraryDirs[0] === "src/ui",
-              fs.writeFileString(
-                configPath,
-                JSON.stringify({ ...written, libraryDirs: ["src/ui"] })
-              )
-            );
-            assert.deepStrictEqual(told?.settings, yield* settings.get);
-            assert.deepStrictEqual((yield* running).libraryDirs, ["src/ui"]);
-          })
-      );
-    }
-  );
-
-  layer(ProjectTest({ git: false, settings: { git: "on" } }), {
-    excludeTestServices: true,
+  eachTest(ProjectTest({ storage: "ephemeral" }), {
+    realClock:
+      "the configuration file written by hand is heard by a real watch of its directory",
   })((it) => {
+    it.effect(
+      "tells the editor of settings someone else changed in the file, whatever field",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const settings = yield* SettingsService;
+          const fs = yield* FileSystem.FileSystem;
+          const { repo } = yield* ProjectFixture;
+          const configPath = `${repo}/ultrapaint.config.json`;
+          yield* project.persist({ configPath, settings: yield* running });
+          // Only the components' directories change: nothing else the info carries.
+          yield* fs.makeDirectory(`${repo}/src/ui`, { recursive: true });
+          const written = JSON.parse(yield* fs.readFileString(configPath));
+          const { told } = yield* toldOf(
+            (info) => info.settings?.libraryDirs[0] === "src/ui",
+            fs.writeFileString(
+              configPath,
+              JSON.stringify({ ...written, libraryDirs: ["src/ui"] })
+            )
+          );
+          assert.deepStrictEqual(told?.settings, yield* settings.get);
+          assert.deepStrictEqual((yield* running).libraryDirs, ["src/ui"]);
+        })
+    );
+  });
+
+  eachTest(ProjectTest({ git: false, settings: { git: "on" } }))((it) => {
     it.effect(
       "tells the editor of the user's name and of a repository made",
       () =>

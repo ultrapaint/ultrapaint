@@ -138,8 +138,8 @@ describe("the designs' changes", () => {
 });
 
 describe("a change to the designs from outside the editor", () => {
-  // The real clock and the real watcher: what is under test is that a file written by hand is
-  // seen, which only the file system can say.
+  // real clock: the real watcher, as what is under test is that a file written by hand is seen,
+  // which only the file system can say.
   it.live(
     "of design.tokens.json reaches the editor as the design system",
     () =>

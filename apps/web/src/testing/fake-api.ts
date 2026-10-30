@@ -34,7 +34,12 @@ const responders = new Map<RequestName, (input: never) => unknown>();
 const watchers = new Set<
   (now: ConnectionStore, before: ConnectionStore) => void
 >();
+/** Who waits for requests (`requested`): looked at again with every request made. */
+const requestWaiters = new Set<() => void>();
 let store: ConnectionStore;
+
+const callsOf = (method: RequestName) =>
+  fakeApi.calls.filter((c) => c.method === method).length;
 
 const setState = (state: ConnectionState) => {
   const before = store;
@@ -76,6 +81,9 @@ export const fakeApi = {
       return Promise.reject(new RequestError("internal", "not connected"));
     }
     fakeApi.calls.push({ input, method });
+    for (const waiter of requestWaiters) {
+      waiter();
+    }
     const responder = responders.get(method) as Responder<M> | undefined;
     if (!responder) {
       return Promise.reject(
@@ -85,11 +93,28 @@ export const fakeApi = {
     return Promise.resolve(responder(input));
   },
   /**
+   * Resolves once `count` requests of `method` have been made, at once when they have: what a
+   * test awaits for a request a gesture or an answer sets off, rather than time passing
+   * (docs/TESTING.md rule 2).
+   */
+  requested: (method: RequestName, count = 1): Promise<void> =>
+    new Promise((resolve) => {
+      const check = () => {
+        if (callsOf(method) >= count) {
+          requestWaiters.delete(check);
+          resolve();
+        }
+      };
+      requestWaiters.add(check);
+      check();
+    }),
+  /**
    * Forgets the requests made, the answers set up, who listens to the events and to the
    * connection, and opens it: what follows the server binds again (`followServer`).
    */
   reset: () => {
     fakeApi.calls.length = 0;
+    requestWaiters.clear();
     responders.clear();
     listeners.clear();
     watchers.clear();
