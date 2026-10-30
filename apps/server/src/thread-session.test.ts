@@ -23,7 +23,6 @@ import {
   ThreadSessions,
 } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
-import { ThreadService } from "./services/threads/threads.ts";
 import {
   type LaunchedAgent,
   ScriptedAgents,
@@ -31,6 +30,8 @@ import {
 import {
   briefingFor,
   HeldTask,
+  onThread,
+  promptThread,
   SCRIPTED_SANDBOX_META,
   ThreadFixture,
   ThreadTest,
@@ -48,18 +49,16 @@ const test = <A, E>(
 ) => it.effect(name, () => Effect.provide(body(), ThreadTest));
 
 const send = (threadId: string, text: string) =>
-  Effect.flatMap(ThreadService, (threads) =>
-    threads.prompt({ attachments: [], text, threadId })
-  );
+  promptThread({ attachments: [], text, threadId });
 
 /** A new thread whose first prompt has reached its agent: the agent, and the turn it plays. */
 const started = Effect.fnUntraced(function* (
   text = "hello",
   agentId = "scripted"
 ) {
-  const threads = yield* ThreadService;
+  const threads = yield* ThreadSessions;
   const agents = yield* ScriptedAgents;
-  const { id: threadId } = yield* threads.create(agentId);
+  const { id: threadId } = yield* threads.create({ agentId });
   yield* send(threadId, text);
   const agent = yield* agents.next;
   const turn = yield* agent.nextTurn;
@@ -108,12 +107,12 @@ const EDIT_HOME = {
 describe("a thread's session", () => {
   test("is started by the first prompt, which runs while the agent boots", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
       const boot = yield* Deferred.make<void>();
       yield* agents.script({ booting: Deferred.await(boot) });
-      const created = yield* threads.create("scripted");
+      const created = yield* threads.create({ agentId: "scripted" });
       assert.strictEqual(created.status, "idle");
       assert.strictEqual(created.title, "New chat");
       assert.strictEqual(yield* agents.launched, 0);
@@ -153,7 +152,7 @@ describe("a thread's session", () => {
 
   test("tells the user how the agent signs in when it says it must, and signs in with none", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       yield* agents.script({
         authMethods: [
@@ -162,7 +161,7 @@ describe("a thread's session", () => {
         ],
         requiresAuth: true,
       });
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
       const { items, thread } = yield* threadWhen(
@@ -187,14 +186,14 @@ describe("a thread's session", () => {
 
   test("cancels a turn whose agent is still starting, before it reaches the agent", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const boot = yield* Deferred.make<void>();
       yield* agents.script({ booting: Deferred.await(boot) });
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       const { items } = yield* threadWhen(threadId, turnEnded);
       const end = items.at(-1);
       assert.strictEqual(
@@ -213,11 +212,11 @@ describe("a thread's session", () => {
 
   test("stops the agent of a thread deleted while the agent starts", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
       yield* agents.script({ booting: Effect.never });
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
       yield* threads.delete(threadId);
@@ -227,7 +226,7 @@ describe("a thread's session", () => {
 
   test("stops the agent when its thread is deleted mid-turn", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const store = yield* ThreadStore;
       const { agent, threadId } = yield* started();
       yield* threads.delete(threadId);
@@ -237,14 +236,14 @@ describe("a thread's session", () => {
 
   test("applies a model and a mode chosen before the session starts, from what discovery learnt", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       yield* (yield* AgentDiscovery).discover("scripted");
       yield* agents.next;
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       // No session yet: the thread keeps the choice for the one its first prompt starts.
-      yield* threads.setConfigOption(threadId, "model", "smart");
-      yield* threads.setMode(threadId, "auto");
+      yield* onThread(threadId, (s) => s.setConfigOption("model", "smart"));
+      yield* onThread(threadId, (s) => s.setMode("auto"));
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
       const turn = yield* agent.nextTurn;
@@ -269,7 +268,7 @@ describe("a thread's session", () => {
 
   test("starts a new thread with the default agent and model", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const preferences = yield* ChatPreferences;
       // The agent's models are known once one of its sessions has offered them.
@@ -412,11 +411,11 @@ describe("a thread's session", () => {
 
   test("cannot prompt before a project is open", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const project = yield* ProjectManager;
       const store = yield* ThreadStore;
       yield* project.close;
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       const error = yield* Effect.flip(send(threadId, "hello"));
       assert.strictEqual(error._tag, "NotConfigured");
       assert.lengthOf(yield* store.items(threadId), 0);
@@ -503,12 +502,12 @@ describe("a turn", () => {
 
   test("names an attached file by its URL, whatever its name holds", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const { repo } = yield* ThreadFixture;
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       const file = "designs/my page#2.page.json";
-      yield* threads.prompt({
+      yield* promptThread({
         attachments: [{ kind: "file", path: file }],
         text: "look",
         threadId,
@@ -525,14 +524,14 @@ describe("a turn", () => {
 
   test("sends what the agent takes: a file as a link, a picture as a note, where it says it takes neither", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const { repo } = yield* ThreadFixture;
       yield* agents.script({
         capabilities: { promptCapabilities: {} },
       });
-      const { id: threadId } = yield* threads.create("scripted");
-      yield* threads.prompt({
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
+      yield* promptThread({
         attachments: [
           { kind: "file", path: "designs/home.page.json" },
           {
@@ -733,7 +732,6 @@ describe("a turn", () => {
 
   test("sets an option that is a switch as a boolean, and a choice as its value", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const agents = yield* ScriptedAgents;
       yield* agents.script({
         configOptions: [
@@ -751,8 +749,8 @@ describe("a turn", () => {
         ],
       });
       const { agent, threadId } = yield* started();
-      yield* threads.setConfigOption(threadId, "fast", "true");
-      yield* threads.setConfigOption(threadId, "verbose", "true");
+      yield* onThread(threadId, (s) => s.setConfigOption("fast", "true"));
+      yield* onThread(threadId, (s) => s.setConfigOption("verbose", "true"));
       const set = (yield* agent.calls).filter(
         (c) => c.method === "session/set_config_option"
       );
@@ -920,12 +918,12 @@ describe("a turn", () => {
 
   test("fails a turn that breaks on the way to the agent, and takes prompts again", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const { home } = yield* ThreadFixture;
       const fs = yield* FileSystem.FileSystem;
       const store = path.join(home, "store");
-      const { id: threadId } = yield* threads.create("scripted");
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
       // The checkpoint taken before the turn cannot be written: an I/O error, a defect.
       yield* fs.remove(store, { force: true, recursive: true });
       yield* fs.writeFileString(store, "not a directory");
@@ -965,7 +963,6 @@ describe("a turn", () => {
 describe("the queue", () => {
   test("holds a prompt sent while a turn runs, and the turn's end sends it", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const { agent, threadId, turn } = yield* started("first");
       yield* send(threadId, "second");
@@ -976,12 +973,13 @@ describe("the queue", () => {
         ["second", "third"]
       );
       // Taken back out to be edited: it is no longer sent.
-      const taken = yield* threads.unqueue(
-        threadId,
-        busy?.queued?.[1]?.id ?? ""
+      const taken = yield* onThread(threadId, (s) =>
+        s.unqueue(busy?.queued?.[1]?.id ?? "")
       );
       assert.strictEqual(taken?.text, "third");
-      assert.isNull(yield* threads.unqueue(threadId, taken?.id ?? ""));
+      assert.isNull(
+        yield* onThread(threadId, (s) => s.unqueue(taken?.id ?? ""))
+      );
 
       yield* turn.end();
       const next = yield* agent.nextTurn;
@@ -997,11 +995,10 @@ describe("the queue", () => {
 
   test("keeps the queue when the turn is stopped, until the user sends it", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const { agent, threadId, turn } = yield* started("first");
       yield* send(threadId, "second");
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       // The agent is asked to stop, and the thread says so until it has.
       assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
       yield* turn.cancelled;
@@ -1017,7 +1014,7 @@ describe("the queue", () => {
         ["second"]
       );
 
-      yield* threads.sendQueued(threadId);
+      yield* onThread(threadId, (s) => s.sendQueued);
       const next = yield* agent.nextTurn;
       assert.include(next.texts, "second");
       yield* next.end();
@@ -1027,12 +1024,11 @@ describe("the queue", () => {
 
   test("a cancel after the turn ended leaves the thread alone, and the next prompt is sent", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const { agent, threadId, turn } = yield* started();
       yield* turn.end();
       yield* threadWhen(threadId, turnEnded);
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       assert.strictEqual((yield* store.get(threadId))?.status, "idle");
       assert.notInclude(methodsOf(yield* agent.calls), "session/cancel");
 
@@ -1080,12 +1076,12 @@ describe("the thread's status", () => {
 
   test("a cancel with no turn under way leaves the status alone", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
       // Nothing was ever sent: no agent is started to be told to stop.
-      const { id: fresh } = yield* threads.create("scripted");
-      yield* threads.cancel(fresh);
+      const { id: fresh } = yield* threads.create({ agentId: "scripted" });
+      yield* onThread(fresh, (s) => s.cancel);
       assert.strictEqual((yield* store.get(fresh))?.status, "idle");
       assert.strictEqual(yield* agents.launched, 0);
 
@@ -1093,7 +1089,7 @@ describe("the thread's status", () => {
       const { agent, threadId, turn } = yield* started();
       yield* turn.fail("usage limit reached");
       yield* threadWhen(threadId, (t) => t.status === "error");
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       const failed = yield* store.get(threadId);
       assert.strictEqual(failed?.status, "error");
       assert.strictEqual(failed?.error, "usage limit reached");
@@ -1102,13 +1098,12 @@ describe("the thread's status", () => {
 
   test("a turn the user stops is idle once the agent has ended it", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const { threadId, turn } = yield* started();
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
       // A second cancel while the agent stops changes nothing.
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
       yield* turn.cancelled;
       yield* turn.end("cancelled");
@@ -1120,7 +1115,6 @@ describe("the thread's status", () => {
 describe("a permission request", () => {
   test("is answered by the user's pick, which the card records", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { threadId, turn } = yield* started();
       const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
       const { items } = yield* threadWhen(threadId, has("permission"));
@@ -1130,7 +1124,7 @@ describe("a permission request", () => {
         card?.kind === "permission" && card.title,
         "Edit home"
       );
-      yield* threads.resolvePermission(threadId, card?.id ?? "", "allow");
+      yield* onThread(threadId, (s) => s.cards.choose(card?.id ?? "", "allow"));
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { optionId: "allow", outcome: "selected" },
       });
@@ -1145,12 +1139,13 @@ describe("a permission request", () => {
 
   test("is declined by the user, and asked again next time", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { agent, threadId, turn } = yield* started();
       const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
       const { items } = yield* threadWhen(threadId, has("permission"));
       const card = items.find((i) => i.kind === "permission");
-      yield* threads.resolvePermission(threadId, card?.id ?? "", "reject");
+      yield* onThread(threadId, (s) =>
+        s.cards.choose(card?.id ?? "", "reject")
+      );
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { optionId: "reject", outcome: "selected" },
       });
@@ -1175,11 +1170,10 @@ describe("a permission request", () => {
 
   test("is answered with cancelled when the turn is stopped", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { threadId, turn } = yield* started();
       const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
       yield* threadWhen(threadId, has("permission"));
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       assert.deepStrictEqual(yield* Fiber.join(asking), {
         outcome: { outcome: "cancelled" },
       });
@@ -1195,10 +1189,9 @@ describe("a permission request", () => {
 
   test("that is not pending cannot be answered", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { threadId } = yield* started();
       const error = yield* Effect.flip(
-        threads.resolvePermission(threadId, "perm_missing", "allow")
+        onThread(threadId, (s) => s.cards.choose("perm_missing", "allow"))
       );
       assert.strictEqual(error._tag, "NotFound");
     }));
@@ -1223,7 +1216,6 @@ describe("a question the agent waits on", () => {
 
   test("is drawn as a card, and the answers go back typed", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { card, reply, threadId, turn } = yield* asked();
       assert.deepStrictEqual(card?.elicitation, { message: "Pick a plan" });
       assert.deepStrictEqual(card?.questions, [
@@ -1247,10 +1239,12 @@ describe("a question the agent waits on", () => {
       const { cards } = yield* (yield* ThreadSessions).of(threadId);
       assert.strictEqual(yield* cards.formSent, "1");
       // Answered while the agent is still in its turn: it is waiting for exactly this.
-      yield* threads.answer(threadId, card?.id ?? "", {
-        plan: "pro",
-        seats: "3",
-      });
+      yield* onThread(threadId, (s) =>
+        s.answer(card?.id ?? "", {
+          plan: "pro",
+          seats: "3",
+        })
+      );
       assert.deepStrictEqual(yield* Fiber.join(reply), {
         action: "accept",
         content: { plan: "pro", seats: 3 },
@@ -1266,10 +1260,9 @@ describe("a question the agent waits on", () => {
 
   test("is declined by the user, and the agent hears so", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const { card, reply, threadId } = yield* asked();
-      yield* threads.decline(threadId, card?.id ?? "");
+      yield* onThread(threadId, (s) => s.cards.decline(card?.id ?? ""));
       assert.deepStrictEqual(yield* Fiber.join(reply), { action: "decline" });
       const declined = (yield* store.items(threadId)).find(
         (i) => i.kind === "question"
@@ -1282,9 +1275,8 @@ describe("a question the agent waits on", () => {
 
   test("is let go when the turn is stopped, and cannot be answered after", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { card, reply, threadId, turn } = yield* asked();
-      yield* threads.cancel(threadId);
+      yield* onThread(threadId, (s) => s.cancel);
       assert.deepStrictEqual(yield* Fiber.join(reply), { action: "cancel" });
       yield* turn.cancelled;
       yield* turn.end("cancelled");
@@ -1295,7 +1287,7 @@ describe("a question the agent waits on", () => {
         "cancelled"
       );
       const late = yield* Effect.flip(
-        threads.answer(threadId, card?.id ?? "", { plan: "free" })
+        onThread(threadId, (s) => s.answer(card?.id ?? "", { plan: "free" }))
       );
       assert.include(late.message, "already answered");
     }));
@@ -1322,25 +1314,26 @@ describe("a question the agent waits on", () => {
 describe("switching a thread's agent", () => {
   test("stops the session, and tells the next agent what was said", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
       const { agent, threadId, turn } = yield* started();
       // Not while it works on a prompt.
-      const busy = yield* Effect.flip(threads.setAgent(threadId, "other"));
+      const busy = yield* Effect.flip(
+        onThread(threadId, (s) => s.switchAgent("other"))
+      );
       assert.strictEqual(busy._tag, "Conflict");
       yield* turn.say("Hi there");
       yield* turn.end();
       yield* threadWhen(threadId, turnEnded);
 
-      yield* threads.setAgent(threadId, "other");
+      yield* onThread(threadId, (s) => s.switchAgent("other"));
       yield* agent.stopped;
       const switched = yield* store.get(threadId);
       assert.strictEqual(switched?.agentId, "other");
       assert.isUndefined(switched?.sessionId);
       // A change of mind before the next prompt leaves one note, naming the last choice.
-      yield* threads.setAgent(threadId, "scripted");
-      yield* threads.setAgent(threadId, "other");
+      yield* onThread(threadId, (s) => s.switchAgent("scripted"));
+      yield* onThread(threadId, (s) => s.switchAgent("other"));
       const notes = (yield* store.items(threadId)).flatMap((i) =>
         i.kind === "status" ? [i.text] : []
       );
@@ -1366,7 +1359,6 @@ describe("switching a thread's agent", () => {
 
   test("is refused while a prompt is being accepted, whose turn goes on", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const held = yield* HeldTask;
       const { agent, threadId, turn } = yield* started();
@@ -1375,7 +1367,9 @@ describe("switching a thread's agent", () => {
       // The next prompt is accepted but not running yet: its task is still being written.
       const sending = yield* Effect.forkChild(send(threadId, "/hold"));
       yield* Deferred.await(held.reached);
-      const refused = yield* Effect.flip(threads.setAgent(threadId, "other"));
+      const refused = yield* Effect.flip(
+        onThread(threadId, (s) => s.switchAgent("other"))
+      );
       assert.strictEqual(refused._tag, "Conflict");
       yield* Deferred.succeed(held.release, undefined);
       yield* Fiber.join(sending);
@@ -1393,11 +1387,11 @@ describe("switching a thread's agent", () => {
 describe("discovery", () => {
   test("starts the agent to learn what its sessions offer, and gives it to waiting threads", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
       const agents = yield* ScriptedAgents;
       const store = yield* ThreadStore;
       const discovery = yield* AgentDiscovery;
-      const { id: threadId } = yield* threads.create("other");
+      const { id: threadId } = yield* threads.create({ agentId: "other" });
       assert.isUndefined((yield* store.get(threadId))?.configOptions);
       const options = yield* discovery.discover("other");
       assert.deepStrictEqual(

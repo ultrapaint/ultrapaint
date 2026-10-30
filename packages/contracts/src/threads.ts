@@ -528,6 +528,8 @@ export const ThreadItem = Schema.Union([
     at: Schema.Number,
     id: Schema.String,
     kind: Schema.Literal("status"),
+    /** The agent the thread was switched to, when that is what the line says. */
+    switchedTo: Schema.optional(Schema.String),
     text: Schema.String,
   }),
   Schema.Struct({

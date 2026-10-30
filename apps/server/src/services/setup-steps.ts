@@ -18,7 +18,7 @@ import {
   type SetupFailure,
 } from "./design-system-setup.ts";
 import type { ThreadFailure } from "./threads/thread-session.ts";
-import { ThreadService } from "./threads/threads.ts";
+import { ThreadSessions } from "./threads/thread-session.ts";
 
 /** A step started: the setup after it, and for a step an agent runs, its thread and first task. */
 export interface StepStarted {
@@ -64,7 +64,7 @@ export class SetupSteps extends Context.Service<
     SetupSteps,
     Effect.gen(function* () {
       const setup = yield* DesignSystemSetupService;
-      const threads = yield* ThreadService;
+      const threads = yield* ThreadSessions;
 
       /** The threads of the active steps among the step, or the step and every one after it. */
       const threadsOf = Effect.fnUntraced(function* (
@@ -83,13 +83,17 @@ export class SetupSteps extends Context.Service<
         for (const threadId of yield* threadsOf(step, true)) {
           // A thread that is not working has no turn to cancel. What the step did is kept, so
           // nothing waits for the turn to end.
-          yield* Effect.ignore(threads.cancel(threadId));
+          yield* Effect.ignore(
+            Effect.flatMap(threads.of(threadId), (s) => s.cancel)
+          );
         }
         return yield* setup.stop(step);
       });
 
       const redo = Effect.fn("SetupSteps.redo")(function* (step: SetupStepId) {
-        yield* Effect.forEach(yield* threadsOf(step, false), threads.stop, {
+        const stopThread = (threadId: string) =>
+          Effect.flatMap(threads.of(threadId), (s) => s.stop);
+        yield* Effect.forEach(yield* threadsOf(step, false), stopThread, {
           concurrency: "unbounded",
           discard: true,
         });
@@ -105,7 +109,7 @@ export class SetupSteps extends Context.Service<
         const batch = migrate?.batches?.find((b) => b.id === batchId);
         // Only the batch under way is being written; a done one is Migrate's past.
         if (batch?.status === "active" && migrate?.threadId !== undefined) {
-          yield* threads.stop(migrate.threadId);
+          yield* Effect.flatMap(threads.of(migrate.threadId), (s) => s.stop);
         }
         return yield* setup.revertBatch(batchId);
       });
@@ -116,7 +120,7 @@ export class SetupSteps extends Context.Service<
       ) {
         const about = setupStepOf(step);
         const thread = about?.agent
-          ? yield* threads.create(undefined, `Design system: ${about.title}`)
+          ? yield* threads.create({ title: `Design system: ${about.title}` })
           : null;
         const started = yield* setup
           .start(step, {

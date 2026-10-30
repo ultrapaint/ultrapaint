@@ -15,9 +15,8 @@ import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
-import { ThreadService } from "./services/threads/threads.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
-import { ThreadTest } from "./testing/threads.ts";
+import { promptThread, ThreadTest } from "./testing/threads.ts";
 
 const unused = Effect.die("not used by the step runner");
 
@@ -121,12 +120,11 @@ const StepsTest = SetupSteps.layer.pipe(
 /** Migrate started, its agent working on its first prompt: the thread, and the turn. */
 const migrating = Effect.gen(function* () {
   const steps = yield* SetupSteps;
-  const threads = yield* ThreadService;
   const agents = yield* ScriptedAgents;
   yield* (yield* ChatPreferences).setDefaults({ agentId: "scripted" });
   const { threadId } = yield* steps.start("migrate");
   const id = threadId ?? "";
-  yield* threads.prompt({
+  yield* promptThread({
     attachments: [],
     text: "/design-system migrate",
     threadId: id,
@@ -180,13 +178,12 @@ describe("the setup's step runner", () => {
   test("stops the turn of a step it stops, and keeps the thread", () =>
     Effect.gen(function* () {
       const steps = yield* SetupSteps;
-      const threads = yield* ThreadService;
       const store = yield* ThreadStore;
       const agents = yield* ScriptedAgents;
       yield* (yield* ChatPreferences).setDefaults({ agentId: "scripted" });
       const { threadId } = yield* steps.start("define");
       const id = threadId ?? "";
-      yield* threads.prompt({
+      yield* promptThread({
         attachments: [],
         text: "/design-system define",
         threadId: id,

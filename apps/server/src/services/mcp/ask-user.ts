@@ -16,7 +16,6 @@ import { McpSchema, McpServer, Tool } from "effect/ai";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadSessions } from "../threads/thread-session.ts";
-import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
 import { leanSchema, opt } from "./tool-helpers.ts";
 
@@ -78,7 +77,6 @@ const replyOf = (
 export const AskUserToolLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
-    const threads = yield* ThreadService;
     const sessions = yield* ThreadSessions;
 
     const ask = Effect.fn("AskUserTool.ask_user")(function* (payload: unknown) {
@@ -135,7 +133,9 @@ export const AskUserToolLive = Layer.effectDiscard(
           true
         );
       }
-      return yield* threads.ask(threadId, questions).pipe(
+      return yield* Effect.flatMap(sessions.of(threadId), (session) =>
+        session.cards.ask(questions)
+      ).pipe(
         Effect.as(
           said(
             "The questions are shown to the user. End your turn now; the answers come as the next message."

@@ -1,8 +1,9 @@
 /**
- * What a turn sends the agent: the prompt's text, or the task a command stands for, its
- * attachments as content, and what leads a session's first prompt (the briefing, and what was
- * said before the session). A thread's title and scope come from its first prompt. The turn
- * itself, its queue and its end are the thread session's (`thread-session.ts`).
+ * What a prompt gives the agent, its content: the prompt's text, or the task a command stands
+ * for and the purpose it gives the thread, its attachments as content, and what leads a
+ * session's first prompt (the briefing, and what was said before the session). A thread's title
+ * and scope come from its first prompt. The turn itself, its queue and its end are the thread
+ * session's (`thread-session.ts`).
  */
 import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
@@ -21,7 +22,6 @@ import type { RepoPaths } from "../repo-paths.ts";
 import { ProjectBriefing } from "./briefing.ts";
 import { SlashCommands } from "./commands.ts";
 import { recapOf } from "./recap.ts";
-import { ThreadStore } from "./thread-store.ts";
 
 const DATA_URL_RE = /^data:([^;]+);base64,(.*)$/s;
 
@@ -135,7 +135,6 @@ export const titleOf = (text: string) => {
 };
 
 export const makePromptContent = Effect.fnUntraced(function* () {
-  const store = yield* ThreadStore;
   const briefing = yield* ProjectBriefing;
   const commands = yield* SlashCommands;
   const { briefing: briefingEnabled } = yield* ServerConfig;
@@ -235,25 +234,30 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   });
 
   /**
-   * The task a prompt stands for. A task that implements turns a thread that has not started its
-   * agent into an implement thread: its session is then started with the repository writable
-   * (ADR 0030). One already running keeps its sandbox, and is told to send the user to an
-   * implement thread.
+   * The task a prompt stands for, and what the thread is for once it runs: a task that
+   * implements makes a thread that has not started its agent an implement thread, whose session
+   * is then started with the repository writable (ADR 0030). One already running keeps its
+   * sandbox, and is told to send the user to an implement thread. Null when the prompt is not a
+   * command; the caller writes the purpose with the prompt.
    */
-  const taskFor = Effect.fnUntraced(function* (thread: Thread, text: string) {
+  const taskFor = Effect.fnUntraced(function* (
+    thread: Thread,
+    text: string
+  ): Effect.fn.Return<{
+    readonly purpose: ThreadPurpose;
+    readonly text: string;
+  } | null> {
     const task = yield* commands.expand(text);
-    if (
-      task === null ||
-      task.purpose !== "implement" ||
-      thread.purpose === "implement"
-    ) {
-      return task?.text ?? null;
+    const purpose = thread.purpose ?? "design";
+    if (task === null) {
+      return null;
     }
-    if (thread.sessionId !== undefined) {
-      return DESIGN_THREAD_IMPLEMENT;
+    if (task.purpose !== "implement" || purpose === "implement") {
+      return { purpose, text: task.text };
     }
-    yield* store.update(thread.id, { purpose: "implement" });
-    return task.text;
+    return thread.sessionId === undefined
+      ? { purpose: "implement", text: task.text }
+      : { purpose, text: DESIGN_THREAD_IMPLEMENT };
   });
 
   return { attachmentBlocks, sessionContext, taskFor };
