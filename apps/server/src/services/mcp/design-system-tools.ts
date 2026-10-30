@@ -54,7 +54,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
-    "Save the design system, every token with its value, and DESIGN.md with designMd; refused with why when invalid. A token is color-primary; a text style says $color-primary.",
+    "Save the design system, every token with its value, and DESIGN.md with designMd; refused with why when invalid. A token is color-primary; a text style says $color-primary. Sync baselines are the tool's: any given are ignored.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** The whole of DESIGN.md. */

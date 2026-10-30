@@ -1374,12 +1374,15 @@ describe("get_screenshot", () => {
 });
 
 describe("get_context", () => {
-  inAProject("guides an agent that has no briefing", () =>
+  inAProject("answers what the project is, as data", () =>
     Effect.gen(function* () {
       const { repo } = yield* ProjectFixture;
       const context = yield* tool("get_context", {});
       assert.strictEqual(context.root, repo);
-      assert.include(context.guide, "canvases");
+      assert.deepStrictEqual(
+        context.canvases.map((c) => c.id),
+        [""]
+      );
     })
   );
 });

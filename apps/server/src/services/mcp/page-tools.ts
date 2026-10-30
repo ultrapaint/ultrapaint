@@ -19,13 +19,6 @@ import {
   ToolFailure,
 } from "./tool-helpers.ts";
 
-/**
- * What a thread's briefing explains and the tools' descriptions therefore leave out, for an agent
- * outside the editor, which has no briefing. `get_context` answers with it, once, rather than
- * every tool carrying a share of it on every turn.
- */
-const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of a component, system or app, its children filling its slots), each with an id. Tools name a page by its URL, or its file when it has none, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. A page is one tree for every width, mobile-first: a node's fields are the smallest screen's, and its at says what differs from a design system breakpoint up (at.md); a page's views draw it at other widths beside its frame. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, an outline first with depth when it is big, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
-
 const PageSummary = Schema.Struct({
   canvas: Schema.String,
   file: Schema.String,
@@ -48,13 +41,11 @@ const CanvasSummary = Schema.Struct({
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: root, designs directory, canvases and a guide to the designs. Call it first unless told the pages.",
+    "The project: root, designs directory and canvases. Call it first unless told the pages.",
   failure: ToolFailure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
     designsDir: Schema.String,
-    /** What the tools' descriptions leave to the briefing, for an agent that has none. */
-    guide: Schema.String,
     pageCount: Schema.Number,
     resolveFrom: Schema.String,
     root: Schema.String,
@@ -239,7 +230,6 @@ export const PageToolsLive = PageTools.toLayer(
             variants: canvas.variants,
           })),
           designsDir: paths.settings.designsDir,
-          guide: GUIDE,
           pageCount: pages.pages.length,
           resolveFrom: paths.settings.resolveFrom ?? paths.settings.designsDir,
           root: paths.root,

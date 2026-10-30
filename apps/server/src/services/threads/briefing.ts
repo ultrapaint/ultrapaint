@@ -12,7 +12,6 @@
 import { componentLine } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
-  COMPONENTS_DIR,
   type ComponentFile,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
@@ -37,6 +36,7 @@ import { GitService } from "../git.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { SkillsService } from "../skills.ts";
+import { canvasesIn, componentFiles, PAGES } from "./agent-docs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
 
@@ -138,31 +138,15 @@ tell them it goes to the code when the design is implemented (the Implement butt
 are the design's: change them in the design system, never in a stylesheet.`;
 
 /**
- * The components (ADR 0041): their files, which system components' look the design owns, the
- * app components to place, and the format an agent writes a component's file in.
+ * The components (ADR 0041): their files, which system components' look the design owns, and the
+ * format an agent writes a component's file in.
  */
 const componentsOf = (
   designsDir: string,
   components: readonly ComponentFile[]
 ) => {
   const looks = components.filter((c) => c.origin === "system");
-  return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
-{ "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
-- origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
-  (per axis, per member), "states" (hover, focus, active, highlighted, disabled, open, checked,
-  invalid) and "variantStates" (per axis, per member, per state: an outline button's hover; it
-  wins over the state's, which wins over the member's), each style fields per part (root or a
-  data-slot): fill, color, border, radius, padding
-  (one or per side), height, width, gap, direction, align, crossAlign, order, fontSize, fontWeight,
-  shadow, opacity; "content" (nodes per slot, drawn when an instance gives it none), "hidden"
-  (optional parts left out) and, for Select and Menu, "item" ({ tree, label, image }: nodes drawn
-  per item, label and image the ids showing them). Without a file it has its default look.
-- origin "app": the project's own component, placed with from "${APP_FROM}": "tree" (a node, its
-  root the instance), "properties" ([{ name, kind: text|boolean|choice|image, default, members?,
-  targets?: [{ node, prop? }] }]: what an instance's props set, a text's text, a node shown, an
-  image's src, or a prop of the component the node is; a choice's member overrides a node's fields
-  in its at under "<property>=<member>") and "slots" ([{ name, node, default? }]: containers its
-  children fill, as a system component's). It cannot take a system component's name or place itself.
+  return `${componentFiles(designsDir)}
 ${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}
 `;
 };
@@ -231,17 +215,9 @@ You are working in ultrapaint, a design tool. The user sees the designs you chan
 its canvas, drawn with ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
 
-Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
-(the designs directory itself when there is only one), and each has its own pages, the URLs they
-serve in its prototype and nodes placed beside them — wireframes in one, components in another, a
-second version of the application in a third. A link never leaves its canvas, and tools take
-\`canvas\` to say which.
-A page is a design document, not code: a <name>.page.json file inside its canvas. It may serve a
-URL in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json keeps: a
-screen of the application has one, a sketch or a sheet of components needs none, and a page
-without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for
-the variant "bold": it serves the same URL, shown in its place when the prototype is in that
-variant. It holds a tree of nodes, each with an id:
+${canvasesIn(settings.designsDir)}
+${PAGES}
+It holds a tree of nodes, each with an id:
 - page: the root; lays its children out as a column.
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.

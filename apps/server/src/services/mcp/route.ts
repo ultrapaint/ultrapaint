@@ -9,6 +9,7 @@ import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
 import { McpProtocol, McpSchema, McpServer, Toolkit } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { canvasesIn, NODES, PAGES } from "../threads/agent-docs.ts";
 import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
 import {
   CallingThread,
@@ -130,25 +131,25 @@ const Tools = Layer.effectDiscard(
 ).pipe(Layer.provide(ToolkitHandlers));
 
 /**
- * What an agent is told when it connects (ADR 0030): the designs lead and the code follows, and
- * how to keep the two linked. An agent in the editor is briefed as well; one outside it reads
- * only this.
+ * What an agent is told when it connects (ADR 0030): what the designs are, how to change them, and
+ * how the code follows them. Every agent reads it, in the editor or outside it, so it says what
+ * holds whatever the agent is doing; a thread's briefing says what its purpose asks (ADR 0030),
+ * and a task the rest.
  */
-export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, components and the design system, in the
-designs directory. The design is what the UI looks like and which states it has; the code is what
-it does. The design leads, and the code follows it through the ${TOOLS.handoff} tool:
-- Before implementing UI, call ${handoffCall("list")} to see what is ready or changed since it
-  was implemented, and "read" with its target for the task, which says what changed.
-- Token values live in the design system; the stylesheets follow it. The task names the tokens
-  a design uses that the code does not have yet: bring them over with ${TOOLS.handoff} "export" and their
-  names ("import" takes the code's value into the design instead, when the user says so).
-- After implementing a page or a component, call ${TOOLS.handoff} "mark" with the files that implement it.
-- When the code has to do something a design cannot show (a permission, a validation, a call),
-  or when you change UI in a way the design does not say, call ${TOOLS.handoff} "note" on the page's node,
-  or on a component (target "component:Button", node one of its parts).
-- Change a design only through the tools (${TOOLS.apply_operations}, ${TOOLS.write_design_system}), never by
-  editing its JSON by hand (a component's file in components/ is written as a file); change token
-  values in the design system, not in the stylesheet.`;
+export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, components and the design system. The design
+is what the UI looks like and which states it has; the code is what it does, and follows the design.
+${canvasesIn("the designs directory")}
+${PAGES}
+${NODES}
+Change designs through these tools, not by editing their files: ${TOOLS.read_page} (a big page an outline
+first, then a part at a time with node), then ${TOOLS.apply_operations}; ${TOOLS.get_document_format} has the whole
+format, ${TOOLS.get_component} an instance to start from. Call ${TOOLS.focus} before changing nodes, so the user
+sees where you work, and ${TOOLS.get_screenshot} to look at the result. A component's file in components/ is
+written as a file. Token values are the design system's, never a stylesheet's.
+To implement a design, ${handoffCall("list")} says what is ready or changed since it was implemented,
+and "read" with its target gives the task, which says the rest. What the code must do that a design
+cannot show (a permission, a validation, a call) is written down with "note", on a page's node or a
+component (target component:Button, node a part).`;
 
 export const McpRoute = Layer.mergeAll(Tools, SkillResources, TaskPrompts).pipe(
   Layer.provide(

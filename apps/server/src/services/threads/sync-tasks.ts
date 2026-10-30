@@ -45,7 +45,7 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
   const project = yield* OpenProject;
   const sync = yield* DesignSystemSyncService;
 
-  /** `/sync describe`: the tokens and components of the code the design system does not list, described in it. */
+  /** `/sync describe`: the tokens of the code the design system does not list, described in it. */
   const syncDescribe = (extra: string | undefined) =>
     Effect.gen(function* () {
       const plan = yield* sync.plan;

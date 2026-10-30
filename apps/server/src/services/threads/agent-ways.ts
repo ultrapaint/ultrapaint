@@ -94,8 +94,6 @@ export interface AgentWays {
   readonly noteBehaviour: string;
   /** What Define, proposing a design system, works with. */
   readonly proposeWith: string;
-  /** Reading a component's props and variants: a clause, its verb first. */
-  readonly readComponent: string;
   /** Where the design system is read, with DESIGN.md: a clause, "it" the design system. */
   readonly readDesignSystem: (designsDir: string) => string;
   /**
@@ -144,15 +142,14 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
     `mark it implemented: call ${handoffCall("mark")}, target ${target} and files, every repository file you wrote or changed for it. The editor then knows which code implements it, and tells the next implementation what changed.`,
   noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component (target component:<Name>, node a part)`,
   proposeWith: `${TOOLS.scan_design_system} has what the theme declares; ${TOOLS.ask_user} puts a card of questions to the user; ${TOOLS.write_design_system} saves the result.`,
-  readComponent: `call ${TOOLS.get_component}`,
   readDesignSystem: () =>
     `${TOOLS.read_design_system} returns it with DESIGN.md`,
   readTheme: (
     stylesheets,
     before
   ) => `Call ${TOOLS.scan_design_system}. It reads the Tailwind v4 @theme blocks of the stylesheets the
-   preview imports (${stylesheets}) and answers with a
-   first design system, the files it read, and notes on what it could not interpret.${before}`,
+   code's tokens are in (${stylesheets}) and answers with a first design system, the files it
+   read, and notes on what it could not interpret.${before}`,
   saveDesignSystem:
     () => `Save it with ${TOOLS.write_design_system}: \`designSystem\` is the design-system.json object and
    \`designMd\` the whole of DESIGN.md. ${TOOLS.get_document_format} with kind "design-system" has its JSON
@@ -183,12 +180,11 @@ page format: ${pageSchema()}`,
   noteBehaviour: "write it down as a comment on the node",
   proposeWith:
     "Without the editor's MCP server, read the code yourself, ask in the thread and write the files by hand.",
-  readComponent: "read its code",
   readDesignSystem: (designsDir) =>
     `it is ${designsDir}/${DESIGN_SYSTEM_FILE}, every token's value in ${designsDir}/${DESIGN_TOKENS_FILE}, and ${DESIGN_MD_FILE} at the root of the repository`,
   readTheme: (stylesheets, before) =>
-    `Read the stylesheets the preview imports (${stylesheets}) and
-   their @theme blocks.${before}`,
+    `Read the stylesheets the code's tokens are in (${stylesheets})
+   and their @theme blocks.${before}`,
   saveDesignSystem: (
     designsDir
   ) => `Write ${designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:

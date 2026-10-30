@@ -267,7 +267,7 @@ describe("tasks, without the editor's MCP server", () => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
-        assert.include(init, "1. Read the stylesheets the preview imports");
+        assert.include(init, "1. Read the stylesheets the code's tokens are in");
         assert.include(init, "valid against this JSON Schema");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
@@ -474,13 +474,25 @@ describe("the editor's tools in what an agent is told", () => {
     ],
     components: [
       "ask\n`get_component` for its props and variants.",
-      "read its code for its props and variants.",
+      "read its line among the components listed for its props and variants.",
     ],
     layout: [
       "or at `390` and `1440` with\n`get_screenshot`'s `width`.",
       "or at `390` and `1440`. Keep",
     ],
   } as const;
+
+  /**
+   * What the editor no longer has or never was, said anywhere an agent reads: the rail has no
+   * Pages panel, the stylesheets are where the code's tokens are (Sync's, not the preview's), and
+   * a system component has no code in the repository.
+   */
+  const stale = (read: readonly Read[]) =>
+    read.flatMap((r) =>
+      ["Pages panel", "the preview imports", "read its code"]
+        .filter((phrase) => r.text.includes(phrase))
+        .map((phrase) => `${r.of} says ${phrase}`)
+    );
 
   /** The briefings' text, where the design skills are told. */
   const briefings = (read: readonly Read[]) =>
@@ -525,6 +537,7 @@ describe("the editor's tools in what an agent is told", () => {
             "write_figma_frame",
           ]
         );
+        assert.deepStrictEqual(stale([...before, ...after, instructions]), []);
         // The skills keep their words with the tools, which the design evals were tuned to.
         for (const [withTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withTools);
@@ -556,6 +569,7 @@ describe("the editor's tools in what an agent is told", () => {
           ),
           []
         );
+        assert.deepStrictEqual(stale([...before, ...after]), []);
         for (const [, withoutTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withoutTools);
         }
