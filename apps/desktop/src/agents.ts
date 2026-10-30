@@ -39,6 +39,8 @@ export interface AppLayout {
   readonly adaptersDir: string;
   /** Electron's binary, which runs the adapters as Node. */
   readonly node: string;
+  /** The app's version, which an adapter it signs an agent in through is told. */
+  readonly version?: string;
 }
 
 /** A path as the sandbox sees it: where it really is, links followed. */
@@ -472,7 +474,11 @@ export class Agents extends Context.Service<
                   ELECTRON_RUN_AS_NODE: "1",
                 },
               },
-              { cwd: tmpdir(), handlers: refusing }
+              {
+                clientVersion: layout.version ?? "dev",
+                cwd: tmpdir(),
+                handlers: refusing,
+              }
             );
             const init = yield* adapter.initialize;
             if (!init.authMethods?.some((m) => m.id === method.method)) {

@@ -15,6 +15,7 @@ import {
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   client,
+  type InitializeRequest,
   type InitializeResponse,
   type KillTerminalRequest,
   type LoadSessionResponse,
@@ -49,6 +50,7 @@ export type {
   CreateElicitationRequest,
   CreateElicitationResponse,
   CreateTerminalRequest,
+  InitializeRequest,
   InitializeResponse,
   LoadSessionResponse,
   NewSessionResponse,
@@ -140,7 +142,10 @@ export interface AcpAgent {
   readonly loadSession: (
     sessionId: string,
     cwd: string,
-    mcpServers?: readonly McpServerConfig[]
+    options?: {
+      readonly mcpServers?: readonly McpServerConfig[];
+      readonly meta?: unknown;
+    }
   ) => Effect.Effect<LoadSessionResponse | undefined, AcpError>;
   readonly newSession: (
     cwd: string,
@@ -164,6 +169,26 @@ export interface AcpAgent {
     modeId: string
   ) => Effect.Effect<void, AcpError>;
 }
+
+/**
+ * What the editor says of itself when an agent starts: who it is, and what it does for the
+ * agent. Every adapter sends this, so a scripted agent sees what a real one would.
+ */
+export const initializeRequest = (
+  clientVersion: string
+): InitializeRequest => ({
+  clientCapabilities: {
+    elicitation: { form: {} },
+    fs: { readTextFile: true, writeTextFile: true },
+    terminal: true,
+  },
+  clientInfo: { name: "ultrapaint", version: clientVersion },
+  protocolVersion: PROTOCOL_VERSION,
+});
+
+/** `_meta` on a request, when there is any. */
+export const withMeta = (meta: unknown) =>
+  meta === undefined ? {} : { _meta: meta as Record<string, unknown> };
 
 type Inbox = SessionNotification | Deferred.Deferred<void>;
 
@@ -234,7 +259,12 @@ const signalGroup = (child: ChildProcess, signal: NodeJS.Signals) =>
  */
 export const spawnAcpAgent = (
   launch: AgentLaunch,
-  options: { readonly cwd: string; readonly handlers: AcpHandlers }
+  options: {
+    /** The editor's own version, which `initialize` tells the agent. */
+    readonly clientVersion: string;
+    readonly cwd: string;
+    readonly handlers: AcpHandlers;
+  }
 ): Effect.Effect<AcpAgent, AcpSpawnError, Scope.Scope> =>
   Effect.gen(function* () {
     const { handlers } = options;
@@ -386,23 +416,16 @@ export const spawnAcpAgent = (
       }),
       exited: Deferred.await(exitSignal),
       initialize: call("initialize", () =>
-        agent.request("initialize", {
-          clientCapabilities: {
-            elicitation: { form: {} },
-            fs: { readTextFile: true, writeTextFile: true },
-            terminal: true,
-          },
-          clientInfo: { name: "ultrapaint", version: "0.1.0" },
-          protocolVersion: PROTOCOL_VERSION,
-        })
+        agent.request("initialize", initializeRequest(options.clientVersion))
       ),
-      loadSession: (sessionId, cwd, mcpServers) =>
+      loadSession: (sessionId, cwd, session) =>
         Effect.map(
           call("session/load", () =>
             agent.request("session/load", {
               cwd,
-              mcpServers: [...(mcpServers ?? [])],
+              mcpServers: [...(session?.mcpServers ?? [])],
               sessionId,
+              ...withMeta(session?.meta),
             })
           ),
           (loaded) => loaded ?? undefined
@@ -412,7 +435,7 @@ export const spawnAcpAgent = (
           agent.request("session/new", {
             cwd,
             mcpServers: [...(session?.mcpServers ?? [])],
-            ...(session?.meta === undefined ? {} : { _meta: session.meta }),
+            ...withMeta(session?.meta),
           })
         ),
       pid: child.pid,

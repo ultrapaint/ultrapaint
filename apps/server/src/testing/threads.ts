@@ -28,12 +28,13 @@ import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { ProjectManager, type ProjectServices } from "../project.ts";
 import { RepoPaths } from "../services/repo-paths.ts";
+import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "../services/threads/briefing.ts";
 import { SlashCommands } from "../services/threads/commands.ts";
 import { ThreadStore } from "../services/threads/thread-store.ts";
 import { WorkingTree } from "../services/working-tree.ts";
 import { makeFixture } from "./harness.ts";
-import { TestAdapters } from "./project.ts";
+import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** Where the test's threads work: the fixture folder, and the home their state is kept in. */
 export class ThreadFixture extends Context.Service<
@@ -171,47 +172,67 @@ const briefing = Layer.succeed(
   })
 );
 
-/** Thread services on a fresh fixture, with the agents the test plays. Build one per test. */
-export const ThreadTest = Layer.unwrap(
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
-    const repo = yield* makeFixture({ git: false });
-    yield* fs.makeDirectory(path.join(home, "agents"));
-    for (const [id, name] of [
-      ["scripted", "Scripted"],
-      ["other", "Other"],
-    ]) {
-      yield* fs.writeFileString(
-        path.join(home, "agents", `${id}.json`),
-        // Never run: the launcher plays the agent.
-        JSON.stringify({ args: [], command: id, id, name })
+/** What `scripted`'s configuration sends to stop a sandbox of its own, where it is confined. */
+export const SCRIPTED_SANDBOX_META = { scripted: { sandbox: false } };
+
+/**
+ * Thread services on a fresh fixture, with the agents the test plays. Build one per test.
+ * `sandboxed` says the machine confines its agents: nothing is wrapped, but the agents are told
+ * what their configuration says to a confined one.
+ */
+export const threadTest = (options: { readonly sandboxed?: boolean } = {}) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const repo = yield* makeFixture({ git: false });
+      yield* fs.makeDirectory(path.join(home, "agents"));
+      for (const [id, name] of [
+        ["scripted", "Scripted"],
+        ["other", "Other"],
+      ]) {
+        yield* fs.writeFileString(
+          path.join(home, "agents", `${id}.json`),
+          // Never run: the launcher plays the agent.
+          JSON.stringify({
+            args: [],
+            command: id,
+            id,
+            name,
+            ...(id === "scripted" && { sandboxMeta: SCRIPTED_SANDBOX_META }),
+          })
+        );
+      }
+      return ThreadsLayer.pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            briefing,
+            Layer.provideMerge(commands, held),
+            ScriptedAgents.layer,
+            options.sandboxed
+              ? AgentSandbox.layerTestConfined
+              : AgentSandbox.layerTest
+          )
+        ),
+        Layer.provideMerge(projectOf(repo)),
+        Layer.provideMerge(Foundation),
+        Layer.provideMerge(
+          ServerConfig.layerTest({
+            briefing: true,
+            cwd: repo,
+            machine: { home },
+            storage: { home, mode: "managed" },
+            userDir: home,
+          })
+        ),
+        Layer.provideMerge(Layer.succeed(ThreadFixture, { home, repo }))
       );
-    }
-    return ThreadsLayer.pipe(
-      Layer.provideMerge(
-        Layer.mergeAll(
-          briefing,
-          Layer.provideMerge(commands, held),
-          TestAdapters.agents
-        )
-      ),
-      Layer.provideMerge(projectOf(repo)),
-      Layer.provideMerge(Foundation),
-      Layer.provideMerge(
-        ServerConfig.layerTest({
-          briefing: true,
-          cwd: repo,
-          machine: { home },
-          storage: { home, mode: "managed" },
-          userDir: home,
-        })
-      ),
-      Layer.provideMerge(Layer.succeed(ThreadFixture, { home, repo }))
-    );
-  })
-).pipe(Layer.provideMerge(NodeServices.layer));
+    })
+  ).pipe(Layer.provideMerge(NodeServices.layer));
+
+/** Thread services on a machine without a sandbox. */
+export const ThreadTest = threadTest();
 
 /** What a test built on `ThreadTest` can ask for. */
 export type ThreadTestServices = Layer.Success<typeof ThreadTest>;

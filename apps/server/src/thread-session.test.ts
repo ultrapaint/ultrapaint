@@ -4,8 +4,12 @@
  * agents. The agent's process, the SDK and the sandbox are `threads.test.ts`'s.
  */
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { assert, describe, it } from "@effect/vitest";
-import type { CreateElicitationRequest } from "@ultrapaint/acp/acp-agent";
+import type {
+  CreateElicitationRequest,
+  SessionUpdate,
+} from "@ultrapaint/acp/acp-agent";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Fiber, FileSystem } from "effect";
@@ -23,10 +27,12 @@ import { ScriptedAgents } from "./testing/scripted-agents.ts";
 import {
   briefingFor,
   HeldTask,
+  SCRIPTED_SANDBOX_META,
   ThreadFixture,
   ThreadTest,
   type ThreadTestServices,
   taskFor,
+  threadTest,
   threadWhen,
 } from "./testing/threads.ts";
 import { kinds, said, turnEnded, turnsEnded } from "./testing/turns.ts";
@@ -303,6 +309,42 @@ describe("a thread's session", () => {
       assert.notInclude(said(items), "replayed history");
     }));
 
+  it.effect(
+    "reopens a stored session with what stops a confined agent's own sandbox",
+    () =>
+      Effect.gen(function* () {
+        const agents = yield* ScriptedAgents;
+        yield* agents.script({ loadSession: true });
+        const first = yield* started();
+        yield* first.turn.end();
+        yield* threadWhen(first.threadId, turnEnded);
+        yield* first.agent.exit(0);
+        yield* first.agent.stopped;
+
+        yield* send(first.threadId, "again");
+        const agent = yield* agents.next;
+        yield* agent.nextTurn;
+        const reopened = (yield* agent.calls).find(
+          (c) => c.method === "session/load"
+        );
+        assert.deepStrictEqual(
+          (reopened?.params as { _meta?: unknown } | undefined)?._meta,
+          SCRIPTED_SANDBOX_META
+        );
+      }).pipe(Effect.provide(threadTest({ sandboxed: true })))
+  );
+
+  test("tells the agent who the client is, by the server's version", () =>
+    Effect.gen(function* () {
+      const { agent } = yield* started();
+      const [initialize] = yield* agent.calls;
+      assert.deepStrictEqual(
+        (initialize?.params as { clientInfo?: unknown } | undefined)
+          ?.clientInfo,
+        { name: "ultrapaint", version: "test" }
+      );
+    }));
+
   test("ends with the project, and starts again with the next prompt", () =>
     Effect.gen(function* () {
       const project = yield* ProjectManager;
@@ -393,6 +435,48 @@ describe("a turn", () => {
           title: "Read home",
         }
       );
+    }));
+
+  test("keeps the plan through a plan_update the editor never asked for", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* started();
+      const entries = [
+        { content: "Draw the page", priority: "high", status: "in_progress" },
+      ] as const;
+      yield* turn.update({ entries: [...entries], sessionUpdate: "plan" });
+      // Unstable, and shaped otherwise: sent only to a client that says it reads it.
+      yield* turn.update({
+        plan: { entries: [], planId: "plan_1" },
+        sessionUpdate: "plan_update",
+      } as unknown as SessionUpdate);
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const plan = items.find((i) => i.kind === "plan");
+      assert.deepStrictEqual(plan?.kind === "plan" && plan.entries, [
+        ...entries,
+      ]);
+    }));
+
+  test("names an attached file by its URL, whatever its name holds", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const agents = yield* ScriptedAgents;
+      const { repo } = yield* ThreadFixture;
+      const { id: threadId } = yield* threads.create("scripted");
+      const file = "designs/my page#2.page.json";
+      yield* threads.prompt({
+        attachments: [{ kind: "file", path: file }],
+        text: "look",
+        threadId,
+      });
+      const turn = yield* Effect.flatMap(agents.next, (a) => a.nextTurn);
+      const uris = turn.prompt.flatMap((b) => {
+        if (b.type === "resource") {
+          return [b.resource.uri];
+        }
+        return b.type === "resource_link" ? [b.uri] : [];
+      });
+      assert.deepStrictEqual(uris, [pathToFileURL(path.join(repo, file)).href]);
     }));
 
   test("briefs the agent once per session, for the thread's purpose", () =>

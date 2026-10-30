@@ -10,21 +10,23 @@
  * call fails with `AcpProcessExited`, as when the process dies. Closing its scope stops it.
  */
 import { Deferred, Effect, Queue, type Scope } from "effect";
-import type {
-  AcpAgent,
-  AcpExit,
-  AcpHandlers,
-  ContentBlock,
-  CreateElicitationRequest,
-  CreateElicitationResponse,
-  InitializeResponse,
-  NewSessionResponse,
-  PromptResponse,
-  RequestPermissionRequest,
-  RequestPermissionResponse,
-  SessionNotification,
-  SessionUpdate,
-  StopReason,
+import {
+  type AcpAgent,
+  type AcpExit,
+  type AcpHandlers,
+  type ContentBlock,
+  type CreateElicitationRequest,
+  type CreateElicitationResponse,
+  type InitializeResponse,
+  initializeRequest,
+  type NewSessionResponse,
+  type PromptResponse,
+  type RequestPermissionRequest,
+  type RequestPermissionResponse,
+  type SessionNotification,
+  type SessionUpdate,
+  type StopReason,
+  withMeta,
 } from "./acp-agent.ts";
 import { type AcpError, AcpProcessExited, AcpRequestError } from "./errors.ts";
 
@@ -130,6 +132,8 @@ const isMarker = (item: Inbox): item is Deferred.Deferred<void> =>
  * session ids, so that two agents in one test do not share any.
  */
 export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
+  /** The editor's version, which `initialize` tells the agent. */
+  readonly clientVersion: string;
   readonly handlers: AcpHandlers;
   readonly name: string;
   readonly script?: AgentScript | undefined;
@@ -275,13 +279,18 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
     exited: Deferred.await(exitSignal),
     initialize: call(
       "initialize",
-      {},
+      initializeRequest(options.clientVersion),
       Effect.as(script.booting ?? Effect.void, initialized)
     ),
-    loadSession: (sessionId, cwd, mcpServers) =>
+    loadSession: (sessionId, cwd, session) =>
       call(
         "session/load",
-        { cwd, mcpServers, sessionId },
+        {
+          cwd,
+          mcpServers: [...(session?.mcpServers ?? [])],
+          sessionId,
+          ...withMeta(session?.meta),
+        },
         Effect.gen(function* () {
           sessionOptions.set(
             sessionId,
@@ -299,7 +308,11 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
     newSession: (cwd, session) =>
       call(
         "session/new",
-        { cwd, ...session },
+        {
+          cwd,
+          mcpServers: [...(session?.mcpServers ?? [])],
+          ...withMeta(session?.meta),
+        },
         Effect.suspend(() => {
           if (!authenticated) {
             return refused("session/new", "Authentication required");
