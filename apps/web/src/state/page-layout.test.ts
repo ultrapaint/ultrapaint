@@ -52,14 +52,6 @@ const layoutOf = (frames: CanvasLayout["frames"] = {}): CanvasLayout => ({
 
 const initial = useEditor.getState();
 
-/**
- * Lets the promise jobs an answer queued run, and waits for no time: a timer of 0 runs after every
- * job queued before it. Two tests need it, as nothing tells a save done but `layoutSaved`, which
- * waits for all of them: one that a first save answered no longer holds its page, one that an undo
- * has not gone out before the save it waits for is answered (what did not happen has no signal).
- */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 beforeEach(() => {
   fakeApi.reset();
   fakeApi.respond("canvas.get", () => layoutOf());
@@ -324,9 +316,11 @@ describe("saving the layout", () => {
 
   it("keeps a page while a second save of it is in flight, the first answered", async () => {
     setFrame(home.id, desktop(50));
+    // Asked now, it waits for the first save alone: the second is not on its way yet.
+    const firstSaved = layoutSaved();
     setFrame(home.id, desktop(70));
     answers[0]?.();
-    await settle();
+    await firstSaved;
     pushed({ [home.path]: desktop(50) });
     expect(frameOf(home.id)).toMatchObject({ x: 70 });
     answers[1]?.();
@@ -334,10 +328,13 @@ describe("saving the layout", () => {
   });
 
   it("undoes once the saves in flight are answered", async () => {
+    vi.useFakeTimers();
     fakeApi.respond("edit.undo", () => null);
     setFrame(home.id, desktop(50));
     const undone = undoOrRedo(false);
-    await settle();
+    // An undo not sent has no signal: the fake clock's turn lets every promise job the undo
+    // queued run first, and it is still waiting for the save.
+    await vi.advanceTimersByTimeAsync(0);
     expect(fakeApi.calls.map((c) => c.method)).not.toContain("edit.undo");
     answers[0]?.();
     await undone;
