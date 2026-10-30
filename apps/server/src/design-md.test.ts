@@ -111,15 +111,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           }
           yield* client["components.change"]({
             change: {
-              look: {
-                base: {
-                  ...button.base,
-                  root: { ...button.base.root, fill: "$color-brand" },
-                },
-                states: button.states,
-                variants: button.variants,
-              },
-              op: "setLook",
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { ...button.base.root, fill: "$color-brand" },
             },
             name: "Button",
           });

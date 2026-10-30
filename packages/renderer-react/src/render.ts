@@ -11,7 +11,6 @@ import {
   appComponentsIn,
   type ComponentFile,
   type ItemTemplate,
-  SYSTEM_FROM,
   type SystemComponentFile,
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
@@ -578,18 +577,10 @@ const InstanceView = ({
   node: InstanceNode;
   style: Style;
 }): ReactNode => {
-  const scope = useContext(ScopeContext) as Scope;
   if (node.from === APP_FROM) {
     return createElement(AppView, { node, style });
   }
-  if (node.from === SYSTEM_FROM) {
-    return createElement(SystemView, { node, style });
-  }
-  return createElement(Missing, {
-    ...marksOf(scope, node),
-    style,
-    text: `${node.component} is a component of the repository's: the canvas draws system components`,
-  });
+  return createElement(SystemView, { node, style });
 };
 
 /** Tells the core once a render is on the screen, so rects are measured on what is there. */

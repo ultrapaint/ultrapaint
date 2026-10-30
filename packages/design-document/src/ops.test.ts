@@ -8,7 +8,7 @@ import type {
 import { describe, expect, it } from "vitest";
 import { fillIds, makeIdGenerator } from "./ids.ts";
 import { applyOps, cloneJson, DocumentOpError, touchedBy } from "./ops.ts";
-import { canvasRoot, findNode, parentOf } from "./tree.ts";
+import { canvasRoot, findNode, findPath } from "./tree.ts";
 
 const text = (id: string, value = id): DesignNode => ({
   id,
@@ -39,7 +39,7 @@ const card = (
   words?: string
 ): InstanceNode => ({
   component: "Card",
-  from: "@ui/card",
+  from: "@ultrapaint/system",
   id,
   type: "instance",
   ...(children && { children }),
@@ -189,7 +189,12 @@ describe("applyOps", () => {
   it("sets and clears instance props", () => {
     const start: PageNode = {
       children: [
-        { component: "Button", from: "@ui/button", id: "b", type: "instance" },
+        {
+          component: "Button",
+          from: "@ultrapaint/system",
+          id: "b",
+          type: "instance",
+        },
       ],
       id: "root",
       type: "page",
@@ -225,7 +230,7 @@ describe("applyOps", () => {
       opts
     );
     expect(findNode(root, "new")).toMatchObject({ x: 0, y: 0 });
-    const group = parentOf(root, "free");
+    const group = findPath(root, "free")?.at(-2);
     expect(group).toMatchObject({ type: "group", x: 10, y: 20 });
     expect(findNode(root, "free")).not.toHaveProperty("x");
   });

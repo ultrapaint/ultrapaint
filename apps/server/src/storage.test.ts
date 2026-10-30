@@ -289,9 +289,9 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.isTrue(yield* fs.exists(path.join(state, "run.json")));
 
           // Later changes go to the file, and a second save is refused.
-          yield* client["settings.set"]({ ...settings, theme: "dark" });
+          yield* client["settings.set"]({ ...settings, codeTokens: "auto" });
           const again = JSON.parse(yield* fs.readFileString(configPath));
-          assert.strictEqual(again.theme, "dark");
+          assert.strictEqual(again.codeTokens, "auto");
           const twice = yield* Effect.flip(
             client["settings.persist"]({
               configPath,
@@ -327,7 +327,6 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
         const { settings } = yield* client["project.info"]();
         assert.strictEqual(settings?.repoPath, repo);
         assert.deepStrictEqual(settings?.libraryDirs, []);
-        assert.strictEqual(settings?.theme, "light");
         const info = yield* client["project.info"]();
         assert.strictEqual(info.storage.mode, "file");
       })
@@ -339,12 +338,12 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
         Effect.gen(function* () {
           const { client, repo, settings } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          yield* client["settings.set"]({ ...settings, theme: "dark" });
+          yield* client["settings.set"]({ ...settings, codeTokens: "auto" });
           const written = JSON.parse(
             yield* fs.readFileString(`${repo}/ultrapaint.json`)
           );
           assert.strictEqual(written.$schema, "./schema.json");
-          assert.strictEqual(written.theme, "dark");
+          assert.strictEqual(written.codeTokens, "auto");
           assert.notProperty(written, "repoPath");
         })
     );
@@ -433,11 +432,11 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.strictEqual(info.storage.configPath, renamed);
           const { settings } = yield* client["project.info"]();
           if (settings) {
-            yield* client["settings.set"]({ ...settings, theme: "dark" });
+            yield* client["settings.set"]({ ...settings, codeTokens: "auto" });
           }
           assert.strictEqual(
-            JSON.parse(yield* fs.readFileString(renamed)).theme,
-            "dark"
+            JSON.parse(yield* fs.readFileString(renamed)).codeTokens,
+            "auto"
           );
           const again = yield* Effect.flip(client["settings.renameConfig"]());
           assert.strictEqual(again._tag, "BadRequest");
@@ -446,18 +445,18 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
           // Its news comes before that of the file written after it, which is read.
           yield* fs.writeFileString(
             legacy,
-            JSON.stringify({ designsDir: "elsewhere", theme: "dark" })
+            JSON.stringify({ codeTokens: "auto", designsDir: "elsewhere" })
           );
           yield* fs.writeFileString(
             renamed,
             JSON.stringify({
               ...JSON.parse(yield* fs.readFileString(renamed)),
-              theme: "light",
+              codeTokens: "manual",
             })
           );
           const rewritten = yield* waitFor(
             client["project.info"](),
-            (now) => now.settings?.theme === "light"
+            (now) => now.settings?.codeTokens === "manual"
           );
           assert.strictEqual(rewritten.settings?.designsDir, "designs");
           yield* fs.remove(legacy);
@@ -531,12 +530,11 @@ describe("an unsaved session in a directory the command lends", () => {
       const sessionDir = yield* tempDir;
       const storage: StorageTarget = { mode: "ephemeral", sessionDir };
       const settings = {
-        componentPackages: [],
+        codeTokens: "auto" as const,
         designsDir: "designs",
         hostCss: [],
         libraryDirs: [],
         repoPath: repo,
-        theme: "dark" as const,
       };
 
       const first = yield* Effect.scoped(
@@ -572,12 +570,10 @@ describe("an unsaved session in a directory the command lends", () => {
       const sessionDir = yield* tempDir;
       const services = settingsOf(repo, { mode: "ephemeral", sessionDir });
       const settings = {
-        componentPackages: [],
         designsDir: "designs",
         hostCss: [],
         libraryDirs: [],
         repoPath: repo,
-        theme: "light" as const,
       };
       yield* Effect.scoped(
         Effect.gen(function* () {

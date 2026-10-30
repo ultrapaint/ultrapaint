@@ -45,7 +45,7 @@ const column = (
 
 const button = (id: string): DesignNode => ({
   component: "Button",
-  from: "@acme/ui/button",
+  from: "@ultrapaint/system",
   id,
   text: "Buy",
   type: "instance",

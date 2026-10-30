@@ -26,7 +26,6 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
-  "system",
   "code-tokens",
   "design-md",
   "design-tokens",
@@ -125,19 +124,6 @@ export const SyncFacts = Schema.Struct({
   ),
   /** The component directories the settings name. */
   libraryDirs: Schema.Array(Schema.String),
-  /**
-   * What the designs hold from before (ADRs 0040, 0041), when there is any: instances to draw as
-   * now (the repository's components a system component can draw, system components and drafts
-   * as they were named), instances of the repository's no system component is like, and specs'
-   * files to make components' of.
-   */
-  oldInstances: Schema.optional(
-    Schema.Struct({
-      drawn: Schema.Number,
-      left: Schema.Number,
-      specs: Schema.optional(Schema.Number),
-    })
-  ),
   styleSystem: Schema.String,
   /** The stylesheets the settings name. */
   stylesheets: Schema.Number,

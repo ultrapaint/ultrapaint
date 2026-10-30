@@ -96,12 +96,10 @@ describe("a new design", () => {
           yield* fs.readFileString(path.join(folder, "ultrapaint.config.json"))
         );
         assert.deepStrictEqual(config, {
-          componentPackages: [],
           designsDir: "designs",
           hostCss: ["../../app/src/index.css"],
           libraryDirs: ["app/src/components"],
           resolveFrom: "app",
-          theme: "light",
         });
         assert.isTrue(yield* fs.exists(path.join(folder, "designs")));
         assert.isTrue(yield* fs.exists(path.join(folder, "app/package.json")));

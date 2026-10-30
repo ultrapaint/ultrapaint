@@ -134,8 +134,6 @@ ${userAdds(extra)}</ultrapaint-task>`
             return yield* pageTasks.importFigma(request);
           case "Redraw":
             return yield* pageTasks.redraw(request);
-          case "Components":
-            return yield* pageTasks.components(request);
           case "SetupStep":
             return yield* setupStep(request);
           case "Sync":

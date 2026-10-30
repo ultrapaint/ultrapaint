@@ -32,7 +32,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { OptionSelect } from "../components/option-select.tsx";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
@@ -51,11 +50,6 @@ import {
 } from "./settings-agents.tsx";
 import { Group, Row } from "./settings-group.tsx";
 import { ProfileGroup } from "./settings-profile.tsx";
-
-const themes = [
-  { label: "Light", value: "light" },
-  { label: "Dark", value: "dark" },
-];
 
 const LIST_SEPARATOR_RE = /[\n,]/;
 
@@ -205,13 +199,11 @@ const SaveProblems = ({
   designsDir,
   onCreateDesigns,
   problems,
-  resolveFrom,
 }: {
   busy: boolean;
   designsDir: string;
   onCreateDesigns: () => void;
   problems: readonly string[];
-  resolveFrom: string | undefined;
 }) => {
   if (problems.length === 0) {
     return null;
@@ -241,11 +233,8 @@ const SaveProblems = ({
               Create {designsDir}
             </Button>
             <span className="font-body text-muted-foreground">
-              Creates the directory with a tsconfig.json
-              {resolveFrom
-                ? `, and links the dependencies of ${resolveFrom} (git-ignored) so editors resolve what the pages import`
-                : ""}
-              . Nothing is installed.
+              Creates the directory: pages import nothing (ADR 0040), so nothing
+              is installed or linked.
             </span>
           </div>
         ) : null}
@@ -524,16 +513,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const libraryDirs = list(e.target.value);
     setDraft((d) => ({ ...d, libraryDirs }));
   };
-  const onComponentPackages = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const componentPackages = list(e.target.value);
-    setDraft((d) => ({ ...d, componentPackages }));
-  };
   const onPagePngs = (on: boolean) =>
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onGit = (on: boolean) =>
     setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
-  const onTheme = (v: string) =>
-    setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
   const onSkill = (name: string, enabled: boolean) =>
     setDraft((d) => {
       const current = d.skills?.disabled ?? [];
@@ -625,19 +608,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             value={draft.libraryDirs.join("\n")}
           />
         </Row>
-        <Row
-          description="Packages of components the application uses (a component library), one per line."
-          htmlFor="settings-packages"
-          title="Component packages"
-          wide
-        >
-          <Textarea
-            className="min-h-14 font-code"
-            id="settings-packages"
-            onChange={onComponentPackages}
-            value={draft.componentPackages.join("\n")}
-          />
-        </Row>
       </Group>
       <Group
         description="Pictures of the screens, kept in the repository beside the design documents."
@@ -722,18 +692,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const editor = (
     <>
       <ProfileGroup />
-      <Group title="Appearance">
-        <Row
-          description="The theme the editor and the preview are drawn in."
-          title="Theme"
-        >
-          <OptionSelect
-            onChange={onTheme}
-            options={themes}
-            value={draft.theme}
-          />
-        </Row>
-      </Group>
       <SendKeyGroup />
     </>
   );
@@ -775,7 +733,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               designsDir={draft.designsDir}
               onCreateDesigns={createDesigns}
               problems={problems}
-              resolveFrom={draft.resolveFrom}
             />
             <div className="flex items-center justify-between gap-4">
               <p

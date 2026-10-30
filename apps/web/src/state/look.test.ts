@@ -47,7 +47,7 @@ const setComponents = (components: ComponentFile[]) =>
 
 beforeEach(() => {
   fakeApi.reset();
-  useLookDraft.setState({ draft: null });
+  useLookDraft.setState({ draft: null, settling: false });
   setComponents([BUTTON]);
 });
 
@@ -86,6 +86,15 @@ describe("a look edited live (ADR 0045, B9)", () => {
         { component: saved, file: "components/Button.component.json" },
       ],
     }));
+    // The components the server sends back after the commit.
+    const sentBack = new Promise<void>((resolve) => {
+      const unsubscribe = useComponents.subscribe((now, before) => {
+        if (now.components !== before.components) {
+          unsubscribe();
+          resolve();
+        }
+      });
+    });
     const committed = commitStyle(OUTLINE_HOVER);
     // The field closing as it commits does not let the draft go.
     draftStyle(null);
@@ -105,7 +114,8 @@ describe("a look edited live (ADR 0045, B9)", () => {
         method: "components.change",
       }
     );
-    await vi.waitFor(() => expect(useLookDraft.getState().draft).toBeNull());
+    await sentBack;
+    expect(useLookDraft.getState().draft).toBeNull();
     expect(buttonIn(lastLook(setLook))).toEqual(saved);
     stop();
   });

@@ -160,41 +160,6 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
       ];
 };
 
-/**
- * Designs from before (ADRs 0040, 0041): pages made with the repository's components, instances
- * of system components and drafts as they were named, and specs' files, brought up to date in
- * one step.
- */
-const systemSteps = (facts: SyncFacts): SyncStep[] => {
-  const old = facts.oldInstances;
-  const specs = old?.specs ?? 0;
-  if (!old || old.drawn + specs === 0) {
-    return [];
-  }
-  const left =
-    old.left > 0
-      ? ` ${plural(old.left, "instance")} of components no system component is like ${old.left === 1 ? "stays as it is" : "stay as they are"}.`
-      : "";
-  const what = [
-    old.drawn > 0
-      ? `${plural(old.drawn, "instance")} from before can be drawn as now, keeping their props, children and text`
-      : null,
-    specs > 0
-      ? `${plural(specs, "component spec")} can be made ${specs === 1 ? "a component" : "components"} of the components/ directory`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(", and ");
-  return [
-    step(
-      "system",
-      "Bring your designs up to date",
-      "attention",
-      `${what}, in one step you can undo.${left}`
-    ),
-  ];
-};
-
 const figmaStepOf = (facts: SyncFacts, synced: boolean) => {
   const name = facts.figma?.name;
   // Without a design system yet, Figma's tokens go into the code it is then made from.
@@ -335,7 +300,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
   const { drift, facts, figmaSynced, setup } = input;
   const kind = caseOf(facts);
   const figma = kind === "figma" || kind === "figma-code";
-  const head = [...settingsSteps(facts), ...systemSteps(facts)];
+  const head = settingsSteps(facts);
   if (kind === "maintain") {
     return [
       ...head,

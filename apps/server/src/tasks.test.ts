@@ -126,11 +126,6 @@ describe("tasks, with the editor's MCP server", () => {
         assert.include(redraw, "to wireframes");
         assert.include(redraw, 'always passing canvas: "": read_page');
 
-        assert.include(
-          yield* textOf({ _tag: "Components", canvas: "" }),
-          "Draw a sheet of this repository's design system into the canvas"
-        );
-
         const define = yield* textOf({ _tag: "SetupStep", step: "define" });
         assert.include(define, "This is the Define step");
         assert.include(define, "End by calling finish_setup_step");
@@ -351,7 +346,6 @@ describe("the editor's tools in what an agent is told", () => {
     >[];
   } = {
     Adopt: [{ _tag: "Adopt", targets: [] }],
-    Components: [{ _tag: "Components", canvas: "" }],
     Implement: [
       { _tag: "Implement", target: "/home" },
       { _tag: "Implement", target: "component:PricingCard" },

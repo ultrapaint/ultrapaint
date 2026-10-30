@@ -6,9 +6,11 @@
  * what the rules cannot carry across is said in the warnings.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type {
   DesignNode,
   ImageFit,
+  InstanceFrom,
   PageNode,
 } from "@ultrapaint/contracts/document";
 import type { ComponentMapping } from "@ultrapaint/contracts/figma";
@@ -44,6 +46,8 @@ import { textNode } from "./text.ts";
 export interface ConvertOptions {
   readonly mapping: Readonly<Record<string, ComponentMapping>>;
   readonly next: IdGenerator;
+  /** The origin of a component a mapping names, as the catalogue has it; a system component's when left out. */
+  readonly originOf?: (component: string) => InstanceFrom;
   /** Colours the design system has a token for come out as that token. */
   readonly tokens?: TokenMatcher;
 }
@@ -513,7 +517,7 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     return compact({
       ...sizeOf(node, placement, NO_SIZE),
       component: mapping.component,
-      from: mapping.from ?? mapping.component,
+      from: options.originOf?.(mapping.component) ?? SYSTEM_FROM,
       id: next(idPrefix("instance")),
       name: node.name || undefined,
       props: Object.keys(props).length > 0 ? props : undefined,

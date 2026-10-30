@@ -87,12 +87,10 @@ describe("Connection", () => {
         const projects: boolean[] = [];
         connection.on("project", (info) => projects.push(info.configured));
         const settings: Settings = {
-          componentPackages: [],
           designsDir: "designs",
           hostCss: [],
           libraryDirs: [],
           repoPath: repo,
-          theme: "light",
         };
         const validation = yield* Effect.promise(() =>
           connection.request("settings.set", settings)

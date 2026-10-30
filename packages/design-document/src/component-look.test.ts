@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   type ComponentLook,
   lookCss,
-  partStyleCss,
   variantAttributeOf,
 } from "./component-look.ts";
 import { makeStyleContext } from "./css.ts";
@@ -59,50 +58,56 @@ describe("variantAttributeOf", () => {
   });
 });
 
-describe("partStyleCss", () => {
-  it("resolves tokens the way nodes do", () => {
+describe("lookCss", () => {
+  /** The declarations of a look's one rule, the root's. */
+  const rootCss = (
+    root: ComponentLook["base"][string],
+    context = ctx
+  ): string => lookCss([button({ base: { root } })], context);
+
+  it("resolves a part's tokens the way nodes do", () => {
     expect(
-      partStyleCss(
-        {
-          border: { color: "$color-primary", width: 2 },
-          fill: "$color-primary",
-          fontWeight: 600,
-          gap: "$spacing-2",
-          height: 36,
-          opacity: 0.5,
-          padding: { left: "$spacing-4", top: 4 },
-          radius: "50%",
-          shadow: "$shadow-sm",
-        },
-        ctx
-      )
-    ).toEqual({
-      "background-color": "var(--color-primary, #123456)",
-      "border-color": "var(--color-primary, #123456)",
-      "border-radius": "50%",
-      "border-style": "solid",
-      "border-width": "2px",
-      "box-shadow": "var(--shadow-sm, 0 1px 2px #0002)",
-      "font-weight": "600",
-      gap: "calc(var(--spacing, 0.25rem) * 2)",
-      height: "36px",
-      opacity: "0.5",
-      "padding-left": "calc(var(--spacing, 0.25rem) * 4)",
-      "padding-top": "4px",
-    });
+      rootCss({
+        border: { color: "$color-primary", width: 2 },
+        fill: "$color-primary",
+        fontWeight: 600,
+        gap: "$spacing-2",
+        height: 36,
+        opacity: 0.5,
+        padding: { left: "$spacing-4", top: 4 },
+        radius: "50%",
+        shadow: "$shadow-sm",
+      })
+    ).toBe(
+      `${ROOT} {
+  background-color: var(--color-primary, #123456);
+  border-color: var(--color-primary, #123456);
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 50%;
+  padding-top: 4px;
+  padding-left: calc(var(--spacing, 0.25rem) * 4);
+  height: 36px;
+  gap: calc(var(--spacing, 0.25rem) * 2);
+  opacity: 0.5;
+  box-shadow: var(--shadow-sm, 0 1px 2px #0002);
+  font-weight: 600;
+}
+`
+    );
   });
 
   it("recolours a border without drawing one, and works without a design system", () => {
     expect(
-      partStyleCss(
+      rootCss(
         { border: { color: "$color-border" }, padding: 8 },
         makeStyleContext(null)
       )
-    ).toEqual({ "border-color": "var(--color-border)", padding: "8px" });
+    ).toBe(
+      `${ROOT} {\n  border-color: var(--color-border);\n  padding: 8px;\n}\n`
+    );
   });
-});
 
-describe("lookCss", () => {
   it("styles the root and the slots inside it", () => {
     const css = lookCss(
       [
