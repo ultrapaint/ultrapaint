@@ -172,10 +172,12 @@ export class ProjectBriefing extends Context.Service<
   {
     /**
      * The briefing for the open project, for a thread of this purpose (ADR 0030), or nothing when
-     * no project is open.
+     * no project is open. `tools`: its agent has the editor's tools (ADR 0039), the server's MCP
+     * setting when it is not said.
      */
     readonly text: (
-      purpose: ThreadPurpose
+      purpose: ThreadPurpose,
+      options?: { readonly tools?: boolean }
     ) => Effect.Effect<string | undefined>;
   }
 >()("ultrapaint/server/ProjectBriefing") {
@@ -183,10 +185,14 @@ export class ProjectBriefing extends Context.Service<
     ProjectBriefing,
     Effect.gen(function* () {
       const project = yield* OpenProject;
-      const ways = agentWays((yield* ServerConfig).mcp);
+      const { mcp } = yield* ServerConfig;
       const sandbox = yield* AgentSandbox;
 
-      const build = Effect.fnUntraced(function* (purpose: ThreadPurpose) {
+      const build = Effect.fnUntraced(function* (
+        purpose: ThreadPurpose,
+        tools: boolean
+      ) {
+        const ways = agentWays(tools);
         const paths = yield* RepoPaths;
         const pages = yield* (yield* PagesService).list;
         const { settings } = paths;
@@ -200,7 +206,7 @@ export class ProjectBriefing extends Context.Service<
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
         const skills = yield* Effect.orElseSucceed(
-          Effect.flatMap(SkillsService, (service) => service.briefing),
+          Effect.flatMap(SkillsService, (service) => service.briefing(tools)),
           () => ""
         );
         const craft = craftOf(skills);
@@ -287,9 +293,9 @@ never write it; when styles are missing, send the user to Sync in the Design sys
       });
 
       return ProjectBriefing.of({
-        text: (purpose) =>
+        text: (purpose, options = {}) =>
           project
-            .use(build(purpose))
+            .use(build(purpose, options.tools ?? mcp))
             // No project open, or a repository the server cannot read: the agent manages without.
             .pipe(Effect.orElseSucceed(() => undefined)),
       });

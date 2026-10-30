@@ -36,8 +36,11 @@ In this product, also (told after the built-in "${title}" skill):
 export class SkillsService extends Context.Service<
   SkillsService,
   {
-    /** The skills that are on, as one markdown text for the briefing; empty when none. */
-    readonly briefing: Effect.Effect<string>;
+    /**
+     * The skills that are on, as one markdown text for the briefing, worded for an agent with the
+     * editor's tools or without them; empty when none.
+     */
+    readonly briefing: (tools: boolean) => Effect.Effect<string>;
     /**
      * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
      * that extends it. A skill the project already has is returned as it is.
@@ -60,10 +63,8 @@ export class SkillsService extends Context.Service<
       const dir = path.join(paths.designsDir, SKILLS_DIR);
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
-      // Worded for the tools the server offers: without them, none is named.
-      const builtIns = builtInSkills(
-        agentWays((yield* ServerConfig).mcp).tools
-      );
+      // As the settings show them: worded for the tools the server offers.
+      const { mcp } = yield* ServerConfig;
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
@@ -117,7 +118,9 @@ export class SkillsService extends Context.Service<
         );
       });
 
-      const list: Effect.Effect<SkillList> = Effect.gen(function* () {
+      /** Every skill, the built-ins worded for an agent with the tools or without them. */
+      const listFor = Effect.fnUntraced(function* (tools: boolean) {
+        const builtIns = builtInSkills(agentWays(tools).tools);
         const own = yield* projectFiles;
         const skills = builtIns.map((skill) => {
           const file = own.get(skill.name);
@@ -131,15 +134,17 @@ export class SkillsService extends Context.Service<
             skills.push(fromFile(name, file));
           }
         }
-        return { dir: relDir, skills };
-      }).pipe(Effect.withSpan("SkillsService.list"));
+        return { dir: relDir, skills } satisfies SkillList;
+      });
+      const list = listFor(mcp).pipe(Effect.withSpan("SkillsService.list"));
 
-      const briefing = Effect.map(list, ({ skills }) =>
-        skills
-          .filter((s) => s.enabled)
-          .map((s) => s.text.trim())
-          .join("\n\n")
-      );
+      const briefing = (tools: boolean) =>
+        Effect.map(listFor(tools), ({ skills }) =>
+          skills
+            .filter((s) => s.enabled)
+            .map((s) => s.text.trim())
+            .join("\n\n")
+        );
 
       const customise = Effect.fn("SkillsService.customise")(function* (
         name: string,

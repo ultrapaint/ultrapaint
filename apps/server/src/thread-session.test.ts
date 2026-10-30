@@ -574,6 +574,26 @@ describe("a turn", () => {
       }).pipe(Effect.provide(threadTest({ mcp: true })))
   );
 
+  it.effect(
+    "briefs an agent and words its task for the tools it was given, not the server's",
+    () =>
+      Effect.gen(function* () {
+        const agents = yield* ScriptedAgents;
+        const reaches = yield* started("/redraw marketing");
+        assert.deepStrictEqual(reaches.turn.texts.slice(0, 2), [
+          briefingFor("design", true),
+          taskFor("redraw", "marketing", true),
+        ]);
+        // An agent that cannot reach the server is told to do it without the tools.
+        yield* agents.script({ capabilities: { mcpCapabilities: {} } });
+        const cannot = yield* started("/redraw marketing");
+        assert.deepStrictEqual(cannot.turn.texts.slice(0, 2), [
+          briefingFor("design"),
+          taskFor("redraw", "marketing"),
+        ]);
+      }).pipe(Effect.provide(threadTest({ mcp: true })))
+  );
+
   test("offers each choice of an option the agent groups", () =>
     Effect.gen(function* () {
       const agents = yield* ScriptedAgents;
@@ -1388,7 +1408,8 @@ describe("switching a thread's agent", () => {
       const { agent, threadId, turn } = yield* started();
       yield* turn.end();
       yield* threadWhen(threadId, turnEnded);
-      // The next prompt is accepted but not running yet: its task is still being written.
+      // The next prompt is accepted and its turn begun, its task still being written for the
+      // session (it is worded for the tools the session was given).
       const sending = yield* Effect.forkChild(send(threadId, "/hold"));
       yield* Deferred.await(held.reached);
       const refused = yield* Effect.flip(
