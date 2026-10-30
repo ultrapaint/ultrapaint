@@ -27,6 +27,7 @@ import {
   tokenRow,
   tokensFound as tokensOf,
 } from "./board-nodes.ts";
+import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
@@ -96,7 +97,7 @@ const styleNode = (style: TextStyle): DesignNode => {
       },
     ],
     gap: 4,
-    id: `style:${style.name}`,
+    id: pickId({ kind: "style", name: style.name }),
     padding: { bottom: 10, top: 10 },
     type: "column",
     width: "fill",
@@ -139,7 +140,7 @@ const typographyBoards = (ds: DesignSystem, q: string): Boards => {
       ),
     ],
     gap: 4,
-    id: `token:${font.name}`,
+    id: pickId({ kind: "token", name: font.name }),
     padding: { bottom: 8, top: 8 },
     type: "column" as const,
     width: "fill" as const,

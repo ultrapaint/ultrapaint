@@ -36,6 +36,7 @@ import {
   libraryBoards,
   OVERVIEW,
 } from "../boards/library-boards.ts";
+import { pickOfId } from "../boards/pick.ts";
 import {
   type Board,
   type Boards,
@@ -160,12 +161,6 @@ export const useItemName = (open: BoardPlace) => {
   }
   return open.item === OVERVIEW ? "Overview" : open.item;
 };
-
-/**
- * What a board names for something a click picks: a token, a group, a cell, a style, a
- * component, an app component's variant.
- */
-const PICKABLE = /^(token|group|cell|style|item|variant):/;
 
 /** The tools that pick on a board: the pointer goes to the frame only in select. */
 const isSelecting = (s: { mode: string; spacePan: boolean }) =>
@@ -394,9 +389,11 @@ const BoardFrame = memo(
         (e.clientX - r.left) / zoom,
         (e.clientY - r.top) / zoom
       );
-      const nodeId = chain.findLast((id) => PICKABLE.test(id)) ?? null;
-      if (nodeId?.startsWith("item:")) {
-        openBoard({ item: nodeId.slice("item:".length), view: "library" });
+      // The innermost node that stands for something; a component's tile opens it.
+      const nodeId = chain.findLast((id) => pickOfId(id) !== null) ?? null;
+      const picked = nodeId === null ? null : pickOfId(nodeId);
+      if (picked?.kind === "item") {
+        openBoard({ item: picked.name, view: "library" });
         return;
       }
       // Another variant's board is clicked: the one edited in place is left.

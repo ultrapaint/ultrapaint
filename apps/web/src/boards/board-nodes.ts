@@ -9,6 +9,7 @@ import { tokenOf, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NODE_ATTRIBUTE } from "@ultrapaint/preview-core/preview";
+import { pickId } from "./pick.ts";
 
 /**
  * The selector of what the renderer draws for a board's node (its `NODE_ATTRIBUTE`), for what a
@@ -137,7 +138,7 @@ export const tokenRow = (
   ],
   crossAlign: "center",
   gap: 16,
-  id: `token:${token.name}`,
+  id: pickId({ kind: "token", name: token.name }),
   padding: { bottom: 6, top: 6 },
   type: "row",
   width: "fill",

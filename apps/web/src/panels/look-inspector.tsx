@@ -50,12 +50,8 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import {
-  axesOf,
-  cellId,
-  placeOfCell,
-  rowAxisOf,
-} from "../boards/library-boards.ts";
+import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
+import { cellId, placeOfCell } from "../boards/pick.ts";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";

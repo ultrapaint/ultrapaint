@@ -25,6 +25,7 @@ import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { label, nodeCss } from "./board-nodes.ts";
+import { cellId, pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 /** The Library's first item: every component, one click away from its board. */
@@ -239,7 +240,7 @@ export const overviewBoard = (
               },
             ],
             gap: 8,
-            id: `item:${c.name}`,
+            id: pickId({ kind: "item", name: c.name }),
             padding: 12,
             radius: 8,
             type: "column",
@@ -276,38 +277,8 @@ export const overviewBoard = (
 
 // ---- A system component's board ----
 
-const CELL_PREFIX = "cell:";
+/** How a row or a column of the base is named: no member, no state. */
 const BASE_WORD = "base";
-
-/**
- * The id of a cell of a system component's board, from the place of the look it shows (B6):
- * `cell:variant=outline:hover`, `cell:base:base` for the base itself.
- */
-export const cellId = ({ state, variant }: LookPlace) =>
-  `${CELL_PREFIX}${variant ? `${variant.axis}=${variant.member}` : BASE_WORD}:${state ?? BASE_WORD}`;
-
-/** The place of the look a cell shows; null for any other node. */
-export const placeOfCell = (nodeId: string): LookPlace | null => {
-  if (!nodeId.startsWith(CELL_PREFIX)) {
-    return null;
-  }
-  const rest = nodeId.slice(CELL_PREFIX.length);
-  const at = rest.lastIndexOf(":");
-  const member = rest.slice(0, at);
-  const state = rest.slice(at + 1);
-  const eq = member.indexOf("=");
-  const known = COMPONENT_STATES.find((s) => s === state) ?? null;
-  if (at < 0 || (state !== BASE_WORD && known === null)) {
-    return null;
-  }
-  return {
-    state: known,
-    variant:
-      eq < 0
-        ? null
-        : { axis: member.slice(0, eq), member: member.slice(eq + 1) },
-  };
-};
 
 /** A state's name over its column: the base is what an instance shows by default. */
 const stateTitle = (state: ComponentState | null) =>
@@ -517,10 +488,6 @@ export const appVariantOfBoard = (name: string): AppVariant | null => {
     : { member: name.slice(eq + 1), property: name.slice(0, eq) };
 };
 
-/** The sheet of an app component's board, named for the variant it draws: `variant:tone=featured`. */
-const appSheetId = (variant: AppVariant | null) =>
-  `variant:${appBoardName(variant)}`;
-
 /** The instance a board of an app component draws, which a double-click edits in place. */
 const APP_INSTANCE = "instance";
 
@@ -577,7 +544,7 @@ export const appComponentBoards = (file: AppComponentFile): Board[] => {
       root: {
         // Named for the variant it draws (B6): a click picks it, for the agents to be told.
         ...sheet(
-          appSheetId(variant),
+          pickId({ board: appBoardName(variant), kind: "variant" }),
           [inPlace.instance],
           appSheetWidth(file.tree)
         ),
