@@ -650,7 +650,6 @@ const EVERY_ACTION = {
   canvas: { command: true, paste: true },
   canvasEntry: {
     adopt: true,
-    componentSheet: true,
     delete: true,
     duplicate: true,
     duplicateWithAgent: true,

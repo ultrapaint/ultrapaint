@@ -504,7 +504,6 @@ export type CanvasEntryAction =
   | { kind: "rename" }
   | { kind: "duplicate" }
   | { kind: "duplicateWithAgent" }
-  | { kind: "componentSheet" }
   | { kind: "readyAll" }
   | { kind: "adopt" }
   /** Up (-1) or down (1) the list. */
@@ -528,7 +527,6 @@ export const canvasListEntries = (
     item({ kind: "rename" }, "Rename…"),
     item({ kind: "duplicate" }, "Duplicate…"),
     item({ kind: "duplicateWithAgent" }, "Duplicate with an agent…"),
-    item({ kind: "componentSheet" }, "Draw the components with an agent"),
     separator,
     item({ kind: "readyAll" }, "Mark every page ready to implement"),
     item({ kind: "adopt" }, "Find the pages' code with an agent"),

@@ -1,7 +1,8 @@
 /**
  * The tasks that draw or implement pages: implement a page or a component in the
- * application's code, link pages built already to their code, an uploaded Figma file as pages, a
- * canvas redrawn another way, and a sheet of the design system into a canvas.
+ * application's code, link pages built already to their code, an uploaded Figma file as pages, and a
+ * canvas redrawn another way. The components in every variant and state are the Library's boards
+ * (ADR 0045), which no agent draws.
  */
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import {
@@ -18,7 +19,6 @@ import { componentTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import type {
-  ComponentsTask,
   ImplementTask,
   ImportFigmaTask,
   RedrawTask,
@@ -38,7 +38,7 @@ import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
-import { needsTools, pageSchema, taskFailure, userAdds } from "./task-text.ts";
+import { needsTools, taskFailure, userAdds } from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
 
@@ -214,10 +214,6 @@ properties and its children in its slots; one the application does not have yet 
 `;
 };
 
-/**
- * How `/components` draws its sheet: through the tools, or by writing the pages' files, which
- * the user sizes on the canvas.
- */
 /** Past this many characters a page's design is given as an outline, read in parts with the tools. */
 const DESIGN_INLINE_LIMIT = 40_000;
 /** How deep the outline of a page too big to give whole goes. */
@@ -238,33 +234,6 @@ const designOf = (
   }
   return `The design is large: its outline, ${OUTLINE_DEPTH} levels down (a node there counts its children). Read each part with ${ways.tools.read_page} (route "${page.file}", node its id) as you write it:
 ${JSON.stringify(outlineOf(root, OUTLINE_DEPTH))}`;
-};
-
-const sheetSteps = (ways: AgentWays, canvas: string, designsDir: string) => {
-  const { tools } = ways;
-  const create = tools
-    ? `Create them with ${tools.create_page} and
-   canvas: ${named(canvas)}`
-    : `Write each as a .page.json file in ${canvas === "" ? designsDir : `${designsDir}/${canvas}`}`;
-  return numbered([
-    `Read the design system for each component's category, description and example props
-   (${ways.readDesignSystem(designsDir)}), and ${ways.readComponent} for its props and variants.`,
-    `One page per category named "Components <category>" ("Components forms"), or one page named
-   "Components" when there are fewer than a dozen components. ${create}, without a URL: a sheet is not a screen of the application.`,
-    `In a page, per component: its name as a heading and one line on what it is for, in the design
-   system's text styles; under them a row that wraps, with one instance for each value of each
-   variant prop (a Button in each variant; for two variant props, one row per value of the first).
-   Give every instance its example props and text so it draws something, and show the states it
-   has (disabled, loading, invalid) where they change how it looks.${tools ? "" : ` The page format: ${pageSchema()}`}`,
-    tools
-      ? `Size each page's frame with ${tools.set_frame}, 1440 wide and tall enough to show the whole sheet.`
-      : null,
-    tools
-      ? `Look at every page with ${tools.get_screenshot} and fix what is off: overlaps, clipped content,
-   instances that draw nothing.`
-      : null,
-    `End with a short summary: the pages written, and the components you could not draw and why.${tools ? "" : " Tell the user to size each page's frame on the canvas, 1440 wide and tall enough to show the whole sheet."}`,
-  ]);
 };
 
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
@@ -648,47 +617,5 @@ ${ways.editPages(named(id))}
       })
     );
 
-  const components = ({ canvas: id, extra }: ComponentsTask) =>
-    project.use(
-      Effect.gen(function* () {
-        const { canvases, pages } = yield* (yield* PagesService).list;
-        const canvas = canvases.find((c) => c.id === id);
-        if (!canvas) {
-          return yield* unknownCanvas("components", id, canvases);
-        }
-        const catalogue = yield* (yield* ComponentService).catalogue;
-        const known = catalogue.map((c) => {
-          const variants = Object.entries(c.variants)
-            .map(([name, values]) => `${name}=${values.join("|")}`)
-            .join(" ");
-          return `- ${c.name} (${c.category})${variants ? `: ${variants}` : ""}`;
-        });
-        const sheets = pages
-          .filter(
-            (p) =>
-              p.canvas === id &&
-              (p.name.toLowerCase().startsWith("components") ||
-                p.route?.startsWith("/components") === true)
-          )
-          .map((p) => p.file);
-        const { tools } = ways;
-        const { designsDir } = (yield* RepoPaths).settings;
-        return `<ultrapaint-task command="components">
-Draw a sheet of this repository's design system into the canvas "${canvas.name}" (${named(id)}): every component a
-designer would place, in each of its variants, so the canvas shows what there is to design with.
-
-The components, with their category and variants:
-${known.join("\n") || `- none found${tools ? `: call ${tools.list_components}` : ""}`}
-${
-  sheets.length > 0
-    ? `\nThe canvas has sheets already (${sheets.join(", ")}): bring them up to date rather than drawing them again —
-add what is missing, take out what the design system no longer has.\n`
-    : ""
-}
-${sheetSteps(ways, id, designsDir)}
-${userAdds(extra)}</ultrapaint-task>`;
-      })
-    );
-
-  return { adopt, components, implement, importFigma, redraw };
+  return { adopt, implement, importFigma, redraw };
 });
