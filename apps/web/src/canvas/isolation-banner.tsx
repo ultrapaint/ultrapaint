@@ -6,6 +6,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { appComponentOf, useComponents } from "../state/components.ts";
+import { isBoardFrame } from "../state/documents.ts";
 import {
   editVariant,
   leaveIsolation,
@@ -26,7 +27,8 @@ const typing = (event: KeyboardEvent) => {
 
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, or Escape.
+ * on, and the way out: Done, or Escape. On its board (ADR 0045) the board edited says the member,
+ * a board a variant, and the banner only names it.
  */
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
@@ -53,6 +55,7 @@ export const IsolationBanner = () => {
     return null;
   }
   const choices = file.properties.filter((p) => p.kind === "choice");
+  const onBoard = isBoardFrame(isolated.frame);
   const current = isolated.variant
     ? `${isolated.variant.property}\n${isolated.variant.member}`
     : "";
@@ -70,7 +73,12 @@ export const IsolationBanner = () => {
             · every instance follows
           </span>
         </span>
-        {choices.length > 0 ? (
+        {onBoard && isolated.variant ? (
+          <span className="font-code text-muted-foreground">
+            {isolated.variant.property}={isolated.variant.member}
+          </span>
+        ) : null}
+        {choices.length > 0 && !onBoard ? (
           <NativeSelect
             aria-label="What the edits land on"
             onChange={(e) => {

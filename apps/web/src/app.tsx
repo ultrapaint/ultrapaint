@@ -452,9 +452,7 @@ export const App = () => {
                 <ShellNotices />
                 <CanvasStatus />
                 <SnapshotBanner />
-                {workspace === "prototype" || board ? null : (
-                  <IsolationBanner />
-                )}
+                {workspace === "prototype" ? null : <IsolationBanner />}
                 {workspace === "prototype" ? (
                   <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
                     <NoUrlWarning />

@@ -14,7 +14,7 @@ import type {
   DesignSystem,
   Token,
 } from "@ultrapaint/contracts/design-system";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
@@ -26,6 +26,17 @@ import { foundationBoards } from "./foundation-boards.ts";
 export interface Board {
   /** A stylesheet of its own, for what a document cannot say: an easing's animation (B12). */
   readonly css?: string;
+  /**
+   * An app component's instance it draws, whose tree a double-click edits in place there, the
+   * edits landing on the member it is drawn with (its own fields for none).
+   */
+  readonly inPlace?: {
+    readonly instance: InstanceNode;
+    readonly variant: {
+      readonly member: string;
+      readonly property: string;
+    } | null;
+  };
   /** Unique within the item: the last part of its frame id. */
   readonly name: string;
   readonly root: DesignNode;

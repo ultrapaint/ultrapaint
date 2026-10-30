@@ -7,10 +7,16 @@
  * Its frames are `board:<view>/<item>/<name>`, laid out in a row or a column as they report their
  * size (`boardLayout`), and told to the camera through `setBoardFrames`. A click picks the node a
  * board names for what it stands for (B6); on the Library's Overview, a component's tile opens it.
- * The interact tool makes a board run, as a page does.
+ * The interact tool makes a board run, as a page does. On an app component's board, a
+ * double-click edits its tree in place (`isolation.ts`), and that board then takes the pointer as
+ * a page's frame does: hover, select, drag, text typed where it is.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
-import type { ComponentFile } from "@ultrapaint/contracts/components";
+import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import {
+  APP_FROM,
+  type ComponentFile,
+} from "@ultrapaint/contracts/components";
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { cn } from "cn";
@@ -25,7 +31,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { libraryBoards, OVERVIEW } from "../boards/library-boards.ts";
+import {
+  drawnWidths,
+  libraryBoards,
+  OVERVIEW,
+} from "../boards/library-boards.ts";
 import {
   type Board,
   type Boards,
@@ -34,6 +44,7 @@ import {
   systemItemName,
 } from "../boards/system-boards.ts";
 import { boardLayout } from "../lib/board-layout.ts";
+import { updateNodes } from "../lib/node-actions.ts";
 import {
   type BoardPlace,
   openBoard,
@@ -45,8 +56,15 @@ import {
 import { nextView, setViewSoon } from "../state/camera.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { boardFrameOf } from "../state/documents.ts";
+import { boardFrameOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import {
+  isolate,
+  leaveIsolation,
+  useIsolatedRequest,
+  useIsolation,
+} from "../state/isolation.ts";
+import { useSelectedIn } from "../state/selection.ts";
 import {
   screenPx,
   UNZOOM,
@@ -54,9 +72,12 @@ import {
   useSpacePan,
   wheelView,
 } from "./camera.ts";
-import { frameOf, useFrameDrawing } from "./editor-frame.ts";
+import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
+import { Marquee, SelectLayer, useWatchedRects } from "./frame.tsx";
+import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { dotsBackground } from "./grid.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
+import { useFramePointer } from "./use-frame-pointer.ts";
 
 /** A component's file as a board draws it: the project's, or the system component's default look. */
 const fileOf = (
@@ -72,15 +93,47 @@ const useBoards = (open: BoardPlace): Boards => {
   const catalogue = useComponents((s) => s.catalogue);
   const components = useComponents((s) => s.components);
   const guideDraft = useBoard((s) => s.guideDraft);
+  const drawn = useOverviewWidths(open, catalogue);
   return useMemo(
     () =>
       open.view === "system"
         ? systemBoards(open.item, ds, withGuideDraft(document, guideDraft))
-        : libraryBoards(open.item, catalogue, (name) =>
-            fileOf(components, name)
+        : libraryBoards(
+            open.item,
+            catalogue,
+            (name) => fileOf(components, name),
+            drawn
           ),
-    [open, ds, document, catalogue, components, guideDraft]
+    [open, ds, document, catalogue, components, guideDraft, drawn]
   );
+};
+
+/**
+ * How wide the Overview draws each app component, measured as it draws: one that hugs what it
+ * holds says its width only drawn, and the Overview scales it to its tile with it.
+ */
+const useOverviewWidths = (
+  open: BoardPlace,
+  catalogue: readonly ComponentMeta[]
+): Readonly<Record<string, number>> => {
+  const [drawn, setDrawn] = useState<Readonly<Record<string, number>>>({});
+  const apps = useMemo(
+    () => catalogue.flatMap((c) => (c.importFrom === APP_FROM ? [c.name] : [])),
+    [catalogue]
+  );
+  const overview = open.view === "library" && open.item === OVERVIEW;
+  useEffect(() => {
+    if (!overview) {
+      return;
+    }
+    const frame = frameOf(boardFrameOf({ ...open, name: OVERVIEW }));
+    const measure = () => {
+      const rects = frame.measure(apps.map((name) => `example:${name}`));
+      setDrawn((was) => drawnWidths(apps, rects, was));
+    };
+    return frame.listen({ rendered: measure });
+  }, [overview, open, apps]);
+  return drawn;
 };
 
 /** DESIGN.md with a guideline's text as it is typed, for its board to draw. */
@@ -294,6 +347,10 @@ const BoardFrame = memo(
     const defaults = useBoardDefaults(board);
     const selecting = useEditor(isSelecting);
     const interactive = useEditor((s) => s.mode === "interact" && !s.spacePan);
+    const canvas = useEditor((s) => s.canvas) ?? "";
+    // The app component's tree edited in place here: drawn as the nodes the editor selects.
+    const isolated = useIsolatedRequest(frameId);
+    const editing = useIsolation((s) => s.isolated?.frame === frameId);
     useFrameDrawing(
       frameId,
       useMemo(
@@ -301,10 +358,11 @@ const BoardFrame = memo(
           ...(board.css && { css: board.css }),
           defaults,
           designSystem,
+          ...(isolated && { isolate: isolated }),
           mode: "fit" as const,
           root: board.root,
         }),
-        [board.css, defaults, designSystem, board.root]
+        [board.css, defaults, designSystem, isolated, board.root]
       )
     );
     const listeners = useMemo(
@@ -327,12 +385,25 @@ const BoardFrame = memo(
         openBoard({ item: nodeId.slice("item:".length), view: "library" });
         return;
       }
+      // Another variant's board is clicked: the one edited in place is left.
+      if (board.inPlace && useIsolation.getState().isolated) {
+        leaveIsolation();
+      }
       pickOnBoard(nodeId ? { frame: frameId, nodeId } : null);
+    };
+    /** An app component's tree is edited in place on its board, landing on its member. */
+    const onDoubleClick = () => {
+      if (board.inPlace) {
+        isolate(frameId, board.inPlace.instance, {
+          variant: board.inPlace.variant,
+        });
+      }
     };
 
     return (
       <div
-        className="absolute"
+        // The page around a tree edited in place is dimmed up to the board's edge, not past it.
+        className={cn("absolute", editing && "overflow-hidden rounded-lg")}
         data-board-frame={frameId}
         style={{
           height: box.height,
@@ -354,6 +425,7 @@ const BoardFrame = memo(
           <span className="text-muted-foreground">{board.title}</span>
         </div>
         <PreviewSurface
+          canvas={canvas}
           className="absolute top-0 left-0 w-max"
           frameId={frameId}
           hostClassName="block"
@@ -362,20 +434,74 @@ const BoardFrame = memo(
           style={{ "--inv": "1" } as CSSProperties}
           title={`${name}: ${board.title}`}
         />
-        {selecting ? (
+        {editing ? <BoardTree box={box} frameId={frameId} name={name} /> : null}
+        {selecting && !editing ? (
           <button
             aria-label={`Pick in ${name}: ${board.title}`}
             className="absolute inset-0 h-full w-full cursor-default"
             onClick={onClick}
+            onDoubleClick={onDoubleClick}
             type="button"
           />
         ) : null}
-        <PickOutline frameId={frameId} />
+        {editing ? null : <PickOutline frameId={frameId} />}
       </div>
     );
   }
 );
 BoardFrame.displayName = "BoardFrame";
+
+/**
+ * An app component's tree edited in place on a board: the pointer as a page's frame has it (a
+ * hover, a click, a drag, a marquee, a menu, text typed where it is) over the frame's preview, and
+ * the outlines of what is hovered and selected. The element toolbar is a page's: the inspector on
+ * the right edits what is selected here.
+ */
+const BoardTree = ({
+  box,
+  frameId,
+  name,
+}: {
+  box: Box;
+  frameId: string;
+  name: string;
+}) => {
+  const canvas = useEditor((s) => s.canvas);
+  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+  const selected = useSelectedIn(frameId);
+  const hover = useHoverIn(frameId);
+  useWatchedRects(frameId, [...selected, hover]);
+  useFrameEvents(frameId, {
+    rects: (rects) => useEditor.getState().setRects(frameId, rects),
+    textCommit: (nodeId, text) =>
+      updateNodes([{ frame: frameId, nodeId }], { text }, "Edit text"),
+  });
+  const pointer = useFramePointer({
+    canvas,
+    frame: box,
+    frameId,
+    kind: "board",
+    root,
+  });
+  return (
+    <div className="absolute inset-0">
+      <SelectLayer
+        name={name}
+        onClick={pointer.onSelectClick}
+        onContextMenu={pointer.onContextMenu}
+        onDoubleClick={pointer.onDoubleClick}
+        onGone={pointer.onSelectLayerGone}
+        onPointerCancel={pointer.onPointerCancel}
+        onPointerDown={pointer.onPointerDown}
+        onPointerLeave={pointer.onPointerLeave}
+        onPointerMove={pointer.onPointerMove}
+        onPointerUp={pointer.onPointerUp}
+      />
+      {pointer.marquee ? <Marquee box={pointer.marquee} /> : null}
+      <Highlights frameId={frameId} />
+    </div>
+  );
+};
 
 /** What is picked in a board, outlined where the frame has it, measured again as it draws. */
 const PickOutline = ({ frameId }: { frameId: string }) => {

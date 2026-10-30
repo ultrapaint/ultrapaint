@@ -9,9 +9,11 @@ import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
 import { leaveBoard, openBoard, useBoard } from "./state/board.ts";
 import { setView, zoomToFit } from "./state/camera.ts";
+import { useComponents } from "./state/components.ts";
 import { api } from "./state/connection.ts";
 import { useDocuments } from "./state/documents.ts";
 import { useEditor } from "./state/editor.ts";
+import { useIsolation } from "./state/isolation.ts";
 import { goTo } from "./state/location.ts";
 import { showLeftPanel } from "./state/panels.ts";
 import { useProject } from "./state/project.ts";
@@ -32,8 +34,10 @@ if (import.meta.env.DEV) {
     useAgents,
     useAttachments,
     useBoard,
+    useComponents,
     useDocuments,
     useEditor,
+    useIsolation,
     useProject,
     zoomToFit,
     // A page by its id, as a script has it.

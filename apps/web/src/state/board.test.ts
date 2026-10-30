@@ -3,6 +3,7 @@ import type { DocumentState } from "@ultrapaint/contracts/document";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
 import {
+  boardTree,
   followBoardHistory,
   leaveBoard,
   openBoard,
@@ -193,8 +194,30 @@ describe("frames", () => {
   });
 });
 
+const PLAN = {
+  name: "Plan",
+  origin: "app",
+  properties: [
+    {
+      default: "default",
+      kind: "choice",
+      members: ["default", "featured"],
+      name: "tone",
+    },
+  ],
+  slots: [],
+  tree: {
+    children: [{ id: "price", role: "paragraph", text: "$24", type: "text" }],
+    id: "plan-root",
+    type: "column",
+  },
+  version: 1,
+} as const;
+
+const FEATURED = "board:library/Plan/tone=featured";
+
 describe("the rail", () => {
-  it("has no Layers on a board view", () => {
+  it("has no Layers on a board view, but on an app component's", () => {
     expect(railTabsFor(null)).toContain("layers");
     expect(railTabsFor({ item: "color", view: "system" })).toEqual([
       "chat",
@@ -202,6 +225,44 @@ describe("the rail", () => {
       "library",
       "changes",
     ]);
+    useComponents.setState({ components: [PLAN] });
+    expect(railTabsFor({ item: "Plan", view: "library" })).toContain("layers");
+    expect(railTabsFor({ item: "Button", view: "library" })).not.toContain(
+      "layers"
+    );
+  });
+});
+
+describe("an app component's board", () => {
+  it("edits its tree in place where a node of it is selected, landing on the board's member", () => {
+    useComponents.setState({ components: [PLAN] });
+    openBoard({ item: "Plan", view: "library" });
+    // From Layers: a node of the tree selected on the first variant's board.
+    const tree = boardTree(useBoard.getState().open, {});
+    expect(tree).toEqual({
+      frame: "board:library/Plan/tone=default",
+      root: PLAN.tree,
+    });
+    useEditor.getState().select({ frame: FEATURED, nodeId: "price" });
+    expect(useEditor.getState().selection).toEqual({
+      frame: FEATURED,
+      nodeId: "price",
+    });
+    expect(useIsolation.getState().isolated).toMatchObject({
+      component: "Plan",
+      frame: FEATURED,
+      variant: { member: "featured", property: "tone" },
+    });
+    expect(boardTree(useBoard.getState().open, {})?.frame).toBe(FEATURED);
+    // Nothing else of a board takes a selection.
+    useEditor
+      .getState()
+      .select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
+    expect(useEditor.getState().selection?.frame).toBe(FEATURED);
+    // Another item leaves the tree, and selects nothing.
+    openBoard({ item: "Button", view: "library" });
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection).toBeNull();
   });
 });
 

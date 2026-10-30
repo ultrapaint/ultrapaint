@@ -55,6 +55,7 @@ import {
   setLocked,
 } from "../lib/node-actions.ts";
 import { renamePageTo } from "../lib/page-actions.ts";
+import { boardTree, useBoard } from "../state/board.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import {
   canvasNodes,
@@ -298,6 +299,17 @@ type Line =
   | { kind: "heading"; text: string }
   | { kind: "row"; row: VisibleRow };
 
+/** What the tree listed is: a component edited in place, an app component's, or the canvas's. */
+const headingOf = (
+  isolated: string | null,
+  board: ReturnType<typeof useBoard.getState>["open"]
+) => {
+  if (isolated) {
+    return `Editing ${isolated}`;
+  }
+  return board ? board.item : "On the canvas";
+};
+
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
   const allPages = useProject((s) => s.pages);
@@ -305,6 +317,8 @@ export const Layers = () => {
   const docs = useDocuments((s) => s.docs);
   const loaded = useDocuments((s) => s.loaded);
   const isolated = useIsolation((s) => s.isolated);
+  // On an app component's board (ADR 0045), its tree.
+  const board = useBoard((s) => s.open);
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
   const [folds, setFolds] = useState<Folds>(NO_FOLDS);
@@ -331,6 +345,10 @@ export const Layers = () => {
         nodes: [component],
       };
     }
+    const tree = boardTree(board, docs);
+    if (tree) {
+      return { items: [looseItem(tree.frame, tree.root)], nodes: [tree.root] };
+    }
     const placed = canvasNodes(docs, canvas);
     return {
       items: [
@@ -341,7 +359,7 @@ export const Layers = () => {
       ],
       nodes: placed,
     };
-  }, [allPages, canvas, docs, isolated]);
+  }, [allPages, board, canvas, docs, isolated]);
 
   const { query } = folds;
   const shown = useMemo(() => filterLayers(items, query), [items, query]);
@@ -363,7 +381,7 @@ export const Layers = () => {
       headed = true;
       lines.push({
         kind: "heading",
-        text: isolated ? `Editing ${isolated.component}` : "On the canvas",
+        text: headingOf(isolated?.component ?? null, board),
       });
       heights.push(HEADING);
     }

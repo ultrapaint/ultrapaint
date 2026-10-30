@@ -112,7 +112,7 @@ interface Props {
  * The nodes whose rects a frame reports (hover, selection, agents' work; null for none), told
  * when they change: the frame measures them again whenever it draws.
  */
-const useWatchedRects = (
+export const useWatchedRects = (
   frameId: string,
   nodeIds: readonly (string | null)[]
 ) => {
@@ -371,7 +371,7 @@ const PreviewHost = ({
 type LayerHandler<E> = (e: E) => void;
 
 /** Over the frame in select mode, without Space held: what picks nodes in the preview. */
-const SelectLayer = ({
+export const SelectLayer = ({
   name,
   onClick,
   onContextMenu,
@@ -449,7 +449,7 @@ const CommentLayer = ({
 };
 
 /** The box being drawn over a frame to select what it touches. */
-const Marquee = ({
+export const Marquee = ({
   box,
 }: {
   box: { height: number; width: number; x: number; y: number };
