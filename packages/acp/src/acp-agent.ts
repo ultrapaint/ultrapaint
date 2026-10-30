@@ -59,6 +59,7 @@ export type {
   InitializeResponse,
   LoadSessionResponse,
   NewSessionResponse,
+  Plan,
   PromptResponse,
   ReadTextFileRequest,
   RequestPermissionRequest,
@@ -69,6 +70,8 @@ export type {
   SessionUpdate,
   SetSessionConfigOptionResponse,
   StopReason,
+  ToolCallContent,
+  ToolCallLocation,
   ToolCallUpdate,
   WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";

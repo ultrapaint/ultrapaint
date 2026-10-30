@@ -188,6 +188,23 @@ describe("the agent events", () => {
     expect(useAgents.getState().items.t).toHaveLength(1);
   });
 
+  it("puts a streamed chunk at the end of its item, the others kept as they were", () => {
+    const other = said("2", "Done before");
+    useAgents.setState({
+      items: { t: [other, said("1", "Hello ")] },
+      threads: [thread("t")],
+    });
+    fakeApi.emit("agent", {
+      itemId: "1",
+      text: "world",
+      threadId: "t",
+      type: "itemText",
+    });
+    const [kept, streamed] = useAgents.getState().items.t ?? [];
+    expect(kept).toBe(other);
+    expect(streamed).toEqual(said("1", "Hello world"));
+  });
+
   it("forgets a removed thread's transcript, terminals and work", () => {
     useAgents.setState({
       focused: { t: "p", u: "p" },

@@ -12,8 +12,9 @@ import type {
 } from "@ultrapaint/acp/acp-agent";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
-import { Deferred, Effect, Fiber, FileSystem } from "effect";
+import { Deferred, Effect, Fiber, FileSystem, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
+import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -671,6 +672,123 @@ describe("a turn", () => {
         outputTokens: 4,
         totalTokens: 11,
       });
+    }));
+
+  test("sends each chunk of a streamed reply alone, not with the reply so far", () =>
+    Effect.gen(function* () {
+      const events = yield* EventBus;
+      const { threadId, turn } = yield* started();
+      // Started at once, the fiber has subscribed by the time the fork returns.
+      const sent = yield* Effect.forkChild(
+        events.subscribe("agent").pipe(
+          Stream.filterMap((ev) =>
+            ev.type === "itemText" ? Result.succeed(ev.text) : Result.failVoid
+          ),
+          Stream.take(2),
+          Stream.runCollect
+        ),
+        { startImmediately: true }
+      );
+      yield* turn.say("Hello ");
+      yield* turn.say("world");
+      yield* turn.say("!");
+      // The first chunk opens the message; each one after is sent as itself.
+      assert.deepStrictEqual(yield* Fiber.join(sent), ["world", "!"]);
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(said(items), ["Hello world!"]);
+    }));
+
+  test("keeps the tail of a terminal's output in the tool call that ran it", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started();
+      const { terminalId } = yield* agent.host.terminal.create({
+        args: ["-c", "echo built"],
+        command: "/bin/sh",
+        sessionId: turn.sessionId,
+      });
+      yield* turn.update({
+        content: [{ terminalId, type: "terminal" }],
+        kind: "execute",
+        sessionUpdate: "tool_call",
+        status: "in_progress",
+        title: "Build",
+        toolCallId: "call_1",
+      });
+      yield* agent.host.terminal.waitForExit({
+        sessionId: turn.sessionId,
+        terminalId,
+      });
+      yield* agent.host.terminal.release({
+        sessionId: turn.sessionId,
+        terminalId,
+      });
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const tool = items.find((i) => i.kind === "tool");
+      assert.deepStrictEqual(tool?.kind === "tool" && tool.content, [
+        { output: "built\n", terminalId, type: "terminal" },
+      ]);
+    }));
+
+  test("sets an option that is a switch as a boolean, and a choice as its value", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({
+        configOptions: [
+          { currentValue: false, id: "fast", name: "Fast", type: "boolean" },
+          {
+            currentValue: "false",
+            id: "verbose",
+            name: "Verbose",
+            options: [
+              { name: "Yes", value: "true" },
+              { name: "No", value: "false" },
+            ],
+            type: "select",
+          },
+        ],
+      });
+      const { agent, threadId } = yield* started();
+      yield* threads.setConfigOption(threadId, "fast", "true");
+      yield* threads.setConfigOption(threadId, "verbose", "true");
+      const set = (yield* agent.calls).filter(
+        (c) => c.method === "session/set_config_option"
+      );
+      assert.deepStrictEqual(
+        set.map((c) => (c.params as { value: unknown }).value),
+        [true, "true"]
+      );
+    }));
+
+  test("keeps the mode and the mode option the same, whichever the agent changes", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({
+        configOptions: [
+          {
+            category: "mode",
+            currentValue: "ask",
+            id: "mode",
+            name: "Mode",
+            options: [
+              { name: "Ask", value: "ask" },
+              { name: "Auto", value: "auto" },
+            ],
+            type: "select",
+          },
+        ],
+      });
+      const { threadId, turn } = yield* started();
+      yield* turn.update({
+        currentModeId: "auto",
+        sessionUpdate: "current_mode_update",
+      });
+      yield* turn.end();
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.strictEqual(thread.currentModeId, "auto");
+      assert.strictEqual(thread.configOptions?.[0]?.currentValue, "auto");
     }));
 
   test("briefs the agent once per session, for the thread's purpose", () =>

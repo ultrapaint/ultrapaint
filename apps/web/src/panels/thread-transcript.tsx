@@ -223,17 +223,21 @@ const keyOfContent = (content: ToolContent, index: number) =>
     ? `diff:${content.path}:${index}`
     : `${content.type}:${index}`;
 
-/** A terminal the agent is running: its output arrives while the command is still going. */
+/**
+ * A terminal the agent is running: its output arrives while the command is still going, and its
+ * tail is kept with the tool call once the agent is done with it, for a page opened later.
+ */
 const TerminalView = ({
+  kept,
   terminalId,
   threadId,
 }: {
+  kept: string | undefined;
   terminalId: string;
   threadId: string;
 }) => {
-  const output = useAgents(
-    (s) => s.terminals[terminalKey(threadId, terminalId)]
-  );
+  const live = useAgents((s) => s.terminals[terminalKey(threadId, terminalId)]);
+  const output = live ?? kept;
   const end = useRef<HTMLDivElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: follow the tail as it grows
   useEffect(() => {
@@ -304,7 +308,13 @@ const ToolContentView = ({
     return <DiffContentView content={content} />;
   }
   if (content.type === "terminal") {
-    return <TerminalView terminalId={content.terminalId} threadId={threadId} />;
+    return (
+      <TerminalView
+        kept={content.output}
+        terminalId={content.terminalId}
+        threadId={threadId}
+      />
+    );
   }
   return (
     <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">

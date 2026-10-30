@@ -57,7 +57,11 @@ export type ThreadStatus = typeof ThreadStatus.Type;
 export const isBusy = (status: ThreadStatus | undefined): boolean =>
   status === "running" || status === "cancelling";
 
-/** A setting the agent's session offers: its model, reasoning effort, and the like. */
+/**
+ * A setting the agent's session offers: its model, reasoning effort, and the like. A `boolean`
+ * is on or off (its choices `true` and `false`) and is set as a boolean; a select, the kind a
+ * thread written before kept without saying, is one of its choices.
+ */
 export const ConfigOption = Schema.Struct({
   category: Schema.optional(Schema.String),
   currentValue: Schema.String,
@@ -70,6 +74,7 @@ export const ConfigOption = Schema.Struct({
       value: Schema.String,
     })
   ),
+  type: Schema.optional(Schema.Literals(["select", "boolean"])),
 });
 export type ConfigOption = typeof ConfigOption.Type;
 
@@ -325,10 +330,15 @@ export const ToolContent = Schema.Union([
     type: Schema.Literal("diff"),
   }),
   Schema.Struct({
+    /** The tail of what it printed, once it ended; while it runs, its output streams apart. */
+    output: Schema.optional(Schema.String),
     terminalId: Schema.String,
     type: Schema.Literal("terminal"),
   }),
 ]);
+
+/** How much of a terminal's output the editor keeps: its last characters. */
+export const TERMINAL_TAIL = 8000;
 export type ToolContent = typeof ToolContent.Type;
 
 /** Where in the repository a tool call is working, to the line when the agent says so. */
@@ -397,6 +407,31 @@ export type Answer = typeof Answer.Type;
 export const Answers = Schema.Record(Schema.String, Answer);
 export type Answers = typeof Answers.Type;
 
+/** What kind of thing a tool call does, as ACP names it, for its icon. */
+export const ToolKind = Schema.Literals([
+  "read",
+  "edit",
+  "delete",
+  "move",
+  "search",
+  "execute",
+  "think",
+  "fetch",
+  "switch_mode",
+  "other",
+]);
+export type ToolKind = typeof ToolKind.Type;
+
+/** Why the agent ended a turn, as ACP says it. */
+export const StopReason = Schema.Literals([
+  "end_turn",
+  "max_tokens",
+  "max_turn_requests",
+  "refusal",
+  "cancelled",
+]);
+export type StopReason = typeof StopReason.Type;
+
 export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
@@ -433,15 +468,15 @@ export const ThreadItem = Schema.Union([
     status: ToolCallStatus,
     title: Schema.String,
     toolCallId: Schema.String,
-    toolKind: Schema.optional(Schema.String),
+    toolKind: Schema.optional(ToolKind),
   }),
   Schema.Struct({
     at: Schema.Number,
     entries: Schema.Array(
       Schema.Struct({
         content: Schema.String,
-        priority: Schema.optional(Schema.String),
-        status: Schema.String,
+        priority: Schema.optional(Schema.Literals(["high", "medium", "low"])),
+        status: Schema.Literals(["pending", "in_progress", "completed"]),
       })
     ),
     id: Schema.String,
@@ -455,7 +490,12 @@ export const ThreadItem = Schema.Union([
     kind: Schema.Literal("permission"),
     options: Schema.Array(
       Schema.Struct({
-        kind: Schema.String,
+        kind: Schema.Literals([
+          "allow_once",
+          "allow_always",
+          "reject_once",
+          "reject_always",
+        ]),
         name: Schema.String,
         optionId: Schema.String,
       })
@@ -495,7 +535,7 @@ export const ThreadItem = Schema.Union([
     changedFiles: Schema.Array(Schema.String),
     id: Schema.String,
     kind: Schema.Literal("turn_end"),
-    stopReason: Schema.String,
+    stopReason: StopReason,
     /** What the turn spent, as the agent accounts for it, split by model. */
     usage: Schema.optional(TurnUsage),
   }),
@@ -594,6 +634,13 @@ export const AgentEvent = Schema.Union([
     item: ThreadItem,
     threadId: Schema.String,
     type: Schema.Literal("itemUpdate"),
+  }),
+  /** A streamed chunk: `text` goes at the end of the item's own, sent without the rest of it. */
+  Schema.Struct({
+    itemId: Schema.String,
+    text: Schema.String,
+    threadId: Schema.String,
+    type: Schema.Literal("itemText"),
   }),
   Schema.Struct({ threadId: Schema.String, type: Schema.Literal("removed") }),
 ]);

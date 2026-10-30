@@ -62,15 +62,16 @@ import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { makeAgentClient } from "./agent-client.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
-import {
-  agentFailure,
-  BOOLEAN_VALUES,
-  makeSessionOpener,
-} from "./agent-session.ts";
+import { agentFailure, makeSessionOpener } from "./agent-session.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { makePendingCards, type PendingCards } from "./pending-cards.ts";
 import { ThreadStore } from "./thread-store.ts";
-import { mapConfigOptions } from "./transcript.ts";
+import {
+  mapConfigOptions,
+  modeSet,
+  optionsSet,
+  optionValue,
+} from "./transcript.ts";
 import { makeTurn } from "./turn.ts";
 import { makePromptContent, scopeOf, titleOf, UNTITLED } from "./turns.ts";
 
@@ -307,13 +308,14 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
                 )
               ),
               (terminals) => ({
-                ...client.handlersFor(
-                  config.name,
+                ...client.handlersFor({
+                  agentName: config.name,
+                  cards,
+                  onTerminalEnd: turn.keepTerminal,
                   paths,
                   terminals,
-                  cards,
-                  writable
-                ),
+                  writable,
+                }),
                 onUpdate: (n) => turn.place(n.update, relative),
               })
             ),
@@ -703,23 +705,32 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
 
     const setConfigOption = Effect.fn("ThreadService.setConfigOption")(
       function* (optionId: string, value: string) {
-        const chosen = (yield* store.get(threadId))?.configOptions?.map((o) =>
+        const thread = yield* store.get(threadId);
+        const options = thread?.configOptions ?? [];
+        const chosen = options.map((o) =>
           o.id === optionId ? { ...o, currentValue: value } : o
         );
         const now = yield* current;
         // No session yet: the choice waits for the one the next prompt starts.
-        if (now === null) {
+        if (now === null || thread === undefined) {
           yield* store.update(threadId, { configOptions: chosen });
           return;
         }
-        const parsed = BOOLEAN_VALUES[value] ?? value;
         const response = yield* Effect.mapError(
-          now.session.agent.setConfigOption(now.sessionId, optionId, parsed),
+          now.session.agent.setConfigOption(
+            now.sessionId,
+            optionId,
+            optionValue(
+              options.find((o) => o.id === optionId),
+              value
+            )
+          ),
           agentFailure
         );
-        yield* store.update(threadId, {
-          configOptions: mapConfigOptions(response.configOptions) ?? chosen,
-        });
+        yield* store.update(
+          threadId,
+          optionsSet(thread, mapConfigOptions(response.configOptions) ?? chosen)
+        );
       }
     );
 
@@ -733,7 +744,10 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           agentFailure
         );
       }
-      yield* store.update(threadId, { currentModeId: modeId });
+      const thread = yield* store.get(threadId);
+      if (thread) {
+        yield* store.update(threadId, modeSet(thread, modeId));
+      }
     });
 
     return {
