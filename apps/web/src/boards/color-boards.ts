@@ -18,6 +18,7 @@ import {
 } from "@ultrapaint/contracts/themes";
 import { shortName } from "@ultrapaint/contracts/token-table";
 import { contrastRatio } from "@ultrapaint/contracts/token-value";
+import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
 import { label, MONO, sheet, text } from "./board-nodes.ts";
@@ -43,22 +44,9 @@ const neutralDesignSystem = (): DesignSystem => ({
   themes: ["light", "dark"],
 });
 
-const STEP_RE = /-(\d+)$/;
-
-/** A palette's step from its token's name: `color-primary-600` is 600. */
-export const stepOf = (name: string): number | null => {
-  const step: RegExpExecArray | null = STEP_RE.exec(name);
-  const found = step?.[1];
-  return found === undefined ? null : Number(found);
-};
-
 /** Whether a group is a palette's ramp: three shades or more, every one of them a step. */
 export const isRamp = (group: Pick<TokenGroup, "tokens">): boolean =>
-  group.tokens.length >= 3 &&
-  group.tokens.every((t) => {
-    const step = stepOf(t.name);
-    return step !== null && step >= 0 && step <= 1000;
-  });
+  group.tokens.length >= 3 && group.tokens.every((t) => shadeOf(t.name));
 
 const edge = (dark: boolean) => (dark ? "#ffffff1f" : "#0000001a");
 

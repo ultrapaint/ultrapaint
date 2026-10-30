@@ -24,11 +24,11 @@ import {
   tokenPrefix,
 } from "@ultrapaint/contracts/token-table";
 import { hexOf, parseColor } from "@ultrapaint/contracts/token-value";
+import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { Component, File, Palette, Type } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { stepOf } from "../boards/color-boards.ts";
 import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -467,7 +467,8 @@ export const GroupInspector = ({
       </p>
     );
   }
-  const shade = group.tokens.find((t) => stepOf(t.name) !== null);
+  const shaded = group.tokens.find((t) => shadeOf(t.name));
+  const shade = shaded && shadeOf(shaded.name);
   const slug = name.toLowerCase().replace(NOT_SLUG, "-");
   return (
     <>
@@ -491,13 +492,9 @@ export const GroupInspector = ({
       <AddToken
         ds={ds}
         group={name}
-        prefix={
-          shade
-            ? `${shade.name.slice(0, -`${stepOf(shade.name)}`.length)}`
-            : `color-${slug}-`
-        }
+        prefix={shade ? `${shade.prefix}-` : `color-${slug}-`}
       />
-      <RampSection ds={ds} name={shade?.name ?? `color-${slug}`} />
+      <RampSection ds={ds} name={shaded?.name ?? `color-${slug}`} />
     </>
   );
 };
