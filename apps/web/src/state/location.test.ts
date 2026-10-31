@@ -9,6 +9,7 @@ import {
   followBoardHistory,
   leaveBoard,
   openBoard,
+  openBoardInUrl,
   useBoard,
 } from "./board.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
@@ -183,6 +184,20 @@ describe("openStartCanvas", () => {
     });
     expect(localStorage.getItem("ultrapaint:canvas")).toBe("main");
     expect(outOfStep()).toEqual([]);
+  });
+
+  it("keeps the board view the URL names, as a reload or a link lands on it (ADR 0045)", async () => {
+    fakeBrowser.visit("/?canvas=main&view=library&item=Button");
+    // As the editor starts: the canvas, then the board view over it.
+    openStartCanvas();
+    openBoardInUrl();
+    await opened("main");
+    expect(useBoard.getState().open).toEqual({
+      item: "Button",
+      view: "library",
+    });
+    expect(readUrl().board).toEqual({ item: "Button", view: "library" });
+    leaveBoard("none");
   });
 
   it("opens on a page without a URL the URL names", async () => {
