@@ -395,10 +395,12 @@ export const openStartCanvas = (): boolean => {
   } else if (saved !== null && ids.includes(saved)) {
     canvas = saved;
   }
+  // A board view the URL names opens over the canvas as the editor starts: arriving keeps it.
   goTo(
     named === canvas
       ? { canvas, page: url.page, route: url.route, variant: url.variant }
-      : { canvas }
+      : { canvas },
+    { keepBoard: url.board !== null }
   );
   return true;
 };
