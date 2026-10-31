@@ -8,26 +8,46 @@ description: "Text is set in the design system's text styles. Size, weight and c
 Text is set in the design system's text styles. Size, weight and colour are chosen from them,
 never invented for a screen.
 
+Read `references/study.md` when you set a public page (a hero, a brand, shop, editorial,
+restaurant or portfolio page) or need numbers by character. It holds the counts from 4,983 sites,
+how technical, humanistic and expressive sites differ, and recipes for each.
+
 ## Text styles first
 
 Give every text node a `textStyle`: it brings size, weight and line height as one decision.
 Override one field only for what no style covers, with a token of the scale (`"$text-sm"`,
 `"$font-weight-medium"`).
 
+## The face, loaded
+
+Text is in the product's own face, actually loaded. A screen in the machine's fallback looks
+generic, and an accidental fallback beside the designed face reads as a defect. Interface text is
+a neo-grotesque or geometric sans, or a mono for a technical product. A serif may carry the
+display headlines of a landing or brand page when the brand asks for one. The product screens
+shown beneath those headlines stay sans. A text serif fits only long-form editorial reading.
+Navigation, labels, controls and tables stay sans.
+
 ## Few sizes, emphasis from weight
 
-Three sizes on a screen are enough: the title, the body, a small one for metadata. A fourth is
-for one display figure or headline: the balance a dashboard is for, a landing page's hero.
-Emphasis inside a role is one weight step up, `400` to `500`, not a larger size.
+Three sizes on a product screen are enough: the title, the body, a small one for metadata. A
+fourth is for one display figure, such as the balance a dashboard is for. A landing, brand or
+editorial page may use up to six across its sections, with one hero size. That size is about `62px` at
+the median, and between `44` and `90px` on half of well-made pages. Five or more sizes in one viewport of a product still
+merge. Emphasis inside a role is one weight step up, `400` to `500`, not a larger size.
 
 ## Titles sized by what they head
 
 A page's title is large only on a page that is about one thing. The title of a top bar, a panel or
 a small form ("Settings", "Reset your password") is body size, one weight step up: semibold at a
-modest size, never bold and large. A key figure is large, and its weight may stay regular.
-Navigation items, tabs and buttons share one weight, usually medium, never bold; navigation items
+modest size, never bold and large. A key figure is large, and its weight may stay regular. A
+display headline of `48px` and up ranks by its size: regular or medium by default, bold only when
+the brand calls for it.
+Navigation items, tabs and buttons share one weight, usually medium, never bold. Navigation items
 are in the muted colour, and the current one takes the foreground and its row's fill. A link
 inside a sentence stays in the sentence, at its weight, underlined.
+
+An eyebrow over a heading stays only when it states a fact the heading does not: a section number,
+a date, a category. One that repeats its heading, or that the brief did not ask for, is removed.
 
 Labels are one text style wherever a label sits: a field's label, the first line of a checkbox or
 switch row, a group's label, a table's row label. Semibold, `600`, in the foreground colour, a
@@ -48,8 +68,9 @@ wraps to three lines or more takes at least `1.4`.
 
 ## Tracking by size
 
-Headings of `24px` and up tighten to `-0.02em`. Text a style sets in capitals opens to
-`0.05em`. Body text keeps `0`.
+Headings of `24px` and up tighten to `-0.02em`. Capitals open only at label sizes: up to about
+`16px` they take `0.05–0.1em`. Uppercase display of `40px` and up stays at `0` or tightens. Body
+text keeps `0`.
 
 ## Cap the measure
 
@@ -86,9 +107,15 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | You see | Fix |
 | --- | --- |
 | `size` or `weight` as a raw number | A `textStyle`, or the scale's token |
-| Four sizes without a display figure, or five or more | Merge to the nearest of three |
+| Text in the machine's fallback face | Load the product's face |
+| A serif in navigation, labels, controls or tables | The product's sans |
+| On a product screen, four sizes without a display figure, or five or more | Merge to the nearest of three |
+| A public page with two hero sizes, or more than six sizes | One hero size; merge the rest |
 | A level 3 heading larger than its level 2 | A smaller style for the lower level |
 | A `28px` bold title in a top bar or over a small form | Body size, one weight up |
+| A bold display headline with no brand reason | Regular or medium |
+| An eyebrow that repeats its heading | Remove it |
+| A headline with two or more accents | One, or none |
 | Navigation labels in bold, or all in the foreground colour | One weight, usually medium, muted; the current one in the foreground |
 | A label at the same weight as its description, or muted | Semibold, the foreground |
 | Labels of fields, checkboxes, groups and table rows in different styles | One label style for all |
@@ -97,6 +124,7 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | A paragraph wider than about 75 characters | `maxWidth` on it or its column |
 | A three-line description at line height `1.1` | `1.4` or the body style |
 | A light weight at `14px` | `400` or heavier |
+| Uppercase display of `40px` and up tracked wide | `0` or tighter |
 | A description under a heading in the foreground colour | Muted |
 | `...` or straight quotes in prose | `…` and curly quotes |
 | Capitals typed into the text | Sentence case, uppercase from the style |

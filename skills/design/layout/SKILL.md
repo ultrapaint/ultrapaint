@@ -8,22 +8,38 @@ description: "A page is a few large regions on a grid, and it holds at every wid
 A page is a few large regions on a grid, and it holds at every width the product supports.
 Decide the regions first, then fill them.
 
+Read `references/study.md` when you design a public page. It holds widths, structures and heroes by character, with recipes.
+
 ## Regions before components
 
 Build a page from a few regions: a header, a navigation, a main column, maybe a side panel. Lay
-them out as rows and columns, then fill them with components.
+them out as rows and columns, then fill them with components. A public page is a stack of bands.
+Each band's background reaches the edges, and its content keeps one container width. A new
+section is a band of a new surface or a hairline rule, not a heading in a box.
 
 ## A few shared edges
 
 Pick a few alignment edges and put everything on them. Left edges of text line up, labels and
 values share a baseline (`crossAlign: "baseline"`) and every column starts at the same x. Each
-stray edge reads as noise, even when nobody can name it.
+stray edge reads as noise, even when nobody can name it. Each section picks one alignment, left
+or centred, and holds it. A centred hero over left-aligned sections is fine. Both alignments
+inside one section are not.
 
 ## Width has a ceiling
 
-The main column takes a `maxWidth` from the container tokens (`"$container-3xl"`) and the rest
-is margin. A form stops at its longest comfortable field, usually `"$container-md"` or
-`"$container-lg"`. Reading measure is typography's.
+Keep two widths apart. In a product, the main column takes a `maxWidth` from the container
+tokens (`"$container-3xl"`) and the rest is margin. On a public page, bands and grids sit in a
+container of about `1200–1300px` (`"$container-7xl"`, 1280). Prose inside it keeps a measure of
+about `560–760px`. A form stops at its longest comfortable field, usually `"$container-md"` or
+`"$container-lg"`. The exact measure is typography's.
+
+## A public page's structure follows its character
+
+- **Technical:** a single centred column. The hero image is the product itself, a real
+  screenshot. Features sit in alternating split rows or in a bento of tiles a shade off the page.
+- **Humanistic:** full-bleed bands under a photograph.
+- **Expressive:** composed, as freeform, editorial columns or asymmetric bands, not a bento of
+  cards. The work can take the whole first screen.
 
 ## Sizes from content
 
@@ -83,6 +99,9 @@ settings, onboarding, empty states.
 | --- | --- |
 | Text touching the edge at `390` | Page padding of `16px` or more |
 | A paragraph or form stretched across `1440` | `maxWidth` from a container token |
+| A public page squeezed into `"$container-3xl"` | A page container of about `1200–1300px`; `"$container-3xl"` only for prose and forms |
+| Sections divided by a heading in a box | A band of a new surface, or a hairline rule |
+| Centred and left edges inside one section | One alignment per section; only the hero may differ |
 | A button or label with a fixed pixel width | `hug`, with padding from the component |
 | Columns squeezed unreadable at `390` | A column at the base, `at.md` a row |
 | A second page drawn for the phone | One page; what differs in `at` |
