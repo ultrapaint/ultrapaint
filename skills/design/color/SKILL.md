@@ -11,11 +11,16 @@ into a palette only when the semantic set has nothing for it.
 Colour has exact answers, so compute them: [with the editor's tools: `read_design_system` | without: `design.tokens.json`] gives every token's value in
 every theme. A contrast you did not compute is a guess.
 
+Read `references/study.md` when you colour a public page (a landing page, shop, portfolio or magazine). It holds the counts from 4,983 sites, how each character colours its grounds, accents and gradients, and recipes such as a dark product hero, a flood colour or a monochrome gallery.
+
 ## Tokens by role
 
 Surfaces, text and borders come from semantic tokens: background, foreground, muted, border,
 primary, destructive and their pairs. A palette colour (`"$color-blue-500"`) on a screen is a
 decision the design system did not make; use one only where DESIGN.md's Colors section does.
+
+Neutrals are neutral or warm: white, a warm off-white, stone. They are never blue-grey. When the design system's neutral is
+blue-grey, tell the user.
 
 ## A token only in its role
 
@@ -32,12 +37,17 @@ draws something solid, keep it solid. On a button the accent is the fill, with i
 for the label; accent text on a neutral button reads as a link. Headings, icons and borders stay
 neutral.
 
+In a product's own screens there is one accent, apart from category hues. On a public page, a second hue may join it
+when it has one fixed job and keeps that job everywhere: categories, a promotion or data. Where the
+content is photographs or work, the interface may take no hue at all and leave the colour to the content.
+
 ## Two text colours, clearly apart
 
-The foreground is near-black, `15:1` or more against its background. Muted text sits as light as
-legibility allows: about `4.5–5.5:1`. Compute both from [with the editor's tools: `read_design_system` | without: `design.tokens.json`]. When the muted token
-is darker than about `6:1`, the two levels blur; say so to the user, and set descriptions and
-metadata in muted all the same.
+The foreground is near-black, `15:1` or more against its background. A deep brand ink (navy,
+forest green) counts as the foreground when it computes to `15:1`, and so does an off-white on a dark ground. Below that it is not the
+foreground, whatever its role. Muted text sits as light as legibility allows: about `4.5–5.5:1`.
+Compute both from [with the editor's tools: `read_design_system` | without: `design.tokens.json`]. When the muted token is darker than about `6:1`, the two
+levels blur. Say so to the user, and set descriptions and metadata in muted all the same.
 
 ## Badges are neutral, their mark is coloured
 
@@ -72,6 +82,13 @@ Hover and pressed are a shade of the same fill: the hover tokens when the system
 fill at `90%` opacity when it has not. Selected is the accent's subtle fill, focus is the ring
 colour, disabled is `50%` opacity. A state brings no new hue.
 
+## Gradients
+
+A gradient is light, not a surface. On a public page it is atmosphere: a glow behind a product
+screenshot, a wash in a hero, a fade into the next band. It never fills navigation, cards or
+controls, and it is never a state, so buttons stay solid. Text on a gradient is computed like text
+on a photograph.
+
 ## Charts
 
 The chart colours, in their order. Sequential data is one hue from light to dark; diverging data
@@ -90,8 +107,12 @@ values in each theme the design system has.
 | --- | --- |
 | A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
 | A palette token in a component's colours | The semantic token it stands for |
+| A blue-grey neutral | A neutral or warm one; if the system's own is blue-grey, tell the user |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
+| A second hue with no fixed job, or any second hue in a product's own screens | Remove it |
 | A badge on a tinted green or red fill | A neutral fill; only its dot or arrow is coloured |
+| A gradient on navigation, cards, buttons or a state | A solid fill; a gradient only lights the page |
+| A foreground ink below `15:1` | Darken it until it computes |
 | A legend for series the line styles already tell apart | Remove it |
 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |

@@ -8,11 +8,15 @@ description: "Space is the design system's, not the eye's. Every gap and padding
 Space is the design system's, not the eye's. Every gap and padding is a step of its spacing
 scale, and the same relationship is always the same distance.
 
+Read `references/study.md` when you need spacing numbers by character or genre, or a page recipe. It holds section gaps, padding, gutters, viewport insets and text measures from 4,983 well-made sites.
+
 ## Four steps from the scale
 
 Gap, padding and margin take spacing tokens (`"$spacing-4"`). Pick four steps and reuse them:
 inside a control, between related elements, between groups, between sections. A gap of `13` or
 `18` is a step not yet picked.
+
+On a public page, the section step is about `120px`. News fronts and shop grids sit closer, at `40–90px`. A surface on a page is padded about a quarter of the section step.
 
 ## Proximity shows the grouping
 
@@ -24,12 +28,13 @@ field than the field above it, a heading nearer what it introduces than what cam
 
 A form or a page groups with space alone. When a screen or a dialog does several jobs (a link to
 copy, people to invite, plans to choose from), each job sits on its own quiet surface: a faint
-grey fill or a `1px` border, a `12–16px` radius, `16px` or more inside. The surface says what
-belongs together, so the job needs no heading over it. A panel inside a dialog takes a fill that
-differs from the dialog's (a muted grey on white), not the same white with a border. A short list
-of toggles or options is bare rows, with no card and no dividers; only a long list of rows of
-the same kind (a settings page, a table) is split by hairlines. One edge is drawn once: never a
-line and a surface for the same group.
+grey fill or a `1px` border and a `12–16px` radius. Padding inside is `16px` in a dialog or a tool screen and `24–32px` on a page. The surface says what belongs together, so the job needs no heading over it.
+
+A page section is not a surface by default. Give it a card only when it has a job to hold. Otherwise let type, image and position group it.
+
+A panel inside a dialog takes a fill that differs from the dialog's (a muted grey on white), not the same white with a border. A short list of toggles or options is bare rows, with no card and no dividers. Only a long list of rows of the same kind (a settings page, a table) is split by hairlines.
+
+Between page sections, a change of band colour or a shared `1px` rule may stand in for the gap. It replaces the gap; it never sits on top of one. One edge is drawn once: never a line and a surface for the same group.
 
 ## Tight inside, loose between
 
@@ -69,5 +74,8 @@ distance apart all the way down the page.
 | Two jobs split only by a bold heading and a divider | A quiet surface for each |
 | A card or dividers around a short list of toggles | Bare rows |
 | A rule under a breadcrumb, above a copyright line, or a box around a table already on a surface | Remove it |
+| Every section of a page boxed in a card | Remove the boxes; type, image and position group |
+| Page sections a full gap apart with a hairline across each gap | The gap or the rule, not both |
+| A card padded `16` on a public page | `24–32` |
 | Siblings spaced by their own margins | The parent's `gap` |
 | A card padded `24` on top and `16` on the sides | One value on every side |

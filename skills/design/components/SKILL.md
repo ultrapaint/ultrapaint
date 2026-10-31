@@ -8,6 +8,8 @@ description: "The design system's components are the vocabulary. Compose with th
 The design system's components are the vocabulary. Compose with them before drawing anything of
 your own, and use them the way they were meant.
 
+Read `references/study.md` when you design a public page (a landing page, shop, portfolio or magazine). It holds the figures by character, the ways technical, humanistic and expressive sites differ, and recipes for a hero, a feature grid, a pricing page, a shop, a portfolio and an editorial front page.
+
 ## Look before you draw
 
 For a button, a field, a badge, a dialog or tabs, find the component in the palette and [with the editor's tools: ask
@@ -47,9 +49,13 @@ own reads as typed, and an icon laid over a field drifts off its line.
 
 A change badge (↗ 1.2%) is small, sits on the value's row at the card's far right, and carries
 no caption. A status or plan badge ("Popular", "High risk") goes in its card's
-top-right corner, opposite the title. A badge that only shows a value never opens a menu: no
-chevron on it. A count beside a navigation item is quiet, at the row's right end: a plain muted
-number, or the system's small grey count badge; never an outlined or coloured pill.
+top-right corner, opposite the title. On a public page, a badge on an image ("New" on a product
+tile) takes one corner of the image, the same corner on every tile. A recommended plan may carry
+its mark as a tab on its top edge instead. A card carries one badge, and a plan is marked once:
+a border, a tab and a colour of its own together say the same thing three times. A badge that
+only shows a value never opens a menu: no chevron on it. A count beside a navigation item is
+quiet, at the row's right end: a plain muted number, or the system's small grey count badge;
+never an outlined or coloured pill.
 
 ## The component the job names
 
@@ -62,7 +68,8 @@ after it ("Phone (629) 555-0123"); columns are for many rows scanned down.
 ## Search is a field
 
 Where there is room, search is a field with its magnifier and a placeholder, not an icon button
-that opens one. An icon alone is for a toolbar too narrow for the field.
+that opens one. An icon alone is for a toolbar too narrow for the field. Where search is the
+page's main task (a help centre, a job board, a marketplace), the field is the hero.
 
 ## Real props
 
@@ -86,5 +93,6 @@ card"). Tell the user it is new: it will need building as a component.
 | A switch in front of its label | Label left, switch at the right edge |
 | A field's hint as text in a box, or an icon laid over a field | The field's placeholder and icon slot |
 | A change badge under its value, or captioned "vs last year" | Small, at the row's far right, no caption |
+| A plan marked by a border, a tab and a colour at once | One mark |
 | Prev, Today and Next as three separate buttons | One button group |
 | An icon inside a filter button | The word alone |
