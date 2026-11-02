@@ -163,20 +163,22 @@ export class SkillsService extends Context.Service<
         return skill.extends ? undefined : skill.file;
       };
 
-      const briefing = (tools: boolean) =>
-        Effect.map(listFor(tools), ({ skills }): SkillsTold => {
-          const listed: string[] = [];
-          const whole: string[] = [];
-          for (const skill of skills.filter((s) => s.enabled)) {
-            const where = whereRead(skill, tools);
-            if (where === undefined) {
-              whole.push(skill.text.trim());
-            } else {
-              listed.push(`- ${skill.title} (${where}): ${skill.summary}`);
-            }
+      const briefing = Effect.fn("SkillsService.briefing")(function* (
+        tools: boolean
+      ): Effect.fn.Return<SkillsTold> {
+        const { skills } = yield* listFor(tools);
+        const listed: string[] = [];
+        const whole: string[] = [];
+        for (const skill of skills.filter((s) => s.enabled)) {
+          const where = whereRead(skill, tools);
+          if (where === undefined) {
+            whole.push(skill.text.trim());
+          } else {
+            listed.push(`- ${skill.title} (${where}): ${skill.summary}`);
           }
-          return { listed, whole: whole.join("\n\n") };
-        });
+        }
+        return { listed, whole: whole.join("\n\n") };
+      });
 
       const customise = Effect.fn("SkillsService.customise")(function* (
         name: string,
