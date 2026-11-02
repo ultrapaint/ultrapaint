@@ -6,7 +6,7 @@
  * the handlers for each launch (`agent-launcher.ts`); a thread gives it a small host.
  */
 import type { AcpHandlers } from "@ultrapaint/acp/acp-agent";
-import { ResourceNotFound } from "@ultrapaint/acp/errors";
+import { hostError, ResourceNotFound } from "@ultrapaint/acp/errors";
 import type { AgentLaunch } from "@ultrapaint/acp/sandbox";
 import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
 import { ForbiddenPath } from "@ultrapaint/contracts/errors";
@@ -88,28 +88,33 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
       onPermission: cards.onPermission,
       onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
       onUpdate,
-      readTextFile: Effect.fn("AgentClient.readTextFile")(function* (request) {
-        const abs = yield* paths.resolve(request.path);
-        const content = yield* fs.readFileString(abs).pipe(
-          // The agent asked for a file that is not there: its to handle, as ACP names it.
-          Effect.catchReason("PlatformError", "NotFound", () =>
-            Effect.fail(
-              new ResourceNotFound({
-                message: `${paths.relative(abs)} is not there`,
-                path: abs,
-              })
+      readTextFile: Effect.fn("AgentClient.readTextFile")(
+        function* (request) {
+          const abs = yield* paths.resolve(request.path);
+          const content = yield* fs.readFileString(abs).pipe(
+            // The agent asked for a file that is not there: its to handle, as ACP names it.
+            Effect.catchReason("PlatformError", "NotFound", () =>
+              Effect.fail(
+                new ResourceNotFound({
+                  message: `${paths.relative(abs)} is not there`,
+                  path: abs,
+                })
+              )
             )
-          )
-        );
-        if (!(request.line || request.limit)) {
-          return { content };
-        }
-        const start = Math.max(0, (request.line ?? 1) - 1);
-        const end = request.limit ? start + request.limit : undefined;
-        return {
-          content: content.split("\n").slice(start, end).join("\n"),
-        };
-      }),
+          );
+          if (!(request.line || request.limit)) {
+            return { content };
+          }
+          const start = Math.max(0, (request.line ?? 1) - 1);
+          const end = request.limit ? start + request.limit : undefined;
+          return {
+            content: content.split("\n").slice(start, end).join("\n"),
+          };
+        },
+        Effect.mapError((error) =>
+          error._tag === "ResourceNotFound" ? error : hostError(error)
+        )
+      ),
       terminal: {
         create: Effect.fn("AgentClient.createTerminal")(function* (request) {
           const cwd = request.cwd
@@ -125,9 +130,10 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
             outputByteLimit: request.outputByteLimit,
           });
           return { terminalId };
-        }),
+        }, Effect.mapError(hostError)),
         kill: (request) => terminals.kill(request.terminalId),
-        output: (request) => terminals.output(request.terminalId),
+        output: (request) =>
+          terminals.output(request.terminalId).pipe(Effect.mapError(hostError)),
         release: (request) =>
           Effect.andThen(
             keep(request.terminalId),
@@ -136,31 +142,31 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
         waitForExit: (request) =>
           Effect.tap(terminals.waitForExit(request.terminalId), () =>
             keep(request.terminalId)
-          ),
+          ).pipe(Effect.mapError(hostError)),
       },
-      writeTextFile: Effect.fn("AgentClient.writeTextFile")(
-        function* (request) {
-          const abs = yield* paths.resolve(request.path);
-          // The editor writes this file, outside the sandbox that keeps `.git` read-only: an agent
-          // asking it to write a git configuration or a hook would escape through git (0013).
-          if (paths.relative(abs).split(path.sep).includes(".git")) {
-            return yield* new ForbiddenPath({
-              message: `${paths.relative(abs)} is git's own: agents do not write in .git.`,
-            });
-          }
-          if (
-            writable !== undefined &&
-            abs !== writable &&
-            !abs.startsWith(`${writable}${path.sep}`)
-          ) {
-            return yield* new ForbiddenPath({
-              message: `${paths.relative(abs)} is outside the designs directory: this thread designs, and writes only ${paths.relative(writable)}. The application's code is an implement thread's (the Implement button).`,
-            });
-          }
-          yield* writeAtomic(abs, request.content);
-          yield* host.wrote(paths.relative(abs), request.content);
+      writeTextFile: Effect.fn("AgentClient.writeTextFile")(function* (
+        request
+      ) {
+        const abs = yield* paths.resolve(request.path);
+        // The editor writes this file, outside the sandbox that keeps `.git` read-only: an agent
+        // asking it to write a git configuration or a hook would escape through git (0013).
+        if (paths.relative(abs).split(path.sep).includes(".git")) {
+          return yield* new ForbiddenPath({
+            message: `${paths.relative(abs)} is git's own: agents do not write in .git.`,
+          });
         }
-      ),
+        if (
+          writable !== undefined &&
+          abs !== writable &&
+          !abs.startsWith(`${writable}${path.sep}`)
+        ) {
+          return yield* new ForbiddenPath({
+            message: `${paths.relative(abs)} is outside the designs directory: this thread designs, and writes only ${paths.relative(writable)}. The application's code is an implement thread's (the Implement button).`,
+          });
+        }
+        yield* writeAtomic(abs, request.content);
+        yield* host.wrote(paths.relative(abs), request.content);
+      }, Effect.mapError(hostError)),
     };
   });
 

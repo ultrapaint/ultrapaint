@@ -42,3 +42,17 @@ export class TerminalError extends Schema.TaggedError<TerminalError>()(
   "TerminalError",
   { message: Schema.String }
 ) {}
+
+/**
+ * What the host could not do for the agent, and why: a read, a write or a terminal refused or
+ * failed. The agent hears it as a JSON-RPC internal error carrying `message`, which says why so
+ * that the agent can do otherwise.
+ */
+export class AcpHostError extends Schema.TaggedError<AcpHostError>()(
+  "AcpHostError",
+  { message: Schema.String }
+) {}
+
+/** A host's failure, whatever it was, as the agent is told it: its message. */
+export const hostError = (error: { readonly message: string }) =>
+  new AcpHostError({ message: error.message });

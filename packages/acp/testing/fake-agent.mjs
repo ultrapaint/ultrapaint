@@ -214,7 +214,9 @@ const scenarios = {
       });
       await text(cx, sessionId, `read:${content}`);
     } catch (error) {
-      await text(cx, sessionId, `read:${error.code}`);
+      // An internal error says why, as the host put it; any other is told by its code.
+      const why = error.code === -32_603 ? ` ${error.message}` : "";
+      await text(cx, sessionId, `read:${error.code}${why}`);
     }
   },
   async reply(cx, sessionId) {

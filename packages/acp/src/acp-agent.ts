@@ -49,10 +49,11 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   type AcpError,
+  AcpHostError,
   AcpProcessExited,
   AcpRequestError,
   AcpSpawnError,
-  ResourceNotFound,
+  type ResourceNotFound,
 } from "./errors.ts";
 import { BASELINE, negotiated } from "./negotiated.ts";
 import type { AgentLaunch } from "./sandbox.ts";
@@ -86,7 +87,8 @@ export type {
 
 /**
  * What the host does on behalf of the agent. A failing handler is reported to the agent as a
- * JSON-RPC error carrying the failure's message.
+ * JSON-RPC error: a file that is not there (`ResourceNotFound`) as ACP's "resource not found",
+ * anything else the host could not do (`AcpHostError`) as an internal error carrying its message.
  */
 export interface AcpHandlers {
   /**
@@ -107,26 +109,23 @@ export interface AcpHandlers {
   readonly onUpdate: (notification: SessionNotification) => Effect.Effect<void>;
   readonly readTextFile: (
     request: ReadTextFileRequest
-  ) => Effect.Effect<ReadTextFileResponse, { readonly message: string }>;
+  ) => Effect.Effect<ReadTextFileResponse, AcpHostError | ResourceNotFound>;
   readonly terminal: {
     readonly create: (
       request: CreateTerminalRequest
-    ) => Effect.Effect<CreateTerminalResponse, { readonly message: string }>;
+    ) => Effect.Effect<CreateTerminalResponse, AcpHostError>;
     readonly kill: (request: KillTerminalRequest) => Effect.Effect<void>;
     readonly output: (
       request: TerminalOutputRequest
-    ) => Effect.Effect<TerminalOutputResponse, { readonly message: string }>;
+    ) => Effect.Effect<TerminalOutputResponse, AcpHostError>;
     readonly release: (request: ReleaseTerminalRequest) => Effect.Effect<void>;
     readonly waitForExit: (
       request: WaitForTerminalExitRequest
-    ) => Effect.Effect<
-      WaitForTerminalExitResponse,
-      { readonly message: string }
-    >;
+    ) => Effect.Effect<WaitForTerminalExitResponse, AcpHostError>;
   };
   readonly writeTextFile: (
     request: WriteTextFileRequest
-  ) => Effect.Effect<void, { readonly message: string }>;
+  ) => Effect.Effect<void, AcpHostError>;
 }
 
 /**
@@ -135,7 +134,7 @@ export interface AcpHandlers {
  * updates and output go nowhere.
  */
 export const refusingHandlers = (why: string): AcpHandlers => {
-  const refuse = () => Effect.fail({ message: why });
+  const refuse = () => Effect.fail(new AcpHostError({ message: why }));
   return {
     onElicitation: () => Effect.succeed({ action: "decline" }),
     onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
@@ -386,7 +385,7 @@ export const spawnAcpAgent = (
      * refused outside the designs directory has to say why for the agent to do otherwise.
      */
     const serve = async <A>(
-      effect: Effect.Effect<A, { readonly message: string }>
+      effect: Effect.Effect<A, AcpHostError | ResourceNotFound>
     ): Promise<A> => {
       const result = await run(Effect.result(effect));
       if (Result.isSuccess(result)) {
@@ -394,7 +393,7 @@ export const spawnAcpAgent = (
       }
       const { failure } = result;
       // A file that is not there is the agent's to handle, as ACP names it; anything else failed.
-      if (failure instanceof ResourceNotFound) {
+      if (failure._tag === "ResourceNotFound") {
         throw RequestError.resourceNotFound(pathToFileURL(failure.path).href);
       }
       throw RequestError.internalError(undefined, failure.message);
