@@ -35,7 +35,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { SkillsService } from "../skills.ts";
+import { SkillsService, type SkillsTold } from "../skills.ts";
 import { canvasesIn, componentFiles, PAGES } from "./agent-docs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
@@ -77,19 +77,35 @@ const tokensOf = (ds: DesignSystem) => {
   return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;
 };
 
-/** The shipped and project skills that are on, ahead of the project's own conventions. */
-const craftOf = (skills: string) =>
-  skills
-    ? `
-How to design well, whatever the product. The design system's tokens and its conventions,
+/**
+ * The shipped and project skills that are on, ahead of the project's own conventions: whole, or
+ * by their titles and summaries, each read whole where its line says (`SkillsTold`).
+ */
+const craftOf = ({ listed, whole }: SkillsTold) => {
+  if (listed.length === 0 && whole === "") {
+    return "";
+  }
+  const lead = `How to design well, whatever the product. The design system's tokens and its conventions,
 below, come first where they disagree: a number given here is for what the design system does
-not name. Before ending a turn, run each skill's "Before you finish" checks against what you
+not name.`;
+  if (listed.length === 0) {
+    return `
+${lead} Before ending a turn, run each skill's "Before you finish" checks against what you
 changed and fix what you find. Tell the user only what you could not fix, or what needs their
 decision.
 
-${skills}
-`
-    : "";
+${whole}
+`;
+  }
+  return `
+${lead} Each skill is listed by its title, where to read it whole and what it is
+about: read a skill whole before the work it is about. Before ending a turn, run the "Before
+you finish" checks of each skill you read against what you changed and fix what you find. Tell
+the user only what you could not fix, or what needs their decision.
+
+${listed.join("\n")}
+${whole ? `\nThese have no file of their own to read, so they are told whole:\n\n${whole}\n` : ""}`;
+};
 
 const conventionsOf = (document: DesignDocument | null) =>
   document?.body.trim()
@@ -192,14 +208,15 @@ export class ProjectBriefing extends Context.Service<
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
+        const none: SkillsTold = { listed: [], whole: "" };
         const skills = designs
           ? yield* Effect.orElseSucceed(
               Effect.flatMap(SkillsService, (service) =>
                 service.briefing(tools)
               ),
-              () => ""
+              () => none
             )
-          : "";
+          : none;
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
         const files = yield* Effect.orElseSucceed(

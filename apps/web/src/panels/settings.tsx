@@ -10,6 +10,7 @@ import {
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
+import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { cn } from "cn";
 import {
@@ -360,19 +361,19 @@ const Sidebar = ({
 
 /** The agents: before anything is saved, only those on this computer, which need no project. */
 const AgentsSection = ({
-  disabledSkills,
-  onSkill,
+  onSkills,
   saved,
+  skills,
 }: {
-  disabledSkills: readonly string[];
-  onSkill: (name: string, enabled: boolean) => void;
+  onSkills: (skills: SkillsConfig | undefined) => void;
   saved: boolean;
+  skills: SkillsConfig | undefined;
 }) =>
   saved ? (
     <>
       <MachineAgentsGroup />
       <ChatDefaultsGroup />
-      <SkillsGroup disabled={disabledSkills} onToggle={onSkill} />
+      <SkillsGroup config={skills} onChange={onSkills} />
       <McpConnectionGroup />
     </>
   ) : (
@@ -517,14 +518,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onGit = (on: boolean) =>
     setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
-  const onSkill = (name: string, enabled: boolean) =>
-    setDraft((d) => {
-      const current = d.skills?.disabled ?? [];
-      const disabled = enabled
-        ? current.filter((n) => n !== name)
-        : [...current.filter((n) => n !== name), name];
-      return { ...d, skills: disabled.length === 0 ? undefined : { disabled } };
-    });
+  const onSkills = (skills: SkillsConfig | undefined) =>
+    setDraft((d) => ({ ...d, skills }));
 
   const label = sections.find((s) => s.id === section)?.label ?? "";
 
@@ -698,9 +693,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const agents = (
     <AgentsSection
-      disabledSkills={draft.skills?.disabled ?? []}
-      onSkill={onSkill}
+      onSkills={onSkills}
       saved={saved !== null}
+      skills={draft.skills}
     />
   );
 

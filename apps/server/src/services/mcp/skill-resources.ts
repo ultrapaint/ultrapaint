@@ -6,18 +6,14 @@
  * one it needs.
  */
 import { NotFound } from "@ultrapaint/contracts/errors";
-import { describeSkill } from "@ultrapaint/contracts/skills";
+import { describeSkill, skillUri } from "@ultrapaint/contracts/skills";
 import { Effect, Layer, Schema } from "effect";
 import { McpServer } from "effect/ai";
 import { OpenProject } from "../../project.ts";
 import { builtInSkills } from "../../skills/index.ts";
 import { SkillsService } from "../skills.ts";
 
-const SKILL_SCHEME = "skill://ultrapaint/";
 const MARKDOWN = "text/markdown";
-
-/** Where an agent reads a design skill. */
-export const skillUri = (name: string) => `${SKILL_SCHEME}${name}`;
 
 export const SkillResources = Layer.effectDiscard(
   Effect.gen(function* () {

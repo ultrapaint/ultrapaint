@@ -34,7 +34,10 @@ const common = {
    * is itself a package.
    */
   resolveFrom: Schema.optional(RepoRelativePath),
-  /** Which design skills agents are not told; all of them apply when absent. */
+  /**
+   * Which design skills agents are not told (all of them apply when absent), and whether a design
+   * thread is told them whole or by their summaries.
+   */
   skills: Schema.optional(SkillsConfig),
   /** What the tokens and classes are written in; `tailwind-v4` when absent (ADR 0024). */
   styleSystem: Schema.optional(StyleSystemId),
