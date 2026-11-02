@@ -35,6 +35,8 @@ import {
   type ProjectTestOptions,
 } from "./testing/project.ts";
 
+const REFERENCES_DIR_RE = /The references are in `([^`]+)\/`/;
+
 /**
  * What only the wire does, on a server of its own over a socket (docs/TESTING.md rules 1 and 3):
  * the token gate, the protocol revisions, what `tools/list` carries. The real clock: what is
@@ -369,6 +371,15 @@ describe("the editor's MCP server, over the wire", () => {
         assert.include(
           yield* read("skill://ultrapaint/spacing"),
           "Before you finish"
+        );
+        // A skill read whole, before any thread's briefing, names its references where they are.
+        const patterns = yield* read("skill://ultrapaint/patterns");
+        // Typed by hand: the linter otherwise takes the match for non-null.
+        const found: RegExpExecArray | null = REFERENCES_DIR_RE.exec(patterns);
+        const folder = found?.[1] ?? "";
+        assert.include(
+          yield* fs.readFileString(path.join(folder, "dialogs.md")),
+          "# Dialogs"
         );
         yield* fs.makeDirectory(path.join(repo, "designs/skills"), {
           recursive: true,
