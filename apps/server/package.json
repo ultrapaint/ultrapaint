@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@google/design.md": "0.4.0",
     "@ultrapaint/acp": "workspace:*",
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
@@ -25,14 +26,13 @@
     "@ultrapaint/shared": "workspace:*",
     "@ultrapaint/style-tailwind-v4": "workspace:*",
     "@ultrapaint/system-components": "workspace:*",
-    "@google/design.md": "0.4.0",
     "effect": "catalog:",
     "ignore": "^7.0.14"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@ultrapaint/client-runtime": "workspace:*",
     "@types/node": "^24.0.0",
+    "@ultrapaint/client-runtime": "workspace:*",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.13",
     "typescript": "7.0.2",

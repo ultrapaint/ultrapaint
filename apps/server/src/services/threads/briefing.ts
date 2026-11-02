@@ -228,8 +228,8 @@ export class ProjectBriefing extends Context.Service<
         const more = catalogue.length - components.length;
 
         return `<ultrapaint>
-You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
-its canvas, drawn with ultrapaint's system components in this design system's tokens and looks.
+You are working in Ultrapaint, a design tool. The user sees the designs you change, live, on
+its canvas, drawn with Ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
 
 ${canvasesIn(settings.designsDir)}
@@ -244,7 +244,7 @@ It holds a tree of nodes, each with an id:
   weight, lineHeight, font, tracking; and color, align.
 - image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
 - instance: a component (listed below) — component (its name), from "${SYSTEM_FROM}" for
-  ultrapaint's system components or "${APP_FROM}" for the project's app components, props, and
+  Ultrapaint's system components or "${APP_FROM}" for the project's app components, props, and
   text or children. A child names the slot of its component it fills ("slot": "dialog-footer"); the rest fill the default slot. An overlay (Select, Menu,
   Popover, Tooltip, Dialog, Toast) is drawn open where its props say "open": true; its trigger
   is a slot or its children.

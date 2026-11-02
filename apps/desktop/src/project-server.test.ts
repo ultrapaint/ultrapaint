@@ -26,11 +26,11 @@ describe("serverEnv", () => {
   it("keeps the app's environment but what would choose the server's storage, and runs Electron as Node", () => {
     const env = serverEnv(
       {
-        ULTRAPAINT_CONFIG: "/elsewhere/ultrapaint.config.json",
-        ULTRAPAINT_HOME: "/elsewhere",
         HOME: "/home/me",
         NOTHING: undefined,
         PATH: "/usr/bin",
+        ULTRAPAINT_CONFIG: "/elsewhere/ultrapaint.config.json",
+        ULTRAPAINT_HOME: "/elsewhere",
       },
       { PATH: "/home/me/.fnm/bin:/usr/bin" }
     );

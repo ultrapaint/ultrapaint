@@ -34,9 +34,7 @@ describe("nodes on the clipboard", () => {
     expect(nodesFromText("Hello")).toBeNull();
     expect(nodesFromText(JSON.stringify(card))).toBeNull();
     expect(nodesFromText('{"ultrapaint/node": ')).toBeNull();
-    expect(
-      nodesFromText(JSON.stringify({ "ultrapaint/node": [] }))
-    ).toBeNull();
+    expect(nodesFromText(JSON.stringify({ "ultrapaint/node": [] }))).toBeNull();
   });
 
   it("are checked against the format", () => {

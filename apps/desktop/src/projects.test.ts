@@ -158,10 +158,7 @@ describe("ProjectStore", () => {
             port: 2222,
           });
           assert.strictEqual(again.id, first.id);
-          assert.strictEqual(
-            again.command,
-            "node ~/ultrapaint/scripts/cli.ts"
-          );
+          assert.strictEqual(again.command, "node ~/ultrapaint/scripts/cli.ts");
           // Not given, it stays; given empty, the default is back.
           const kept = yield* store.addRemote({
             host: "me@box",

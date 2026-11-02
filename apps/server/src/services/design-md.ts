@@ -10,6 +10,7 @@
  * DESIGN.md is in `sync-sides.ts`.
  */
 
+import { lint } from "@google/design.md/linter";
 import { COMPONENTS_DIR } from "@ultrapaint/contracts/component-names";
 import {
   componentsIn,
@@ -37,7 +38,6 @@ import { componentEntries, mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import { looksOf } from "@ultrapaint/system-components/defaults";
-import { lint } from "@google/design.md/linter";
 import {
   Clock,
   Context,

@@ -1,8 +1,5 @@
 import "../testing/fake-browser.ts";
-import type {
-  DesignNode,
-  DocumentState,
-} from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateOpsAt } from "../lib/breakpoint-edits.ts";
 import { useComponents } from "./components.ts";
@@ -190,9 +187,7 @@ describe("an app component edited in place", () => {
   });
 
   it("is no node but an app component's instance's", () => {
-    expect(isolate(HOME, { ...PROMO, from: "@ultrapaint/system" })).toBe(
-      false
-    );
+    expect(isolate(HOME, { ...PROMO, from: "@ultrapaint/system" })).toBe(false);
     expect(useIsolation.getState().isolated).toBeNull();
   });
 });

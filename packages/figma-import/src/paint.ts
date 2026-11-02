@@ -3,10 +3,7 @@
  * design system's tokens where a token holds that colour.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import {
-  tokensByValue,
-  tokensOfKind,
-} from "@ultrapaint/contracts/token-table";
+import { tokensByValue, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { FigColor, FigPaint } from "openfig-core";
 
 const channel = (value: number) =>

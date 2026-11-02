@@ -54,7 +54,7 @@ export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
       importSteps,
       (steps) => `<ultrapaint-task command="design-system">
 This is the Define step of the design-system setup, adopting the theme, which the user follows in
-the Design system panel's Setup view. The theme is the design system: import it into ultrapaint, so that designs are
+the Design system panel's Setup view. The theme is the design system: import it into Ultrapaint, so that designs are
 drawn with its tokens and every agent knows its conventions. Only Tailwind v4 is
 supported. Change no other file: bringing the code onto the design system is a later step.
 

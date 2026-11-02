@@ -148,9 +148,9 @@ describe("ssh arguments", () => {
       sshEnv(
         {
           ELECTRON_RUN_AS_NODE: "1",
-          ULTRAPAINT_AGENT_RUNTIME: "{}",
           HOME: "/home/me",
           PATH: "/usr/bin",
+          ULTRAPAINT_AGENT_RUNTIME: "{}",
         },
         { PATH: "/opt/bin:/usr/bin", SSH_AUTH_SOCK: "/run/agent" }
       ),

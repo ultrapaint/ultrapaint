@@ -1,12 +1,12 @@
 import { type ErrorCode, errorCodes } from "@ultrapaint/contracts/errors";
 import {
-  UltrapaintRpcs,
   type EventName,
   type EventPayload,
   eventNames,
   type RequestInput,
   type RequestName,
   type RequestOutput,
+  UltrapaintRpcs,
 } from "@ultrapaint/contracts/rpc";
 import {
   Cause,
@@ -113,9 +113,9 @@ const runSession = (options: ConnectionOptions, hooks: SessionHooks) =>
     // Built into the session scope: `Effect.provide(layer)` would close the socket as soon
     // as the client had been constructed.
     const services = yield* Layer.build(protocol);
-    const client = yield* RpcClient.make(UltrapaintRpcs, { flatten: true }).pipe(
-      Effect.provideContext(services)
-    );
+    const client = yield* RpcClient.make(UltrapaintRpcs, {
+      flatten: true,
+    }).pipe(Effect.provideContext(services));
     const opened = yield* Effect.raceFirst(
       Effect.as(Deferred.await(connected), true),
       Effect.as(Deferred.await(disconnected), false)
@@ -180,10 +180,7 @@ export class Connection {
           try {
             listener(payload as never);
           } catch (error) {
-            console.error(
-              `[ultrapaint] listener for "${event}" failed`,
-              error
-            );
+            console.error(`[ultrapaint] listener for "${event}" failed`, error);
           }
         }
       },

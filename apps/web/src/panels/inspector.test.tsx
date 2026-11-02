@@ -1,9 +1,6 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
-import type {
-  DesignNode,
-  DocumentState,
-} from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -435,7 +435,7 @@ export class SettingsService extends Context.Service<
           );
         if (!isConfig) {
           return yield* new BadRequest({
-            message: `${configPath} is not an ultrapaint configuration, and is not replaced.`,
+            message: `${configPath} is not an Ultrapaint configuration, and is not replaced.`,
           });
         }
       });

@@ -4,10 +4,7 @@
  * theme's scan.
  */
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
-import type {
-  UsageContext,
-  UsageReader,
-} from "@ultrapaint/framework-api/node";
+import type { UsageContext, UsageReader } from "@ultrapaint/framework-api/node";
 import { Clock, Effect, FileSystem, Path } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { OpenProject } from "../project.ts";

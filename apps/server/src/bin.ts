@@ -246,7 +246,7 @@ const serve = Command.make(
       Effect.provideService(Logger.LogToStderr, readyJson)
     );
   })
-).pipe(Command.withDescription("Local backend of the ultrapaint editor"));
+).pipe(Command.withDescription("Local backend of the Ultrapaint editor"));
 
 serve.pipe(
   // `ultrapaint new <folder>`: a design from nothing, written before any server runs in it.

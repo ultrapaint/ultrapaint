@@ -385,10 +385,7 @@ describe("the editor's MCP server, over the wire", () => {
           yield* read("skill://ultrapaint/spacing"),
           "Ours: an 8px grid."
         );
-        assert.include(
-          yield* read("skill://ultrapaint/voice"),
-          "Plain words."
-        );
+        assert.include(yield* read("skill://ultrapaint/voice"), "Plain words.");
       })
   );
 

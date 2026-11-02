@@ -959,11 +959,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-/** The first screen: replace it with yours, designed in ultrapaint and implemented here. */
+/** The first screen: replace it with yours, designed in Ultrapaint and implemented here. */
 export const App = () => (
   <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-6">
     <Badge variant="secondary">New</Badge>
-    <Card description="Design it in ultrapaint, then implement it here." title="Your application">
+    <Card description="Design it in Ultrapaint, then implement it here." title="Your application">
       <Input label="Email" placeholder="you@example.com" type="email" />
       <CardFooter>
         <Button>Get started</Button>

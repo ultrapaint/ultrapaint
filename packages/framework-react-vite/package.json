@@ -16,8 +16,8 @@
     "@ultrapaint/shared": "workspace:*"
   },
   "devDependencies": {
-    "@ultrapaint/system-components": "workspace:*",
     "@types/node": "^24.0.0",
+    "@ultrapaint/system-components": "workspace:*",
     "typescript": "7.0.2",
     "vitest": "^5.0.1"
   }

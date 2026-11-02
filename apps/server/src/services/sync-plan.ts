@@ -148,7 +148,7 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
     : [
         step(
           "settings",
-          "Point ultrapaint at your code",
+          "Point Ultrapaint at your code",
           "attention",
           `${missing.join("; ")}. Detect proposes where they are; check it and apply.`
         ),

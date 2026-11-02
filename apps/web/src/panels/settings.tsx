@@ -254,7 +254,7 @@ const StylesAlert = ({ found }: { found: SetupSuggestions }) =>
       <TriangleAlert />
       <AlertDescription>
         {found.stylesNote ??
-          "The stylesheets are not written in a style system ultrapaint reads."}
+          "The stylesheets are not written in a style system Ultrapaint reads."}
       </AlertDescription>
     </Alert>
   ) : null;
@@ -571,7 +571,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Row>
       </Group>
       <Group
-        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws ultrapaint's system components, whatever is set here."
+        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws Ultrapaint's system components, whatever is set here."
         title="Implementation"
       >
         <Row

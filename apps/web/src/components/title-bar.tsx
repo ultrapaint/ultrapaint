@@ -163,7 +163,7 @@ export const TitleCard = ({ width }: { width: number | null }) => {
       style={style}
     >
       <span
-        aria-label="ultrapaint"
+        aria-label="Ultrapaint"
         className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand font-body font-bold text-brand-foreground tracking-tight"
         role="img"
       >

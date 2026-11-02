@@ -7,10 +7,7 @@ import { type DesignNode, PageDocument } from "@ultrapaint/contracts/document";
 import type { Conflict } from "@ultrapaint/contracts/errors";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds } from "@ultrapaint/design-document/ids";
-import {
-  canvasRoot,
-  DOCUMENT_VERSION,
-} from "@ultrapaint/design-document/tree";
+import { canvasRoot, DOCUMENT_VERSION } from "@ultrapaint/design-document/tree";
 import { Effect, Schema } from "effect";
 import type { CanvasRead } from "./canvas-files.ts";
 
