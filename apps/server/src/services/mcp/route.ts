@@ -27,7 +27,7 @@ import { DocumentTools, DocumentToolsLive } from "./document-tools.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { HandoffTools, HandoffToolsLive } from "./handoff-tools.ts";
 import { PageTools, PageToolsLive } from "./page-tools.ts";
-import { RawTools } from "./raw-tools.ts";
+import { rawTools } from "./raw-tools.ts";
 import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
 import { SkillResources } from "./skill-resources.ts";
 import { TaskPrompts } from "./task-prompts.ts";
@@ -73,7 +73,7 @@ const TokenGate = HttpRouter.middleware(
 
 /**
  * The editor's tools that answer with JSON, each file's toolkit merged: what agents call, and what
- * `TOOLS` names (`agent-ways.ts`). `get_screenshot` and `ask_user` answer by hand (`RawTools`).
+ * `TOOLS` names (`agent-ways.ts`). `get_screenshot` and `ask_user` answer by hand (`rawTools`).
  */
 export const EditorTools = Toolkit.merge(
   PageTools,
@@ -98,8 +98,7 @@ export const ToolkitHandlers = Layer.mergeAll(
   CanvasToolsLive,
   HandoffToolsLive,
   FigmaToolsLive,
-  SetupToolsLive,
-  RawTools.layer
+  SetupToolsLive
 );
 
 /**
@@ -125,8 +124,7 @@ const Tools = Layer.effectDiscard(
       McpServer.McpServer,
       lean
     );
-    const { all } = yield* RawTools;
-    yield* Effect.forEach(all, lean.addTool, { discard: true });
+    yield* Effect.forEach(yield* rawTools, lean.addTool, { discard: true });
   })
 ).pipe(Layer.provide(ToolkitHandlers));
 

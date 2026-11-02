@@ -11,7 +11,7 @@ import { CanvasLayout, emptyCanvasLayout } from "@ultrapaint/contracts/pages";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { Context, Effect, Layer, Schema } from "effect";
-import { hashContent } from "../hash.ts";
+import { hashContent, sortedByKey } from "../hash.ts";
 import type { FileCodec } from "./edit.ts";
 
 const decodeLayout = Schema.decodeUnknownEffect(CanvasLayout);
@@ -45,11 +45,6 @@ export const parseCanvasText = Effect.fnUntraced(function* (
   return { filled, layout };
 });
 
-const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
-  Object.fromEntries(
-    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
-  );
-
 /** What `canvasText` writes: the layout in its one format. */
 const writtenOf = (layout: CanvasLayout): CanvasLayout => {
   const nodes = layout.nodes ?? [];
@@ -61,8 +56,8 @@ const writtenOf = (layout: CanvasLayout): CanvasLayout => {
     ...(layout.home !== undefined && { home: layout.home }),
     ...(variants.length > 0 && { variants }),
     ...(states.length > 0 && { states }),
-    ...(layout.routes !== undefined && { routes: sortedKeys(layout.routes) }),
-    frames: sortedKeys(layout.frames),
+    ...(layout.routes !== undefined && { routes: sortedByKey(layout.routes) }),
+    frames: sortedByKey(layout.frames),
     ...(nodes.length > 0 && { nodes }),
     version: 1,
   };

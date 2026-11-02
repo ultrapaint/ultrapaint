@@ -16,7 +16,8 @@ import type { CanvasRead } from "./canvas-files.ts";
 
 export const decodePage = Schema.decodeUnknownEffect(PageDocument);
 
-export const problemOf = (error: unknown) =>
+/** What an error thrown by code that is not Effect's says: its message, or itself as text. */
+export const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 /**
@@ -40,7 +41,7 @@ export const parseDocument = (
         Effect.catch((error) => Effect.succeed({ problem: error.message }))
       )
     : Effect.try({
-        catch: (error) => `not JSON: ${problemOf(error)}`,
+        catch: (error) => `not JSON: ${messageOf(error)}`,
         try: () => JSON.parse(text) as unknown,
       }).pipe(
         Effect.flatMap((json) => {

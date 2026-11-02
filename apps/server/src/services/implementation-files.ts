@@ -10,6 +10,7 @@ import {
 } from "@ultrapaint/contracts/implementation";
 import { serialise } from "@ultrapaint/design-document/factories";
 import { Effect, Schema } from "effect";
+import { sortedByKey } from "../hash.ts";
 import type { FileCodec } from "./edit.ts";
 
 const decodeFile = Schema.decodeUnknownEffect(
@@ -17,12 +18,6 @@ const decodeFile = Schema.decodeUnknownEffect(
 );
 
 export const emptyFile = (): ImplementationFile => ({ items: {}, version: 1 });
-
-/** The entries in order of their keys: the file is committed, and diffs well so. */
-const sorted = (items: Readonly<Record<string, ImplementationEntry>>) =>
-  Object.fromEntries(
-    Object.entries(items).sort(([a], [b]) => a.localeCompare(b))
-  );
 
 /**
  * The file as a step reads and writes it: none yet is nothing bound, and one that does not read
@@ -40,7 +35,7 @@ export const implementationCodec: FileCodec<ImplementationFile, Conflict> = {
               })
           )
         ),
-  encode: (file) => serialise({ items: sorted(file.items), version: 1 }),
+  encode: (file) => serialise({ items: sortedByKey(file.items), version: 1 }),
 };
 
 /** A change to one entry of `implementation.json`, and the snapshot written or taken with it. */
@@ -67,7 +62,7 @@ export const withEdits = (
       next[target] = entry;
     }
   }
-  return sorted(next);
+  return sortedByKey(next);
 };
 
 /**

@@ -23,7 +23,7 @@ import { OpenProject, ProjectManager } from "../project.ts";
 import { RpcHandlers } from "../rpc-handlers.ts";
 import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
-import { RawTools } from "../services/mcp/raw-tools.ts";
+import { rawTools } from "../services/mcp/raw-tools.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { makeFixture, TestEnv } from "./harness.ts";
@@ -260,7 +260,7 @@ export const callRawTool = <T extends Tool.Any>(
   } = {}
 ) =>
   Effect.gen(function* () {
-    const { all } = yield* RawTools;
+    const all = yield* rawTools;
     const found = all.find((raw) => raw.tool.name === tool.name);
     if (found === undefined) {
       return yield* Effect.die(

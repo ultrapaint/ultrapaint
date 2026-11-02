@@ -58,7 +58,7 @@ import {
   withTree,
 } from "./component-files.ts";
 import { DesignFiles } from "./design-files.ts";
-import { decodePage, parseDocument, problemOf } from "./document-file.ts";
+import { decodePage, messageOf, parseDocument } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -494,7 +494,7 @@ export class DocumentService extends Context.Service<
                   message:
                     error instanceof DocumentOpError
                       ? error.message
-                      : `the operations could not be applied: ${problemOf(error)}`,
+                      : `the operations could not be applied: ${messageOf(error)}`,
                 }),
               try: () =>
                 applyOps(loaded.root as DesignNode, change.ops, {
