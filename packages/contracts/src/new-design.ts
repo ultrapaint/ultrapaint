@@ -41,14 +41,13 @@ export const NewDesignStep = Schema.Literals([
 ]);
 export type NewDesignStep = typeof NewDesignStep.Type;
 
-export const NewDesignStepState = Schema.Literals([
+const NewDesignStepState = Schema.Literals([
   "active",
   "done",
   /** Not needed: not asked for, or done by an earlier run. */
   "skipped",
   "failed",
 ]);
-export type NewDesignStepState = typeof NewDesignStepState.Type;
 
 /** One line of `ultrapaint new --progress-json`. */
 export const NewDesignProgress = Schema.Struct({

@@ -50,7 +50,7 @@ import { isolate, leaveIsolation, useIsolation } from "./isolation.ts";
 import { type BoardUrl, onUrlChange, readUrl, writeBoard } from "./url.ts";
 import type { Picked } from "./workspace-memory.ts";
 
-export type BoardView = "system" | "library";
+type BoardView = "system" | "library";
 
 const VIEWS: readonly BoardView[] = ["system", "library"];
 
@@ -67,7 +67,7 @@ export interface BoardPick {
 }
 
 /** How an item's boards are laid out: in a row, in a column, or in rows as wide as the canvas. */
-export type BoardDirection = "row" | "column" | "wrap";
+type BoardDirection = "row" | "column" | "wrap";
 
 interface Size {
   readonly height: number;

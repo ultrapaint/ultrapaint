@@ -27,24 +27,24 @@ export interface Place {
 }
 
 /** One field of a node that holds another value; `undefined` where a side does not set it. */
-export interface FieldChange {
+interface FieldChange {
   readonly after: unknown;
   readonly before: unknown;
   readonly field: string;
 }
 
 /** A node that is new, with everything inside it. */
-export interface AddedNode extends NodeRef, Place {
+interface AddedNode extends NodeRef, Place {
   readonly node: DesignNode;
 }
 
 /** A node that is gone, with everything inside it. */
-export interface RemovedNode extends NodeRef {
+interface RemovedNode extends NodeRef {
   readonly parent: string | null;
 }
 
 /** A node that has another parent, or another place among the siblings it kept. */
-export interface MovedNode extends NodeRef {
+interface MovedNode extends NodeRef {
   readonly from: Place;
   readonly to: Place;
 }
@@ -54,7 +54,7 @@ export interface ChangedNode extends NodeRef {
   readonly fields: readonly FieldChange[];
 }
 
-export interface TreeDiff {
+interface TreeDiff {
   /** The topmost node of each added subtree, in the order of the tree after. */
   readonly added: readonly AddedNode[];
   readonly changed: readonly ChangedNode[];

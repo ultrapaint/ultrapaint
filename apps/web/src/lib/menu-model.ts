@@ -67,7 +67,7 @@ const item = <A>(
 const separator = { kind: "separator" } as const;
 
 /** An item that runs one of the editor's commands, and shows its keys. */
-export interface CommandAction {
+interface CommandAction {
   /** The command's id in `commands.ts`. */
   id: string;
   kind: "command";
@@ -387,7 +387,7 @@ export type PageAction =
   | { kind: "comment" }
   | { kind: "delete" };
 
-export interface PageFacts {
+interface PageFacts {
   canPaste: boolean;
   /** The other canvases, which the page can be copied or moved into. */
   canvases: readonly { id: string; name: string }[];
@@ -553,7 +553,7 @@ export type CanvasEntryAction =
   | { by: -1 | 1; kind: "move" }
   | { kind: "delete" };
 
-export interface CanvasEntryFacts {
+interface CanvasEntryFacts {
   /** It is the one on screen. */
   current: boolean;
   first: boolean;
@@ -588,7 +588,7 @@ export const canvasListEntries = (
 /** Pastes at the point clicked; the rest are the editor's commands. */
 export type CanvasAction = { kind: "paste" } | CommandAction;
 
-export interface CanvasFacts {
+interface CanvasFacts {
   canPaste: boolean;
   commentsVisible: boolean;
   gridVisible: boolean;
@@ -629,7 +629,7 @@ export type CommentAction =
   | { kind: "copyText" }
   | { kind: "delete" };
 
-export interface CommentFacts {
+interface CommentFacts {
   /** A behaviour note (ADR 0030) rather than talk about the design. */
   behaviour?: boolean;
   /** The chat in use, when there is one; `busy` while its agent works. */
@@ -676,7 +676,7 @@ export type ComponentAction =
   | { kind: "insertCanvas" }
   | { kind: "copyName" };
 
-export interface ComponentFacts {
+interface ComponentFacts {
   name: string;
   onCanvas: boolean;
   /** Where Insert puts it, as the Library says it: `the page`, `Card`; null when nowhere. */
@@ -702,7 +702,7 @@ export type ThreadAction =
   | { kind: "stop" }
   | { kind: "delete" };
 
-export interface ThreadFacts {
+interface ThreadFacts {
   following: boolean;
   running: boolean;
   title: string;

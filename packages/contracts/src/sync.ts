@@ -148,8 +148,7 @@ export type TokenSourceKind = typeof TokenSourceKind.Type;
 /** Who matched a source's token to the design system's: the rules, an agent, or the user. */
 export const MatchSource = Schema.Literals(["rule", "agent", "user"]);
 export type MatchSource = typeof MatchSource.Type;
-export const FigmaMatchSource = MatchSource;
-export type FigmaMatchSource = MatchSource;
+const FigmaMatchSource = MatchSource;
 
 /**
  * What a Figma variable or style is in the design system (the code while there is none): `to`

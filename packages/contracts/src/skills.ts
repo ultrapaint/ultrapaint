@@ -16,8 +16,7 @@ import { Schema } from "effect";
 export const SKILLS_DIR = "skills";
 export const SKILL_EXTENSION = ".md";
 
-export const SkillSource = Schema.Literals(["built-in", "project"]);
-export type SkillSource = typeof SkillSource.Type;
+const SkillSource = Schema.Literals(["built-in", "project"]);
 
 export const Skill = Schema.Struct({
   /** Off in the settings: agents are not told it. */

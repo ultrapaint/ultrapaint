@@ -6,12 +6,12 @@ import { type AgentLaunch, agentEnv } from "./sandbox.ts";
 
 const DEFAULT_OUTPUT_LIMIT = 1024 * 1024;
 
-export interface TerminalExit {
+interface TerminalExit {
   readonly exitCode: number | null;
   readonly signal: string | null;
 }
 
-export interface TerminalOutput {
+interface TerminalOutput {
   readonly exitStatus: TerminalExit | null;
   readonly output: string;
   readonly truncated: boolean;

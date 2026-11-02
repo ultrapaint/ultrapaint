@@ -81,7 +81,7 @@ const track = () => {
 };
 
 /** What Base UI says with a change of a popup's open state. */
-export interface ChangeDetails {
+interface ChangeDetails {
   cancel: () => void;
   readonly event?: Event | undefined;
   readonly reason: string;

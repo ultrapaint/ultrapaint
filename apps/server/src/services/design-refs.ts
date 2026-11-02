@@ -36,7 +36,7 @@ interface Located {
 /** A point of the designs kept: its note, and the store's snapshot of its files. */
 export type DesignRef<N> = N & { readonly tree: string };
 
-export interface DesignRefsOptions<N extends Located, I> {
+interface DesignRefsOptions<N extends Located, I> {
   /** The id the note gives its ref's name. */
   readonly idOf: (note: N) => string;
   /** How many are kept, of every repository together: past that, the oldest are let go of. */

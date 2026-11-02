@@ -76,7 +76,7 @@ export const paletteOf = (ds: DesignSystem, name: string): Palette => {
 };
 
 /** A shade a ramp gives: its token and its value in each theme. */
-export interface GeneratedShade {
+interface GeneratedShade {
   readonly name: string;
   readonly step: number;
   readonly values: Readonly<Record<string, string>>;

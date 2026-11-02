@@ -203,7 +203,7 @@ export const dropInside = (
 };
 
 /** A node on the way down to the pointer, and what a drop there has to know. */
-export interface Spot {
+interface Spot {
   /** The dragged node, which is not a place to drop it. */
   readonly exclude: string | null;
   readonly frame: Box;

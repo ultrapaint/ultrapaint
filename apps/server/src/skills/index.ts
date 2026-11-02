@@ -28,7 +28,7 @@ import { spacing } from "./spacing.ts";
 import { states } from "./states.ts";
 import { typography } from "./typography.ts";
 
-export interface BuiltInSkill {
+interface BuiltInSkill {
   readonly name: string;
   readonly text: string;
 }

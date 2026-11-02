@@ -8,7 +8,7 @@ import { Schema } from "effect";
 import { Json } from "./base.ts";
 
 /** What a Figma property of a component becomes on the catalogue's component. */
-export const PropRule = Schema.Struct({
+const PropRule = Schema.Struct({
   /** The prop of the catalogue's component the value goes to. */
   prop: Schema.optional(Schema.String),
   /** The property's value becomes the instance's text instead of a prop. */
@@ -16,7 +16,6 @@ export const PropRule = Schema.Struct({
   /** Figma value → prop value; a value not listed is passed on as it is when `prop` is set. */
   values: Schema.optional(Schema.Record(Schema.String, Json)),
 });
-export type PropRule = typeof PropRule.Type;
 
 /**
  * How instances of one Figma component are converted: replaced by a component of the
@@ -44,14 +43,13 @@ export const ComponentMapping = Schema.Union([
 ]);
 export type ComponentMapping = typeof ComponentMapping.Type;
 
-export const FigmaPropType = Schema.Literals([
+const FigmaPropType = Schema.Literals([
   "variant",
   "text",
   "boolean",
   "instance",
   "other",
 ]);
-export type FigmaPropType = typeof FigmaPropType.Type;
 
 /** A component of the repository that may stand in for a Figma one, by the look of its name. */
 export const ComponentCandidate = Schema.Struct({

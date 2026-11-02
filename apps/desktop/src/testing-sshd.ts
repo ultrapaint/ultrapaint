@@ -26,7 +26,7 @@ const freePort = () =>
     });
   });
 
-export interface Sshd {
+interface Sshd {
   /** The client's configuration: `Host test` reaches it, `Host unreachable` reaches nothing. */
   readonly configFile: string;
   readonly dir: string;

@@ -20,7 +20,7 @@ import { writeAtomic } from "./atomic-write.ts";
 import { StoreError, UnknownProject } from "./errors.ts";
 import { parseHostInput } from "./ssh-hosts.ts";
 
-export const LocalProject = Schema.Struct({
+const LocalProject = Schema.Struct({
   id: Schema.String,
   kind: Schema.Literal("local"),
   /** When it was last opened, in milliseconds since the epoch; never, when absent. */
@@ -29,7 +29,6 @@ export const LocalProject = Schema.Struct({
   /** The folder, absolute. */
   path: Schema.String,
 });
-export type LocalProject = typeof LocalProject.Type;
 
 /** The command that runs the server on the remote machine, unless the project names another. */
 export const DEFAULT_REMOTE_COMMAND = "ultrapaint";
@@ -98,7 +97,7 @@ export const projectDetail = (project: Project) =>
 
 /** A remote path without the slashes that make it differ from the same path: `/a/b/` is `/a/b`. */
 const TRAILING_SLASHES_RE = /(?<=.)\/+$/;
-export const normalizeRemotePath = (path: string) =>
+const normalizeRemotePath = (path: string) =>
   path.trim().replace(TRAILING_SLASHES_RE, "");
 
 /** The last part of a remote path, for the project's name. */
@@ -120,7 +119,7 @@ const encodeFile = Schema.encodeEffect(ProjectsFile);
 export const PROJECTS_FILE = "projects.json";
 
 /** The most recently opened project first; one never opened after every one that was. */
-export const byLastOpened = (projects: readonly Project[]): Project[] =>
+const byLastOpened = (projects: readonly Project[]): Project[] =>
   [...projects].sort((a, b) => (b.lastOpened ?? -1) - (a.lastOpened ?? -1));
 
 export class ProjectStore extends Context.Service<

@@ -19,7 +19,7 @@ export const BACK_LINK = "back";
 const EXTERNAL_RE = /^(?:https?:|mailto:|tel:)/i;
 const PAGE_FILE_RE = /\.page\.json$/;
 
-export type LinkTarget =
+type LinkTarget =
   | { readonly kind: "back" }
   | { readonly kind: "external"; readonly url: string }
   | { readonly kind: "page"; readonly path: string }

@@ -28,7 +28,7 @@ import { runCommand } from "./command.ts";
 import { isExecutable } from "./which.ts";
 
 /** How a download is going, for the settings to show. */
-export interface DownloadProgress {
+interface DownloadProgress {
   /** Why it failed, when it did. */
   readonly message?: string;
   readonly phase: "downloading" | "verifying" | "unpacking" | "failed";
@@ -61,7 +61,7 @@ const CodexPackage = Schema.fromJsonString(
 );
 const decodeCodexPackage = Schema.decodeUnknownEffect(CodexPackage);
 
-export const INSTALLED_FILE = "installed.json";
+const INSTALLED_FILE = "installed.json";
 
 const TRAILING_SLASH_RE = /\/$/;
 

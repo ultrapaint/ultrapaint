@@ -48,7 +48,7 @@ export interface Color {
 }
 
 /** CSS's length units read, lower-cased; a percentage is read as a length in `%`. */
-export const LENGTH_UNITS = [
+const LENGTH_UNITS = [
   "px",
   "rem",
   "em",
@@ -72,7 +72,7 @@ export const LENGTH_UNITS = [
   "mm",
   "in",
 ] as const;
-export type LengthUnit = (typeof LENGTH_UNITS)[number];
+type LengthUnit = (typeof LENGTH_UNITS)[number];
 
 export interface Length {
   readonly kind: "length";
@@ -86,18 +86,18 @@ export interface Duration {
   readonly value: number;
 }
 
-export interface PlainNumber {
+interface PlainNumber {
   readonly kind: "number";
   readonly value: number;
 }
 
 /** A value read as none of the others: a shadow, a font list, a `var()`, a `calc()`. */
-export interface OtherValue {
+interface OtherValue {
   readonly css: string;
   readonly kind: "other";
 }
 
-export type TokenValue = Color | Duration | Length | OtherValue | PlainNumber;
+type TokenValue = Color | Duration | Length | OtherValue | PlainNumber;
 
 /** How many pixels a root `rem` is. */
 export const ROOT_PX = 16;
@@ -1021,7 +1021,7 @@ const evaluate = (tokens: readonly string[]): Quantity | null => {
 };
 
 /** What an infinite length (`calc(infinity * 1px)`, Tailwind's `rounded-full`) is written as. */
-export const INFINITE_PX = "9999px";
+const INFINITE_PX = "9999px";
 
 /**
  * A `calc()` of lengths and numbers worked out, `calc(0.625rem - 4px)` → `6px`: lengths in `px`,

@@ -827,7 +827,7 @@ const requestRpcs = [
 ] as const;
 
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
-export const eventSchemas = {
+const eventSchemas = {
   agent: AgentEvent,
   "agent.edited": AgentEdited,
   "agent.focus": AgentFocus,
@@ -880,9 +880,12 @@ const eventRpcs = eventNames.map(eventRpc) as readonly {
   readonly [E in EventName]: ReturnType<typeof eventRpc<E>>;
 }[EventName][];
 
-export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}
+export class UltrapaintRpcs extends RpcGroup.make(
+  ...requestRpcs,
+  ...eventRpcs
+) {}
 
-export type UltrapaintRpc = RpcGroup.Rpcs<typeof UltrapaintRpcs>;
+type UltrapaintRpc = RpcGroup.Rpcs<typeof UltrapaintRpcs>;
 
 export type RequestName = Exclude<UltrapaintRpc["_tag"], `events.${string}`>;
 // Distributive on purpose: callers pass unions such as `"edit.undo" | "edit.redo"`.

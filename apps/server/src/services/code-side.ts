@@ -36,7 +36,7 @@ import { ProjectStyleSystem } from "./style-system.ts";
 import { codeAgreement, compareCode, designTokensOf } from "./sync-readings.ts";
 
 /** The tokens the code declares, as the style system reads them. */
-export interface CodeTokens {
+interface CodeTokens {
   readonly byName: ReadonlyMap<string, SourceToken>;
   /** The stylesheets they were read from, repository-relative: none when none could be read. */
   readonly files: readonly string[];
@@ -46,7 +46,7 @@ export interface CodeTokens {
 }
 
 /** The code's tokens against the design's; `read` says whether any stylesheet was read. */
-export type CodeComparison = TokenComparison & { readonly read: boolean };
+type CodeComparison = TokenComparison & { readonly read: boolean };
 
 const nothingRead: CodeTokens = {
   byName: new Map(),

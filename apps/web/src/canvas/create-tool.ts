@@ -17,7 +17,7 @@ import { useEditor } from "../state/editor.ts";
 import { canvasPoint, type Drop, placementAt, placeOfDrop } from "./drag.ts";
 import { type EditorFrame, frameOf } from "./editor-frame.ts";
 
-export type CreateTool = "group" | "text";
+type CreateTool = "group" | "text";
 
 interface Point {
   x: number;

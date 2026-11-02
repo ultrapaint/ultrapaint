@@ -164,7 +164,7 @@ export interface McpServerConfig {
 }
 
 /** What a session is opened with: the MCP servers it may call, and the agent's own `_meta`. */
-export interface SessionOptions {
+interface SessionOptions {
   readonly mcpServers?: readonly McpServerConfig[];
   readonly meta?: unknown;
 }

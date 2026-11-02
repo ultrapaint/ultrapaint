@@ -51,7 +51,7 @@ export const STATE_ATTRIBUTE = "data-ed-state";
  * What a system component's part outside its instance's element carries (ADR 0040): an overlay's popup,
  * portalled into the frame's body, is the component's as a portal, not as its root.
  */
-export const PORTAL_ATTRIBUTE = "data-ed-p";
+const PORTAL_ATTRIBUTE = "data-ed-p";
 
 const WHITESPACE_RE = /\s+/g;
 const CSS_STRING_RE = /["\\\n\r\f]/g;

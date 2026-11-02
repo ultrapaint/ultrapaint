@@ -62,7 +62,7 @@ import { TOOLS } from "./threads/agent-ways.ts";
  * file's reading finds (a section twice, YAML that does not read) comes first, as errors: the
  * linter does not report a section given twice, which the format calls an error.
  */
-export const lintDocument = (text: string): readonly DesignFinding[] => {
+const lintDocument = (text: string): readonly DesignFinding[] => {
   const read: DesignFinding[] = parse(text).problems.map((message) => ({
     message,
     severity: "error",

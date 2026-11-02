@@ -73,7 +73,7 @@ export const commandGroups = [
   "Go to",
   "Project",
 ] as const;
-export type CommandGroup = (typeof commandGroups)[number];
+type CommandGroup = (typeof commandGroups)[number];
 
 /**
  * Where the window's keys work: `always` in a text field too, for what nothing is typed with;
@@ -168,7 +168,7 @@ export interface Command {
 }
 
 /** A key the editor answers to, as the shortcut sheet lists it. */
-export interface Shortcut {
+interface Shortcut {
   group: CommandGroup;
   /** As this platform writes them: `⇧⌘Z`, `Ctrl+Shift+Z`. */
   keys: string;
@@ -785,7 +785,7 @@ const paletteCommand = (c: CommandSpec): Command => ({
  * Whether a command makes sense now: what it says of itself, and what the main area offers (a
  * board view has no code, comments or grid of its own). Its keys are let go of where it does not.
  */
-export const isOffered = (c: CommandSpec) =>
+const isOffered = (c: CommandSpec) =>
   (c.offered?.() ?? true) && surfaceNow().offers(c.id);
 
 /** The commands that make sense now: the panels the workspace offers, the canvas's tools on it. */

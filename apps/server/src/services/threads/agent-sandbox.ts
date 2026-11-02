@@ -53,7 +53,7 @@ const GIT_ORIGIN_RE = /^file:(\S+)/;
 const TRAILING_SLASH_RE = /\/+$/;
 
 /** What confining an agent needs to know about the machine. */
-export interface Machine {
+interface Machine {
   /** The home directory: closed, except for what is allowed back. */
   readonly home: string;
   /** The `PATH`, whose entries under the home directory are the toolchain. */
@@ -69,7 +69,7 @@ export interface Machine {
 }
 
 /** One agent session's sandbox: how to start it, and how to run anything else inside it. */
-export interface AgentSandboxSession {
+interface AgentSandboxSession {
   /** Puts a command the agent asked us to run in the same sandbox as the agent itself. */
   readonly confine: (launch: AgentLaunch) => AgentLaunch;
   /** The command that starts the agent. */

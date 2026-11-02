@@ -125,7 +125,7 @@ export const routesOf = (
     ? Object.fromEntries(basePaths.map((p) => [p, routeOf(p)]))
     : { ...routes };
 
-export interface RouteMatch<T> {
+interface RouteMatch<T> {
   readonly entry: T;
   readonly params: Record<string, string>;
 }

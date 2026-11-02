@@ -55,13 +55,13 @@ export const idOf = (canvas: string, pagePath: string) =>
   canvas === "" ? pagePath : `${canvas}/${pagePath}`;
 
 /** Where a page goes: a canvas and its path inside it, or nowhere. */
-export interface PageMove {
+interface PageMove {
   readonly page: Page;
   readonly to: { readonly canvas: string; readonly path: string } | null;
 }
 
 /** A page arriving in a canvas: its path there, and the frame it is drawn in, if it had one. */
-export interface Arrival {
+interface Arrival {
   readonly frame: FrameLayout | undefined;
   readonly page: Page;
   readonly path: string;

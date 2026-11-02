@@ -71,7 +71,7 @@ const setAt = (node: Draft, name: string, set: Record<string, unknown>) => {
 /** How far a copy on the canvas lands from its original. */
 const DUPLICATE_OFFSET = 40;
 
-export interface ApplyOptions {
+interface ApplyOptions {
   /** The document is a canvas: its top-level nodes have a position. */
   readonly canvas: boolean;
   readonly next: IdGenerator;

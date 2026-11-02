@@ -70,7 +70,7 @@ const MAX_WARNINGS = 12;
  */
 const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 
-export const ReadPage = Tool.make("read_page", {
+const ReadPage = Tool.make("read_page", {
   description:
     "A page's nodes with ids, and a hash for apply_operations; a big one as an outline, deeper levels counted. node: its subtree only; depth: levels shown. A node reference (/orders#c_8x2k1q) names page and node.",
   failure: ToolFailure,
@@ -92,7 +92,7 @@ export const ReadPage = Tool.make("read_page", {
   }),
 }).annotateMerge(doing("read"));
 
-export const ReadCanvas = Tool.make("read_canvas", {
+const ReadCanvas = Tool.make("read_canvas", {
   description:
     "The loose nodes beside a canvas's pages, with x and y; change them with apply_operations, loose: true.",
   failure: ToolFailure,
@@ -100,7 +100,7 @@ export const ReadCanvas = Tool.make("read_canvas", {
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
 }).annotateMerge(doing("read"));
 
-export const GetDocumentFormat = Tool.make("get_document_format", {
+const GetDocumentFormat = Tool.make("get_document_format", {
   description:
     'The JSON Schema of a page, or with kind "design-system" of design-system.json, and how it maps to code.',
   failure: ToolFailure,
@@ -110,7 +110,7 @@ export const GetDocumentFormat = Tool.make("get_document_format", {
   success: Schema.Struct({ rules: Schema.String, schema: Json }),
 }).annotateMerge(doing("read"));
 
-export const ApplyOperations = Tool.make("apply_operations", {
+const ApplyOperations = Tool.make("apply_operations", {
   description: `Change a page (loose: true the nodes beside the pages) as one undo step. ops in order, ids or node references:
 {op:"insert", parent, index?, node}: parent null at the top; node may leave out ids
 {op:"remove", id}

@@ -33,10 +33,10 @@ import { componentSlotOf } from "@ultrapaint/design-document/app-components";
 import { findNode } from "@ultrapaint/design-document/tree";
 
 /** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
-export type ComponentLayer = "inline" | "anchored" | "blocking";
+type ComponentLayer = "inline" | "anchored" | "blocking";
 
 /** A part of a system component. */
-export interface SystemComponentSlot {
+interface SystemComponentSlot {
   /**
    * The design puts nodes in it: an instance's children marked with this `slot`. The one marked
    * `default` takes the children that name no slot.

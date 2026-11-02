@@ -166,5 +166,3 @@ export const makeTreeWalk = (fs: FileSystem.FileSystem, path: Path.Path) => {
     );
   });
 };
-
-export type TreeWalk = ReturnType<typeof makeTreeWalk>;

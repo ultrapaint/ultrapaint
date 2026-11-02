@@ -27,7 +27,7 @@ import { childrenOf } from "./tree.ts";
 type Fields = Record<string, unknown>;
 
 /** What a property is drawn with: the instance's value, or the property's default. */
-export const propertyValue = (
+const propertyValue = (
   property: ComponentProperty,
   props: InstanceNode["props"]
 ): JsonValue => {
@@ -296,7 +296,7 @@ export const appComponentFrom = (
 };
 
 /** The app components a tree places, by name, nested ones not included. */
-export const appComponentsPlaced = (root: DesignNode): Set<string> => {
+const appComponentsPlaced = (root: DesignNode): Set<string> => {
   const names = new Set<string>();
   const visit = (node: DesignNode) => {
     if (node.type === "instance" && node.from === APP_FROM) {

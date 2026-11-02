@@ -40,7 +40,7 @@ import {
 } from "./ssh.ts";
 
 /** How `ssh` is run: the executable, and a configuration in place of the user's, for tests. */
-export interface SshLaunch {
+interface SshLaunch {
   readonly configFile?: string | undefined;
   /**
    * Where unsaved sessions are kept on the remote machine, one directory per project:
@@ -56,7 +56,7 @@ const CONNECT_TIMEOUT = "40 seconds";
 const READY_TIMEOUT = "2 minutes";
 
 /** A free port on loopback here: `preferred` when it is free, any other otherwise. */
-export const freeLocalPort = (preferred?: number) =>
+const freeLocalPort = (preferred?: number) =>
   Effect.callback<number, Error>((resume) => {
     const tryPort = (port: number) => {
       const server = createServer();

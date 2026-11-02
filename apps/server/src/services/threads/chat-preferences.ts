@@ -21,10 +21,7 @@ const decodeStored = Schema.decodeUnknownEffect(Schema.fromJsonString(Stored));
 const encodeStored = Schema.encodeEffect(Schema.fromJsonString(Stored));
 
 /** The options a thread starts with, before its session says otherwise. */
-export type ThreadOptions = Pick<
-  Thread,
-  "configOptions" | "currentModeId" | "modes"
->;
+type ThreadOptions = Pick<Thread, "configOptions" | "currentModeId" | "modes">;
 
 /**
  * What the chat knows about agents across threads: the agent and model a new thread starts

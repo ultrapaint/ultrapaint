@@ -15,9 +15,9 @@ import type {
 } from "./preview.ts";
 
 /** What a page does as its frame draws: what it is given, and what it is told to draw. */
-export type PageCode = (setup: RenderSetup, drawing: Drawing) => void;
+type PageCode = (setup: RenderSetup, drawing: Drawing) => void;
 
-export interface ScriptedPreview {
+interface ScriptedPreview {
   /** What the page does whenever a frame draws, from now on; nothing at first. */
   readonly page: (code: PageCode) => void;
   readonly preview: Preview;
