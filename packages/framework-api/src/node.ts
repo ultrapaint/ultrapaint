@@ -107,11 +107,13 @@ export interface UsageReader {
   ) => UsageInventory;
 }
 
-/** What a style system recognises: the stylesheets that set it up, and whether it is its kind. */
+/** What a style system recognises: the stylesheets that set it up, and whether it reads them. */
 export interface StyleSuggestions {
   readonly cssEntries: readonly string[];
-  /** Which Tailwind the stylesheets set up; only v4 is read. */
-  readonly tailwind: "v4" | "v3" | "none";
+  /** Why they are not read, in the style system's own words, for the user: when they are not. */
+  readonly note?: string;
+  /** Whether the repository's styles are written as this style system reads them. */
+  readonly supported: boolean;
 }
 
 /**

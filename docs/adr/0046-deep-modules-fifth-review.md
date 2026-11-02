@@ -100,6 +100,10 @@ Each concept has one module, with an interface its callers and its tests share.
 - The Tailwind adapter reads a stylesheet's themes once, and the scan classifies what the reader
   read, so `/init` and Sync cannot disagree.
 - The inventory has no plain elements.
+- The style system's interface says what any adapter can: whether the repository's styles are
+  read, and why not in the adapter's words (`StyleSuggestions.supported` and `note`, the setup's
+  `stylesNote`). Nothing outside the Tailwind adapter names a Tailwind version; an answer that
+  still names one reads, and the version is dropped (0024).
 
 **What agents read (MCP).**
 - Each tool declares its kind once (read, edit, destructive, idempotent; a closed world).
@@ -145,7 +149,6 @@ ones removed had one (the framework, `DesignMdLint`).
   servers are fixed when it opens while those tasks can come in any later prompt, and Effect
   filters tools by protocol, not by token. It would save Codex about 760 tokens a turn and Claude
   Code, which loads tools on demand, none.
-- **The style system's interface naming Tailwind's versions** waits for a second adapter.
 - **Splitting `GLOSSARY.md` into meanings and a module map**: the glossary is the index agents and
   reviews navigate by (0037), and a second file would be a second place to follow a rename.
   Instead, each overloaded word ("variant", "state", "look") is told apart in it.

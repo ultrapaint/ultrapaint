@@ -120,8 +120,9 @@ export class SetupService extends Context.Service<
           libraries: found?.libraries ?? [],
           repoName: path.basename(root),
           rootManifest: yield* exists(path.join(root, "package.json")),
-          ...(styles.tailwind === "v4" && { styleSystem: styleSystem.id }),
-          tailwind: styles.tailwind,
+          ...(styles.supported
+            ? { styleSystem: styleSystem.id }
+            : styles.note !== undefined && { stylesNote: styles.note }),
         } satisfies SetupSuggestions;
       });
 

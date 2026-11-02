@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { defaultSettings } from "./settings.ts";
 import {
@@ -5,7 +6,7 @@ import {
   describeSuggestions,
   hostCssFor,
   relativePosix,
-  type SetupSuggestions,
+  SetupSuggestions,
   stylesheetOf,
 } from "./setup.ts";
 
@@ -19,7 +20,7 @@ const found: SetupSuggestions = {
     { dir: "packages/ui", name: "@acme/ui", sourceDir: "packages/ui/src" },
   ],
   repoName: "acme",
-  tailwind: "v4",
+  styleSystem: "tailwind-v4",
 };
 
 describe("first-run suggestions", () => {
@@ -86,5 +87,17 @@ describe("first-run suggestions", () => {
     expect(describeSuggestions(found)).toBe(
       "Found in acme: no designs directory yet, proposing docs/designs; the stylesheet apps/web/src/app.css."
     );
+  });
+
+  it("reads suggestions that still name a Tailwind version, and drops it", () => {
+    const { styleSystem: _, ...rest } = found;
+    const read = (tailwind: string, more: object = {}) =>
+      Schema.decodeUnknownSync(SetupSuggestions)({
+        ...rest,
+        ...more,
+        tailwind,
+      });
+    expect(read("v4", { styleSystem: "tailwind-v4" })).toEqual(found);
+    expect(read("v3")).toEqual(rest);
   });
 });

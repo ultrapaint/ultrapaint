@@ -43,10 +43,10 @@ export const SetupSuggestions = Schema.Struct({
   /** The style system the stylesheets are written for, when one the tool reads is found. */
   styleSystem: Schema.optional(StyleSystemId),
   /**
-   * Which Tailwind the stylesheets set up. Only v4 is supported: its `@theme` is where the
-   * design system's tokens are read from.
+   * Why the stylesheets are not read, in the style system's own words: when none is found. An
+   * answer that still names a Tailwind version (`tailwind`) reads, and the version is dropped.
    */
-  tailwind: Schema.Literals(["v4", "v3", "none"]),
+  stylesNote: Schema.optional(Schema.String),
 });
 export type SetupSuggestions = typeof SetupSuggestions.Type;
 
