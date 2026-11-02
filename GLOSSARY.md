@@ -369,8 +369,9 @@ refactor and the board view left.
 - **Read under the journal**: what a step writes from a file, it reads inside the step, under the
   journal's lock (`tx.read`, `tx.readDocument` with a file's codec, `updateFile`), so an undo or
   another edit lands before it or after it and no module needs a lock of its own. Each file has
-  one codec: `canvas-file`, `comments-file`, `document-file`, `implementation-files`,
-  `component-files`, `design-system-files`.
+  one codec: `canvas-files`, `comments-file`, `document-file`, `implementation-files`,
+  `component-files`, `design-system-files`. The layouts of `canvas.json` read and written last are
+  kept by the open project, one per canvas and read-only (`CanvasFiles`).
 - **A page's move**: a page renamed, moved to another canvas or taken out takes its followers
   with it in one step (`movePages`): its files, comments, frames, URL, the canvas's home, the
   links to it (in pages and app components' trees) and its link to the code.
