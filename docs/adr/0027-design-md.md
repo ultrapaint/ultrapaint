@@ -1,7 +1,7 @@
 # ADR 0027: DESIGN.md follows the open standard, at the repository root, kept in step with the code both ways
 
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
-Plan: `docs/PLAN-design-md.md`.
+Plan: `docs/plans/PLAN-design-md.md`.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the lint is a pure `lintDocument`; DESIGN.md's baseline moves outside undo.
 

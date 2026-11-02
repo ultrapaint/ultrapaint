@@ -4,7 +4,7 @@ Status: accepted, 2026-10-28. Follows 0037 and 0038, whose rule it applies again
 checkpoint is a ref of the snapshot store, and a revert is one undo step that leaves the comments),
 0011 and 0037's page-runtime line (the generated editor entry's exports and start-up are declared
 and run in code), 0025 (how a token from another tool is named) and 0034 (the core owns a frame's
-host). Plan: `docs/PLAN-architecture-3.md`, steps 1 to 18. The terms are in `GLOSSARY.md`.
+host). Plan: `docs/plans/done/PLAN-architecture-3.md`, steps 1 to 18. The terms are in `GLOSSARY.md`.
 
 ## Context
 

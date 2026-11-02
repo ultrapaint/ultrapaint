@@ -2,7 +2,7 @@
 
 Status: built, 2026-10-27: the first round (steps 1 to 6, under "Built") and the second (steps 7 to
 17, at the end; the desktop app names the line a stuck page was on since step 17). Follows
-[ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
+[ADR 0034](../../adr/0034-frames-in-the-editors-page.md) and `docs/plans/done/PLAN-editor-renderer.md`, whose
 "Pitfalls" it answers. The answers to its questions are under "Decisions".
 
 ## Why

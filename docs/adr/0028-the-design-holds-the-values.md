@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-10-25. Supersedes 0025's "values live in the code". Amends 0015 (token
 names), 0024 (the style system is the code's side) and 0027 (DESIGN.md is compared with the
-design, not the code). Plan: `docs/PLAN-design-source.md`.
+design, not the code). Plan: `docs/plans/done/PLAN-design-source.md`.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: one write path makes the code follow every write; Sync's takes are `designSystem.edit` operations; a baseline moves one way, outside undo.
 

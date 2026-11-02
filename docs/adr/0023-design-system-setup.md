@@ -1,7 +1,7 @@
 # ADR 0023: A design system is set up in steps the user sees, stops and redoes
 
 Status: accepted, 2026-10-06. Builds on 0015 (the design system is imported by an agent).
-Amended 2026-10-26 by [PLAN-desktop](../PLAN-desktop.md) Phase 0.4: the snapshots are kept in the
+Amended 2026-10-26 by [PLAN-desktop](../plans/PLAN-desktop.md) Phase 0.4: the snapshots are kept in the
 tool's own snapshot store, the code's files are listed by a walk that reads `.gitignore`, and no
 git is needed (see the amendment at the end).
 
@@ -118,7 +118,7 @@ The tool no longer needs git (PLAN-desktop D9), so the setup's snapshots move ou
   did not move is not read again. A ref per setup (`refs/setup/<project>/<id>`) keeps a snapshot;
   one no step names any longer is let go, and what no ref keeps is removed with the contents only
   it named. The same store is meant to carry the revision history later
-  ([PLAN-revision-history](../PLAN-revision-history.md)).
+  ([PLAN-revision-history](../plans/PLAN-revision-history.md)).
 - **The files are those the folder's `.gitignore` keeps.** The server walks the folder and reads
   every `.gitignore` in it (and `.git/info/exclude` when there is one) as git does; `node_modules`,
   `dist`, `.git` and the state directory are never walked. Git need not be installed.

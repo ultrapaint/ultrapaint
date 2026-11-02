@@ -1,6 +1,6 @@
 # Plan: responsive views
 
-Status: implemented, 2026-10-26 (all phases). Through [ADR 0036](adr/0036-responsive-views.md):
+Status: implemented, 2026-10-26 (all phases). Through [ADR 0036](../../adr/0036-responsive-views.md):
 amends 0015, 0020 and 0034. "As built" under each phase says where the work differs from the plan.
 
 ## Why

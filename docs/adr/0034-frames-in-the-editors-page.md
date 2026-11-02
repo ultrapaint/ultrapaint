@@ -3,9 +3,9 @@
 Status: accepted, 2026-10-26. Supersedes 0011's iframes (the preview core, the renderer and the
 framework package stay). Amends 0015 (the preview draws the documents the editor gives it,
 called directly), 0031 (one port forwarded over SSH) and 0033 (the iframe pool and the agent
-cluster go). Plan: `docs/PLAN-editor-renderer.md`.
+cluster go). Plan: `docs/plans/done/PLAN-editor-renderer.md`.
 
-> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../PLAN-architecture-3.md)
+> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../plans/done/PLAN-architecture-3.md)
 > step 6): the preview core owns a frame's host. The editor places it and says how the frame is
 > shown (its class, style, title, whether it takes input, whether it is away) through the frame's
 > runtime; the core writes it, and keeps what the page's code writes to `<html>` and `<body>`
@@ -79,7 +79,7 @@ Measured on the Redesign canvas (10 frames, 4,287 layers) on the same machine:
 - No iframe is left in the editor: the canvas, the prototype, the type samples, a component's
   matrix and every picture are frames of its page.
 - The application's code shares the editor's main thread and window. Guards where the two meet
-  (`docs/PLAN-preview-sandbox.md`, 2026-10-27) keep its listeners to its own frame's input, its
+  (`docs/plans/done/PLAN-preview-sandbox.md`, 2026-10-27) keep its listeners to its own frame's input, its
   `scroll` and `resize` to its frame, the editor's address, title and head the editor's, and show
   what it throws on its frame (rejections by the frame their `async` function was called for),
   send its requests to the editor's origin to the preview's server and its proxy, give it storage

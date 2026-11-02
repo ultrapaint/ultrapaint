@@ -1,7 +1,7 @@
 # Plan: frames drawn in the editor's page, without iframes
 
 Status: accepted, 2026-10-26; Phases 0 to 5 done 2026-10-26, Phase 6 measured on a branch. Through
-[ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
+[ADR 0034](../../adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
 ## Why
@@ -228,9 +228,9 @@ pages L is as fast. Main stays on L.
 
 | Pitfall | Answer |
 |---|---|
-| A document-level hotkey in the application hears the editor's keys | Its listeners hear its own frame's input only (`docs/PLAN-preview-sandbox.md`) |
-| An infinite loop in a component freezes the editor | It still does while it runs; the watchdog draws that page as a placeholder the next time (`docs/PLAN-preview-sandbox.md`) |
-| A hook on `matchMedia` or `window` sees the editor's window, not the frame (sacro-cuore's header on scroll) | `matchMedia` and the window's size answer for the frame (ADR 0036); its `scroll` and `resize` are the frame's (`docs/PLAN-preview-sandbox.md`) |
+| A document-level hotkey in the application hears the editor's keys | Its listeners hear its own frame's input only (`docs/plans/done/PLAN-preview-sandbox.md`) |
+| An infinite loop in a component freezes the editor | It still does while it runs; the watchdog draws that page as a placeholder the next time (`docs/plans/done/PLAN-preview-sandbox.md`) |
+| A hook on `matchMedia` or `window` sees the editor's window, not the frame (sacro-cuore's header on scroll) | `matchMedia` and the window's size answer for the frame (ADR 0036); its `scroll` and `resize` are the frame's (`docs/plans/done/PLAN-preview-sandbox.md`) |
 | `BrowserRouter`, `window.location` | `providersModule` uses a memory router; the application's writes to the address are dropped, a page pushed in the prototype followed |
 | Vite's first open optimises its dependencies and asks for a full reload | R9: frames remount, the editor stays |
 | The application names its public files from the root (`"/media/a.webp"`, in its code or in a page's props), which is the editor's root here | The preview's server moves such strings in the code under `/preview/` when they name a public file; the renderer does the same to an instance's props, by the public directory's entries |

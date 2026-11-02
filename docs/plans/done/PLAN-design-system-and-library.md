@@ -1,7 +1,7 @@
 # Plan: the Design system and the Library
 
 Status: accepted, 2026-10-30; done (the merge of `feat/primitives`, the sketch, this plan and
-[ADR 0045](adr/0045-design-system-and-library.md), the shell, Design system, the Library, the
+[ADR 0045](../../adr/0045-design-system-and-library.md), the shell, Design system, the Library, the
 agents told what is picked and what went); Phase 8 is what is left for later. Amends 0028, 0029,
 0032, 0040, 0041 and 0044 as the ADR says.
 

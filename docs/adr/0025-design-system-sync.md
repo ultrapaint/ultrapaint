@@ -1,7 +1,7 @@
 # ADR 0025: One sync brings the design system and the code together, whatever the project starts from
 
 Status: accepted, 2026-10-06. Builds on 0016 (Figma import), 0023 (design-system setup) and
-0024 (style systems). Plan: `docs/PLAN-design-system-sync.md`.
+0024 (style systems). Plan: `docs/plans/done/PLAN-design-system-sync.md`.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the drift is what the code's comparison finds new; `SyncFacts`' unread fields and `tokensGone` go; Sync watches stylesheets only.
 
@@ -9,7 +9,7 @@ Status: accepted, 2026-10-06. Builds on 0016 (Figma import), 0023 (design-system
 > system, not the code; the code is compared with it as Figma and DESIGN.md are, and follows on
 > export.
 
-> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../PLAN-architecture-3.md)
+> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../plans/done/PLAN-architecture-3.md)
 > step 9): a token from Figma or a Design Tokens file is named by contracts' `token-naming`. The
 > type the tool gives decides the kind where it names a value type, the path's words for a
 > dimension or a number; a name drops only its kind's own words (`Color/Text/Primary` is

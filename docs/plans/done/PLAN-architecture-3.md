@@ -2,8 +2,8 @@
 
 Status: steps 1 to 18 built, 2026-10-28, one commit each, under "Built". Steps 9 to 18 were
 planned from the candidates investigated one at a time ("Investigated").
-The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
-[ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
+The decisions are recorded in [ADR 0039](../../adr/0039-deep-modules-third-review.md). Follows
+[ADR 0037](../../adr/0037-deep-modules.md) and [ADR 0038](../../adr/0038-deep-modules-second-review.md), whose
 31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
 are not proposed again. The terms are in `GLOSSARY.md`.
 

@@ -4,7 +4,7 @@ Status: accepted, 2026-10-26. Amends 0018 (the element toolbar is no longer Vibe
 0020 (the Pages panel stays the prototype's; the canvases are switched at the top of the left
 panel). Builds on 0031 (the desktop app's window).
 
-> Amended by [0037](0037-deep-modules.md), 2026-10-28 (`docs/PLAN-architecture.md`, step 16). The key handlers no longer stay
+> Amended by [0037](0037-deep-modules.md), 2026-10-28 (`docs/plans/done/PLAN-architecture.md`, step 16). The key handlers no longer stay
 > where they were: a key is declared once, with its command in `lib/commands.ts`, as a chord
 > (`mod+shift+z`) and the scope it works in (anywhere, outside text fields, on the canvas, or a
 > focused row of the Layers panel). The one key handler, the palette, the shortcut sheet, the
