@@ -5,29 +5,26 @@ import { AskUser } from "../services/mcp/ask-user.ts";
 import { EditorTools } from "../services/mcp/route.ts";
 import { GetScreenshot } from "../services/mcp/screenshot.ts";
 import { TOOLS } from "../services/threads/agent-ways.ts";
-import { designSkills } from "./design.generated.ts";
-import { builtInSkills, SKILL_ORDER } from "./index.ts";
-import { readSkillSources, renderSkills, SKILLS_SOURCE } from "./render.ts";
+import { designSkill } from "./design.generated.ts";
+import { builtInSkills, routerText, SKILL_ORDER } from "./index.ts";
+import { readSkillSource, renderSkills, SKILLS_SOURCE } from "./render.ts";
 
 describe("design skills", () => {
-  it("the generated module is skills/design/ as it is: run `pnpm -F @ultrapaint/server skills` after an edit", () => {
+  it("the generated module is skills/ultrapaint/ as it is: run `pnpm -F @ultrapaint/server skills` after an edit", () => {
     const generated = readFileSync(
       path.join(import.meta.dirname, "design.generated.ts"),
       "utf8"
     );
-    assert.strictEqual(
-      generated,
-      renderSkills(readSkillSources(SKILLS_SOURCE))
-    );
+    assert.strictEqual(generated, renderSkills(readSkillSource(SKILLS_SOURCE)));
   });
 
-  it("every skill told in order has its folder, and every folder is told", () => {
+  it("every part told in order has its reference, and every reference is told", () => {
     assert.deepStrictEqual(
       builtInSkills(null).map((s) => s.name),
       [...SKILL_ORDER]
     );
     assert.deepStrictEqual(
-      Object.keys(designSkills).sort(),
+      Object.keys(designSkill.sections).sort(),
       [...SKILL_ORDER].sort()
     );
   });
@@ -38,12 +35,14 @@ describe("design skills", () => {
       AskUser.name,
       GetScreenshot.name,
     ]);
-    const without = builtInSkills(null)
-      .map((s) => s.text)
-      .join("\n");
-    const withTools = builtInSkills(TOOLS)
-      .map((s) => s.text)
-      .join("\n");
+    const without = [
+      routerText(null),
+      ...builtInSkills(null).map((s) => s.text),
+    ].join("\n");
+    const withTools = [
+      routerText(TOOLS),
+      ...builtInSkills(TOOLS).map((s) => s.text),
+    ].join("\n");
     assert.notInclude(without, "editor's tools:");
     assert.notInclude(withTools, "editor's tools:");
     assert.notInclude(without, "| without:");
