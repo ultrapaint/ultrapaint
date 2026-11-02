@@ -82,6 +82,8 @@ Each concept has one module, with an interface its callers and its tests share.
 **The server's designs.**
 - One module hears every change to the designs (`DesignFiles`), sorts it once by kind and tells
   it once per content. Its two adapters are a watch of the directory and what a test reports.
+  The code's stylesheets are not designs: Sync hears of them itself (`design-system-sync.ts`), a
+  watch of their directories and the files the journal and the agents write.
 - What a step writes from a file, it reads inside the step (`tx.read`, a file's codec,
   `updateFile`), so the journal's lock is the only lock. Each file has one codec.
 - A page's move takes every follower along (`movePages`), links included, in app components'
@@ -90,6 +92,13 @@ Each concept has one module, with an interface its callers and its tests share.
 - Event RPCs are derived from their schemas, and six RPCs no client used go.
 - The setup's scaffold looks up its theme in what it is given (the open project's latest Figma
   import, which fails with no project open), so the editor's request handler only routes.
+
+**The server.**
+- It stops at once whatever connection a client leaves open: it closes, and after a short grace
+  for what was already written destroys what is still open, an upgrade it refused or a connection
+  that sent nothing.
+- Checkpoints, named snapshots and Figma imports made in one millisecond are listed in the order
+  their ids were made (`newestFirst`), the same every time.
 
 **The design system.**
 - One write path makes the code follow every write, from what changed between before and after.
@@ -124,7 +133,8 @@ Each concept has one module, with an interface its callers and its tests share.
 - A board's picks have one grammar.
 - The page layout and the selection's changes are modules of their own.
 - Escape is one command.
-- Leaving a board view is part of arriving somewhere.
+- Leaving a board view is part of arriving somewhere, and the editor's start keeps the board view
+  a URL names: a reload or a link lands on it again.
 - Nothing subscribes at import: the board view and the isolation are started.
 
 **Tests** follow `docs/TESTING.md`:
@@ -133,13 +143,14 @@ Each concept has one module, with an interface its callers and its tests share.
 - each test building its own world;
 - the clock, randomness and environment given as inputs;
 - `pnpm test:shuffle` finds order dependence;
-- no retries.
+- no retries: `pnpm test` fails on a sleep, a real-clock test or a retry that does not say why
+  (`scripts/test-guards.test.ts`).
 
 The editor's requests are tested through an in-memory RPC client over a test's own project; the
 socket is kept for what the wire does.
 
 0037's rule on seams stands. The seams added have two adapters (`DesignFiles`, `Surface`); the
-ones removed had one (the framework, `DesignMdLint`).
+ones removed had one (the framework, `DesignMdLint`, `RawTools`).
 
 ## Explored and not done
 
@@ -169,6 +180,8 @@ ones removed had one (the framework, `DesignMdLint`).
   reviews navigate by (0037), and a second file would be a second place to follow a rename.
   Instead, each overloaded word ("variant", "state", "look") is told apart in it.
 - **Progress notifications for the long MCP tools**: each is one call with no steps to report.
+- **`handoff` answering in JSON**: its answers are text, a line per design with its status, which
+  is shorter than the same data as JSON for every agent that lists or marks. It keeps its text.
 
 ## Consequences
 
@@ -190,9 +203,15 @@ ones removed had one (the framework, `DesignMdLint`).
   - DESIGN.md's mirror reads the components only when one changed.
 - About 2,100 lines went with the migration, the framework seam, the per-frame look and the dead
   code. `editor.ts` went from 796 lines to 247.
-- The server's socket tests went from 53 to 18, and the domain tests run in-process, each in its
-  own world. The suite passes shuffled and repeated, which the old shared server did not (it
-  failed 5 of 52 tests shuffled).
+- The tests that talk to a server over its socket (a request, a message or a fetch) went from 162
+  in 25 files to 79 in 16, and `server.test.ts` alone from 54 tests to 21. 23 test files import
+  the socket harness (25 before): those 16, and 7 for its fixtures or its `TestEnv` over an
+  in-memory client. The domain tests run in-process, each in its own world. The suite passes
+  shuffled and repeated, which the old shared server did not (it failed 5 of 52 tests shuffled).
+- Found in a browser once the slices merged: a link to a board view showed the page canvas,
+  since the editor's first move to its start canvas left the board view the URL names.
+- The plans are in `docs/plans/`, the ones built under `docs/plans/done/` (review 7.4), so a
+  search of the docs no longer meets a finished plan beside the decisions in force.
 - A change of rule is one edit:
   - what an instance may name, a component's drop target, what follows a page's move, how a file
     is read and written, what hears a change to the designs;
