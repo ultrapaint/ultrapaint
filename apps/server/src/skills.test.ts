@@ -190,7 +190,7 @@ describe("design skills", () => {
         );
         yield* client["settings.set"]({
           ...settings,
-          skills: { disabled: ["color"] },
+          skills: { briefing: "full", disabled: ["color"] },
         });
         const thread = yield* client["threads.create"]({ agentId: "fake" });
         yield* client["threads.prompt"]({
@@ -226,16 +226,13 @@ describe("design skills", () => {
   );
 
   onAServer.effect(
-    "tells the router, with what every screen needs, and names where every other part is read",
+    "tells the router by default, with what every screen needs, and names where every other part is read",
     () =>
       Effect.gen(function* () {
         const { client, home, settings } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        yield* client["settings.set"]({
-          ...settings,
-          skills: { briefing: "router" },
-        });
+        yield* client["settings.set"](settings);
         const thread = yield* client["threads.create"]({ agentId: "fake" });
         yield* client["threads.prompt"]({
           attachments: [],

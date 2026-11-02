@@ -47,18 +47,17 @@ export type SkillList = typeof SkillList.Type;
 export const skillUri = (name: string) => `skill://ultrapaint/${name}`;
 
 /**
- * How a design thread's briefing tells the skills: each whole (`full`, the default, which the
- * design evals were tuned on); each by its title and summary with where to read it whole
- * (`summaries`), which an agent does before the work a skill is about; or the design skill's
- * router with the parts every screen needs, the rest read from its references as the agent
- * reaches each part (`router`).
+ * How a design thread's briefing tells the skills: the design skill's router with the parts
+ * every screen needs, the rest read from its references as the agent reaches each part
+ * (`router`, the default, ADR 0048); each whole (`full`); or each by its title and summary with
+ * where to read it whole (`summaries`), which an agent does before the work a skill is about.
  */
 export const SkillsBriefing = Schema.Literals(["full", "summaries", "router"]);
 export type SkillsBriefing = typeof SkillsBriefing.Type;
 
 /** The skills part of the settings: which ones are not sent to agents, and how the rest are. */
 export const SkillsConfig = Schema.Struct({
-  /** `full` when absent. */
+  /** `router` when absent. */
   briefing: Schema.optional(SkillsBriefing),
   disabled: Schema.optional(Schema.Array(Schema.String)),
 });

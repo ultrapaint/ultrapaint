@@ -86,7 +86,7 @@ export class SkillsService extends Context.Service<
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
       const summaries = paths.settings.skills?.briefing === "summaries";
-      const router = paths.settings.skills?.briefing === "router";
+      const router = (paths.settings.skills?.briefing ?? "router") === "router";
       // As the settings show them: worded for the tools the server offers.
       const { machine, mcp } = yield* ServerConfig;
       const referencesDir = referencesDirOf(machine.home, path.join);

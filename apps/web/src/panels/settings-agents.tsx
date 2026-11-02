@@ -32,10 +32,19 @@ import { useSkills } from "../state/skills.ts";
 import { Group, Row } from "./settings-group.tsx";
 
 const skillsBriefings = [
+  { label: "A router, read on demand", value: "router" },
   { label: "Whole", value: "full" },
   { label: "Titles and summaries", value: "summaries" },
-  { label: "A router, read on demand", value: "router" },
 ];
+
+/** What a design thread is told, for each way of telling the skills. */
+const briefingDescriptions: Record<SkillsBriefing, string> = {
+  full: "A design thread is told every skill that is on, whole: about 33,000 characters it reads before its first prompt.",
+  router:
+    "A design thread is told the design skill's router with the parts every screen needs, about 12,000 characters, and reads every other part from its reference as the screen reaches it.",
+  summaries:
+    "A design thread is told each skill's title and summary, about 2,500 characters, and reads a skill whole before the work it is about: from the editor's MCP server, or from its file in the repository. Without the MCP server, a built-in skill, which has no file there, is told whole.",
+};
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
 const skillsWith = (
@@ -44,7 +53,7 @@ const skillsWith = (
 ): SkillsConfig | undefined => {
   const { briefing, disabled } = { ...config, ...change };
   const next = {
-    ...(briefing === undefined || briefing === "full" ? {} : { briefing }),
+    ...(briefing === undefined || briefing === "router" ? {} : { briefing }),
     ...(disabled && disabled.length > 0 ? { disabled } : {}),
   };
   return Object.keys(next).length === 0 ? undefined : next;
@@ -222,20 +231,13 @@ export const SkillsGroup = ({
       skillsWith(config, { disabled: enabled ? others : [...others, name] })
     );
   };
-  const briefing = config?.briefing ?? "full";
+  const briefing = config?.briefing ?? "router";
   return (
     <Group
       description={`Told to every agent before it designs, ahead of DESIGN.md. A file in ${dir} with a built-in's name replaces it, or extends it when the file opens with the front matter "extends: true"; a file with any other name is a skill of its own. A switch turned off is saved with the settings.`}
       title="Design skills"
     >
-      <Row
-        description={
-          briefing === "full"
-            ? "A design thread is told every skill that is on, whole: about 33,000 characters it reads before its first prompt."
-            : "A design thread is told each skill's title and summary, about 2,500 characters, and reads a skill whole before the work it is about: from the editor's MCP server, or from its file in the repository. Without the MCP server, a built-in skill, which has no file there, is told whole."
-        }
-        title="Told as"
-      >
+      <Row description={briefingDescriptions[briefing]} title="Told as">
         <OptionSelect
           onChange={(value) =>
             onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
