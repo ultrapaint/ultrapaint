@@ -2,7 +2,12 @@
  * The settings of the agents: the MCP connection they reach the editor by, the skills they are
  * given, the key that sends a prompt, and what a new chat starts with.
  */
-import type { CustomiseMode, Skill } from "@ultrapaint/contracts/skills";
+import type {
+  CustomiseMode,
+  Skill,
+  SkillsBriefing,
+  SkillsConfig,
+} from "@ultrapaint/contracts/skills";
 import {
   type AgentOptions,
   type ChatDefaults,
@@ -25,6 +30,24 @@ import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
 import { Group, Row } from "./settings-group.tsx";
+
+const skillsBriefings = [
+  { label: "Whole", value: "full" },
+  { label: "Titles and summaries", value: "summaries" },
+];
+
+/** The settings' skills with one changed, absent when they say only what is the default. */
+const skillsWith = (
+  config: SkillsConfig | undefined,
+  change: SkillsConfig
+): SkillsConfig | undefined => {
+  const { briefing, disabled } = { ...config, ...change };
+  const next = {
+    ...(briefing === "summaries" ? { briefing } : {}),
+    ...(disabled && disabled.length > 0 ? { disabled } : {}),
+  };
+  return Object.keys(next).length === 0 ? undefined : next;
+};
 
 const sendKeys = [
   { label: "Enter", value: "enter" },
@@ -174,11 +197,11 @@ const SkillRow = ({
  * replaces or extends one with a file, adds its own, and turns any off here.
  */
 export const SkillsGroup = ({
-  disabled,
-  onToggle,
+  config,
+  onChange,
 }: {
-  disabled: readonly string[];
-  onToggle: (name: string, enabled: boolean) => void;
+  config: SkillsConfig | undefined;
+  onChange: (config: SkillsConfig | undefined) => void;
 }) => {
   const dir = useSkills((s) => s.dir);
   const loaded = useSkills((s) => s.loaded);
@@ -191,12 +214,35 @@ export const SkillsGroup = ({
   if (skills.length === 0) {
     return null;
   }
-  const off = new Set(disabled);
+  const off = new Set(config?.disabled);
+  const onToggle = (name: string, enabled: boolean) => {
+    const others = [...off].filter((n) => n !== name);
+    onChange(
+      skillsWith(config, { disabled: enabled ? others : [...others, name] })
+    );
+  };
+  const briefing = config?.briefing ?? "full";
   return (
     <Group
       description={`Told to every agent before it designs, ahead of DESIGN.md. A file in ${dir} with a built-in's name replaces it, or extends it when the file opens with the front matter "extends: true"; a file with any other name is a skill of its own. A switch turned off is saved with the settings.`}
       title="Design skills"
     >
+      <Row
+        description={
+          briefing === "full"
+            ? "A design thread is told every skill that is on, whole: about 33,000 characters it reads before its first prompt."
+            : "A design thread is told each skill's title and summary, about 2,500 characters, and reads a skill whole before the work it is about: from the editor's MCP server, or from its file in the repository. Without the MCP server, a built-in skill, which has no file there, is told whole."
+        }
+        title="Told as"
+      >
+        <OptionSelect
+          onChange={(value) =>
+            onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
+          }
+          options={skillsBriefings}
+          value={briefing}
+        />
+      </Row>
       {skills.map((skill) => (
         <SkillRow
           enabled={!off.has(skill.name)}
