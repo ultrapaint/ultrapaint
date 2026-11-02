@@ -143,6 +143,17 @@ ones removed had one (the framework, `DesignMdLint`).
   servers are fixed when it opens while those tasks can come in any later prompt, and Effect
   filters tools by protocol, not by token. It would save Codex about 760 tokens a turn and Claude
   Code, which loads tools on demand, none.
+- **Merging the Figma tools into one, and the setup tools into another, with an `action`.**
+  Measured as the budget test counts (name, description and lean input schema), the six Figma
+  tools take 2,017 characters and the three setup tools 997. Merged with a tagged union, each
+  action with its own required fields, they take 2,108 and 1,148: 242 more, since every branch
+  repeats its object, its `action` and its `required`, and a top-level `anyOf` is an input schema
+  some clients refuse (Anthropic's API among them). Merged as `handoff` is, one object with every
+  action's fields optional, they take 1,427 and 934: 653 fewer (about 160 tokens a turn), well
+  under the 1,500 that would earn it, for a schema that no longer says which field an action
+  needs and hints that tell less: a merged tool is as strict as its strictest action, so the four
+  Figma reads would lose `readOnlyHint` (a client asks before each) and `map_values` and
+  `finish_setup_step` would be marked destructive, as `next_batch` is. The tools stay apart.
 - **Marking files changed during a turn but outside the thread's evidence.** The evidence is
   incomplete on the main path: an MCP edit is told by document, a shell command not at all. It
   waits for per-thread write attribution.
