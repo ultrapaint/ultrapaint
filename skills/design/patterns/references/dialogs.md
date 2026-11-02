@@ -1,48 +1,51 @@
 # Dialogs
 
-How Untitled UI builds it, counted over the pieces of its kind in a study of 600 (a share is of
-that kind's pieces; "~n notes" is at least n). Where it differs from the design skills, the skills
-win: they hold what a person preferred when the two were compared.
+How one reference design system builds dialogs, counted over the 67 dialogs in a study of 575 pieces. A percentage is a share of those 67, and "≈n" means at least n notes. Where a pattern differs from the design skills, the skills win, because they record what a person preferred when the two were compared. The principles win over both. A pattern here is common, not right.
 
 **Header**
-- Title of about 3 words. In 74% the title has a description under it (about 8 words, usually one line, two in permission and upload dialogs).
-- 57% carry an icon in the header. In the notes this is a featured icon in a bordered rounded square or a tinted circle (~18 notes), a pair of app logos joined by an arrow (3), or an illustration (4).
-- Close X at the top right (mentioned in ~30 notes). It is drawn as a small bordered square or a circle hanging off the corner.
-- The header is left-aligned when the dialog holds a form, and centred for confirmations, permissions and uploads (stated in 1 note, visible in ~10).
+- The title is about 3 words. In 79% a description of about 7 words sits under it, as one muted line.
+- The usual order is title, then the description line, then a close X at the top right (≈60). The close X is drawn as a bare X, a bordered square, or a circle straddling the corner (≈5 straddle).
+- In ≈30 the header opens with a featured element. It is one of: a bordered 48 px icon tile, two app logos joined by ⇄, an avatar stack, a 3D object, or a brand mark. 51% carry an icon in the header. Principle 1 counts a box around one icon as decoration, so this is common, not earned.
+- The alignment follows that element. An icon tile sits with a left-aligned header. An illustration or an avatar group centres the header, and so does a permission or upload dialog (≈12 centred).
+- Dot-grid or striped textures behind the header appear in ≈8. On a product screen they are decoration.
 
 **Footer**
-- 58% are footer-right, 22% footer-full-width, 14% inline, 4% none.
-- The split footer is the norm (~38 notes): something on the left, and the secondary plus primary grouped on the right. The left slot holds one of:
-  - a third, quieter action: "Chat to us", Help, Support, "Reset to default", "Ask AI", Documentation, Copy link / Embed, step dots, or a toggle (~26 notes);
-  - Cancel alone, with the primary at the far right (~11 notes).
-- The equal-width pair (secondary left, primary right, each half the width) appears in ~9 notes. It is used for confirmations, auth and onboarding steps.
-- A hairline divider separates the footer from the body (~35 notes). Sometimes the footer sits on a grey tray instead (3 notes).
-- One primary per dialog (typical: 1). A destructive confirmation swaps the primary and the featured icon to red (1 note).
+- 64% split the actions left and right, 16% use a full-width footer, and 18% place the actions inline.
+- In the split footer (≈46), the left side holds a utility or an escape. That is one of: Help, "Chat to us", Documentation, Copy link / Embed, "Reset to default", step dots, or Cancel alone. The actions that finish the job sit on the right.
+- An equal-width pair, an outlined Cancel and then the primary, appears in ≈9. Every one is a confirm, auth or onboarding dialog.
+- Emphasis rises toward the right: outline, then tinted, then solid (≈5). The median is one primary per dialog.
+- A full-width rule sets off the footer in ≈35. In ≈6 a grey band under a white body does it instead.
 
 **Body and grouping**
-- 42% group with dividers, 28% mixed, 21% cards, 10% space.
-- Full-width hairlines split header, body and footer. Dotted dividers between sections appear in ~10 notes and are an Untitled UI signature.
+- Grouping is mixed in 46%, cards in 22%, dividers in 19% and space alone in 12%.
+- Full-width rules split the header, body and footer in ≈10. Dotted rules split the body's sections in ≈8.
+- Help folds into a collapsed accordion row on a grey or bordered surface instead of making the dialog longer (≈8).
+- A mode switch under the title is a segmented control: a grey track with a raised white pill (≈12).
 
 **Fields**
-- 64% have a label above; 27% are placeholder-only; 5% have helper text.
-- Required fields get an asterisk after the label (~8 notes).
-- Related short fields share a row: name + expiry, card number + CVV, with the narrow field on the right (~6 notes).
-- 50% have a leading icon in a field: search, mail, card brand, flag.
+- 55% have a label above, 29% are placeholder-only, and 5% have helper text.
+- A field that depends on a radio or checkbox is indented under that option's label (4).
+- A verification code is 4 or 6 square cells (≈9). Filled cells take accent digits or borders, the active cell shows a caret or a ring, and empty cells show a pale "0". Six cells split 3–3 by a dash in 3.
+- Upload areas read "Click to upload or drag and drop" plus a size hint (≈8 across kinds). Principle 1 names this as noise.
 
 **Choices**
-- 34% of dialogs give choices a description.
-- Selectable options are bordered cards. The selected one gets a 2 px accent border, a tinted fill and a filled check; the others keep a hairline border and an empty circle (~10 notes).
+- 34% of dialogs give a choice a description line.
+- Choice cards appear in ≈20 dialogs. The selected card gets a 2 px accent border and a filled check at the top right; an unselected card keeps an empty circle in the same spot (≈18). The selected card's fill stays unchanged in ≈10 and tints in ≈4.
+- In ≈4, one selection is marked several ways at once: tint, border, coloured text and a check.
 
-**Share and invite dialogs (~18 notes), the most repeated dialog type**
-- The link field carries a leading link icon and a trailing copy icon or inline Copy, so no separate button is needed (~8 notes). It often sits in a tinted inset.
-- Inviting is one email field with removable chips, with "Send invites" on the same row at the same height (~5 notes).
-- Member rows are an avatar, then the name over a muted email with an inline badge ("You", "Pending"), then a role dropdown right-aligned. In ~7 notes that dropdown is explicitly borderless, a muted text-and-chevron trigger.
-- Grouping is either dotted dividers on one surface (~7 notes) or one card per job stacked with small gaps (~6 notes).
-- Even when carded, each section keeps a bold title and a one-line muted description (~6 notes).
+**Share and invite (≈17), the most repeated dialog type**
+- A member row is an avatar, then the name over a muted email, with a small grey badge ("You", "Pending") after the name (≈10). A pending person gets a dashed or initials avatar (≈5).
+- The role select at the row's right is borderless text plus a chevron in all ≈12 dialogs that show roles.
+- The invite field and its button share one row at equal height (≈10).
+- The copy action sits inside the right end of the link field (≈9). A square copy button beside the field appears in 2.
+- The footer has Copy link / Embed on the left and a single "Done" on the right (≈8).
+- In ≈6, each job sits on its own inner card, about 8 px apart, inside an outer shell. The rest group with space and dividers.
+- Each card still opens with a title and a description (≈5). By principle 3 the surface already holds the group, so the card does not need the heading.
 
 **Spacing**
-- Container padding 32, between groups 24, within a group 14.
-- One note measures ~26 px padding on 450–530 px-wide dialogs.
+- Container padding is 24, the gap between groups 24, and the gap within a group 12.
 
 **Type**
-- 4 sizes, 2 weights. Titles are semibold; descriptions are regular grey.
+- 4 sizes and 2 weights.
+- Titles are about 24 px semibold; one publish dialog uses about 30 px.
+- Descriptions are 14 px, regular and muted.

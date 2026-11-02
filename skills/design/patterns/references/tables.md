@@ -1,31 +1,35 @@
 # Tables
 
-How Untitled UI builds it, counted over the pieces of its kind in a study of 600 (a share is of
-that kind's pieces; "~n notes" is at least n). Where it differs from the design skills, the skills
-win: they hold what a person preferred when the two were compared.
+This is how one reference design system builds tables, counted over the 21 pieces of this kind in a study of 575. Two of the 21 are icon sheets. A share is of this kind's pieces; "~n notes" means at least n. Where it differs from the design skills, the skills win: they hold what a person preferred when the two were compared. A pattern here is common, which does not make it right.
 
 **Container**
-- A bordered rounded card (~15 notes). A header strip holds the title with a count badge on the left, and search, filters and buttons on the right.
-- Then a tinted header row with small labels and sort chevrons.
-- Rows are split by hairlines (~20 notes), or by zebra shading instead (~4).
+- The table sits in a bordered card (~14 notes).
+- A grey frame around an inset white table is also common (~12 across kinds). It draws the same edge twice; the skills draw it once.
+- The count sits beside the title, as muted text or a small badge (~5).
+- Under the title sits a header row: a grey band of small (12 px) muted labels (~9) with sort chevrons (~8). No icons go in it (0%).
+- A description under the title is rare (18%).
 
 **Actions**
-- 65% put actions in the header. Typical pairs are "Download CSV" or "Export" (outlined) with "Add user" (dark).
-- Filters are segmented tabs ("All orders / Paid / Refunded"), removable filter chips with "More filters", or stat tiles that double as filters, where the selected one is inverted to black (3).
+- 62% put actions in the header. 81% put icons in buttons.
+- The toolbar has a segmented filter on the left, and search with a Filters button on the right (~7). "Filters" often carries a leading icon (~6 across kinds); the skills keep it to its word.
+- A screen whose job is reading often has no filled primary at all (~10 across tables and dashboards). Where there are several actions, emphasis rises toward the right.
 
 **Rows**
-- The first cell pairs an avatar or logo with a bold name over a muted email or domain (~18 notes).
-- The other columns are plain muted text; amounts are right-aligned.
-- Status is a small pill with a coloured dot and a word (~12).
-- Row actions are a kebab, or bare trash and pencil icons (~14).
+- The first cell is a two-line identity: a logo or avatar (initials when there is no photo), and a bold or medium name over a muted second line (17 of 19). The other cells are one muted line.
+- Status is an outlined pill with a coloured dot and a word (~9, and ~10 more in tables on dashboards), or a dark pill with a glyph (2). Status stays neutral, not accent.
+- The row ends in a kebab that opens an icon-plus-label menu (~8), in bare delete and edit icons (~5), or in a "View" text link (2).
+- Rows with two-line cells run about 72 px (~3). The skills keep single-line rows compact.
+- Hover and selection are a rounded fill inset from the container's edges (~40 across menus, navigation and tables).
+- The one exception noted is a table set entirely in one muted size and weight. That is what the principles call a list, not a design.
 
 **Selection**
-- Selected rows are tinted (or inverted to navy in 1 note).
-- The header becomes "N selected" with an indeterminate checkbox (~5).
+- The header turns into "N selected" (~4), or a floating dark bar holds the bulk actions ("3 selected · Export · Archive · Delete", ~5).
 
 **Pagination**
-- "Page 1 of N" on the left, Previous/Next or numbers on the right, sometimes with a rows-per-page select (~12).
+- "Page 1 of 10" with Previous and Next (~10). Variants add numbered pages with an ellipsis, or a rows-per-page select.
+- "Showing page 1 of 10" beside numbered pages, or "Search results (4)" over four rows (2), repeats what the screen already shows.
 
 **Spacing and fields**
-- Padding 24, between 32, within 12.
-- Fields are placeholder-only in 89% (search). Leading icons in fields: 65%.
+- Padding 24, between groups 24, within groups 8: a ratio of 1 : 3.
+- Header labels are 12 px and rows are 14 px.
+- 65% of fields are placeholder-only (search). 67% have a leading icon, mostly the search magnifier.

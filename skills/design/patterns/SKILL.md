@@ -1,6 +1,6 @@
 ---
 name: patterns
-description: "How well-made products build each kind of screen (dialogs, settings, menus, dashboards, tables, forms, navigation, landing pages), counted over 600 pieces of Untitled UI and 844 SaaS landing pages. Use before designing one of those kinds of screen, for its usual structure, grouping, amount of text and actions."
+description: "How well-made products build each kind of screen (dialogs, settings, menus, dashboards, tables, forms, navigation, landing pages), counted over 575 pieces of Untitled UI and 270 slices of SaaS landing pages. Use before designing one of those kinds of screen, for its usual structure, grouping, amount of text and actions."
 ---
 
 # Patterns
