@@ -182,7 +182,10 @@ export class SkillsService extends Context.Service<
         }
         return { dir: relDir, skills } satisfies SkillList;
       });
-      const list = listFor(mcp).pipe(Effect.withSpan("SkillsService.list"));
+      // Written before any skill is read, whole or in the briefing, so its folder is there.
+      const list = Effect.andThen(references, listFor(mcp)).pipe(
+        Effect.withSpan("SkillsService.list")
+      );
 
       /** Where the agent reads a skill whole, when it is told only its summary. */
       const whereRead = (skill: Skill, tools: boolean) => {
