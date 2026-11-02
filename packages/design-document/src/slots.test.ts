@@ -1,7 +1,4 @@
-import type {
-  Catalogue,
-  ComponentSlot,
-} from "@ultrapaint/contracts/catalogue";
+import type { Catalogue, ComponentSlot } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { fillSlots, slotLayoutOf } from "./slots.ts";

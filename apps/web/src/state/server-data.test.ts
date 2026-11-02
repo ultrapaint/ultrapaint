@@ -6,11 +6,7 @@ import type {
   DocumentState,
 } from "@ultrapaint/contracts/document";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
-import type {
-  CanvasLayout,
-  Page,
-  PageList,
-} from "@ultrapaint/contracts/pages";
+import type { CanvasLayout, Page, PageList } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type {

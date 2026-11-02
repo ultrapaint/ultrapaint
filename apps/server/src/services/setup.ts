@@ -301,10 +301,7 @@ export class SetupService extends Context.Service<
           settings: {
             designsDir,
             hostCss: [
-              relativePosix(
-                `${designsDir}/.ultrapaint`,
-                made.settings.hostCss
-              ),
+              relativePosix(`${designsDir}/.ultrapaint`, made.settings.hostCss),
             ],
             libraryDirs: [made.settings.libraryDir],
             // The application's package, the root's included: not the designs directory.

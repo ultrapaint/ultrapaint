@@ -361,9 +361,7 @@ export const App = () => {
   // The tab reads the project first, so several open projects stay apart in the tab strip.
   useEffect(() => {
     document.title =
-      configured && projectName
-        ? `${projectName} · ultrapaint`
-        : "ultrapaint";
+      configured && projectName ? `${projectName} · Ultrapaint` : "Ultrapaint";
   }, [configured, projectName]);
 
   // Index the design system in the background so prop controls are typed.

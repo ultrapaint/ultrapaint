@@ -19,10 +19,7 @@ import {
   NotFound,
   Stale,
 } from "@ultrapaint/contracts/errors";
-import {
-  ASSETS_DIR,
-  type UploadAssetInput,
-} from "@ultrapaint/contracts/pages";
+import { ASSETS_DIR, type UploadAssetInput } from "@ultrapaint/contracts/pages";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";

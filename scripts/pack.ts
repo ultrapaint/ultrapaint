@@ -74,7 +74,7 @@ writeFileSync(
   path.join(stage, "package.json"),
   `${JSON.stringify(
     {
-      bin: { "ultrapaint": "cli.mjs" },
+      bin: { ultrapaint: "cli.mjs" },
       description:
         "A design tool for teams that work with coding agents, run in the repository",
       engines: { node: ">=24" },

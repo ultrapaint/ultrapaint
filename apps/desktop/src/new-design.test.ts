@@ -78,21 +78,19 @@ describe("the folder a new design is proposed", () => {
     assert.strictEqual(folderNameOf("   "), "Untitled");
   });
 
-  it.effect(
-    "is in ~/Ultrapaint, numbered when one of that name is there",
-    () =>
-      withApp(({ home }) =>
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const designs = yield* NewDesigns;
-          const first = path.join(home, DESIGNS_HOME, "Acme");
-          assert.strictEqual(yield* designs.folderFor("Acme"), first);
-          yield* fs.makeDirectory(first, { recursive: true });
-          assert.strictEqual(yield* designs.folderFor("Acme"), `${first} 2`);
-          yield* fs.makeDirectory(`${first} 2`);
-          assert.strictEqual(yield* designs.folderFor("Acme"), `${first} 3`);
-        })
-      )
+  it.effect("is in ~/Ultrapaint, numbered when one of that name is there", () =>
+    withApp(({ home }) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const designs = yield* NewDesigns;
+        const first = path.join(home, DESIGNS_HOME, "Acme");
+        assert.strictEqual(yield* designs.folderFor("Acme"), first);
+        yield* fs.makeDirectory(first, { recursive: true });
+        assert.strictEqual(yield* designs.folderFor("Acme"), `${first} 2`);
+        yield* fs.makeDirectory(`${first} 2`);
+        assert.strictEqual(yield* designs.folderFor("Acme"), `${first} 3`);
+      })
+    )
   );
 });
 

@@ -63,9 +63,7 @@ describe("the agent runtime the app hands its servers", () => {
         "/Users/me/Applications/Ultrapaint.app/Contents/MacOS/Ultrapaint"
       )
     ).toBe("/Users/me/Applications/Ultrapaint.app");
-    expect(electronReads("/opt/Ultrapaint/ultrapaint")).toBe(
-      "/opt/Ultrapaint"
-    );
+    expect(electronReads("/opt/Ultrapaint/ultrapaint")).toBe("/opt/Ultrapaint");
   });
 });
 

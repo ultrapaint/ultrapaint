@@ -4,10 +4,7 @@
  */
 import type { Page } from "@ultrapaint/contracts/pages";
 import { canvasDocOf, walk } from "@ultrapaint/design-document/tree";
-import {
-  pageOfLink,
-  linkTargetOf as parseLink,
-} from "@ultrapaint/shared/link";
+import { pageOfLink, linkTargetOf as parseLink } from "@ultrapaint/shared/link";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import type { CopyTarget } from "../pages.ts";

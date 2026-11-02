@@ -1,7 +1,7 @@
-# ultrapaint
+# Ultrapaint
 
-ultrapaint is a local-first design tool for teams that work with coding agents. The canvas is
-drawn with ultrapaint's system components — buttons, fields, selects, menus, popovers, dialogs, on
+Ultrapaint is a local-first design tool for teams that work with coding agents. The canvas is
+drawn with Ultrapaint's system components — buttons, fields, selects, menus, popovers, dialogs, on
 Base UI — in your design system's tokens and looks; the designs live in your repository as plain
 JSON documents, and agents such as Claude Code and Codex work on them next to you over
 [ACP](https://agentclientprotocol.com), then turn them into your application's own code, with
@@ -11,11 +11,11 @@ Nothing is installed in your repository and nothing leaves your machine: the too
 server, draws the canvas itself, runs none of your code, and writes pages as `.page.json` files
 you review and commit like any other file. A project with no code at all designs the same.
 
-## Why teams move to ultrapaint
+## Why teams move to Ultrapaint
 
 **You have a React app and no design system.** Most products do: a theme that names a few
 colours, `bg-[#3b82f6]` and `p-[13px]` everywhere else, plain `<button>`s next to the library's
-`Button`. Run ultrapaint in the repository and **Sync** reads what the code actually uses,
+`Button`. Run Ultrapaint in the repository and **Sync** reads what the code actually uses,
 makes a design system out of it with an agent that asks you what each colour means, and can
 then bring the code onto it a directory at a time, every batch undoable.
 
@@ -26,7 +26,7 @@ not pictures of them. Import the file again after the designer changes it, and o
 what changed comes across; where the design system changed too, you pick.
 
 **Your design system and your code drift apart.** Someone changes a colour in the frontend
-and nobody updates the design system, or the other way round. In ultrapaint the design leads
+and nobody updates the design system, or the other way round. In Ultrapaint the design leads
 and the code follows: a token's value lives in the design system, the code is compared with it
 against what the two last agreed on, and Sync exports what the code is missing, takes in what
 the code changed, and lets you pick where both changed. A redesign can change the palette, and
@@ -47,10 +47,10 @@ Whichever of these you are in, it is the same action: open the **Design system**
 ## Installation
 
 > [!WARNING]
-> ultrapaint is not on npm yet. It is installed from a release of this repository, or run from
+> Ultrapaint is not on npm yet. It is installed from a release of this repository, or run from
 > a checkout of it. You need [Node.js](https://nodejs.org) 24 or newer.
 >
-> Agents are optional. To use one, install and sign in to it first; ultrapaint uses the login
+> Agents are optional. To use one, install and sign in to it first; Ultrapaint uses the login
 > you already have:
 >
 > - Claude Code: install [Claude Code](https://claude.com/product/claude-code) and run `claude` once to sign in
@@ -89,7 +89,7 @@ works too. To update, download the newer release and install it the same way.
 ### From a checkout
 
 The checkout is the way to run what is on `main` before it is released, and to work on
-ultrapaint itself. You need [pnpm](https://pnpm.io/installation) and git as well.
+Ultrapaint itself. You need [pnpm](https://pnpm.io/installation) and git as well.
 
 ```bash
 git clone https://github.com/ultrapaint/ultrapaint.git
@@ -156,7 +156,7 @@ a path on disk, so everyone on the project needs the checkout at that relative p
 are packaged releases the link becomes a version.
 
 The link follows the checkout: the server runs from its sources on every start, and only the
-editor is a build, made once. While changing ultrapaint itself, start it with `--dev` instead
+editor is a build, made once. While changing Ultrapaint itself, start it with `--dev` instead
 and nothing is built: the server restarts and the editor reloads as the checkout changes.
 
 ```bash
@@ -332,7 +332,7 @@ A design is not code. It is a small tree of nodes, the way a design tool sees it
 | `group` | A plain container that only holds and styles its children |
 | `text` | A heading (level 1–6) or a paragraph |
 | `image` | A picture from the space's `assets/` directory |
-| `instance` | A component, a system one of ultrapaint's or an app one of yours, with its props; its children fill its slots |
+| `instance` | A component, a system one of Ultrapaint's or an app one of yours, with its props; its children fill its slots |
 
 Sizes are `fill`, `hug` or pixels, and every colour, radius, shadow, spacing and type setting can
 be a token of your design system (`"$color-primary"`, `"$text-lg"`, `"$spacing-4"`), so the
@@ -420,7 +420,7 @@ but it keeps the link between the two:
 Everything you place is a component ([ADR 0041](docs/adr/0041-system-and-app-components.md)), of
 two origins, each kept as a file of the designs directory, `components/<Name>.component.json`:
 
-- **System components** are ultrapaint's own, on Base UI
+- **System components** are Ultrapaint's own, on Base UI
   ([ADR 0040](docs/adr/0040-the-editors-own-primitives.md)): Button, Badge, Spinner, Avatar, Card,
   Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu, Popover, Tooltip, Dialog and
   Toast. Their behaviour is fixed; their look is your design system's.

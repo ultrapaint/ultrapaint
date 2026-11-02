@@ -537,7 +537,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
           );
         return `<ultrapaint-task command="import-figma">
 Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with
-ultrapaint's system components where they fit.
+Ultrapaint's system components where they fit.
 
 Through the ultrapaint MCP server: ${tools.read_figma_import} (the file: frames, components, candidates, the
 mapping so far), ${tools.read_figma_component} and ${tools.read_figma_frame} (one of them, with an outline of its layers),

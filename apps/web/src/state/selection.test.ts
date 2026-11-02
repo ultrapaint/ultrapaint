@@ -1,9 +1,6 @@
 import "../testing/fake-browser.ts";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type {
-  DesignNode,
-  DocumentState,
-} from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";

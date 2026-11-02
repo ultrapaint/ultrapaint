@@ -8,10 +8,7 @@
  */
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import {
-  defaultSettings,
-  type Settings,
-} from "@ultrapaint/contracts/settings";
+import { defaultSettings, type Settings } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { McpSchema, type Tool, type Toolkit } from "effect/ai";
 import { RpcTest } from "effect/rpc";

@@ -1,8 +1,5 @@
 // @vitest-environment happy-dom
-import type {
-  DesignNode,
-  DocumentState,
-} from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";

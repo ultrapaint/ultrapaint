@@ -133,7 +133,7 @@ export function cn(...inputs: ClassValue[]) {
 `;
 
 /** A blank application's first screen: nothing on it, for the first page to be designed. */
-const BLANK_APP = `/** The first screen: design it in ultrapaint, then implement it here. */
+const BLANK_APP = `/** The first screen: design it in Ultrapaint, then implement it here. */
 export const App = () => <main className="min-h-screen" />;
 `;
 

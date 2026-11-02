@@ -153,7 +153,7 @@ export const McpRoute = Layer.mergeAll(Tools, SkillResources, TaskPrompts).pipe(
   Layer.provide(
     McpServer.layerHttp({
       description:
-        "The ultrapaint editor: the project's pages, routes and components.",
+        "The Ultrapaint editor: the project's pages, routes and components.",
       instructions: MCP_INSTRUCTIONS,
       name: EDITOR_MCP_SERVER,
       path: MCP_PATH,

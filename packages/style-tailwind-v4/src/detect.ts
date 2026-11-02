@@ -24,8 +24,7 @@ const TAILWIND_CSS_RE =
 const CSS_FILE_RE = /\.css$/;
 const TAILWIND_V4_RE = /@import\s+["']tailwindcss|@theme\b/;
 const TAILWIND_V3_RE = /@tailwind\s+(base|components|utilities)/;
-const READS_V4 =
-  "ultrapaint reads the design system from Tailwind v4's @theme";
+const READS_V4 = "ultrapaint reads the design system from Tailwind v4's @theme";
 
 /** Stylesheets below `dir` that set Tailwind up, repo-relative. */
 const cssEntriesOf = (dir: string, root: string): string[] => {

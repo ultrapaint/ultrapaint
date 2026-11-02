@@ -27,8 +27,8 @@ describe("the tree walk", () => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* folderWith({
-        ".ultrapaint/threads/t.json": "{}",
         ".gitignore": "*.log\n/build/\n!keep.log\n",
+        ".ultrapaint/threads/t.json": "{}",
         "app/.gitignore": "generated/\n",
         "app/generated/x.ts": "",
         "app/keep.log": "",

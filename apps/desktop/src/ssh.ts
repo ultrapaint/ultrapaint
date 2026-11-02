@@ -217,7 +217,7 @@ export const sshFailure = (options: {
     return new SshError({
       message: NODE_MISSING_RE.test(said)
         ? `Node.js is not on the PATH of ${host}'s login shell. Install Node.js 24 or newer there (https://nodejs.org), or give the project's command with Node's full path${because}`
-        : `${command} is not installed on ${host}, or not on its login shell's PATH. Install ultrapaint there from a release (pnpm add -g ./ultrapaint-<version>.tgz) or a checkout (pnpm install:cli), or give the project the command that runs it${because}`,
+        : `${command} is not installed on ${host}, or not on its login shell's PATH. Install Ultrapaint there from a release (pnpm add -g ./ultrapaint-<version>.tgz) or a checkout (pnpm install:cli), or give the project the command that runs it${because}`,
       retryable: false,
     });
   }

@@ -127,7 +127,7 @@ const applyDetected = async () => {
     const ok = await confirmDialog({
       confirmLabel: "Apply",
       description: `Detection proposes:\n${lines.join("\n")}`,
-      title: "Point ultrapaint at your code?",
+      title: "Point Ultrapaint at your code?",
     });
     if (!ok) {
       return;

@@ -115,7 +115,7 @@ export class AgentTasks extends Context.Service<
           Effect.map(
             importSteps,
             (steps) => `<ultrapaint-task command="init">
-Import this repository's design system into ultrapaint, so that designs are drawn with its
+Import this repository's design system into Ultrapaint, so that designs are drawn with its
 tokens and every agent knows its conventions. Only Tailwind v4 is supported.
 
 ${steps}

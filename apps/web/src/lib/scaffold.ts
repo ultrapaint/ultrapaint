@@ -4,10 +4,7 @@
  * a Figma file when one is imported) and installs it, and the settings that point the tool at it
  * are applied. Offered by the first-run setup and by the Sync view.
  */
-import {
-  defaultSettings,
-  type Settings,
-} from "@ultrapaint/contracts/settings";
+import { defaultSettings, type Settings } from "@ultrapaint/contracts/settings";
 import { toast } from "sonner";
 import { promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";

@@ -14,10 +14,7 @@
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
-import {
-  APP_FROM,
-  type ComponentFile,
-} from "@ultrapaint/contracts/components";
+import { APP_FROM, type ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { cn } from "cn";

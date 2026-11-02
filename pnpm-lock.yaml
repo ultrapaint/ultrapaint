@@ -63,15 +63,15 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(vitest@5.0.1(@opentelemetry/api@1.10.0)(@types/node@24.13.5)(happy-dom@20.14.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.5
       '@ultrapaint/acp':
         specifier: workspace:*
         version: link:../../packages/acp
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@types/node':
-        specifier: ^24.0.0
-        version: 24.13.5
       effect:
         specifier: 4.0.0
         version: 4.0.0
@@ -93,6 +93,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@google/design.md':
+        specifier: 0.4.0
+        version: 0.4.0
       '@ultrapaint/acp':
         specifier: workspace:*
         version: link:../../packages/acp
@@ -123,9 +126,6 @@ importers:
       '@ultrapaint/system-components':
         specifier: workspace:*
         version: link:../../packages/system-components
-      '@google/design.md':
-        specifier: 0.4.0
-        version: 0.4.0
       effect:
         specifier: 4.0.0
         version: 4.0.0
@@ -136,12 +136,12 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(vitest@5.0.1(@opentelemetry/api@1.10.0)(@types/node@24.13.5)(happy-dom@20.14.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))
-      '@ultrapaint/client-runtime':
-        specifier: workspace:*
-        version: link:../../packages/client-runtime
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5
+      '@ultrapaint/client-runtime':
+        specifier: workspace:*
+        version: link:../../packages/client-runtime
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
@@ -160,6 +160,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@shadcn/react':
+        specifier: ^0.3.1
+        version: 0.3.1(@types/react@19.3.0)(react@19.3.0)
       '@ultrapaint/client-runtime':
         specifier: workspace:*
         version: link:../../packages/client-runtime
@@ -181,9 +184,6 @@ importers:
       '@ultrapaint/system-components':
         specifier: workspace:*
         version: link:../../packages/system-components
-      '@shadcn/react':
-        specifier: ^0.3.1
-        version: 0.3.1(@types/react@19.3.0)(react@19.3.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -409,12 +409,12 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
-      '@ultrapaint/system-components':
-        specifier: workspace:*
-        version: link:../system-components
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5
+      '@ultrapaint/system-components':
+        specifier: workspace:*
+        version: link:../system-components
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -523,15 +523,15 @@ importers:
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@floating-ui/dom':
+        specifier: ^1.8.0
+        version: 1.8.0
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@ultrapaint/design-document':
         specifier: workspace:*
         version: link:../design-document
-      '@floating-ui/dom':
-        specifier: ^1.8.0
-        version: 1.8.0
       effect:
         specifier: 4.0.0
         version: 4.0.0

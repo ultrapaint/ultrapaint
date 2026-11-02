@@ -1,8 +1,5 @@
 import "../testing/fake-browser.ts";
-import type {
-  ApplyInput,
-  DocumentState,
-} from "@ultrapaint/contracts/document";
+import type { ApplyInput, DocumentState } from "@ultrapaint/contracts/document";
 import type { FrameLayout, Page } from "@ultrapaint/contracts/pages";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
