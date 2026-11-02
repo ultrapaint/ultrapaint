@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   openBoard,
@@ -183,6 +185,69 @@ describe("dropAt", () => {
     expect(dropAt(spotOf(text("c"), "b"), 10, 58)).toMatchObject({
       index: 2,
       parent: "list",
+    });
+  });
+
+  describe("over an instance (review D1)", () => {
+    afterEach(() => {
+      useComponents.setState({ catalogue: catalogueOf([]) });
+    });
+
+    /** An instance of `component`, empty, between "a" and "c". */
+    const among = (instance: DesignNode) => ({
+      ...spotOf(instance),
+      parent: column("list", [text("a"), instance, text("c")]),
+    });
+    const card: DesignNode = {
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+    };
+
+    it("drops into a component with a default slot, a Card, in its middle", () => {
+      measured({ a: rect(0, 0), c: rect(0, 120), card: rect(0, 20, 100, 100) });
+      // Named in no slot, the node dropped fills the card's default one.
+      expect(dropAt(among(card), 10, 70)).toMatchObject({
+        box: rect(0, 20, 100, 100),
+        index: 0,
+        parent: "card",
+      });
+      // Near its edges, beside it.
+      expect(dropAt(among(card), 10, 22)).toMatchObject({
+        index: 1,
+        parent: "list",
+      });
+    });
+
+    it("drops only beside a component whose slots are all named", () => {
+      const named: ComponentMeta = {
+        category: "app",
+        importFrom: "#app",
+        name: "Plan",
+        props: [],
+        slots: [
+          { label: "Plan", name: "root" },
+          { holds: "nodes", label: "Features", name: "features" },
+        ],
+        variants: {},
+      };
+      useComponents.setState({ catalogue: [...catalogueOf([]), named] });
+      const plan: DesignNode = {
+        component: "Plan",
+        from: "#app",
+        id: "plan",
+        type: "instance",
+      };
+      measured({ a: rect(0, 0), c: rect(0, 120), plan: rect(0, 20, 100, 100) });
+      expect(dropAt(among(plan), 10, 60)).toMatchObject({
+        index: 1,
+        parent: "list",
+      });
+      expect(dropAt(among(plan), 10, 80)).toMatchObject({
+        index: 2,
+        parent: "list",
+      });
     });
   });
 
