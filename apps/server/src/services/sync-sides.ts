@@ -40,6 +40,7 @@ import {
 import { renameRefs, withMirror } from "@ultrapaint/design-md/write";
 import { plural } from "@ultrapaint/shared/text";
 import { Clock, Effect } from "effect";
+import { sortedByKey } from "../hash.ts";
 import type { ProjectServices } from "../project.ts";
 import { CodeSide } from "./code-side.ts";
 import { DesignMd, documentBaseline } from "./design-md.ts";
@@ -100,12 +101,6 @@ export interface SideAdapter {
   /** The side compared; null when there is none. */
   readonly read: Effect.Effect<SideReading | null, BadRequest, ProjectServices>;
 }
-
-/** Keyed in order: the baseline is committed, and merges line by line. */
-const sorted = <A>(record: Readonly<Record<string, A>>): Record<string, A> =>
-  Object.fromEntries(
-    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
-  );
 
 const nothing: readonly string[] = [];
 
@@ -245,7 +240,7 @@ const figmaAdapter: SideAdapter = {
             const next: SyncBaseline = {
               ...(baseline ?? { at: 0, code: {}, figma: {} }),
               file,
-              matches: sorted(matches),
+              matches: sortedByKey(matches),
             };
             const after = compareFigma(figma.tokens, design, next);
             // A match that leaves something to write puts the step back in front of the user.
@@ -408,11 +403,11 @@ const designMdAdapter: SideAdapter = {
               }
             }
             const next = documentBaseline(baseline, {
-              matches: sorted(matches),
+              matches: sortedByKey(matches),
             });
             yield* service
               .moveBaseline("designMd", (previous) =>
-                documentBaseline(previous, { matches: sorted(matches) })
+                documentBaseline(previous, { matches: sortedByKey(matches) })
               )
               .pipe(Effect.mapError(unsaved("the matches could not be saved")));
             return compareDocument(tokens, design, next);

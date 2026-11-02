@@ -859,6 +859,13 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   };
 });
 
+/** What a new thread is made with: its agent, what it is for and its title, each optional. */
+export interface NewThread {
+  readonly agentId?: string | undefined;
+  readonly purpose?: ThreadPurpose | undefined;
+  readonly title?: string | undefined;
+}
+
 /**
  * Agent threads. A thread has at most one ACP session at a time, with the target repository as
  * working directory, and starts it with the first prompt that needs one: creating a thread
@@ -872,11 +879,9 @@ export class ThreadSessions extends Context.Service<
   ThreadSessions,
   {
     /** A new thread, with the chat's default agent unless one is named. Nothing is started. */
-    readonly create: (options?: {
-      readonly agentId?: string | undefined;
-      readonly purpose?: ThreadPurpose | undefined;
-      readonly title?: string | undefined;
-    }) => Effect.Effect<Thread, ThreadFailure>;
+    readonly create: (
+      options?: NewThread
+    ) => Effect.Effect<Thread, ThreadFailure>;
     /** Deletes the thread: its session stops what it has under way, and is forgotten. */
     readonly delete: (threadId: string) => Effect.Effect<void>;
     /** The thread's session. */
@@ -912,11 +917,7 @@ export class ThreadSessions extends Context.Service<
       const discovery = yield* AgentDiscovery;
 
       const create = Effect.fn("ThreadSessions.create")(function* (
-        options: {
-          readonly agentId?: string | undefined;
-          readonly purpose?: ThreadPurpose | undefined;
-          readonly title?: string | undefined;
-        } = {}
+        options: NewThread = {}
       ) {
         const { agentId, purpose, title } = options;
         const known = yield* agents.list;
