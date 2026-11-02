@@ -141,17 +141,14 @@ export class NewDesignService extends Context.Service<
                   );
                 }
                 const made = yield* Effect.mapError(
-                  setup.scaffold(
-                    {
-                      designsDir: NEW_DESIGNS_DIR,
-                      dir,
-                      install: false,
-                      name: options.name,
-                      repoPath: folder,
-                      template: options.template,
-                    },
-                    {}
-                  ),
+                  setup.scaffold({
+                    designsDir: NEW_DESIGNS_DIR,
+                    dir,
+                    install: false,
+                    name: options.name,
+                    repoPath: folder,
+                    template: options.template,
+                  }),
                   said
                 );
                 const settings = {

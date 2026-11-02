@@ -1,7 +1,8 @@
 /**
  * Finds the stylesheets that set Tailwind up in the packages the framework's detection
- * proposed (the anchor, the component library), and which Tailwind they set up. Only v4 is
- * read: its `@theme` is where the tokens are.
+ * proposed (the anchor, the component library), and whether they are read. Only v4 is: its
+ * `@theme` is where the tokens are. Why another is not is said here, in the adapter's words;
+ * nothing outside it names a Tailwind version (ADR 0024).
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -23,6 +24,8 @@ const TAILWIND_CSS_RE =
 const CSS_FILE_RE = /\.css$/;
 const TAILWIND_V4_RE = /@import\s+["']tailwindcss|@theme\b/;
 const TAILWIND_V3_RE = /@tailwind\s+(base|components|utilities)/;
+const READS_V4 =
+  "ultrapaint reads the design system from Tailwind v4's @theme";
 
 /** Stylesheets below `dir` that set Tailwind up, repo-relative. */
 const cssEntriesOf = (dir: string, root: string): string[] => {
@@ -72,11 +75,14 @@ export const detectStyles = (
       return "";
     }
   });
-  let tailwind: StyleSuggestions["tailwind"] = "none";
   if (stylesheets.some((css) => TAILWIND_V4_RE.test(css))) {
-    tailwind = "v4";
-  } else if (stylesheets.some((css) => TAILWIND_V3_RE.test(css))) {
-    tailwind = "v3";
+    return { cssEntries, supported: true };
   }
-  return { cssEntries, tailwind };
+  return {
+    cssEntries,
+    note: stylesheets.some((css) => TAILWIND_V3_RE.test(css))
+      ? `Tailwind v3 is not supported yet: the stylesheets set up Tailwind v3, and ${READS_V4}.`
+      : `No Tailwind setup was found in the stylesheets: ${READS_V4}, and supports Tailwind v4 only.`,
+    supported: false,
+  };
 };

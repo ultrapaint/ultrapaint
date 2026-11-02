@@ -42,7 +42,7 @@ const found: SetupSuggestions = {
   designsDirs: ["docs/designs"],
   libraries: [{ dir: "src", inApp: true, name: "shop", sourceDir: "src/ui" }],
   repoName: "shop",
-  tailwind: "v4",
+  styleSystem: "tailwind-v4",
 };
 
 /** What the server holds: the settings it saved and the project's info. */
