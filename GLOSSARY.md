@@ -114,6 +114,12 @@ refactor and the board view left.
   (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
   `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
   `attachmentsOf`.
+- **A turn's files**: the files the folder's stamps found changed during a turn (ADR 0031), told
+  apart by its **witness** (`turn-witness`), which hears who each file was written for
+  (`DesignFiles.writes`) and the files the agent's tool calls edit. When nothing else changed files
+  meanwhile they are all the agent's (`changedFiles`), its shell's included; when another thread's
+  turn overlapped or a file was written for the user or another thread, only those the agent was
+  seen writing are, and the rest were **changed during the turn** (`changedDuring`).
 - **Card**: what the agent waits on the user for, a permission or a question
   (`PendingCards`, ADR 0022). The editor never answers a permission from memory: "always" is the
   agent's own option.
@@ -357,7 +363,9 @@ refactor and the board view left.
   checkout), sorted once by kind (a page, the canvases, a component, the design system, its
   tokens, the notes, a skill, the link to the code, the comments) and told once per content
   (`DesignFiles`); its adapters are a watch of the designs directory, or what a test reports. The
-  wire's `file.changed` is one output of it.
+  wire's `file.changed` is one output of it. A change is told with its **writer** (`Writer`): a
+  thread's agent (a file the editor wrote for it, an MCP call it made), the editor's user, or
+  nobody known (what the watcher sees).
 - **Read under the journal**: what a step writes from a file, it reads inside the step, under the
   journal's lock (`tx.read`, `tx.readDocument` with a file's codec, `updateFile`), so an undo or
   another edit lands before it or after it and no module needs a lock of its own. Each file has

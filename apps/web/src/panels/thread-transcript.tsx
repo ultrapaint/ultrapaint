@@ -174,7 +174,9 @@ const openChanges = (files: readonly string[]) => {
 
 /**
  * The end of a turn, in a quiet line: how long it took and, when it changed files, a way to the
- * changes panel where they are listed. It speaks up only when the agent did not finish on its own.
+ * changes panel where they are listed. Files changed during the turn by someone else while the
+ * agent worked (another thread, the user) are counted apart, as changed during it rather than by
+ * the agent. It speaks up only when the agent did not finish on its own.
  */
 const TurnEnd = ({
   item,
@@ -185,6 +187,7 @@ const TurnEnd = ({
 }) => {
   const note = stopNote(item.stopReason);
   const count = item.changedFiles.length;
+  const during = item.changedDuring ?? [];
   return (
     <div className="flex items-center gap-1 font-body text-muted-foreground/70">
       {note ? (
@@ -209,6 +212,21 @@ const TurnEnd = ({
             variant="link"
           >
             {count} file{count === 1 ? "" : "s"} changed
+          </Button>
+        </>
+      )}
+      {during.length > 0 && (
+        <>
+          <span>·</span>
+          <Button
+            className="h-auto p-0 font-body text-muted-foreground/50 hover:text-foreground"
+            onClick={() => openChanges(during)}
+            size="xs"
+            title={`Changed while the agent worked, not known to be by it:\n${during.join("\n")}`}
+            variant="link"
+          >
+            {during.length} other{during.length === 1 ? "" : "s"} changed during
+            the turn
           </Button>
         </>
       )}

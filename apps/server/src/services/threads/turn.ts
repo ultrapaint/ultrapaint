@@ -4,6 +4,8 @@
  * the transcript, then over. The one place a turn's end is written (`turn_end`, with the files
  * it changed and what it spent) and a turn's failure ("Turn failed: …"), each with the status
  * that goes with it. The thread session keeps one, and asks it whether a turn is under way.
+ * What the turn changed is the stamps' difference, told apart from what others changed meanwhile
+ * by its witness (`turn-witness.ts`), which hears the files its agent's tool calls edit.
  */
 import type { PromptResponse, SessionUpdate } from "@ultrapaint/acp/acp-agent";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
@@ -19,18 +21,54 @@ import {
   type TurnCursor,
   turnUsage,
 } from "./transcript.ts";
+import type { TurnFiles, TurnWitness } from "./turn-witness.ts";
 
 /** Where a thread's turn is. */
 export type TurnState =
   | { readonly _tag: "None" }
   /** On its way to the agent: stopping it interrupts the fiber that takes it there. */
   | { readonly _tag: "Opening"; readonly fiber: Fiber.Fiber<void> }
-  /** At the agent: the folder's files before it, and where its streamed chunks go. */
+  /**
+   * At the agent: the folder's files before it, where its streamed chunks go, who else changed
+   * files meanwhile, and the tool calls that edit files (by id: an update may not repeat its kind).
+   */
   | {
       readonly _tag: "AtAgent";
       readonly before: TreeStamp;
       readonly cursor: TurnCursor;
+      readonly editing: Set<string>;
+      readonly witness: TurnWitness;
     };
+
+/** The kinds of tool call that change the files they name. */
+const EDITING_KINDS: ReadonlySet<string> = new Set(["delete", "edit", "move"]);
+
+/**
+ * The files an update says its tool call changes: those of a diff, and those named by a call
+ * that edits, moves or deletes (a read names files too, which it leaves as they were).
+ */
+const filesEdited = (
+  update: SessionUpdate,
+  editing: Set<string>,
+  relative: (file: string) => string
+): string[] => {
+  if (
+    update.sessionUpdate !== "tool_call" &&
+    update.sessionUpdate !== "tool_call_update"
+  ) {
+    return [];
+  }
+  if (update.kind && EDITING_KINDS.has(update.kind)) {
+    editing.add(update.toolCallId);
+  }
+  const named = editing.has(update.toolCallId)
+    ? (update.locations ?? []).map((l) => l.path)
+    : [];
+  const diffs = (update.content ?? []).flatMap((c) =>
+    c.type === "diff" ? [c.path] : []
+  );
+  return [...named, ...diffs].map(relative);
+};
 
 /** What the turn moves the thread's status with. */
 export type TurnStatusEvent =
@@ -38,8 +76,14 @@ export type TurnStatusEvent =
   | { readonly _tag: "Failed"; readonly message: string };
 
 export interface Turn {
-  /** The prompt has reached the agent: from now on its updates are the turn's. */
-  readonly atAgent: (before: TreeStamp) => Effect.Effect<void>;
+  /**
+   * The prompt has reached the agent: from now on its updates are the turn's. The witness,
+   * opened before the files were stamped, is the turn's to close.
+   */
+  readonly atAgent: (
+    before: TreeStamp,
+    witness: TurnWitness
+  ) => Effect.Effect<void>;
   /**
    * Opens a turn: `opening` takes it to the agent, in `scope`, and calls `atAgent` when it is
    * there. A failure on the way fails the turn; stopped on the way, the turn ends cancelled.
@@ -92,8 +136,13 @@ export const makeTurn = (
     return was;
   });
 
+  /** Over, with nothing to say of its files. */
+  const overSilently = Effect.flatMap(over, (was) =>
+    was._tag === "AtAgent" ? was.witness.close : Effect.void
+  );
+
   const fail = Effect.fnUntraced(function* (message: string) {
-    yield* over;
+    yield* overSilently;
     yield* store.push(threadId, {
       at: yield* Clock.currentTimeMillis,
       id: yield* newItemId,
@@ -114,21 +163,21 @@ export const makeTurn = (
   const end = Effect.fnUntraced(function* (response: PromptResponse) {
     const was = yield* over;
     // Stopped before the agent had it: nothing was changed.
-    const changedFiles =
-      was._tag === "AtAgent"
-        ? yield* project
-            .use(
-              Effect.flatMap(WorkingTree, (tree) =>
-                tree.changedSince(was.before)
-              )
-            )
-            // Attribution is a nicety; a project closed meanwhile must not fail the turn.
-            .pipe(Effect.orElseSucceed((): string[] => []))
-        : [];
+    let files: TurnFiles = { changedFiles: [] };
+    if (was._tag === "AtAgent") {
+      const changed = yield* project
+        .use(
+          Effect.flatMap(WorkingTree, (tree) => tree.changedSince(was.before))
+        )
+        // Attribution is a nicety; a project closed meanwhile must not fail the turn.
+        .pipe(Effect.orElseSucceed((): string[] => []));
+      yield* was.witness.close;
+      files = was.witness.split(changed);
+    }
     const usage = turnUsage(response);
     yield* store.push(threadId, {
       at: yield* Clock.currentTimeMillis,
-      changedFiles,
+      ...files,
       id: yield* newItemId,
       kind: "turn_end",
       stopReason: response.stopReason,
@@ -160,6 +209,9 @@ export const makeTurn = (
     // Ids are drawn up front because the projection itself is pure and synchronous.
     const ids = [yield* newItemId];
     const at = state._tag === "AtAgent" ? state : null;
+    for (const file of at ? filesEdited(update, at.editing, relative) : []) {
+      at?.witness.claim(file);
+    }
     const projected = projectUpdate(update, {
       hasItem: (itemId) => store.hasItem(threadId, itemId),
       newId: () => ids.pop() ?? `item_${ids.length}`,
@@ -204,13 +256,19 @@ export const makeTurn = (
   });
 
   return {
-    atAgent: (before) =>
+    atAgent: (before, witness) =>
       Effect.sync(() => {
-        state = { _tag: "AtAgent", before, cursor: emptyCursor() };
+        state = {
+          _tag: "AtAgent",
+          before,
+          cursor: emptyCursor(),
+          editing: new Set(),
+          witness,
+        };
       }),
     begin,
     broke,
-    drop: Effect.asVoid(over),
+    drop: overSilently,
     end,
     fail,
     keepTerminal: Effect.fnUntraced(function* (

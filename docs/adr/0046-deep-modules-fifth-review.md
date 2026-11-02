@@ -68,7 +68,12 @@ Each concept has one module, with an interface its callers and its tests share.
   it takes the editor's MCP server, how it signs in. The editor never calls `authenticate` on its
   own: a sign-in is the desktop app's or the user's.
 - The editor never answers a permission from memory; "always" is the agent's option.
-- A turn is one module.
+- A turn is one module. Its files are the stamps' difference (0031), told apart by a witness of
+  who wrote what meanwhile: a thread's agent (its ACP writes, its MCP calls, which the journal
+  knows by the calling thread, the files its tool calls edit), the user, or nobody known. When
+  another thread's turn overlapped it, or a file was written for the user or another thread, the
+  files its agent was not seen writing are "changed during the turn", not its own; otherwise every
+  file is, so an agent's shell edits in a thread of its own are still credited.
 - Usage and the context are read from ACP's typed messages.
 - A streamed chunk travels alone (`itemText`).
 - The agent and its terminals are spawned by Effect's spawner, in a process group, with one kill
@@ -83,6 +88,8 @@ Each concept has one module, with an interface its callers and its tests share.
   trees as well.
 - `OpenProject` is the open project's services, apart from the settings in force.
 - Event RPCs are derived from their schemas, and six RPCs no client used go.
+- The setup's scaffold looks up its theme in what it is given (the open project's latest Figma
+  import, which fails with no project open), so the editor's request handler only routes.
 
 **The design system.**
 - One write path makes the code follow every write, from what changed between before and after.
@@ -93,6 +100,10 @@ Each concept has one module, with an interface its callers and its tests share.
 - The Tailwind adapter reads a stylesheet's themes once, and the scan classifies what the reader
   read, so `/init` and Sync cannot disagree.
 - The inventory has no plain elements.
+- The style system's interface says what any adapter can: whether the repository's styles are
+  read, and why not in the adapter's words (`StyleSuggestions.supported` and `note`, the setup's
+  `stylesNote`). Nothing outside the Tailwind adapter names a Tailwind version; an answer that
+  still names one reads, and the version is dropped (0024).
 
 **What agents read (MCP).**
 - Each tool declares its kind once (read, edit, destructive, idempotent; a closed world).
@@ -154,10 +165,6 @@ ones removed had one (the framework, `DesignMdLint`).
   needs and hints that tell less: a merged tool is as strict as its strictest action, so the four
   Figma reads would lose `readOnlyHint` (a client asks before each) and `map_values` and
   `finish_setup_step` would be marked destructive, as `next_batch` is. The tools stay apart.
-- **Marking files changed during a turn but outside the thread's evidence.** The evidence is
-  incomplete on the main path: an MCP edit is told by document, a shell command not at all. It
-  waits for per-thread write attribution.
-- **The style system's interface naming Tailwind's versions** waits for a second adapter.
 - **Splitting `GLOSSARY.md` into meanings and a module map**: the glossary is the index agents and
   reviews navigate by (0037), and a second file would be a second place to follow a rename.
   Instead, each overloaded word ("variant", "state", "look") is told apart in it.
@@ -166,6 +173,8 @@ ones removed had one (the framework, `DesignMdLint`).
 ## Consequences
 
 - The defects above are fixed, each with a test that failed first.
+- Two threads working at once, or the user editing while an agent works, no longer credits each
+  turn with the others' files: a turn's end counts the files changed during it apart.
 - What agents read:
   - an implement or Map/Migrate thread's briefing went from 43,100 to 9,800 characters;
   - `read_page` on the largest redesign page, from 105,760 to 2,722;

@@ -244,24 +244,20 @@ const SaveProblems = ({
   );
 };
 
-/** Only Tailwind v4 is supported: anything else is said before it is saved. */
-const TailwindAlert = ({
-  tailwind,
-}: {
-  tailwind: SetupSuggestions["tailwind"];
-}) =>
-  tailwind === "v4" ? null : (
+/**
+ * Stylesheets no style system the tool has reads are said before anything is saved, in the
+ * style system's words.
+ */
+const StylesAlert = ({ found }: { found: SetupSuggestions }) =>
+  found.styleSystem === undefined ? (
     <Alert variant="destructive">
       <TriangleAlert />
       <AlertDescription>
-        {tailwind === "v3"
-          ? "The stylesheets set up Tailwind v3."
-          : "No Tailwind setup was found in the stylesheets."}{" "}
-        ultrapaint reads the design system from Tailwind v4's @theme, and only
-        supports Tailwind v4.
+        {found.stylesNote ??
+          "The stylesheets are not written in a style system ultrapaint reads."}
       </AlertDescription>
     </Alert>
-  );
+  ) : null;
 
 /**
  * Whether a section is there before anything is saved: not one that needs a project, except the
@@ -531,7 +527,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <AlertDescription>{describeSuggestions(found)}</AlertDescription>
         </Alert>
       ) : null}
-      {found ? <TailwindAlert tailwind={found.tailwind} /> : null}
+      {found ? <StylesAlert found={found} /> : null}
       <Group
         description="The tool runs against a local repository. Design files live inside it and are versioned with the code."
         title="Location"
