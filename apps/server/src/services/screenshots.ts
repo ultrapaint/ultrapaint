@@ -23,7 +23,7 @@ import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 import { PNG_DATA_URL } from "../png-text.ts";
 
-export class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
+class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
   "ScreenshotFailure",
   { message: Schema.String }
 ) {}

@@ -18,7 +18,7 @@ import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
-export interface CommentDraft {
+interface CommentDraft {
   element: string | null;
   nodeId: string | null;
   pageId: string;

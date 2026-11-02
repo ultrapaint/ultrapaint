@@ -97,7 +97,7 @@ const TURN_END_WAIT = "10 seconds";
 // ---- status ----
 
 /** What moves a thread's status. */
-export type StatusEvent =
+type StatusEvent =
   /** A prompt opens a turn: the thread runs from here, its agent's start included. */
   | { readonly _tag: "Prompted" }
   /** The user stops the turn the agent works on; the agent ends it. */
@@ -860,7 +860,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
 });
 
 /** What a new thread is made with: its agent, what it is for and its title, each optional. */
-export interface NewThread {
+interface NewThread {
   readonly agentId?: string | undefined;
   readonly purpose?: ThreadPurpose | undefined;
   readonly title?: string | undefined;

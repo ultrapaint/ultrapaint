@@ -15,8 +15,7 @@ import type { SlashCommand, ThreadPurpose } from "./threads.ts";
 const Extra = Schema.optional(Schema.String);
 
 /** `/init`: the repository's design system imported into the editor. */
-export const InitTask = Schema.TaggedStruct("Init", { extra: Extra });
-export type InitTask = typeof InitTask.Type;
+const InitTask = Schema.TaggedStruct("Init", { extra: Extra });
 
 /**
  * `/implement`: a page or a component turned into the application's code (ADR 0030). The
@@ -35,10 +34,9 @@ export type ImplementTask = typeof ImplementTask.Type;
  * left as it is. Each target is a canvas (`""` the designs directory's own), naming its pages,
  * or a page; none names every page not linked yet.
  */
-export const AdoptTask = Schema.TaggedStruct("Adopt", {
+const AdoptTask = Schema.TaggedStruct("Adopt", {
   targets: Schema.Array(Schema.String),
 });
-export type AdoptTask = typeof AdoptTask.Type;
 
 /** `/import-figma`: an uploaded Figma file, by id or name (the newest when absent), as pages. */
 export const ImportFigmaTask = Schema.TaggedStruct("ImportFigma", {
@@ -335,7 +333,7 @@ export const commandOf = (request: TaskRequest): string => {
 };
 
 /** A command that names something it cannot: what the agent tells the user instead. */
-export interface InvalidCommand {
+interface InvalidCommand {
   readonly _tag: "Invalid";
   /** Without its slash: `design-system`. */
   readonly command: string;
@@ -343,7 +341,7 @@ export interface InvalidCommand {
   readonly message: string;
 }
 
-export type ParsedCommand =
+type ParsedCommand =
   | { readonly _tag: "Request"; readonly request: TaskRequest }
   | InvalidCommand;
 

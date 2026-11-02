@@ -104,7 +104,7 @@ export const PlatformProject = Schema.Struct({
 export type PlatformProject = typeof PlatformProject.Type;
 
 /** A folder on another machine, reached over SSH, as the dialog asks for it. */
-export const RemoteProjectRequest = Schema.Struct({
+const RemoteProjectRequest = Schema.Struct({
   /** What runs the server there, before the flags the shell adds; `ultrapaint` when empty. */
   command: Schema.optional(Schema.String),
   /** An alias of the user's SSH configuration, a host name, `user@host` or `user@host:port`. */
@@ -112,7 +112,6 @@ export const RemoteProjectRequest = Schema.Struct({
   /** The folder there: absolute, or `~/…`. */
   path: Schema.String,
 });
-export type RemoteProjectRequest = typeof RemoteProjectRequest.Type;
 
 /** A design from nothing (PLAN-desktop D11), as the dialog asks for it. */
 export const NewDesignInput = Schema.Struct({
@@ -157,16 +156,15 @@ export type NewDesignOutcome = typeof NewDesignOutcome.Type;
  * sit over the editor's title card, which leaves them room, and the cards at the top move the
  * window when dragged, as a title bar would.
  */
-export const WindowControlsState = Schema.Struct({
+const WindowControlsState = Schema.Struct({
   /** Full screen draws no buttons, and the room is the editor's again. */
   fullScreen: Schema.Boolean,
   /** How far from the window's left edge the buttons reach, in CSS pixels. */
   inset: Schema.Number,
 });
-export type WindowControlsState = typeof WindowControlsState.Type;
 
 /** A capability the page calls and the main process answers. */
-export interface Invoke<
+interface Invoke<
   Input extends Schema.Tuple.Elements = Schema.Tuple.Elements,
   Output extends Schema.Constraint = Schema.Constraint,
   Progress extends Schema.Constraint | undefined =
@@ -317,7 +315,7 @@ export type ShellBridge = typeof SHELL_BRIDGE;
 export type CapabilityName = keyof ShellBridge;
 
 /** The names of the capabilities of a kind. */
-export type NamesOf<Kind extends Capability["kind"]> = {
+type NamesOf<Kind extends Capability["kind"]> = {
   [K in CapabilityName]: ShellBridge[K]["kind"] extends Kind ? K : never;
 }[CapabilityName];
 
@@ -325,7 +323,7 @@ export type InvokeName = NamesOf<"invoke">;
 export type StateName = NamesOf<"state">;
 
 /** What an invoke takes, its listener last when it reports progress. */
-export type CallArgs<C extends Invoke> = C["progress"] extends Schema.Constraint
+type CallArgs<C extends Invoke> = C["progress"] extends Schema.Constraint
   ? [
       ...C["input"]["Type"],
       onProgress: (progress: C["progress"]["Type"]) => void,

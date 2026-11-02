@@ -15,7 +15,7 @@ import type {
 } from "@ultrapaint/contracts/components";
 
 /** The fields of a look a place is read in. */
-export type LookStyles = Pick<
+type LookStyles = Pick<
   SystemLook,
   "base" | "states" | "variantStates" | "variants"
 >;

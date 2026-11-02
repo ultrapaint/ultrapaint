@@ -38,7 +38,7 @@ const NONE: readonly string[] = [];
  * Whether a selection made in `made` shows in `frame`: the same page, in any of its views. The
  * one rule of what is selected where.
  */
-export const showsIn = (made: string, frame: string) =>
+const showsIn = (made: string, frame: string) =>
   ownFrameOf(made) === ownFrameOf(frame);
 
 /**

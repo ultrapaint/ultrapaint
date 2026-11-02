@@ -8,7 +8,7 @@ import { Context, Effect, Layer, Option } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /** What is read from the login shell. `PATH` above all; the rest when the app has none of it. */
-export const LOGIN_SHELL_NAMES = [
+const LOGIN_SHELL_NAMES = [
   "PATH",
   "SSH_AUTH_SOCK",
   "LANG",

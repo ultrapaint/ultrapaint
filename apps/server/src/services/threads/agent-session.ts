@@ -40,10 +40,7 @@ type SessionInfo = Pick<
 >;
 
 /** "Codex is not signed in. It signs in with ChatGPT, or with Log in, in a terminal." */
-export const signInText = (
-  agentName: string,
-  methods: readonly SignInMethod[]
-) => {
+const signInText = (agentName: string, methods: readonly SignInMethod[]) => {
   const ways = methods.map(
     (m) =>
       `${m.name}${m.description ? ` (${m.description})` : ""}${m.kind === "terminal" ? ", in a terminal" : ""}`
@@ -54,7 +51,7 @@ export const signInText = (
 };
 
 /** A session opened: what the thread keeps of it, and whether it had the conversation back. */
-export interface OpenedSession {
+interface OpenedSession {
   /** Whether the session was given the editor's MCP server. */
   readonly editorMcp: boolean;
   /** What the agent said it can do. */

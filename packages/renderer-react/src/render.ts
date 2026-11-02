@@ -110,7 +110,7 @@ const MESSAGE_STYLE = {
  * The attribute the nodes of an app component's tree are marked with: not the page's, so only
  * the instance is selected.
  */
-export const APP_NODE_ATTRIBUTE = "data-ed-app-node";
+const APP_NODE_ATTRIBUTE = "data-ed-app-node";
 /**
  * What a page's nodes are marked with while an app component's instance is edited in place: not
  * the page's attribute, so only the component's nodes can be selected.

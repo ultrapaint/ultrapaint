@@ -212,7 +212,7 @@ export const SHADOW_STEPS: ReadonlySet<string> = new Set([
 // ---- Keywords ----
 
 /** Keywords a utility takes and the CSS each is, both ways. */
-export interface Keywords {
+interface Keywords {
   /** The CSS a keyword is: `full` → `100%`. */
   readonly css: (keyword: string) => string | undefined;
   /** The keyword a value is written as, `100%` → `full`, any case. */

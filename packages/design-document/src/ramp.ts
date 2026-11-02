@@ -18,7 +18,7 @@ import {
 export const RAMP_STEPS = [
   50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950,
 ] as const;
-export type RampStep = (typeof RAMP_STEPS)[number];
+type RampStep = (typeof RAMP_STEPS)[number];
 
 const SHADE_RE = /^(.+)-(\d+)$/;
 /** The highest step a palette's shade is named with: Tailwind's palettes go 0 to 1000 at most. */
@@ -50,7 +50,7 @@ const LIGHTNESS = [
 /** How much chroma each step has beside the most colourful, after Tailwind's blue. */
 const CHROMA = [0.06, 0.13, 0.24, 0.41, 0.67, 0.87, 1, 0.99, 0.81, 0.66, 0.37];
 
-export interface RampShade {
+interface RampShade {
   readonly step: RampStep;
   /** CSS: hex for a colour given in hex, `oklch()` otherwise. */
   readonly value: string;

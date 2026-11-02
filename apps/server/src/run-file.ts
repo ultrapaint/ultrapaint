@@ -22,13 +22,13 @@ import { Storage } from "./services/storage.ts";
 export const RUN_FILE_NAME = "run.json";
 
 /** What the run file and the ready line say: where the server is, and which run it is. */
-export const RunInfo = Schema.Struct({
+const RunInfo = Schema.Struct({
   pid: Schema.Int,
   port: Schema.Int,
   token: Schema.String,
   url: Schema.String,
 });
-export type RunInfo = typeof RunInfo.Type;
+type RunInfo = typeof RunInfo.Type;
 
 const RunJson = Schema.fromJsonString(RunInfo);
 const decodeRun = Schema.decodeUnknownEffect(RunJson);

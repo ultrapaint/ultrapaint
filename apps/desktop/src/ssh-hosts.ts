@@ -6,7 +6,7 @@
 import { Effect, FileSystem, Path } from "effect";
 
 /** A host as the dialog takes it, split into what `ssh` takes as a destination and a port. */
-export interface HostInput {
+interface HostInput {
   readonly host: string;
   readonly port?: number;
 }

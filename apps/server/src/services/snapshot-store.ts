@@ -40,7 +40,7 @@ export const Manifest = Schema.Struct({
 export type Manifest = typeof Manifest.Type;
 
 /** A file that differs between two snapshots: added, modified or deleted in the second. */
-export interface TreeChange {
+interface TreeChange {
   readonly path: string;
   readonly status: "A" | "M" | "D";
 }
@@ -51,7 +51,7 @@ export interface Contents {
 }
 
 /** A snapshot a namespace keeps under a name of its own, with its note of it. */
-export interface NamedSnapshot {
+interface NamedSnapshot {
   readonly id: string;
   readonly name: string;
   readonly note: string;

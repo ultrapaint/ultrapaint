@@ -27,10 +27,10 @@ const OTHER = ":other";
 const otherOf = (id: string) => `${id}${OTHER}`;
 
 /** A value of the content an elicitation is answered with. */
-export type ContentValue = string | number | boolean | string[];
+type ContentValue = string | number | boolean | string[];
 
 /** A JSON Schema of flat fields, as MCP and ACP restrict an elicitation's form. */
-export interface ElicitationForm {
+interface ElicitationForm {
   readonly properties: { [key: string]: Json };
   readonly required: string[];
   readonly type: "object";

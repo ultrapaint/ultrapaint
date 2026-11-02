@@ -20,7 +20,7 @@ import { select, selectPage } from "../state/selection.ts";
  * page's or one beside the pages on the open canvas, or a node beside the pages of a canvas,
  * whichever of its frames holds it.
  */
-export type Revealed =
+type Revealed =
   | { readonly page: string }
   | Selection
   | { readonly canvas: string; readonly nodeId: string };

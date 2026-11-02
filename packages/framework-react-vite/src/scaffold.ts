@@ -12,7 +12,7 @@ import type { ScaffoldTemplate } from "@ultrapaint/contracts/setup";
 import { STARTER_APP, STARTER_COMPONENTS } from "./starter-components.ts";
 
 /** A new application's files, repo-relative, and the settings that point the tool at it. */
-export interface Scaffolded {
+interface Scaffolded {
   readonly files: Readonly<Record<string, string>>;
   /** Relative to the repository. */
   readonly settings: {

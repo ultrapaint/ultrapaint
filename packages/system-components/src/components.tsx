@@ -30,7 +30,7 @@ export interface ListItem {
 }
 
 /** What the renderer gives a system component besides its instance's props. */
-export interface SystemComponentProps {
+interface SystemComponentProps {
   readonly children?: ReactNode;
   /** Draws an item of a Select or a Menu from the look's template; its label alone without one. */
   readonly drawItem?: ((item: ListItem) => ReactNode) | undefined;
@@ -166,7 +166,7 @@ export function Spinner(props: SystemComponentProps) {
   );
 }
 
-export function SystemAvatar(props: SystemComponentProps) {
+function SystemAvatar(props: SystemComponentProps) {
   const src = str(props.src);
   return (
     <Avatar.Root
@@ -218,7 +218,7 @@ export function Card(props: SystemComponentProps) {
   );
 }
 
-export function SystemSeparator(props: SystemComponentProps) {
+function SystemSeparator(props: SystemComponentProps) {
   const orientation =
     str(props.orientation, "horizontal") === "vertical"
       ? "vertical"
@@ -285,7 +285,7 @@ export function Textarea(props: SystemComponentProps) {
   );
 }
 
-export function SystemCheckbox(props: SystemComponentProps) {
+function SystemCheckbox(props: SystemComponentProps) {
   const checked = bool(props.checked);
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI's control, inside the label, is a button with its role
@@ -320,7 +320,7 @@ export function SystemCheckbox(props: SystemComponentProps) {
   );
 }
 
-export function SystemSwitch(props: SystemComponentProps) {
+function SystemSwitch(props: SystemComponentProps) {
   const checked = bool(props.checked);
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI's control, inside the label, is a button with its role
@@ -346,7 +346,7 @@ export function SystemSwitch(props: SystemComponentProps) {
   );
 }
 
-export function SystemTabs(props: SystemComponentProps) {
+function SystemTabs(props: SystemComponentProps) {
   const labels = items(props.items).map((item) => item.label);
   const designed = str(props.value) || labels[0] || "";
   const { interactive } = useComponentFrame();
@@ -377,7 +377,7 @@ export function SystemTabs(props: SystemComponentProps) {
 
 /* ---------------- Anchored ---------------- */
 
-export function SystemSelect(props: SystemComponentProps) {
+function SystemSelect(props: SystemComponentProps) {
   const options = items(props.items);
   const { drawItem } = props;
   const container = usePortal();
@@ -513,7 +513,7 @@ const sideOf = (value: unknown, fallback: "top" | "bottom") => {
     | "right";
 };
 
-export function SystemPopover(props: SystemComponentProps) {
+function SystemPopover(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined
@@ -560,7 +560,7 @@ export function SystemPopover(props: SystemComponentProps) {
   );
 }
 
-export function SystemTooltip(props: SystemComponentProps) {
+function SystemTooltip(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange } = useOverlayOpen(
     props.open as boolean | undefined
@@ -635,7 +635,7 @@ export function Toast(props: SystemComponentProps) {
 
 /* ---------------- Blocking ---------------- */
 
-export function SystemDialog(props: SystemComponentProps) {
+function SystemDialog(props: SystemComponentProps) {
   const container = usePortal();
   const { open, onOpenChange, interactive } = useOverlayOpen(
     props.open as boolean | undefined

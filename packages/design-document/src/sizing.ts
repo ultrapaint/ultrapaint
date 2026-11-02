@@ -17,9 +17,9 @@ import { layoutOf, type ParentLayout } from "./css.ts";
 import { slotLayoutOf } from "./slots.ts";
 import { CANVAS_ROOT_ID, childrenOf } from "./tree.ts";
 
-export type Axis = "width" | "height";
+type Axis = "width" | "height";
 
-export interface FillWarning {
+interface FillWarning {
   readonly axis: Axis;
   readonly message: string;
   readonly nodeId: string;

@@ -19,5 +19,3 @@ export const makeWriteAtomic = (fs: FileSystem.FileSystem, path: Path.Path) =>
       : fs.writeFile(tmp, content, options);
     yield* fs.rename(tmp, file);
   });
-
-export type WriteAtomic = ReturnType<typeof makeWriteAtomic>;

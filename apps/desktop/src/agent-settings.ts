@@ -33,7 +33,7 @@ const SettingsFile = Schema.fromJsonString(
 const decodeFile = Schema.decodeUnknownEffect(SettingsFile);
 const encodeFile = Schema.encodeEffect(SettingsFile);
 
-export const AGENT_SETTINGS_FILE = "agents.json";
+const AGENT_SETTINGS_FILE = "agents.json";
 
 export class AgentSettings extends Context.Service<
   AgentSettings,

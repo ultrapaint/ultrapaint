@@ -126,14 +126,14 @@ const hintsOf = (tool: Tool.Any) => ({
 });
 
 /** What a tool answers by hand: a picture, a sentence, or a form for the client to fill. */
-export type RawAnswer = McpSchema.CallToolResult | McpSchema.InputRequired;
+type RawAnswer = McpSchema.CallToolResult | McpSchema.InputRequired;
 
 /** A sentence as a tool's whole answer, or as its failure. */
 export const said = (text: string, isError = false) =>
   new McpSchema.CallToolResult({ content: [{ text, type: "text" }], isError });
 
 /** A tool registered by hand, as the MCP server takes it. */
-export type RawTool = Parameters<McpServer.McpServer["Service"]["addTool"]>[0];
+type RawTool = Parameters<McpServer.McpServer["Service"]["addTool"]>[0];
 
 /**
  * A tool whose answer a toolkit cannot give, registered by hand: a picture (`get_screenshot`), or

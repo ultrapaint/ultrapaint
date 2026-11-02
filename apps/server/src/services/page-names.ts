@@ -29,7 +29,7 @@ export interface NamedPage {
   readonly variant?: string | undefined;
 }
 
-export type PageNamed<T> =
+type PageNamed<T> =
   | { readonly _tag: "Found"; readonly page: T }
   /** No page answers to it; `route` is the URL it was read as, null for a file or nothing. */
   | { readonly _tag: "Missing"; readonly route: string | null }
@@ -71,7 +71,7 @@ export const pageNamed = <T extends NamedPage>(
 const IN_CANVAS_RE = /^([\w.-]+):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$/;
 
 /** What a page's name names: the page, maybe one of its nodes. */
-export type PageTargetNamed<P> =
+type PageTargetNamed<P> =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
   /**
    * A node on the canvas beside the pages (`canvas#c_1`), which is no page; `canvas` is the one
@@ -116,7 +116,7 @@ export const pageTargetNamed = <P extends NamedPage>(
 };
 
 /** What a design target names: a page, maybe one of its nodes, or a component. */
-export type DesignTargetNamed<P, C> =
+type DesignTargetNamed<P, C> =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
   | { readonly _tag: "Component"; readonly component: C }
   /**

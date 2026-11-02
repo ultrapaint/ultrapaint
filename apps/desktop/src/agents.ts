@@ -38,7 +38,7 @@ import { type SecretError, Secrets } from "./secrets.ts";
 import { findExecutable, isExecutable } from "./which.ts";
 
 /** Where the app's own parts are. */
-export interface AppLayout {
+interface AppLayout {
   /** The bundled adapters and the script that starts them. */
   readonly adaptersDir: string;
   /** Electron's binary, which runs the adapters as Node. */
@@ -69,7 +69,7 @@ export const electronReads = (node: string) => {
 };
 
 /** How the app found an agent: its executable, and what else its adapter is told. */
-export interface FoundAgent {
+interface FoundAgent {
   /** Further variables: the key it signs in with, when the user gave one. */
   readonly env?: Readonly<Record<string, string>>;
   readonly executable: string;
@@ -125,15 +125,14 @@ export type Located =
 const VERSION_RE = /\d+\.\d+\.\d+[\w.-]*/;
 
 /** The version an agent's `--version` names. */
-export const versionIn = (output: string) => {
+const versionIn = (output: string) => {
   const match: RegExpExecArray | null = VERSION_RE.exec(output);
   return match ? match[0] : undefined;
 };
 
-export class SignInError extends Schema.TaggedError<SignInError>()(
-  "SignInError",
-  { message: Schema.String }
-) {}
+class SignInError extends Schema.TaggedError<SignInError>()("SignInError", {
+  message: Schema.String,
+}) {}
 
 /** How long the user has to sign in, in the browser, before the app gives up waiting. */
 const SIGN_IN_TIMEOUT = "10 minutes";

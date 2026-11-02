@@ -48,7 +48,7 @@ type StreamCall = (
   payload: undefined
 ) => Stream.Stream<unknown, unknown>;
 
-export interface ConnectionOptions {
+interface ConnectionOptions {
   onState?: (state: ConnectionState) => void;
   url: string;
   WebSocketImpl?: typeof WebSocket;

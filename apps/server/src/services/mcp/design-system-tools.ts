@@ -28,7 +28,7 @@ import {
 const findingLine = (f: DesignFinding) =>
   `${f.severity}: ${f.path ? `${f.path}: ` : ""}${f.message}`;
 
-export const ScanDesignSystem = Tool.make("scan_design_system", {
+const ScanDesignSystem = Tool.make("scan_design_system", {
   description:
     "A first design-system.json read from the code's tokens, with the files read and what it could not place. /init starts here.",
   failure: ToolFailure,
@@ -39,7 +39,7 @@ export const ScanDesignSystem = Tool.make("scan_design_system", {
   }),
 }).annotateMerge(doing("read"));
 
-export const ReadDesignSystem = Tool.make("read_design_system", {
+const ReadDesignSystem = Tool.make("read_design_system", {
   description:
     "design-system.json (tokens, text styles) and DESIGN.md; null when never imported.",
   failure: ToolFailure,
@@ -52,7 +52,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
   }),
 }).annotateMerge(doing("read"));
 
-export const WriteDesignSystem = Tool.make("write_design_system", {
+const WriteDesignSystem = Tool.make("write_design_system", {
   description:
     "Save the design system, every token with its value, and DESIGN.md with designMd; refused with why when invalid. A token is color-primary; a text style says $color-primary. Sync baselines are the tool's: any given are ignored.",
   failure: ToolFailure,
@@ -68,7 +68,7 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
   }),
 }).annotateMerge(doing("destructive", { idempotent: true }));
 
-export const ListComponents = Tool.make("list_components", {
+const ListComponents = Tool.make("list_components", {
   description:
     "Every component, one line each: variants, props, slots (* the default). match narrows. Prefer them to plain HTML.",
   failure: ToolFailure,
@@ -80,7 +80,7 @@ export const ListComponents = Tool.make("list_components", {
   success: Schema.Struct({ components: Schema.Array(Schema.String) }),
 }).annotateMerge(doing("read"));
 
-export const GetComponent = Tool.make("get_component", {
+const GetComponent = Tool.make("get_component", {
   description:
     "One component: what it is for, props with types, variants, slots and an instance node to start from.",
   failure: ToolFailure,

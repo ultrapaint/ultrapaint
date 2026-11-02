@@ -35,7 +35,7 @@ const BODY_FONT = "font-sans";
 /** A bare line height below this is a multiple of the font size, as the renderer reads it. */
 const MAX_LINE_HEIGHT_FACTOR = 4;
 
-export interface Mirror {
+interface Mirror {
   readonly groups: TokenGroups;
   /** What was left out because the format cannot hold it, a line each. */
   readonly notes: readonly string[];

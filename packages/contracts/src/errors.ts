@@ -42,7 +42,7 @@ export class CommandFailed extends Schema.TaggedError<CommandFailed>()(
   { message: Schema.String }
 ) {}
 
-export type WireError =
+type WireError =
   | BadRequest
   | NotFound
   | NotConfigured

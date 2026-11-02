@@ -4,7 +4,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
  * What a selection is, which decides its colour: a component of the library (purple), or a plain
  * element (blue). The agents' pink is not a selection's: it is their work on it.
  */
-export type SelectionKind = "component" | "element";
+type SelectionKind = "component" | "element";
 
 export const selectionKindOf = (node: DesignNode | null): SelectionKind =>
   node?.type === "instance" ? "component" : "element";

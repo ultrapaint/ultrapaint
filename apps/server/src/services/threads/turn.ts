@@ -24,7 +24,7 @@ import {
 import type { TurnFiles, TurnWitness } from "./turn-witness.ts";
 
 /** Where a thread's turn is. */
-export type TurnState =
+type TurnState =
   | { readonly _tag: "None" }
   /** On its way to the agent: stopping it interrupts the fiber that takes it there. */
   | { readonly _tag: "Opening"; readonly fiber: Fiber.Fiber<void> }
@@ -71,7 +71,7 @@ const filesEdited = (
 };
 
 /** What the turn moves the thread's status with. */
-export type TurnStatusEvent =
+type TurnStatusEvent =
   | { readonly _tag: "TurnEnded" }
   | { readonly _tag: "Failed"; readonly message: string };
 

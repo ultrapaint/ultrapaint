@@ -2,11 +2,10 @@ import { Schema } from "effect";
 import { Settings, StorageInfo } from "./settings.ts";
 
 /** Who git says the user is in the repository: not an account, only its configuration. */
-export const GitUser = Schema.Struct({
+const GitUser = Schema.Struct({
   email: Schema.optional(Schema.String),
   name: Schema.optional(Schema.String),
 });
-export type GitUser = typeof GitUser.Type;
 
 export const ProjectInfo = Schema.Struct({
   branch: Schema.optional(Schema.String),

@@ -36,7 +36,7 @@ const pngFileOf = (pageFile: string) =>
   `${pageFile.slice(0, -PAGE_SUFFIX.length)}${PNG_SUFFIX}`;
 
 /** What one pass did. */
-export interface PngRefresh {
+interface PngRefresh {
   readonly drawn: readonly string[];
   readonly removed: readonly string[];
   /** Pages whose PNG is out of date and could not be drawn: no editor was open to draw them. */

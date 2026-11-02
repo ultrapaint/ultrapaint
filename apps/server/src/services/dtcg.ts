@@ -511,7 +511,7 @@ export const serialiseDesignTokens = (ds: DesignSystem): string =>
 // Reading.
 
 /** A token read from a Design Tokens file, in a theme when `theme` is given. */
-export interface ReadToken {
+interface ReadToken {
   readonly name: string;
   readonly theme?: string;
   readonly value: string;

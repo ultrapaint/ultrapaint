@@ -26,7 +26,7 @@ import {
 import { BridgeInputError, HiddenCapability } from "./errors.ts";
 
 /** What a handler may fail with: something with a message for the user. */
-export interface BridgeFailure {
+interface BridgeFailure {
   readonly message: string;
 }
 
@@ -52,14 +52,14 @@ export type BridgeHandlers<R> = {
 };
 
 /** Each state's value as the main process holds it. */
-export type StateValues = { [K in StateName]: ShellBridge[K]["value"]["Type"] };
+type StateValues = { [K in StateName]: ShellBridge[K]["value"]["Type"] };
 export type StateValue<K extends StateName> = StateValues[K];
 
 /** The states the window has; one not given is not shown (`windowControls` off a Mac). */
 export type BridgeStates = Partial<StateValues>;
 
 /** Whether the open project shows a capability: this machine's are hidden for a remote one. */
-export const isShown = (name: CapabilityName, remote: boolean) =>
+const isShown = (name: CapabilityName, remote: boolean) =>
   !remote || SHELL_BRIDGE[name].remote;
 
 const NAMES = Object.keys(SHELL_BRIDGE) as CapabilityName[];
@@ -157,7 +157,7 @@ export interface BridgeSender {
 }
 
 /** What of Electron's `ipcMain` the server uses. */
-export interface MainIpc<Sender extends BridgeSender> {
+interface MainIpc<Sender extends BridgeSender> {
   readonly handle: (
     channel: string,
     listener: (

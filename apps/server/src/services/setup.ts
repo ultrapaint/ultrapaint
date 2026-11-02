@@ -25,7 +25,7 @@ const PACKAGE_MANAGER_RE = /"packageManager"\s*:\s*"(pnpm|yarn|npm|bun)@/;
 const INSTALL_LOG_LINES = 12;
 
 /** A theme by token name, as a Figma file's tokens give it. */
-export type Theme = Readonly<Record<string, string>>;
+type Theme = Readonly<Record<string, string>>;
 
 /** What an install came to. */
 export interface Installed {

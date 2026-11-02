@@ -31,12 +31,12 @@ import { configText, toConfig } from "./project-config.ts";
 import { SetupService } from "./setup.ts";
 
 /** A step that could not be done, and why; the steps before it stay done. */
-export class NewDesignFailed extends Schema.TaggedError<NewDesignFailed>()(
+class NewDesignFailed extends Schema.TaggedError<NewDesignFailed>()(
   "NewDesignFailed",
   { message: Schema.String, step: Schema.String }
 ) {}
 
-export interface NewDesignResult {
+interface NewDesignResult {
   readonly configPath: string;
   readonly folder: string;
   readonly installed: boolean;

@@ -26,12 +26,12 @@ import { frameRefOf } from "./frame-ref.ts";
 import { select } from "./selection.ts";
 
 /** A choice's member edits land on. */
-export interface VariantEdited {
+interface VariantEdited {
   readonly member: string;
   readonly property: string;
 }
 
-export interface Isolation {
+interface Isolation {
   readonly component: string;
   /**
    * The page's instance it was entered from: the instance edited, or, for an app component edited

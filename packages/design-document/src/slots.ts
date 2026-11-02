@@ -18,7 +18,7 @@ import { variantKey } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 
 /** The slot a child naming `name` fills: the slot of that name that holds nodes, else the default. */
-export const slotFor = (
+const slotFor = (
   slots: readonly ComponentSlot[],
   name: string | undefined
 ): ComponentSlot | undefined =>
@@ -28,7 +28,7 @@ export const slotFor = (
   slots.find((s) => s.holds === "default");
 
 /** What a slot holds. */
-export interface SlotFill {
+interface SlotFill {
   /** The instance's own children, the page's; otherwise the component's content, not the page's. */
   readonly given: boolean;
   readonly nodes: readonly DesignNode[];

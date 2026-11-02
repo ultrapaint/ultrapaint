@@ -187,7 +187,7 @@ export const findItem = (
 ): LayerItem | null => pathTo(items, key)?.at(-1) ?? null;
 
 /** Whether a row is open, showing the rows under it when it has some. */
-export type IsOpen = (item: LayerItem) => boolean;
+type IsOpen = (item: LayerItem) => boolean;
 
 /** Every row open but the folded ones: how what a filter finds starts out. */
 export const openUnless =
@@ -350,7 +350,7 @@ export const visibleRows = (
   });
 
 /** What a key does to the tree: move the focus to a row, or open or fold one. */
-export type TreeMove =
+type TreeMove =
   | { readonly focus: string }
   | { readonly expand: string }
   | { readonly collapse: string };

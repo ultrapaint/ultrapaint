@@ -4,13 +4,12 @@ import { DEFAULT_DESIGNS_DIR, type Settings } from "./settings.ts";
 import { StyleSystemId } from "./tokens.ts";
 
 /** A package of the repository that holds the application: a hint for the agents that implement. */
-export const AnchorSuggestion = Schema.Struct({
+const AnchorSuggestion = Schema.Struct({
   dir: RepoRelativePath,
   name: Schema.String,
   /** Why it is suggested, in words the setup can show. */
   reason: Schema.String,
 });
-export type AnchorSuggestion = typeof AnchorSuggestion.Type;
 
 /** A package of the repository that looks like a component library. */
 export const LibrarySuggestion = Schema.Struct({

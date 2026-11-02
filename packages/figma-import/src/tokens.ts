@@ -17,7 +17,7 @@ import type { FigColor, FigNode, FigPaint } from "openfig-core";
 import { type FigFile, guidOf } from "./fig.ts";
 import { cssColor, cssRgba, topPaint } from "./paint.ts";
 
-export interface FigmaToken {
+interface FigmaToken {
   /** The variable its default mode points at, by its place in Figma: a semantic colour's palette entry. */
   readonly alias?: string;
   /** Figma's own id for the variable or style, which a rename keeps. */

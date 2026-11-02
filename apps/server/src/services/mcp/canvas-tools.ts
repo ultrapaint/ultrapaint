@@ -15,7 +15,7 @@ import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
-export const CopyPages = Tool.make("copy_pages", {
+const CopyPages = Tool.make("copy_pages", {
   description:
     "Copy or move pages with variants into a canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes comments too.",
   failure: ToolFailure,
@@ -43,14 +43,14 @@ export const CopyPages = Tool.make("copy_pages", {
   }),
 }).annotateMerge(doing("destructive"));
 
-export const CreateCanvas = Tool.make("create_canvas", {
+const CreateCanvas = Tool.make("create_canvas", {
   description: "Make an empty canvas, its id its name made safe.",
   failure: ToolFailure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({ id: Schema.String, name: Schema.String }),
 }).annotateMerge(doing("edit"));
 
-export const SetHome = Tool.make("set_home", {
+const SetHome = Tool.make("set_home", {
   description:
     "Choose the page, one with a URL, the canvas's prototype opens on.",
   failure: ToolFailure,
@@ -75,7 +75,7 @@ const LinkSummary = Schema.Struct({
   target: Schema.optional(Schema.String),
 });
 
-export const ListLinks = Tool.make("list_links", {
+const ListLinks = Tool.make("list_links", {
   description:
     "Every linking node of a canvas, its page and target, broken ones marked: run it after changing URLs or deleting or moving pages.",
   failure: ToolFailure,
