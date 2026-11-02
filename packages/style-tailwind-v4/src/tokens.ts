@@ -77,8 +77,7 @@ export const themeOf = (prelude: string): string | null => {
  * Whether a block that is no theme's gives the default theme its values: `:root`, `html` or
  * `:host`, not a class such as `.dark-blue` that only some of the page has.
  */
-export const isRootScope = (prelude: string): boolean =>
-  ROOT_SCOPE_RE.test(prelude);
+const isRootScope = (prelude: string): boolean => ROOT_SCOPE_RE.test(prelude);
 
 /** The stylesheet a package exports under `sub` (its main one when `sub` is empty). */
 const packageEntry = (root: string, sub: readonly string[]): string | null => {
@@ -114,7 +113,7 @@ const packageEntry = (root: string, sub: readonly string[]): string | null => {
  * The directory of an installed package, looked up the way Node would from `start`: in its own
  * `node_modules` or an ancestor's.
  */
-export const packageRoot = (pkg: string, start: string): string | null => {
+const packageRoot = (pkg: string, start: string): string | null => {
   let dir = path.resolve(start);
   for (;;) {
     const root = path.join(dir, "node_modules", pkg);
@@ -130,7 +129,7 @@ export const packageRoot = (pkg: string, start: string): string | null => {
 };
 
 /** The file a stylesheet import names: relative to the importer, or a package's. */
-export const resolveImport = (
+const resolveImport = (
   specifier: string,
   from: string,
   anchorDir: string
@@ -223,19 +222,19 @@ export const collect = (
  * once generated, `<designs>/.ultrapaint/host.css`. It is generated elsewhere since ADR 0034;
  * the settings keep their meaning.
  */
-export const hostCssBase = (
+const hostCssBase = (
   ctx: Pick<DesignSystemContext, "root" | "settings">
 ): string =>
   path.join(ctx.root, ctx.settings.designsDir, ".ultrapaint", "host.css");
 
 /** The stylesheets the settings name, as files. */
-export const hostEntries = (ctx: DesignSystemContext): string[] =>
+const hostEntries = (ctx: DesignSystemContext): string[] =>
   ctx.settings.hostCss
     .map((spec) => resolveImport(spec, hostCssBase(ctx), ctx.anchorDir))
     .filter((file): file is string => file !== null);
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
-export const aliasOf = (value: string): string | undefined => {
+const aliasOf = (value: string): string | undefined => {
   const match: RegExpExecArray | null = ALIAS_RE.exec(value);
   return match?.[1];
 };
@@ -249,10 +248,10 @@ const customPropertiesOf = (file: string, text: string) => {
   };
 };
 
-export const isTheme = (prelude: string) => prelude.includes("@theme");
+const isTheme = (prelude: string) => prelude.includes("@theme");
 
 /** The theme a block of plain variables gives values for: `""` for the default, or none. */
-export const themeKeyOf = (prelude: string): string | null => {
+const themeKeyOf = (prelude: string): string | null => {
   const named = themeOf(prelude);
   if (named) {
     return named;
@@ -511,7 +510,7 @@ interface Splice {
 }
 
 /** The selector a theme's values are written under when it has no block yet. */
-export const selectorOf = (theme: string) =>
+const selectorOf = (theme: string) =>
   theme === "dark" ? ".dark" : `[data-theme="${theme}"]`;
 
 /** Where a declaration goes in a block: on a line of its own before the `}`, indented. */

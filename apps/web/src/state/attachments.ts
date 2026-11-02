@@ -51,7 +51,7 @@ export const nodeKey = (frame: string, nodeId: string) =>
   `node:${frame}#${nodeId}`;
 
 /** The key of a board's chip: what it is, its name, and the place of a component picked. */
-export const boardChipKey = (chip: BoardAttachment) =>
+const boardChipKey = (chip: BoardAttachment) =>
   `board:${chip.pick}/${chip.name}/${chip.place?.variant ? `${chip.place.variant.axis}=${chip.place.variant.member}` : ""}/${chip.place?.state ?? ""}`;
 
 export const chipKey = (chip: Chip): string => {

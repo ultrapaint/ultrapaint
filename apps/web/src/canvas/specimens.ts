@@ -97,7 +97,7 @@ const rendered = (renderId: number, timeoutMs: number) =>
     });
   });
 
-export interface SpecimenOptions {
+interface SpecimenOptions {
   readonly canvas?: string;
   readonly height?: number;
   /** `fit` draws the node at its own size; `page` as a window of `width` shows it. */
@@ -158,7 +158,7 @@ export const hashOf = (text: string) => {
 };
 
 /** What a picture is drawn in besides the node: a change to any of it draws the node again. */
-export interface DrawnIn {
+interface DrawnIn {
   readonly canvas: string;
   /** The project's components: the looks it owns and its app components (ADR 0041). */
   readonly components: readonly ComponentFile[];

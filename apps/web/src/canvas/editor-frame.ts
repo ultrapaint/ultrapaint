@@ -81,7 +81,7 @@ export interface RenderRequest {
   readonly root: DesignNode | null;
 }
 
-export interface OpenOptions {
+interface OpenOptions {
   /** Whose images relative paths are: a canvas's own, else the shared ones. */
   readonly canvas: string;
   /** The host's classes, shown whenever it is opened. */

@@ -75,7 +75,7 @@ export interface Typography {
  * One component token: its properties (`backgroundColor`, `textColor`, `rounded`, `padding`,
  * `height`, `width`, `size`), each a reference (`{colors.primary}`) or a value.
  */
-export type ComponentToken = Readonly<Record<string, string>>;
+type ComponentToken = Readonly<Record<string, string>>;
 
 /** The mirrored groups, by token key. */
 export interface TokenGroups {

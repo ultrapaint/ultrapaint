@@ -21,7 +21,7 @@ import type { ThreadFailure } from "./threads/thread-session.ts";
 import { ThreadSessions } from "./threads/thread-session.ts";
 
 /** A step started: the setup after it, and for a step an agent runs, its thread and first task. */
-export interface StepStarted {
+interface StepStarted {
   readonly setup: DesignSystemSetup;
   /** What the thread's first prompt asks for; the editor writes it in the composer to send. */
   readonly task: TaskRequest | null;

@@ -78,7 +78,7 @@ const decodePage = Schema.decodeUnknownEffect(
 );
 
 /** A frame converted with the mapping as it stands. */
-export interface FramePreview {
+interface FramePreview {
   readonly document: DesignNode;
   readonly frame: FigmaFrame;
   /** The frame's layers as text, with its instances named. */
@@ -88,7 +88,7 @@ export interface FramePreview {
   readonly warnings: readonly string[];
 }
 
-export interface ComponentPreview {
+interface ComponentPreview {
   readonly component: FigmaComponent;
   /** The component's definition, converted. */
   readonly document: DesignNode;
@@ -97,7 +97,7 @@ export interface ComponentPreview {
   readonly usedIn: readonly string[];
 }
 
-export interface WrittenFrame {
+interface WrittenFrame {
   readonly page: Page;
   readonly unmapped: Readonly<Record<string, number>>;
   readonly warnings: readonly string[];
@@ -106,7 +106,7 @@ export interface WrittenFrame {
 type ImportFailure = NotFound | BadRequest;
 
 /** A component's mapping as it was kept, the import after it, and what to know about it. */
-export interface MappedComponent {
+interface MappedComponent {
   readonly file: FigmaImport;
   readonly mapping: ComponentMapping | null;
   readonly notes: readonly string[];

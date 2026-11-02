@@ -38,7 +38,7 @@ export interface Block {
 }
 
 /** An at-rule written as a statement inside a block, `@apply px-4 text-sm;`. */
-export interface AtStatement {
+interface AtStatement {
   readonly name: string;
   readonly params: string;
   readonly paramsStart: number;

@@ -5,7 +5,7 @@ import type { StorageTarget } from "./config.ts";
 /** Directory next to a configuration file that holds threads, checkpoints and caches. */
 export const STATE_DIR_NAME = ".ultrapaint";
 
-export interface StorageFlags {
+interface StorageFlags {
   /** `--config`: a configuration file, relative to `cwd` or absolute. It need not exist yet. */
   readonly config: string | undefined;
   readonly cwd: string;
@@ -19,7 +19,7 @@ export interface StorageFlags {
   readonly userHome: string;
 }
 
-export interface ResolvedStorage {
+interface ResolvedStorage {
   readonly storage: StorageTarget;
   readonly userDir: string;
 }

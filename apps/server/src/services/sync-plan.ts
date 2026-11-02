@@ -86,7 +86,7 @@ const SETUP_DETAILS: Record<SetupStepId, string> = {
   verify: "How much of the code is still off the system.",
 };
 
-export interface PlanInput {
+interface PlanInput {
   readonly drift: SyncDrift;
   readonly facts: SyncFacts;
   /** The newest Figma import has been compared and synced since it came in. */

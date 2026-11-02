@@ -16,7 +16,7 @@ export interface AgentLaunch {
   readonly env: Readonly<Record<string, string>>;
 }
 
-export interface SandboxPolicy {
+interface SandboxPolicy {
   /** The agent's own directories: its login, its sessions, its state. Read and written. */
   readonly agentDirs: readonly string[];
   /**

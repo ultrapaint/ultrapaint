@@ -100,7 +100,7 @@ export const spacingLength = (
 export const lineHeightName = (name: string): string => `${name}--line-height`;
 
 /** One kind of token: what its names start with and where the design system lists it. */
-export interface TokenKindEntry {
+interface TokenKindEntry {
   readonly kind: Exclude<TokenKind, "other">;
   /**
    * Where the design system lists it, as a path of its JSON: `*` is each of the colour groups,
@@ -296,7 +296,7 @@ export const tokenOf = (
   ds ? allTokens(ds).find((t) => t.name === name) : undefined;
 
 /** A token held against a value: of its own kind when it says one, else its name's. */
-export interface ValuedToken {
+interface ValuedToken {
   readonly kind?: TokenKind;
   readonly name: string;
   readonly value: string;

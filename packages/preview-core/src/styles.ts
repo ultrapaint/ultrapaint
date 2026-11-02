@@ -9,7 +9,7 @@
  */
 
 /** The name the frames' query container goes by: the shadow host. */
-export const FRAME_CONTAINER = "ed-frame";
+const FRAME_CONTAINER = "ed-frame";
 
 /** The attribute of the element that stands for a page's `<body>`. */
 export const BODY_ATTRIBUTE = "data-ed-body";

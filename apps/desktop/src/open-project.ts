@@ -29,7 +29,7 @@ import { RemoteProjects } from "./remote-project.ts";
 import { Shell } from "./shell.ts";
 
 /** What the user is asked before agents at work are stopped. */
-export const stopQuestion = (
+const stopQuestion = (
   action: "switch" | "quit" | "restart",
   working: number,
   name: string

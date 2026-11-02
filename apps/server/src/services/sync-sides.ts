@@ -69,7 +69,7 @@ interface Written {
 }
 
 /** A side read and compared, with what writing it and keeping its matches come to. */
-export interface SideReading {
+interface SideReading {
   readonly comparison: TokenComparison;
   /**
    * Its matches, for a side matched by the rules and the user: the side's tokens, what they are
@@ -93,7 +93,7 @@ export interface SideReading {
 }
 
 /** A side adapter: how one side is read, matched and kept. */
-export interface SideAdapter {
+interface SideAdapter {
   /** Matched by name, so there is nothing to match. */
   readonly byName: boolean;
   /** Why nothing can be taken or matched, when there is no such side. */

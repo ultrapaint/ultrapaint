@@ -68,7 +68,7 @@ export interface UsageSuggestion {
   readonly value: string;
 }
 
-export interface UsageRewrite {
+interface UsageRewrite {
   /** The rewrites made. */
   readonly changes: number;
   /** The uses off the system the rules could not rewrite, for an agent. */

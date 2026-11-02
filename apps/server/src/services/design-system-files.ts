@@ -51,7 +51,7 @@ export interface DesignSystemTexts {
 }
 
 /** The tokens the code declares, by name: where a value neither file has comes from. */
-export type CodeValues = ReadonlyMap<string, TokenValues>;
+type CodeValues = ReadonlyMap<string, TokenValues>;
 
 /** What the two files come to. */
 export interface DesignSystemRead {

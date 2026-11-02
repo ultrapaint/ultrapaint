@@ -30,8 +30,6 @@ export type FrameRef =
       readonly view: string;
     };
 
-export type FrameKind = FrameRef["kind"];
-
 const NODE = "node:";
 const BOARD = "board:";
 /** What separates a page from one of its views in a view's id. */

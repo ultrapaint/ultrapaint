@@ -33,7 +33,7 @@ export const isMac =
   );
 
 /** A key and the modifiers held with it. */
-export interface Chord {
+interface Chord {
   alt: boolean;
   /** ⌃ itself, which only a Mac tells from `mod`. */
   ctrl: boolean;

@@ -14,7 +14,7 @@ const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
 
 /** What only the frame knows: itself, and what follows a render reaching the screen. */
-export interface FrameDrawing {
+interface FrameDrawing {
   /** The frame itself: its body, its host, whether it runs. */
   readonly frame: RenderFrame;
   /** A render reached the screen: the frame's own work, then the editor told. */

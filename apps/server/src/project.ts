@@ -91,7 +91,7 @@ export type ProjectRequirements =
   | Storage;
 
 /** The services of the project the settings describe, as `composition.ts` builds them. */
-export type ProjectLayer = (
+type ProjectLayer = (
   settings: Settings
 ) => Layer.Layer<ProjectServices, never, ProjectRequirements>;
 

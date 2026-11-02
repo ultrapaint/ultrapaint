@@ -7,7 +7,7 @@ import { platform } from "../platform.ts";
 
 const never = () => () => undefined;
 
-export interface WindowChrome {
+interface WindowChrome {
   /** The cards at the top are the window's title bar: dragged, they move it. */
   drag: boolean;
   /** How far from the window's left edge the buttons reach; 0 when none are drawn. */

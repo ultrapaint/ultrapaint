@@ -151,7 +151,7 @@ export const resolveAt = (
   );
 
 /** Whether anything in the tree differs at some breakpoint. */
-export const hasOverrides = (node: DesignNode): boolean =>
+const hasOverrides = (node: DesignNode): boolean =>
   (node.at !== undefined && Object.keys(node.at).length > 0) ||
   childrenOf(node).some(hasOverrides);
 

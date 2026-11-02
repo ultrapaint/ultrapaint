@@ -4,7 +4,7 @@
  */
 import { presetSize, type ViewportPreset } from "@ultrapaint/contracts/pages";
 
-export interface PresetOption {
+interface PresetOption {
   label: string;
   value: ViewportPreset;
 }

@@ -43,7 +43,7 @@ import { IGNORED_DIRS } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 /** What a file of the designs is, as the modules that own each kind know it. */
-export type DesignKind =
+type DesignKind =
   | "canvas"
   | "canvases"
   | "comments"
@@ -63,7 +63,7 @@ export interface DesignChange {
 }
 
 /** Who a file was written for, as far as the server knows. */
-export type Writer =
+type Writer =
   /** A thread's agent, through the editor: a file it asked the editor to write, an MCP tool. */
   | { readonly _tag: "Thread"; readonly threadId: string }
   /** The editor's user, or an agent from outside the editor, through the editor's requests. */

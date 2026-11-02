@@ -93,5 +93,3 @@ export const makeTurnWitnesses = (project: OpenProject["Service"]) => {
 
   return { witness };
 };
-
-export type TurnWitnesses = ReturnType<typeof makeTurnWitnesses>;

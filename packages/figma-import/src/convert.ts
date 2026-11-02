@@ -43,7 +43,7 @@ import { noTokens, type TokenMatcher, topPaint } from "./paint.ts";
 import { isShape, isVectorOnly, svgOf } from "./svg.ts";
 import { textNode } from "./text.ts";
 
-export interface ConvertOptions {
+interface ConvertOptions {
   readonly mapping: Readonly<Record<string, ComponentMapping>>;
   readonly next: IdGenerator;
   /** The origin of a component a mapping names, as the catalogue has it; a system component's when left out. */
@@ -53,7 +53,7 @@ export interface ConvertOptions {
 }
 
 /** A file an image node of the result shows; written into the shared assets. */
-export interface ImageFile {
+interface ImageFile {
   readonly bytes: Uint8Array;
   /** Inside the designs directory: `assets/figma-….png`. */
   readonly src: string;

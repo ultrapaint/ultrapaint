@@ -1,6 +1,6 @@
 import { Effect, Semaphore } from "effect";
 
-export interface KeyedLock {
+interface KeyedLock {
   /** How many keys hold a lock now: those with work running or waiting. */
   readonly size: () => number;
   readonly withLock: <A, E, R>(

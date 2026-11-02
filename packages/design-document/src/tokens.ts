@@ -22,7 +22,7 @@ import {
 } from "@ultrapaint/contracts/token-table";
 import { childrenOf } from "./tree.ts";
 
-export const TOKEN_PREFIX = "$";
+const TOKEN_PREFIX = "$";
 
 export const isToken = (value: unknown): value is string =>
   typeof value === "string" && value.startsWith(TOKEN_PREFIX);

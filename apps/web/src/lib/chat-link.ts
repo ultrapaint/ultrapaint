@@ -24,7 +24,7 @@ export const isAttached = (
  * `attached` to the open thread's next prompt, which can be undone, or the element a thread was
  * started on, which cannot.
  */
-export interface ChatLink {
+interface ChatLink {
   readonly attached: boolean;
   readonly thread: Thread;
 }
