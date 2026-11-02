@@ -8,7 +8,7 @@ description: "Space is the design system's, not the eye's. Every gap and padding
 Space is the design system's, not the eye's. Every gap and padding is a step of its spacing
 scale, and the same relationship is always the same distance.
 
-Read `references/study.md` when you need spacing numbers by character or genre, or a page recipe. It holds section gaps, padding, gutters, viewport insets and text measures from 4,983 well-made sites.
+Read `study.md` in `references/` when you need spacing numbers by character or genre, or a page recipe. It holds section gaps, padding, gutters, viewport insets and text measures from 4,983 well-made sites.
 
 ## Four steps from the scale
 

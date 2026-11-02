@@ -11,7 +11,7 @@ product's voice, and say each thing the way the product always says it.
 Read the copy the product already has before writing. The voice DESIGN.md's Overview sets is the
 voice; plain language bends to it everywhere except errors and destructive moments.
 
-Read `references/study.md` when writing a public page's copy. It holds the headline, subhead, eyebrow and action counts for each character, with recipes for heroes, pricing, shops, title screens, statement headlines and editorial fronts.
+Read `study.md` in `references/` when writing a public page's copy. It holds the headline, subhead, eyebrow and action counts for each character, with recipes for heroes, pricing, shops, title screens, statement headlines and editorial fronts.
 
 ## Real words at real lengths
 

@@ -9,7 +9,7 @@ A screen made from a picture looks like the picture: every part of it there, not
 piece the same kind, in the same place, in the same style. The picture decides how it looks; the
 words of the request decide what it says.
 
-Read `references/study.md` when the picture holds photographs, screenshots or illustrations and you need to know how well-made sites treat them. It holds counts by kind and by character, art direction, palette, crops and edges, and recipes.
+Read `study.md` in `references/` when the picture holds photographs, screenshots or illustrations and you need to know how well-made sites treat them. It holds counts by kind and by character, art direction, palette, crops and edges, and recipes.
 
 ## Read it region by region
 

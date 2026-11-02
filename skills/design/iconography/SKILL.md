@@ -8,7 +8,7 @@ description: "Icons are words the user already knows. Use the product's icon set
 Icons are words the user already knows. Use the product's icon set, at its sizes, and only where
 an icon says something faster than its label would.
 
-Read `references/study.md` when you need icon-style counts by character, what shops, restaurants, games, magazines and portfolios carry, or recipes such as a pricing table, a shop header or an experience gate.
+Read `study.md` in `references/` when you need icon-style counts by character, what shops, restaurants, games, magazines and portfolios carry, or recipes such as a pricing table, a shop header or an experience gate.
 
 ## One set
 

@@ -8,7 +8,7 @@ description: "A page is a few large regions on a grid, and it holds at every wid
 A page is a few large regions on a grid, and it holds at every width the product supports.
 Decide the regions first, then fill them.
 
-Read `references/study.md` when you design a public page. It holds widths, structures and heroes by character, with recipes.
+Read `study.md` in `references/` when you design a public page. It holds widths, structures and heroes by character, with recipes.
 
 ## Regions before components
 

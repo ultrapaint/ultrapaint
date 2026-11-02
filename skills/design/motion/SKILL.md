@@ -15,7 +15,7 @@ The canvas is still: a design shows the end state of each transition. Write the 
 node on the canvas beside the page, one line per transition: trigger, what moves, duration,
 curve. In code it ships as written.
 
-Read `references/study.md` when you need more than the values here. It holds measurements of what 662 public sites do on load, scroll and hover, how technical, humanistic and expressive sites differ, and recipes for section reveals, hero sequences, image fades, masked headlines, scroll-aware headers, tickers and timer bars.
+Read `study.md` in `references/` when you need more than the values here. It holds measurements of what 662 public sites do on load, scroll and hover, how technical, humanistic and expressive sites differ, and recipes for section reveals, hero sequences, image fades, masked headlines, scroll-aware headers, tickers and timer bars.
 
 ## 1. Should it move
 

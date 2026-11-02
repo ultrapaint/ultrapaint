@@ -11,7 +11,7 @@ into a palette only when the semantic set has nothing for it.
 Colour has exact answers, so compute them: [with the editor's tools: `read_design_system` | without: `design.tokens.json`] gives every token's value in
 every theme. A contrast you did not compute is a guess.
 
-Read `references/study.md` when you colour a public page (a landing page, shop, portfolio or magazine). It holds the counts from 4,983 sites, how each character colours its grounds, accents and gradients, and recipes such as a dark product hero, a flood colour or a monochrome gallery.
+Read `study.md` in `references/` when you colour a public page (a landing page, shop, portfolio or magazine). It holds the counts from 4,983 sites, how each character colours its grounds, accents and gradients, and recipes such as a dark product hero, a flood colour or a monochrome gallery.
 
 ## Tokens by role
 

@@ -8,7 +8,7 @@ description: "The design system's components are the vocabulary. Compose with th
 The design system's components are the vocabulary. Compose with them before drawing anything of
 your own, and use them the way they were meant.
 
-Read `references/study.md` when you design a public page (a landing page, shop, portfolio or magazine). It holds the figures by character, the ways technical, humanistic and expressive sites differ, and recipes for a hero, a feature grid, a pricing page, a shop, a portfolio and an editorial front page.
+Read `study.md` in `references/` when you design a public page (a landing page, shop, portfolio or magazine). It holds the figures by character, the ways technical, humanistic and expressive sites differ, and recipes for a hero, a feature grid, a pricing page, a shop, a portfolio and an editorial front page.
 
 ## Look before you draw
 
