@@ -8,9 +8,13 @@ import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import { builtInLaunches } from "@ultrapaint/acp/built-in";
+import { AcpHostError } from "@ultrapaint/acp/errors";
 import { Effect, FileSystem, Layer } from "effect";
 import { runCommand } from "../src/process.ts";
 import { AgentSandbox } from "../src/services/threads/agent-sandbox.ts";
+
+const notServed = () =>
+  Effect.fail(new AcpHostError({ message: "not served" }));
 
 const agentId = process.argv[2] ?? "claude-code";
 
@@ -75,15 +79,15 @@ const program = Effect.gen(function* () {
             said += u.content.text;
           }
         }),
-      readTextFile: () => Effect.fail({ message: "not served" }),
+      readTextFile: () => notServed(),
       terminal: {
-        create: () => Effect.fail({ message: "not served" }),
+        create: () => notServed(),
         kill: () => Effect.void,
-        output: () => Effect.fail({ message: "not served" }),
+        output: () => notServed(),
         release: () => Effect.void,
-        waitForExit: () => Effect.fail({ message: "not served" }),
+        waitForExit: () => notServed(),
       },
-      writeTextFile: () => Effect.fail({ message: "not served" }),
+      writeTextFile: () => notServed(),
     },
   });
 

@@ -9,7 +9,7 @@ import {
   type SessionNotification,
   spawnAcpAgent,
 } from "./acp-agent.ts";
-import { ResourceNotFound } from "./errors.ts";
+import { AcpHostError, ResourceNotFound } from "./errors.ts";
 import { makeTerminalManager } from "./terminal-manager.ts";
 
 const fakeAgent = path.resolve(
@@ -26,7 +26,8 @@ const config = (env: Record<string, string> = {}): AgentConfig => ({
   name: "Fake",
 });
 
-const refuse = () => Effect.fail({ message: "not used in this test" });
+const refuse = () =>
+  Effect.fail(new AcpHostError({ message: "not used in this test" }));
 
 const handlers = (overrides: Partial<AcpHandlers> = {}): AcpHandlers => ({
   onElicitation: () => Effect.succeed({ action: "decline" }),
@@ -194,6 +195,24 @@ describe("AcpAgent", () => {
         ]);
         assert.deepStrictEqual(seen, ["read:-32002"]);
       })
+  );
+
+  agentTest("tells the agent why the host could not do what it asked", () =>
+    Effect.gen(function* () {
+      const { agent, seen } = yield* open({
+        readTextFile: (request) =>
+          Effect.fail(
+            new AcpHostError({
+              message: `${request.path} is outside the designs directory`,
+            })
+          ),
+      });
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      yield* agent.prompt(sessionId, [{ text: "read gone.txt", type: "text" }]);
+      assert.deepStrictEqual(seen, [
+        `read:-32603 Internal error: ${process.cwd()}/gone.txt is outside the designs directory`,
+      ]);
+    })
   );
 
   agentTest("surfaces the agent's own explanation of a failed prompt", () =>
