@@ -24,6 +24,9 @@ const PACKAGE_MANAGER_RE = /"packageManager"\s*:\s*"(pnpm|yarn|npm|bun)@/;
 /** The last lines of a failed install are what the user is shown. */
 const INSTALL_LOG_LINES = 12;
 
+/** A theme by token name, as a Figma file's tokens give it. */
+export type Theme = Readonly<Record<string, string>>;
+
 /** What an install came to. */
 export interface Installed {
   readonly installed: boolean;
@@ -61,11 +64,14 @@ export class SetupService extends Context.Service<
     }) => Effect.Effect<Installed, BadRequest | ForbiddenPath>;
     /**
      * Writes a new application into the repository, installs it when asked, and answers with
-     * the settings that point the tool at it. `tokens` start its theme (a Figma file's).
+     * the settings that point the tool at it. Its theme is looked up in `theme` once the
+     * directory is known to be free: the open project's latest Figma import, when the editor
+     * asks. Without one, or with one that fails (no project open, an import that does not
+     * read), the application starts with the template's own theme.
      */
-    readonly scaffold: (
+    readonly scaffold: <E = never>(
       input: ScaffoldInput,
-      tokens: Readonly<Record<string, string>>
+      theme?: Effect.Effect<Theme, E>
     ) => Effect.Effect<ScaffoldResult, BadRequest | ForbiddenPath>;
   }
 >()("ultrapaint/server/SetupService") {
@@ -257,9 +263,9 @@ export class SetupService extends Context.Service<
         return yield* installIn(packageManager, target, dir);
       });
 
-      const scaffold = Effect.fn("SetupService.scaffold")(function* (
+      const scaffold = Effect.fn("SetupService.scaffold")(function* <E = never>(
         input: ScaffoldInput,
-        tokens: Readonly<Record<string, string>>
+        theme: Effect.Effect<Theme, E> = Effect.succeed({})
       ) {
         const { dir, root, target } = yield* applicationDir(
           input.repoPath,
@@ -270,6 +276,7 @@ export class SetupService extends Context.Service<
             message: `${input.dir} already has a package.json: start the application somewhere else`,
           });
         }
+        const tokens = yield* Effect.orElseSucceed(theme, (): Theme => ({}));
         const made = scaffoldApplication({
           dir,
           name: input.name,

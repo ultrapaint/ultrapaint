@@ -88,6 +88,8 @@ Each concept has one module, with an interface its callers and its tests share.
   trees as well.
 - `OpenProject` is the open project's services, apart from the settings in force.
 - Event RPCs are derived from their schemas, and six RPCs no client used go.
+- The setup's scaffold looks up its theme in what it is given (the open project's latest Figma
+  import, which fails with no project open), so the editor's request handler only routes.
 
 **The design system.**
 - One write path makes the code follow every write, from what changed between before and after.
