@@ -4,7 +4,7 @@ import { shareUnchanged, takesChildren } from "./tree.ts";
 
 const instance = (children?: DesignNode[]): DesignNode => ({
   component: "Card",
-  from: "@ui/card",
+  from: "@ultrapaint/system",
   id: "i",
   type: "instance",
   ...(children && { children }),
@@ -18,20 +18,22 @@ const label: DesignNode = {
 };
 
 describe("takesChildren", () => {
+  const card = {
+    slots: [{}, { holds: "nodes" }, { holds: "default" }],
+  } as const;
   it("takes containers, and never text or images", () => {
     expect(
       takesChildren({ children: [], id: "g", type: "group" }, undefined)
     ).toBe(true);
-    expect(takesChildren(label, { props: [{ name: "children" }] })).toBe(false);
+    expect(takesChildren(label, card)).toBe(false);
   });
 
-  it("takes an instance whose component declares children", () => {
-    expect(takesChildren(instance(), { props: [{ name: "children" }] })).toBe(
-      true
-    );
-    expect(takesChildren(instance(), { props: [{ name: "value" }] })).toBe(
+  it("takes an instance whose component has a default slot, and none whose slots are all named", () => {
+    expect(takesChildren(instance(), card)).toBe(true);
+    expect(takesChildren(instance(), { slots: [{ holds: "nodes" }] })).toBe(
       false
     );
+    expect(takesChildren(instance(), { slots: [{}] })).toBe(false);
   });
 
   it("takes an unknown component only when it already holds nodes", () => {

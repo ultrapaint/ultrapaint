@@ -1,10 +1,10 @@
+import type { GitStatus } from "@ultrapaint/contracts/git";
+import { writesGit } from "@ultrapaint/contracts/settings";
 import type {
   Checkpoint,
-  GitDiff,
-  GitStatus,
-} from "@ultrapaint/contracts/git";
-import { writesGit } from "@ultrapaint/contracts/settings";
-import type { Snapshot } from "@ultrapaint/contracts/snapshots";
+  FileDiff,
+  Snapshot,
+} from "@ultrapaint/contracts/snapshots";
 import { cn } from "cn";
 import {
   Bookmark,
@@ -55,7 +55,7 @@ const DIFF_MARKER_RE = /^[+\-@]/;
 const FILES_SETTLE_MS = 250;
 
 interface CheckpointDiff {
-  diffs: readonly GitDiff[];
+  diffs: readonly FileDiff[];
   id: string;
 }
 
@@ -85,7 +85,7 @@ export const Changes = () => {
   }, []);
   const repoPath = useProject((s) => s.info.repoPath);
   const [status, setStatus] = useState<GitStatus | null>(null);
-  const [diff, setDiff] = useState<GitDiff | null>(null);
+  const [diff, setDiff] = useState<FileDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const checkpoints = useKept((s) => s.checkpoints);
@@ -598,7 +598,7 @@ const diffLines = (diff: string) => {
   });
 };
 
-const DiffView = ({ diffs }: { diffs: readonly GitDiff[] }) => (
+const DiffView = ({ diffs }: { diffs: readonly FileDiff[] }) => (
   <div className="p-2">
     {diffs.map((d) => (
       <div className="mb-2" key={d.path}>

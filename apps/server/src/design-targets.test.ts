@@ -1,12 +1,13 @@
-import { assert, describe, layer } from "@effect/vitest";
-import { emptySystemComponent } from "@ultrapaint/contracts/components";
+import { assert, describe } from "@effect/vitest";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { type Context, Effect } from "effect";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { ImplementationService } from "./services/implementation.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
+import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { callTool, ProjectTest } from "./testing/project.ts";
 
 /** The Button, with a file of its own: the project owns its look. */
@@ -33,7 +34,7 @@ const refusal = (
 const project = <I extends ProjectServices, S, A, E>(
   key: Context.Key<I, S>,
   f: (service: S) => Effect.Effect<A, E>
-) => Effect.flatMap(ProjectManager, (p) => p.service(key)(f));
+) => Effect.flatMap(OpenProject, (p) => p.service(key)(f));
 
 /** `/implement`'s task for a target, as the slash command or the Components panel asks. */
 const implementTask = (target: string) =>
@@ -42,11 +43,10 @@ const implementTask = (target: string) =>
   );
 
 describe("a design target, named once", () => {
-  layer(
+  eachTest(
     ProjectTest({
       files: { "designs/components/Button.component.json": BUTTON_FILE },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect("pins a note on a node reference to its node", () =>
       Effect.gen(function* () {
@@ -162,7 +162,7 @@ describe("a design target, named once", () => {
     );
   });
 
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect("names a page for the other tools by the same rule", () =>
       Effect.gen(function* () {
         const { id } = yield* callTool(EditorTools, "create_canvas", {
@@ -201,8 +201,11 @@ describe("a design target, named once", () => {
           yield* miss("nowhere.page.json"),
           `no page is nowhere.page.json; ${pages}`
         );
-        // A node beside the pages is no page: the tools take it with loose.
-        assert.include(yield* miss("canvas#c_1"), "pass `loose: true`");
+        // A node beside the pages is read where it is, in the canvas its reference says.
+        assert.strictEqual(
+          yield* miss(`${id}:canvas#c_1`),
+          `no node c_1 in designs/${id}/canvas.json; read it without a node to see its ids`
+        );
       })
     );
   });

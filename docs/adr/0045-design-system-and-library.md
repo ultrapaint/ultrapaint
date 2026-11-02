@@ -1,6 +1,6 @@
 # ADR 0045: The Design system and the Library
 
-Status: accepted, 2026-10-30; built in the phases of `docs/PLAN-design-system-and-library.md`.
+Status: accepted, 2026-10-30; built in the phases of `docs/plans/done/PLAN-design-system-and-library.md`.
 Amends 0032 (the rail's places: Assets goes, Library comes, the elements move to the tools),
 0029 and 0044 (the Design system panel's Components tab goes: a component's look is edited on its
 board), 0041 (the Assets panel's components are the Library's, and an app component's variants
@@ -9,6 +9,8 @@ system component's matrix is its board) and 0028 (a token edit is one of `design
 operations, still one undo step). The screens are sketched on the Redesign canvas
 (`design-system-color`, `library-insert`, `library-button`, `library-app-component`). The terms
 are in `GLOSSARY.md`.
+
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the board view is one of the main area's two surfaces (`showBoardFramesWith` and `takeBoardSelectionWith` go); a board's picks have one grammar; a pick crosses the wire as a `LookPlace`.
 
 ## Context
 

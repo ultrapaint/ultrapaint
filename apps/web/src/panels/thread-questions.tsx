@@ -24,8 +24,6 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   type AnswerDraft,
   answeredWell,
@@ -78,12 +76,10 @@ const AskCard = ({
 
 const PermissionOption = ({
   option,
-  remember,
   requestId,
   threadId,
 }: {
   option: PermissionItem["options"][number];
-  remember: boolean;
   requestId: string;
   threadId: string;
 }) => {
@@ -91,7 +87,6 @@ const PermissionOption = ({
     api()
       .request("threads.permission", {
         optionId: option.optionId,
-        remember,
         requestId,
         threadId,
       })
@@ -114,8 +109,6 @@ export const Permission = ({
   item: PermissionItem;
   threadId: string;
 }) => {
-  const [remember, setRemember] = useState(false);
-  const onRememberChange = (c: boolean) => setRemember(c === true);
   const open = !item.decision;
   return (
     <AskCard
@@ -136,23 +129,16 @@ export const Permission = ({
         </pre>
       ) : null}
       {open ? (
-        <>
-          <Label className="font-normal text-muted-foreground">
-            <Checkbox checked={remember} onCheckedChange={onRememberChange} />
-            Remember for this thread
-          </Label>
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            {item.options.map((o) => (
-              <PermissionOption
-                key={o.optionId}
-                option={o}
-                remember={remember}
-                requestId={item.requestId}
-                threadId={threadId}
-              />
-            ))}
-          </div>
-        </>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {item.options.map((o) => (
+            <PermissionOption
+              key={o.optionId}
+              option={o}
+              requestId={item.requestId}
+              threadId={threadId}
+            />
+          ))}
+        </div>
       ) : (
         <span className="flex items-center gap-2 font-medium text-foreground">
           <Check className="size-3.5 shrink-0" />

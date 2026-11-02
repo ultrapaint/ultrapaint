@@ -1,8 +1,9 @@
 import path from "node:path";
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Option, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
-import { ProjectManager, type ProjectServices } from "./project.ts";
+import { OpenProject, type ProjectServices } from "./project.ts";
 import { EditService } from "./services/edit.ts";
 import { COLLECT_EVERY, SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
@@ -10,15 +11,16 @@ import {
   Checkpoints,
   CheckpointsKept,
 } from "./services/threads/checkpoints.ts";
-import { ThreadService } from "./services/threads/threads.ts";
+import { ThreadSessions } from "./services/threads/thread-session.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
+import { promptThread } from "./testing/threads.ts";
 
 const HOME_FILE = "designs/home.page.json";
 const ABOUT_FILE = "designs/about.page.json";
 const COMMENTS = "designs/comments.json";
-// A file of each test's own: the tests share one project. A component the agent wrote is no
-// page, which the designs' watcher would tell of by itself.
+// A component the agent wrote is no page, which the designs' watcher would tell of by itself.
 const NEW_FILE = "designs/agent.tsx";
 const SECOND_FILE = "designs/second.page.json";
 const KEPT_FILE = "designs/kept.page.json";
@@ -26,7 +28,7 @@ const ONLY_FILE = "designs/only.md";
 
 /** An effect of the open project's services, run in it. */
 const inProject = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-  Effect.flatMap(ProjectManager, (project) => project.use(effect));
+  Effect.flatMap(OpenProject, (project) => project.use(effect));
 
 const undo = inProject(Effect.flatMap(EditService, (edit) => edit.undo));
 
@@ -46,11 +48,20 @@ const read = (file: string) =>
     return (yield* fs.exists(abs)) ? yield* fs.readFileString(abs) : null;
   });
 
+/** A turn of `threadId`'s: its checkpoint taken before it starts, and the turn taking a second. */
+const takeTurn = (threadId: string, label: string) =>
+  Effect.andThen(
+    Effect.flatMap(Checkpoints, (checkpoints) =>
+      checkpoints.create(threadId, label)
+    ),
+    TestClock.adjust("1 second")
+  );
+
 /** The checkpoint a turn takes before it starts, newest first in the list. */
 const checkpoint = (label: string) =>
   Effect.gen(function* () {
     const checkpoints = yield* Checkpoints;
-    yield* checkpoints.create("t-1", label);
+    yield* takeTurn("t-1", label);
     const made = (yield* checkpoints.list).find((c) => c.label === label);
     assert.isDefined(made);
     return made?.id ?? "";
@@ -63,9 +74,8 @@ const revert = (id: string) =>
 const KEPT = 3;
 
 describe("agent turn checkpoints", () => {
-  layer(
-    ProjectTest().pipe(Layer.provide(Layer.succeed(CheckpointsKept, KEPT))),
-    { excludeTestServices: true }
+  eachTest(
+    ProjectTest().pipe(Layer.provide(Layer.succeed(CheckpointsKept, KEPT)))
   )((it) => {
     it.effect(
       "compares with now, and reverts as one step that undo takes back",
@@ -186,12 +196,37 @@ describe("agent turn checkpoints", () => {
       })
     );
 
+    it.effect("lists two taken at the same instant newest first", () =>
+      Effect.gen(function* () {
+        const checkpoints = yield* Checkpoints;
+        yield* checkpoints.create("t-4", "Before: the first");
+        yield* checkpoints.create("t-4", "Before: the second");
+        assert.deepStrictEqual(
+          (yield* checkpoints.list).map((c) => c.label),
+          ["Before: the second", "Before: the first"]
+        );
+      })
+    );
+
+    it.effect("lets go of the first of those taken at the same instant", () =>
+      Effect.gen(function* () {
+        const checkpoints = yield* Checkpoints;
+        for (let i = 0; i < KEPT + 1; i += 1) {
+          yield* checkpoints.create("t-5", `Before: turn ${i}`);
+        }
+        assert.deepStrictEqual(
+          (yield* checkpoints.list).map((c) => c.label),
+          Array.from({ length: KEPT }, (_, i) => `Before: turn ${KEPT - i}`)
+        );
+      })
+    );
+
     it.effect("keeps the last ones, as many as it is given", () =>
       Effect.gen(function* () {
         const checkpoints = yield* Checkpoints;
         const store = yield* SnapshotStore;
         for (let i = 0; i < KEPT + 1; i += 1) {
-          yield* checkpoints.create("t-2", `Before: turn ${i}`);
+          yield* takeTurn("t-2", `Before: turn ${i}`);
         }
         assert.lengthOf(yield* checkpoints.list, KEPT);
         assert.lengthOf(yield* store.named("checkpoints"), KEPT);
@@ -225,7 +260,7 @@ describe("agent turn checkpoints", () => {
           const shared = yield* hashOf(second);
           // Enough turns that both are let go of, and the store collected since.
           for (let i = 0; i < KEPT + COLLECT_EVERY; i += 1) {
-            yield* checkpoints.create("t-3", `Before: later turn ${i}`);
+            yield* takeTurn("t-3", `Before: later turn ${i}`);
           }
           const ids = (yield* checkpoints.list).map((c) => c.id);
           assert.notInclude(ids, first);
@@ -263,7 +298,7 @@ describe("agent turn checkpoints", () => {
       files,
     });
 
-  layer(
+  eachTest(
     ProjectTest({
       state: {
         "checkpoints/cp_old_1.json": old("cp_old_1", 1000, {
@@ -272,8 +307,7 @@ describe("agent turn checkpoints", () => {
         }),
         "checkpoints/cp_old_2.json": "{ not json",
       },
-    }),
-    { excludeTestServices: true }
+    })
   )((it) => {
     it.effect(
       "moves the checkpoints kept in the old format into the store",
@@ -319,63 +353,63 @@ describe("agent turn checkpoints", () => {
     name: "Scripted",
   });
 
-  layer(ProjectTest({ state: { "agents/scripted.json": scripted } }), {
-    excludeTestServices: true,
-  })((it) => {
-    it.effect(
-      "publishes the checkpoints with a turn's, though the turn writes no design file",
-      () =>
-        Effect.gen(function* () {
-          const events = yield* EventBus;
-          const threads = yield* ThreadService;
-          const agents = yield* ScriptedAgents;
-          // Started at once, the fiber has subscribed by the time the fork returns.
-          const published = yield* Effect.forkScoped(
-            Stream.runHead(events.subscribe("checkpoints")),
-            { startImmediately: true }
-          );
-          const { id } = yield* threads.create("scripted");
-          yield* threads.prompt({
-            attachments: [],
-            text: "Only look",
-            threadId: id,
-          });
-          const turn = yield* (yield* agents.next).nextTurn;
-          yield* turn.end();
-          const list = Option.getOrNull(
-            yield* Fiber.join(published).pipe(Effect.timeout("2 seconds"))
-          );
-          assert.deepStrictEqual(
-            list?.map((c) => [c.label, c.threadId]),
-            [["Before: Only look", id]]
-          );
-          assert.deepStrictEqual(
-            list,
-            yield* Effect.flatMap(Checkpoints, (c) => c.list)
-          );
-        })
-    );
+  eachTest(ProjectTest({ state: { "agents/scripted.json": scripted } }))(
+    (it) => {
+      it.effect(
+        "publishes the checkpoints with a turn's, though the turn writes no design file",
+        () =>
+          Effect.gen(function* () {
+            const events = yield* EventBus;
+            const threads = yield* ThreadSessions;
+            const agents = yield* ScriptedAgents;
+            // Started at once, the fiber has subscribed by the time the fork returns.
+            const published = yield* Effect.forkScoped(
+              Stream.runHead(events.subscribe("checkpoints")),
+              { startImmediately: true }
+            );
+            const { id } = yield* threads.create({ agentId: "scripted" });
+            yield* promptThread({
+              attachments: [],
+              text: "Only look",
+              threadId: id,
+            });
+            const turn = yield* (yield* agents.next).nextTurn;
+            yield* turn.end();
+            const list = Option.getOrNull(
+              yield* Fiber.join(published).pipe(Effect.timeout("2 seconds"))
+            );
+            assert.deepStrictEqual(
+              list?.map((c) => [c.label, c.threadId]),
+              [["Before: Only look", id]]
+            );
+            assert.deepStrictEqual(
+              list,
+              yield* Effect.flatMap(Checkpoints, (c) => c.list)
+            );
+          })
+      );
 
-    it.effect(
-      "publishes the snapshots when one is made and when it is deleted",
-      () =>
-        Effect.gen(function* () {
-          const events = yield* EventBus;
-          const snapshots = yield* Snapshots;
-          const published = yield* Effect.forkScoped(
-            Stream.runCollect(Stream.take(events.subscribe("snapshots"), 2)),
-            { startImmediately: true }
-          );
-          const made = yield* snapshots.create("Shown to the client");
-          yield* snapshots.delete(made.id);
-          const lists = yield* Fiber.join(published).pipe(
-            Effect.timeout("2 seconds")
-          );
-          assert.deepStrictEqual(
-            lists.map((list) => list.map((s) => s.id)),
-            [[made.id], []]
-          );
-        })
-    );
-  });
+      it.effect(
+        "publishes the snapshots when one is made and when it is deleted",
+        () =>
+          Effect.gen(function* () {
+            const events = yield* EventBus;
+            const snapshots = yield* Snapshots;
+            const published = yield* Effect.forkScoped(
+              Stream.runCollect(Stream.take(events.subscribe("snapshots"), 2)),
+              { startImmediately: true }
+            );
+            const made = yield* snapshots.create("Shown to the client");
+            yield* snapshots.delete(made.id);
+            const lists = yield* Fiber.join(published).pipe(
+              Effect.timeout("2 seconds")
+            );
+            assert.deepStrictEqual(
+              lists.map((list) => list.map((s) => s.id)),
+              [[made.id], []]
+            );
+          })
+      );
+    }
+  );
 });

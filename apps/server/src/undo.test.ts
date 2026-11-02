@@ -1,141 +1,238 @@
 import { NodeServices } from "@effect/platform-node";
-import { assert, describe, it, layer } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { Conflict } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { EventBus } from "./events.ts";
-import { EditService, withinLimits } from "./services/edit.ts";
+import { DesignFiles } from "./services/design-files.ts";
+import {
+  EditService,
+  type FileCodec,
+  updateFile,
+  withinLimits,
+} from "./services/edit.ts";
+import { CallingThread } from "./services/mcp/access.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { eachTest } from "./testing/each-test.ts";
+import { TestEnv } from "./testing/harness.ts";
+import { ProjectRpc } from "./testing/project.ts";
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "undo with comments",
-  (test) => {
-    test.effect(
-      "undoes a rename after a comment was added, and the comment stays",
-      () =>
-        Effect.gen(function* () {
-          const { client, settings } = yield* TestEnv;
-          yield* client["settings.set"](settings);
-          const page = yield* client["pages.create"]({
+eachTest(ProjectRpc())("undo with comments", (test) => {
+  test.effect(
+    "undoes a rename after a comment was added, and the comment stays",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const page = yield* client["pages.create"]({
+          canvas: "",
+          name: "Notes",
+        });
+        const pinned = (text: string, on: string) =>
+          client["comments.create"]({
             canvas: "",
-            name: "Notes",
+            element: null,
+            nodeId: null,
+            page: on,
+            text,
+            x: 1,
+            y: 2,
           });
-          const pinned = (text: string, on: string) =>
-            client["comments.create"]({
-              canvas: "",
-              element: null,
-              nodeId: null,
-              page: on,
-              text,
-              x: 1,
-              y: 2,
-            });
-          const first = yield* pinned("Before the rename", page.id);
-          const renamed = yield* client["pages.rename"]({
-            id: page.id,
-            name: "Memo",
-          });
-          // A comment is no undo step: it is written outside the history, and must not make
-          // the rename's step look changed behind the editor's back.
-          const second = yield* pinned("After the rename", renamed.id);
+        const first = yield* pinned("Before the rename", page.id);
+        const renamed = yield* client["pages.rename"]({
+          id: page.id,
+          name: "Memo",
+        });
+        // A comment is no undo step: it is written outside the history, and must not make
+        // the rename's step look changed behind the editor's back.
+        const second = yield* pinned("After the rename", renamed.id);
 
-          const undone = yield* client["edit.undo"]();
-          assert.strictEqual(undone?.label.startsWith("Rename"), true);
-          const pages = yield* client["pages.list"]();
-          assert.include(
-            pages.pages.map((p) => p.id),
-            page.id
+        const undone = yield* client["edit.undo"]();
+        assert.strictEqual(undone?.label.startsWith("Rename"), true);
+        const pages = yield* client["pages.list"]();
+        assert.include(
+          pages.pages.map((p) => p.id),
+          page.id
+        );
+        // Both are on the page under the name it has again, the later one too.
+        const { comments } = yield* client["comments.list"]({ canvas: "" });
+        assert.deepStrictEqual(
+          comments.map((c) => [c.id, c.page]),
+          [
+            [first.id, page.id],
+            [second.id, page.id],
+          ]
+        );
+
+        // One added while the rename is undone goes forward with it.
+        yield* pinned("While undone", page.id);
+
+        // And forward again, with every comment on the page's new name.
+        yield* client["edit.redo"]();
+        const again = yield* client["comments.list"]({ canvas: "" });
+        assert.deepStrictEqual(
+          again.comments.map((c) => c.page),
+          [renamed.id, renamed.id, renamed.id]
+        );
+      })
+  );
+
+  test.effect(
+    "fills in the ids a page leaves out without writing over an edit made meanwhile",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const file = path.join(repo, "designs/handmade.page.json");
+        for (let round = 0; round < 10; round += 1) {
+          // Written by hand: the paragraph has no id yet.
+          yield* fs.writeFileString(
+            file,
+            JSON.stringify({
+              root: {
+                children: [{ role: "paragraph", text: "Old", type: "text" }],
+                id: "root",
+                type: "page",
+              },
+              version: 1,
+            })
           );
-          // Both are on the page under the name it has again, the later one too.
-          const { comments } = yield* client["comments.list"]({ canvas: "" });
-          assert.deepStrictEqual(
-            comments.map((c) => [c.id, c.page]),
+          yield* Effect.all(
             [
-              [first.id, page.id],
-              [second.id, page.id],
-            ]
-          );
-
-          // One added while the rename is undone goes forward with it.
-          yield* pinned("While undone", page.id);
-
-          // And forward again, with every comment on the page's new name.
-          yield* client["edit.redo"]();
-          const again = yield* client["comments.list"]({ canvas: "" });
-          assert.deepStrictEqual(
-            again.comments.map((c) => c.page),
-            [renamed.id, renamed.id, renamed.id]
-          );
-        }),
-      30_000
-    );
-
-    test.effect(
-      "fills in the ids a page leaves out without writing over an edit made meanwhile",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          yield* client["settings.set"](settings);
-          const file = path.join(repo, "designs/handmade.page.json");
-          for (let round = 0; round < 10; round += 1) {
-            // Written by hand: the paragraph has no id yet.
-            yield* fs.writeFileString(
-              file,
-              JSON.stringify({
-                root: {
-                  children: [{ role: "paragraph", text: "Old", type: "text" }],
-                  id: "root",
-                  type: "page",
-                },
-                version: 1,
-              })
-            );
-            yield* Effect.all(
-              [
-                client["documents.apply"]({
-                  edits: [
-                    {
-                      doc: "handmade.page.json",
-                      ops: [
-                        {
-                          node: {
-                            id: `new_${round}`,
-                            role: "paragraph",
-                            text: "New",
-                            type: "text",
-                          },
-                          op: "insert",
-                          parent: "root",
+              client["documents.apply"]({
+                edits: [
+                  {
+                    doc: "handmade.page.json",
+                    ops: [
+                      {
+                        node: {
+                          id: `new_${round}`,
+                          role: "paragraph",
+                          text: "New",
+                          type: "text",
                         },
-                      ],
-                    },
-                  ],
-                }),
-                ...Array.from({ length: 4 }, () =>
-                  client["documents.get"]({ doc: "handmade.page.json" })
-                ),
-              ],
-              { concurrency: "unbounded" }
-            );
-            const saved = JSON.parse(yield* fs.readFileString(file));
-            const texts = saved.root.children.map(
-              (c: { id?: string; text: string }) => [typeof c.id, c.text]
-            );
-            assert.deepStrictEqual(texts, [
-              ["string", "Old"],
-              ["string", "New"],
-            ]);
-          }
-          yield* fs.remove(file);
+                        op: "insert",
+                        parent: "root",
+                      },
+                    ],
+                  },
+                ],
+              }),
+              ...Array.from({ length: 4 }, () =>
+                client["documents.get"]({ doc: "handmade.page.json" })
+              ),
+            ],
+            { concurrency: "unbounded" }
+          );
+          const saved = JSON.parse(yield* fs.readFileString(file));
+          const texts = saved.root.children.map(
+            (c: { id?: string; text: string }) => [typeof c.id, c.text]
+          );
+          assert.deepStrictEqual(texts, [
+            ["string", "Old"],
+            ["string", "New"],
+          ]);
+        }
+        yield* fs.remove(file);
+      })
+  );
+});
+
+/** The journal alone, over a repository whose designs are in `designs/`. */
+const journalIn = (repo: string) =>
+  EditService.layer.pipe(
+    Layer.provideMerge(DesignFiles.layerTest),
+    Layer.provide(
+      Layer.mergeAll(
+        RepoPaths.layer({
+          designsDir: "designs",
+          hostCss: [],
+          libraryDirs: [],
+          repoPath: repo,
         }),
-      30_000
-    );
-  }
-);
+        EventBus.layer
+      )
+    ),
+    Layer.provide(NodeServices.layer)
+  );
+
+/** A count kept in a file, as a codec reads and writes it. */
+const countCodec: FileCodec<number> = {
+  decode: (text) => Effect.succeed(text === null ? 0 : Number(text)),
+  encode: (n) => `${n}`,
+};
 
 describe("the edit journal", () => {
+  it.effect(
+    "reads what a step writes from inside the step, so no change made meanwhile is lost",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* fs.makeDirectory(path.join(repo, "designs"), {
+          recursive: true,
+        });
+        yield* Effect.gen(function* () {
+          const edit = yield* EditService;
+          // Twenty steps at once, each adding one to what the file holds as it reads it.
+          yield* Effect.forEach(
+            Array.from({ length: 20 }, (_, i) => i),
+            (i) =>
+              edit.transaction(`Count ${i}`, (tx) =>
+                updateFile(tx, "designs/count.txt", countCodec, (n) => n + 1)
+              ),
+            { concurrency: "unbounded", discard: true }
+          );
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(repo, "designs/count.txt")),
+            "20"
+          );
+          // A read sees the step's own writes, and a file that is not there as nothing.
+          const seen = yield* edit.transaction("Look", (tx) =>
+            Effect.gen(function* () {
+              const before = yield* tx.read("designs/none.txt");
+              yield* tx.write("designs/none.txt", "here");
+              return [before, yield* tx.read("designs/none.txt")] as const;
+            })
+          );
+          assert.deepStrictEqual(seen, [null, "here"]);
+        }).pipe(Effect.provide(journalIn(repo)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "tells who each step wrote for: the thread whose agent's call it serves, else the editor's user",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* fs.makeDirectory(path.join(repo, "designs"), {
+          recursive: true,
+        });
+        yield* Effect.gen(function* () {
+          const edit = yield* EditService;
+          const files = yield* DesignFiles;
+          const written = yield* files.writes;
+          yield* edit
+            .transaction("By the agent", (tx) =>
+              tx.write("designs/a.json", "A")
+            )
+            .pipe(Effect.provideService(CallingThread, "thread_1"));
+          yield* edit.transaction("By the user", (tx) =>
+            tx.write("designs/b.json", "B")
+          );
+          assert.deepStrictEqual(yield* written, [
+            {
+              by: { _tag: "Thread", threadId: "thread_1" },
+              file: "designs/a.json",
+            },
+            { by: { _tag: "Editor" }, file: "designs/b.json" },
+          ]);
+        }).pipe(Effect.provide(journalIn(repo)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
   it.effect(
     "puts back every file it can when an action fails, past one it cannot",
     () =>
@@ -149,22 +246,7 @@ describe("the edit journal", () => {
         });
         yield* fs.writeFileString(path.join(designs, "a.json"), "A1");
         yield* fs.writeFileString(path.join(designs, "sub/b.json"), "B1");
-        const services = EditService.layer.pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              RepoPaths.layer({
-                componentPackages: [],
-                designsDir: "designs",
-                hostCss: [],
-                libraryDirs: [],
-                repoPath: repo,
-                theme: "light",
-              }),
-              EventBus.layer
-            )
-          ),
-          Layer.provide(NodeServices.layer)
-        );
+        const services = journalIn(repo);
         const failed = yield* Effect.flatMap(EditService, (edit) =>
           edit.transaction("Two files", (tx) =>
             Effect.gen(function* () {

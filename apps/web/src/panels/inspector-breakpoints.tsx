@@ -21,8 +21,9 @@ import { Segmented } from "../components/segmented.tsx";
 import { useEditingBreakpoint } from "../lib/breakpoint-edits.ts";
 import { resetAt, showBy } from "../lib/node-actions.ts";
 import { useBreakpoints } from "../state/design-system.ts";
-import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { useFrameBreakpoint } from "../state/selection.ts";
 import { set } from "./inspector-fields.tsx";
 
@@ -143,7 +144,7 @@ export const BreakpointSection = ({
   const breakpoints = useBreakpoints();
   const shown = useFrameBreakpoint(frame);
   const editing = useEditingBreakpoint(frame);
-  if (!own || isNodeFrame(frame) || own.type === "page") {
+  if (!own || frameRefOf(frame).kind === "node" || own.type === "page") {
     return null;
   }
   const used = breakpoints.filter((b) => fieldsAt(own, b.name).length > 0);

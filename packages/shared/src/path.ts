@@ -18,8 +18,7 @@ export const dirname = (p: string): string => {
   return parts.join("/");
 };
 
-export const stripExtension = (p: string): string =>
-  p.replace(EXTENSION_RE, "");
+const stripExtension = (p: string): string => p.replace(EXTENSION_RE, "");
 
 /** Turns a file name like `welcome-screen.tsx` into `Welcome screen`. */
 export const humanise = (name: string): string => {

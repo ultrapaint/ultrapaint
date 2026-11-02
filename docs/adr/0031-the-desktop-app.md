@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-10-26. Amends 0017 (the desktop shell returns, for a reason written down
 here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010 and 0019. The
-work is planned in [PLAN-desktop](../PLAN-desktop.md); this records its decisions and what Phase 0
+work is planned in [PLAN-desktop](../plans/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
 > Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26: the editor imports the
@@ -10,7 +10,7 @@ changed in the server and the editor, and what Phases 1, 2 and 3 added.
 > alone. `Platform.mapPreviewUrl`, the preload's synchronous IPC and the forward made again when
 > the preview moves are gone. The user's Node still runs the preview's Vite.
 >
-> Amended 2026-10-28 ([PLAN-architecture-2](../PLAN-architecture-2.md), step 8): a built-in
+> Amended 2026-10-28 ([PLAN-architecture-2](../plans/done/PLAN-architecture-2.md), step 8): a built-in
 > agent is one descriptor in acp's `built-in` (its `npx` launch, its adapter's package and bundle,
 > its program and the variable that names it to the adapter, its sign-in probe and parser, a
 > sign-in through its adapter, its key's variable, its variables by where it was found). The
@@ -68,7 +68,7 @@ comments and draws the avatar when git gives no name.
 **The tool's own snapshot store** is in the state directory (`store/`): each file's contents once,
 by SHA-256, and a manifest per snapshot naming the hash of each file. Refs per namespace keep
 manifests; what nothing keeps is collected. The setup's snapshots are its first user; the revision
-history ([PLAN-revision-history](../PLAN-revision-history.md)) is meant to be the second.
+history ([PLAN-revision-history](../plans/PLAN-revision-history.md)) is meant to be the second.
 
 **A running server is found, not started twice.** The server writes `run.json` in its state
 directory once it listens: its pid, port, URL and a token. A second start on the same project

@@ -109,6 +109,57 @@ describe("ThreadStore", () => {
   );
 
   it.effect(
+    "reads a turn's usage written before it was ACP's, its cached input as cached reads",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* fs.makeDirectory(path.join(home, "threads"));
+        const usage = {
+          byModel: [{ model: "gpt", tokens: 30 }],
+          cachedInputTokens: 5,
+          inputTokens: 10,
+          outputTokens: 20,
+          totalTokens: 30,
+        };
+        yield* fs.writeFileString(
+          path.join(home, "threads", "thread_a_00001.json"),
+          JSON.stringify({
+            items: [
+              {
+                at: 0,
+                changedFiles: [],
+                id: "item_1",
+                kind: "turn_end",
+                stopReason: "end_turn",
+                usage,
+              },
+            ],
+            thread: {
+              agentId: "fake",
+              createdAt: 0,
+              id: "thread_a_00001",
+              status: "idle",
+              title: "A",
+              updatedAt: 0,
+            },
+          })
+        );
+        const [end] = yield* Effect.flatMap(ThreadStore, (store) =>
+          store.items("thread_a_00001")
+        ).pipe(Effect.provide(storeIn(home)));
+        assert.deepStrictEqual(end?.kind === "turn_end" && end.usage, {
+          byModel: [{ model: "gpt", tokens: 30 }],
+          cachedReadTokens: 5,
+          inputTokens: 10,
+          outputTokens: 20,
+          totalTokens: 30,
+        });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "reads a thread written while its agent ran, or with a status no longer written, as idle",
     () =>
       Effect.gen(function* () {

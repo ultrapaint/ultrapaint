@@ -6,8 +6,7 @@
  * Nothing outside this file sees an SDK value other than the protocol's plain data types, so
  * the implementation can be replaced without touching the thread service.
  */
-import { type ChildProcess, spawn } from "node:child_process";
-import { Readable, Writable } from "node:stream";
+import { pathToFileURL } from "node:url";
 import {
   type ContentBlock,
   type CreateElicitationRequest,
@@ -15,6 +14,7 @@ import {
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   client,
+  type InitializeRequest,
   type InitializeResponse,
   type KillTerminalRequest,
   type LoadSessionResponse,
@@ -29,43 +29,66 @@ import {
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionNotification,
+  type SetSessionConfigOptionResponse,
   type TerminalOutputRequest,
   type TerminalOutputResponse,
   type WaitForTerminalExitRequest,
   type WaitForTerminalExitResponse,
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
-import { Deferred, Effect, Predicate, Queue, Result, type Scope } from "effect";
+import {
+  type Cause,
+  Deferred,
+  Effect,
+  Predicate,
+  Queue,
+  Result,
+  type Scope,
+  Stream,
+} from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   type AcpError,
+  AcpHostError,
   AcpProcessExited,
   AcpRequestError,
   AcpSpawnError,
+  type ResourceNotFound,
 } from "./errors.ts";
+import { BASELINE, negotiated } from "./negotiated.ts";
 import type { AgentLaunch } from "./sandbox.ts";
+import { makeUpdates, type Updates } from "./updates.ts";
 
 export type {
   ContentBlock,
   CreateElicitationRequest,
   CreateElicitationResponse,
   CreateTerminalRequest,
+  InitializeRequest,
   InitializeResponse,
   LoadSessionResponse,
   NewSessionResponse,
+  Plan,
   PromptResponse,
   ReadTextFileRequest,
   RequestPermissionRequest,
   RequestPermissionResponse,
+  SessionConfigOption,
+  SessionConfigSelectOptions,
   SessionNotification,
   SessionUpdate,
+  SetSessionConfigOptionResponse,
   StopReason,
+  ToolCallContent,
+  ToolCallLocation,
   ToolCallUpdate,
   WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
 
 /**
  * What the host does on behalf of the agent. A failing handler is reported to the agent as a
- * JSON-RPC error carrying the failure's message.
+ * JSON-RPC error: a file that is not there (`ResourceNotFound`) as ACP's "resource not found",
+ * anything else the host could not do (`AcpHostError`) as an internal error carrying its message.
  */
 export interface AcpHandlers {
   /**
@@ -79,29 +102,55 @@ export interface AcpHandlers {
     request: RequestPermissionRequest
   ) => Effect.Effect<RequestPermissionResponse>;
   readonly onStderr: (text: string) => Effect.Effect<void>;
+  /**
+   * Every `session/update`, one at a time, in the order the agent sent it; a replay of a
+   * session reopened, which the host has already, is not among them.
+   */
+  readonly onUpdate: (notification: SessionNotification) => Effect.Effect<void>;
   readonly readTextFile: (
     request: ReadTextFileRequest
-  ) => Effect.Effect<ReadTextFileResponse, { readonly message: string }>;
+  ) => Effect.Effect<ReadTextFileResponse, AcpHostError | ResourceNotFound>;
   readonly terminal: {
     readonly create: (
       request: CreateTerminalRequest
-    ) => Effect.Effect<CreateTerminalResponse, { readonly message: string }>;
+    ) => Effect.Effect<CreateTerminalResponse, AcpHostError>;
     readonly kill: (request: KillTerminalRequest) => Effect.Effect<void>;
     readonly output: (
       request: TerminalOutputRequest
-    ) => Effect.Effect<TerminalOutputResponse, { readonly message: string }>;
+    ) => Effect.Effect<TerminalOutputResponse, AcpHostError>;
     readonly release: (request: ReleaseTerminalRequest) => Effect.Effect<void>;
     readonly waitForExit: (
       request: WaitForTerminalExitRequest
-    ) => Effect.Effect<
-      WaitForTerminalExitResponse,
-      { readonly message: string }
-    >;
+    ) => Effect.Effect<WaitForTerminalExitResponse, AcpHostError>;
   };
   readonly writeTextFile: (
     request: WriteTextFileRequest
-  ) => Effect.Effect<void, { readonly message: string }>;
+  ) => Effect.Effect<void, AcpHostError>;
 }
+
+/**
+ * What a host that does nothing for the agent answers: an agent started only to be asked
+ * something (its models, a sign-in) is refused whatever it asks of the host, for `why`, and its
+ * updates and output go nowhere.
+ */
+export const refusingHandlers = (why: string): AcpHandlers => {
+  const refuse = () => Effect.fail(new AcpHostError({ message: why }));
+  return {
+    onElicitation: () => Effect.succeed({ action: "decline" }),
+    onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
+    onStderr: () => Effect.void,
+    onUpdate: () => Effect.void,
+    readTextFile: refuse,
+    terminal: {
+      create: refuse,
+      kill: () => Effect.void,
+      output: refuse,
+      release: () => Effect.void,
+      waitForExit: refuse,
+    },
+    writeTextFile: refuse,
+  };
+};
 
 /** An MCP server the agent may call, as ACP describes one. */
 export interface McpServerConfig {
@@ -114,6 +163,15 @@ export interface McpServerConfig {
   readonly url: string;
 }
 
+/** What a session is opened with: the MCP servers it may call, and the agent's own `_meta`. */
+export interface SessionOptions {
+  readonly mcpServers?: readonly McpServerConfig[];
+  readonly meta?: unknown;
+}
+
+/** What an agent says of a session it opened again: its options and modes, where it has any. */
+export type SessionState = Pick<LoadSessionResponse, "configOptions" | "modes">;
+
 export interface AcpExit {
   readonly code: number | null;
   readonly signal: string | null;
@@ -122,53 +180,75 @@ export interface AcpExit {
 export interface AcpAgent {
   readonly authenticate: (methodId: string) => Effect.Effect<void, AcpError>;
   readonly cancel: (sessionId: string) => Effect.Effect<void, AcpError>;
-  /**
-   * Runs `handler` for every `session/update`, one at a time, in the order the agent sent
-   * them. Never completes; fork it into the session's scope. Call it once.
-   */
-  readonly consumeUpdates: (
-    handler: (notification: SessionNotification) => Effect.Effect<void>
-  ) => Effect.Effect<never>;
-  /**
-   * Completes once `consumeUpdates` has finished handling every update received so far. A
-   * prompt's response can arrive before its last update is processed; wait on this first.
-   */
-  readonly drained: Effect.Effect<void>;
   /** Completes when the agent process ends, for any reason. */
   readonly exited: Effect.Effect<AcpExit>;
+  /** The handshake; what the agent said of itself decides what `reopen` does. */
   readonly initialize: Effect.Effect<InitializeResponse, AcpError>;
-  readonly loadSession: (
-    sessionId: string,
-    cwd: string,
-    mcpServers?: readonly McpServerConfig[]
-  ) => Effect.Effect<LoadSessionResponse | undefined, AcpError>;
   readonly newSession: (
     cwd: string,
-    options?: {
-      readonly mcpServers?: readonly McpServerConfig[];
-      readonly meta?: unknown;
-    }
+    options?: SessionOptions
   ) => Effect.Effect<NewSessionResponse, AcpError>;
   readonly pid: number | undefined;
+  /** A turn: over once the agent answered and every update it sent meanwhile was handled. */
   readonly prompt: (
     sessionId: string,
     blocks: ContentBlock[]
   ) => Effect.Effect<PromptResponse, AcpError>;
+  /**
+   * Opens a stored session again: resumed where the agent can (`session/resume`), else loaded
+   * (`session/load`) with its replay kept from the host, which has it already. Null where the
+   * agent can do neither, or before `initialize`.
+   */
+  readonly reopen: (
+    sessionId: string,
+    cwd: string,
+    options?: SessionOptions
+  ) => Effect.Effect<SessionState | null, AcpError>;
   readonly setConfigOption: (
     sessionId: string,
     configId: string,
     value: string | boolean
-  ) => Effect.Effect<unknown, AcpError>;
+  ) => Effect.Effect<SetSessionConfigOptionResponse, AcpError>;
   readonly setMode: (
     sessionId: string,
     modeId: string
   ) => Effect.Effect<void, AcpError>;
 }
 
-type Inbox = SessionNotification | Deferred.Deferred<void>;
+/**
+ * What the editor says of itself when an agent starts: who it is, and what it does for the
+ * agent. Every adapter sends this, so a scripted agent sees what a real one would.
+ */
+export const initializeRequest = (
+  clientVersion: string
+): InitializeRequest => ({
+  clientCapabilities: {
+    elicitation: { form: {} },
+    fs: { readTextFile: true, writeTextFile: true },
+    // A boolean option is drawn as on and off, and set as a boolean.
+    session: { configOptions: { boolean: {} } },
+    terminal: true,
+  },
+  clientInfo: { name: "ultrapaint", version: clientVersion },
+  protocolVersion: PROTOCOL_VERSION,
+});
 
-const isMarker = (item: Inbox): item is Deferred.Deferred<void> =>
-  Deferred.isDeferred(item);
+/**
+ * A call whose answer the agent sends after updates of its own (a prompt's turn): answered once
+ * they are handled too, whether it succeeded or not, so the host sees the turn whole. Not when
+ * interrupted: the session is closing, and its updates with it.
+ */
+export const settling =
+  (updates: Updates) =>
+  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+    effect.pipe(
+      Effect.tap(() => updates.settled),
+      Effect.tapError(() => updates.settled)
+    );
+
+/** `_meta` on a request, when there is any. */
+export const withMeta = (meta: unknown) =>
+  meta === undefined ? {} : { _meta: meta as Record<string, unknown> };
 
 const describe = (error: unknown): { code: number | null; message: string } => {
   if (!Predicate.isObject(error)) {
@@ -193,40 +273,22 @@ const nextMacrotask = Effect.callback<void>((resume) => {
   return Effect.sync(() => clearImmediate(handle));
 });
 
-const startProcess = (launch: AgentLaunch, cwd: string) =>
-  Effect.callback<ChildProcess, AcpSpawnError>((resume) => {
-    const child = spawn(launch.command, [...launch.args], {
-      cwd,
-      // Its own process group: `npx` wrappers start the real agent as a grandchild.
-      detached: process.platform !== "win32",
-      env: { ...process.env, ...launch.env },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    child.once("spawn", () => resume(Effect.succeed(child)));
-    child.once("error", (error) =>
-      resume(
-        Effect.fail(
-          new AcpSpawnError({ command: launch.command, message: error.message })
-        )
-      )
-    );
-  });
+/**
+ * How long a process asked to stop (SIGTERM, to its whole group) is given before it is killed:
+ * an agent and the terminals it asks for alike.
+ */
+export const KILL_AFTER = "3 seconds";
 
-const signalGroup = (child: ChildProcess, signal: NodeJS.Signals) =>
-  Effect.sync(() => {
-    if (child.pid === undefined || child.exitCode !== null) {
-      return;
-    }
-    try {
-      if (process.platform === "win32") {
-        child.kill(signal);
-      } else {
-        process.kill(-child.pid, signal);
-      }
-    } catch {
-      // The group is already gone.
-    }
-  });
+/** `Process interrupted due to receipt of signal: 'SIGTERM'`, as the spawner says it. */
+const SIGNAL_RE = /signal: '(\w+)'/;
+
+/** The signal a process the spawner says was interrupted was stopped by. */
+const signalOf = (error: { readonly cause?: unknown }): string => {
+  const match: RegExpExecArray | null = Predicate.isError(error.cause)
+    ? SIGNAL_RE.exec(error.cause.message)
+    : null;
+  return match?.[1] ?? "SIGKILL";
+};
 
 /**
  * Starts the agent described by a launch: command, args and env, already wrapped in whatever
@@ -234,35 +296,87 @@ const signalGroup = (child: ChildProcess, signal: NodeJS.Signals) =>
  */
 export const spawnAcpAgent = (
   launch: AgentLaunch,
-  options: { readonly cwd: string; readonly handlers: AcpHandlers }
-): Effect.Effect<AcpAgent, AcpSpawnError, Scope.Scope> =>
+  options: {
+    /** The editor's own version, which `initialize` tells the agent. */
+    readonly clientVersion: string;
+    readonly cwd: string;
+    /**
+     * The environment the agent starts from, under the launch's own variables: the server's
+     * (`ServerConfig`), not whatever the process happens to have.
+     */
+    readonly env: Readonly<Record<string, string>>;
+    readonly handlers: AcpHandlers;
+  }
+): Effect.Effect<
+  AcpAgent,
+  AcpSpawnError,
+  Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const { handlers } = options;
     const context = yield* Effect.context<never>();
     const run = Effect.runPromiseWith(context);
     const exitSignal = yield* Deferred.make<AcpExit>();
-    const inbox = yield* Queue.unbounded<Inbox>();
+    // The SDK answers a request synchronously but dispatches notifications through an async
+    // handler chain, so updates sent before a response can reach us a few microtasks after it.
+    // One macrotask later they have all been received.
+    const updates = yield* makeUpdates(handlers.onUpdate, nextMacrotask);
+    let initialized = BASELINE;
 
-    const child = yield* Effect.acquireRelease(
-      startProcess(launch, options.cwd),
-      (process) =>
-        signalGroup(process, "SIGTERM").pipe(
-          Effect.andThen(
-            Deferred.await(exitSignal).pipe(Effect.timeoutOption("3 seconds"))
-          ),
-          Effect.andThen(signalGroup(process, "SIGKILL"))
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    // What the SDK writes, to the agent's stdin; ended when the SDK closes its side.
+    const input = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+    const child = yield* spawner
+      .spawn(
+        ChildProcess.make(launch.command, launch.args, {
+          cwd: options.cwd,
+          // Its own process group (the spawner's default): `npx` starts the real agent as a
+          // grandchild, and stopping the agent stops the group.
+          env: { ...options.env, ...launch.env },
+          extendEnv: false,
+          forceKillAfter: KILL_AFTER,
+          stdin: Stream.fromQueue(input),
+        })
+      )
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new AcpSpawnError({
+              command: launch.command,
+              message: error.message,
+            })
         )
+      );
+    // Detached: it ends with the process, which the scope stops, and says how it ended to
+    // whoever waits, the scope's own finalizers included.
+    yield* child.exitCode.pipe(
+      Effect.match({
+        onFailure: (error): AcpExit => ({
+          code: null,
+          signal: signalOf(error),
+        }),
+        onSuccess: (code): AcpExit => ({ code, signal: null }),
+      }),
+      Effect.flatMap((exit) => Deferred.succeed(exitSignal, exit)),
+      Effect.forkDetach
     );
-    child.once("exit", (code, signal) => {
-      Deferred.doneUnsafe(exitSignal, Effect.succeed({ code, signal }));
-    });
-    child.stderr?.on("data", (chunk) => {
-      run(handlers.onStderr(String(chunk).trimEnd())).catch(() => undefined);
-    });
+    yield* child.stderr.pipe(
+      Stream.decodeText(),
+      Stream.runForEach((text) => handlers.onStderr(text.trimEnd())),
+      Effect.ignore,
+      Effect.forkScoped
+    );
 
     const stream = ndJsonStream(
-      Writable.toWeb(child.stdin as Writable) as WritableStream<Uint8Array>,
-      Readable.toWeb(child.stdout as Readable) as ReadableStream<Uint8Array>
+      new WritableStream<Uint8Array>({
+        close: () => {
+          Queue.endUnsafe(input);
+        },
+        write: (chunk) => {
+          Queue.offerUnsafe(input, chunk);
+        },
+      }),
+      Stream.toReadableStreamWith(child.stdout, context)
     );
 
     /**
@@ -271,18 +385,23 @@ export const spawnAcpAgent = (
      * refused outside the designs directory has to say why for the agent to do otherwise.
      */
     const serve = async <A>(
-      effect: Effect.Effect<A, { readonly message: string }>
+      effect: Effect.Effect<A, AcpHostError | ResourceNotFound>
     ): Promise<A> => {
       const result = await run(Effect.result(effect));
       if (Result.isSuccess(result)) {
         return result.success;
       }
-      throw RequestError.internalError(undefined, result.failure.message);
+      const { failure } = result;
+      // A file that is not there is the agent's to handle, as ACP names it; anything else failed.
+      if (failure._tag === "ResourceNotFound") {
+        throw RequestError.resourceNotFound(pathToFileURL(failure.path).href);
+      }
+      throw RequestError.internalError(undefined, failure.message);
     };
 
     const app = client({ name: "ultrapaint" })
       .onNotification("session/update", (ctx) => {
-        Queue.offerUnsafe(inbox, ctx.params);
+        updates.receive(ctx.params);
       })
       .onRequest("session/request_permission", (ctx) =>
         serve(handlers.onPermission(ctx.params))
@@ -365,61 +484,58 @@ export const spawnAcpAgent = (
         call("session/cancel", () =>
           agent.notify("session/cancel", { sessionId })
         ),
-      // One item at a time, so a marker is reached only after the handler has finished with
-      // everything queued before it. A stream would resolve markers a whole chunk early.
-      consumeUpdates: (handler) =>
-        Effect.forever(
-          Effect.flatMap(Queue.take(inbox), (item) =>
-            isMarker(item)
-              ? Effect.asVoid(Deferred.succeed(item, undefined))
-              : handler(item)
-          )
-        ),
-      drained: Effect.gen(function* () {
-        // The SDK answers a request synchronously but dispatches notifications through an
-        // async handler chain, so updates sent before a response can reach us a few
-        // microtasks after it. One macrotask later they have all been queued.
-        yield* nextMacrotask;
-        const marker = yield* Deferred.make<void>();
-        yield* Queue.offer(inbox, marker);
-        yield* Deferred.await(marker);
-      }),
       exited: Deferred.await(exitSignal),
       initialize: call("initialize", () =>
-        agent.request("initialize", {
-          clientCapabilities: {
-            elicitation: { form: {} },
-            fs: { readTextFile: true, writeTextFile: true },
-            terminal: true,
-          },
-          clientInfo: { name: "ultrapaint", version: "0.1.0" },
-          protocolVersion: PROTOCOL_VERSION,
-        })
+        agent.request("initialize", initializeRequest(options.clientVersion))
+      ).pipe(
+        Effect.tap((response) =>
+          Effect.sync(() => {
+            initialized = negotiated(response);
+          })
+        )
       ),
-      loadSession: (sessionId, cwd, mcpServers) =>
-        Effect.map(
-          call("session/load", () =>
-            agent.request("session/load", {
-              cwd,
-              mcpServers: [...(mcpServers ?? [])],
-              sessionId,
-            })
-          ),
-          (loaded) => loaded ?? undefined
-        ),
       newSession: (cwd, session) =>
         call("session/new", () =>
           agent.request("session/new", {
             cwd,
             mcpServers: [...(session?.mcpServers ?? [])],
-            ...(session?.meta === undefined ? {} : { _meta: session.meta }),
+            ...withMeta(session?.meta),
           })
         ),
       pid: child.pid,
       prompt: (sessionId, blocks) =>
         call("session/prompt", () =>
           agent.request("session/prompt", { prompt: blocks, sessionId })
-        ),
+        ).pipe(settling(updates)),
+      reopen: (sessionId, cwd, session) =>
+        Effect.suspend(() => {
+          const request = {
+            cwd,
+            mcpServers: [...(session?.mcpServers ?? [])],
+            sessionId,
+            ...withMeta(session?.meta),
+          };
+          switch (initialized.reopen) {
+            case "resume":
+              return Effect.map(
+                call("session/resume", () =>
+                  agent.request("session/resume", request)
+                ),
+                (resumed): SessionState => resumed ?? {}
+              );
+            case "load":
+              return Effect.map(
+                updates.dropping(
+                  call("session/load", () =>
+                    agent.request("session/load", request)
+                  )
+                ),
+                (loaded): SessionState => loaded ?? {}
+              );
+            default:
+              return Effect.succeed(null);
+          }
+        }),
       setConfigOption: (sessionId, configId, value) =>
         call("session/set_config_option", () =>
           agent.request(

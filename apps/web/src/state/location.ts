@@ -13,6 +13,11 @@
  * its own, which back walks; opening a canvas, following the frame worked in and catching up with
  * the page list replace the entry, being nowhere the user went. A navigation starts with nothing
  * selected; the others keep the selection.
+ *
+ * A board view (ADR 0045) is shown in the page canvas's place: where a navigation goes is on the
+ * page canvas, so it leaves one open, in the same entry of the history (`arrive`'s `board`), and
+ * so does bringing something of the page canvas into view (`toPageCanvas`). Following the frame
+ * worked in and the page list keep it, and the URL says it whichever.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
@@ -21,27 +26,22 @@ import {
   normaliseRoute,
   pagesInVariant,
 } from "@ultrapaint/shared/route";
-import {
-  isBoardFrame,
-  isNodeFrame,
-  isViewFrame,
-  pageOfFrame,
-  useDocuments,
-} from "./documents.ts";
+import { leaveBoard, useBoard } from "./board.ts";
+import { useDocuments } from "./documents.ts";
 import {
   type EditorState,
-  layoutOf,
-  openedCanvas,
   pagesOfCanvas,
   unpicked,
   useEditor,
 } from "./editor.ts";
+import { frameRefOf, pageOfRef } from "./frame-ref.ts";
+import { layoutOf, openedCanvas } from "./page-layout.ts";
 import { reportError, useProject } from "./project.ts";
 import {
   onUrlChange,
   readUrl,
   tidyUrl,
-  type UrlState,
+  type UrlRead,
   writeMode,
   writeUrl,
 } from "./url.ts";
@@ -86,8 +86,13 @@ const here = (): Place => {
 const arrive = (
   place: Place,
   history: "push" | "replace",
-  also: Partial<EditorState> = {}
+  also: Partial<EditorState> = {},
+  board: BoardWay = "keep"
 ) => {
+  if (board === "leave") {
+    // The page canvas found as the board view left it: its camera, its tool, its panel.
+    leaveBoard("none");
+  }
   useEditor.setState({ ...also, ...place });
   writeUrl(
     {
@@ -96,8 +101,35 @@ const arrive = (
       route: place.route,
       variant: place.variant,
     },
-    history === "push"
+    history === "push",
+    board === "leave" ? null : boardKept()
   );
+};
+
+/**
+ * The board view a move keeps: the one open, else the one the URL names, which back or forward
+ * has just reached and the board view opens as it hears of it (`followBoardHistory`).
+ */
+const boardKept = () => {
+  const { open } = useBoard.getState();
+  if (open) {
+    return open;
+  }
+  const named = readUrl().board;
+  return named ? { item: named.item ?? "", view: named.view } : null;
+};
+
+/** Whether a move leaves a board view open, or keeps it (back to an entry that names one). */
+type BoardWay = "leave" | "keep";
+
+/**
+ * The page canvas, in the board view's place when one is open: what is brought into view there
+ * is on it. An entry of the history, which back walks to the board view again.
+ */
+export const toPageCanvas = () => {
+  if (useBoard.getState().open) {
+    arrive(here(), "push", {}, "leave");
+  }
 };
 
 /**
@@ -170,7 +202,7 @@ const landingPlace = (canvas: string, to: GoTo): Place => {
   return { activePage: shown, route: landing, variant };
 };
 
-const openCanvas = async (canvas: string, to: GoTo) => {
+const openCanvas = async (canvas: string, to: GoTo, board: BoardWay) => {
   opening += 1;
   const asked = opening;
   try {
@@ -182,11 +214,12 @@ const openCanvas = async (canvas: string, to: GoTo) => {
     if (useDocuments.getState().canvas !== canvas) {
       useDocuments.getState().load(canvas);
     }
-    arrive(landingPlace(canvas, to), "replace", {
-      ...openedCanvas(canvas, layout),
-      ...unpicked,
-      canvas,
-    });
+    arrive(
+      landingPlace(canvas, to),
+      "replace",
+      { ...openedCanvas(canvas, layout), ...unpicked, canvas },
+      board
+    );
     localStorage.setItem(REMEMBERED, canvas);
   } catch (error) {
     reportError(error);
@@ -194,9 +227,11 @@ const openCanvas = async (canvas: string, to: GoTo) => {
 };
 
 /** A move on the open canvas: see `GoTo`. */
-const moveTo = (to: GoTo, history: "push" | "replace") => {
+const moveTo = (to: GoTo, history: "push" | "replace", board: BoardWay) => {
   const pages = pagesOfCanvas(useEditor.getState().canvas);
   const now = here();
+  const go = (place: Place, also: Partial<EditorState> = {}) =>
+    arrive(place, history, also, board);
   if ((to.page ?? null) !== null) {
     const page = pages.find((p) => p.id === to.page);
     if (!page) {
@@ -204,25 +239,25 @@ const moveTo = (to: GoTo, history: "push" | "replace") => {
     }
     const variant = page.variant ?? null;
     if (page.route === undefined) {
-      arrive({ activePage: page.id, route: null, variant }, history, unpicked);
+      go({ activePage: page.id, route: null, variant }, unpicked);
     } else if (now.activePage === page.id && now.route !== null) {
       // Already there: stay on the route, and on the parameters it was reached with.
-      arrive({ ...now, variant }, history);
+      go({ ...now, variant });
     } else {
-      arrive(atRoute(pages, page.route, variant), history, unpicked);
+      go(atRoute(pages, page.route, variant), unpicked);
     }
     return;
   }
   const variant = to.variant === undefined ? now.variant : to.variant;
   if (to.route !== undefined && to.route !== null) {
-    arrive(atRoute(pages, to.route, variant), history, unpicked);
+    go(atRoute(pages, to.route, variant), unpicked);
     return;
   }
   if (variant === now.variant) {
     return;
   }
   if (now.route !== null) {
-    arrive(atRoute(pages, now.route, variant), history);
+    go(atRoute(pages, now.route, variant));
     return;
   }
   // On a page without a URL: the same page, drawn for the variant when it is.
@@ -233,10 +268,7 @@ const moveTo = (to: GoTo, history: "push" | "replace") => {
   const shown =
     own.find((p) => (p.variant ?? null) === variant) ??
     own.find((p) => p.variant === undefined);
-  arrive(
-    { activePage: shown?.id ?? now.activePage, route: null, variant },
-    history
-  );
+  go({ activePage: shown?.id ?? now.activePage, route: null, variant });
 };
 
 /**
@@ -244,11 +276,20 @@ const moveTo = (to: GoTo, history: "push" | "replace") => {
  * every move is an entry in the history unless `push` is false; a canvas is there once its
  * layout is read, and replaces the entry.
  */
-export const goTo = (to: GoTo, options?: { push?: boolean }): Promise<void> => {
-  if (to.canvas !== undefined) {
-    return openCanvas(to.canvas, to);
+export const goTo = (
+  to: GoTo,
+  options?: {
+    /** False: in the entry's place. */
+    push?: boolean;
+    /** A board view open stays: back or forward to an entry that names one. */
+    keepBoard?: boolean;
   }
-  moveTo(to, (options?.push ?? true) ? "push" : "replace");
+): Promise<void> => {
+  const board = options?.keepBoard ? "keep" : "leave";
+  if (to.canvas !== undefined) {
+    return openCanvas(to.canvas, to, board);
+  }
+  moveTo(to, (options?.push ?? true) ? "push" : "replace", board);
   return Promise.resolve();
 };
 
@@ -259,11 +300,12 @@ export const goTo = (to: GoTo, options?: { push?: boolean }): Promise<void> => {
  * keeps the selection being made. A node on the canvas beside the pages is at no page.
  */
 export const followFrame = (frame: string) => {
-  if (isNodeFrame(frame) || isBoardFrame(frame)) {
+  const of = pageOfRef(frameRefOf(frame));
+  if (of === null) {
     return;
   }
   const page = pagesOfCanvas(useEditor.getState().canvas).find(
-    (p) => p.id === pageOfFrame(frame)
+    (p) => p.id === of
   );
   if (!page) {
     return;
@@ -298,7 +340,9 @@ export const pagesChanged = () => {
   const pages = pagesOfCanvas(canvas);
   const now = here();
   // A view's frame is its page's (ADR 0036).
-  const framed = Object.keys(frames).filter((id) => !isViewFrame(id));
+  const framed = Object.keys(frames).filter(
+    (id) => frameRefOf(id).kind !== "view"
+  );
   if (
     pages.some((p) => !frames[p.id]) ||
     framed.some((id) => !pages.some((p) => p.id === id))
@@ -351,10 +395,12 @@ export const openStartCanvas = (): boolean => {
   } else if (saved !== null && ids.includes(saved)) {
     canvas = saved;
   }
+  // A board view the URL names opens over the canvas as the editor starts: arriving keeps it.
   goTo(
     named === canvas
       ? { canvas, page: url.page, route: url.route, variant: url.variant }
-      : { canvas }
+      : { canvas },
+    { keepBoard: url.board !== null }
   );
   return true;
 };
@@ -363,16 +409,18 @@ export const openStartCanvas = (): boolean => {
  * The browser went back or forward to an entry: the editor goes where it says, writing no entry
  * of its own. Another canvas is opened at it.
  */
-const wentTo = (url: UrlState) => {
+const wentTo = (url: UrlRead) => {
+  // The board view the entry names is the board view's to open (`followBoardHistory`).
+  const keepBoard = url.board !== null;
   if (url.canvas !== null && url.canvas !== useEditor.getState().canvas) {
-    goTo({ ...url, canvas: url.canvas });
+    goTo({ ...url, canvas: url.canvas }, { keepBoard });
     return;
   }
   goTo(
     url.route === null
       ? { page: url.page }
       : { route: url.route, variant: url.variant },
-    { push: false }
+    { keepBoard, push: false }
   );
 };
 

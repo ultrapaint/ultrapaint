@@ -10,16 +10,13 @@ import type {
 } from "@ultrapaint/framework-api/node";
 import { Clock, Effect, FileSystem, Path } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
-import { toPosix } from "../hash.ts";
-import { ProjectManager } from "../project.ts";
-import { ComponentService } from "./components.ts";
+import { OpenProject } from "../project.ts";
+import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { refuse } from "./design-system-setup-store.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 import { WorkingTree } from "./working-tree.ts";
-
-const TRAILING_SLASH_RE = /\/+$/;
 
 /** Bigger than this, a source file is generated or bundled, not written. */
 const MAX_SOURCE_BYTES = 512 * 1024;
@@ -38,7 +35,7 @@ export interface Codebase {
 }
 
 export const makeCodebaseReader = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const writeAtomic = makeWriteAtomic(fs, path);
@@ -53,17 +50,13 @@ export const makeCodebaseReader = Effect.gen(function* () {
         const paths = yield* RepoPaths;
         const tree = yield* WorkingTree;
         const { usage } = yield* ProjectStyleSystem;
-        const designSystem = yield* DesignSystemService;
-        const saved = (yield* designSystem.get).designSystem;
+        const saved = (yield* (yield* DesignSystemService).get).designSystem;
         if (required && !saved) {
           return yield* refuse(
             "There is no design system saved: Define writes design-system.json first."
           );
         }
-        const theme = saved ? null : yield* designSystem.scan;
-        const components = (yield* (yield* ComponentService).catalogue).map(
-          (component) => component.name
-        );
+        const theme = saved ? null : yield* (yield* CodeSide).scan;
         const designs = paths.relative(paths.designsDir);
         const files = (yield* tree.files).filter(
           (file) =>
@@ -72,11 +65,7 @@ export const makeCodebaseReader = Effect.gen(function* () {
             !file.startsWith(`${designs}/`)
         );
         const ctx: UsageContext = {
-          components,
           designSystem: saved ?? theme?.designSystem ?? emptyDesignSystem(),
-          libraryDirs: paths.settings.libraryDirs.map((d) =>
-            toPosix(d).replace(TRAILING_SLASH_RE, "")
-          ),
           ownTokens: theme ? theme.ownTokens : null,
           ...(perGroup !== undefined && { perGroup }),
         };

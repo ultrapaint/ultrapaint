@@ -1,7 +1,9 @@
 import path from "node:path";
-import { assert, layer } from "@effect/vitest";
-import { Effect, FileSystem } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { assert, describe } from "@effect/vitest";
+import { Effect, FileSystem, Option, Stream } from "effect";
+import { eachTest } from "./testing/each-test.ts";
+import { nextEvent, TestEnv } from "./testing/harness.ts";
+import { ProjectRpc } from "./testing/project.ts";
 
 const THEME = `@theme {
   --color-brand: #2563eb;
@@ -10,27 +12,31 @@ const THEME = `@theme {
 }
 `;
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "DESIGN.md (ADR 0027)",
-  (it) => {
+/**
+ * A project of each test's own whose code has a theme, its tokens read into the design system
+ * by the first request (`designSystem.detect`). No socket: nothing here is the wire's.
+ */
+const Themed = ProjectRpc({
+  files: {
+    "designs/package.json":
+      '{ "name": "designs", "dependencies": { "react": "19" } }\n',
+    "styles/app.css": THEME,
+  },
+  settings: { hostCss: ["../../styles/app.css"], libraryDirs: ["ui"] },
+});
+
+describe("DESIGN.md (ADR 0027)", () => {
+  eachTest(Themed, {
+    realClock:
+      "DESIGN.md written by hand is heard by a real watch of the repository's root",
+  })((it) => {
     it.effect(
       "is written at the root with the code's tokens, and follows the code without touching the prose",
       () =>
         Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
+          const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
           const file = path.join(repo, "DESIGN.md");
-          yield* fs.writeFileString(
-            path.join(repo, "designs/package.json"),
-            '{ "name": "designs", "dependencies": { "react": "19" } }\n'
-          );
-          yield* fs.makeDirectory(path.join(repo, "styles"));
-          yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
-          yield* client["settings.set"]({
-            ...settings,
-            hostCss: ["../../styles/app.css"],
-            libraryDirs: ["ui"],
-          });
           yield* client["designSystem.detect"]();
 
           const plan = yield* client["sync.plan"]();
@@ -77,13 +83,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.include(second, "Calm and dense.");
 
           // A value changed in the document is held for Sync, while the code's own changes
-          // still come in.
-          yield* fs.writeFileString(
-            file,
-            second.replace('ink: "#111111"', 'ink: "#000000"')
+          // still come in. The editor is told once the change to the document is seen.
+          const { event: held } = yield* nextEvent(
+            client["events.designSystem"]().pipe(
+              Stream.filter((s) => (s.document?.held.length ?? 0) > 0)
+            ),
+            fs.writeFileString(
+              file,
+              second.replace('ink: "#111111"', 'ink: "#000000"')
+            )
           );
-          const held = yield* client["designSystem.get"]();
-          assert.deepStrictEqual(held.document?.held, [
+          assert.deepStrictEqual(Option.getOrNull(held)?.document?.held, [
             {
               code: "#111111",
               doc: "#000000",
@@ -111,15 +121,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           }
           yield* client["components.change"]({
             change: {
-              look: {
-                base: {
-                  ...button.base,
-                  root: { ...button.base.root, fill: "$color-brand" },
-                },
-                states: button.states,
-                variants: button.variants,
-              },
-              op: "setLook",
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { ...button.base.root, fill: "$color-brand" },
             },
             name: "Button",
           });
@@ -131,171 +136,150 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.include(fourth, 'backgroundColor: "{colors.brand}"');
           assert.include(fourth, "button-secondary:");
           assert.include(fourth, "button-lg:");
-        }),
-      30_000
+        })
     );
+  });
 
-    it.effect(
-      "is moved from the designs directory, keeping what it says",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.remove(path.join(repo, "DESIGN.md"));
-          yield* fs.writeFileString(
-            path.join(repo, "designs/DESIGN.md"),
-            "# Acme\n\nOne primary action per screen.\n"
-          );
-          const legacy = yield* client["designSystem.get"]();
-          assert.strictEqual(legacy.document?.path, "designs/DESIGN.md");
-          assert.isTrue(legacy.document?.legacy);
-          const [step] = (yield* client["sync.plan"]()).steps;
-          assert.strictEqual(
-            step?.title,
-            "Move DESIGN.md to the repository root"
-          );
+  eachTest(Themed)((it) => {
+    it.effect("is moved from the designs directory, keeping what it says", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["designSystem.detect"]();
+        yield* fs.writeFileString(
+          path.join(repo, "designs/DESIGN.md"),
+          "# Acme\n\nOne primary action per screen.\n"
+        );
+        const legacy = yield* client["designSystem.get"]();
+        assert.strictEqual(legacy.document?.path, "designs/DESIGN.md");
+        assert.isTrue(legacy.document?.legacy);
+        const [step] = (yield* client["sync.plan"]()).steps;
+        assert.strictEqual(
+          step?.title,
+          "Move DESIGN.md to the repository root"
+        );
 
-          yield* client["designSystem.placeDocument"]();
-          assert.isFalse(
-            yield* fs.exists(path.join(repo, "designs/DESIGN.md"))
-          );
-          const moved = yield* fs.readFileString(path.join(repo, "DESIGN.md"));
-          assert.isTrue(moved.startsWith("---\ncolors:\n"));
-          assert.include(moved, "# Acme\n\nOne primary action per screen.\n");
-          const state = yield* client["designSystem.get"]();
-          assert.strictEqual(state.document?.path, "DESIGN.md");
-          assert.include(state.document?.body ?? "", "One primary action");
+        yield* client["designSystem.placeDocument"]();
+        assert.isFalse(yield* fs.exists(path.join(repo, "designs/DESIGN.md")));
+        const moved = yield* fs.readFileString(path.join(repo, "DESIGN.md"));
+        assert.isTrue(moved.startsWith("---\ncolors:\n"));
+        assert.include(moved, "# Acme\n\nOne primary action per screen.\n");
+        const state = yield* client["designSystem.get"]();
+        assert.strictEqual(state.document?.path, "DESIGN.md");
+        assert.include(state.document?.body ?? "", "One primary action");
 
-          // The panel writes one section at a time, and the rest stays.
-          yield* client["designSystem.setSection"]({
-            name: "Colors",
-            text: "Brand {colors.brand} for the one action.",
-          });
-          const edited = yield* fs.readFileString(path.join(repo, "DESIGN.md"));
-          assert.include(edited, "One primary action per screen.\n");
-          assert.include(
-            edited,
-            "## Colors\n\nBrand {colors.brand} for the one action.\n"
-          );
-          const sections = (yield* client["designSystem.get"]()).document
-            ?.sections;
-          assert.deepStrictEqual(
-            sections?.map((s) => [s.section, s.text.trim()]),
-            [["Colors", "Brand {colors.brand} for the one action."]]
-          );
-        }),
-      30_000
+        // The panel writes one section at a time, and the rest stays.
+        yield* client["designSystem.setSection"]({
+          name: "Colors",
+          text: "Brand {colors.brand} for the one action.",
+        });
+        const edited = yield* fs.readFileString(path.join(repo, "DESIGN.md"));
+        assert.include(edited, "One primary action per screen.\n");
+        assert.include(
+          edited,
+          "## Colors\n\nBrand {colors.brand} for the one action.\n"
+        );
+        const sections = (yield* client["designSystem.get"]()).document
+          ?.sections;
+        assert.deepStrictEqual(
+          sections?.map((s) => [s.section, s.text.trim()]),
+          [["Colors", "Brand {colors.brand} for the one action."]]
+        );
+      })
     );
-  }
-);
+  });
+});
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "DESIGN.md from elsewhere (ADR 0027)",
-  (it) => {
-    it.effect(
-      "has its tokens matched, taken into the design system, and is rewritten in its names",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const file = path.join(repo, "DESIGN.md");
-          yield* fs.writeFileString(
-            path.join(repo, "designs/package.json"),
-            '{ "name": "designs", "dependencies": { "react": "19" } }\n'
-          );
-          yield* fs.makeDirectory(path.join(repo, "styles"));
-          yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
-          yield* client["settings.set"]({
-            ...settings,
-            hostCss: ["../../styles/app.css"],
-            libraryDirs: ["ui"],
-          });
-          yield* client["designSystem.detect"]();
-          // A designer's DESIGN.md, in names of its own.
-          yield* fs.writeFileString(
-            file,
-            [
-              "---",
-              "version: alpha",
-              "name: Heritage",
-              "colors:",
-              '  primary: "#2563eb"',
-              '  tertiary: "#b8422e"',
-              "rounded:",
-              "  card: 1rem",
-              "---",
-              "",
-              "## Colors",
-              "",
-              "Boston Clay {colors.tertiary} is the sole accent, beside {colors.primary}.",
-              "",
-            ].join("\n")
-          );
+eachTest(Themed)("DESIGN.md from elsewhere (ADR 0027)", (it) => {
+  it.effect(
+    "has its tokens matched, taken into the design system, and is rewritten in its names",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const file = path.join(repo, "DESIGN.md");
+        yield* client["designSystem.detect"]();
+        // A designer's DESIGN.md, in names of its own.
+        yield* fs.writeFileString(
+          file,
+          [
+            "---",
+            "version: alpha",
+            "name: Heritage",
+            "colors:",
+            '  primary: "#2563eb"',
+            '  tertiary: "#b8422e"',
+            "rounded:",
+            "  card: 1rem",
+            "---",
+            "",
+            "## Colors",
+            "",
+            "Boston Clay {colors.tertiary} is the sole accent, beside {colors.primary}.",
+            "",
+          ].join("\n")
+        );
 
-          const plan = yield* client["sync.plan"]();
-          assert.strictEqual(plan.steps[0]?.kind, "design-tokens");
-          const compared = yield* client["sync.tokens"]({ source: "designMd" });
-          assert.deepStrictEqual(
-            compared?.diffs.map((d) => [d.variable, d.name, d.outcome]),
-            [
-              ["colors.primary", "color-brand", "same"],
-              ["colors.tertiary", "color-tertiary", "unmatched"],
-              ["rounded.card", "radius-card", "conflict"],
-            ]
-          );
+        const plan = yield* client["sync.plan"]();
+        assert.strictEqual(plan.steps[0]?.kind, "design-tokens");
+        const compared = yield* client["sync.tokens"]({ source: "designMd" });
+        assert.deepStrictEqual(
+          compared?.diffs.map((d) => [d.variable, d.name, d.outcome]),
+          [
+            ["colors.primary", "color-brand", "same"],
+            ["colors.tertiary", "color-tertiary", "unmatched"],
+            ["rounded.card", "radius-card", "conflict"],
+          ]
+        );
 
-          const matched = yield* client["sync.match"]({
-            entries: [{ to: "color-accent", variable: "colors.tertiary" }],
-            source: "designMd",
-          });
-          assert.strictEqual(matched.unmatched, 0);
-          // Matching writes nothing into the document yet.
-          assert.include(yield* fs.readFileString(file), "tertiary:");
+        const matched = yield* client["sync.match"]({
+          entries: [{ to: "color-accent", variable: "colors.tertiary" }],
+          source: "designMd",
+        });
+        assert.strictEqual(matched.unmatched, 0);
+        // Matching writes nothing into the document yet.
+        assert.include(yield* fs.readFileString(file), "tertiary:");
 
-          const applied = yield* client["sync.apply"]({
-            decisions: [{ name: "radius-card", take: "source" }],
-            source: "designMd",
-          });
-          assert.strictEqual(applied.written, 2);
-          // The design system takes them (ADR 0028); the code waits for an export.
-          const css = yield* fs.readFileString(
-            path.join(repo, "styles/app.css")
-          );
-          assert.notInclude(css, "--color-accent");
-          const toCode = yield* client["sync.tokens"]({ source: "code" });
-          assert.deepInclude(
-            (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
-            ["color-accent", "#b8422e", "source-behind"]
-          );
-          assert.deepInclude(
-            (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
-            ["radius-card", "1rem", "source-behind"]
-          );
+        const applied = yield* client["sync.apply"]({
+          decisions: [{ name: "radius-card", take: "source" }],
+          source: "designMd",
+        });
+        assert.strictEqual(applied.written, 2);
+        // The design system takes them (ADR 0028); the code waits for an export.
+        const css = yield* fs.readFileString(path.join(repo, "styles/app.css"));
+        assert.notInclude(css, "--color-accent");
+        const toCode = yield* client["sync.tokens"]({ source: "code" });
+        assert.deepInclude(
+          (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
+          ["color-accent", "#b8422e", "source-behind"]
+        );
+        assert.deepInclude(
+          (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
+          ["radius-card", "1rem", "source-behind"]
+        );
 
-          const doc = yield* fs.readFileString(file);
-          assert.include(doc, "name: Heritage");
-          assert.include(doc, 'accent: "#b8422e"');
-          assert.include(doc, 'brand: "#2563eb"');
-          assert.notInclude(doc, "tertiary:");
-          assert.notInclude(doc, "primary:");
-          assert.include(
-            doc,
-            "Boston Clay {colors.accent} is the sole accent, beside {colors.brand}."
-          );
-          const state = yield* client["designSystem.get"]();
-          assert.deepStrictEqual(state.document?.held, []);
-          assert.include(
-            (state.designSystem?.colors ?? []).flatMap((g) =>
-              g.tokens.map((t) => t.name)
-            ),
-            "color-accent"
-          );
-          assert.notInclude(
-            (yield* client["sync.plan"]()).steps.map((s) => s.kind),
-            "design-tokens"
-          );
-        }),
-      30_000
-    );
-  }
-);
+        const doc = yield* fs.readFileString(file);
+        assert.include(doc, "name: Heritage");
+        assert.include(doc, 'accent: "#b8422e"');
+        assert.include(doc, 'brand: "#2563eb"');
+        assert.notInclude(doc, "tertiary:");
+        assert.notInclude(doc, "primary:");
+        assert.include(
+          doc,
+          "Boston Clay {colors.accent} is the sole accent, beside {colors.brand}."
+        );
+        const state = yield* client["designSystem.get"]();
+        assert.deepStrictEqual(state.document?.held, []);
+        assert.include(
+          (state.designSystem?.colors ?? []).flatMap((g) =>
+            g.tokens.map((t) => t.name)
+          ),
+          "color-accent"
+        );
+        assert.notInclude(
+          (yield* client["sync.plan"]()).steps.map((s) => s.kind),
+          "design-tokens"
+        );
+      })
+  );
+});

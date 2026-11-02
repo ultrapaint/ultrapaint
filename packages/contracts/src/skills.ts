@@ -44,8 +44,21 @@ export const SkillList = Schema.Struct({
 });
 export type SkillList = typeof SkillList.Type;
 
-/** The skills part of the settings: which ones are not sent to agents. */
+/** Where an agent with the editor's tools reads a design skill whole: an MCP resource. */
+export const skillUri = (name: string) => `skill://ultrapaint/${name}`;
+
+/**
+ * How a design thread's briefing tells the skills: each whole (`full`, the default, which the
+ * design evals were tuned on), or each by its title and summary with where to read it whole
+ * (`summaries`), which an agent does before the work a skill is about.
+ */
+export const SkillsBriefing = Schema.Literals(["full", "summaries"]);
+export type SkillsBriefing = typeof SkillsBriefing.Type;
+
+/** The skills part of the settings: which ones are not sent to agents, and how the rest are. */
 export const SkillsConfig = Schema.Struct({
+  /** `full` when absent. */
+  briefing: Schema.optional(SkillsBriefing),
   disabled: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SkillsConfig = typeof SkillsConfig.Type;

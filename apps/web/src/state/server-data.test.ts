@@ -5,7 +5,6 @@ import type {
   DocumentPatch,
   DocumentState,
 } from "@ultrapaint/contracts/document";
-import type { Checkpoint } from "@ultrapaint/contracts/git";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type {
   CanvasLayout,
@@ -14,7 +13,11 @@ import type {
 } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import type { Snapshot, SnapshotView } from "@ultrapaint/contracts/snapshots";
+import type {
+  Checkpoint,
+  Snapshot,
+  SnapshotView,
+} from "@ultrapaint/contracts/snapshots";
 import { emptyDrift, type SyncPlan } from "@ultrapaint/contracts/sync";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,11 +28,12 @@ import { useComponents } from "./components.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
-import { layoutOf, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
 import { useImplementation } from "./implementation.ts";
 import { useKept } from "./kept.ts";
+import { applyLayout, layoutOf } from "./page-layout.ts";
 import { useProject } from "./project.ts";
-import { followServer, viewSnapshot } from "./server-data.ts";
+import { caughtUp, followServer, viewSnapshot } from "./server-data.ts";
 import { useSkills } from "./skills.ts";
 import { useSlashCommands } from "./slash-commands.ts";
 import { useSnapshotView } from "./snapshot-view.ts";
@@ -40,16 +44,11 @@ vi.mock(
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 
-/** Lets every answer on its way land. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 const settings: Settings = {
-  componentPackages: [],
   designsDir: "designs",
   hostCss: [],
   libraryDirs: [],
   repoPath: "/work/shop",
-  theme: "light",
 };
 
 const page = (id: string, name: string): Page => ({
@@ -108,10 +107,7 @@ const plan = (at: number): SyncPlan => ({
   facts: {
     app: true,
     designSystem: true,
-    libraryDirs: [],
-    styleSystem: "tailwind-v4",
     stylesheets: 1,
-    tokens: 0,
   },
   steps: [],
   summary: "",
@@ -238,7 +234,7 @@ const heldAt = (v: number) => ({
 
 /** The editor as it is once open on the designs' canvas, with every panel that reads opened once. */
 const openEditor = async () => {
-  await settle();
+  await caughtUp();
   useEditor.setState({ canvas: "" });
   await Promise.all([
     useDesignSystem.getState().load(),
@@ -255,7 +251,7 @@ const openEditor = async () => {
     useKept.getState().load(),
   ]);
   // The canvas opens with the layout it read, as `goTo` does.
-  useEditor.getState().applyLayout("", await layoutOf(""));
+  applyLayout("", await layoutOf(""));
 };
 
 const reported: unknown[] = [];
@@ -274,7 +270,7 @@ afterEach(() => stop());
 
 describe("following the server", () => {
   it("reads the project at the first open", async () => {
-    await settle();
+    await caughtUp();
     expect(held().project).toBe("shop 1");
     expect(held().pages).toEqual(["Home 1"]);
   });
@@ -292,7 +288,7 @@ describe("following the server", () => {
     });
     expect(held()).toEqual(heldAt(1));
     fakeApi.connect();
-    await settle();
+    await caughtUp();
     expect(held()).toEqual(heldAt(2));
     expect(reported).toEqual([]);
   });
@@ -396,7 +392,6 @@ describe("following the server", () => {
       fakeApi.emit("document", headed("h1", "h2"));
       answer([doc("h1")]);
       await opening;
-      await settle();
       expect(held().documents).toBe("h2");
       expect(
         useDocuments.getState().docs["home.page.json"]?.root
@@ -406,12 +401,16 @@ describe("following the server", () => {
     it("is taken after the answer of the read a connection open makes", async () => {
       await openEditor();
       listLater();
+      const lists = fakeApi.calls.filter(
+        (c) => c.method === "documents.list"
+      ).length;
       fakeApi.disconnect();
       fakeApi.connect();
-      await settle();
+      // The open's read of the documents has gone out, its answer held.
+      await fakeApi.requested("documents.list", lists + 1);
       fakeApi.emit("document", doc("h7"));
       answer([doc("h1")]);
-      await settle();
+      await caughtUp();
       expect(held().documents).toBe("h7");
       expect(reported).toEqual([]);
     });
@@ -442,8 +441,10 @@ describe("following the server", () => {
     fakeApi.emit("syncPlan", plan(7));
     fakeApi.disconnect();
     server.v = 2;
+    fakeApi.calls.length = 0;
     fakeApi.connect();
-    await settle();
+    // A read at the open would have gone out as the connection opened: nothing went.
+    expect(fakeApi.calls).toEqual([]);
     expect(held()).toEqual(heldAt(1));
   });
 });
@@ -489,7 +490,7 @@ describe("a snapshot on screen", () => {
     fakeApi.disconnect();
     server.v = 2;
     fakeApi.connect();
-    await settle();
+    await caughtUp();
     expect(held()).toMatchObject({
       documents: "kept",
       layout: -50,

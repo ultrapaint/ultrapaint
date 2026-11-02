@@ -6,6 +6,7 @@
  */
 import { Schema } from "effect";
 import { Json, type JsonValue } from "./base.ts";
+import { APP_FROM, SYSTEM_FROM } from "./component-names.ts";
 
 /**
  * A length: pixels as a number, a design token (`"$spacing-4"`, `"$radius-lg"`) or plain CSS
@@ -241,15 +242,25 @@ export interface InstanceNode extends BoxFields {
   readonly at?: AtBreakpoints<OverrideOf<InstanceNode>> | undefined;
   /** Nodes rendered as the component's children; takes precedence over `text`. */
   readonly children?: readonly DesignNode[] | undefined;
-  /** Export name of the component, `Button`. */
+  /** The component's name, `Button`. */
   readonly component: string;
-  /** Module it is imported from, `@acme/ui/button`. */
-  readonly from: string;
+  /** Its origin (ADR 0041): one of the editor's system components, or one of the project's. */
+  readonly from: InstanceFrom;
   readonly props?: { readonly [name: string]: JsonValue } | undefined;
   /** Text rendered as the component's children. */
   readonly text?: string | undefined;
   readonly type: "instance";
 }
+
+/** What an instance names as `from`: a system component's origin or an app component's. */
+export type InstanceFrom = typeof SYSTEM_FROM | typeof APP_FROM;
+/**
+ * The two origins. An instance of a component of the repository's, from before ADR 0041, does not
+ * read: the migration that drew it as a system component was retired.
+ */
+export const InstanceFrom = Schema.Literals([SYSTEM_FROM, APP_FROM]).annotate({
+  message: `an instance names a system component ("${SYSTEM_FROM}") or an app component ("${APP_FROM}"): a component of the repository's, from before ADR 0041, is no longer migrated`,
+});
 
 export type ContainerNode = PageNode | GroupNode | StackNode;
 export type DesignNode =
@@ -418,7 +429,7 @@ const InstanceNodeSchema = Schema.Struct({
   at: atBreakpoints({ ...boxOverride, ...instanceFields }),
   children: Schema.optional(children),
   component: Schema.String,
-  from: Schema.String,
+  from: InstanceFrom,
   type: Schema.Literal("instance"),
 });
 
@@ -580,13 +591,6 @@ export type DocumentChange = typeof DocumentChange.Type;
 export const isWholeDocument = (
   change: DocumentChange
 ): change is DocumentState => !("from" in change);
-
-export const ApplyResult = Schema.Struct({
-  /** Ids of the nodes the operations created, in order: inserts, duplicates, wraps. */
-  created: Schema.Array(Schema.String),
-  documents: Schema.Array(DocumentState),
-});
-export type ApplyResult = typeof ApplyResult.Type;
 
 /** What applying edits gives the editor that asked (ADR 0044): the documents as they changed. */
 export const AppliedChanges = Schema.Struct({

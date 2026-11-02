@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
 import { BUILT_IN_AGENTS, launchOf } from "./built-in.ts";
-import { AgentRuntimeJson, withRuntime } from "./runtime.ts";
+import { AgentRuntimeJson, runtimeLaunch, withRuntime } from "./runtime.ts";
 
 const runtime = {
   agents: {
@@ -57,6 +57,18 @@ describe("withRuntime", () => {
       name: "Mine",
     };
     expect(withRuntime(custom, runtime)).toBe(custom);
+  });
+
+  it("starts an adapter alone as the app's sign-in does, and none it does not bring", () => {
+    expect(runtimeLaunch(runtime, "claude-code")).toEqual({
+      args: ["/app/adapters/run.mjs", "/app/adapters/claude-agent-acp.mjs"],
+      command: "/opt/Ultrapaint/ultrapaint",
+      env: {
+        CLAUDE_CODE_EXECUTABLE: "/home/me/.local/bin/claude",
+        ELECTRON_RUN_AS_NODE: "1",
+      },
+    });
+    expect(runtimeLaunch(runtime, "mine")).toBeUndefined();
   });
 
   it("is read from the JSON the app hands over", () => {

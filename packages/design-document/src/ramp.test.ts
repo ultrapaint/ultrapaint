@@ -1,6 +1,6 @@
 import { parseColor, toOklch } from "@ultrapaint/contracts/token-value";
 import { describe, expect, it } from "vitest";
-import { RAMP_STEPS, rampOf } from "./ramp.ts";
+import { RAMP_STEPS, rampOf, shadeOf } from "./ramp.ts";
 
 const HEX6 = /^#[0-9a-f]{6}$/;
 
@@ -11,6 +11,21 @@ const lightnessOf = (css: string) => {
   }
   return toOklch(color)[0];
 };
+
+describe("shadeOf", () => {
+  it("reads a palette's shade from its token's name, its step 1000 at most", () => {
+    expect(shadeOf("color-primary-600")).toEqual({
+      prefix: "color-primary",
+      step: 600,
+    });
+    expect(shadeOf("color-brand-blue-50")).toEqual({
+      prefix: "color-brand-blue",
+      step: 50,
+    });
+    expect(shadeOf("color-primary")).toBeNull();
+    expect(shadeOf("color-x-2000")).toBeNull();
+  });
+});
 
 describe("rampOf", () => {
   it("gives eleven shades, 50 to 950, from light to dark", () => {

@@ -1,25 +1,23 @@
 import path from "node:path";
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe, it as test } from "@effect/vitest";
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
-import { FigmaTools } from "./services/mcp/figma-tools.ts";
-import { MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
+import { EditorTools, MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
-import { SetupTools } from "./services/mcp/setup-tools.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { writeComponentFile } from "./testing/components.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
@@ -48,7 +46,7 @@ const withDesignSystem = Effect.gen(function* () {
   yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
   yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
   yield* reopen({ hostCss: ["../../styles/app.css"] });
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   yield* project.use(Effect.flatMap(DesignSystemService, (d) => d.detect));
 });
 
@@ -76,16 +74,16 @@ const PRICING_CARD: AppComponentFile = {
 
 /** The design's value of a token changed, so that it waits for the code. */
 const designChanges = Effect.gen(function* () {
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
   yield* project.use(
     Effect.flatMap(DesignSystemService, (d) =>
-      d.setToken({ name: "color-ink", value: "#333333" })
+      d.edit([{ name: "color-ink", op: "setValue", value: "#333333" }])
     )
   );
 });
 
 describe("tasks, with the editor's MCP server", () => {
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: true }))((it) => {
     it.effect("gives each request its task and its thread's purpose", () =>
       Effect.gen(function* () {
         const init = yield* task({ _tag: "Init" });
@@ -125,11 +123,6 @@ describe("tasks, with the editor's MCP server", () => {
         assert.include(redraw, 'The canvas "Designs" ("") is a copy');
         assert.include(redraw, "to wireframes");
         assert.include(redraw, 'always passing canvas: "": read_page');
-
-        assert.include(
-          yield* textOf({ _tag: "Components", canvas: "" }),
-          "Draw a sheet of this repository's design system into the canvas"
-        );
 
         const define = yield* textOf({ _tag: "SetupStep", step: "define" });
         assert.include(define, "This is the Define step");
@@ -207,14 +200,14 @@ describe("tasks, with the editor's MCP server", () => {
     );
   });
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
+  eachTest(ProjectTest({ mcp: true }))(
     "with pages of several canvases",
     (it) => {
       it.effect(
         "names a URL that pages of several canvases serve by its canvas",
         () =>
           Effect.gen(function* () {
-            const project = yield* ProjectManager;
+            const project = yield* OpenProject;
             const marketing = yield* project.use(
               Effect.gen(function* () {
                 const pages = yield* PagesService;
@@ -247,35 +240,35 @@ describe("tasks, with the editor's MCP server", () => {
     }
   );
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
-    "with a design system",
-    (it) => {
-      it.effect("brings the code up to the design through handoff", () =>
-        Effect.gen(function* () {
-          yield* withDesignSystem;
-          assert.include(
-            yield* textOf({ _tag: "Sync", source: "code" }),
-            "The code has every value of the design: say so, and stop."
-          );
-          yield* designChanges;
-          const sync = yield* textOf({ _tag: "Sync", source: "code" });
-          assert.include(sync, "Tokens of the design that wait for the code:");
-          assert.include(
-            sync,
-            'Export what waits for the code: call handoff with action "export" and no tokens'
-          );
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: true }))("with a design system", (it) => {
+    it.effect("brings the code up to the design through handoff", () =>
+      Effect.gen(function* () {
+        yield* withDesignSystem;
+        assert.include(
+          yield* textOf({ _tag: "Sync", source: "code" }),
+          "The code has every value of the design: say so, and stop."
+        );
+        yield* designChanges;
+        const sync = yield* textOf({ _tag: "Sync", source: "code" });
+        assert.include(sync, "Tokens of the design that wait for the code:");
+        assert.include(
+          sync,
+          'Export what waits for the code: call handoff with action "export" and no tokens'
+        );
+      })
+    );
+  });
 });
 
 describe("tasks, without the editor's MCP server", () => {
-  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: false }))((it) => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
-        assert.include(init, "1. Read the stylesheets the preview imports");
+        assert.include(
+          init,
+          "1. Read the stylesheets the code's tokens are in"
+        );
         assert.include(init, "valid against this JSON Schema");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
@@ -324,22 +317,19 @@ describe("tasks, without the editor's MCP server", () => {
     );
   });
 
-  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })(
-    "with a design system",
-    (it) => {
-      it.effect("has the user bring the code up to the design", () =>
-        Effect.gen(function* () {
-          yield* withDesignSystem;
-          yield* designChanges;
-          const sync = yield* textOf({ _tag: "Sync", source: "code" });
-          assert.include(
-            sync,
-            "Export what waits for the code: write the design's value of each into the stylesheet"
-          );
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: false }))("with a design system", (it) => {
+    it.effect("has the user bring the code up to the design", () =>
+      Effect.gen(function* () {
+        yield* withDesignSystem;
+        yield* designChanges;
+        const sync = yield* textOf({ _tag: "Sync", source: "code" });
+        assert.include(
+          sync,
+          "Export what waits for the code: write the design's value of each into the stylesheet"
+        );
+      })
+    );
+  });
 });
 
 describe("the editor's tools in what an agent is told", () => {
@@ -351,7 +341,6 @@ describe("the editor's tools in what an agent is told", () => {
     >[];
   } = {
     Adopt: [{ _tag: "Adopt", targets: [] }],
-    Components: [{ _tag: "Components", canvas: "" }],
     Implement: [
       { _tag: "Implement", target: "/home" },
       { _tag: "Implement", target: "component:PricingCard" },
@@ -378,8 +367,6 @@ describe("the editor's tools in what an agent is told", () => {
   /** The tools the editor's MCP server offers, by the names their definitions give them. */
   const offered = new Set<string>([
     ...Object.keys(EditorTools.tools),
-    ...Object.keys(FigmaTools.tools),
-    ...Object.keys(SetupTools.tools),
     AskUser.name,
     GetScreenshot.name,
   ]);
@@ -448,7 +435,7 @@ describe("the editor's tools in what an agent is told", () => {
       THEME.replace("#111827", "#222222")
     );
     yield* fs.writeFileString(path.join(repo, "DESIGN.md"), DESIGN_MD);
-    const imported = yield* Effect.flatMap(ProjectManager, (opened) =>
+    const imported = yield* Effect.flatMap(OpenProject, (opened) =>
       opened.use(
         Effect.gen(function* () {
           yield* (yield* DesignSystemService).refresh;
@@ -485,13 +472,25 @@ describe("the editor's tools in what an agent is told", () => {
     ],
     components: [
       "ask\n`get_component` for its props and variants.",
-      "read its code for its props and variants.",
+      "read its line among the components listed for its props and variants.",
     ],
     layout: [
       "or at `390` and `1440` with\n`get_screenshot`'s `width`.",
       "or at `390` and `1440`. Keep",
     ],
   } as const;
+
+  /**
+   * What the editor no longer has or never was, said anywhere an agent reads: the rail has no
+   * Pages panel, the stylesheets are where the code's tokens are (Sync's, not the preview's), and
+   * a system component has no code in the repository.
+   */
+  const stale = (read: readonly Read[]) =>
+    read.flatMap((r) =>
+      ["Pages panel", "the preview imports", "read its code"]
+        .filter((phrase) => r.text.includes(phrase))
+        .map((phrase) => `${r.of} says ${phrase}`)
+    );
 
   /** The briefings' text, where the design skills are told. */
   const briefings = (read: readonly Read[]) =>
@@ -500,7 +499,7 @@ describe("the editor's tools in what an agent is told", () => {
       .map((r) => r.text)
       .join("\n");
 
-  layer(project(true), { excludeTestServices: true })((it) => {
+  eachTest(project(true))((it) => {
     it.effect("names only the tools the server offers, by their names", () =>
       Effect.gen(function* () {
         const before = yield* everything;
@@ -536,6 +535,7 @@ describe("the editor's tools in what an agent is told", () => {
             "write_figma_frame",
           ]
         );
+        assert.deepStrictEqual(stale([...before, ...after, instructions]), []);
         // The skills keep their words with the tools, which the design evals were tuned to.
         for (const [withTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withTools);
@@ -544,7 +544,7 @@ describe("the editor's tools in what an agent is told", () => {
     );
   });
 
-  layer(project(false), { excludeTestServices: true })((it) => {
+  eachTest(project(false))((it) => {
     it.effect("names no tool when the server offers none", () =>
       Effect.gen(function* () {
         const before = yield* everything;
@@ -567,6 +567,7 @@ describe("the editor's tools in what an agent is told", () => {
           ),
           []
         );
+        assert.deepStrictEqual(stale([...before, ...after]), []);
         for (const [, withoutTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withoutTools);
         }
@@ -575,11 +576,110 @@ describe("the editor's tools in what an agent is told", () => {
   });
 });
 
+describe("the briefing", () => {
+  test.effect(
+    "tells the design skills to a thread that draws designs, and to no other",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const skilled = (text: string | undefined) =>
+          (text ?? "").includes("How to design well");
+        assert.isTrue(skilled(yield* briefing.text("design")));
+        assert.isFalse(skilled(yield* briefing.text("implement")));
+        // Map, Migrate or a token match: a design thread that draws nothing.
+        assert.isFalse(
+          skilled(yield* briefing.text("design", { designs: false }))
+        );
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  /** A project's own skill, a built-in replaced, and a built-in extended. */
+  const ownSkills = {
+    "designs/skills/color.md":
+      "---\nextends: true\n---\nBlue is the brand; never use it for status.\n",
+    "designs/skills/spacing.md":
+      "# Our spacing\n\nEight pixels, everywhere.\n\nNever seven.\n",
+    "designs/skills/voice.md":
+      "# Voice\n\nShort words, said plainly.\n\nNo exclamation marks.\n",
+  };
+
+  test.effect(
+    "tells the skills by their titles and summaries, each read whole from its resource, when the settings say so",
+    () =>
+      Effect.gen(function* () {
+        const text = (yield* (yield* ProjectBriefing).text("design")) ?? "";
+        assert.include(
+          text,
+          "- Hierarchy (skill://ultrapaint/hierarchy): Every screen has one thing it is for."
+        );
+        assert.include(
+          text,
+          "- Our spacing (skill://ultrapaint/spacing): Eight pixels, everywhere."
+        );
+        assert.include(
+          text,
+          "- Voice (skill://ultrapaint/voice): Short words, said plainly."
+        );
+        // The extended built-in's resource holds the project's words too.
+        assert.include(text, "- Colour (skill://ultrapaint/color): ");
+        for (const body of [
+          "## One primary action",
+          "## Before you finish",
+          "Never seven.",
+          "No exclamation marks.",
+          "Blue is the brand",
+        ]) {
+          assert.notInclude(text, body);
+        }
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: ownSkills,
+            mcp: true,
+            settings: { skills: { briefing: "summaries" } },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+
+  test.effect(
+    "without the tools, tells a skill a file holds whole by its path, and the others in full",
+    () =>
+      Effect.gen(function* () {
+        const text =
+          (yield* (yield* ProjectBriefing).text("design", { tools: false })) ??
+          "";
+        assert.notInclude(text, "skill://");
+        assert.include(
+          text,
+          "- Our spacing (designs/skills/spacing.md): Eight pixels, everywhere."
+        );
+        assert.include(
+          text,
+          "- Voice (designs/skills/voice.md): Short words, said plainly."
+        );
+        assert.notInclude(text, "No exclamation marks.");
+        // No file holds a built-in, or an extended one with its built-in's words.
+        assert.include(text, "## One primary action");
+        assert.include(text, "Blue is the brand; never use it for status.");
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: ownSkills,
+            settings: { skills: { briefing: "summaries" } },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+});
+
 describe("slash commands", () => {
   const expand = (text: string) =>
     Effect.flatMap(SlashCommands, (commands) => commands.expand(text));
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
+  eachTest(ProjectTest({ mcp: true }))((it) => {
     it.effect("gives a command's task, with its thread's purpose", () =>
       Effect.gen(function* () {
         const implement = yield* expand("/implement /home");
@@ -615,18 +715,15 @@ The user ran /redraw, but there is no canvas "nowhere"; the canvases are: Design
     );
   });
 
-  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
-    "with no project open",
-    (it) => {
-      it.effect("sends what was typed when no task can be prepared", () =>
-        Effect.gen(function* () {
-          yield* Effect.flatMap(ProjectManager, (project) => project.close);
-          assert.deepStrictEqual(yield* expand("/init"), {
-            purpose: "design",
-            text: "/init",
-          });
-        })
-      );
-    }
-  );
+  eachTest(ProjectTest({ mcp: true }))("with no project open", (it) => {
+    it.effect("sends what was typed when no task can be prepared", () =>
+      Effect.gen(function* () {
+        yield* Effect.flatMap(ProjectManager, (project) => project.close);
+        assert.deepStrictEqual(yield* expand("/init"), {
+          purpose: "design",
+          text: "/init",
+        });
+      })
+    );
+  });
 });

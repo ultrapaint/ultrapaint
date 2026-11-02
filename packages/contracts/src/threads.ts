@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
+import { LookPlace } from "./components.ts";
 
 /**
  * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
@@ -57,7 +58,11 @@ export type ThreadStatus = typeof ThreadStatus.Type;
 export const isBusy = (status: ThreadStatus | undefined): boolean =>
   status === "running" || status === "cancelling";
 
-/** A setting the agent's session offers: its model, reasoning effort, and the like. */
+/**
+ * A setting the agent's session offers: its model, reasoning effort, and the like. A `boolean`
+ * is on or off (its choices `true` and `false`) and is set as a boolean; a select, the kind a
+ * thread written before kept without saying, is one of its choices.
+ */
 export const ConfigOption = Schema.Struct({
   category: Schema.optional(Schema.String),
   currentValue: Schema.String,
@@ -70,6 +75,7 @@ export const ConfigOption = Schema.Struct({
       value: Schema.String,
     })
   ),
+  type: Schema.optional(Schema.Literals(["select", "boolean"])),
 });
 export type ConfigOption = typeof ConfigOption.Type;
 
@@ -168,7 +174,7 @@ export const PromptAttachment = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
   /** A node of a design document the user has selected on the canvas. */
   Schema.Struct({
-    /** Whether the node is a component of the library. */
+    /** Whether the node is an instance of a component (ADR 0041). */
     component: Schema.optional(Schema.Boolean),
     /** The page's file, or the canvas's `canvas.json` for a node beside the pages. */
     file: Schema.String,
@@ -198,10 +204,12 @@ export const PromptAttachment = Schema.Union([
     /** The token's, the group's, the style's, the foundation's, the section's or the component's. */
     name: Schema.String,
     pick: BoardPickKind,
-    /** A system component's state picked: `hover`. */
-    state: Schema.optional(Schema.String),
-    /** A component's variant picked, `<axis>=<member>`: `variant=outline`, `tone=featured`. */
-    variant: Schema.optional(Schema.String),
+    /**
+     * Where in a component the pick is (ADR 0044): a system component's look at a variant's
+     * member, a state or a state in a member; an app component's choice at a member, its `axis`
+     * the property. Absent for the component as a whole.
+     */
+    place: Schema.optional(LookPlace),
   }),
 ]);
 export type PromptAttachment = typeof PromptAttachment.Type;
@@ -221,7 +229,7 @@ export type QueuedPrompt = typeof QueuedPrompt.Type;
  * was. The chat shows a picture of it, so the thread is found by sight.
  */
 export const ThreadScope = Schema.Struct({
-  /** Whether the node is a component of the library, which gives it the component colour. */
+  /** Whether the node is an instance of a component, which gives it the component colour. */
   component: Schema.optional(Schema.Boolean),
   /** How many nodes the first prompt attached, when more than one. */
   count: Schema.optional(Schema.Number),
@@ -240,13 +248,43 @@ export type ThreadScope = typeof ThreadScope.Type;
 export const ThreadPurpose = Schema.Literals(["design", "implement"]);
 export type ThreadPurpose = typeof ThreadPurpose.Type;
 
+/** How full the agent's context is, as it last said (ACP's `usage_update`), and what it cost. */
+export const ContextUsage = Schema.Struct({
+  /** What the session has cost so far. */
+  cost: Schema.optional(
+    Schema.Struct({ amount: Schema.Number, currency: Schema.String })
+  ),
+  /** The context window, in tokens. */
+  size: Schema.Number,
+  /** The tokens in it now. */
+  used: Schema.Number,
+});
+export type ContextUsage = typeof ContextUsage.Type;
+
+/** A command a prompt may start with; the server expands it into the task it stands for. */
+export const SlashCommand = Schema.Struct({
+  /** What goes after the command, for the composer's hint: `<route>`. */
+  argument: Schema.optional(Schema.String),
+  description: Schema.String,
+  /** Without the slash: `init`. */
+  name: Schema.String,
+});
+export type SlashCommand = typeof SlashCommand.Type;
+
 export const Thread = Schema.Struct({
+  /**
+   * The commands the agent's own session offers after a `/` (ACP's available commands), as it
+   * last said: the composer offers them after the editor's, and they go to the agent as typed.
+   */
+  agentCommands: Schema.optional(Schema.Array(SlashCommand)),
   agentId: Schema.String,
   /**
    * The session's options. Before the session exists these are the agent's options as a
    * previous session reported them, and what is chosen here is applied when it starts.
    */
   configOptions: Schema.optional(Schema.Array(ConfigOption)),
+  /** How full the agent's context is, as it last said; the session's, gone with it. */
+  context: Schema.optional(ContextUsage),
   createdAt: Schema.Number,
   currentModeId: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String),
@@ -310,10 +348,15 @@ export const ToolContent = Schema.Union([
     type: Schema.Literal("diff"),
   }),
   Schema.Struct({
+    /** The tail of what it printed, once it ended; while it runs, its output streams apart. */
+    output: Schema.optional(Schema.String),
     terminalId: Schema.String,
     type: Schema.Literal("terminal"),
   }),
 ]);
+
+/** How much of a terminal's output the editor keeps: its last characters. */
+export const TERMINAL_TAIL = 8000;
 export type ToolContent = typeof ToolContent.Type;
 
 /** Where in the repository a tool call is working, to the line when the agent says so. */
@@ -323,14 +366,20 @@ export const ToolLocation = Schema.Struct({
 });
 export type ToolLocation = typeof ToolLocation.Type;
 
-/** What a turn cost, in the agent's own accounting. Absent when it does not keep any. */
+/**
+ * What a turn spent, in the agent's own accounting, as ACP's `Usage` says it. Absent when it
+ * keeps none. A turn written before had `cachedInputTokens`, read as `cachedReadTokens`.
+ */
 export const TurnUsage = Schema.Struct({
-  byModel: Schema.Array(
-    Schema.Struct({ model: Schema.String, tokens: Schema.Number })
+  /** Split by model, where the agent says (Codex, Claude Code, in their `_meta`). */
+  byModel: Schema.optional(
+    Schema.Array(Schema.Struct({ model: Schema.String, tokens: Schema.Number }))
   ),
-  cachedInputTokens: Schema.Number,
+  cachedReadTokens: Schema.optional(Schema.Number),
+  cachedWriteTokens: Schema.optional(Schema.Number),
   inputTokens: Schema.Number,
   outputTokens: Schema.Number,
+  thoughtTokens: Schema.optional(Schema.Number),
   totalTokens: Schema.Number,
 });
 export type TurnUsage = typeof TurnUsage.Type;
@@ -376,6 +425,31 @@ export type Answer = typeof Answer.Type;
 export const Answers = Schema.Record(Schema.String, Answer);
 export type Answers = typeof Answers.Type;
 
+/** What kind of thing a tool call does, as ACP names it, for its icon. */
+export const ToolKind = Schema.Literals([
+  "read",
+  "edit",
+  "delete",
+  "move",
+  "search",
+  "execute",
+  "think",
+  "fetch",
+  "switch_mode",
+  "other",
+]);
+export type ToolKind = typeof ToolKind.Type;
+
+/** Why the agent ended a turn, as ACP says it. */
+export const StopReason = Schema.Literals([
+  "end_turn",
+  "max_tokens",
+  "max_turn_requests",
+  "refusal",
+  "cancelled",
+]);
+export type StopReason = typeof StopReason.Type;
+
 export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
@@ -412,15 +486,15 @@ export const ThreadItem = Schema.Union([
     status: ToolCallStatus,
     title: Schema.String,
     toolCallId: Schema.String,
-    toolKind: Schema.optional(Schema.String),
+    toolKind: Schema.optional(ToolKind),
   }),
   Schema.Struct({
     at: Schema.Number,
     entries: Schema.Array(
       Schema.Struct({
         content: Schema.String,
-        priority: Schema.optional(Schema.String),
-        status: Schema.String,
+        priority: Schema.optional(Schema.Literals(["high", "medium", "low"])),
+        status: Schema.Literals(["pending", "in_progress", "completed"]),
       })
     ),
     id: Schema.String,
@@ -434,7 +508,12 @@ export const ThreadItem = Schema.Union([
     kind: Schema.Literal("permission"),
     options: Schema.Array(
       Schema.Struct({
-        kind: Schema.String,
+        kind: Schema.Literals([
+          "allow_once",
+          "allow_always",
+          "reject_once",
+          "reject_always",
+        ]),
         name: Schema.String,
         optionId: Schema.String,
       })
@@ -467,14 +546,23 @@ export const ThreadItem = Schema.Union([
     at: Schema.Number,
     id: Schema.String,
     kind: Schema.Literal("status"),
+    /** The agent the thread was switched to, when that is what the line says. */
+    switchedTo: Schema.optional(Schema.String),
     text: Schema.String,
   }),
   Schema.Struct({
     at: Schema.Number,
+    /**
+     * Files changed during the turn that the agent was not seen writing, while something else
+     * changed files too (another thread's turn, the user in the editor): changed during the turn,
+     * not known to be by its agent. Absent when there were none, and in older stored turns.
+     */
+    changedDuring: Schema.optional(Schema.Array(Schema.String)),
+    /** The files the turn changed, the agent's: all of them unless something else wrote meanwhile. */
     changedFiles: Schema.Array(Schema.String),
     id: Schema.String,
     kind: Schema.Literal("turn_end"),
-    stopReason: Schema.String,
+    stopReason: StopReason,
     /** What the turn spent, as the agent accounts for it, split by model. */
     usage: Schema.optional(TurnUsage),
   }),
@@ -487,16 +575,6 @@ export const PromptInput = Schema.Struct({
   threadId: FileId,
 });
 export type PromptInput = typeof PromptInput.Type;
-
-/** A command a prompt may start with; the server expands it into the task it stands for. */
-export const SlashCommand = Schema.Struct({
-  /** What goes after the command, for the composer's hint: `<route>`. */
-  argument: Schema.optional(Schema.String),
-  description: Schema.String,
-  /** Without the slash: `init`. */
-  name: Schema.String,
-});
-export type SlashCommand = typeof SlashCommand.Type;
 
 /** The name the editor's MCP server goes by, to agents and in the tool calls they report. */
 export const EDITOR_MCP_SERVER = "ultrapaint";
@@ -537,7 +615,10 @@ export const AgentFocus = Schema.Struct({
   action: Schema.optional(Schema.String),
   /** The nodes of the page it is about to change; none means the page as a whole. */
   nodeIds: Schema.optional(Schema.Array(Schema.String)),
-  /** The page itself: a route alone can be a page in more than one canvas. */
+  /**
+   * The document it works on: a page's id (a route alone can be a page in more than one canvas),
+   * or a canvas's for a node beside the pages, as `AgentEdited.doc` says it.
+   */
   pageId: Schema.String,
   route: Schema.optional(Schema.String),
   threadId: Schema.String,
@@ -573,6 +654,13 @@ export const AgentEvent = Schema.Union([
     item: ThreadItem,
     threadId: Schema.String,
     type: Schema.Literal("itemUpdate"),
+  }),
+  /** A streamed chunk: `text` goes at the end of the item's own, sent without the rest of it. */
+  Schema.Struct({
+    itemId: Schema.String,
+    text: Schema.String,
+    threadId: Schema.String,
+    type: Schema.Literal("itemText"),
   }),
   Schema.Struct({ threadId: Schema.String, type: Schema.Literal("removed") }),
 ]);

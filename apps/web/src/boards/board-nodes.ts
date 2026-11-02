@@ -5,11 +5,38 @@
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { tokenOf } from "@ultrapaint/contracts/token-table";
+import { tokensOfKind } from "@ultrapaint/contracts/token-table";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
+import { NODE_ATTRIBUTE } from "@ultrapaint/preview-core/preview";
+import { pickId } from "./pick.ts";
+
+/**
+ * The selector of what the renderer draws for a board's node (its `NODE_ATTRIBUTE`), for what a
+ * board's own stylesheet says that a document cannot: every node whose id is `id`, or with `^=`
+ * every one whose id starts so. Board ids are the editor's own, written without quotes.
+ */
+export const nodeCss = (id: string, match: "=" | "^=" = "=") =>
+  `[${NODE_ATTRIBUTE}${match}"${id}"]`;
+
+/** Whether a search (lower-cased) finds a token, by its name or its value; any, with none. */
+export const found = (token: { name: string; value: string }, q: string) =>
+  !q ||
+  token.name.toLowerCase().includes(q) ||
+  token.value.toLowerCase().includes(q);
+
+/** The design system's tokens of a kind, or of several, that a search finds, in its order. */
+export const tokensFound = (
+  ds: DesignSystem,
+  kinds: TokenKind | readonly TokenKind[],
+  q: string
+): Token[] =>
+  (typeof kinds === "string" ? [kinds] : kinds)
+    .flatMap((kind) => tokensOfKind(ds, kind))
+    .filter((t) => found(t, q));
 
 /** A label's grey, legible on a light sheet and a dark one. */
-export const MUTED = "#8a8a93";
+const MUTED = "#8a8a93";
 
 export const label = (
   id: string,
@@ -111,46 +138,8 @@ export const tokenRow = (
   ],
   crossAlign: "center",
   gap: 16,
-  id: `token:${token.name}`,
+  id: pickId({ kind: "token", name: token.name }),
   padding: { bottom: 6, top: 6 },
   type: "row",
   width: "fill",
 });
-
-const VAR_RE = /^var\(--([\w.-]+)\)$/;
-
-/** The theme a design system's plain values are in: its first. */
-export const firstTheme = (ds: DesignSystem): string =>
-  ds.themes?.[0] ?? "light";
-
-/**
- * A token's value in a theme, the default theme's where it has none; a value that is another
- * token (`var(--color-blue-600)`, `$color-blue-600`) followed to that one's, a few deep.
- */
-export const valueIn = (
-  ds: DesignSystem,
-  name: string,
-  theme: string
-): string | undefined => {
-  let current = name;
-  for (let depth = 0; depth < 5; depth += 1) {
-    const token = tokenOf(ds, current);
-    if (!token) {
-      return undefined;
-    }
-    const value =
-      theme === firstTheme(ds)
-        ? token.value
-        : (token.values?.[theme] ?? token.value);
-    const alias: RegExpExecArray | null = VAR_RE.exec(value.trim());
-    const next = value.startsWith("$") ? value.slice(1) : alias?.[1];
-    if (next === undefined) {
-      return value;
-    }
-    current = next;
-  }
-  return undefined;
-};
-
-/** Whether a theme is a dark one, by its name: what the boards' own greys and grades follow. */
-export const isDark = (theme: string) => theme.toLowerCase().includes("dark");

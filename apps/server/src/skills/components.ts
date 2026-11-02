@@ -17,7 +17,7 @@ For a button, a field, a badge, a dialog or tabs, find the component in the pale
     tools
       ? `ask
 \`${tools.get_component}\``
-      : "read its code"
+      : "read its line among the components listed"
   } for its props and variants. A copy drawn from rows and text matches nothing, and
 gets implemented as nothing.
 

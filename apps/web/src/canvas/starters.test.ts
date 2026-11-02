@@ -1,8 +1,5 @@
-import type {
-  Catalogue,
-  ComponentMeta,
-} from "@ultrapaint/contracts/catalogue";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { describe, expect, it } from "vitest";
 import {
   offeredStarters,
@@ -10,11 +7,6 @@ import {
   starterPrompt,
   starterTheme,
 } from "./starters.ts";
-
-const library = (...names: string[]): Catalogue =>
-  names.map(
-    (name) => ({ importFrom: "@ultrapaint/system", name }) as ComponentMeta
-  );
 
 const system = (over: Partial<DesignSystem> = {}): DesignSystem => ({
   colors: [],
@@ -30,48 +22,29 @@ const ids = (offered: ReturnType<typeof offeredStarters>) =>
   offered.map((o) => o.starter.id);
 
 describe("the starters an empty canvas offers", () => {
-  it("are the first four, plain, without a design system", () => {
-    const offered = offeredStarters(library("Table", "Input"), false);
+  it("are the first four, plain without a design system", () => {
+    const offered = offeredStarters(false);
     expect(ids(offered)).toEqual(STARTERS.slice(0, 4).map((s) => s.id));
     expect(offered.every((o) => o.uses.length === 0)).toBe(true);
   });
 
-  it("follow the library with one: a starter it has nothing for gives way", () => {
-    // No Table, no Chart: no dashboard; Pricing takes its place.
-    const offered = offeredStarters(
-      library("Button", "Card", "Input", "Switch"),
-      true
-    );
-    expect(ids(offered)).toEqual(["landing", "settings", "sign-in", "pricing"]);
-  });
-
-  it("name only the components the library has, a family by its first part", () => {
-    const offered = offeredStarters(
-      library("Button", "Card", "ChartContainer", "TableRow"),
-      true
-    );
-    const dashboard = offered.find((o) => o.starter.id === "dashboard");
-    expect(dashboard?.uses).toEqual(["Card", "Chart", "Table"]);
-  });
-
-  it("still offer what needs nothing from an empty library", () => {
-    expect(ids(offeredStarters(library(), true))).toEqual([
-      "landing",
-      "article",
-    ]);
+  it("name system components only, which every project has", () => {
+    const named = STARTERS.flatMap((s) => s.uses);
+    expect(named.filter((name) => !systemComponentOf(name))).toEqual([]);
+    expect(offeredStarters(true)[0]?.uses).toEqual(["Button", "Card", "Badge"]);
   });
 });
 
 describe("a starter's prompt", () => {
   it("names the canvas and the components, and is left for the user to finish", () => {
-    const [landing] = offeredStarters(library("Button", "Card"), true);
+    const [landing] = offeredStarters(true);
     expect(landing && starterPrompt(landing, "Marketing", true)).toBe(
-      "Design a landing page with a navigation bar, a hero with a call to action and three feature cards on the Marketing canvas, with the design system's Button and Card. It is for "
+      "Design a landing page with a navigation bar, a hero with a call to action and three feature cards on the Marketing canvas, with the design system's Button, Card and Badge. It is for "
     );
   });
 
   it("asks for a plain wireframe without a design system", () => {
-    const [landing] = offeredStarters(library(), false);
+    const [landing] = offeredStarters(false);
     expect(landing && starterPrompt(landing, "Home", false)).toContain(
       "on the Home canvas, as a plain wireframe."
     );

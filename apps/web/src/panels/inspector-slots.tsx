@@ -28,7 +28,7 @@ import {
 import { Row, Section } from "../components/panel.tsx";
 import { insertNodesAt } from "../lib/node-actions.ts";
 import { useComponents } from "../state/components.ts";
-import { useEditor } from "../state/editor.ts";
+import { select } from "../state/selection.ts";
 
 /** What a slot can be given from here: the elements a slot is mostly made of, and a button. */
 const ADDITIONS: readonly {
@@ -97,10 +97,7 @@ export const SlotsSection = ({
               <button
                 className="min-w-0 flex-1 truncate rounded px-1 text-left font-body text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                 disabled={!first}
-                onClick={() =>
-                  first &&
-                  useEditor.getState().select({ frame, nodeId: first.id })
-                }
+                onClick={() => first && select({ frame, nodeId: first.id })}
                 title={
                   first
                     ? "Select what fills it"

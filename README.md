@@ -620,7 +620,12 @@ layout, spacing, typography, colour, elevation, borders and radius, iconography,
 content, states, how to compose with components, and accessibility. These
 skills ship with the tool and come before `DESIGN.md`, which wins where they disagree: a rule
 that holds for this product alone belongs in its Do's and Don'ts. **Settings**
-lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`).
+lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`),
+and whether a design thread is told them whole (the default) or by their titles and summaries,
+each read whole before the work it is about (`skills.briefing: "summaries"`, about 30,000
+characters fewer): an agent with the editor's tools reads a skill as the MCP resource
+`skill://ultrapaint/<name>`, one without them a project's file by its path, and is told whole
+the skills no file holds (a built-in, or a file that extends one).
 
 A project takes a skill over with a markdown file in `skills/` inside the designs directory:
 
@@ -701,7 +706,6 @@ type after it is added to it.
 | `/implement <page>` | An agent writes a page (by URL or file), or a component (`/implement Button`), in your application, with your components and conventions |
 | `/implement --adopt [canvas or pages]` | An agent links pages already built in your application to the files that implement them, changing no code |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
-| `/components <canvas>` | Draws a sheet of the system components, in each of their variants, into a canvas |
 | `/design-system <step>` | Runs a step of the setup in its thread: `define`, `map` or `migrate` (Sync opens these for you) |
 
 ### In the editor
@@ -733,13 +737,12 @@ type after it is added to it.
 | `designsDir` | Where the pages are (`docs/designs`) |
 | `resolveFrom` | The package your application is (`front`), for its stylesheets' imports; a hint for agents that implement |
 | `libraryDirs` | Optional: where your components are (`front/src/components`), a hint for agents that implement |
-| `componentPackages` | Optional: packages of components your application uses, a hint for agents that implement |
 | `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
-| `theme` | `light` or `dark` for the canvas |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `skills.disabled` | Design skills agents are not told |
+| `skills.briefing` | `summaries` to tell a design thread the skills by their titles and summaries, read whole when needed; `full` (the default) tells them whole |
 
 You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and
 agents never do.
@@ -766,7 +769,7 @@ needs neither. Yarn Plug'n'Play is not supported.
 - [Style systems: tokens read and written behind one interface](docs/adr/0024-style-systems.md)
 - [One Sync for the design system and the code](docs/adr/0025-design-system-sync.md)
 - [All architecture decisions](docs/adr/README.md)
-- [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
+- [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/plans/done/PLAN.md)
 
 ## Development
 

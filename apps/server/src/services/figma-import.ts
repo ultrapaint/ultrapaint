@@ -5,6 +5,7 @@
  * page with the mapping as it stands; the conversion itself is `@ultrapaint/figma-import`.
  */
 
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, PageDocument } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
@@ -53,7 +54,8 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeStamp } from "../file-stamp.ts";
-import { makeId, safeFileId } from "../ids.ts";
+import { makeId, newestFirst, safeFileId } from "../ids.ts";
+import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import type { EditFailure } from "./edit.ts";
@@ -221,10 +223,9 @@ export class FigmaImportService extends Context.Service<
     readonly theme: Effect.Effect<Record<string, string>, BadRequest>;
     readonly list: Effect.Effect<readonly FigmaImport[]>;
     /**
-     * Says what a component becomes; null forgets the decision. A component of this repository
-     * must be in the catalogue, and is imported from where the design system says, else from
-     * where the catalogue found it, unless the mapping says; the notes are its props the
-     * component does not declare, which are passed on anyway.
+     * Says what a component becomes; null forgets the decision. A component must be in the
+     * catalogue; the notes are its props the component does not declare, which are passed on
+     * anyway.
      */
     readonly map: (
       id: string,
@@ -250,6 +251,7 @@ export class FigmaImportService extends Context.Service<
       const paths = yield* RepoPaths;
       const { catalogue } = yield* ComponentService;
       const designSystem = yield* DesignSystemService;
+      const code = yield* CodeSide;
       const pages = yield* PagesService;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -332,6 +334,12 @@ export class FigmaImportService extends Context.Service<
         { readonly stamp: string; readonly summary: FigmaImport }
       >();
 
+      /** Newest first; of two made in one millisecond, the one made later (`newestFirst`). */
+      const byTime = newestFirst<FigmaImport>(
+        (summary) => summary.createdAt,
+        (summary) => summary.id
+      );
+
       /** Every import's summary, newest first, without the catalogue's guesses. */
       const listSummaries = Effect.gen(function* () {
         const root = path.join(yield* storage.stateDir, IMPORTS_DIR);
@@ -361,7 +369,7 @@ export class FigmaImportService extends Context.Service<
             return [read.value];
           })
         );
-        return found.flat().sort((a, b) => b.createdAt - a.createdAt);
+        return found.flat().sort(byTime);
       });
 
       const list = Effect.flatMap(listSummaries, (all) =>
@@ -457,7 +465,6 @@ export class FigmaImportService extends Context.Service<
             message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. ${TOOLS.list_components} has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
           });
         }
-        const from = mapping.from ?? component.importFrom;
         const known = new Set(component.props.map((p) => p.name));
         const named = [
           ...Object.keys(mapping.props ?? {}),
@@ -471,7 +478,7 @@ export class FigmaImportService extends Context.Service<
             (prop) =>
               `${component.name} does not declare a prop ${prop}; it is passed on anyway`
           );
-        return { mapping: { ...mapping, from }, notes };
+        return { mapping, notes };
       });
 
       const map = Effect.fn("FigmaImportService.map")(function* (
@@ -535,10 +542,13 @@ export class FigmaImportService extends Context.Service<
         const { designSystem: saved } = yield* designSystem.get;
         // Before a design system is written, the code's own tokens are what colours match
         // (ADR 0025): Figma's may have been taken into it already.
-        const ds = saved ?? (yield* designSystem.scan).designSystem;
+        const ds = saved ?? (yield* code.scan).designSystem;
+        const components = yield* catalogue;
         return {
           mapping: summary.mapping,
           next: makeIdGenerator(["root"]),
+          originOf: (name: string) =>
+            components.find((c) => c.name === name)?.importFrom ?? SYSTEM_FROM,
           tokens: makeTokenMatcher(ds),
         };
       });

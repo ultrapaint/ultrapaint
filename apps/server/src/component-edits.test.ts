@@ -1,22 +1,23 @@
-import { assert, layer } from "@effect/vitest";
+import { assert } from "@effect/vitest";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
 import { Effect } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { eachTest } from "./testing/each-test.ts";
+import { TestEnv } from "./testing/harness.ts";
+import { ProjectRpc } from "./testing/project.ts";
 
 const OUTLINE_HOVER = {
   state: "hover" as const,
   variant: { axis: "variant", member: "outline" },
 };
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(ProjectRpc())(
   "components edited from their boards (ADR 0045)",
   (it) => {
     it.effect(
       "sets one part's style at a place on the file as it is, in one undo step",
       () =>
         Effect.gen(function* () {
-          const { client, settings } = yield* TestEnv;
-          yield* client["settings.set"](settings);
+          const { client } = yield* TestEnv;
           const read = () =>
             Effect.map(
               client["components.list"](),
@@ -40,9 +41,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           yield* client["components.fromDefault"]({ name: "Button" });
           // A note added since the editor read the file stays: the style is set on it as it is.
-          yield* client["components.addNote"]({
+          yield* client["components.change"]({
+            change: { op: "addNote", text: "Submits its form" },
             name: "Button",
-            text: "Submits its form",
           });
           const before = yield* read();
           yield* client["components.change"]({
@@ -90,16 +91,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             })
           );
           assert.include(noPart.message, "Button has no part nope");
-        }),
-      30_000
+        })
     );
 
     it.effect(
       "makes a new app component, an empty column placed nowhere, in one undo step",
       () =>
         Effect.gen(function* () {
-          const { client, settings } = yield* TestEnv;
-          yield* client["settings.set"](settings);
+          const { client } = yield* TestEnv;
           const made = yield* client["components.create"]({
             name: "Pricing card",
           });
@@ -141,8 +140,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             gone.components.map((e) => e.component?.name),
             "PricingCard"
           );
-        }),
-      30_000
+        })
     );
   }
 );

@@ -12,7 +12,6 @@
 import { componentLine } from "@ultrapaint/contracts/catalogue";
 import {
   APP_FROM,
-  COMPONENTS_DIR,
   type ComponentFile,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
@@ -30,13 +29,14 @@ import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { SkillsService } from "../skills.ts";
+import { SkillsService, type SkillsTold } from "../skills.ts";
+import { canvasesIn, componentFiles, PAGES } from "./agent-docs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
 
@@ -77,19 +77,35 @@ const tokensOf = (ds: DesignSystem) => {
   return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;
 };
 
-/** The shipped and project skills that are on, ahead of the project's own conventions. */
-const craftOf = (skills: string) =>
-  skills
-    ? `
-How to design well, whatever the product. The design system's tokens and its conventions,
+/**
+ * The shipped and project skills that are on, ahead of the project's own conventions: whole, or
+ * by their titles and summaries, each read whole where its line says (`SkillsTold`).
+ */
+const craftOf = ({ listed, whole }: SkillsTold) => {
+  if (listed.length === 0 && whole === "") {
+    return "";
+  }
+  const lead = `How to design well, whatever the product. The design system's tokens and its conventions,
 below, come first where they disagree: a number given here is for what the design system does
-not name. Before ending a turn, run each skill's "Before you finish" checks against what you
+not name.`;
+  if (listed.length === 0) {
+    return `
+${lead} Before ending a turn, run each skill's "Before you finish" checks against what you
 changed and fix what you find. Tell the user only what you could not fix, or what needs their
 decision.
 
-${skills}
-`
-    : "";
+${whole}
+`;
+  }
+  return `
+${lead} Each skill is listed by its title, where to read it whole and what it is
+about: read a skill whole before the work it is about. Before ending a turn, run the "Before
+you finish" checks of each skill you read against what you changed and fix what you find. Tell
+the user only what you could not fix, or what needs their decision.
+
+${listed.join("\n")}
+${whole ? `\nThese have no file of their own to read, so they are told whole:\n\n${whole}\n` : ""}`;
+};
 
 const conventionsOf = (document: DesignDocument | null) =>
   document?.body.trim()
@@ -138,31 +154,15 @@ tell them it goes to the code when the design is implemented (the Implement butt
 are the design's: change them in the design system, never in a stylesheet.`;
 
 /**
- * The components (ADR 0041): their files, which system components' look the design owns, the
- * app components to place, and the format an agent writes a component's file in.
+ * The components (ADR 0041): their files, which system components' look the design owns, and the
+ * format an agent writes a component's file in.
  */
 const componentsOf = (
   designsDir: string,
   components: readonly ComponentFile[]
 ) => {
   const looks = components.filter((c) => c.origin === "system");
-  return `Components are files of ${designsDir}/${COMPONENTS_DIR}/, <Name>.component.json, one each:
-{ "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
-- origin "system": the look of a system component, whose behaviour is fixed: "base", "variants"
-  (per axis, per member), "states" (hover, focus, active, highlighted, disabled, open, checked,
-  invalid) and "variantStates" (per axis, per member, per state: an outline button's hover; it
-  wins over the state's, which wins over the member's), each style fields per part (root or a
-  data-slot): fill, color, border, radius, padding
-  (one or per side), height, width, gap, direction, align, crossAlign, order, fontSize, fontWeight,
-  shadow, opacity; "content" (nodes per slot, drawn when an instance gives it none), "hidden"
-  (optional parts left out) and, for Select and Menu, "item" ({ tree, label, image }: nodes drawn
-  per item, label and image the ids showing them). Without a file it has its default look.
-- origin "app": the project's own component, placed with from "${APP_FROM}": "tree" (a node, its
-  root the instance), "properties" ([{ name, kind: text|boolean|choice|image, default, members?,
-  targets?: [{ node, prop? }] }]: what an instance's props set, a text's text, a node shown, an
-  image's src, or a prop of the component the node is; a choice's member overrides a node's fields
-  in its at under "<property>=<member>") and "slots" ([{ name, node, default? }]: containers its
-  children fill, as a system component's). It cannot take a system component's name or place itself.
+  return `${componentFiles(designsDir)}
 ${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}
 `;
 };
@@ -172,21 +172,30 @@ export class ProjectBriefing extends Context.Service<
   {
     /**
      * The briefing for the open project, for a thread of this purpose (ADR 0030), or nothing when
-     * no project is open.
+     * no project is open. `tools`: its agent has the editor's tools (ADR 0039), the server's MCP
+     * setting when it is not said. `designs`: the thread draws designs and is told the design
+     * skills; a design thread does unless said otherwise (`drawsDesigns`), an implement thread
+     * never.
      */
     readonly text: (
-      purpose: ThreadPurpose
+      purpose: ThreadPurpose,
+      options?: { readonly designs?: boolean; readonly tools?: boolean }
     ) => Effect.Effect<string | undefined>;
   }
 >()("ultrapaint/server/ProjectBriefing") {
   static readonly layer = Layer.effect(
     ProjectBriefing,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
-      const ways = agentWays((yield* ServerConfig).mcp);
+      const project = yield* OpenProject;
+      const { mcp } = yield* ServerConfig;
       const sandbox = yield* AgentSandbox;
 
-      const build = Effect.fnUntraced(function* (purpose: ThreadPurpose) {
+      const build = Effect.fnUntraced(function* (
+        purpose: ThreadPurpose,
+        tools: boolean,
+        designs: boolean
+      ) {
+        const ways = agentWays(tools);
         const paths = yield* RepoPaths;
         const pages = yield* (yield* PagesService).list;
         const { settings } = paths;
@@ -199,10 +208,15 @@ export class ProjectBriefing extends Context.Service<
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
-        const skills = yield* Effect.orElseSucceed(
-          Effect.flatMap(SkillsService, (service) => service.briefing),
-          () => ""
-        );
+        const none: SkillsTold = { listed: [], whole: "" };
+        const skills = designs
+          ? yield* Effect.orElseSucceed(
+              Effect.flatMap(SkillsService, (service) =>
+                service.briefing(tools)
+              ),
+              () => none
+            )
+          : none;
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
         const files = yield* Effect.orElseSucceed(
@@ -218,17 +232,9 @@ You are working in ultrapaint, a design tool. The user sees the designs you chan
 its canvas, drawn with ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
 
-Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
-(the designs directory itself when there is only one), and each has its own pages, the URLs they
-serve in its prototype and nodes placed beside them — wireframes in one, components in another, a
-second version of the application in a third. A link never leaves its canvas, and tools take
-\`canvas\` to say which.
-A page is a design document, not code: a <name>.page.json file inside its canvas. It may serve a
-URL in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json keeps: a
-screen of the application has one, a sketch or a sheet of components needs none, and a page
-without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for
-the variant "bold": it serves the same URL, shown in its place when the prototype is in that
-variant. It holds a tree of nodes, each with an id:
+${canvasesIn(settings.designsDir)}
+${PAGES}
+It holds a tree of nodes, each with an id:
 - page: the root; lays its children out as a column.
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.
@@ -287,9 +293,15 @@ never write it; when styles are missing, send the user to Sync in the Design sys
       });
 
       return ProjectBriefing.of({
-        text: (purpose) =>
+        text: (purpose, options = {}) =>
           project
-            .use(build(purpose))
+            .use(
+              build(
+                purpose,
+                options.tools ?? mcp,
+                purpose === "design" && options.designs !== false
+              )
+            )
             // No project open, or a repository the server cannot read: the agent manages without.
             .pipe(Effect.orElseSucceed(() => undefined)),
       });

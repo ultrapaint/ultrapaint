@@ -4,7 +4,15 @@ import { matchRoute, pagesInVariant } from "@ultrapaint/shared/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { fakeBrowser } from "../testing/fake-browser.ts";
-import { computeFrames, pagesOfCanvas, useEditor } from "./editor.ts";
+import { until } from "../testing/until.ts";
+import {
+  followBoardHistory,
+  leaveBoard,
+  openBoard,
+  openBoardInUrl,
+  useBoard,
+} from "./board.ts";
+import { pagesOfCanvas, useEditor } from "./editor.ts";
 import {
   followHistory,
   goTo,
@@ -12,7 +20,9 @@ import {
   openStartCanvas,
   pagesChanged,
 } from "./location.ts";
+import { computeFrames, setFrame } from "./page-layout.ts";
 import { useProject } from "./project.ts";
+import { select, selectPage } from "./selection.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -49,8 +59,12 @@ const layoutOf = (frames: CanvasLayout["frames"] = {}): CanvasLayout => ({
   version: 1,
 });
 
-/** Lets every answer on its way land: a canvas's layout, a step of the history. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** The canvas asked for is open: its layout read, the editor at its place. */
+const opened = (canvas: string) => until(useEditor, (s) => s.canvas === canvas);
+
+/** The open canvas opened again: its frames laid out anew from the layout read. */
+const reopened = (frames: ReturnType<typeof useEditor.getState>["frames"]) =>
+  until(useEditor, (s) => s.frames !== frames);
 
 const at = () => {
   const { activePage, canvas, route, variant } = useEditor.getState();
@@ -161,7 +175,7 @@ describe("openStartCanvas", () => {
   it("opens the canvas and the place the URL names", async () => {
     fakeBrowser.visit("/?canvas=main&route=/pricing&variant=bold");
     expect(openStartCanvas()).toBe(true);
-    await settle();
+    await opened("main");
     expect(at()).toEqual({
       activePage: boldPricing.id,
       canvas: "main",
@@ -172,10 +186,24 @@ describe("openStartCanvas", () => {
     expect(outOfStep()).toEqual([]);
   });
 
+  it("keeps the board view the URL names, as a reload or a link lands on it (ADR 0045)", async () => {
+    fakeBrowser.visit("/?canvas=main&view=library&item=Button");
+    // As the editor starts: the canvas, then the board view over it.
+    openStartCanvas();
+    openBoardInUrl();
+    await opened("main");
+    expect(useBoard.getState().open).toEqual({
+      item: "Button",
+      view: "library",
+    });
+    expect(readUrl().board).toEqual({ item: "Button", view: "library" });
+    leaveBoard("none");
+  });
+
   it("opens on a page without a URL the URL names", async () => {
     fakeBrowser.visit(`/?canvas=main&page=${draft.id}`);
     openStartCanvas();
-    await settle();
+    await opened("main");
     expect(at()).toMatchObject({ activePage: draft.id, route: null });
     expect(outOfStep()).toEqual([]);
   });
@@ -183,7 +211,7 @@ describe("openStartCanvas", () => {
   it("opens the canvas opened last when the URL names none, on its home", async () => {
     localStorage.setItem("ultrapaint:canvas", "other");
     openStartCanvas();
-    await settle();
+    await opened("other");
     expect(at()).toEqual({
       activePage: about.id,
       canvas: "other",
@@ -195,7 +223,7 @@ describe("openStartCanvas", () => {
 
   it("opens the first canvas when neither names one", async () => {
     openStartCanvas();
-    await settle();
+    await opened("main");
     expect(at()).toMatchObject({ activePage: home.id, canvas: "main" });
     expect(window.location.search).toBe("?canvas=main");
     expect(outOfStep()).toEqual([]);
@@ -205,7 +233,7 @@ describe("openStartCanvas", () => {
     localStorage.setItem("ultrapaint:canvas", "other");
     fakeBrowser.visit("/?canvas=gone&route=/pricing");
     openStartCanvas();
-    await settle();
+    await opened("other");
     expect(at()).toMatchObject({ canvas: "other", route: "/about" });
     expect(outOfStep()).toEqual([]);
   });
@@ -213,14 +241,14 @@ describe("openStartCanvas", () => {
   it("lands where the canvas opens for a page or a URL that is not there", async () => {
     fakeBrowser.visit("/?canvas=main&page=gone.page.json");
     openStartCanvas();
-    await settle();
+    await opened("main");
     expect(at()).toMatchObject({ activePage: home.id, route: "/" });
     expect(outOfStep()).toEqual([]);
 
     useEditor.setState({ canvas: null });
     fakeBrowser.visit("/?canvas=main&route=/gone&variant=nope");
     openStartCanvas();
-    await settle();
+    await opened("main");
     expect(at()).toMatchObject({
       activePage: home.id,
       route: "/",
@@ -242,7 +270,7 @@ describe("openStartCanvas", () => {
     localStorage.setItem("ultrapaint:canvas", "other");
     fakeBrowser.visit("/?route=/pricing");
     openStartCanvas();
-    await settle();
+    await opened("");
     expect(at()).toMatchObject({ canvas: "", route: "/pricing" });
     expect(outOfStep()).toEqual([]);
   });
@@ -264,7 +292,7 @@ describe("goTo", () => {
   beforeEach(startOnMain);
 
   it("goes to a URL as an entry of the history, and lets the selection go", () => {
-    useEditor.getState().select({ frame: home.id, nodeId: "a" });
+    select({ frame: home.id, nodeId: "a" });
     goTo({ route: "/pricing" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(useEditor.getState().selection).toBeNull();
@@ -297,7 +325,7 @@ describe("goTo", () => {
 
   it("stays on a page already shown at its URL", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: pricing.id, nodeId: "a" });
+    select({ frame: pricing.id, nodeId: "a" });
     goTo({ page: pricing.id });
     expect(useEditor.getState().selection).not.toBeNull();
     expect(fakeBrowser.history().entries).toHaveLength(2);
@@ -306,7 +334,7 @@ describe("goTo", () => {
 
   it("draws the same place in a variant, keeping the selection", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: pricing.id, nodeId: "a" });
+    select({ frame: pricing.id, nodeId: "a" });
     goTo({ variant: "bold" });
     expect(at()).toMatchObject({ activePage: boldPricing.id, variant: "bold" });
     expect(useEditor.getState().selection).not.toBeNull();
@@ -363,7 +391,7 @@ describe("goTo", () => {
       x: 300,
       y: 40,
     } as const;
-    useEditor.getState().setFrame(home.id, moved);
+    setFrame(home.id, moved);
     await goTo({ canvas: "other" });
     expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toEqual([
       {
@@ -380,16 +408,46 @@ describe("goTo", () => {
   });
 });
 
+describe("a board view (ADR 0045)", () => {
+  beforeEach(async () => {
+    await goTo({ canvas: "main" });
+  });
+
+  afterEach(() => {
+    leaveBoard("none");
+  });
+
+  it("is left by a navigation, in one entry of the history that back walks to it again", () => {
+    const stop = followBoardHistory();
+    openBoard({ item: "color", view: "system" });
+    const entries = fakeBrowser.history().entries.length;
+    goTo({ page: pricing.id });
+    expect(useBoard.getState().open).toBeNull();
+    expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
+    expect(readUrl().board).toBeNull();
+    expect(fakeBrowser.history().entries).toHaveLength(entries + 1);
+    window.history.back();
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    stop();
+  });
+
+  it("is kept while the editor only follows the frame worked in or the page list", () => {
+    openBoard({ item: "color", view: "system" });
+    pagesChanged();
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    expect(readUrl().board).toEqual({ item: "color", view: "system" });
+  });
+});
+
 describe("back and forward", () => {
   beforeEach(startOnMain);
 
-  it("restore the page, the URL and the variant of each entry", async () => {
+  it("restore the page, the URL and the variant of each entry", () => {
     goTo({ route: "/pricing", variant: "bold" });
     goTo({ page: draft.id });
-    useEditor.getState().select({ frame: draft.id, nodeId: "a" });
+    select({ frame: draft.id, nodeId: "a" });
 
     window.history.back();
-    await settle();
     expect(at()).toMatchObject({
       activePage: boldPricing.id,
       route: "/pricing",
@@ -399,7 +457,6 @@ describe("back and forward", () => {
     expect(outOfStep()).toEqual([]);
 
     window.history.back();
-    await settle();
     expect(at()).toMatchObject({
       activePage: home.id,
       route: "/",
@@ -409,7 +466,6 @@ describe("back and forward", () => {
 
     window.history.forward();
     window.history.forward();
-    await settle();
     expect(at()).toMatchObject({
       activePage: draft.id,
       route: null,
@@ -426,7 +482,7 @@ describe("back and forward", () => {
     await goTo({ canvas: "other" });
 
     window.history.back();
-    await settle();
+    await opened("main");
     expect(at()).toEqual({
       activePage: boldPricing.id,
       canvas: "main",
@@ -436,16 +492,15 @@ describe("back and forward", () => {
     expect(outOfStep()).toEqual([]);
 
     window.history.forward();
-    await settle();
+    await opened("other");
     expect(at()).toMatchObject({ activePage: about.id, canvas: "other" });
     expect(outOfStep()).toEqual([]);
   });
 
-  it("keep the workspace", async () => {
+  it("keep the workspace", () => {
     goTo({ route: "/pricing" });
     useEditor.getState().setWorkspace("prototype");
     window.history.back();
-    await settle();
     expect(readUrl().mode).toBe("prototype");
     expect(outOfStep()).toEqual([]);
   });
@@ -455,7 +510,7 @@ describe("followFrame", () => {
   beforeEach(startOnMain);
 
   it("goes to the URL and variant of a page selected in, in place of the entry", () => {
-    useEditor.getState().select({ frame: boldPricing.id, nodeId: "x" });
+    select({ frame: boldPricing.id, nodeId: "x" });
     expect(at()).toMatchObject({
       activePage: boldPricing.id,
       route: "/pricing",
@@ -470,21 +525,21 @@ describe("followFrame", () => {
   });
 
   it("goes to a page without a URL as itself", () => {
-    useEditor.getState().selectPage(draft.id);
+    selectPage(draft.id);
     expect(at()).toMatchObject({ activePage: draft.id, route: null });
     expect(useEditor.getState().selectedPage).toBe(draft.id);
     expect(outOfStep()).toEqual([]);
   });
 
   it("goes to the page of a view selected in", () => {
-    useEditor.getState().select({ frame: `${pricing.id}#w390`, nodeId: "x" });
+    select({ frame: `${pricing.id}#w390`, nodeId: "x" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(outOfStep()).toEqual([]);
   });
 
   it("stays where it is for a node on the canvas", () => {
     goTo({ route: "/pricing" });
-    useEditor.getState().select({ frame: "node:n1", nodeId: "n1" });
+    select({ frame: "node:n1", nodeId: "n1" });
     expect(at()).toMatchObject({ activePage: pricing.id, route: "/pricing" });
     expect(outOfStep()).toEqual([]);
   });
@@ -500,7 +555,7 @@ describe("pagesChanged", () => {
       pages: mainPages,
     });
     pagesChanged();
-    await settle();
+    await opened("main");
     expect(at()).toMatchObject({ activePage: home.id, canvas: "main" });
     expect(outOfStep()).toEqual([]);
   });
@@ -510,8 +565,9 @@ describe("pagesChanged", () => {
     const added = page("faq.page.json", { route: "/faq" });
     useProject.setState({ pages: [...mainPages, added, about] });
     fakeApi.calls.length = 0;
+    const { frames } = useEditor.getState();
     pagesChanged();
-    await settle();
+    await reopened(frames);
     expect(fakeApi.calls.map((c) => c.method)).toContain("canvas.get");
     expect(useEditor.getState().frames[added.id]).toBeDefined();
     expect(at()).toMatchObject({
@@ -537,7 +593,6 @@ describe("pagesChanged", () => {
     await goTo({ canvas: "main" });
     fakeApi.calls.length = 0;
     pagesChanged();
-    await settle();
     expect(fakeApi.calls).toEqual([]);
     expect(outOfStep()).toEqual([]);
   });
@@ -565,8 +620,9 @@ describe("pagesChanged", () => {
     useProject.setState({
       pages: [home, pricing, boldPricing, boldDraft, about],
     });
+    const { frames } = useEditor.getState();
     pagesChanged();
-    await settle();
+    await reopened(frames);
     expect(at()).toMatchObject({ activePage: home.id, route: "/" });
     expect(outOfStep()).toEqual([]);
   });

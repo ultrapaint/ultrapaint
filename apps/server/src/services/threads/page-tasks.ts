@@ -1,7 +1,8 @@
 /**
  * The tasks that draw or implement pages: implement a page or a component in the
- * application's code, link pages built already to their code, an uploaded Figma file as pages, a
- * canvas redrawn another way, and a sheet of the design system into a canvas.
+ * application's code, link pages built already to their code, an uploaded Figma file as pages, and a
+ * canvas redrawn another way. The components in every variant and state are the Library's boards
+ * (ADR 0045), which no agent draws.
  */
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import {
@@ -18,15 +19,14 @@ import { componentTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import type {
-  ComponentsTask,
   ImplementTask,
   ImportFigmaTask,
   RedrawTask,
 } from "@ultrapaint/contracts/tasks";
-import { outlineOf, walk } from "@ultrapaint/design-document/tree";
+import { walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
-import { ProjectManager } from "../../project.ts";
+import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignTargets } from "../design-targets.ts";
@@ -37,8 +37,15 @@ import { pageEntry, pageNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
+import { componentBody } from "./agent-docs.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
-import { needsTools, pageSchema, taskFailure, userAdds } from "./task-text.ts";
+import {
+  needsTools,
+  OUTLINE_DEPTH,
+  taskFailure,
+  treeForAgent,
+  userAdds,
+} from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
 
@@ -121,25 +128,16 @@ other components have: written from its tree, with a prop for each of its proper
 named prop for each of its slots. Each system component inside it is the application's own component for it, each
 app component inside it the application's component of that name (implement those first).`;
 
-/** How an app component's file reads, for an agent. */
-const APP_FORMAT = `The file: \`tree\` is what every instance draws, its root the instance; \`properties\` are what an
-instance sets, by name: a text, a boolean (a node shown or not), an image's source, or a choice of
-\`members\` whose overrides the tree's nodes keep in \`at\` under "<property>=<member>" beside the
-breakpoints'; each property's \`targets\` are the nodes it sets (\`prop\`: a property of the component the
-node is). \`slots\` are containers of the tree an instance's children fill (\`default\`: the children that name no slot).`;
-
-/** How a system component's file reads, for an agent. */
-const SYSTEM_FORMAT = `The file: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
-(hover, focus, active, highlighted, disabled, open, checked, invalid) are the state classes (\`hover:\`,
-\`focus-visible:\`, \`active:\` or \`data-active:\`, \`data-highlighted:\`, \`disabled:\`, \`data-open:\` or
-\`data-[state=open]:\`, \`data-checked:\`, \`aria-invalid:\`), on the part itself or on the root; \`variantStates\`
-are a state in one variant's value (an outline button's \`hover:\` classes in that variant's), winning over the
-state's own, which win over the variant's; disabled wins over every other state. A part other
-than \`root\` is the element with that \`data-slot\`; \`direction\`, \`align\`, \`crossAlign\` and \`order\` are the
-part's flex layout. \`content\` is what a slot holds when an instance gives it nothing, \`hidden\` the
-optional parts the component leaves out, and \`item\` what a Select's or a Menu's item draws (\`label\`
-and \`image\` the nodes showing the item's). Values are the design system's tokens, or CSS over their
-variables (a hover's \`color-mix()\`).`;
+/** How a component's file reads, for an agent that implements it: the code's names for a look's. */
+const formatOf = (origin: "system" | "app") =>
+  origin === "app"
+    ? `The file, of ${componentBody("app")}`
+    : `The file, of ${componentBody("system")}
+In the code, a state is its state class (\`hover:\`, \`focus-visible:\`, \`active:\` or \`data-active:\`,
+\`data-highlighted:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`, \`aria-invalid:\`),
+on the part itself or on the root, and disabled wins over every other state; a part other than
+root is the element with that \`data-slot\`, its direction, align, crossAlign and order its flex
+layout. Values are the design system's tokens, or CSS over their variables (a hover's \`color-mix()\`).`;
 
 /** The components a tree uses, by name. */
 const usedComponents = (root: DesignNode | null | undefined) => {
@@ -215,56 +213,21 @@ properties and its children in its slots; one the application does not have yet 
 };
 
 /**
- * How `/components` draws its sheet: through the tools, or by writing the pages' files, which
- * the user sizes on the canvas.
- */
-/** Past this many characters a page's design is given as an outline, read in parts with the tools. */
-const DESIGN_INLINE_LIMIT = 40_000;
-/** How deep the outline of a page too big to give whole goes. */
-const OUTLINE_DEPTH = 3;
-
-/**
- * A page's design as a task gives it: its tree as compact JSON, or, too big for that and with the
- * tools there to read it in parts, its outline and how to read the rest.
+ * A page's design as a task gives it, as `read_page` does (`treeForAgent`): its tree as compact
+ * JSON, or, too big for that and with the tools there to read it in parts, its outline and how to
+ * read the rest.
  */
 const designOf = (
   root: DesignNode | null,
   ways: AgentWays,
   page: Page
 ): string => {
-  const whole = JSON.stringify(root);
-  if (!(root && ways.tools && whole.length > DESIGN_INLINE_LIMIT)) {
-    return `The design, as the editor holds it:\n${whole}`;
+  const shown = root && ways.tools ? treeForAgent(root) : null;
+  if (!(shown?.outlined && ways.tools)) {
+    return `The design, as the editor holds it:\n${JSON.stringify(root)}`;
   }
   return `The design is large: its outline, ${OUTLINE_DEPTH} levels down (a node there counts its children). Read each part with ${ways.tools.read_page} (route "${page.file}", node its id) as you write it:
-${JSON.stringify(outlineOf(root, OUTLINE_DEPTH))}`;
-};
-
-const sheetSteps = (ways: AgentWays, canvas: string, designsDir: string) => {
-  const { tools } = ways;
-  const create = tools
-    ? `Create them with ${tools.create_page} and
-   canvas: ${named(canvas)}`
-    : `Write each as a .page.json file in ${canvas === "" ? designsDir : `${designsDir}/${canvas}`}`;
-  return numbered([
-    `Read the design system for each component's category, description and example props
-   (${ways.readDesignSystem(designsDir)}), and ${ways.readComponent} for its props and variants.`,
-    `One page per category named "Components <category>" ("Components forms"), or one page named
-   "Components" when there are fewer than a dozen components. ${create}, without a URL: a sheet is not a screen of the application.`,
-    `In a page, per component: its name as a heading and one line on what it is for, in the design
-   system's text styles; under them a row that wraps, with one instance for each value of each
-   variant prop (a Button in each variant; for two variant props, one row per value of the first).
-   Give every instance its example props and text so it draws something, and show the states it
-   has (disabled, loading, invalid) where they change how it looks.${tools ? "" : ` The page format: ${pageSchema()}`}`,
-    tools
-      ? `Size each page's frame with ${tools.set_frame}, 1440 wide and tall enough to show the whole sheet.`
-      : null,
-    tools
-      ? `Look at every page with ${tools.get_screenshot} and fix what is off: overlaps, clipped content,
-   instances that draw nothing.`
-      : null,
-    `End with a short summary: the pages written, and the components you could not draw and why.${tools ? "" : " Tell the user to size each page's frame on the canvas, 1440 wide and tall enough to show the whole sheet."}`,
-  ]);
+${JSON.stringify(shown.tree)}`;
 };
 
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
@@ -272,7 +235,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   readonly ways: AgentWays;
 }) {
   const { ways } = deps;
-  const project = yield* ProjectManager;
+  const project = yield* OpenProject;
 
   /**
    * Implement (ADR 0030): a page or a component turned into the application's code. A
@@ -479,8 +442,8 @@ ${numbered([
    where this page belongs, ask the user before writing anything.`,
   tokens.step,
   `Write the page with the application's own components and existing layouts; do not copy the
-   design node by node where a component already does the job. Each instance is one of
-   ultrapaint's system components (from "${SYSTEM_FROM}"): write it as the application's own component
+   design node by node where a component already does the job. Each instance of a system
+   component (from "${SYSTEM_FROM}") is written as the application's own component
    for it, its slots as that component's parts (a Dialog's "dialog-footer" is its footer), and
    where the application has none, write one in its component library's way.`,
   `Implement each behaviour note with the application's own services, guards and data; ask the
@@ -511,7 +474,7 @@ ${intro}
 
 ${before}
 ${notesSection(notes, "component")}${tokens.section}
-${app ? APP_FORMAT : SYSTEM_FORMAT}
+${formatOf(component.origin)}
 ${JSON.stringify(component)}
 
 ${codeRules}
@@ -541,7 +504,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
           return yield* taskFailure(
             "import-figma",
             "no Figma file has been uploaded",
-            'Tell them to use "Import Figma…" in the Pages panel, which takes a .fig file, and stop.'
+            'Tell them to use "Import a Figma file…" under the canvases, which takes a .fig file, and stop.'
           );
         }
         const { tools } = ways;
@@ -579,7 +542,7 @@ ultrapaint's system components where they fit.
 Through the ultrapaint MCP server: ${tools.read_figma_import} (the file: frames, components, candidates, the
 mapping so far), ${tools.read_figma_component} and ${tools.read_figma_frame} (one of them, with an outline of its layers),
 ${tools.map_figma_component} (what a Figma component becomes), ${tools.write_figma_frame} (a frame as a page), ${tools.ask_user}
-(a question card for the user), ${tools.list_components} and ${tools.get_component} (ultrapaint's system components).
+(a question card for the user), ${tools.list_components} and ${tools.get_component} (the components a design places).
 
 The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
 Its components, most used first:
@@ -587,7 +550,7 @@ ${components.join("\n") || "- none"}
 ${chosen.warnings.length > 0 ? `\nWhat the reading could not carry over:\n${chosen.warnings.map((w) => `- ${w}`).join("\n")}\n` : ""}
 ${
   designSystem
-    ? `The design system is imported: ${tools.read_design_system} has its tokens and each component's notes.`
+    ? `The design system is imported: ${tools.read_design_system} has its tokens.`
     : `There is no design system yet; components come from ${tools.list_components}. Afterwards, point the user to Sync in the Design system panel, which makes one.`
 }
 
@@ -600,7 +563,7 @@ ${
    - It is custom when nothing here does the job: map it as {kind:"expand"} and its layers are kept.
    - Decorative ones (a status bar, a cursor, a placeholder image) are {kind:"skip"}.
    Where you cannot tell — a candidate that only looks alike, two candidates, a component this
-   repository may have under another name — ask the user ${ways.askUser}, up to four components per
+   design may have under another name — ask the user ${ways.askUser}, up to four components per
    card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
    allowOther for a name you did not think of. Carry on with the answers it returns (if it says the
    questions were shown instead, end your turn; they come as the next message). Do not ask about
@@ -648,47 +611,5 @@ ${ways.editPages(named(id))}
       })
     );
 
-  const components = ({ canvas: id, extra }: ComponentsTask) =>
-    project.use(
-      Effect.gen(function* () {
-        const { canvases, pages } = yield* (yield* PagesService).list;
-        const canvas = canvases.find((c) => c.id === id);
-        if (!canvas) {
-          return yield* unknownCanvas("components", id, canvases);
-        }
-        const catalogue = yield* (yield* ComponentService).catalogue;
-        const known = catalogue.map((c) => {
-          const variants = Object.entries(c.variants)
-            .map(([name, values]) => `${name}=${values.join("|")}`)
-            .join(" ");
-          return `- ${c.name} (${c.category})${variants ? `: ${variants}` : ""}`;
-        });
-        const sheets = pages
-          .filter(
-            (p) =>
-              p.canvas === id &&
-              (p.name.toLowerCase().startsWith("components") ||
-                p.route?.startsWith("/components") === true)
-          )
-          .map((p) => p.file);
-        const { tools } = ways;
-        const { designsDir } = (yield* RepoPaths).settings;
-        return `<ultrapaint-task command="components">
-Draw a sheet of this repository's design system into the canvas "${canvas.name}" (${named(id)}): every component a
-designer would place, in each of its variants, so the canvas shows what there is to design with.
-
-The components, with their category and variants:
-${known.join("\n") || `- none found${tools ? `: call ${tools.list_components}` : ""}`}
-${
-  sheets.length > 0
-    ? `\nThe canvas has sheets already (${sheets.join(", ")}): bring them up to date rather than drawing them again —
-add what is missing, take out what the design system no longer has.\n`
-    : ""
-}
-${sheetSteps(ways, id, designsDir)}
-${userAdds(extra)}</ultrapaint-task>`;
-      })
-    );
-
-  return { adopt, components, implement, importFigma, redraw };
+  return { adopt, implement, importFigma, redraw };
 });

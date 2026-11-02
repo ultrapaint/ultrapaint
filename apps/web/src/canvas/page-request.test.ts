@@ -54,10 +54,9 @@ const gapOf = (root: DesignNode | null) =>
   (root as { gap?: unknown } | null)?.gap;
 
 describe("pageRequest", () => {
-  it("draws a page with the canvas's defaults and the design system, in the preview's look", () => {
+  it("draws a page with the canvas's defaults and the design system", () => {
     const request = drawn({});
     expect(request).toMatchObject({ defaults, designSystem });
-    expect(request.look).toBeUndefined();
     expect(request.mode).toBe("page");
     expect(request.message).toBeUndefined();
   });

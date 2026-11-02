@@ -247,6 +247,7 @@ const runtime = ManagedRuntime.make(
       Agents.layer({
         adaptersDir: path.join(appDir, "adapters"),
         node: process.execPath,
+        version: app.getVersion(),
       })
     ),
     Layer.provideMerge(AgentSettings.layer(dataDir)),

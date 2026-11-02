@@ -5,10 +5,12 @@
  * inline`, with the value in `:root` and `.dark`; the value is then read from, and written to,
  * the variable the alias names, once per theme.
  *
- * Reading follows the stylesheets the preview imports, as the scan does; Tailwind's own
- * `theme.css` gives the defaults, which are listed but never written.
+ * Reading follows the stylesheets the preview imports, and their imports, as Tailwind does;
+ * Tailwind's own `theme.css` gives the defaults, which are listed but never written. Which theme
+ * a block's values belong to is read here once, for every reader: the tokens Sync compares and
+ * the first design system `/init` starts from (`design-system-scan.ts`) alike.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { tokenKindOf } from "@ultrapaint/contracts/token-table";
 import { resolveVars } from "@ultrapaint/contracts/token-value";
@@ -22,22 +24,215 @@ import type {
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
 import {
-  collect,
-  hostEntries,
-  isRootScope,
-  themeOf,
-} from "./design-system-scan.ts";
-import {
   applyThemeDeclaration,
   type Block,
   type Declaration,
   isReset,
+  masked,
   parseStylesheet,
   resetCovers,
 } from "./stylesheet.ts";
 
 const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
+const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
+const DARK_RE =
+  /\.dark(?![\w-])|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@(?:custom-)?variant\s+dark(?![\w-])/;
+const OTHER_THEME_RE = /\[data-theme=["']?([\w-]+)["']?\]/;
+const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
+/** A scope whose variables hold for the whole document: the default theme's. */
+const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
+
+/** A prelude without its `:not(…)`s: what they name is where the block does not apply. */
+const withoutNegations = (prelude: string): string => {
+  let out = prelude;
+  let at = out.indexOf(":not(");
+  while (at !== -1) {
+    let depth = 0;
+    let end = at + 4;
+    for (; end < out.length; end += 1) {
+      depth += out[end] === "(" ? 1 : 0;
+      depth -= out[end] === ")" ? 1 : 0;
+      if (depth === 0) {
+        break;
+      }
+    }
+    out = out.slice(0, at) + out.slice(end + 1);
+    at = out.indexOf(":not(");
+  }
+  return out;
+};
+
+/** Which theme a block's values belong to: the default, `dark`, or a named one. */
+export const themeOf = (prelude: string): string | null => {
+  const applies = withoutNegations(prelude);
+  if (DARK_RE.test(applies)) {
+    return "dark";
+  }
+  const named: RegExpExecArray | null = OTHER_THEME_RE.exec(applies);
+  return named?.[1] && named[1] !== "light" ? named[1] : null;
+};
+
+/**
+ * Whether a block that is no theme's gives the default theme its values: `:root`, `html` or
+ * `:host`, not a class such as `.dark-blue` that only some of the page has.
+ */
+export const isRootScope = (prelude: string): boolean =>
+  ROOT_SCOPE_RE.test(prelude);
+
+/** The stylesheet a package exports under `sub` (its main one when `sub` is empty). */
+const packageEntry = (root: string, sub: readonly string[]): string | null => {
+  const direct = path.join(root, ...sub);
+  if (sub.length > 0 && existsSync(direct)) {
+    return direct;
+  }
+  let manifest: { exports?: Record<string, unknown>; style?: string };
+  try {
+    manifest = JSON.parse(
+      readFileSync(path.join(root, "package.json"), "utf8")
+    );
+  } catch {
+    // A manifest that cannot be read exports nothing we could follow.
+    return null;
+  }
+  const entry = manifest.exports?.[sub.length > 0 ? `./${sub.join("/")}` : "."];
+  const conditions = entry as { style?: string; default?: string } | undefined;
+  const target =
+    typeof entry === "string"
+      ? entry
+      : (conditions?.style ??
+        conditions?.default ??
+        (sub.length === 0 ? manifest.style : undefined));
+  if (!target) {
+    return null;
+  }
+  const file = path.join(root, target);
+  return existsSync(file) ? file : null;
+};
+
+/**
+ * The directory of an installed package, looked up the way Node would from `start`: in its own
+ * `node_modules` or an ancestor's.
+ */
+export const packageRoot = (pkg: string, start: string): string | null => {
+  let dir = path.resolve(start);
+  for (;;) {
+    const root = path.join(dir, "node_modules", pkg);
+    if (existsSync(path.join(root, "package.json"))) {
+      return root;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return null;
+    }
+    dir = parent;
+  }
+};
+
+/** The file a stylesheet import names: relative to the importer, or a package's. */
+export const resolveImport = (
+  specifier: string,
+  from: string,
+  anchorDir: string
+): string | null => {
+  if (specifier.startsWith(".") || specifier.startsWith("/")) {
+    const file = path.resolve(path.dirname(from), specifier);
+    return existsSync(file) ? file : null;
+  }
+  // A package: look it up from the importer, then from the anchor.
+  const [scope = "", name, ...rest] = specifier.split("/");
+  const scoped = scope.startsWith("@");
+  const pkg = scoped ? `${scope}/${name}` : scope;
+  const sub = (scoped ? rest : [name, ...rest]).filter((part): part is string =>
+    Boolean(part)
+  );
+  for (const start of [path.dirname(from), anchorDir]) {
+    const root = packageRoot(pkg, start);
+    if (root) {
+      return packageEntry(root, sub);
+    }
+  }
+  return null;
+};
+
+const readFile = (file: string): string | null => {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    // Imported but missing, unreadable, or gone since it was listed: there is nothing to
+    // read, and the stylesheets that are there are read without it.
+    return null;
+  }
+};
+
+export interface Collected {
+  /** Files read, in order. */
+  readonly files: string[];
+  /** Whether `tailwindcss` itself was imported, which brings its default theme. */
+  tailwind: boolean;
+  /** Tailwind's own theme stylesheet, when it can be found. */
+  tailwindTheme: string | null;
+}
+
+/** The stylesheets the entries import, in the order Tailwind reads them, Tailwind's own aside. */
+export const collect = (
+  entries: readonly string[],
+  anchorDir: string
+): Collected => {
+  const out: Collected = {
+    files: [],
+    tailwind: false,
+    tailwindTheme: null,
+  };
+  const seen = new Set<string>();
+  const visit = (file: string) => {
+    if (seen.has(file)) {
+      return;
+    }
+    seen.add(file);
+    const css = readFile(file);
+    if (css === null) {
+      return;
+    }
+    out.files.push(file);
+    for (const match of masked(css).matchAll(IMPORT_RE)) {
+      const specifier = match[1] as string;
+      if (TAILWIND_IMPORT_RE.test(specifier)) {
+        out.tailwind = true;
+        out.tailwindTheme ??= resolveImport(
+          "tailwindcss/theme.css",
+          file,
+          anchorDir
+        );
+        continue;
+      }
+      const target = resolveImport(specifier, file, anchorDir);
+      if (target?.endsWith(".css")) {
+        visit(target);
+      }
+    }
+  };
+  for (const entry of entries) {
+    visit(entry);
+  }
+  return out;
+};
+
+/**
+ * What the stylesheets the settings name are relative to: the preview's stylesheet as it was
+ * once generated, `<designs>/.ultrapaint/host.css`. It is generated elsewhere since ADR 0034;
+ * the settings keep their meaning.
+ */
+export const hostCssBase = (
+  ctx: Pick<DesignSystemContext, "root" | "settings">
+): string =>
+  path.join(ctx.root, ctx.settings.designsDir, ".ultrapaint", "host.css");
+
+/** The stylesheets the settings name, as files. */
+export const hostEntries = (ctx: DesignSystemContext): string[] =>
+  ctx.settings.hostCss
+    .map((spec) => resolveImport(spec, hostCssBase(ctx), ctx.anchorDir))
+    .filter((file): file is string => file !== null);
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
 export const aliasOf = (value: string): string | undefined => {
@@ -78,6 +273,8 @@ const tokenNameOf = (variable: string): string | null => {
 /** The declarations of the stylesheets, sorted into what reading and writing need. */
 interface Declared {
   readonly blocks: Block[];
+  /** The `@theme` declarations of what belongs to a token, `--text-sm--line-height`, by variable. */
+  readonly companions: Map<string, Declaration>;
   /** The `@theme` declaration of each token, by name; the last one wins, as in CSS. */
   readonly declared: Map<string, Declaration>;
   /** The `@theme` resets, `--color-*` of `--color-*: initial`, which take Tailwind's defaults out. */
@@ -88,21 +285,14 @@ interface Declared {
   readonly scoped: Map<string, Map<string, Declaration>>;
 }
 
-const readFile = (file: string): string | null => {
-  try {
-    return readFileSync(file, "utf8");
-  } catch {
-    // Listed by the imports and gone since: there is nothing to read.
-    return null;
-  }
-};
-
 /** A `@theme` declaration taken in: a token, or a reset of the tokens declared before it. */
 const takeTheme = (out: Declared, decl: Declaration) => {
   if (!isReset(decl.value)) {
     const name = tokenNameOf(decl.name);
     if (name) {
       out.declared.set(name, decl);
+    } else {
+      out.companions.set(decl.name, decl);
     }
     return;
   }
@@ -112,6 +302,11 @@ const takeTheme = (out: Declared, decl: Declaration) => {
       out.declared.delete(declared);
     }
   }
+  for (const companion of [...out.companions.keys()]) {
+    if (resetCovers(decl.name, companion)) {
+      out.companions.delete(companion);
+    }
+  }
   out.resets.push(decl.name);
   out.resetsAt.push(decl);
 };
@@ -119,6 +314,7 @@ const takeTheme = (out: Declared, decl: Declaration) => {
 const declarationsOf = (files: readonly string[]): Declared => {
   const out: Declared = {
     blocks: [],
+    companions: new Map(),
     declared: new Map(),
     resets: [],
     resetsAt: [],
@@ -145,11 +341,17 @@ const declarationsOf = (files: readonly string[]): Declared => {
   return out;
 };
 
-/** Tailwind's own theme: the defaults, by token name, as written, less what the resets take out. */
+/**
+ * Tailwind's own theme as written, less what the resets take out: its variables, a token's
+ * companions among them, and its tokens by name.
+ */
 const defaultsOf = (
   file: string | null,
   resets: readonly string[]
-): Map<string, string> => {
+): {
+  readonly tokens: Map<string, string>;
+  readonly variables: Map<string, string>;
+} => {
   const vars = new Map<string, string>();
   const text = file ? readFile(file) : null;
   if (file && text) {
@@ -162,21 +364,25 @@ const defaultsOf = (
   for (const reset of resets) {
     applyThemeDeclaration(vars, reset, "initial");
   }
-  const defaults = new Map<string, string>();
+  const tokens = new Map<string, string>();
   for (const [variable, value] of vars) {
     const name = tokenNameOf(variable);
     if (name) {
-      defaults.set(name, value);
+      tokens.set(name, value);
     }
   }
-  return defaults;
+  return { tokens, variables: vars };
 };
 
 /** What the reading keeps beyond the tokens: what a write needs to find its place. */
 export interface Reading extends Declared {
   /** Every stylesheet read, absolute, in the order Tailwind reads them. */
   readonly files: readonly string[];
+  /** A font size's line height (`--text-sm--line-height`), the value it ends at; none without. */
+  readonly lineHeightOf: (name: string) => string | undefined;
   readonly source: TokenSource;
+  /** Whether the stylesheets import `tailwindcss`, which brings its default theme. */
+  readonly tailwind: boolean;
   /** The stylesheets the repository writes, absolute, in the order they are read. */
   readonly writable: string[];
 }
@@ -201,7 +407,7 @@ export const read = (ctx: DesignSystemContext): Reading => {
   const notes =
     entries.length === 0
       ? [
-          "No stylesheet is configured for the preview, so no token could be read.",
+          "No stylesheet is configured for the preview (Settings → Stylesheets), so no token could be read.",
         ]
       : [];
   const inside = path.resolve(ctx.root) + path.sep;
@@ -210,7 +416,10 @@ export const read = (ctx: DesignSystemContext): Reading => {
       !NODE_MODULES_RE.test(file) && path.resolve(file).startsWith(inside)
   );
   const declared = declarationsOf(found.files);
-  const defaults = defaultsOf(found.tailwindTheme, declared.resets);
+  const { tokens: defaults, variables: defaultVariables } = defaultsOf(
+    found.tailwindTheme,
+    declared.resets
+  );
   const resolve = resolverOf(declared, defaults);
   const themes = [...declared.scoped.keys()].filter((k) => k !== "");
   const relative = (file: string) => toPosix(path.relative(ctx.root, file));
@@ -278,7 +487,15 @@ export const read = (ctx: DesignSystemContext): Reading => {
   return {
     ...declared,
     files: found.files,
+    lineHeightOf: (name) => {
+      const variable = `--${name}--line-height`;
+      const raw =
+        declared.companions.get(variable)?.value ??
+        defaultVariables.get(variable);
+      return raw === undefined ? undefined : resolve(raw, "");
+    },
     source: { files: found.files.map(relative), notes, themes, tokens },
+    tailwind: found.tailwind,
     writable,
   };
 };

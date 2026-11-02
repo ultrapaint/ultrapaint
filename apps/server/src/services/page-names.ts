@@ -73,8 +73,15 @@ const IN_CANVAS_RE = /^([\w.-]+):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$/;
 /** What a page's name names: the page, maybe one of its nodes. */
 export type PageTargetNamed<P> =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
-  /** A node on the canvas beside the pages (`canvas#c_1`), which is no page. */
-  | { readonly _tag: "Loose"; readonly nodeId: string }
+  /**
+   * A node on the canvas beside the pages (`canvas#c_1`), which is no page; `canvas` is the one
+   * the reference writes first (`marketing:canvas#c_1`).
+   */
+  | {
+      readonly _tag: "Loose";
+      readonly canvas?: string;
+      readonly nodeId: string;
+    }
   /** No page answers to it; `route` is the URL it was read as, null for a file or nothing. */
   | { readonly _tag: "Missing"; readonly route: string | null }
   /** Pages of several canvases answer to it, by canvas. */
@@ -93,7 +100,9 @@ export const pageTargetNamed = <P extends NamedPage>(
   const where = name.trim();
   const ref = parseNodeRef(where);
   if (ref?.page === null) {
-    return { _tag: "Loose", nodeId: ref.nodeId };
+    return ref.canvas === undefined
+      ? { _tag: "Loose", nodeId: ref.nodeId }
+      : { _tag: "Loose", canvas: ref.canvas, nodeId: ref.nodeId };
   }
   const inCanvas = ref ? null : IN_CANVAS_RE.exec(where);
   const page = ref?.page ?? inCanvas?.[2] ?? where;

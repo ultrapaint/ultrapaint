@@ -1,10 +1,9 @@
-import {
-  type Comment,
-  type CommentList,
-  CommentList as CommentListSchema,
-  type CreateCommentInput,
-  type ReplyInput,
-  type UpdateCommentInput,
+import type {
+  Comment,
+  CommentList,
+  CreateCommentInput,
+  ReplyInput,
+  UpdateCommentInput,
 } from "@ultrapaint/contracts/comments";
 import {
   Conflict,
@@ -20,39 +19,29 @@ import {
   FileSystem,
   Layer,
   Path,
-  Schema,
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
-import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
+import {
+  COMMENTS_FILE,
+  commentsCodec,
+  decodeComments,
+  emptyList,
+  renderComments,
+} from "./comments-file.ts";
+import { DesignFiles } from "./design-files.ts";
+import {
+  type EditFailure,
+  EditService,
+  type EditTransaction,
+  updateFile,
+} from "./edit.ts";
 import { GitService } from "./git.ts";
 import { ProfileService } from "./profile.ts";
 import { RepoPaths } from "./repo-paths.ts";
-
-export const COMMENTS_FILE = "comments.json";
-
-const decodeComments = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(CommentListSchema)
-);
-
-const emptyList = (): CommentList => ({ comments: [], version: 1 });
-
-/** The text of `comments.json`, the same whoever writes it. */
-/** The file as it is written: a plain comment says nothing of its kind, as before there were kinds. */
-const renderComments = (list: CommentList) =>
-  `${JSON.stringify(
-    {
-      ...list,
-      comments: list.comments.map(({ kind, ...rest }) =>
-        kind === "behaviour" ? { ...rest, kind } : rest
-      ),
-    },
-    null,
-    2
-  )}\n`;
 
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
 
@@ -104,6 +93,7 @@ export class CommentsService extends Context.Service<
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
@@ -334,54 +324,56 @@ export class CommentsService extends Context.Service<
         canvas: string,
         revise: (comments: readonly Comment[]) => readonly Comment[]
       ) {
+        const file = paths.relative(
+          yield* paths.resolve(yield* fileOf(canvas))
+        );
+        let written: CommentList | null = null;
         // Comments that cannot be read are reported when the editor asks for them; a page's
         // rename or deletion is no reason to refuse, nor to write over what is there.
-        const before = yield* list(canvas).pipe(
-          Effect.catchTag("Conflict", () => Effect.succeed(null))
-        );
-        if (before === null) {
-          return [];
-        }
-        const next = revise(before.comments);
-        const same =
-          next.length === before.comments.length &&
-          next.every((comment, i) => comment === before.comments[i]);
-        if (!same) {
-          const file = yield* paths.resolve(yield* fileOf(canvas));
-          const written: CommentList = { comments: next, version: 1 };
-          yield* tx.write(paths.relative(file), renderComments(written));
+        const before = yield* updateFile(
+          tx,
+          file,
+          commentsCodec(canvas),
+          (saved) => {
+            const next = revise(saved.comments);
+            const same =
+              next.length === saved.comments.length &&
+              next.every((comment, i) => comment === saved.comments[i]);
+            if (same) {
+              return saved;
+            }
+            written = { comments: next, version: 1 };
+            return written;
+          }
+        ).pipe(Effect.catchTag("Conflict", () => Effect.succeed(null)));
+        if (written !== null) {
           yield* events.publish("comments", { canvas, list: written });
         }
-        return before.comments;
+        return before?.comments ?? [];
       });
 
-      // A pull or a checkout changes the file behind the editor's back.
-      if (yield* exists(root)) {
-        yield* fs.watch(root, { recursive: true }).pipe(
-          Stream.filter(
-            (event) =>
-              event._tag !== "Remove" &&
-              path.basename(event.path) === COMMENTS_FILE
-          ),
-          Stream.mapEffect((event) => {
-            const dir = toPosix(
-              path.relative(root, path.dirname(path.resolve(root, event.path)))
-            );
-            const canvas = dir === "" || dir === "." ? ROOT_CANVAS : dir;
-            // An invalid file is reported when the editor asks for it; the watcher lives on.
-            return Effect.exit(list(canvas)).pipe(
-              Effect.flatMap((exit) =>
-                exit._tag === "Success"
-                  ? events.publish("comments", { canvas, list: exit.value })
-                  : Effect.void
-              )
-            );
-          }),
-          Stream.runDrain,
-          Effect.ignore({ log: true }),
-          Effect.forkScoped
-        );
-      }
+      // A pull, a checkout or an undo changes the file behind the editor's back.
+      yield* designFiles.changes(["comments"]).pipe(
+        Stream.mapEffect(({ file, hash }) => {
+          if (hash === "") {
+            return Effect.void;
+          }
+          const dir = toPosix(
+            path.relative(root, path.dirname(path.resolve(paths.root, file)))
+          );
+          const canvas = dir === "" || dir === "." ? ROOT_CANVAS : dir;
+          // An invalid file is reported when the editor asks for it; the subscription lives on.
+          return Effect.exit(list(canvas)).pipe(
+            Effect.flatMap((exit) =>
+              exit._tag === "Success"
+                ? events.publish("comments", { canvas, list: exit.value })
+                : Effect.void
+            )
+          );
+        }),
+        Stream.runDrain,
+        Effect.forkScoped
+      );
 
       // Every change, these and a page's, is made under the journal's lock, one at a time.
       return CommentsService.of({

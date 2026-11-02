@@ -6,7 +6,7 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ChangedNode, DesignNode } from "@ultrapaint/contracts/document";
-import { childrenOf, sameJson } from "./tree.ts";
+import { childrenOf, indexTree, sameJson } from "./tree.ts";
 
 /** A node's fields but its children. */
 const ownOf = (node: DesignNode): Record<string, JsonValue> => {
@@ -20,17 +20,10 @@ const holds = (node: DesignNode) => "children" in node;
 
 /** Every node of a tree by id; null when an id is there twice. */
 const byId = (root: DesignNode): Map<string, DesignNode> | null => {
-  const nodes = new Map<string, DesignNode>();
-  const stack = [root];
-  for (let node = stack.pop(); node; node = stack.pop()) {
-    if (nodes.has(node.id)) {
-      return null;
-    }
-    nodes.set(node.id, node);
-    // Pushed last first, so the nodes come in the order a tree is read.
-    stack.push(...childrenOf(node).toReversed());
-  }
-  return nodes;
+  const { nodes, repeated } = indexTree(root);
+  return repeated
+    ? null
+    : new Map(Array.from(nodes, ([id, { node }]) => [id, node]));
 };
 
 const sameIds = (a: readonly DesignNode[], b: readonly DesignNode[]) =>

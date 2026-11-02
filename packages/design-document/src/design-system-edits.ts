@@ -11,6 +11,7 @@ import type {
   TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
+import { defaultTheme } from "@ultrapaint/contracts/themes";
 import {
   addTokens,
   mapTokens,
@@ -27,13 +28,9 @@ export type Edited = DesignSystem | { readonly problem: string };
 
 const TOKEN_NAME_RE = /^[a-z0-9][\w.-]*$/i;
 
-/** The theme a design system's plain values are in: its first, `light` when it names none. */
-export const defaultThemeOf = (ds: DesignSystem): string =>
-  ds.themes?.[0] ?? "light";
-
 /** The theme an operation names, as a change says it: left out for the default theme. */
 const themeOf = (ds: DesignSystem, theme: string | undefined) =>
-  theme === undefined || theme === defaultThemeOf(ds) ? undefined : theme;
+  theme === undefined || theme === defaultTheme(ds) ? undefined : theme;
 
 /** What an operation is called in a problem and in the undo history. */
 const named = (op: DesignSystemEdit): string => {
@@ -285,33 +282,53 @@ export const applyEdits = (
 };
 
 /**
- * What the operations change in the tokens' values, as the code is told it (`codeTokens: auto`):
- * a value set or taken out of a theme, a token added with its values, a token taken out.
+ * Token changes another side gives (Sync taking the code's, Figma's or DESIGN.md's values) as
+ * the editor's operations, so that they are checked as an edit is: a value set or another
+ * theme's taken out of a token the design system lists, a token it does not list added with
+ * the values given, one taken out. A change `applyEdits` cannot make is a problem it names (a
+ * name that says no kind of token, a theme the design system does not have), not one left out.
  */
-export const tokenChangesOf = (
+export const editsOf = (
   ds: DesignSystem,
-  ops: readonly DesignSystemEdit[]
-): TokenChange[] =>
-  ops.flatMap((op): TokenChange[] => {
-    if (op.op === "setValue") {
-      const theme = themeOf(ds, op.theme);
-      return [
-        op.value === null
-          ? { name: op.name, remove: true, ...(theme && { theme }) }
-          : { name: op.name, value: op.value.trim(), ...(theme && { theme }) },
-      ];
+  changes: readonly TokenChange[]
+): DesignSystemEdit[] => {
+  const byName = new Map<string, TokenChange[]>();
+  for (const c of changes) {
+    byName.set(c.name, [...(byName.get(c.name) ?? []), c]);
+  }
+  const each = (name: string, c: TokenChange): DesignSystemEdit =>
+    c.remove && c.theme === undefined
+      ? { name, op: "removeToken" }
+      : {
+          name,
+          op: "setValue",
+          value: c.remove ? null : (c.value ?? null),
+          ...(c.theme !== undefined && { theme: c.theme }),
+        };
+  return [...byName].flatMap(([name, own]): DesignSystemEdit[] => {
+    const given = (c: TokenChange) => !c.remove && c.value !== undefined;
+    const value = own.find((c) => c.theme === undefined && given(c))?.value;
+    if (has(ds, name) || value === undefined) {
+      // A token the design system has not, with nothing to add it with, is named in a problem.
+      return own.map((c) => each(name, c));
     }
-    if (op.op === "addToken") {
-      return [
-        { name: op.name, value: op.value.trim() },
-        ...Object.entries(op.values ?? {}).flatMap(([theme, value]) => {
-          const other = themeOf(ds, theme);
-          return other ? [{ name: op.name, theme: other, value }] : [];
-        }),
-      ];
-    }
-    return op.op === "removeToken" ? [{ name: op.name, remove: true }] : [];
+    const values = Object.fromEntries(
+      own.flatMap((c) =>
+        c.theme !== undefined && given(c) && c.value !== undefined
+          ? [[c.theme, c.value] as const]
+          : []
+      )
+    );
+    return [
+      {
+        name,
+        op: "addToken",
+        value,
+        ...(Object.keys(values).length > 0 && { values }),
+      },
+    ];
   });
+};
 
 /** What the undo history calls the operations: the one's own words, or a count. */
 export const editLabel = (ops: readonly DesignSystemEdit[]): string => {

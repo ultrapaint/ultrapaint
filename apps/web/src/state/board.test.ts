@@ -4,23 +4,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
 import {
   boardTree,
-  fitFirstView,
   followBoardHistory,
   leaveBoard,
   openBoard,
   openBoardInUrl,
+  pageSelectionLeft,
   pickOf,
   pickOnBoard,
   placeOfUrl,
   railTabsFor,
-  setBoardFrames,
+  setBoardSize,
+  showBoards,
+  startBoardView,
   useBoard,
 } from "./board.ts";
 import { measureViewportWith, setView, zoomToFit } from "./camera.ts";
 import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
-import { allFrames, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
 import { isolate, useIsolation } from "./isolation.ts";
+import { select } from "./selection.ts";
+import { allFrames } from "./surface.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -69,13 +73,16 @@ beforeEach(() => {
 
 describe("openBoard", () => {
   it("fits the boards between the panels once measured, the first time an item is opened only", () => {
-    const wide = {
-      "board:library/Plan/tone=a": { height: 200, width: 900, x: 0, y: 0 },
-      "board:library/Plan/tone=b": { height: 200, width: 900, x: 924, y: 0 },
+    const boards = ["board:library/Plan/tone=a", "board:library/Plan/tone=b"];
+    /** The two boards drawn side by side, 900 wide each with 24 between them. */
+    const drawn = () => {
+      showBoards(boards, "row");
+      for (const id of boards) {
+        setBoardSize(id, { height: 200, width: 900 });
+      }
     };
     openBoard({ item: "Plan", view: "library" });
-    setBoardFrames(wide);
-    fitFirstView();
+    drawn();
     const fitted = useEditor.getState().view;
     // 1824 wide in the 1000 between the panels, the margins kept on both sides.
     expect(fitted.zoom).toBeCloseTo((1000 - 64) / 1824);
@@ -84,18 +91,15 @@ describe("openBoard", () => {
     setView({ x: 500, zoom: 0.25 });
     openBoard({ item: "color", view: "system" });
     openBoard({ item: "Plan", view: "library" });
-    setBoardFrames(wide);
-    fitFirstView();
+    drawn();
     expect(useEditor.getState().view).toMatchObject({ x: 500, zoom: 0.25 });
   });
 
   it("leaves the camera where the user moved it before the boards were measured", () => {
     openBoard({ item: "Plan", view: "library" });
+    showBoards(["board:library/Plan/a"], "column");
     setView({ x: 10 });
-    setBoardFrames({
-      "board:library/Plan/a": { height: 200, width: 3000, x: 0, y: 0 },
-    });
-    fitFirstView();
+    setBoardSize("board:library/Plan/a", { height: 200, width: 3000 });
     expect(useEditor.getState().view).toMatchObject({ x: 10, zoom: 1 });
   });
 
@@ -113,10 +117,13 @@ describe("openBoard", () => {
     expect(fakeBrowser.history().entries).toHaveLength(2);
   });
 
-  it("selects nothing of a page while it is open", () => {
+  it("selects nothing of a page while it is open, and keeps what the page had selected", () => {
+    expect(pageSelectionLeft()).toEqual([HERO]);
     openBoard({ item: "Button", view: "library" });
-    useEditor.getState().select(HERO);
+    select(HERO);
     expect(useEditor.getState().selection).toBeNull();
+    // What a look takes its content from: the page's selection, put aside.
+    expect(pageSelectionLeft()).toEqual([HERO]);
   });
 
   it("goes from item to item in the same entry, each item's camera kept", () => {
@@ -182,8 +189,10 @@ describe("leaveBoard", () => {
   });
 
   it("gives way to the prototype, the page's selection put aside for the canvas", () => {
+    const stop = startBoardView();
     openBoard({ item: "color", view: "system" });
     useEditor.getState().setWorkspace("prototype");
+    stop();
     expect(useBoard.getState().open).toBeNull();
     expect(useEditor.getState().view).toEqual(PAGE_VIEW);
     expect(readUrl().board).toBeNull();
@@ -213,10 +222,23 @@ describe("picks", () => {
 });
 
 describe("frames", () => {
+  it("keep the box of a board that did not move when another says its size", () => {
+    const [a, b] = ["board:system/color/a", "board:system/color/b"];
+    openBoard({ item: "color", view: "system" });
+    showBoards([a, b], "column");
+    setBoardSize(a, { height: 100, width: 400 });
+    setBoardSize(b, { height: 100, width: 400 });
+    const first = useBoard.getState().frames[a];
+    setBoardSize(b, { height: 300, width: 400 });
+    expect(useBoard.getState().frames[a]).toBe(first);
+    expect(useBoard.getState().frames[b]).toMatchObject({ height: 300 });
+  });
+
   it("are the camera's while a board view is open, the pages' after", () => {
     openBoard({ item: "color", view: "system" });
     const box = { height: 200, width: 400, x: 0, y: 0 };
-    setBoardFrames({ "board:system/color/palette": box });
+    showBoards(["board:system/color/palette"], "column");
+    setBoardSize("board:system/color/palette", { height: 200, width: 400 });
     expect(allFrames()).toEqual({ "board:system/color/palette": box });
     zoomToFit();
     // 1000 pixels seen, less 60 a side, over 400.
@@ -275,7 +297,7 @@ describe("an app component's board", () => {
       frame: "board:library/Plan/tone=default",
       root: PLAN.tree,
     });
-    useEditor.getState().select({ frame: FEATURED, nodeId: "price" });
+    select({ frame: FEATURED, nodeId: "price" });
     expect(useEditor.getState().selection).toEqual({
       frame: FEATURED,
       nodeId: "price",
@@ -287,9 +309,7 @@ describe("an app component's board", () => {
     });
     expect(boardTree(useBoard.getState().open, {})?.frame).toBe(FEATURED);
     // Nothing else of a board takes a selection.
-    useEditor
-      .getState()
-      .select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
+    select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
     expect(useEditor.getState().selection?.frame).toBe(FEATURED);
     // Another item leaves the tree, and selects nothing.
     openBoard({ item: "Button", view: "library" });

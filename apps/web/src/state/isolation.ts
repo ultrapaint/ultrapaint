@@ -20,8 +20,10 @@ import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
-import { editFrameAs, isBoardFrame, useDocuments } from "./documents.ts";
+import { editFrameAs, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { frameRefOf } from "./frame-ref.ts";
+import { select } from "./selection.ts";
 
 /** A choice's member edits land on. */
 export interface VariantEdited {
@@ -93,7 +95,7 @@ export const isolate = (
   frame: string,
   node: InstanceNode,
   {
-    select = true,
+    select: selects = true,
     variant = null,
   }: { readonly select?: boolean; readonly variant?: VariantEdited | null } = {}
 ): boolean => {
@@ -112,27 +114,29 @@ export const isolate = (
   useIsolation.setState({ isolated });
   editIn(isolated);
   showTree();
-  if (select) {
-    useEditor.getState().select({ frame, nodeId: file.tree.id });
+  if (selects) {
+    select({ frame, nodeId: file.tree.id });
   }
   return true;
 };
 
-/** Back to the page: the page's instance it was entered from is selected again. */
-export const leaveIsolation = () => {
+/**
+ * Back to the page: the page's instance it was entered from is selected again. Whether there was
+ * a component edited in place to leave.
+ */
+export const leaveIsolation = (): boolean => {
   const { isolated } = useIsolation.getState();
   if (!isolated) {
-    return;
+    return false;
   }
   useIsolation.setState({ isolated: null });
   editIn(null);
-  useEditor
-    .getState()
-    .select(
-      isBoardFrame(isolated.frame)
-        ? null
-        : { frame: isolated.frame, nodeId: isolated.entered }
-    );
+  select(
+    frameRefOf(isolated.frame).kind === "board"
+      ? null
+      : { frame: isolated.frame, nodeId: isolated.entered }
+  );
+  return true;
 };
 
 /** The member edits land on from now on; null for the component's own fields. */
@@ -146,20 +150,31 @@ export const editVariant = (variant: VariantEdited | null) => {
   editIn(next);
 };
 
-// Another canvas, or the prototype, leaves the component.
-useEditor.subscribe((now, before) => {
-  if (now.canvas !== before.canvas || now.workspace !== before.workspace) {
-    leaveIsolation();
-  }
-});
-
-// A file gone leaves the component; a canvas read again puts its tree back.
-useComponents.subscribe(showTree);
-useDocuments.subscribe((now, before) => {
-  if (now.docs !== before.docs) {
-    showTree();
-  }
-});
+/**
+ * Starts following what an edit in place depends on: another canvas, or the prototype, leaves the
+ * component; its file gone leaves it too; a canvas read again puts its tree back. The app starts
+ * it, as a test that needs it does; the answer stops it.
+ */
+export const startIsolation = (): (() => void) => {
+  const offs = [
+    useEditor.subscribe((now, before) => {
+      if (now.canvas !== before.canvas || now.workspace !== before.workspace) {
+        leaveIsolation();
+      }
+    }),
+    useComponents.subscribe(showTree),
+    useDocuments.subscribe((now, before) => {
+      if (now.docs !== before.docs) {
+        showTree();
+      }
+    }),
+  ];
+  return () => {
+    for (const off of offs) {
+      off();
+    }
+  };
+};
 
 /** What a frame is told of the instance edited in it: the one, drawn at the variant edited. */
 export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {

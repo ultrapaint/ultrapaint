@@ -263,7 +263,7 @@ export const compareDocument = (
 /**
  * The code's tokens as the engine compares them. Both sides name tokens the same way, so each
  * is the design system's of its name, and one the design system leaves out on purpose
- * (`omitted`) is left out. A style system's own default counts as the code having the token when
+ * (`omitted`) is left out, as is one whose name says no kind, which it has no list for. A style system's own default counts as the code having the token when
  * the design system lists it, but is never offered. The code waits for every value of the
  * design system's it does not have, except the spacing base: a code that does not name it has
  * the style system's.
@@ -278,7 +278,7 @@ const codeSide = (
   const theirs = valuesByKey(code);
   const listed = new Map(design.map((t) => [t.name, t] as const));
   const tokens = code
-    .filter((t) => t.own || listed.has(t.name))
+    .filter((t) => (t.own && t.kind !== "other") || listed.has(t.name))
     .map((t): SideToken => {
       const values = Object.entries({ "": t.value, ...t.values }).filter(
         ([theme]) => t.own || baselineKey(t.name, theme || undefined) in ours

@@ -3,7 +3,7 @@
 Status: accepted, 2026-10-28. Follows 0037, whose rule it applies again. Amends 0024 (a
 `ClassWriter` takes a node's declarations), 0029 (a spec read off the code is linked on every
 path) and 0031 (a built-in agent is one descriptor in `acp`). Plan:
-`docs/PLAN-architecture-2.md`, steps 1 to 13. The terms are in `GLOSSARY.md`.
+`docs/plans/done/PLAN-architecture-2.md`, steps 1 to 13. The terms are in `GLOSSARY.md`.
 
 ## Context
 

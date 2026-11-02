@@ -40,40 +40,70 @@ const isOldToolCall = (item: unknown): item is Record<string, unknown> => {
   );
 };
 
+/** A turn's usage as threads wrote it before it was ACP's: cached reads were `cachedInputTokens`. */
+const isOldUsage = (item: unknown): item is Record<string, unknown> => {
+  if (typeof item !== "object" || item === null) {
+    return false;
+  }
+  const { kind, usage } = item as Record<string, unknown>;
+  return (
+    kind === "turn_end" &&
+    typeof usage === "object" &&
+    usage !== null &&
+    "cachedInputTokens" in usage
+  );
+};
+
+/** An item written before, as this version writes it. */
+const migrateItem = (item: unknown): unknown => {
+  if (isOldToolCall(item)) {
+    return {
+      ...item,
+      content: Array.isArray(item.content)
+        ? item.content.map((c: unknown) =>
+            typeof c === "string" ? { text: c, type: "text" } : c
+          )
+        : item.content,
+      locations: Array.isArray(item.locations)
+        ? item.locations.map((l: unknown) =>
+            typeof l === "string" ? { path: l } : l
+          )
+        : item.locations,
+    };
+  }
+  if (isOldUsage(item)) {
+    const { cachedInputTokens, ...usage } = item.usage as Record<
+      string,
+      unknown
+    >;
+    return {
+      ...item,
+      usage: { ...usage, cachedReadTokens: cachedInputTokens },
+    };
+  }
+  return item;
+};
+
 /**
- * Threads written before tool calls kept their content and locations structured: both were
- * flattened to strings. An old conversation is still worth reading, so the strings become text
- * and bare paths on the way in. Anything already current is returned as it came, so a thread
- * written by this version is not rebuilt on every start.
+ * Threads written by earlier versions: tool calls whose content and locations were flattened
+ * to strings, which become text and bare paths, and a turn's usage before it was ACP's. An old
+ * conversation is still worth reading. Anything already current is returned as it came, so a
+ * thread written by this version is not rebuilt on every start.
  */
 export const migrateStored = (stored: unknown): unknown => {
   const items =
     typeof stored === "object" && stored !== null
       ? (stored as { items?: unknown }).items
       : undefined;
-  if (!(Array.isArray(items) && items.some(isOldToolCall))) {
+  if (
+    !(
+      Array.isArray(items) &&
+      items.some((item) => isOldToolCall(item) || isOldUsage(item))
+    )
+  ) {
     return stored;
   }
-  return {
-    ...(stored as object),
-    items: items.map((item: unknown) =>
-      isOldToolCall(item)
-        ? {
-            ...item,
-            content: Array.isArray(item.content)
-              ? item.content.map((c: unknown) =>
-                  typeof c === "string" ? { text: c, type: "text" } : c
-                )
-              : item.content,
-            locations: Array.isArray(item.locations)
-              ? item.locations.map((l: unknown) =>
-                  typeof l === "string" ? { path: l } : l
-                )
-              : item.locations,
-          }
-        : item
-    ),
-  };
+  return { ...(stored as object), items: items.map(migrateItem) };
 };
 
 /**
@@ -117,6 +147,15 @@ export class ThreadStore extends Context.Service<
       patch: (item: ThreadItem) => ThreadItem
     ) => Effect.Effect<void>;
     readonly push: (id: string, item: ThreadItem) => Effect.Effect<void>;
+    /**
+     * A streamed chunk at the end of an agent's message or thought: published as the chunk
+     * alone (`itemText`), where a patch publishes the whole item.
+     */
+    readonly appendText: (
+      id: string,
+      itemId: string,
+      text: string
+    ) => Effect.Effect<void>;
     readonly remove: (id: string) => Effect.Effect<void>;
     readonly update: (
       id: string,
@@ -283,12 +322,37 @@ export class ThreadStore extends Context.Service<
         });
       });
 
+      const appendText = Effect.fnUntraced(function* (
+        id: string,
+        itemId: string,
+        text: string
+      ) {
+        const entry = threads.get(id);
+        const index = entry?.items.findIndex((i) => i.id === itemId) ?? -1;
+        const existing = entry?.items[index];
+        if (
+          !(entry && existing) ||
+          (existing.kind !== "agent" && existing.kind !== "thought")
+        ) {
+          return;
+        }
+        entry.items[index] = { ...existing, text: existing.text + text };
+        yield* persistSoon(id);
+        yield* events.publish("agent", {
+          itemId,
+          text,
+          threadId: id,
+          type: "itemText",
+        });
+      });
+
       return ThreadStore.of({
         add: Effect.fnUntraced(function* (thread: Thread) {
           threads.set(thread.id, { items: [], thread });
           yield* persist(thread.id);
           yield* events.publish("agent", { thread, type: "thread" });
         }),
+        appendText,
         get: (id) => Effect.sync(() => threads.get(id)?.thread),
         hasItem: (id, itemId) =>
           threads.get(id)?.items.some((i) => i.id === itemId) ?? false,

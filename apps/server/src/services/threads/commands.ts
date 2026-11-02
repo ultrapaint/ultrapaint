@@ -3,7 +3,8 @@
  * composer offers them after a `/`; the server reads one as the request it is (`parseCommand`)
  * and gives the agent the task the request stands for (`tasks.ts`) instead of what was typed,
  * which the transcript keeps. A command that names something that is not there becomes a task
- * that tells the user why.
+ * that tells the user why. Any other goes to the agent as typed: the commands its session says
+ * it has (a thread's `agentCommands`) are offered after these.
  */
 import {
   parseCommand,
@@ -32,9 +33,13 @@ export class SlashCommands extends Context.Service<
      * The task a prompt stands for, and what the thread that runs it is for; null when it does
      * not start with a command this server knows (it then goes to the agent as it is, which may
      * have commands of its own). A task that could not be prepared at all (no project open) is
-     * what was typed, and why it could not is in the log.
+     * what was typed, and why it could not is in the log. `tools`: the agent has the editor's
+     * tools; the server's MCP setting when it is not said.
      */
-    readonly expand: (text: string) => Effect.Effect<AgentTask | null>;
+    readonly expand: (
+      text: string,
+      options?: { readonly tools?: boolean }
+    ) => Effect.Effect<AgentTask | null>;
     readonly list: readonly SlashCommand[];
   }
 >()("ultrapaint/server/SlashCommands") {
@@ -44,7 +49,10 @@ export class SlashCommands extends Context.Service<
       const tasks = yield* AgentTasks;
       const log = yield* AppLog;
 
-      const expand = Effect.fnUntraced(function* (text: string) {
+      const expand = Effect.fnUntraced(function* (
+        text: string,
+        options: { readonly tools?: boolean } = {}
+      ) {
         const parsed = parseCommand(text);
         if (parsed === null) {
           return null;
@@ -56,7 +64,7 @@ export class SlashCommands extends Context.Service<
           };
         }
         const { request } = parsed;
-        return yield* tasks.task(request).pipe(
+        return yield* tasks.task(request, options).pipe(
           Effect.catch((failure) => {
             const { command, message, next } = failure;
             if (next !== undefined) {

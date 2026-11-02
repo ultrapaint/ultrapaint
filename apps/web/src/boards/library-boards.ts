@@ -24,7 +24,8 @@ import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { label } from "./board-nodes.ts";
+import { label, nodeCss } from "./board-nodes.ts";
+import { cellId, pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 /** The Library's first item: every component, one click away from its board. */
@@ -79,10 +80,10 @@ const drawnStates = (component: SystemComponentFile): ComponentState[] => {
 const BOARD_PAGE_WIDTH = 1200;
 
 /** What a tile shows a component in: its width but its padding. */
-export const STAGE_WIDTH = 200 - 2 * 12;
+const STAGE_WIDTH = 200 - 2 * 12;
 
 /** How much the Overview scales an app component drawn `width` wide to fit its tile. */
-export const stageScale = (width: number) =>
+const stageScale = (width: number) =>
   width > STAGE_WIDTH ? STAGE_WIDTH / width : 1;
 
 /** How wide an app component's tree draws by itself; null when it hugs what it holds. */
@@ -93,8 +94,6 @@ const drawnWidth = (tree: DesignNode): number | null => {
   }
   return width === "fill" ? BOARD_PAGE_WIDTH : null;
 };
-
-const NODE = "data-ed-node";
 
 /**
  * How wide the Overview drew its app components, from what it measured of them (`example:<Name>`)
@@ -133,10 +132,10 @@ const overviewCss = (
   wide: readonly { readonly name: string; readonly width: number }[]
 ) =>
   [
-    `[${NODE}^="stage:"] { overflow: hidden; justify-content: safe center; }`,
+    `${nodeCss("stage:", "^=")} { overflow: hidden; justify-content: safe center; }`,
     ...wide.map(
       (w) =>
-        `[${NODE}="example:${w.name}"] { zoom: ${stageScale(w.width).toFixed(4)}; flex-shrink: 0; }`
+        `${nodeCss(`example:${w.name}`)} { zoom: ${stageScale(w.width).toFixed(4)}; flex-shrink: 0; }`
     ),
   ].join("\n");
 
@@ -241,7 +240,7 @@ export const overviewBoard = (
               },
             ],
             gap: 8,
-            id: `item:${c.name}`,
+            id: pickId({ kind: "item", name: c.name }),
             padding: 12,
             radius: 8,
             type: "column",
@@ -278,38 +277,8 @@ export const overviewBoard = (
 
 // ---- A system component's board ----
 
-const CELL_PREFIX = "cell:";
+/** How a row or a column of the base is named: no member, no state. */
 const BASE_WORD = "base";
-
-/**
- * The id of a cell of a system component's board, from the place of the look it shows (B6):
- * `cell:variant=outline:hover`, `cell:base:base` for the base itself.
- */
-export const cellId = ({ state, variant }: LookPlace) =>
-  `${CELL_PREFIX}${variant ? `${variant.axis}=${variant.member}` : BASE_WORD}:${state ?? BASE_WORD}`;
-
-/** The place of the look a cell shows; null for any other node. */
-export const placeOfCell = (nodeId: string): LookPlace | null => {
-  if (!nodeId.startsWith(CELL_PREFIX)) {
-    return null;
-  }
-  const rest = nodeId.slice(CELL_PREFIX.length);
-  const at = rest.lastIndexOf(":");
-  const member = rest.slice(0, at);
-  const state = rest.slice(at + 1);
-  const eq = member.indexOf("=");
-  const known = COMPONENT_STATES.find((s) => s === state) ?? null;
-  if (at < 0 || (state !== BASE_WORD && known === null)) {
-    return null;
-  }
-  return {
-    state: known,
-    variant:
-      eq < 0
-        ? null
-        : { axis: member.slice(0, eq), member: member.slice(eq + 1) },
-  };
-};
 
 /** A state's name over its column: the base is what an instance shows by default. */
 const stateTitle = (state: ComponentState | null) =>
@@ -390,8 +359,6 @@ const cellOf = (
   };
 };
 
-const GRID = "data-ed-node";
-
 /**
  * The matrix's stylesheet: a grid of a column for the members' names and one a state, so that a
  * state's cells line up under its name whatever each draws. A document lays out rows and
@@ -399,8 +366,8 @@ const GRID = "data-ed-node";
  */
 const gridCss = (id: string, columns: number) =>
   [
-    `[${GRID}="${id}"] { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 8px; row-gap: 4px; }`,
-    `[${GRID}="${id}"] > [${GRID}^="member:"] { justify-self: start; }`,
+    `${nodeCss(id)} { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 8px; row-gap: 4px; }`,
+    `${nodeCss(id)} > ${nodeCss("member:", "^=")} { justify-self: start; }`,
   ].join("\n");
 
 /**
@@ -409,7 +376,7 @@ const gridCss = (id: string, columns: number) =>
  * named; then a board for each other axis, its members side by side under their names, each in
  * its default state. A component without an axis is one row of states.
  */
-export const systemComponentBoards = (
+const systemComponentBoards = (
   file: SystemComponentFile,
   meta: ComponentMeta | undefined
 ): Board[] => {
@@ -521,12 +488,8 @@ export const appVariantOfBoard = (name: string): AppVariant | null => {
     : { member: name.slice(eq + 1), property: name.slice(0, eq) };
 };
 
-/** The sheet of an app component's board, named for the variant it draws: `variant:tone=featured`. */
-export const appSheetId = (variant: AppVariant | null) =>
-  `variant:${appBoardName(variant)}`;
-
 /** The instance a board of an app component draws, which a double-click edits in place. */
-export const APP_INSTANCE = "instance";
+const APP_INSTANCE = "instance";
 
 /**
  * How wide an app component's sheet is: its tree's width and the margins around it, a page's
@@ -581,7 +544,7 @@ export const appComponentBoards = (file: AppComponentFile): Board[] => {
       root: {
         // Named for the variant it draws (B6): a click picks it, for the agents to be told.
         ...sheet(
-          appSheetId(variant),
+          pickId({ board: appBoardName(variant), kind: "variant" }),
           [inPlace.instance],
           appSheetWidth(file.tree)
         ),

@@ -1,7 +1,7 @@
 # ADR 0035: `design.tokens.json` holds the values
 
 Status: accepted, 2026-10-26. Amends 0028 (`design.tokens.json` is no longer an export compared in
-Sync: it is where the values are kept). Plan: `docs/PLAN-editor-renderer.md`, task 5.3.
+Sync: it is where the values are kept). Plan: `docs/plans/done/PLAN-editor-renderer.md`, task 5.3.
 
 ## Context
 

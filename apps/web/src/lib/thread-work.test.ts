@@ -1,4 +1,4 @@
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import type { ThreadItem, ToolKind } from "@ultrapaint/contracts/threads";
 import { describe, expect, it } from "vitest";
 import {
   formatDuration,
@@ -10,7 +10,7 @@ import {
 
 const tool = (
   id: string,
-  toolKind: string | undefined,
+  toolKind: ToolKind | undefined,
   status: "completed" | "failed" | "in_progress" = "completed",
   title = "Read file"
 ): ThreadItem => ({

@@ -2,7 +2,7 @@
  * Pictures of nodes, for agents that want to see what they made.
  *
  * The server has no browser to draw with; the editor has one, and a preview in it that draws with
- * the repository's own stylesheet and components. So a picture is asked of every editor that is
+ * the design's look, its components and design system. So a picture is asked of every editor that is
  * open, and the first to draw it answers. An editor that cannot (its preview is not running)
  * says why, and the request fails only once every editor asked has said so.
  */
@@ -63,7 +63,7 @@ export class Screenshots extends Context.Service<
             SubscriptionRef.update(editors, (n) => n + 1),
             () => SubscriptionRef.update(editors, (n) => n - 1)
           ),
-          events.subscribe("screenshot")
+          events.follow("screenshot")
         )
       );
 

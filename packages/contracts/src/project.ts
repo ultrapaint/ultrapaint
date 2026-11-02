@@ -24,7 +24,7 @@ export const ProjectInfo = Schema.Struct({
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
   /**
-   * The settings in force, as `settings.get` gives them: the editor is told of any change, a
+   * The settings in force: the editor is told of any change, a
    * field the rest of the info does not carry (`libraryDirs`) included. Absent when none are set.
    */
   settings: Schema.optional(Settings),

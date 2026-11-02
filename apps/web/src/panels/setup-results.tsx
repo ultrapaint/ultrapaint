@@ -4,6 +4,7 @@
  * used off it), Map's mapping with a choice per value, and Migrate's batches.
  */
 import {
+  defaultsOf,
   type MappingEntry,
   type MigrationBatch,
   USAGE_KINDS,
@@ -24,7 +25,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
-import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 
@@ -33,7 +33,7 @@ const FIRST_VALUES = 12;
 /** Mapping entries listed before "Show all". */
 const FIRST_ENTRIES = 30;
 const KEEP = "__keep";
-/** Tailwind's own colours a design system may leave out, drawn all the same. */
+/** The style system's own colours a design system may leave out, drawn all the same. */
 const BASICS: Record<string, string> = {
   "color-black": "#000000",
   "color-white": "#ffffff",
@@ -86,17 +86,25 @@ const Swatch = ({ kind, value }: { kind: UsageKind; value: string }) => {
   );
 };
 
+const capitalised = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
 /** What a value off the system is, after how it is written. */
 const noteOf = (value: UsageValue) => {
   if (!value.token) {
     return "";
   }
-  return value.kind === "element"
-    ? ` · the library has ${value.token}`
-    : ` · is ${value.token}`;
+  return ` · is ${value.token}`;
 };
 
-const ValueRow = ({ value }: { value: UsageValue }) => {
+const ValueRow = ({
+  defaults,
+  value,
+}: {
+  /** Whose the values of status `default` are: `Tailwind's`. */
+  defaults: string;
+  value: UsageValue;
+}) => {
   const [where] = value.locations;
   return (
     <li
@@ -111,7 +119,7 @@ const ValueRow = ({ value }: { value: UsageValue }) => {
         </span>
       </span>
       <span className="truncate font-body text-muted-foreground">
-        {value.status === "raw" ? "Written out" : "Tailwind's"}
+        {value.status === "raw" ? "Written out" : capitalised(defaults)}
         {noteOf(value)}
         {where ? ` · ${where.file}:${where.line}` : ""}
       </span>
@@ -158,9 +166,7 @@ export const InventoryResult = ({
               <span className="flex items-baseline justify-between font-body">
                 <span>{label}</span>
                 <span className="text-muted-foreground">
-                  {kind === "element"
-                    ? `${totals.raw} plain`
-                    : `${totals.system} · ${totals.default} · ${totals.raw}`}
+                  {`${totals.system} · ${totals.default} · ${totals.raw}`}
                 </span>
               </span>
               <Bar totals={totals} />
@@ -174,7 +180,7 @@ export const InventoryResult = ({
           </span>
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-muted-foreground/40" />
-            Tailwind's
+            {capitalised(defaultsOf(inventory))}
           </span>
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-destructive" />
@@ -187,7 +193,11 @@ export const InventoryResult = ({
           <span className="font-heading-xsmall">Most used off the system</span>
           <ul className="flex flex-col divide-y">
             {listed.map((v) => (
-              <ValueRow key={`${v.kind}|${v.status}|${v.value}`} value={v} />
+              <ValueRow
+                defaults={defaultsOf(inventory)}
+                key={`${v.kind}|${v.status}|${v.value}`}
+                value={v}
+              />
             ))}
           </ul>
           <ShowAll
@@ -278,13 +288,11 @@ const MappingRow = ({
 export const MappingView = () => {
   const mapping = useDesignSystemSetup((s) => s.mapping);
   const designSystem = useDesignSystem((s) => s.designSystem);
-  const catalogue = useComponents((s) => s.catalogue);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [all, setAll] = useState(false);
   if (!mapping) {
     return null;
   }
-  const components = catalogue.map((c) => c.name);
   const open = mapping.entries.filter((e) => e.target === undefined && !e.keep);
   const shown = filter === "open" ? open : mapping.entries;
   const listed = all ? shown : shown.slice(0, FIRST_ENTRIES);
@@ -308,7 +316,7 @@ export const MappingView = () => {
           <MappingRow
             entry={entry}
             key={`${entry.kind}|${entry.value}`}
-            targets={mapTargetsOf(entry.kind, designSystem, components)}
+            targets={mapTargetsOf(entry.kind, designSystem)}
           />
         ))}
       </ul>

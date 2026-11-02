@@ -16,23 +16,8 @@ export const GitStatus = Schema.Struct({
 });
 export type GitStatus = typeof GitStatus.Type;
 
-export const GitDiff = Schema.Struct({
-  diff: Schema.String,
-  path: Schema.String,
-});
-export type GitDiff = typeof GitDiff.Type;
-
 export const GitCommitInput = Schema.Struct({
   message: Schema.String,
   paths: Schema.Array(Schema.String),
 });
 export const GitCommitResult = Schema.Struct({ sha: Schema.String });
-
-export const Checkpoint = Schema.Struct({
-  at: Schema.Number,
-  files: Schema.Array(Schema.String),
-  id: Schema.String,
-  label: Schema.String,
-  threadId: Schema.String,
-});
-export type Checkpoint = typeof Checkpoint.Type;

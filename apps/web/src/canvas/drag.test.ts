@@ -1,8 +1,30 @@
+// @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dropAt, dropInside } from "./drag.ts";
+import {
+  openBoard,
+  setBoardSize,
+  showBoards,
+  useBoard,
+} from "../state/board.ts";
+import { useComponents } from "../state/components.ts";
+import { editFrameAs } from "../state/documents.ts";
+import { useEditor } from "../state/editor.ts";
+import { useIsolation } from "../state/isolation.ts";
+import { select } from "../state/selection.ts";
+import { fakeApi } from "../testing/fake-api.ts";
+import {
+  beginDrag,
+  dropAt,
+  dropInside,
+  endDrag,
+  moveDrag,
+  useDrag,
+} from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
 
 vi.mock(
@@ -166,10 +188,117 @@ describe("dropAt", () => {
     });
   });
 
+  describe("over an instance (review D1)", () => {
+    afterEach(() => {
+      useComponents.setState({ catalogue: catalogueOf([]) });
+    });
+
+    /** An instance of `component`, empty, between "a" and "c". */
+    const among = (instance: DesignNode) => ({
+      ...spotOf(instance),
+      parent: column("list", [text("a"), instance, text("c")]),
+    });
+    const card: DesignNode = {
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+    };
+
+    it("drops into a component with a default slot, a Card, in its middle", () => {
+      measured({ a: rect(0, 0), c: rect(0, 120), card: rect(0, 20, 100, 100) });
+      // Named in no slot, the node dropped fills the card's default one.
+      expect(dropAt(among(card), 10, 70)).toMatchObject({
+        box: rect(0, 20, 100, 100),
+        index: 0,
+        parent: "card",
+      });
+      // Near its edges, beside it.
+      expect(dropAt(among(card), 10, 22)).toMatchObject({
+        index: 1,
+        parent: "list",
+      });
+    });
+
+    it("drops only beside a component whose slots are all named", () => {
+      const named: ComponentMeta = {
+        category: "app",
+        importFrom: "#app",
+        name: "Plan",
+        props: [],
+        slots: [
+          { label: "Plan", name: "root" },
+          { holds: "nodes", label: "Features", name: "features" },
+        ],
+        variants: {},
+      };
+      useComponents.setState({ catalogue: [...catalogueOf([]), named] });
+      const plan: DesignNode = {
+        component: "Plan",
+        from: "#app",
+        id: "plan",
+        type: "instance",
+      };
+      measured({ a: rect(0, 0), c: rect(0, 120), plan: rect(0, 20, 100, 100) });
+      expect(dropAt(among(plan), 10, 60)).toMatchObject({
+        index: 1,
+        parent: "list",
+      });
+      expect(dropAt(among(plan), 10, 80)).toMatchObject({
+        index: 2,
+        parent: "list",
+      });
+    });
+  });
+
   it("offers nothing for a node the preview did not measure, or a lone leaf", () => {
     measured({});
     expect(dropAt(spotOf(text("b")), 10, 22)).toBeNull();
     measured({ a: rect(0, 0) });
     expect(dropAt({ ...spotOf(text("a")), parent: null }, 10, 5)).toBeNull();
+  });
+});
+
+describe("a node dragged out of an app component's tree on its board (ADR 0045)", () => {
+  const price = text("price");
+  /** Plan's board, its tree edited in place there. */
+  const BOARD = "board:library/Plan/component";
+
+  it("lands nowhere on the board view's ground, which is no document", async () => {
+    fakeApi.reset();
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    // No component edited in place: neither its isolation nor the frame its edits went to.
+    editFrameAs(null);
+    useIsolation.setState({ isolated: null });
+    useComponents.setState({
+      components: [
+        {
+          name: "Plan",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: { children: [price], id: "plan-root", type: "column" },
+          version: 1,
+        } as never,
+      ],
+    });
+    useEditor.setState({ canvas: "main", workspace: "design" });
+    openBoard({ item: "Plan", view: "library" }, "none");
+    showBoards([BOARD], "column");
+    setBoardSize(BOARD, { height: 300, width: 400 });
+    useEditor.setState({ view: { x: 0, y: 0, zoom: 1 } });
+    select({ frame: BOARD, nodeId: "price" });
+    beginDrag(
+      { frame: BOARD, kind: "node", node: price, rect: rect(10, 10) },
+      20,
+      20,
+      false
+    );
+    // Off the board, over the dotted ground.
+    moveDrag(2000, 2000, false);
+    expect(useDrag.getState().drop).toBeNull();
+    await endDrag();
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("documents.apply");
+    useBoard.setState({ open: null });
   });
 });

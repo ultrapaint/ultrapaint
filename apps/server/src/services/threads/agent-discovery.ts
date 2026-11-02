@@ -1,4 +1,3 @@
-import type { AcpHandlers } from "@ultrapaint/acp/acp-agent";
 import { AgentFailure } from "@ultrapaint/contracts/errors";
 import type { AgentConfig, AgentOptions } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer } from "effect";
@@ -14,25 +13,6 @@ import { mapConfigOptions } from "./transcript.ts";
 
 /** A first `npx` run downloads the agent before it can answer. */
 const PROBE_TIMEOUT = "2 minutes";
-
-/** A probe asks for nothing, so whatever the agent asks of the editor is refused. */
-const refuse = Effect.fail(
-  new AgentFailure({ message: "the editor is only listing models" })
-);
-const refusing: AcpHandlers = {
-  onElicitation: () => Effect.succeed({ action: "decline" }),
-  onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
-  onStderr: () => Effect.void,
-  readTextFile: () => refuse,
-  terminal: {
-    create: () => refuse,
-    kill: () => Effect.void,
-    output: () => refuse,
-    release: () => Effect.void,
-    waitForExit: () => refuse,
-  },
-  writeTextFile: () => refuse,
-};
 
 /**
  * What an agent's sessions offer is only known once one has started. Discovery starts one
@@ -78,7 +58,8 @@ export class AgentDiscovery extends Context.Service<
           );
           const agent = yield* launcher.launch({
             config,
-            handlers: () => Effect.succeed(refusing),
+            // A probe asks for nothing, so whatever the agent asks of the editor is refused.
+            host: null,
             root: dir,
             tmpDir: dir,
           });

@@ -6,10 +6,10 @@ import { allTokens } from "@ultrapaint/contracts/token-table";
 import { describe, expect, it } from "vitest";
 import {
   designTokensDocument,
-  designTokensSide,
   readDesignTokens,
   serialiseDesignTokens,
   tokensFromDesignTokens,
+  tokensOfFile,
 } from "./services/dtcg.ts";
 
 const ds: DesignSystem = {
@@ -456,7 +456,7 @@ describe("design.tokens.json as a Sync source", () => {
       "design.tokens.json is not JSON"
     );
     expect(
-      designTokensSide([
+      tokensOfFile([
         { name: "color-a", theme: "dark", value: "#000" },
         { name: "color-a", value: "#fff" },
       ])

@@ -1,5 +1,6 @@
 import { Effect, Exit, Fiber, Random, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { KILL_AFTER } from "./acp-agent.ts";
 import { TerminalError } from "./errors.ts";
 import { type AgentLaunch, agentEnv } from "./sandbox.ts";
 
@@ -54,17 +55,19 @@ interface Terminal {
  * limit, oldest first out. Every terminal lives in a child of the calling scope, so the commands
  * end with the agent session that started them.
  */
-export const makeTerminalManager = (options?: {
+export const makeTerminalManager = (options: {
   /** Puts a command the agent asked us to run in the same sandbox as the agent itself. */
   readonly confine?: (launch: AgentLaunch) => AgentLaunch;
+  /** What a command starts from, under the variables the agent asked for: the server's. */
+  readonly env: Readonly<Record<string, string>>;
   /** Every chunk as it arrives, so the editor can follow a command while it runs. */
   readonly onOutput?: (id: string, chunk: string) => Effect.Effect<void>;
 }) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const parent = yield* Effect.scope;
-    const confine = options?.confine ?? ((launch: AgentLaunch) => launch);
-    const onOutput = options?.onOutput;
+    const confine = options.confine ?? ((launch: AgentLaunch) => launch);
+    const { onOutput } = options;
     const terminals = new Map<string, Terminal>();
     /*
      * Every session numbers its terminals from 1, and the editor keeps output by id for as long
@@ -101,9 +104,9 @@ export const makeTerminalManager = (options?: {
         .spawn(
           ChildProcess.make(launch.command, launch.args, {
             cwd: request.cwd,
-            env: launch.env,
-            extendEnv: true,
-            forceKillAfter: "2 seconds",
+            env: { ...options.env, ...launch.env },
+            extendEnv: false,
+            forceKillAfter: KILL_AFTER,
             stdin: "ignore",
           })
         )

@@ -8,9 +8,10 @@
  */
 
 import type { Comment } from "@ultrapaint/contracts/comments";
-import type {
-  ComponentFile,
-  ComponentNote,
+import {
+  type ComponentFile,
+  type ComponentNote,
+  componentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -26,7 +27,6 @@ import {
   IMPLEMENTATION_FILE,
   type ImplementationChanges,
   type ImplementationEntry,
-  ImplementationFile,
   type ImplementationItem,
   type ImplementationList,
   implementedFileOf,
@@ -45,24 +45,26 @@ import {
   FileSystem,
   Layer,
   Path,
-  Schema,
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
 import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
-import { componentsIn, readComponents } from "./components.ts";
+import { readComponents } from "./components.ts";
+import { DesignFiles } from "./design-files.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
+import {
+  type EntryEdit,
+  emptyFile,
+  implementationCodec,
+  withEdits,
+} from "./implementation-files.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { handoffCall } from "./threads/agent-ways.ts";
-
-const decodeFile = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(ImplementationFile)
-);
 
 /** A behaviour note as the design's hash and an implementation task carry it. */
 export interface Note {
@@ -120,37 +122,6 @@ export interface Current {
   readonly snapshot: Implemented;
   readonly target: string;
 }
-
-const emptyFile = (): ImplementationFile => ({ items: {}, version: 1 });
-
-/** A change to one entry of `implementation.json`, and the snapshot written or taken with it. */
-export interface EntryEdit {
-  readonly snapshot?: {
-    readonly rel: string;
-    /** Null takes the snapshot away. */
-    readonly text: string | null;
-  };
-  readonly target: string;
-  readonly update: (entry: ImplementationEntry) => ImplementationEntry | null;
-}
-
-/** The entries with the edits made, in order of their keys: the file is committed. */
-const withEdits = (
-  items: Readonly<Record<string, ImplementationEntry>>,
-  edits: readonly EntryEdit[]
-): Record<string, ImplementationEntry> => {
-  const next: Record<string, ImplementationEntry> = { ...items };
-  for (const { target, update } of edits) {
-    const entry = update(next[target] ?? {});
-    delete next[target];
-    if (entry !== null) {
-      next[target] = entry;
-    }
-  }
-  return Object.fromEntries(
-    Object.entries(next).sort(([a], [b]) => a.localeCompare(b))
-  );
-};
 
 /** What telling which tokens a design waits on needs, read once for a whole list. */
 interface TokenContext {
@@ -319,16 +290,6 @@ export class ImplementationService extends Context.Service<
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
-    /**
-     * Entries changed inside another action, in its undo step (the migration's): `edits` gives
-     * the changes from the entries as they are in it.
-     */
-    readonly editIn: (
-      tx: EditTransaction,
-      edits: (
-        items: Readonly<Record<string, ImplementationEntry>>
-      ) => readonly EntryEdit[]
-    ) => Effect.Effect<void, EditFailure>;
   }
 >()("ultrapaint/server/ImplementationService") {
   static readonly layer = Layer.effect(
@@ -348,13 +309,13 @@ export class ImplementationService extends Context.Service<
       const fileRel = paths.relative(fileAbs);
       // The components as their files have them; read here, below `ComponentService`.
       const componentsNow = readComponents(paths.designsDir).pipe(
-        Effect.map(componentsIn),
+        Effect.map((l) => componentsIn(l.components)),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path)
       );
 
       const readFile = fs.readFileString(fileAbs).pipe(
-        Effect.flatMap(decodeFile),
+        Effect.flatMap(implementationCodec.decode),
         // None yet, or one that does not read: nothing is bound. A broken file is not
         // overwritten until something is marked, which writes it whole.
         Effect.orElseSucceed(emptyFile)
@@ -558,15 +519,21 @@ export class ImplementationService extends Context.Service<
           items: Readonly<Record<string, ImplementationEntry>>
         ) => readonly EntryEdit[]
       ) {
-        // Read in the action, so a change made meanwhile is kept.
-        const file = yield* readFile;
+        // Read in the action, so a change made meanwhile is kept. One that does not read is
+        // written whole by the first mark.
+        const file = yield* tx
+          .readDocument(fileRel, implementationCodec)
+          .pipe(Effect.catchTag("Conflict", () => Effect.succeed(emptyFile())));
         const edits = editsOf(file.items);
         if (edits.length === 0) {
           return;
         }
         yield* tx.write(
           fileRel,
-          serialise({ items: withEdits(file.items, edits), version: 1 })
+          implementationCodec.encode({
+            items: withEdits(file.items, edits),
+            version: 1,
+          })
         );
         for (const { snapshot } of edits) {
           if (snapshot) {
@@ -807,11 +774,7 @@ export class ImplementationService extends Context.Service<
         Stream.map(stream, () => undefined);
       yield* Stream.mergeAll(
         [
-          poke(
-            events
-              .subscribe("file.changed")
-              .pipe(Stream.filter(({ file }) => file === fileRel))
-          ),
+          poke((yield* DesignFiles).changes(["implementation"])),
           poke(events.subscribe("document")),
           poke(events.subscribe("pages")),
           poke(events.subscribe("components")),
@@ -829,7 +792,6 @@ export class ImplementationService extends Context.Service<
       return ImplementationService.of({
         changes,
         current,
-        editIn,
         implemented,
         item,
         list,

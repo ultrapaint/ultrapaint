@@ -7,7 +7,6 @@ import type {
 } from "@ultrapaint/contracts/design-system-setup";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import type {
   FileEdit,
   StyleSystemId,
@@ -16,7 +15,7 @@ import type {
 } from "@ultrapaint/contracts/tokens";
 
 export interface DesignSystemContext {
-  /** Package the pages resolve their imports from. Absolute. */
+  /** The application's package, which its stylesheets resolve their imports from. Absolute. */
   readonly anchorDir: string;
   /** Repository root. Absolute. */
   readonly root: string;
@@ -44,18 +43,14 @@ export interface UsageOccurrence {
   readonly raw: string;
   /** Where `raw` starts in the file; for a style or a declaration, where its value does. */
   readonly start?: number;
-  /** What uses it: a utility (`bg`, `p`, `text`), `style:<property>`, `css:<property>`, `literal`, `element`. */
+  /** What uses it: a utility (`bg`, `p`, `text`), `style:<property>`, `css:<property>`, `literal`. */
   readonly use: string;
-  /** What is used: `blue-500`, `[#3b82f6]`, `13px`, `button`. */
+  /** What is used: `blue-500`, `[#3b82f6]`, `13px`. */
   readonly value: string;
 }
 
 export interface UsageContext {
-  /** The components of the catalogue, whose plain counterparts are reported. */
-  readonly components: readonly string[];
   readonly designSystem: DesignSystem;
-  /** Repo-relative directories of the component library: its own plain elements are its business. */
-  readonly libraryDirs: readonly string[];
   /**
    * The tokens the repository's theme declares, when the design system is the theme's scan and
    * not one saved: the rest of its tokens are the framework's defaults. Null for a saved one.
@@ -112,27 +107,13 @@ export interface UsageReader {
   ) => UsageInventory;
 }
 
-/** What a framework recognises in a repository; null when the repository is not its kind. */
-export type Detect = (
-  root: string
-) => Omit<
-  SetupSuggestions,
-  "cssEntries" | "framework" | "repoName" | "styleSystem" | "tailwind"
-> | null;
-
-export interface Framework {
-  /** Synchronous and read-only: it looks at manifests and file names, never runs anything. */
-  readonly detect: Detect;
-  readonly id: string;
-  /** A new application to start from, for a repository that has none (phase 6 of the sync). */
-  readonly scaffold?: Scaffold;
-}
-
-/** What a style system recognises: the stylesheets that set it up, and whether it is its kind. */
+/** What a style system recognises: the stylesheets that set it up, and whether it reads them. */
 export interface StyleSuggestions {
   readonly cssEntries: readonly string[];
-  /** Which Tailwind the stylesheets set up; only v4 is read. */
-  readonly tailwind: "v4" | "v3" | "none";
+  /** Why they are not read, in the style system's own words, for the user: when they are not. */
+  readonly note?: string;
+  /** Whether the repository's styles are written as this style system reads them. */
+  readonly supported: boolean;
 }
 
 /**
@@ -172,31 +153,3 @@ export interface StyleSystem {
     changes: readonly TokenChange[]
   ) => readonly FileEdit[];
 }
-
-/** A new application's files, repo-relative, and what it needs installed. */
-export interface ScaffoldResult {
-  readonly files: Readonly<Record<string, string>>;
-  /** The settings that point the tool at it, relative to the repository. */
-  readonly settings: {
-    readonly hostCss: string;
-    readonly libraryDir: string;
-    readonly resolveFrom: string;
-  };
-}
-
-/**
- * What a new application starts with: `starter`, a set of components to design with; `blank`,
- * none, and a theme that declares nothing, for a design system defined from nothing.
- */
-export type ScaffoldTemplate = "starter" | "blank";
-
-export type Scaffold = (input: {
-  /** Repo-relative directory the application goes in; `.` for the root. */
-  readonly dir: string;
-  /** The application's name, for its package.json. */
-  readonly name: string;
-  /** `starter` when absent. */
-  readonly template?: ScaffoldTemplate;
-  /** Tokens to start the theme with, by name; the template's own when empty. */
-  readonly tokens: Readonly<Record<string, string>>;
-}) => ScaffoldResult;

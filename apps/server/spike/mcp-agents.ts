@@ -40,6 +40,11 @@ const program = Effect.gen(function* () {
         host: "127.0.0.1",
         machine: {
           addresses: () => [],
+          env: Object.fromEntries(
+            Object.entries(process.env).flatMap(([name, value]) =>
+              value === undefined ? [] : [[name, value]]
+            )
+          ),
           home: homedir(),
           node: process.execPath,
           path: process.env.PATH ?? "",
@@ -102,7 +107,6 @@ const program = Effect.gen(function* () {
           yield* Effect.log(`permission: ${item.title} -> ${allow?.name}`);
           yield* client["threads.permission"]({
             optionId: allow?.optionId ?? "",
-            remember: false,
             requestId: item.requestId,
             threadId: thread.id,
           });

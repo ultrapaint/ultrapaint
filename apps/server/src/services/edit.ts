@@ -10,7 +10,8 @@ import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
-import { hashContent } from "../hash.ts";
+import { DesignFiles } from "./design-files.ts";
+import { CallingThread } from "./mcp/access.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const JOURNAL_LIMIT = 200;
@@ -81,12 +82,6 @@ export const withinLimits = (
   return kept.reverse();
 };
 
-export interface SourceFile {
-  readonly abs: string;
-  readonly content: string;
-  readonly hash: string;
-}
-
 export type EditFailure =
   | NotFound
   | ForbiddenPath
@@ -95,8 +90,22 @@ export type EditFailure =
   | BadRequest;
 
 /**
+ * How a file of the designs is read and written: what its text holds, and the text a value is
+ * written as. `decode` is given null for a file that is not there.
+ */
+export interface FileCodec<A, E = never> {
+  readonly decode: (text: string | null) => Effect.Effect<A, E>;
+  readonly encode: (value: A) => string;
+}
+
+/**
  * What an action does to files inside a transaction. Every change is recorded, and the whole
  * transaction becomes one undo step.
+ *
+ * Read-modify-write is one rule: whatever a step writes from a file's content, it reads inside
+ * the step (`read`, `readDocument`, `updateFile`), under the journal's lock. An edit, an undo, a
+ * comment or another action made meanwhile then lands before the step or after it, never between
+ * its reading and its writing, so nothing is lost and no module needs a lock of its own for it.
  */
 export interface EditTransaction {
   /** A new file; there must not be one there yet. */
@@ -109,6 +118,18 @@ export interface EditTransaction {
    * change carried into the steps (a comment added since) names the file as each step had it.
    */
   readonly move: (from: string, to: string) => Effect.Effect<void, EditFailure>;
+  /**
+   * Names the step, in place of the label the transaction was given: for an action that finds
+   * what it acts on inside the step (a page renamed is named in the list as the step reads it).
+   */
+  readonly name: (label: string) => Effect.Effect<void>;
+  /** The file as it is now, the step's own writes included: its text, or null when there is none. */
+  readonly read: (rel: string) => Effect.Effect<string | null, EditFailure>;
+  /** The file as it is now, read as the codec says. */
+  readonly readDocument: <A, E>(
+    rel: string,
+    codec: FileCodec<A, E>
+  ) => Effect.Effect<A, E | EditFailure>;
   readonly remove: (rel: string) => Effect.Effect<void, EditFailure>;
   /** Writes the file as given, whether it exists or not. Writing what is there changes nothing. */
   readonly write: (
@@ -118,6 +139,21 @@ export interface EditTransaction {
 }
 
 /**
+ * Changes a file inside a step: read as the codec says, made into its next value by `f`, and
+ * written back, which changes nothing when its text is what is there. Answers with the value as
+ * it was.
+ */
+export const updateFile = <A, E>(
+  tx: EditTransaction,
+  rel: string,
+  codec: FileCodec<A, E>,
+  f: (value: A) => A
+): Effect.Effect<A, E | EditFailure> =>
+  Effect.flatMap(tx.readDocument(rel, codec), (value) =>
+    Effect.as(tx.write(rel, codec.encode(f(value))), value)
+  );
+
+/**
  * Writes design files: atomic writes and one undo journal for everything the editor changes —
  * documents, files created and deleted, the canvas layout. An action spanning several files is
  * one step; the journal is invalidated by changes made outside the editor.
@@ -125,14 +161,12 @@ export interface EditTransaction {
 export class EditService extends Context.Service<
   EditService,
   {
-    readonly read: (
-      rel: string
-    ) => Effect.Effect<SourceFile, NotFound | ForbiddenPath>;
     readonly redo: Effect.Effect<UndoResult | null, EditFailure>;
     readonly state: Effect.Effect<UndoState>;
     /**
-     * Runs `body` as one undoable action. Nothing else touches the journal meanwhile, and a
-     * failure puts back what the body had already changed.
+     * Runs `body` as one undoable action, labelled `label` unless the body names it
+     * (`tx.name`). Nothing else touches the journal meanwhile, and a failure puts back what the
+     * body had already changed.
      */
     readonly transaction: <A, E>(
       label: string,
@@ -162,6 +196,7 @@ export class EditService extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const events = yield* EventBus;
+      const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
@@ -191,15 +226,6 @@ export class EditService extends Context.Service<
       );
 
       const exists = makeExists(fs);
-
-      const read = Effect.fn("EditService.read")(function* (rel: string) {
-        const abs = yield* paths.resolve(rel);
-        if (!(yield* exists(abs))) {
-          return yield* new NotFound({ message: `file not found: ${rel}` });
-        }
-        const content = yield* Effect.orDie(fs.readFileString(abs));
-        return { abs, content, hash: hashContent(content) };
-      });
 
       /** The file as it is now; null when there is none. */
       const current = Effect.fnUntraced(function* (rel: string) {
@@ -235,7 +261,15 @@ export class EditService extends Context.Service<
               })
           )
         );
-        yield* fileChanged(rel, content === null ? "" : hashContent(content));
+        // An MCP call is served for the thread whose agent made it; anything else, for the user.
+        const thread = yield* Effect.service(CallingThread);
+        yield* designFiles.report(
+          rel,
+          content,
+          thread === undefined
+            ? { _tag: "Editor" }
+            : { _tag: "Thread", threadId: thread }
+        );
       });
 
       /**
@@ -262,9 +296,6 @@ export class EditService extends Context.Service<
           });
         }
       });
-
-      const fileChanged = (file: string, hash: string) =>
-        events.publish("file.changed", { file, hash });
 
       const editable = (rel: string) =>
         paths.isEditable(rel)
@@ -342,10 +373,26 @@ export class EditService extends Context.Service<
           moves.push({ from, to });
         });
 
-        const tx: EditTransaction = { create, move, remove, write };
+        const readDocument = <A, E>(rel: string, codec: FileCodec<A, E>) =>
+          Effect.flatMap(current(rel), codec.decode);
+
+        let named: string | undefined;
+        const tx: EditTransaction = {
+          create,
+          move,
+          name: (label) =>
+            Effect.sync(() => {
+              named = label;
+            }),
+          read: current,
+          readDocument,
+          remove,
+          write,
+        };
         return {
           changes: () => changes.filter((c) => c.before !== c.after),
           moves: () => [...moves],
+          named: () => named,
           tx,
         };
       };
@@ -374,13 +421,14 @@ export class EditService extends Context.Service<
                 if (changes.length === 0) {
                   return Effect.void;
                 }
+                const named = r.named() ?? label;
                 // Drop redo entries beyond the cursor, then append.
                 const moves = r.moves();
                 journal = withinLimits([
                   ...journal.slice(0, cursor),
                   moves.length > 0
-                    ? { changes, label, moves }
-                    : { changes, label },
+                    ? { changes, label: named, moves }
+                    : { changes, label: named },
                 ]);
                 cursor = journal.length;
                 invalidated = undefined;
@@ -515,7 +563,6 @@ export class EditService extends Context.Service<
 
       return EditService.of({
         amend,
-        read,
         redo: step("redo"),
         state: Effect.sync(snapshotState),
         transaction,

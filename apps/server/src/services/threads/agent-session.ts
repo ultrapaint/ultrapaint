@@ -1,11 +1,22 @@
 /**
  * Opening an ACP session on an agent just launched: `initialize`, then the thread's stored
- * session loaded when the agent can, else a new one (signing in first when the agent asks), and
- * the options and mode the thread chose set on it where they differ and still exist. What it
- * gives back is the thread's to keep; the session module writes it.
+ * session reopened when the agent can, else a new one, and the options and mode the thread chose
+ * set on it where they differ and still exist. An agent that must be signed in first is not signed
+ * in blindly: the thread says how it signs in, and the user does. What it gives back is the
+ * thread's to keep, with what the agent said it can do; the session module writes it.
  */
-import type { AcpAgent, McpServerConfig } from "@ultrapaint/acp/acp-agent";
+import type {
+  AcpAgent,
+  McpServerConfig,
+  NewSessionResponse,
+} from "@ultrapaint/acp/acp-agent";
 import type { AcpError } from "@ultrapaint/acp/errors";
+import {
+  AUTH_REQUIRED,
+  type Negotiated,
+  negotiated,
+  type SignInMethod,
+} from "@ultrapaint/acp/negotiated";
 import { AgentFailure } from "@ultrapaint/contracts/errors";
 import {
   type AgentConfig,
@@ -18,43 +29,47 @@ import { AppLog } from "../../app-log.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
-import { mapConfigOptions } from "./transcript.ts";
-
-const AUTH_ERROR_RE = /auth/i;
-/** Boolean options travel as strings in the editor and as booleans in ACP. */
-export const BOOLEAN_VALUES: Record<string, boolean | undefined> = {
-  false: false,
-  true: true,
-};
+import { mapConfigOptions, optionValue } from "./transcript.ts";
 
 export const agentFailure = (error: AcpError) =>
   new AgentFailure({ message: error.message });
 
-interface SessionInfo {
-  readonly configOptions?: unknown;
-  readonly modes?: {
-    readonly availableModes: readonly {
-      readonly description?: string | null;
-      readonly id: string;
-      readonly name: string;
-    }[];
-    readonly currentModeId: string;
-  } | null;
-  readonly sessionId: string;
-}
+type SessionInfo = Pick<
+  NewSessionResponse,
+  "configOptions" | "modes" | "sessionId"
+>;
+
+/** "Codex is not signed in. It signs in with ChatGPT, or with Log in, in a terminal." */
+export const signInText = (
+  agentName: string,
+  methods: readonly SignInMethod[]
+) => {
+  const ways = methods.map(
+    (m) =>
+      `${m.name}${m.description ? ` (${m.description})` : ""}${m.kind === "terminal" ? ", in a terminal" : ""}`
+  );
+  return ways.length === 0
+    ? `${agentName} is not signed in.`
+    : `${agentName} is not signed in. It signs in with ${ways.join(", or with ")}.`;
+};
 
 /** A session opened: what the thread keeps of it, and whether it had the conversation back. */
 export interface OpenedSession {
+  /** Whether the session was given the editor's MCP server. */
+  readonly editorMcp: boolean;
+  /** What the agent said it can do. */
+  readonly negotiated: Negotiated;
   readonly patch: Pick<
     Thread,
     | "configOptions"
+    | "context"
     | "currentModeId"
     | "modes"
     | "sandboxed"
     | "sandboxProblem"
     | "sessionId"
   >;
-  /** The stored session was loaded: the agent has the conversation back. */
+  /** The stored session was reopened: the agent has the conversation back. */
   readonly resumed: boolean;
 }
 
@@ -64,57 +79,39 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
   const preferences = yield* ChatPreferences;
   const log = yield* AppLog;
 
-  /**
-   * Loads the stored session when the agent can, otherwise starts a new one. While the stored
-   * session is replayed its updates are not new items: `replaying` says when that is.
-   */
-  const loadOrCreate = Effect.fnUntraced(function* (
+  /** Opens the stored session again when the agent can, otherwise starts a new one. */
+  const reopenOrCreate = Effect.fnUntraced(function* (
     agent: AcpAgent,
     storedSessionId: string | undefined,
-    canLoad: boolean,
     root: string,
     meta: unknown,
-    mcpServers: readonly McpServerConfig[],
-    replaying: (on: boolean) => Effect.Effect<void>
+    mcpServers: readonly McpServerConfig[]
   ) {
-    if (storedSessionId && canLoad) {
-      yield* replaying(true);
-      const loaded = yield* agent
-        .loadSession(storedSessionId, root, mcpServers)
+    if (storedSessionId) {
+      const reopened = yield* agent
+        .reopen(storedSessionId, root, { mcpServers, meta })
         .pipe(
-          Effect.map(
-            (response): SessionInfo => ({
-              ...(response as Omit<SessionInfo, "sessionId"> | undefined),
-              sessionId: storedSessionId,
-            })
-          ),
           // An expired or unknown session is not an error for the user: start fresh.
           Effect.catch((error) =>
             Effect.as(
               log.log(
                 "agent",
                 "warn",
-                `session load failed, starting fresh: ${error.message}`
+                `session reopen failed, starting fresh: ${error.message}`
               ),
               null
             )
-          ),
-          // The replayed updates can trail the response; they are still history.
-          Effect.ensuring(
-            Effect.andThen(
-              Effect.timeoutOption(agent.drained, "5 seconds"),
-              replaying(false)
-            )
           )
         );
-      if (loaded) {
-        return { info: loaded, resumed: true };
+      if (reopened) {
+        const info: SessionInfo = { ...reopened, sessionId: storedSessionId };
+        return { info, resumed: true };
       }
     }
-    const info = (yield* agent.newSession(root, {
+    const info: SessionInfo = yield* agent.newSession(root, {
       mcpServers,
       meta,
-    })) as SessionInfo;
+    });
     return { info, resumed: false };
   });
 
@@ -137,14 +134,11 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
       }
       const value = want.currentValue;
       current = yield* agent
-        .setConfigOption(sessionId, want.id, BOOLEAN_VALUES[value] ?? value)
+        .setConfigOption(sessionId, want.id, optionValue(offered, value))
         .pipe(
           Effect.map(
             (response) =>
-              mapConfigOptions(
-                (response as { configOptions?: unknown } | undefined)
-                  ?.configOptions
-              ) ??
+              mapConfigOptions(response.configOptions) ??
               current.map((o) =>
                 o.id === want.id ? { ...o, currentValue: value } : o
               )
@@ -165,39 +159,39 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
     return current;
   });
 
-  /** The session the thread's prompts go to, on an agent launched for it. */
+  /**
+   * The session the thread's prompts go to, on an agent launched for it. The editor's MCP
+   * server is offered where the agent says it reaches one over http.
+   */
   const open = Effect.fnUntraced(function* (options: {
     readonly agent: AcpAgent;
     readonly config: AgentConfig;
-    readonly mcpServers: readonly McpServerConfig[];
-    readonly replaying: (on: boolean) => Effect.Effect<void>;
+    readonly editorMcp: McpServerConfig | null;
     readonly root: string;
     readonly thread: Thread;
   }) {
-    const { agent, config, mcpServers, replaying, root, thread } = options;
+    const { agent, config, editorMcp, root, thread } = options;
     const threadId = thread.id;
-    const negotiate = Effect.gen(function* () {
-      const init = yield* agent.initialize;
-      const canLoad = init.agentCapabilities?.loadSession === true;
-      const attempt = loadOrCreate(
-        agent,
-        thread.sessionId,
-        canLoad,
-        root,
-        sandbox.available ? config.sandboxMeta : undefined,
-        mcpServers,
-        replaying
-      );
-      const [firstAuth] = init.authMethods ?? [];
-      // Some agents need authentication before a session can be created.
-      return yield* attempt.pipe(
-        Effect.catchIf(
-          (error) => !!firstAuth && AUTH_ERROR_RE.test(error.message),
-          () => Effect.andThen(agent.authenticate(firstAuth?.id ?? ""), attempt)
-        )
-      );
-    });
-    const { info, resumed } = yield* Effect.mapError(negotiate, agentFailure);
+    const agreed = negotiated(
+      yield* Effect.mapError(agent.initialize, agentFailure)
+    );
+    const mcpServers = editorMcp && agreed.mcpHttp ? [editorMcp] : [];
+    const { info, resumed } = yield* reopenOrCreate(
+      agent,
+      thread.sessionId,
+      root,
+      sandbox.available ? config.sandboxMeta : undefined,
+      mcpServers
+    ).pipe(
+      Effect.mapError((error) =>
+        // ACP's own code, not the wording: the user signs in, the editor does not pick how.
+        error._tag === "AcpRequestError" && error.code === AUTH_REQUIRED
+          ? new AgentFailure({
+              message: signInText(config.name, agreed.signIn),
+            })
+          : agentFailure(error)
+      )
+    );
     const modes = info.modes?.availableModes.map((m) => ({
       id: m.id,
       name: m.name,
@@ -245,8 +239,12 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
           )
         : info.modes?.currentModeId;
     const opened: OpenedSession = {
+      editorMcp: mcpServers.length > 0,
+      negotiated: agreed,
       patch: {
         configOptions,
+        // A new session starts with nothing in its context; one reopened says so when it does.
+        ...(resumed ? {} : { context: undefined }),
         currentModeId,
         modes,
         sandboxed: sandbox.available,
