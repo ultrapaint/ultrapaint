@@ -5,6 +5,8 @@ import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
+const NO_TAILWIND_RE = /^No Tailwind setup was found/;
+
 /** Each test on a fixture of its own: one of them takes the fixture's manifest away. */
 const inAFixture = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(ProjectTest()), Effect.scoped);
@@ -20,7 +22,9 @@ describe("first-run setup", () => {
         assert.strictEqual(found.repoName, path.basename(repo));
         // Nothing in the fixture depends on React, so nothing is proposed.
         assert.deepStrictEqual(found.anchors, []);
-        assert.strictEqual(found.tailwind, "none");
+        // Nor any stylesheet the style system reads, which it says in its own words.
+        assert.isUndefined(found.styleSystem);
+        assert.match(found.stylesNote ?? "", NO_TAILWIND_RE);
         const missing = yield* Effect.flip(setup.detect(`${repo}/nowhere`));
         assert.strictEqual(missing._tag, "BadRequest");
       })
