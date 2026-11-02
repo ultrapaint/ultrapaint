@@ -1,8 +1,8 @@
 import {
-  UltrapaintRpcs,
   type EventName,
   type EventPayload,
   eventNames,
+  UltrapaintRpcs,
 } from "@ultrapaint/contracts/rpc";
 import { Effect, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
@@ -229,11 +229,11 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.set": (input) => project.set(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
+      // The open project's latest Figma import starts the application's theme.
       "setup.scaffold": (input) =>
-        figma((f) => f.theme).pipe(
-          // No project open, or a file that does not read: the template's own theme.
-          Effect.orElseSucceed((): Record<string, string> => ({})),
-          Effect.flatMap((theme) => setup.scaffold(input, theme))
+        setup.scaffold(
+          input,
+          figma((f) => f.theme)
         ),
       "skills.customise": ({ mode, name }) =>
         skills((s) => s.customise(name, mode)),

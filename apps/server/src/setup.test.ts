@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import { BadRequest } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Path } from "effect";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
@@ -118,6 +119,43 @@ describe("first-run setup", () => {
           const missing = yield* validate(unanchored);
           assert.isFalse(missing.ok);
           assert.include(missing.problems.join(" "), "Resolve imports from");
+        })
+      )
+  );
+
+  it.effect(
+    "starts an application with the theme it is given, or the template's own when there is none to read",
+    () =>
+      inAFixture(
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          const setup = yield* SetupService;
+          const fs = yield* FileSystem.FileSystem;
+          const start = (
+            dir: string,
+            theme: Effect.Effect<Readonly<Record<string, string>>, BadRequest>
+          ) =>
+            Effect.andThen(
+              setup.scaffold(
+                { dir, install: false, name: "Acme", repoPath: repo },
+                theme
+              ),
+              fs.readFileString(`${repo}/${dir}/src/index.css`)
+            );
+          // A Figma file's tokens, as the open project's latest import gives them.
+          const figma = yield* start(
+            "figma",
+            Effect.succeed({ "color-primary": "#ff0000" })
+          );
+          assert.include(figma, "--color-primary: #ff0000;");
+          assert.notInclude(figma, ".dark {");
+          // No project open, or an import that does not read: the template's theme.
+          const own = yield* start(
+            "own",
+            Effect.fail(new BadRequest({ message: "no import" }))
+          );
+          assert.notInclude(own, "#ff0000");
+          assert.include(own, ".dark {");
         })
       )
   );
