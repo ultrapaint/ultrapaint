@@ -905,7 +905,7 @@ export class ThreadSessions extends Context.Service<
           const made = make(threadId);
           sessions.set(threadId, made);
           return made;
-        });
+        }).pipe(Effect.withSpan("ThreadSessions.of"));
       const store = yield* ThreadStore;
       const agents = yield* AgentConfigs;
       const preferences = yield* ChatPreferences;
@@ -951,10 +951,17 @@ export class ThreadSessions extends Context.Service<
 
       return ThreadSessions.of({
         create,
-        delete: (threadId) =>
-          Effect.flatMap(of(threadId), (session) => session.delete).pipe(
-            Effect.ensuring(Effect.sync(() => sessions.delete(threadId)))
-          ),
+        delete: Effect.fn("ThreadSessions.delete")(
+          function* (threadId) {
+            const session = yield* of(threadId);
+            yield* session.delete;
+          },
+          (effect, threadId) =>
+            Effect.ensuring(
+              effect,
+              Effect.sync(() => sessions.delete(threadId))
+            )
+        ),
         of,
       });
     })

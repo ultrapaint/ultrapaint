@@ -253,30 +253,28 @@ const makeDesignFiles = Effect.gen(function* () {
       : null;
   };
 
-  const report = (file: string, content: string | null, by: Writer = UNKNOWN) =>
-    Effect.suspend(() => {
-      const hash = content === null ? "" : hashContent(content);
-      if (last.get(file) === hash) {
-        return Effect.void;
-      }
-      // A file gone is forgotten: page files come and go with every rename and delete.
-      if (hash === "") {
-        last.delete(file);
-      } else {
-        last.set(file, hash);
-      }
-      const kind = classify(file);
-      return Effect.all(
-        [
-          events.publish("file.changed", { file, hash }),
-          PubSub.publish(written, { by, file }),
-          kind === null
-            ? Effect.void
-            : PubSub.publish(changed, { file, hash, kind }),
-        ],
-        { discard: true }
-      );
-    });
+  const report = Effect.fn("DesignFiles.report")(function* (
+    file: string,
+    content: string | null,
+    by: Writer = UNKNOWN
+  ) {
+    const hash = content === null ? "" : hashContent(content);
+    if (last.get(file) === hash) {
+      return;
+    }
+    // A file gone is forgotten: page files come and go with every rename and delete.
+    if (hash === "") {
+      last.delete(file);
+    } else {
+      last.set(file, hash);
+    }
+    const kind = classify(file);
+    yield* events.publish("file.changed", { file, hash });
+    yield* PubSub.publish(written, { by, file });
+    if (kind !== null) {
+      yield* PubSub.publish(changed, { file, hash, kind });
+    }
+  });
 
   const service = DesignFiles.of({
     changes: (kinds) =>
