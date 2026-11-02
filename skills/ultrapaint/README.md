@@ -1,12 +1,12 @@
 # Ultrapaint
 
-What ultrapaint teaches its agents about designing interfaces, as one skill in the Agent Skills
+What Ultrapaint teaches its agents about designing interfaces, as one skill in the Agent Skills
 layout: `SKILL.md`, a router an agent reads first (its front matter has the `name` and the
 `description` an agent picks it by), and `references/`, one file per part of a design (`layout.md`,
 `typography.md`…), with `patterns/` (how well-made products build each kind of screen, counted)
 and `studies/` (what 4,983 well-made sites do, by character) beneath.
 
-## In ultrapaint
+## In Ultrapaint
 
 `pnpm -F @ultrapaint/server skills` writes the skill into the server
 (`apps/server/src/skills/design.generated.ts`), and a test fails when the two differ, so run it
