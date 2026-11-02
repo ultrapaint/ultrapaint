@@ -6,6 +6,10 @@
  * change is told once per content: the watcher's echo of a write the journal told of is no change.
  * Modules subscribe to the kinds they own; the editors' `file.changed` is told of every change too.
  *
+ * A change is told with who it was written for, as far as the server knows (`Writer`): a thread's
+ * agent, the editor's user, or nobody known, which is what the watcher sees. What a thread's turn
+ * changed is told apart from what others changed meanwhile by it (`turn-witness.ts`).
+ *
  * Two adapters: the live one watches the directory, the in-memory one only hears what it is told
  * (`report`), so a test tells it of a file written by hand instead of waiting for a watcher.
  */
@@ -28,6 +32,7 @@ import {
   Layer,
   Path,
   PubSub,
+  type Scope,
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
@@ -56,6 +61,23 @@ export interface DesignChange {
   readonly hash: string;
   readonly kind: DesignKind;
 }
+
+/** Who a file was written for, as far as the server knows. */
+export type Writer =
+  /** A thread's agent, through the editor: a file it asked the editor to write, an MCP tool. */
+  | { readonly _tag: "Thread"; readonly threadId: string }
+  /** The editor's user, or an agent from outside the editor, through the editor's requests. */
+  | { readonly _tag: "Editor" }
+  /** Nobody known: what the watcher saw (an agent's shell, a checkout), a file written by hand. */
+  | { readonly _tag: "Unknown" };
+
+/** A file the server was told changed, any file, and who it was written for. */
+export interface FileWrite {
+  readonly by: Writer;
+  readonly file: string;
+}
+
+const UNKNOWN: Writer = { _tag: "Unknown" };
 
 const SEGMENT_RE = /[\\/]/;
 
@@ -107,15 +129,27 @@ export class DesignFiles extends Context.Service<
      */
     readonly comings: Stream.Stream<FileSystem.WatchEvent>;
     /**
-     * Tells of a file as it is now, `null` for one that is gone: the journal of its writes, the
-     * watcher of everyone else's, a test of a file written by hand. Content it was last told of
-     * is no change. Any file the journal writes reaches the editors' `file.changed`; a file of the
-     * designs reaches the modules that subscribe to its kind.
+     * Tells of a file as it is now, `null` for one that is gone, and who it was written for
+     * (nobody known unless said): the journal of its writes, the editor of a file it wrote for
+     * an agent, the watcher of everyone else's, a test of a file written by hand. Content it was
+     * last told of is no change. Any file told of reaches the editors' `file.changed` and
+     * `writes`; a file of the designs reaches the modules that subscribe to its kind.
      */
     readonly report: (
       file: string,
-      content: string | null
+      content: string | null,
+      by?: Writer
     ) => Effect.Effect<void>;
+    /**
+     * Keeps, for as long as the scope, every file told of from now on, of the designs or not,
+     * once per content, with who it was written for. What it gives answers the files told of
+     * since it was last asked, without waiting: whatever was told before it is asked is there.
+     */
+    readonly writes: Effect.Effect<
+      Effect.Effect<readonly FileWrite[]>,
+      never,
+      Scope.Scope
+    >;
   }
 >()("ultrapaint/server/DesignFiles") {
   /** The changes the journal and a test tell of, and nothing else. */
@@ -199,6 +233,10 @@ const makeDesignFiles = Effect.gen(function* () {
     PubSub.unbounded<FileSystem.WatchEvent>(),
     PubSub.shutdown
   );
+  const written = yield* Effect.acquireRelease(
+    PubSub.unbounded<FileWrite>(),
+    PubSub.shutdown
+  );
   /** Each file's content as it was last told of, by its hash. */
   const last = new Map<string, string>();
 
@@ -215,7 +253,7 @@ const makeDesignFiles = Effect.gen(function* () {
       : null;
   };
 
-  const report = (file: string, content: string | null) =>
+  const report = (file: string, content: string | null, by: Writer = UNKNOWN) =>
     Effect.suspend(() => {
       const hash = content === null ? "" : hashContent(content);
       if (last.get(file) === hash) {
@@ -228,11 +266,15 @@ const makeDesignFiles = Effect.gen(function* () {
         last.set(file, hash);
       }
       const kind = classify(file);
-      return Effect.andThen(
-        events.publish("file.changed", { file, hash }),
-        kind === null
-          ? Effect.void
-          : Effect.asVoid(PubSub.publish(changed, { file, hash, kind }))
+      return Effect.all(
+        [
+          events.publish("file.changed", { file, hash }),
+          PubSub.publish(written, { by, file }),
+          kind === null
+            ? Effect.void
+            : PubSub.publish(changed, { file, hash, kind }),
+        ],
+        { discard: true }
       );
     });
 
@@ -241,6 +283,14 @@ const makeDesignFiles = Effect.gen(function* () {
       Stream.filter(Stream.fromPubSub(changed), (c) => kinds.includes(c.kind)),
     comings: Stream.fromPubSub(comings),
     report,
+    writes: Effect.map(PubSub.subscribe(written), (subscription) =>
+      Effect.suspend(() =>
+        // The project closed: nothing more is told.
+        PubSub.isShutdownUnsafe(written)
+          ? Effect.succeed([])
+          : PubSub.takeUpTo(subscription, Number.POSITIVE_INFINITY)
+      )
+    ),
   });
   return { comings, service };
 });

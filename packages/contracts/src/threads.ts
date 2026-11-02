@@ -552,6 +552,13 @@ export const ThreadItem = Schema.Union([
   }),
   Schema.Struct({
     at: Schema.Number,
+    /**
+     * Files changed during the turn that the agent was not seen writing, while something else
+     * changed files too (another thread's turn, the user in the editor): changed during the turn,
+     * not known to be by its agent. Absent when there were none, and in older stored turns.
+     */
+    changedDuring: Schema.optional(Schema.Array(Schema.String)),
+    /** The files the turn changed, the agent's: all of them unless something else wrote meanwhile. */
     changedFiles: Schema.Array(Schema.String),
     id: Schema.String,
     kind: Schema.Literal("turn_end"),

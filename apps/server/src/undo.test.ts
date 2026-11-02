@@ -10,6 +10,7 @@ import {
   updateFile,
   withinLimits,
 } from "./services/edit.ts";
+import { CallingThread } from "./services/mcp/access.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { eachTest } from "./testing/each-test.ts";
 import { TestEnv } from "./testing/harness.ts";
@@ -139,7 +140,7 @@ eachTest(ProjectRpc())("undo with comments", (test) => {
 /** The journal alone, over a repository whose designs are in `designs/`. */
 const journalIn = (repo: string) =>
   EditService.layer.pipe(
-    Layer.provide(DesignFiles.layerTest),
+    Layer.provideMerge(DesignFiles.layerTest),
     Layer.provide(
       Layer.mergeAll(
         RepoPaths.layer({
@@ -195,6 +196,39 @@ describe("the edit journal", () => {
             })
           );
           assert.deepStrictEqual(seen, [null, "here"]);
+        }).pipe(Effect.provide(journalIn(repo)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "tells who each step wrote for: the thread whose agent's call it serves, else the editor's user",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* fs.makeDirectory(path.join(repo, "designs"), {
+          recursive: true,
+        });
+        yield* Effect.gen(function* () {
+          const edit = yield* EditService;
+          const files = yield* DesignFiles;
+          const written = yield* files.writes;
+          yield* edit
+            .transaction("By the agent", (tx) =>
+              tx.write("designs/a.json", "A")
+            )
+            .pipe(Effect.provideService(CallingThread, "thread_1"));
+          yield* edit.transaction("By the user", (tx) =>
+            tx.write("designs/b.json", "B")
+          );
+          assert.deepStrictEqual(yield* written, [
+            {
+              by: { _tag: "Thread", threadId: "thread_1" },
+              file: "designs/a.json",
+            },
+            { by: { _tag: "Editor" }, file: "designs/b.json" },
+          ]);
         }).pipe(Effect.provide(journalIn(repo)));
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );

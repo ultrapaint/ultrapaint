@@ -68,7 +68,12 @@ Each concept has one module, with an interface its callers and its tests share.
   it takes the editor's MCP server, how it signs in. The editor never calls `authenticate` on its
   own: a sign-in is the desktop app's or the user's.
 - The editor never answers a permission from memory; "always" is the agent's option.
-- A turn is one module.
+- A turn is one module. Its files are the stamps' difference (0031), told apart by a witness of
+  who wrote what meanwhile: a thread's agent (its ACP writes, its MCP calls, which the journal
+  knows by the calling thread, the files its tool calls edit), the user, or nobody known. When
+  another thread's turn overlapped it, or a file was written for the user or another thread, the
+  files its agent was not seen writing are "changed during the turn", not its own; otherwise every
+  file is, so an agent's shell edits in a thread of its own are still credited.
 - Usage and the context are read from ACP's typed messages.
 - A streamed chunk travels alone (`itemText`).
 - The agent and its terminals are spawned by Effect's spawner, in a process group, with one kill
@@ -138,9 +143,6 @@ ones removed had one (the framework, `DesignMdLint`).
   servers are fixed when it opens while those tasks can come in any later prompt, and Effect
   filters tools by protocol, not by token. It would save Codex about 760 tokens a turn and Claude
   Code, which loads tools on demand, none.
-- **Marking files changed during a turn but outside the thread's evidence.** The evidence is
-  incomplete on the main path: an MCP edit is told by document, a shell command not at all. It
-  waits for per-thread write attribution.
 - **The style system's interface naming Tailwind's versions** waits for a second adapter.
 - **Splitting `GLOSSARY.md` into meanings and a module map**: the glossary is the index agents and
   reviews navigate by (0037), and a second file would be a second place to follow a rename.
@@ -150,6 +152,8 @@ ones removed had one (the framework, `DesignMdLint`).
 ## Consequences
 
 - The defects above are fixed, each with a test that failed first.
+- Two threads working at once, or the user editing while an agent works, no longer credits each
+  turn with the others' files: a turn's end counts the files changed during it apart.
 - What agents read:
   - an implement or Map/Migrate thread's briefing went from 43,100 to 9,800 characters;
   - `read_page` on the largest redesign page, from 105,760 to 2,722;

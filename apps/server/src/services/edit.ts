@@ -11,6 +11,7 @@ import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { DesignFiles } from "./design-files.ts";
+import { CallingThread } from "./mcp/access.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const JOURNAL_LIMIT = 200;
@@ -260,7 +261,15 @@ export class EditService extends Context.Service<
               })
           )
         );
-        yield* designFiles.report(rel, content);
+        // An MCP call is served for the thread whose agent made it; anything else, for the user.
+        const thread = yield* Effect.service(CallingThread);
+        yield* designFiles.report(
+          rel,
+          content,
+          thread === undefined
+            ? { _tag: "Editor" }
+            : { _tag: "Thread", threadId: thread }
+        );
       });
 
       /**
