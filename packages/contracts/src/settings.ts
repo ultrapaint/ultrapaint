@@ -4,8 +4,8 @@ import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
 /** Whether the tool may write to git (PLAN-desktop D9). */
-export const GitWrites = Schema.Literals(["off", "on"]);
-export type GitWrites = typeof GitWrites.Type;
+const GitWrites = Schema.Literals(["off", "on"]);
+type GitWrites = typeof GitWrites.Type;
 
 /** Whether writing to git is on in these settings; off unless said. */
 export const writesGit = (settings: { readonly git?: GitWrites | undefined }) =>
@@ -116,8 +116,7 @@ export type SettingsValidation = typeof SettingsValidation.Type;
  *   other state sits in a `.ultrapaint` directory next to it.
  * - `ephemeral`: started without a configuration; nothing outlives the process.
  */
-export const StorageMode = Schema.Literals(["managed", "file", "ephemeral"]);
-export type StorageMode = typeof StorageMode.Type;
+const StorageMode = Schema.Literals(["managed", "file", "ephemeral"]);
 
 export const StorageInfo = Schema.Struct({
   /** File the settings are read from and written to; absent when nothing is saved. */

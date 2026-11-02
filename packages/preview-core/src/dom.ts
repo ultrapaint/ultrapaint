@@ -109,7 +109,7 @@ const boxOf = (els: readonly Element[]) => {
 };
 
 /** Whether the element takes up any of the screen: a box to measure, a box to point at. */
-export const drawsOnScreen = (el: Element): boolean => {
+const drawsOnScreen = (el: Element): boolean => {
   const r = el.getBoundingClientRect();
   // A degenerate box covers no pixel, and the root a portal appends to the body is one: a flat
   // line at the end of the page, holding a popup that floats somewhere else entirely.

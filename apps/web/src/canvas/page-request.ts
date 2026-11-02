@@ -15,7 +15,7 @@ import {
 import { breakpointsFor } from "../state/design-system.ts";
 import type { RenderRequest } from "./editor-frame.ts";
 
-export interface PageDrawing {
+interface PageDrawing {
   /** Said in place of a page there is none of: the prototype's route that no page serves. */
   readonly absent?: string | undefined;
   /** What the canvas draws every page in (`CanvasLayout.defaults`). */

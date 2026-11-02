@@ -66,13 +66,13 @@ export interface AgentScript {
 }
 
 /** A call the host made, by its ACP method, with what it sent. */
-export interface ScriptedCall {
+interface ScriptedCall {
   readonly method: string;
   readonly params: unknown;
 }
 
 /** One prompt, as the agent receives it, and what the agent can do within its turn. */
-export interface ScriptedTurn {
+interface ScriptedTurn {
   /** Ends the turn with this answer: why it stopped, and what it spent. */
   readonly answer: (response: PromptResponse) => Effect.Effect<void>;
   /** Completes once the host has asked for the turn to stop (`session/cancel`). */

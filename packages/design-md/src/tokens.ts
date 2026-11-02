@@ -195,7 +195,7 @@ export const groupsOf = (
 };
 
 /** A token of the document, named as the code would name it. */
-export interface DocumentToken {
+interface DocumentToken {
   /** The document token a reference points at, by path: `colors.blue-600`. */
   readonly alias?: string;
   readonly kind: TokenKind;
@@ -224,10 +224,7 @@ const PREFIXES = {
 >;
 
 /** The code's name for a document token, by group and key. */
-export const codeNameOf = (
-  group: keyof typeof PREFIXES,
-  key: string
-): string =>
+const codeNameOf = (group: keyof typeof PREFIXES, key: string): string =>
   group === "spacing" && key === "base"
     ? SPACING_BASE
     : `${PREFIXES[group].prefix}${tokenKeyOf(key)}`;

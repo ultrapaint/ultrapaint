@@ -16,7 +16,7 @@ const SUPPORTED_20 = { major: 20, minor: 19 };
 
 const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)/;
 
-export type NodeStatus =
+type NodeStatus =
   | { readonly _tag: "Missing" }
   | {
       readonly _tag: "Found";

@@ -164,11 +164,10 @@ const lookFields = {
 };
 
 /** A variant axis's member a place of a look is in: `variant: outline`. */
-export const LookMember = Schema.Struct({
+const LookMember = Schema.Struct({
   axis: Schema.String,
   member: Schema.String,
 });
-export type LookMember = typeof LookMember.Type;
 
 /**
  * Where a part's style is set in a system component's look (ADR 0044): its base when neither is

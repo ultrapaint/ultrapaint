@@ -18,7 +18,7 @@ import type { GetScreenshot } from "../mcp/screenshot.ts";
 import { designSystemSchema, pageSchema } from "./task-text.ts";
 
 /** A tool the editor's MCP server offers, by the name its definition (`Tool.make`) gives it. */
-export type ToolName =
+type ToolName =
   | keyof Toolkit.Tools<typeof EditorTools>
   | (typeof AskUser)["name"]
   | (typeof GetScreenshot)["name"];
@@ -46,7 +46,7 @@ export const HANDOFF_ACTIONS = [
   "export",
   "import",
 ] as const;
-export type HandoffAction = (typeof HANDOFF_ACTIONS)[number];
+type HandoffAction = (typeof HANDOFF_ACTIONS)[number];
 
 /**
  * A call of `handoff` as a text asks for it: `handoff with action "export" and tokens […]`. Also
@@ -56,7 +56,7 @@ export const handoffCall = (action: HandoffAction, args?: string) =>
   `${TOOLS.handoff} with action "${action}"${args ? ` and ${args}` : ""}`;
 
 /** Which tokens a step brings over: these, the ones the text just listed, or all that wait. */
-export type TokensNamed = readonly string[] | "named" | "all";
+type TokensNamed = readonly string[] | "named" | "all";
 
 const tokensArgument = (which: TokensNamed) => {
   if (which === "all") {

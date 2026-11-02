@@ -36,7 +36,7 @@ type Handlers = {
   readonly [E in EventName]?: (payload: EventPayload<E>) => void;
 };
 
-export interface Piece<T, K = undefined> {
+interface Piece<T, K = undefined> {
   /** Takes what was read into the store; a read that keeps what it read itself has none. */
   readonly apply?: (value: T, key: K) => void;
   /**

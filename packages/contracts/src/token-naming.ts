@@ -35,7 +35,7 @@ export type ValueHint =
   | null;
 
 /** A token another tool names: its kind and the design's name, or why it is left out. */
-export type ForeignToken =
+type ForeignToken =
   | { readonly kind: ListedKind; readonly name: string }
   | { readonly skipped: string };
 

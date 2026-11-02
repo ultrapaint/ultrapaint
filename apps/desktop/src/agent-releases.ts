@@ -18,7 +18,7 @@
 
 import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 
-export interface ClaudeRelease {
+interface ClaudeRelease {
   readonly kind: "zst-binary";
   /** The binary, once decompressed. */
   readonly sha256: string;
@@ -71,7 +71,7 @@ const codex = (target: string, sha256: string, size: number): CodexRelease => ({
 });
 
 /** By agent, then by `<platform>-<arch>` (with `-musl` for a Linux on musl). */
-export const RELEASES = {
+const RELEASES = {
   "claude-code": {
     "darwin-arm64": claude(
       "darwin-arm64",
@@ -176,7 +176,7 @@ export const RELEASES = {
 } as const satisfies Record<BuiltInAgentId, Record<string, AgentRelease>>;
 
 /** Whether this Linux runs on musl rather than glibc: Node says which C library it was built on. */
-export const isMusl = () => {
+const isMusl = () => {
   const report = process.report?.getReport() as
     | { readonly header?: { readonly glibcVersionRuntime?: string } }
     | undefined;
@@ -184,7 +184,7 @@ export const isMusl = () => {
 };
 
 /** This machine's key in the release tables. */
-export const platformKey = (
+const platformKey = (
   platform: string = process.platform,
   arch: string = process.arch,
   musl: boolean = isMusl()

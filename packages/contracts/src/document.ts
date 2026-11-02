@@ -87,19 +87,8 @@ export type TextAlign = typeof TextAlign.Type;
 export const ImageFit = Schema.Literals(["cover", "contain", "fill"]);
 export type ImageFit = typeof ImageFit.Type;
 
-export const NodeType = Schema.Literals([
-  "page",
-  "group",
-  "row",
-  "column",
-  "text",
-  "image",
-  "instance",
-]);
-export type NodeType = typeof NodeType.Type;
-
 /** What every node has: identity, its box, and where it goes when pressed in the prototype. */
-export interface BoxFields {
+interface BoxFields {
   readonly border?: Border | undefined;
   /** Background. */
   readonly fill?: string | undefined;
@@ -146,7 +135,7 @@ export interface BoxFields {
  * breakpoint's name (`md`), mobile-first: the node's own fields are the smallest screen's, and
  * `at.md` holds from `md` up until a larger breakpoint sets the field again.
  */
-export interface AtBreakpoints<Fields> {
+interface AtBreakpoints<Fields> {
   readonly [breakpoint: string]: Fields;
 }
 
@@ -168,9 +157,9 @@ type Fixed =
   | "y";
 
 /** What a node of this kind can set at a breakpoint. */
-export type OverrideOf<Node> = Partial<Omit<Node, Fixed>>;
+type OverrideOf<Node> = Partial<Omit<Node, Fixed>>;
 
-export interface StackFields {
+interface StackFields {
   /** Along the main axis. */
   readonly align?: MainAlign | undefined;
   /** Across the main axis. */
@@ -346,7 +335,7 @@ const children = Schema.Array(
   Schema.suspend((): Schema.Codec<DesignNode> => DesignNode)
 );
 
-export const PageNodeSchema = Schema.Struct({
+const PageNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
   at: atBreakpoints({ ...boxOverride, ...stackFields }),
@@ -456,14 +445,13 @@ export const PageDocument: Schema.Codec<PageDocument> = Schema.Struct({
 }) as unknown as Schema.Codec<PageDocument>;
 
 /** A breakpoint of the design system, by its name: `md`, `lg`. */
-export const BreakpointName = Schema.String.check(Schema.isMinLength(1));
+const BreakpointName = Schema.String.check(Schema.isMinLength(1));
 
 /**
  * Which document an operation is about: a page by its id (its path inside the designs
  * directory), or a canvas's loose nodes, `canvas:<canvas>`.
  */
-export const DocRef = Schema.String;
-export type DocRef = string;
+const DocRef = Schema.String;
 
 /**
  * One change to a document. `parent: null` is the top level of the canvas; in a page the

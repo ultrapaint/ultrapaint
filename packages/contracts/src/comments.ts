@@ -14,8 +14,7 @@ export type CommentReply = typeof CommentReply.Type;
  * What a comment is: talk about the design, or a behaviour note (ADR 0030), what the code must do
  * that a design cannot show ("only admins see this"), which `/implement` carries to the code.
  */
-export const CommentKind = Schema.Literals(["comment", "behaviour"]);
-export type CommentKind = typeof CommentKind.Type;
+const CommentKind = Schema.Literals(["comment", "behaviour"]);
 
 /**
  * A note pinned on a page of the canvas. The pin sits at `x`/`y`, in the page's own pixels from

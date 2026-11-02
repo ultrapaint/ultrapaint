@@ -172,5 +172,3 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
 
   return { handlersFor };
 });
-
-export type AgentClient = Effect.Success<ReturnType<typeof makeAgentClient>>;

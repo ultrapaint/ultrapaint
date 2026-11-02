@@ -66,7 +66,7 @@ const MODES: readonly Mode[] = [
   "comment",
 ];
 
-export const pageSurface: Surface = {
+const pageSurface: Surface = {
   background: "page",
   escape: () => false,
   // Read when asked: the layout's module is one this one's own imports lean on.
@@ -102,7 +102,7 @@ const NOT_ON_BOARDS = new Set([
 ]);
 
 /** The board view open on `place`. */
-export const boardSurface = (place: BoardPlace): Surface => {
+const boardSurface = (place: BoardPlace): Surface => {
   const tabs = () => railTabsFor(place);
   return {
     background: "board",

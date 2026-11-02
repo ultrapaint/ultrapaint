@@ -218,7 +218,7 @@ export const isBoardFrame = (frame: string) =>
  * A frame whose edits go to another document: an app component's tree edited in place in it
  * (ADR 0041, `isolation.ts`), at one of its variants (`size=lg`) or at its own fields.
  */
-export interface EditedAs {
+interface EditedAs {
   /** The variant the edits land on, as a node's `at` keeps it; null for the node's own fields. */
   readonly at: string | null;
   readonly doc: string;

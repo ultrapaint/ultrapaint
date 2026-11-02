@@ -9,7 +9,7 @@ import { walk } from "@ultrapaint/design-document/tree";
 import type { TokenUse } from "./token-ops.ts";
 
 /** A place a component is used in: a page with how many instances, or an app component's tree. */
-export type ComponentUse = Omit<TokenUse, "kind"> & {
+type ComponentUse = Omit<TokenUse, "kind"> & {
   readonly kind: "page" | "component";
 };
 

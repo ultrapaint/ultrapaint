@@ -1,6 +1,6 @@
 import { Effect, type FileSystem, type Path } from "effect";
 
-export interface WalkOptions {
+interface WalkOptions {
   readonly includeFile: (name: string) => boolean;
   readonly skipDir: (name: string) => boolean;
 }

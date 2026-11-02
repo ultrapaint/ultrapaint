@@ -17,7 +17,7 @@ const CommentSummary = Schema.Struct({
   text: Schema.String,
 });
 
-export const ListComments = Tool.make("list_comments", {
+const ListComments = Tool.make("list_comments", {
   description:
     "Open comments on the designs, where the user asks for things; includeResolved for all.",
   failure: ToolFailure,
@@ -29,7 +29,7 @@ export const ListComments = Tool.make("list_comments", {
   success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
 }).annotateMerge(doing("read"));
 
-export const ReplyToComment = Tool.make("reply_to_comment", {
+const ReplyToComment = Tool.make("reply_to_comment", {
   description: "Answer a comment in its thread.",
   failure: ToolFailure,
   parameters: Schema.Struct({
@@ -40,7 +40,7 @@ export const ReplyToComment = Tool.make("reply_to_comment", {
   success: Schema.Struct({ replies: Schema.Number }),
 }).annotateMerge(doing("edit"));
 
-export const ResolveComment = Tool.make("resolve_comment", {
+const ResolveComment = Tool.make("resolve_comment", {
   description: "Mark a comment done once its work is.",
   failure: ToolFailure,
   parameters: Schema.Struct({

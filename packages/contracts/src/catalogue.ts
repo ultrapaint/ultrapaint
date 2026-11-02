@@ -8,11 +8,11 @@ import { Json } from "./base.ts";
 import { APP_FROM } from "./component-names.ts";
 import { InstanceFrom } from "./document.ts";
 
-export const PropType = Schema.Struct({
+const PropType = Schema.Struct({
   kind: Schema.Literals(["string", "number", "boolean", "enum", "list"]),
   members: Schema.optional(Schema.Array(Schema.String)),
 });
-export type PropType = typeof PropType.Type;
+type PropType = typeof PropType.Type;
 
 /** What an instance sets, by name: its type, and the value it falls to when it sets none. */
 export const PropMeta = Schema.Struct({

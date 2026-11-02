@@ -19,7 +19,7 @@ import { Shell } from "./shell.ts";
 import { readSshHosts } from "./ssh-hosts.ts";
 
 /** What the handlers need besides the app's services. */
-export interface HandlerOptions {
+interface HandlerOptions {
   /** The user's home directory, which `~` in the SSH configuration names. */
   readonly home: string;
   /** The SSH configuration whose hosts are suggested. */

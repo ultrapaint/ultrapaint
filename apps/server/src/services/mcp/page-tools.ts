@@ -52,14 +52,14 @@ export const GetContext = Tool.make("get_context", {
   }),
 }).annotateMerge(doing("read"));
 
-export const ListPages = Tool.make("list_pages", {
+const ListPages = Tool.make("list_pages", {
   description:
     "Every page: canvas, name, file and URL. A variant (pricing@bold.page.json) shares its base's URL: name it by file.",
   failure: ToolFailure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotateMerge(doing("read"));
 
-export const SetFrame = Tool.make("set_frame", {
+const SetFrame = Tool.make("set_frame", {
   description:
     "Size a page's frame (canvas and get_screenshot): a preset, or width and height; a long page needs a tall one. views: widths drawn beside it.",
   failure: ToolFailure,
@@ -78,7 +78,7 @@ export const SetFrame = Tool.make("set_frame", {
   }),
 }).annotateMerge(doing("edit", { idempotent: true }));
 
-export const CreatePage = Tool.make("create_page", {
+const CreatePage = Tool.make("create_page", {
   description:
     "Add a page, its file named after it (billing-settings.page.json); route for a screen of the application, none for a sketch.",
   failure: ToolFailure,
@@ -98,7 +98,7 @@ export const CreatePage = Tool.make("create_page", {
   }),
 }).annotateMerge(doing("edit"));
 
-export const RenamePage = Tool.make("rename_page", {
+const RenamePage = Tool.make("rename_page", {
   description: "Rename a page and its variants' files; its URL and links stay.",
   failure: ToolFailure,
   parameters: Schema.Struct({
@@ -110,7 +110,7 @@ export const RenamePage = Tool.make("rename_page", {
   success: Schema.Struct({ file: Schema.String }),
 }).annotateMerge(doing("edit"));
 
-export const SetPageUrl = Tool.make("set_page_url", {
+const SetPageUrl = Tool.make("set_page_url", {
   description:
     "Set the URL a page serves in its canvas's prototype, null for none; links to the old one break.",
   failure: ToolFailure,
@@ -127,7 +127,7 @@ export const SetPageUrl = Tool.make("set_page_url", {
   }),
 }).annotateMerge(doing("edit", { idempotent: true }));
 
-export const DeletePage = Tool.make("delete_page", {
+const DeletePage = Tool.make("delete_page", {
   description:
     "Delete a page with its variants and comments; links to it break (list_links).",
   failure: ToolFailure,
@@ -142,7 +142,7 @@ export const DeletePage = Tool.make("delete_page", {
   }),
 }).annotateMerge(doing("destructive"));
 
-export const DuplicatePage = Tool.make("duplicate_page", {
+const DuplicatePage = Tool.make("duplicate_page", {
   description:
     "Copy a page beside it (pricing-2.page.json), node ids kept, with no URL.",
   failure: ToolFailure,
@@ -154,7 +154,7 @@ export const DuplicatePage = Tool.make("duplicate_page", {
   success: Schema.Struct({ file: Schema.String }),
 }).annotateMerge(doing("edit"));
 
-export const ListTemplates = Tool.make("list_templates", {
+const ListTemplates = Tool.make("list_templates", {
   description: "The templates create_page starts from.",
   failure: ToolFailure,
   success: Schema.Struct({

@@ -53,7 +53,7 @@ export type TranscriptAction =
       readonly patch: (thread: Thread) => Partial<Thread>;
     };
 
-export interface ProjectionContext {
+interface ProjectionContext {
   readonly hasItem: (itemId: string) => boolean;
   readonly newId: () => string;
   readonly now: number;
@@ -67,7 +67,7 @@ export interface ProjectionContext {
 }
 
 /** What an update does to the transcript, and where the turn's next chunks go. */
-export interface Projection {
+interface Projection {
   readonly actions: readonly TranscriptAction[];
   readonly turn: TurnCursor | null;
 }

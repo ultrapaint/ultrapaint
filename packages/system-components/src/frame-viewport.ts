@@ -11,7 +11,7 @@
 import { platform } from "@floating-ui/dom";
 
 /** The space kept between a popup and its frame's edges, in the frame's pixels. */
-export const FRAME_EDGE = 6;
+const FRAME_EDGE = 6;
 
 const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
 

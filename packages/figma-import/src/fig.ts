@@ -35,14 +35,14 @@ export interface FigComponent {
 }
 
 /** A component property (text, boolean, instance swap); variants are read from symbol names. */
-export interface FigPropDef {
+interface FigPropDef {
   readonly id: string;
   /** Without the `#12:34` Figma appends to keep names unique. */
   readonly name: string;
   readonly type: "text" | "boolean" | "instance" | "other";
 }
 
-export interface FigPage {
+interface FigPage {
   readonly frames: readonly FigNode[];
   readonly id: string;
   readonly name: string;
@@ -82,7 +82,7 @@ const propType = (type: string | undefined): FigPropDef["type"] => {
 };
 
 /** `Size=Large, State=Hover` → `{Size: "Large", State: "Hover"}`. */
-export const parseVariant = (name: string): Record<string, string> => {
+const parseVariant = (name: string): Record<string, string> => {
   const values: Record<string, string> = {};
   for (const part of name.split(",")) {
     const match: RegExpExecArray | null = VARIANT_RE.exec(part.trim());

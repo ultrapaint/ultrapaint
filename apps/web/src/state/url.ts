@@ -9,7 +9,7 @@
  */
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
-export interface UrlState {
+interface UrlState {
   canvas: string | null;
   /** The page the editor is on when it serves no URL (its id); null otherwise. */
   page: string | null;

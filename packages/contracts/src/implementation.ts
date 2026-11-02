@@ -12,7 +12,7 @@ export const IMPLEMENTATION_FILE = "implementation.json";
  * Where the designs as they were implemented are kept, inside the designs directory: a directory
  * starting with `_`, which the page scan passes by.
  */
-export const IMPLEMENTED_DIR = "_implemented";
+const IMPLEMENTED_DIR = "_implemented";
 
 /**
  * What a binding is for: a page, by its id (`redesign/orders.page.json`), or a component, by its
@@ -28,7 +28,7 @@ export const componentTarget = (name: string) =>
   `${COMPONENT_TARGET_PREFIX}${name}`;
 export const isComponentTarget = (target: string) =>
   target.startsWith(COMPONENT_TARGET_PREFIX);
-export const IMPLEMENTED_COMPONENTS = "components";
+const IMPLEMENTED_COMPONENTS = "components";
 
 const PAGE_FILE_RE = /\.page\.json$/;
 
@@ -78,13 +78,12 @@ export type ImplementationFile = typeof ImplementationFile.Type;
  * - `changed`: bound, and the design, the code or both changed since (`designChanged`,
  *   `codeChanged`).
  */
-export const ImplementationStatus = Schema.Literals([
+const ImplementationStatus = Schema.Literals([
   "draft",
   "ready",
   "implemented",
   "changed",
 ]);
-export type ImplementationStatus = typeof ImplementationStatus.Type;
 
 export const ImplementationItem = Schema.Struct({
   /** When it was implemented, when it was. */

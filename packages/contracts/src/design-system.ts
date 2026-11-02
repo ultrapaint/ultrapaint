@@ -52,8 +52,8 @@ export type FontSizeToken = typeof FontSizeToken.Type;
  * Where a text style sits in the type scale: the headings, the body copy, or the rest (captions,
  * labels, code). The inspector and the Design system panel list the styles by group.
  */
-export const TextStyleGroup = Schema.Literals(["heading", "body", "other"]);
-export type TextStyleGroup = typeof TextStyleGroup.Type;
+const TextStyleGroup = Schema.Literals(["heading", "body", "other"]);
+type TextStyleGroup = typeof TextStyleGroup.Type;
 
 /** The groups in the order they are listed, with their titles. */
 export const TEXT_STYLE_GROUPS: readonly {
@@ -113,7 +113,7 @@ export type FontFamily = typeof FontFamily.Type;
  * where it sits in the stacking order. Most design systems have four: sunken, default, raised
  * (a card that moves) and overlay (a menu, a dialog, a tooltip).
  */
-export const ElevationLevel = Schema.Struct({
+const ElevationLevel = Schema.Struct({
   description: Schema.optional(Schema.String),
   /** The z-index the level is implemented with; left out for levels that never overlap. */
   layer: Schema.optional(Schema.Int),
@@ -123,26 +123,24 @@ export const ElevationLevel = Schema.Struct({
   /** A colour token (`"$color-popover"`) or CSS. */
   surface: Schema.optional(Schema.String),
 });
-export type ElevationLevel = typeof ElevationLevel.Type;
+type ElevationLevel = typeof ElevationLevel.Type;
 
 /** Breakpoints and container widths: `--breakpoint-*` and `--container-*`. */
-export const LayoutTokens = Schema.Struct({
+const LayoutTokens = Schema.Struct({
   breakpoints: Schema.optional(Schema.Array(Token)),
   /** `$container-md` is max-w-md. */
   containers: Schema.optional(Schema.Array(Token)),
 });
-export type LayoutTokens = typeof LayoutTokens.Type;
 
 /**
  * How things move: `--ease-*` and `--animate-*`, and the durations a project names as
  * `--duration-*` (Tailwind has no namespace for them; agents write them into code).
  */
-export const MotionTokens = Schema.Struct({
+const MotionTokens = Schema.Struct({
   animations: Schema.optional(Schema.Array(Token)),
   durations: Schema.optional(Schema.Array(Token)),
   easings: Schema.optional(Schema.Array(Token)),
 });
-export type MotionTokens = typeof MotionTokens.Type;
 
 /** The icon set the product draws with, and the sizes it uses. */
 export const IconSet = Schema.Struct({
@@ -155,8 +153,7 @@ export const IconSet = Schema.Struct({
 export type IconSet = typeof IconSet.Type;
 
 /** Who matched a token of `DESIGN.md` to the design system's: the rules, an agent, or the user. */
-export const DocumentMatchSource = Schema.Literals(["rule", "agent", "user"]);
-export type DocumentMatchSource = typeof DocumentMatchSource.Type;
+const DocumentMatchSource = Schema.Literals(["rule", "agent", "user"]);
 
 /** What a token of `DESIGN.md` is in the design system: `to` its token, null when left out. */
 export const DocumentMatch = Schema.Struct({
@@ -366,16 +363,15 @@ export const DesignFinding = Schema.Struct({
 export type DesignFinding = typeof DesignFinding.Type;
 
 /** A `##` section of `DESIGN.md`. */
-export const DesignSection = Schema.Struct({
+const DesignSection = Schema.Struct({
   heading: Schema.String,
   /** The format's section the heading names (`Overview` for "Brand & Style"); null for others. */
   section: Schema.NullOr(Schema.String),
   text: Schema.String,
 });
-export type DesignSection = typeof DesignSection.Type;
 
 /** A value of `DESIGN.md`'s front matter that differs from the design system's and is waiting for Sync. */
-export const DocumentHeld = Schema.Struct({
+const DocumentHeld = Schema.Struct({
   code: Schema.optional(Schema.String),
   doc: Schema.optional(Schema.String),
   /** `doc`: changed in the document only. `both`: changed on both sides. */
@@ -383,7 +379,6 @@ export const DocumentHeld = Schema.Struct({
   /** `colors.primary`, `typography.body.fontSize`. */
   path: Schema.String,
 });
-export type DocumentHeld = typeof DocumentHeld.Type;
 
 /** `DESIGN.md` as the editor reads it (ADR 0027). */
 export const DesignDocument = Schema.Struct({

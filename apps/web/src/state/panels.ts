@@ -76,7 +76,7 @@ export const usePanels = create<PanelsStore>((set, get) => ({
  * read) with the text its composer is to hold; a file in Changes; a node whose Layers row turns
  * into a name field.
  */
-export type LeftShown =
+type LeftShown =
   | LeftTab
   | { readonly chat: string | Thread; readonly draft?: string }
   | { readonly changes: string }
@@ -103,7 +103,7 @@ const useRequests = create<Requests>(() => ({
 }));
 
 /** A request, by what it asks of which panel. */
-export type Requested = "diff" | "rename" | { readonly draft: string };
+type Requested = "diff" | "rename" | { readonly draft: string };
 
 type RequestOf<R extends Requested> = R extends "rename" ? Selection : string;
 

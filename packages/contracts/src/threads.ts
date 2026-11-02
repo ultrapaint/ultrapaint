@@ -79,12 +79,12 @@ export const ConfigOption = Schema.Struct({
 });
 export type ConfigOption = typeof ConfigOption.Type;
 
-export const SessionMode = Schema.Struct({
+const SessionMode = Schema.Struct({
   description: Schema.optional(Schema.String),
   id: Schema.String,
   name: Schema.String,
 });
-export type SessionMode = typeof SessionMode.Type;
+type SessionMode = typeof SessionMode.Type;
 
 /** Whether an option chooses the model. Agents say so by category; some only by its id. */
 export const isModelOption = (option: ConfigOption): boolean =>
@@ -450,7 +450,7 @@ export const StopReason = Schema.Literals([
 ]);
 export type StopReason = typeof StopReason.Type;
 
-export const ToolCallStatus = Schema.Literals([
+const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
   "completed",
