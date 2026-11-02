@@ -23,7 +23,7 @@ import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
 import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
-import { canvasText } from "./canvas-file.ts";
+import { canvasText } from "./canvas-files.ts";
 import type { CommentsService } from "./comments.ts";
 import { COMMENTS_FILE } from "./comments-file.ts";
 import type { EditTransaction } from "./edit.ts";

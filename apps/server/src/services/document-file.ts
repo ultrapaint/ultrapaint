@@ -4,6 +4,7 @@
  * page's links following it) and the snapshots read with it.
  */
 import { type DesignNode, PageDocument } from "@ultrapaint/contracts/document";
+import type { Conflict } from "@ultrapaint/contracts/errors";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import {
@@ -11,23 +12,27 @@ import {
   DOCUMENT_VERSION,
 } from "@ultrapaint/design-document/tree";
 import { Effect, Schema } from "effect";
-import { readCanvasText } from "./canvas-file.ts";
+import type { CanvasRead } from "./canvas-files.ts";
 
 export const decodePage = Schema.decodeUnknownEffect(PageDocument);
 
 export const problemOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-/** What a document's text holds, with whether ids had to be filled in, or what is wrong with it. */
+/**
+ * What a document's text holds, with whether ids had to be filled in, or what is wrong with it.
+ * A canvas's text is read with `readCanvas` (its project's `CanvasFiles`); without one, the text
+ * is a page's.
+ */
 export const parseDocument = (
   text: string,
-  canvas: boolean
+  readCanvas?: (text: string) => Effect.Effect<CanvasRead, Conflict>
 ): Effect.Effect<
   | { readonly filled: boolean; readonly root: DesignNode }
   | { readonly problem: string }
 > =>
-  canvas
-    ? readCanvasText(text).pipe(
+  readCanvas
+    ? readCanvas(text).pipe(
         Effect.map(({ filled, layout }) => ({
           filled,
           root: canvasRoot(layout.nodes ?? []),

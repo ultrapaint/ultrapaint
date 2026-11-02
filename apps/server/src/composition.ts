@@ -17,6 +17,7 @@ import {
   ProjectManager,
   type ProjectRequirements,
 } from "./project.ts";
+import { CanvasFiles } from "./services/canvas-files.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
@@ -124,6 +125,8 @@ export const projectLayer = (
     Layer.provideMerge(CommentsService.layer),
     // Comments are signed with git's user name as it is when each is made.
     Layer.provideMerge(GitService.layer),
+    // The canvases' layouts as their files were read and written last, the project's own.
+    Layer.provideMerge(CanvasFiles.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
     // The designs' changes, the journal's own and everyone else's, heard of once.

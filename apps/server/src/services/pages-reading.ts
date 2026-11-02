@@ -30,7 +30,7 @@ import { makeExists } from "../fs-exists.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { toPosix } from "../hash.ts";
 import { safeCanvasId } from "../ids.ts";
-import { canvasCodec, readCanvasText } from "./canvas-file.ts";
+import { CanvasFiles } from "./canvas-files.ts";
 import { EditService, type EditTransaction, updateFile } from "./edit.ts";
 import {
   canvasIdsIn,
@@ -45,6 +45,7 @@ import { RepoPaths } from "./repo-paths.ts";
 export const makePagesReading = Effect.gen(function* () {
   const paths = yield* RepoPaths;
   const edit = yield* EditService;
+  const canvasFiles = yield* CanvasFiles;
   const events = yield* EventBus;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -77,7 +78,7 @@ export const makePagesReading = Effect.gen(function* () {
     if (text === null) {
       return emptyCanvasLayout();
     }
-    const { layout } = yield* readCanvasText(text).pipe(
+    const { layout } = yield* canvasFiles.read(paths.relative(file), text).pipe(
       Effect.mapError(
         (error) =>
           new Conflict({
@@ -100,7 +101,8 @@ export const makePagesReading = Effect.gen(function* () {
     canvas: string,
     update: (layout: CanvasLayout) => CanvasLayout
   ) {
-    yield* updateFile(tx, yield* canvasFile(canvas), canvasCodec, update);
+    const file = yield* canvasFile(canvas);
+    yield* updateFile(tx, file, canvasFiles.codec(file), update);
   });
 
   /**
@@ -123,7 +125,8 @@ export const makePagesReading = Effect.gen(function* () {
     tx: EditTransaction,
     canvas: string
   ) {
-    return yield* tx.readDocument(yield* canvasFile(canvas), canvasCodec).pipe(
+    const file = yield* canvasFile(canvas);
+    return yield* tx.readDocument(file, canvasFiles.codec(file)).pipe(
       Effect.catchTag("Conflict", (error) =>
         Effect.fail(
           new Conflict({

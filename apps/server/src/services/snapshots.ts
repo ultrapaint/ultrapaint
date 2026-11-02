@@ -15,7 +15,7 @@ import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
 import { OpenProject } from "../project.ts";
-import { readCanvasText } from "./canvas-file.ts";
+import { parseCanvasText } from "./canvas-files.ts";
 import { makeDesignRefs } from "./design-refs.ts";
 import { parseDocument } from "./document-file.ts";
 import type { EditFailure } from "./edit.ts";
@@ -76,7 +76,7 @@ const layoutsOf = Effect.fnUntraced(function* (files: {
     layouts[canvas] =
       text === undefined
         ? emptyCanvasLayout()
-        : yield* readCanvasText(text).pipe(
+        : yield* parseCanvasText(text).pipe(
             Effect.map(({ layout }): CanvasLayout => layout),
             Effect.orElseSucceed(() => emptyCanvasLayout())
           );
@@ -103,7 +103,7 @@ const documentsOf = Effect.fnUntraced(function* (
   const documents: DocumentState[] = [];
   for (const page of pages) {
     const text = files[page.id] ?? "";
-    const parsed = yield* parseDocument(text, false);
+    const parsed = yield* parseDocument(text);
     documents.push({
       doc: page.id,
       hash: hashContent(text),

@@ -51,7 +51,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
-import { canvasText, readCanvasText } from "./canvas-file.ts";
+import { CanvasFiles } from "./canvas-files.ts";
 import {
   componentText,
   readComponentFile,
@@ -146,6 +146,7 @@ export class DocumentService extends Context.Service<
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
       const pages = yield* PagesService;
+      const canvasFiles = yield* CanvasFiles;
       const events = yield* EventBus;
       const designFiles = yield* DesignFiles;
       const fs = yield* FileSystem.FileSystem;
@@ -213,15 +214,21 @@ export class DocumentService extends Context.Service<
         }
       };
 
-      /** What a document's text is as a document, or why it is not one. */
+      /**
+       * What a document's text is as a document, or why it is not one. `canvas` is the file of
+       * the canvas whose text it is, null for a page's.
+       */
       const loadedFrom = Effect.fnUntraced(function* (
         text: string,
-        canvas: boolean
+        canvas: string | null
       ) {
         const hash = hashContent(text);
-        const key = `${canvas ? "canvas" : "page"}:${hash}`;
+        const key = `${canvas === null ? "page" : "canvas"}:${hash}`;
         const parsed =
-          parsedByHash.get(key) ?? (yield* parseDocument(text, canvas));
+          parsedByHash.get(key) ??
+          (yield* canvas === null
+            ? parseDocument(text)
+            : parseDocument(text, (t) => canvasFiles.read(canvas, t)));
         keepParsed(key, parsed);
         const loaded: Loaded =
           "problem" in parsed
@@ -255,14 +262,14 @@ export class DocumentService extends Context.Service<
               })
           )
         );
-        const canvas = canvasOfDoc(doc) !== null;
+        const canvas = canvasOfDoc(doc) === null ? null : rel;
         if (text !== null && componentOfDoc(doc) !== null) {
           return componentLoaded(text);
         }
         if (text === null) {
           const missing: Loaded = {
             hash: "",
-            root: canvas ? canvasRoot([]) : null,
+            root: canvas === null ? null : canvasRoot([]),
             text,
           };
           return missing;
@@ -291,21 +298,21 @@ export class DocumentService extends Context.Service<
        * The text a document should have, with the ids it leaves out filled in; null when none
        * are missing, or it is not a document.
        */
-      const withIds = (text: string, canvas: boolean) =>
-        canvas
-          ? readCanvasText(text).pipe(
-              Effect.map(({ filled, layout }) =>
-                filled ? canvasText(layout) : null
-              ),
-              Effect.orElseSucceed(() => null)
-            )
-          : Effect.map(parseDocument(text, false), (parsed) =>
+      const withIds = (text: string, canvas: string | null) =>
+        canvas === null
+          ? Effect.map(parseDocument(text), (parsed) =>
               "problem" in parsed || !parsed.filled
                 ? null
                 : serialiseDocument({
                     root: parsed.root,
                     version: DOCUMENT_VERSION,
                   })
+            )
+          : canvasFiles.read(canvas, text).pipe(
+              Effect.map(({ filled, layout }) =>
+                filled ? canvasFiles.codec(canvas).encode(layout) : null
+              ),
+              Effect.orElseSucceed(() => null)
             );
 
       const stateOf = (doc: string, loaded: Loaded): DocumentState => ({

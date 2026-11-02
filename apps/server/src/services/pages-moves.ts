@@ -126,7 +126,7 @@ export const makePageMoves = (
   ) {
     for (const page of pages) {
       const text = yield* tx.read(page.file);
-      const parsed = text === null ? null : yield* parseDocument(text, false);
+      const parsed = text === null ? null : yield* parseDocument(text);
       // A page that does not read keeps its links; the editor reports it when it is opened.
       const next =
         parsed !== null && "root" in parsed
