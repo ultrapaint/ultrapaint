@@ -8,7 +8,7 @@ description: "Text is set in the design system's text styles. Size, weight and c
 Text is set in the design system's text styles. Size, weight and colour are chosen from them,
 never invented for a screen.
 
-Read `references/study.md` when you set a public page (a hero, a brand, shop, editorial,
+Read `study.md` in `references/` when you set a public page (a hero, a brand, shop, editorial,
 restaurant or portfolio page) or need numbers by character. It holds the counts from 4,983 sites,
 how technical, humanistic and expressive sites differ, and recipes for each.
 
