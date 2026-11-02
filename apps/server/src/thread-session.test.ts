@@ -14,6 +14,8 @@ import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Fiber, FileSystem, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
+import { OpenProject } from "./project.ts";
+import { DesignFiles } from "./services/design-files.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import {
@@ -1001,6 +1003,98 @@ describe("a turn", () => {
       yield* Effect.andThen(next.nextTurn, (t) => t.end());
       const { thread } = yield* threadWhen(threadId, turnEnded);
       assert.isUndefined(thread.error);
+    }));
+});
+
+/** The turn's end: the files credited to its agent, and those changed during it by others. */
+const endOf = (items: readonly ThreadItem[]) => {
+  const end = items.findLast((i) => i.kind === "turn_end");
+  return end?.kind === "turn_end"
+    ? { by: end.changedFiles, during: end.changedDuring ?? [] }
+    : null;
+};
+
+describe("the files a turn changed", () => {
+  test("are its agent's when nothing else changed files meanwhile, its shell's included", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ThreadFixture;
+      const fs = yield* FileSystem.FileSystem;
+      const { threadId, turn } = yield* started();
+      // Written by the agent's own shell: the editor hears nothing of it.
+      yield* fs.writeFileString(path.join(repo, "designs/shell.tsx"), "x\n");
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(endOf(items), {
+        by: ["designs/shell.tsx"],
+        during: [],
+      });
+    }));
+
+  test("of two turns at once are each credited only with what its agent was seen writing", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ThreadFixture;
+      const fs = yield* FileSystem.FileSystem;
+      const a = yield* started("first");
+      const b = yield* started("second");
+      // A writes through the editor, and edits a file it names in a tool call.
+      yield* a.agent.host.writeTextFile({
+        content: "export default function A() {}\n",
+        path: path.join(repo, "designs/a.tsx"),
+        sessionId: a.turn.sessionId,
+      });
+      yield* a.turn.update({
+        kind: "edit",
+        locations: [{ path: path.join(repo, "designs/edited.tsx") }],
+        sessionUpdate: "tool_call",
+        status: "pending",
+        title: "Edit",
+        toolCallId: "call_1",
+      });
+      yield* fs.writeFileString(path.join(repo, "designs/edited.tsx"), "e\n");
+      // B writes through the editor, and a shell nobody can tell writes another.
+      yield* b.agent.host.writeTextFile({
+        content: "export default function B() {}\n",
+        path: path.join(repo, "designs/b.tsx"),
+        sessionId: b.turn.sessionId,
+      });
+      yield* fs.writeFileString(path.join(repo, "designs/shell.tsx"), "s\n");
+      yield* a.turn.end();
+      yield* b.turn.end();
+      const first = yield* threadWhen(a.threadId, turnEnded);
+      const second = yield* threadWhen(b.threadId, turnEnded);
+      assert.deepStrictEqual(endOf(first.items), {
+        by: ["designs/a.tsx", "designs/edited.tsx"],
+        during: ["designs/b.tsx", "designs/shell.tsx"],
+      });
+      assert.deepStrictEqual(endOf(second.items), {
+        by: ["designs/b.tsx"],
+        during: ["designs/a.tsx", "designs/edited.tsx", "designs/shell.tsx"],
+      });
+    }));
+
+  test("leave out of the agent's what the editor changed for the user meanwhile", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ThreadFixture;
+      const fs = yield* FileSystem.FileSystem;
+      const project = yield* OpenProject;
+      const { agent, threadId, turn } = yield* started();
+      yield* agent.host.writeTextFile({
+        content: "export default function A() {}\n",
+        path: path.join(repo, "designs/a.tsx"),
+        sessionId: turn.sessionId,
+      });
+      // The user edits a page in the editor while the agent works.
+      const page = "designs/home.page.json";
+      yield* fs.writeFileString(path.join(repo, page), "{}\n");
+      yield* project.service(DesignFiles)((files) =>
+        files.report(page, "{}\n", { _tag: "Editor" })
+      );
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(endOf(items), {
+        by: ["designs/a.tsx"],
+        during: [page],
+      });
     }));
 });
 

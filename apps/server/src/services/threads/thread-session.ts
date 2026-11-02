@@ -82,6 +82,7 @@ import {
   optionValue,
 } from "./transcript.ts";
 import { makeTurn } from "./turn.ts";
+import { makeTurnWitnesses } from "./turn-witness.ts";
 
 export type ThreadFailure =
   | NotFound
@@ -251,6 +252,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const path = yield* Path.Path;
   const opener = yield* makeSessionOpener();
   const content = yield* makePromptContent();
+  // One for every thread: a turn's witness knows whether another thread's turn was open with it.
+  const witnesses = makeTurnWitnesses(project);
   const newItemId = makeId("item");
   const currentPaths = project.use(Effect.map(RepoPaths, (paths) => paths));
 
@@ -330,7 +333,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
               project
                 .use(
                   Effect.flatMap(DesignFiles, (files) =>
-                    files.report(file, text)
+                    files.report(file, text, { _tag: "Thread", threadId })
                   )
                 )
                 .pipe(Effect.catchTag("NotConfigured", () => Effect.void)),
@@ -538,15 +541,19 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           ))
         );
       }
-      // The folder's files before the turn, by time and size, to tell after it what it changed.
-      const before = yield* project
-        .use(Effect.flatMap(WorkingTree, (tree) => tree.stamp))
-        .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
-      // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
-      yield* Effect.uninterruptible(
-        checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
-      );
-      yield* turn.atAgent(before);
+      // Who else writes from now on, and the folder's files before the turn, by time and size,
+      // to tell after it what it changed. The witness is the turn's once it is at the agent.
+      const witness = yield* witnesses.witness(threadId);
+      yield* Effect.gen(function* () {
+        const before = yield* project
+          .use(Effect.flatMap(WorkingTree, (tree) => tree.stamp))
+          .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
+        // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
+        yield* Effect.uninterruptible(
+          checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
+        );
+        yield* turn.atAgent(before, witness);
+      }).pipe(Effect.onError(() => witness.close));
       yield* Effect.forkIn(
         runTurn(
           session,
