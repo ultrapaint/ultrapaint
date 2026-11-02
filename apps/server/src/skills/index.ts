@@ -1,22 +1,22 @@
 /**
- * The design skills the tool ships, in the order agents are told them. Their source is
- * `skills/design/<name>/SKILL.md` at the repository's root (see `render.ts`): the heading is the
- * title, the paragraph after it the summary.
+ * The design skill the tool ships, `ultrapaint`: a router and one reference per part of a design
+ * (`skills/ultrapaint/`, see `render.ts`). Each part is a built-in skill of its own here, told in
+ * the order below: its heading is the title, the paragraph after it the summary.
  *
  * A project replaces one with `<designsDir>/skills/<name>.md`, and the settings turn any off
  * (`SkillsService`). A skill names the editor's tools only through `tools` (`AgentWays.tools`),
  * null without the MCP server, and says otherwise what to do without them; a project's own
  * file is left as it was written.
  *
- * Agents are told them all at once, so each rule lives in one skill and the others leave it
- * there: grouping by space is spacing's, contrast thresholds accessibility's, the measure
- * typography's, reduced motion motion's. Each skill names principles under headings, with exact
- * values, and ends on a "Before you finish" table of what to look for and what fixes it.
+ * Each rule lives in one part and the others leave it there: grouping by space is spacing's,
+ * contrast thresholds accessibility's, the measure typography's, reduced motion motion's. Each part
+ * names principles under headings, with exact values, and ends on a "Before you finish" table of
+ * what to look for and what fixes it.
  */
 
 import { hashContent } from "../hash.ts";
 import type { ToolNames } from "../services/threads/agent-ways.ts";
-import { designSkills } from "./design.generated.ts";
+import { designSkill } from "./design.generated.ts";
 
 interface BuiltInSkill {
   readonly name: string;
@@ -60,26 +60,33 @@ export const withWays = (text: string, tools: ToolNames | null) =>
     tools ? withTools : without
   );
 
-// Each has its folder: `skills.test.ts` holds the two in step.
-/** The skills, naming the editor's tools when they are offered. */
+/**
+ * The parts told whole with the router, in a briefing that tells the router: what every screen
+ * needs. The others are read from `references/` when the agent reaches them.
+ */
+export const TOLD_WITH_ROUTER: ReadonlySet<string> = new Set([
+  "character",
+  "hierarchy",
+  "restraint",
+]);
+
+/** The router, naming the editor's tools when they are offered. */
+export const routerText = (tools: ToolNames | null) =>
+  withWays(designSkill.router, tools);
+
+// Each has its reference: `skills.test.ts` holds the two in step.
+/** The parts, naming the editor's tools when they are offered. */
 export const builtInSkills = (
   tools: ToolNames | null
 ): readonly BuiltInSkill[] =>
   ORDER.flatMap((name) => {
-    const skill = designSkills[name];
-    return skill === undefined
-      ? []
-      : [{ name, text: withWays(skill.text, tools) }];
+    const text = designSkill.sections[name];
+    return text === undefined ? [] : [{ name, text: withWays(text, tools) }];
   });
 
-/** The files a built-in skill has agents read when they need them, by skill and file name. */
-export const skillReferences: Readonly<
-  Record<string, Readonly<Record<string, string>>>
-> = Object.fromEntries(
-  Object.entries(designSkills).flatMap(([name, skill]) =>
-    Object.keys(skill.references).length > 0 ? [[name, skill.references]] : []
-  )
-);
+/** Every file of the skill's `references/`, by its path there, for agents to read when they need it. */
+export const skillReferences: Readonly<Record<string, string>> =
+  designSkill.references;
 
 /**
  * Where this machine keeps the skills' references written out for agents to read: the user's
@@ -98,5 +105,8 @@ export const referencesDirOf = (
     hashContent(JSON.stringify(skillReferences))
   );
 
-/** How a skill names its references folder; the briefing gives the folder written out instead. */
-export const REFERENCES_MENTION = "`references/`";
+/**
+ * How the skill names a file of its references (`` `references/layout.md` ``); the briefing names the
+ * folder they are written to instead.
+ */
+export const REFERENCES_MENTION = "`references/";

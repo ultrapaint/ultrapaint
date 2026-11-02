@@ -34,6 +34,7 @@ import { Group, Row } from "./settings-group.tsx";
 const skillsBriefings = [
   { label: "Whole", value: "full" },
   { label: "Titles and summaries", value: "summaries" },
+  { label: "A router, read on demand", value: "router" },
 ];
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
@@ -43,7 +44,7 @@ const skillsWith = (
 ): SkillsConfig | undefined => {
   const { briefing, disabled } = { ...config, ...change };
   const next = {
-    ...(briefing === "summaries" ? { briefing } : {}),
+    ...(briefing === undefined || briefing === "full" ? {} : { briefing }),
     ...(disabled && disabled.length > 0 ? { disabled } : {}),
   };
   return Object.keys(next).length === 0 ? undefined : next;

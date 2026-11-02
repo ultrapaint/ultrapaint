@@ -7,6 +7,7 @@ import { turnEnded } from "./testing/turns.ts";
 
 const FRONT_MATTER_RE = /^---\nextends: true\n---\n/;
 const REFERENCES_DIR_RE = /The references are in `([^`]+)\/`/;
+const TYPOGRAPHY_RE = /`([^`]+\/typography\.md)`/;
 const EXTENDED_COLOUR_RE =
   /semantic tokens[\s\S]*Blue is the brand; never use it for status\.\n$/;
 
@@ -220,6 +221,43 @@ describe("design skills", () => {
           yield* fs.readFileString(path.join(named, "dialogs.md")),
           "# Dialogs"
         );
+      }),
+    30_000
+  );
+
+  onAServer.effect(
+    "tells the router, with what every screen needs, and names where every other part is read",
+    () =>
+      Effect.gen(function* () {
+        const { client, home, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        yield* client["settings.set"]({
+          ...settings,
+          skills: { briefing: "router" },
+        });
+        const thread = yield* client["threads.create"]({ agentId: "fake" });
+        yield* client["threads.prompt"]({
+          attachments: [],
+          text: "briefing",
+          threadId: thread.id,
+        });
+        const { items } = yield* waitForThread(thread.id, turnEnded);
+        const told = items
+          .flatMap((i) => (i.kind === "agent" ? [i.text] : []))
+          .join("\n");
+        assert.include(told, "# Ultrapaint");
+        assert.include(told, "# Character");
+        assert.include(told, "# Restraint");
+        assert.notInclude(told, "# Typography");
+
+        // Typed by hand: the linter otherwise takes the match for non-null.
+        const found: RegExpExecArray | null = TYPOGRAPHY_RE.exec(told);
+        const named = found?.[1] ?? "";
+        assert.isTrue(
+          named.startsWith(path.join(home, ".cache", "ultrapaint"))
+        );
+        assert.include(yield* fs.readFileString(named), "# Typography");
       }),
     30_000
   );

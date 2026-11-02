@@ -17,7 +17,9 @@ import {
   builtInSkills,
   REFERENCES_MENTION,
   referencesDirOf,
+  routerText,
   skillReferences,
+  TOLD_WITH_ROUTER,
 } from "../skills/index.ts";
 import { DesignFiles } from "./design-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
@@ -38,6 +40,8 @@ In this product, also (told after the built-in "${title}" skill):
  * The skills that are on, as a design thread's briefing tells them. With the settings'
  * `skills.briefing` at `summaries`, a skill read whole somewhere is a line: its MCP resource
  * with the editor's tools, else its file, which a built-in, or a file that extends one, has not.
+ * At `router`, the design skill's router is told, with the parts every screen needs and the
+ * project's own files; the router names where the agent reads every other part.
  */
 export interface SkillsTold {
   /** A line per skill told by its title and summary: `- Hierarchy (<where>): <summary>`. */
@@ -82,6 +86,7 @@ export class SkillsService extends Context.Service<
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
       const summaries = paths.settings.skills?.briefing === "summaries";
+      const router = paths.settings.skills?.briefing === "router";
       // As the settings show them: worded for the tools the server offers.
       const { machine, mcp } = yield* ServerConfig;
       const referencesDir = referencesDirOf(machine.home, path.join);
@@ -92,25 +97,18 @@ export class SkillsService extends Context.Service<
        * nothing else: the thread goes on.
        */
       const references = yield* Effect.cached(
-        Effect.forEach(Object.entries(skillReferences), ([skill, files]) =>
+        Effect.forEach(Object.entries(skillReferences), ([file, text]) =>
           Effect.gen(function* () {
-            const into = path.join(referencesDir, skill);
-            yield* fs.makeDirectory(into, { recursive: true });
-            yield* Effect.forEach(Object.entries(files), ([file, text]) =>
-              fs.writeFileString(path.join(into, file), text)
-            );
+            const into = path.join(referencesDir, file);
+            yield* fs.makeDirectory(path.dirname(into), { recursive: true });
+            yield* fs.writeFileString(into, text);
           })
         ).pipe(Effect.ignore)
       );
 
-      /** A built-in skill's text, its references folder named where it is written. */
-      const withReferences = (name: string, text: string) =>
-        name in skillReferences
-          ? text.replaceAll(
-              REFERENCES_MENTION,
-              `\`${path.join(referencesDir, name)}/\``
-            )
-          : text;
+      /** A built-in text, each file of the references named where it is written. */
+      const withReferences = (text: string) =>
+        text.replaceAll(REFERENCES_MENTION, `\`${referencesDir}/`);
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
@@ -120,7 +118,7 @@ export class SkillsService extends Context.Service<
         extends: false,
         name,
         source: "built-in",
-        text: withReferences(name, text),
+        text: withReferences(text),
         ...describeSkill(name, text),
       });
 
@@ -204,8 +202,18 @@ export class SkillsService extends Context.Service<
         yield* references;
         const { skills } = yield* listFor(tools);
         const listed: string[] = [];
-        const whole: string[] = [];
+        const whole: string[] = router
+          ? [withReferences(routerText(agentWays(tools).tools)).trim()]
+          : [];
         for (const skill of skills.filter((s) => s.enabled)) {
+          // Read from the references when the router names it: what the project wrote is told.
+          if (
+            router &&
+            skill.source === "built-in" &&
+            !TOLD_WITH_ROUTER.has(skill.name)
+          ) {
+            continue;
+          }
           const where = whereRead(skill, tools);
           if (where === undefined) {
             whole.push(skill.text.trim());
