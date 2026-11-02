@@ -3,16 +3,6 @@ import { RepoRelativePath } from "./base.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
-/**
- * Where a repository's application is, and how a new one is written (ADR 0042): what the setup
- * detects and scaffolds with. Nothing draws with it.
- */
-export const FrameworkId = Schema.Literals(["react-vite"]);
-export type FrameworkId = typeof FrameworkId.Type;
-export const defaultFramework: FrameworkId = "react-vite";
-
-export const Theme = Schema.Literals(["light", "dark"]);
-
 /** Whether the tool may write to git (PLAN-desktop D9). */
 export const GitWrites = Schema.Literals(["off", "on"]);
 export type GitWrites = typeof GitWrites.Type;
@@ -44,7 +34,10 @@ const common = {
    * is itself a package.
    */
   resolveFrom: Schema.optional(RepoRelativePath),
-  /** Which design skills agents are not told; all of them apply when absent. */
+  /**
+   * Which design skills agents are not told (all of them apply when absent), and whether a design
+   * thread is told them whole or by their summaries.
+   */
   skills: Schema.optional(SkillsConfig),
   /** What the tokens and classes are written in; `tailwind-v4` when absent (ADR 0024). */
   styleSystem: Schema.optional(StyleSystemId),
@@ -53,8 +46,6 @@ const common = {
 /** The settings the server runs with and the editor edits. Every path is resolved. */
 export const Settings = Schema.Struct({
   ...common,
-  /** Packages of components the application uses: a hint for the agents that implement. */
-  componentPackages: Schema.Array(Schema.String),
   /** Directory holding the screens, relative to the repository. */
   designsDir: RepoRelativePath,
   /** The stylesheets the code's tokens are in, which Sync reads and writes (ADR 0028). */
@@ -66,8 +57,6 @@ export const Settings = Schema.Struct({
   libraryDirs: Schema.Array(RepoRelativePath),
   /** Absolute path of the target repository. */
   repoPath: Schema.String,
-  /** Value written to `data-theme` on the host document. */
-  theme: Theme,
 });
 export type Settings = typeof Settings.Type;
 
@@ -77,17 +66,16 @@ export type Settings = typeof Settings.Type;
  * `repoPath` is relative to the file's directory and may be left out when it is that directory.
  * Everything with an obvious default may be left out of a hand-written file. A field that is no
  * setting any more (`providersModule`, which nothing draws since ADR 0040; `framework` and
- * `storybookUrl`, which nothing read, ADR 0042) is dropped as it is read.
+ * `storybookUrl`, which nothing read, ADR 0042; `theme` and `componentPackages`, which nothing
+ * honoured) is dropped as it is read.
  */
 export const ProjectConfig = Schema.Struct({
   ...common,
   $schema: Schema.optional(Schema.String),
-  componentPackages: Schema.optional(Schema.Array(Schema.String)),
   designsDir: RepoRelativePath,
   hostCss: Schema.optional(Schema.Array(Schema.String)),
   libraryDirs: Schema.optional(Schema.Array(RepoRelativePath)),
   repoPath: Schema.optional(Schema.String),
-  theme: Schema.optional(Theme),
 });
 export type ProjectConfig = typeof ProjectConfig.Type;
 
@@ -107,12 +95,10 @@ export const CONFIG_FILE_NAMES = [
 export const DEFAULT_DESIGNS_DIR = "docs/designs";
 
 export const defaultSettings = (repoPath: string): Settings => ({
-  componentPackages: [],
   designsDir: DEFAULT_DESIGNS_DIR,
   hostCss: [],
   libraryDirs: [],
   repoPath,
-  theme: "light",
 });
 
 export const SettingsValidation = Schema.Struct({

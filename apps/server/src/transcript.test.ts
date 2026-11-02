@@ -52,7 +52,15 @@ describe("toolContent", () => {
         ctx
       )
     ).toEqual({ text: "hello", type: "text" });
-    expect(toolContent({ type: "audio" }, ctx)).toEqual({
+    expect(
+      toolContent(
+        {
+          content: { data: "", mimeType: "audio/wav", type: "audio" },
+          type: "content",
+        },
+        ctx
+      )
+    ).toEqual({
       text: "[audio]",
       type: "text",
     });
@@ -124,7 +132,11 @@ describe("a turn's cursor", () => {
       ...ctx,
       turn: opened.turn,
     });
-    expect(extended.actions[0]?.type).toBe("patch");
+    expect(extended.actions[0]).toEqual({
+      itemId: "item_1",
+      text: "world",
+      type: "append",
+    });
     expect(extended.turn).toBe(opened.turn);
     // A tool call closes the message: what follows starts another.
     const tool = projectUpdate(

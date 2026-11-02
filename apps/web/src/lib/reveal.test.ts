@@ -4,12 +4,21 @@ import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  leaveBoard,
+  openBoard,
+  setBoardSize,
+  showBoards,
+  useBoard,
+} from "../state/board.ts";
 import { measureViewportWith } from "../state/camera.ts";
+import { useComponents } from "../state/components.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import { showScope } from "./add-to-chat.ts";
 import { reveal } from "./reveal.ts";
 
@@ -110,9 +119,6 @@ const thread = (scope: Thread["scope"]): Thread => ({
   updatedAt: 0,
 });
 
-/** Lets every answer on its way land: a canvas's layout, its documents. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 const initial = useEditor.getState();
 /** The canvas on screen, measured as `VIEWPORT`; called, it leaves the screen. */
 let hideCanvas: () => void = () => undefined;
@@ -131,9 +137,11 @@ beforeEach(async () => {
     pages: [home, about],
   });
   useEditor.setState(initial, true);
+  // Each test reads the canvas's documents anew: what another left there is not this one's.
+  useDocuments.setState({ canvas: null, docs: {}, loaded: false });
   hideCanvas();
   await goTo({ canvas: "main" });
-  await settle();
+  await until(useDocuments, (s) => s.canvas === "main" && s.loaded);
   useEditor.setState({ view: START, workspace: "design" });
   hideCanvas = measureViewportWith(() => VIEWPORT);
 });
@@ -175,6 +183,43 @@ describe("reveal", () => {
     expect(useEditor.getState().view).toEqual(START);
     useDocuments.setState({ docs: { [CANVAS]: canvasDoc } });
     expect(useEditor.getState().view).toEqual(NODE_IN_VIEW);
+  });
+
+  it("leaves a board view for a page, and stays on one for a node of its tree", async () => {
+    openBoard({ item: "Plan", view: "library" }, "none");
+    await reveal({ page: home.id });
+    expect(useBoard.getState().open).toBeNull();
+    expect(useEditor.getState()).toMatchObject({
+      selectedPage: home.id,
+      view: HOME_IN_VIEW,
+    });
+
+    useComponents.setState({
+      components: [
+        {
+          name: "Plan",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: { children: [], id: "plan-root", type: "column" },
+          version: 1,
+        } as never,
+      ],
+    });
+    const board = "board:library/Plan/component";
+    openBoard({ item: "Plan", view: "library" }, "none");
+    showBoards([board], "column");
+    setBoardSize(board, { height: 400, width: 800 });
+    await reveal({ frame: board, nodeId: "plan-root" });
+    expect(useBoard.getState().open).toEqual({ item: "Plan", view: "library" });
+    expect(useEditor.getState().selection).toEqual({
+      frame: board,
+      nodeId: "plan-root",
+    });
+    // The board's frame fitted, as the page's was.
+    expect(useEditor.getState().view).toEqual(HOME_IN_VIEW);
+    leaveBoard("none");
+    useComponents.setState({ components: [] });
   });
 
   it("gives up waiting for what another reveal took over", async () => {

@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { applicationFileOf } from "@ultrapaint/contracts/catalogue";
 import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
 import { afterAll, describe, expect, it } from "vitest";
 import { detect } from "./detect.ts";
@@ -147,8 +148,8 @@ describe("its components", () => {
     "Tabs",
     "Tooltip",
   ]);
-  const kebab = (name: string) =>
-    name.replace(/(?<!^)([A-Z])/g, "-$1").toLowerCase();
+  // Base UI names its modules as the application its files.
+  const kebab = applicationFileOf;
 
   it("are the system components one to one, a file each by the same name", () => {
     expect(

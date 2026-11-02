@@ -5,6 +5,7 @@ import type {
   ApplyInput,
   DesignNode,
   DocumentState,
+  PageNode,
 } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
@@ -12,17 +13,25 @@ import { applyOps } from "@ultrapaint/design-document/ops";
 import { canvasDocOf, canvasOfDoc } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents } from "../state/agents.ts";
+import {
+  openBoard,
+  setBoardSize,
+  showBoards,
+  useBoard,
+} from "../state/board.ts";
+import { measureViewportWith, setView, viewTarget } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { useComponents } from "../state/components.ts";
 import type { MenuTarget } from "../state/context-menu.ts";
-import { useDocuments } from "../state/documents.ts";
+import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { select, selectMany } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useClipboard } from "./clipboard.ts";
 import { commandList } from "./commands.ts";
@@ -142,8 +151,11 @@ const serveProject = () => {
 };
 
 const initial = useEditor.getState();
+const initialBoard = useBoard.getState();
 
 const setUp = () => {
+  // A glide a test left on its way lands now, before the editor is set up again.
+  setView(initial.view);
   fakeApi.reset();
   serve();
   serveProject();
@@ -212,14 +224,6 @@ const setUp = () => {
             id: "hero",
             type: "column",
           },
-          // An instance of the repository's, from before the system components.
-          {
-            component: "Button",
-            from: "@/components/ui/button",
-            id: "old",
-            text: "Go",
-            type: "instance",
-          },
           // An instance of one of the project's own components.
           { component: "Promo", from: "#app", id: "promo", type: "instance" },
         ],
@@ -262,7 +266,10 @@ const setUp = () => {
       },
     ],
   });
+  // No component edited in place: neither its isolation nor the frame its edits went to.
+  editFrameAs(null);
   useIsolation.setState({ isolated: null });
+  useBoard.setState(initialBoard, true);
 };
 
 beforeEach(setUp);
@@ -443,7 +450,7 @@ describe("a node's menu", () => {
   });
 
   it("acts on the whole selection when the node is one of it, and on it alone when not", async () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: HOME, nodeId: "title" },
       { frame: HOME, nodeId: "lede" },
     ]);
@@ -455,10 +462,35 @@ describe("a node's menu", () => {
       { doc: HOME, ids: ["title", "lede"], op: "wrap", type: "group" },
     ]);
 
-    useEditor.getState().select({ frame: HOME, nodeId: "hero" });
+    select({ frame: HOME, nodeId: "hero" });
     await choose(nodeAt(HOME, "cta"), { kind: "hide" });
     expect(lastEdit().ops).toEqual([
       { doc: HOME, id: "cta", op: "update", set: { hidden: true } },
+    ]);
+  });
+
+  it("inserts into a component that holds nodes, in its default slot (review D1)", async () => {
+    const home = useDocuments.getState().docs[HOME]?.root as PageNode;
+    const card: DesignNode = {
+      component: "Card",
+      from: "@ultrapaint/system",
+      id: "card",
+      type: "instance",
+    };
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, { ...home, children: [...home.children, card] }),
+      },
+    }));
+    select({ frame: HOME, nodeId: "card" });
+    await choose(
+      { kind: "component", make: () => text("made"), name: "Text" },
+      { kind: "insert" }
+    );
+    // Named in no slot, it fills the default one, the card's content.
+    expect(lastEdit().ops).toMatchObject([
+      { doc: HOME, node: { id: "made" }, op: "insert", parent: "card" },
     ]);
   });
 
@@ -484,6 +516,53 @@ describe("a node's menu", () => {
     expect(lastEdit().ops).toEqual([
       { doc: CANVAS, id: "note", op: "update", set: { hidden: true } },
     ]);
+  });
+});
+
+describe("a node of an app component's tree on its board (ADR 0045)", () => {
+  /** Promo's board, its tree edited in place there: the frame a node of it is selected in. */
+  const BOARD = "board:library/Promo/component";
+  const onBoard = () => {
+    openBoard({ item: "Promo", view: "library" });
+    select({ frame: BOARD, nodeId: "sale" });
+  };
+
+  it("offers nothing of a page's: no comment, link, app component, code or address", () => {
+    onBoard();
+    const kinds = itemsOf(menuFor(nodeAt(BOARD, "sale")) ?? []).map((e) =>
+      e.kind === "item" ? e.action.act.kind : e.kind
+    );
+    for (const kind of [
+      "comment",
+      "link",
+      "linkUrl",
+      "makeApp",
+      "viewCode",
+      "copyLink",
+      "copyRef",
+    ]) {
+      expect(kinds, kind).not.toContain(kind);
+    }
+    expect(kinds).toContain("hide");
+  });
+
+  it("zooms to the node on the board, which stays open", async () => {
+    onBoard();
+    showBoards([BOARD], "column");
+    setBoardSize(BOARD, { height: 300, width: 400 });
+    const hide = measureViewportWith(() => ({ height: 520, width: 920, x: 0 }));
+    await choose(nodeAt(BOARD, "sale"), { kind: "zoomTo" });
+    hide();
+    expect(useBoard.getState().open).toEqual({
+      item: "Promo",
+      view: "library",
+    });
+    expect(useEditor.getState().selection).toEqual({
+      frame: BOARD,
+      nodeId: "sale",
+    });
+    // The camera glides to the board's frame: 400 by 300 into the 800 by 400 seen past the margins.
+    expect(viewTarget()?.zoom).toBeCloseTo(400 / 300);
   });
 });
 
@@ -632,7 +711,6 @@ const EVERY_ACTION = {
   canvas: { command: true, paste: true },
   canvasEntry: {
     adopt: true,
-    componentSheet: true,
     delete: true,
     duplicate: true,
     duplicateWithAgent: true,
@@ -672,7 +750,6 @@ const EVERY_ACTION = {
     paste: true,
     rename: true,
     selectParent: true,
-    toSystem: true,
     unwrap: true,
     viewCode: true,
     wrap: true,
@@ -708,7 +785,6 @@ const EVERY_ACTION = {
 const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
   nodeAt(HOME, "hero"),
-  nodeAt(HOME, "old"),
   nodeAt(HOME, "promo"),
   homePage,
   { kind: "page", pageId: ABOUT },
@@ -733,7 +809,7 @@ const CONTACT = "contact.page.json";
 const setUpForEvery = () => {
   setUp();
   useClipboard.setState({ nodes: [text("copied")] });
-  useEditor.getState().select({ frame: HOME, nodeId: "title" });
+  select({ frame: HOME, nodeId: "title" });
   useProject.setState((s) => ({
     pages: [...s.pages, page(CONTACT, "Contact")],
   }));

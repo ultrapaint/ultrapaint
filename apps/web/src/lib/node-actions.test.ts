@@ -12,6 +12,7 @@ import { endDrag, useDrag } from "../canvas/drag.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { select, selectMany } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { pasteInto } from "./clipboard.ts";
 import {
@@ -157,7 +158,7 @@ beforeEach(() => {
 
 describe("a field edited", () => {
   it("lands at the breakpoint of the view it is edited in, as one step", async () => {
-    useEditor.getState().select({ frame: TABLET, nodeId: "hero" });
+    select({ frame: TABLET, nodeId: "hero" });
     await updateSelection({ gap: "$spacing-6" }, "Change gap");
     expect(applied()).toEqual([
       {
@@ -181,7 +182,7 @@ describe("a field edited", () => {
   });
 
   it("changes the node's own fields in a view below the first breakpoint", async () => {
-    useEditor.getState().select({ frame: PHONE, nodeId: "hero" });
+    select({ frame: PHONE, nodeId: "hero" });
     await updateSelection({ gap: "$spacing-2" });
     expect(applied()[0]?.edits).toEqual([
       {
@@ -192,7 +193,7 @@ describe("a field edited", () => {
   });
 
   it("takes the override away when a field is set back to what it inherits", async () => {
-    useEditor.getState().select({ frame: TABLET, nodeId: "a" });
+    select({ frame: TABLET, nodeId: "a" });
     await updateSelection({ hidden: false });
     expect(applied()[0]?.edits[0]?.ops).toEqual([
       { at: "md", id: "a", op: "update", set: { hidden: null } },
@@ -229,7 +230,7 @@ describe("a field edited", () => {
 
   it("lands at the view the selection is in when the page's frame names the node", async () => {
     // The layers name pages, not views: a row's eye hides the node where it is being looked at.
-    useEditor.getState().select({ frame: TABLET, nodeId: "title" });
+    select({ frame: TABLET, nodeId: "title" });
     await setHidden(true, { frame: HOME, nodeId: "title" });
     expect(applied()[0]?.edits[0]?.ops).toEqual([
       { at: "md", id: "title", op: "update", set: { hidden: true } },
@@ -237,7 +238,7 @@ describe("a field edited", () => {
   });
 
   it("sets every node selected in one request", async () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: TABLET, nodeId: "title" },
       { frame: TABLET, nodeId: "lede" },
     ]);
@@ -300,7 +301,7 @@ describe("a field edited", () => {
 
 describe("an edit that names its breakpoints", () => {
   it("resets a field at the breakpoint named, from any view", async () => {
-    useEditor.getState().select({ frame: PHONE, nodeId: "a" });
+    select({ frame: PHONE, nodeId: "a" });
     await resetAt({ frame: PHONE, nodeId: "a" }, "md", "hidden");
     expect(applied()[0]).toEqual({
       edits: [
@@ -329,7 +330,7 @@ describe("an edit that names its breakpoints", () => {
 
 describe("inserting", () => {
   it("pastes into the selected container, hidden below the view's breakpoint, and selects what landed", async () => {
-    useEditor.getState().select({ frame: TABLET, nodeId: "list" });
+    select({ frame: TABLET, nodeId: "list" });
     await pasteInto(undefined, [{ ...text("copy"), x: 10, y: 20 }]);
     expect(applied()).toEqual([
       {
@@ -467,7 +468,7 @@ describe("moving", () => {
   });
 
   it("only places a node on the canvas moved around it, keeping the selection", async () => {
-    useEditor.getState().select({ frame: "node:note", nodeId: "note" });
+    select({ frame: "node:note", nodeId: "note" });
     await moveNode(
       { frame: "node:note", nodeId: "note" },
       { at: { x: 10, y: 20 }, kind: "canvas" }
@@ -536,7 +537,7 @@ describe("moving", () => {
 
 describe("the tree changed", () => {
   it("deletes the selection less what goes with its container, and lets it go", async () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: TABLET, nodeId: "hero" },
       { frame: TABLET, nodeId: "title" },
     ]);
@@ -551,7 +552,7 @@ describe("the tree changed", () => {
   });
 
   it("wraps siblings in a row and selects the row in the view they were in", async () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: TABLET, nodeId: "title" },
       { frame: TABLET, nodeId: "lede" },
     ]);
@@ -577,7 +578,7 @@ describe("the tree changed", () => {
   });
 
   it("selects the copies a duplicate made, in the frame of the originals", async () => {
-    useEditor.getState().select({ frame: PHONE, nodeId: "title" });
+    select({ frame: PHONE, nodeId: "title" });
     await duplicateSelection();
     expect(applied()).toEqual([
       {

@@ -1,4 +1,5 @@
-import { createServer } from "node:http";
+import { createServer, type Server } from "node:http";
+import type { Socket } from "node:net";
 import { NodeHttpServer } from "@effect/platform-node";
 import { MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
@@ -7,7 +8,7 @@ import {
   LEGACY_CONFIG_FILE_NAME,
 } from "@ultrapaint/contracts/settings";
 import { isBusy } from "@ultrapaint/contracts/threads";
-import { Effect, Layer, Option, Stream } from "effect";
+import { Deferred, Effect, Layer, Option, Stream } from "effect";
 import {
   HttpRouter,
   HttpServer,
@@ -27,7 +28,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -67,6 +68,19 @@ const sameOrigin = (origin: string, host: string | undefined) =>
   host !== undefined && URL.canParse(origin) && new URL(origin).host === host;
 
 /**
+ * Whether a request may be answered: a browser page is let in when it came from this machine or
+ * from this server's own address; a native client sends no origin.
+ */
+const originAllowed = ({
+  host,
+  origin,
+}: Readonly<Record<string, string | undefined>>) =>
+  !origin || LOCAL_ORIGIN_RE.test(origin) || sameOrigin(origin, host);
+
+const originRefused = () =>
+  HttpServerResponse.text("origin not allowed", { status: 403 });
+
+/**
  * The editor's API: one WebSocket that carries every RPC and every event stream. A browser
  * page is let in when it came from this machine or from this server's own address, and any
  * other origin is turned away before the upgrade; native clients send no origin.
@@ -81,13 +95,8 @@ const RpcRoute = Layer.effectDiscard(
       "/ws",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { host, origin } = request.headers;
-        if (
-          origin &&
-          !LOCAL_ORIGIN_RE.test(origin) &&
-          !sameOrigin(origin, host)
-        ) {
-          return HttpServerResponse.text("origin not allowed", { status: 403 });
+        if (!originAllowed(request.headers)) {
+          return originRefused();
         }
         return yield* httpEffect;
       })
@@ -111,19 +120,14 @@ const FIG_HEADER = "x-file-name";
  */
 const FigmaImportRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const project = yield* ProjectManager;
+    const project = yield* OpenProject;
     yield* router.add(
       "POST",
       "/api/figma/import",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { host, origin } = request.headers;
-        if (
-          origin &&
-          !LOCAL_ORIGIN_RE.test(origin) &&
-          !sameOrigin(origin, host)
-        ) {
-          return HttpServerResponse.text("origin not allowed", { status: 403 });
+        if (!originAllowed(request.headers)) {
+          return originRefused();
         }
         const tooLarge = HttpServerResponse.jsonUnsafe(
           { message: "the file is larger than the import accepts" },
@@ -215,17 +219,65 @@ const StaticRoute = Layer.unwrap(
   )
 );
 
+/**
+ * What a connection still open when the server stops has to finish in. By then every request's
+ * handler has been interrupted, so this is for what was already written to reach its client and
+ * for a WebSocket's closing handshake.
+ */
+const STOP_GRACE = "100 millis";
+
+/**
+ * Closes the server, and once the grace has passed destroys what is still open. Node's `close`
+ * waits for every connection to end and drops only those idle between two requests: one a
+ * client's pool opened ahead of a request it has not sent yet, or one an upgrade was turned away
+ * on whose client keeps its side open, held the stop until the client let go (4 s for fetch's
+ * pool) or for ever.
+ */
+const closeServer = Effect.fnUntraced(function* (
+  server: Server,
+  open: ReadonlySet<Socket>
+) {
+  const closed = yield* Deferred.make<void>();
+  // The error says the server was not listening, which is closed as well.
+  server.close(() => Deferred.doneUnsafe(closed, Effect.void));
+  const drained = yield* Effect.timeoutOption(
+    Deferred.await(closed),
+    STOP_GRACE
+  );
+  if (Option.isNone(drained)) {
+    for (const socket of open) {
+      socket.destroy();
+    }
+    yield* Deferred.await(closed);
+  }
+});
+
 // The editor holds a WebSocket open for as long as it runs. The default shutdown first waits
 // (20 s) for connections to drain, which a live socket never does. Closing the request scopes is
-// what ends those sockets, so the wait is skipped.
+// what ends those sockets, so the wait is skipped, and the server is closed by `closeServer`,
+// whose finalizer runs before the layer's own close, which then finds it closed.
 const HttpServerLive = Layer.unwrap(
   Effect.gen(function* () {
     const { host, port } = yield* ServerConfig;
-    return NodeHttpServer.layer(createServer, {
-      disablePreemptiveShutdown: true,
-      host,
-      port,
+    const served = Effect.gen(function* () {
+      const server = createServer();
+      const open = new Set<Socket>();
+      server.on("connection", (socket: Socket) => {
+        open.add(socket);
+        socket.once("close", () => open.delete(socket));
+      });
+      const http = yield* NodeHttpServer.make(() => server, {
+        disablePreemptiveShutdown: true,
+        host,
+        port,
+      });
+      yield* Effect.addFinalizer(() => closeServer(server, open));
+      return http;
     });
+    return Layer.mergeAll(
+      Layer.effect(HttpServer.HttpServer, served),
+      NodeHttpServer.layerHttpServices
+    );
   })
 );
 

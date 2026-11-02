@@ -8,11 +8,19 @@
  * components and a theme that declares nothing, for a design system defined from nothing; its
  * component directory is there, empty. Pure: the server writes the files.
  */
-import type {
-  Scaffold,
-  ScaffoldTemplate,
-} from "@ultrapaint/framework-api/node";
+import type { ScaffoldTemplate } from "@ultrapaint/contracts/setup";
 import { STARTER_APP, STARTER_COMPONENTS } from "./starter-components.ts";
+
+/** A new application's files, repo-relative, and the settings that point the tool at it. */
+export interface Scaffolded {
+  readonly files: Readonly<Record<string, string>>;
+  /** Relative to the repository. */
+  readonly settings: {
+    readonly hostCss: string;
+    readonly libraryDir: string;
+    readonly resolveFrom: string;
+  };
+}
 
 /** The theme a new application starts with when nothing else is given. */
 const STARTER_TOKENS: Readonly<Record<string, string>> = {
@@ -232,12 +240,21 @@ const packageNameOf = (name: string) =>
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "") || "app";
 
-export const scaffold: Scaffold = ({
+/** A new application to start from, for a repository that has none (phase 6 of the sync). */
+export const scaffold = ({
   dir,
   name,
   template = "starter",
   tokens,
-}) => {
+}: {
+  /** Repo-relative directory the application goes in; `.` for the root. */
+  readonly dir: string;
+  /** The application's name, for its package.json. */
+  readonly name: string;
+  readonly template?: ScaffoldTemplate;
+  /** Tokens to start the theme with, by name; the template's own when empty. */
+  readonly tokens: Readonly<Record<string, string>>;
+}): Scaffolded => {
   const base = dir.replace(LEADING_DOT_SLASH_RE, "");
   const at = (file: string) => (base ? `${base}/${file}` : file);
   const starter = template === "starter";

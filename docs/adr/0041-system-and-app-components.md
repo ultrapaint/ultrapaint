@@ -7,6 +7,8 @@ Amends 0030 (a component is a design target as `component:<Name>`, its snapshot 
 `_implemented/components/`) and 0027 (DESIGN.md's component tokens are read off the system
 components' files). The terms are in `GLOSSARY.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the migration is retired; an instance's `from` is one of the two origins, and a page that names another does not read.
+
 ## Context
 
 0040 made the canvas draw the editor's own components, the primitives, each with a look the

@@ -3,13 +3,13 @@
  * to look at as they were, compared with now, and restored as one undo step. The list follows
  * the server's news of it (`state/kept.ts`): nothing here reads it again.
  */
-import type { Checkpoint } from "@ultrapaint/contracts/git";
-import type { Snapshot } from "@ultrapaint/contracts/snapshots";
+import type { Checkpoint, Snapshot } from "@ultrapaint/contracts/snapshots";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
-import { layoutSaved, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
+import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { viewSnapshot } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";

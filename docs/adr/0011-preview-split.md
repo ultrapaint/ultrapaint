@@ -1,8 +1,8 @@
 # ADR 0011: Editor, preview core, renderer and framework
 
-Status: accepted, 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
+Status: superseded: its iframes by 0034, its framework split by 0042 and its framework seam by [0046](0046-deep-modules-fifth-review.md), 2026-10-30. Accepted 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
 
-> Amended by [0037](0037-deep-modules.md), 2026-10-28 (`docs/PLAN-architecture.md`, step 13). The seams stay, each with its one
+> Amended by [0037](0037-deep-modules.md), 2026-10-28 (`docs/plans/done/PLAN-architecture.md`, step 13). The seams stay, each with its one
 > adapter (one framework, one renderer, one style system), as decided. The renderer's interface
 > describes one host, the editor's page: `RenderSetup` gives the design's stylesheet to the core
 > (`setDesignCss`), says when the frame draws and how high a page is at least (its frame's), and

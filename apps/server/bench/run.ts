@@ -128,9 +128,9 @@ const measure = (
     }
     spent.total += item.usage.totalTokens;
     spent.input += item.usage.inputTokens;
-    spent.cached += item.usage.cachedInputTokens;
+    spent.cached += item.usage.cachedReadTokens ?? 0;
     spent.output += item.usage.outputTokens;
-    for (const entry of item.usage.byModel) {
+    for (const entry of item.usage.byModel ?? []) {
       byModel[entry.model] = (byModel[entry.model] ?? 0) + entry.tokens;
     }
   }
@@ -274,6 +274,11 @@ const program = Effect.gen(function* () {
         host: "127.0.0.1",
         machine: {
           addresses: () => [],
+          env: Object.fromEntries(
+            Object.entries(process.env).flatMap(([name, value]) =>
+              value === undefined ? [] : [[name, value]]
+            )
+          ),
           home: homedir(),
           node: process.execPath,
           path: process.env.PATH ?? "",
@@ -305,13 +310,11 @@ const program = Effect.gen(function* () {
     // The designs directory has to be there before the settings can name it.
     mkdirSync(designs, { recursive: true });
     const validation = yield* client["settings.set"]({
-      componentPackages: ["@ultrapaint/web"],
       designsDir: designsRel,
       hostCss: ["../../../apps/web/src/styles.css"],
       libraryDirs: ["apps/web/src/components"],
       repoPath: repo,
       resolveFrom: "apps/web",
-      theme: "light",
     });
     yield* Effect.log(`settings: ${JSON.stringify(validation)}`);
     yield* openEditor(`http://127.0.0.1:${port}/`);

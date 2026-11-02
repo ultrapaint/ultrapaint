@@ -128,9 +128,18 @@ export class DesignTargets extends Context.Service<
         node?: string
       ) {
         if (target._tag === "Component") {
-          return componentNote(
-            yield* componentService.addNote(target.component.name, text, node)
+          const { component } = yield* componentService.change(
+            target.component.name,
+            { op: "addNote", text, ...(node !== undefined && { slot: node }) }
           );
+          // The note added is the file's last.
+          const added = component?.notes?.at(-1);
+          if (!added) {
+            return yield* new NotFound({
+              message: `${target.component.name} took no note`,
+            });
+          }
+          return componentNote(added);
         }
         const { nodeId, page } = target;
         if (node !== undefined && nodeId !== undefined && node !== nodeId) {

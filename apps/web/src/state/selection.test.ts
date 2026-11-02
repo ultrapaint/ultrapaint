@@ -8,14 +8,20 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDesignSystem } from "./design-system.ts";
-import { nodeFrameOf, useDocuments } from "./documents.ts";
-import { selectForMenu, useEditor } from "./editor.ts";
+import { useDocuments } from "./documents.ts";
+import { useEditor } from "./editor.ts";
+import { nodeFrameOf } from "./frame-ref.ts";
 import {
   drawnNodes,
   frameBreakpoint,
   inspected,
   isSelected,
+  select,
   selectedIn,
+  selectForMenu,
+  selectMany,
+  selectPage,
+  toggleSelected,
 } from "./selection.ts";
 
 vi.mock(
@@ -126,7 +132,6 @@ describe("the breakpoint a frame is drawn at", () => {
 
 describe("selected here", () => {
   it("adds a node Shift-clicked in another view of the page, and takes the selection there", () => {
-    const { select, toggleSelected } = useEditor.getState();
     select({ frame: HOME, nodeId: "title" });
     toggleSelected({ frame: TABLET, nodeId: "lede" });
     expect(useEditor.getState()).toMatchObject({
@@ -142,7 +147,6 @@ describe("selected here", () => {
   });
 
   it("starts over on a node Shift-clicked in another page", () => {
-    const { select, toggleSelected } = useEditor.getState();
     select({ frame: TABLET, nodeId: "title" });
     toggleSelected({ frame: ABOUT, nodeId: "intro" });
     expect(useEditor.getState()).toMatchObject({
@@ -152,7 +156,6 @@ describe("selected here", () => {
   });
 
   it("keeps the selection right-clicked in another view, taken there for the menu", () => {
-    const { select, toggleSelected } = useEditor.getState();
     select({ frame: HOME, nodeId: "title" });
     toggleSelected({ frame: HOME, nodeId: "lede" });
     selectForMenu({ frame: TABLET, nodeId: "title" });
@@ -169,7 +172,6 @@ describe("selected here", () => {
   });
 
   it("is the same for the outlines of every view and the layers' rows", () => {
-    const { select, toggleSelected } = useEditor.getState();
     select({ frame: TABLET, nodeId: "title" });
     toggleSelected({ frame: PHONE, nodeId: "aside" });
     const rows = ["title", "lede", "aside"].filter((id) =>
@@ -206,7 +208,7 @@ describe("the selection as its view draws it", () => {
   });
 
   it("gives the inspector the nodes selected at the breakpoint of the view they were selected in", () => {
-    useEditor.getState().selectMany([
+    selectMany([
       { frame: TABLET, nodeId: "title" },
       { frame: TABLET, nodeId: "aside" },
     ]);
@@ -218,9 +220,54 @@ describe("the selection as its view draws it", () => {
       ["title", "start"],
       ["aside", undefined],
     ]);
-    useEditor.getState().selectPage(PHONE);
+    selectPage(PHONE);
     expect(inspected()).toMatchObject({ frame: HOME, node: { id: "home" } });
-    useEditor.getState().select(null);
+    select(null);
     expect(inspected()).toBeNull();
+  });
+});
+
+describe("changing the selection", () => {
+  const a = { frame: HOME, nodeId: "a" };
+  const b = { frame: HOME, nodeId: "b" };
+  const c = { frame: HOME, nodeId: "c" };
+  const elsewhere = { frame: ABOUT, nodeId: "p" };
+
+  it("toggleSelected adds, takes out and hands the primary on", () => {
+    select(a);
+    toggleSelected(b);
+    expect(useEditor.getState()).toMatchObject({ also: [a], selection: b });
+    toggleSelected(c);
+    expect(useEditor.getState()).toMatchObject({ also: [a, b], selection: c });
+    // Taking out one of the others leaves the primary.
+    toggleSelected(a);
+    expect(useEditor.getState()).toMatchObject({ also: [b], selection: c });
+    // Taking out the primary makes the last one added the primary.
+    toggleSelected(c);
+    expect(useEditor.getState()).toMatchObject({ also: [], selection: b });
+  });
+
+  it("toggleSelected in another frame starts over there", () => {
+    select(a);
+    toggleSelected(b);
+    toggleSelected(elsewhere);
+    expect(useEditor.getState()).toMatchObject({
+      also: [],
+      selection: elsewhere,
+    });
+  });
+
+  it("selectMany keeps only the first one's frame, and empties on nothing", () => {
+    selectMany([a, elsewhere, b]);
+    expect(useEditor.getState()).toMatchObject({ also: [b], selection: a });
+    selectMany([]);
+    expect(useEditor.getState()).toMatchObject({ also: [], selection: null });
+  });
+
+  it("selects nothing in the prototype", () => {
+    useEditor.setState({ workspace: "prototype" });
+    select(a);
+    selectMany([a, b]);
+    expect(useEditor.getState().selection).toBeNull();
   });
 });

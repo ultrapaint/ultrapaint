@@ -8,9 +8,13 @@ import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import { builtInLaunches } from "@ultrapaint/acp/built-in";
+import { AcpHostError } from "@ultrapaint/acp/errors";
 import { Effect, FileSystem, Layer } from "effect";
 import { runCommand } from "../src/process.ts";
 import { AgentSandbox } from "../src/services/threads/agent-sandbox.ts";
+
+const notServed = () =>
+  Effect.fail(new AcpHostError({ message: "not served" }));
 
 const agentId = process.argv[2] ?? "claude-code";
 
@@ -40,8 +44,18 @@ const program = Effect.gen(function* () {
   yield* Effect.log(`sandboxed: ${sandbox.available}`);
   yield* Effect.log(`command: ${confined.launch.command}`);
 
+  let said = "";
+  // Everything the agent said in the session, for the check at the end: the secret must not
+  // appear in any answer, not only the last one.
+  let transcript = "";
   const agent = yield* spawnAcpAgent(confined.launch, {
+    clientVersion: "spike",
     cwd: root,
+    env: Object.fromEntries(
+      Object.entries(process.env).flatMap(([name, value]) =>
+        value === undefined ? [] : [[name, value]]
+      )
+    ),
     handlers: {
       onElicitation: () => Effect.succeed({ action: "decline" }),
       onPermission: (request) =>
@@ -55,35 +69,27 @@ const program = Effect.gen(function* () {
           },
         }),
       onStderr: (text) => Effect.log(`[agent] ${text}`),
-      readTextFile: () => Effect.fail({ message: "not served" }),
+      onUpdate: (n) =>
+        Effect.sync(() => {
+          const u = n.update;
+          if (
+            u.sessionUpdate === "agent_message_chunk" &&
+            u.content.type === "text"
+          ) {
+            said += u.content.text;
+          }
+        }),
+      readTextFile: () => notServed(),
       terminal: {
-        create: () => Effect.fail({ message: "not served" }),
+        create: () => notServed(),
         kill: () => Effect.void,
-        output: () => Effect.fail({ message: "not served" }),
+        output: () => notServed(),
         release: () => Effect.void,
-        waitForExit: () => Effect.fail({ message: "not served" }),
+        waitForExit: () => notServed(),
       },
-      writeTextFile: () => Effect.fail({ message: "not served" }),
+      writeTextFile: () => notServed(),
     },
   });
-
-  let said = "";
-  // Everything the agent said in the session, for the check at the end: the secret must not
-  // appear in any answer, not only the last one.
-  let transcript = "";
-  yield* Effect.forkScoped(
-    agent.consumeUpdates((n) =>
-      Effect.sync(() => {
-        const u = n.update;
-        if (
-          u.sessionUpdate === "agent_message_chunk" &&
-          u.content.type === "text"
-        ) {
-          said += u.content.text;
-        }
-      })
-    )
-  );
 
   yield* agent.initialize;
   const session = yield* agent.newSession(
@@ -94,7 +100,6 @@ const program = Effect.gen(function* () {
   const ask = Effect.fnUntraced(function* (label: string, text: string) {
     said = "";
     yield* agent.prompt(session.sessionId, [{ text, type: "text" }]);
-    yield* Effect.timeoutOption(agent.drained, "5 seconds");
     transcript += said;
     yield* Effect.log(
       `${label}: ${said.trim().replaceAll("\n", " ").slice(0, 160)}`

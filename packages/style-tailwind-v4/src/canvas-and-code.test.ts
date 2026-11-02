@@ -80,6 +80,18 @@ const ds = {
 };
 const writer = tailwindClasses(ds);
 const breakpoints = DEFAULT_BREAKPOINTS;
+
+/** The style context of each parent layout, made once: the design system is the same throughout. */
+const contexts = new Map<ParentLayout, ReturnType<typeof makeStyleContext>>();
+const contextOf = (parent: ParentLayout) => {
+  const known = contexts.get(parent);
+  if (known) {
+    return known;
+  }
+  const made = makeStyleContext(ds, parent);
+  contexts.set(parent, made);
+  return made;
+};
 const minOf = (name: string | null) =>
   breakpoints.find((b) => b.name === name)?.min ?? 0;
 
@@ -193,10 +205,20 @@ const normal = (
   return v.replace(COMMA_RE, ",").toLowerCase();
 };
 
-/** A class's variants, and its utility as Tailwind names the rule it compiles. */
+/** A class's variants, and its utility as Tailwind names the rule it compiles; each read once. */
+const splits = new Map<
+  string,
+  { readonly utility: string; readonly variants: readonly string[] }
+>();
 const split = (cls: string) => {
+  const known = splits.get(cls);
+  if (known) {
+    return known;
+  }
   const { variants, ...utility } = parseClass(cls);
-  return { utility: printClass(utility), variants };
+  const made = { utility: printClass(utility), variants };
+  splits.set(cls, made);
+  return made;
 };
 
 /** Whether a class applies at a width, and from which width it takes over. */
@@ -279,11 +301,16 @@ const pages = (): { file: string; root: DesignNode }[] =>
       }))
   );
 
-/** A node at every level the page sets anything at, with how its parent lays it out there. */
+/**
+ * A node at every level the page sets anything at: what the canvas draws there, by longhand,
+ * and the properties its base style sets itself, which need no class.
+ */
 interface Written {
   readonly at: readonly {
-    readonly node: DesignNode;
-    readonly parent: ParentLayout;
+    readonly canvas: ReadonlyMap<string, string>;
+    /** The page's frame, whose height stands for the screen's. */
+    readonly isPage: boolean;
+    readonly ownBase: ReadonlySet<string>;
     readonly width: number;
   }[];
   readonly classes: readonly string[];
@@ -319,17 +346,54 @@ const writtenNodes = (file: string, root: DesignNode): Written[] => {
     const styles = at.map(
       (level, i): StyleAt => ({
         breakpoint: levels[i] ?? null,
-        declarations: declarationsOf(
-          level.node,
-          makeStyleContext(ds, level.parent)
-        ),
+        declarations: declarationsOf(level.node, contextOf(level.parent)),
       })
     );
     return {
-      at,
+      at: at.map(({ node: drawnNode, parent, width }) => {
+        const drawn = nodeStyle(drawnNode, contextOf(parent));
+        const base = baseStyle(drawnNode);
+        return {
+          canvas: longhands(
+            Object.entries(drawn).map(([p, v]) => [kebab(p), v] as const)
+          ),
+          isPage: drawnNode.type === "page",
+          ownBase: new Set(
+            Object.entries(base)
+              .filter(([p, v]) => drawn[p] === v)
+              .flatMap(([p]) => [
+                ...longhands([[kebab(p), base[p] ?? ""]]).keys(),
+              ])
+          ),
+          width,
+        };
+      }),
       classes: writer.classes(styles),
       where: `${file} ${node.id}`,
     };
+  });
+};
+
+/**
+ * The nodes that differ in what the canvas draws or the classes they are written with, the
+ * first of each: most nodes of the pages repeat another's style, and checking it again says
+ * nothing new.
+ */
+const distinct = (all: readonly Written[]): Written[] => {
+  const seen = new Set<string>();
+  return all.filter((w) => {
+    const key = JSON.stringify([
+      w.classes,
+      w.at.map((level) => [
+        [...level.canvas],
+        [...level.ownBase],
+        level.isPage,
+        level.width,
+      ]),
+    ]);
+    const fresh = !seen.has(key);
+    seen.add(key);
+    return fresh;
   });
 };
 
@@ -407,7 +471,8 @@ describe("the canvas and the Code tab", () => {
     { file, root },
     { file: `${file} (breakpoints)`, root: withOverrides(root) },
   ]);
-  const written = roots.flatMap(({ file, root }) => writtenNodes(file, root));
+  const all = roots.flatMap(({ file, root }) => writtenNodes(file, root));
+  const written = distinct(all);
   const tokens = tokensIn([...roots.map((r) => r.root), ds]);
   let tailwind: Awaited<ReturnType<typeof compiled>>;
 
@@ -421,19 +486,7 @@ describe("the canvas and the Code tab", () => {
   it("covers a node's every declaration with a class Tailwind gives the same value", () => {
     const problems: string[] = [];
     for (const { at, classes, where } of written) {
-      for (const { node, parent, width } of at) {
-        const drawn = nodeStyle(node, makeStyleContext(ds, parent));
-        const base = baseStyle(node);
-        const canvas = longhands(
-          Object.entries(drawn).map(([p, v]) => [kebab(p), v] as const)
-        );
-        const ownBase = new Set(
-          Object.entries(base)
-            .filter(([p, v]) => drawn[p] === v)
-            .flatMap(([p]) => [
-              ...longhands([[kebab(p), base[p] ?? ""]]).keys(),
-            ])
-        );
+      for (const { canvas, isPage, ownBase, width } of at) {
         // Who sets each property at this width, the class of the widest variant winning.
         const setBy = new Map<
           string,
@@ -491,9 +544,7 @@ describe("the canvas and the Code tab", () => {
           }
           // The page's frame stands for the screen.
           const drawnValue =
-            node.type === "page" &&
-            property === "min-height" &&
-            value === "100%"
+            isPage && property === "min-height" && value === "100%"
               ? "100vh"
               : value;
           const a = normal(property, drawnValue, tailwind);
@@ -520,6 +571,6 @@ describe("the canvas and the Code tab", () => {
       }
     }
     expect(problems.slice(0, 20)).toEqual([]);
-    expect(written.length).toBeGreaterThan(4000);
+    expect(all.length).toBeGreaterThan(4000);
   });
 });

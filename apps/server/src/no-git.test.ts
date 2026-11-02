@@ -2,6 +2,7 @@ import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
+import { eachTest } from "./testing/each-test.ts";
 import { makeTestServer, TestEnv, waitForThread } from "./testing/harness.ts";
 import { turnEnded } from "./testing/turns.ts";
 
@@ -14,6 +15,10 @@ const PlainFolder = makeTestServer(
   ({ home }) => Effect.succeed({ home, mode: "managed" }),
   { git: false }
 );
+
+/** Why these tests run on the real clock, each on a server of its own (docs/TESTING.md rule 3). */
+const AGENT_PROCESS =
+  "the agent is a real process, its turn heard over the socket, and git a real command";
 
 const said = (items: readonly ThreadItem[]) =>
   items.flatMap((i) => (i.kind === "agent" ? [i.text] : [])).join("\n");
@@ -30,7 +35,7 @@ const runTurn = (text: string) =>
     return yield* waitForThread(thread.id, turnEnded);
   });
 
-layer(PlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(PlainFolder, { realClock: AGENT_PROCESS })(
   "a folder without git",
   (it) => {
     it.effect("opens it as a project, and never makes it a repository", () =>
@@ -119,9 +124,6 @@ layer(PlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(
             status.files.map((f) => f.path),
             "designs/home.page.json"
           );
-          // Back to a plain folder for the tests after this one.
-          yield* client["settings.set"](settings);
-          yield* fs.remove(path.join(repo, ".git"), { recursive: true });
         })
     );
 
@@ -182,7 +184,7 @@ const APP = `export const App = () => (
 );
 `;
 
-layer(PlainSetupFolder, { excludeTestServices: true, timeout: "60 seconds" })(
+eachTest(PlainSetupFolder, { realClock: AGENT_PROCESS })(
   "the design-system setup without git",
   (it) => {
     it.effect(

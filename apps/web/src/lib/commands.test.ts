@@ -1,8 +1,13 @@
 import "../testing/fake-browser.ts";
-import { describe, expect, it, vi } from "vitest";
-import { openBoard } from "../state/board.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { leaveBoard, openBoard } from "../state/board.ts";
 import { useEditor } from "../state/editor.ts";
-import { type Command, commandList, searchCommands } from "./commands.ts";
+import {
+  type Command,
+  commandList,
+  commands,
+  searchCommands,
+} from "./commands.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -84,6 +89,10 @@ describe("the rail's places", () => {
     );
   });
 
+  afterEach(() => {
+    leaveBoard("none");
+  });
+
   it("leave a board view its own tools", () => {
     const tool = (id: string) => commandList().find((c) => c.id === id);
     openBoard({ item: "color", view: "system" }, "none");
@@ -91,5 +100,35 @@ describe("the rail's places", () => {
     expect(useEditor.getState().mode).toBe("select");
     tool("tool:pan")?.run?.();
     expect(useEditor.getState().mode).toBe("pan");
+  });
+});
+
+describe("on a board view (ADR 0045)", () => {
+  const offered = () => commands().map((c) => c.id);
+
+  afterEach(() => {
+    leaveBoard("none");
+  });
+
+  it("offers nothing that is about pages: their code, comments and grid, Layers with no tree", () => {
+    useEditor.setState({ workspace: "design" });
+    expect(offered()).toEqual(
+      expect.arrayContaining(["right:code", "grid", "panel:layers"])
+    );
+    openBoard({ item: "color", view: "system" }, "none");
+    for (const id of [
+      "right:code",
+      "right:comments",
+      "toggleComments",
+      "grid",
+      "panel:layers",
+      "tool:text",
+      "zoomSelection",
+    ]) {
+      expect(offered(), id).not.toContain(id);
+    }
+    expect(offered()).toEqual(
+      expect.arrayContaining(["zoomFit", "panel:library", "tool:pan"])
+    );
   });
 });

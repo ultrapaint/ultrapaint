@@ -26,7 +26,6 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
-  "system",
   "code-tokens",
   "design-md",
   "design-tokens",
@@ -72,21 +71,20 @@ export type SyncStep = typeof SyncStep.Type;
  * they are the editor's system components and the project's own files (ADR 0042).
  */
 export const SyncDrift = Schema.Struct({
-  /** Tokens the design system lists that the code no longer declares. */
-  tokensGone: Schema.Array(Schema.String),
-  /** Tokens the code declares that the design system does not list. */
+  /**
+   * Tokens the code declares that the design system does not list. A token the design system
+   * lists that the code does not declare is no drift: it waits for an export (ADR 0028).
+   */
   tokensUndescribed: Schema.Array(Schema.String),
 });
 export type SyncDrift = typeof SyncDrift.Type;
 
 export const emptyDrift: SyncDrift = {
-  tokensGone: [],
   tokensUndescribed: [],
 };
 
 /** How much drift there is, in one number: what the Design system tab counts. */
-export const driftCount = (drift: SyncDrift) =>
-  drift.tokensGone.length + drift.tokensUndescribed.length;
+export const driftCount = (drift: SyncDrift) => drift.tokensUndescribed.length;
 
 export const SyncFacts = Schema.Struct({
   /** The package the pages resolve from has React: there is an application. */
@@ -123,26 +121,8 @@ export const SyncFacts = Schema.Struct({
   figma: Schema.optional(
     Schema.Struct({ id: Schema.String, name: Schema.String })
   ),
-  /** The component directories the settings name. */
-  libraryDirs: Schema.Array(Schema.String),
-  /**
-   * What the designs hold from before (ADRs 0040, 0041), when there is any: instances to draw as
-   * now (the repository's components a system component can draw, system components and drafts
-   * as they were named), instances of the repository's no system component is like, and specs'
-   * files to make components' of.
-   */
-  oldInstances: Schema.optional(
-    Schema.Struct({
-      drawn: Schema.Number,
-      left: Schema.Number,
-      specs: Schema.optional(Schema.Number),
-    })
-  ),
-  styleSystem: Schema.String,
   /** The stylesheets the settings name. */
   stylesheets: Schema.Number,
-  /** Tokens the code declares itself, not the style system's defaults. */
-  tokens: Schema.Number,
 });
 export type SyncFacts = typeof SyncFacts.Type;
 

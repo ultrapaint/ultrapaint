@@ -4,8 +4,7 @@
  * changes, whoever changed it (a save here or in another tab, a turn, the oldest checkpoints let
  * go of), so nothing that saves, deletes or prompts reads them again.
  */
-import type { Checkpoint } from "@ultrapaint/contracts/git";
-import type { Snapshot } from "@ultrapaint/contracts/snapshots";
+import type { Checkpoint, Snapshot } from "@ultrapaint/contracts/snapshots";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";

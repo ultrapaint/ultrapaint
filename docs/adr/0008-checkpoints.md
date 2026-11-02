@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-09-17.
 
-> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../PLAN-architecture-3.md)
+> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../plans/done/PLAN-architecture-3.md)
 > step 2): a checkpoint is a ref of a `checkpoints` namespace in the tool's snapshot store
 > (0031), a file unchanged between turns kept once, rather than one JSON file each; the last 30
 > are still kept. It keeps no comments, and a revert goes through the undo journal as one step

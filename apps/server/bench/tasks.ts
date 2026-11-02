@@ -1,7 +1,7 @@
 /**
  * What an agent is asked to do in the benchmark, and how a run is judged done.
  *
- * The tasks are the work the tool exists for — make a page, change one on the canvas, build a
+ * screen out of the design's components — written the way someone would type them, with
  * screen out of the repository's own components — written the way someone would type them, with
  * no hints about where things live. What the agent has to find out for itself is the point: that
  * is what a briefing, or an MCP, would save it.

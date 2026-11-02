@@ -8,7 +8,8 @@
  * the canvas.
  */
 import { useDocuments } from "./documents.ts";
-import { allFrames, useEditor } from "./editor.ts";
+import { useEditor } from "./editor.ts";
+import { allFrames } from "./surface.ts";
 
 export interface View {
   x: number;

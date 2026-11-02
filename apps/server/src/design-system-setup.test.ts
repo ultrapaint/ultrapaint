@@ -1,10 +1,24 @@
+/**
+ * The design-system setup (ADR 0023) through its service, each test on a project of its own:
+ * the code read, a step's agent finishing it, a step redone, the mapping, a batch migrated,
+ * reverted and verified. A step's agent is a thread id here and its tools are called as its
+ * calls reach them (`callTool`); the step runner and the tasks are tested on their own
+ * (`setup-steps.test.ts`, `tasks.test.ts`), the step's rules in `design-system-setup-rules.test.ts`.
+ */
 import path from "node:path";
-import { assert, layer } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
+import type { SetupStepId } from "@ultrapaint/contracts/design-system-setup";
 import { Effect, FileSystem } from "effect";
 import { runCommand } from "./process.ts";
-import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
-import { callMcp } from "./testing/mcp.ts";
-import { said, turnEnded } from "./testing/turns.ts";
+import { DesignSystemSetupService } from "./services/design-system-setup.ts";
+import { SetupTools } from "./services/mcp/setup-tools.ts";
+import { Storage } from "./services/storage.ts";
+import {
+  callTool,
+  ProjectFixture,
+  ProjectTest,
+  type ProjectTestOptions,
+} from "./testing/project.ts";
 
 const APP = `export const App = () => (
   <div className="bg-[#ff0000] p-4 text-gray-500">
@@ -13,164 +27,112 @@ const APP = `export const App = () => (
 );
 `;
 
-const statuses = (setup: { readonly steps: readonly { status: string }[] }) =>
-  setup.steps.map((s) => s.status);
+/** A test's own project: each test builds its world. */
+const withProject =
+  (options: ProjectTestOptions = {}) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(ProjectTest(options)), Effect.scoped);
 
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "the design-system setup",
-  (it) => {
-    it.effect(
-      "takes the steps in order, the inventory first, and reads the code",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(path.join(repo, "src"));
-          yield* fs.writeFileString(path.join(repo, "src/app.tsx"), APP);
-          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
+const setup = Effect.map(DesignSystemSetupService, (service) => service);
 
-          const fresh = yield* client["dsSetup.get"]();
-          assert.deepStrictEqual(statuses(fresh), [
-            "todo",
-            "todo",
-            "todo",
-            "todo",
-            "todo",
-          ]);
-          const early = yield* Effect.flip(
-            client["dsSetup.start"]({ step: "define" })
-          );
-          assert.strictEqual(early._tag, "BadRequest");
-          assert.include(early.message, "Inventory comes first");
-          const later = yield* Effect.flip(
-            client["dsSetup.start"]({ step: "map" })
-          );
-          assert.include(later.message, "Inventory comes first");
+const statuses = (s: { readonly steps: readonly { status: string }[] }) =>
+  s.steps.map((step) => step.status);
 
-          const { setup, threadId } = yield* client["dsSetup.start"]({
-            step: "inventory",
-          });
-          assert.isNull(threadId);
-          assert.strictEqual(setup.steps[0]?.status, "review");
-          assert.include(setup.steps[0]?.summary ?? "", "file");
-          const inventory = yield* client["dsSetup.inventory"]();
-          const values = (inventory?.values ?? []).map(
+/** The steps before `id` started and gone on past, as the user does. */
+const pastUpTo = (id: SetupStepId) =>
+  Effect.gen(function* () {
+    const service = yield* setup;
+    const order: readonly SetupStepId[] = ["inventory", "define", "map"];
+    for (const step of order.slice(0, order.indexOf(id))) {
+      yield* service.start(step, { threadId: `thread-${step}` });
+      yield* service.complete(step);
+    }
+  });
+
+describe("the design-system setup", () => {
+  it.effect("reads the code in the inventory, which comes first", () =>
+    withProject({ files: { "src/app.tsx": APP } })(
+      Effect.gen(function* () {
+        const service = yield* setup;
+        assert.deepStrictEqual(statuses(yield* service.get), [
+          "todo",
+          "todo",
+          "todo",
+          "todo",
+          "todo",
+        ]);
+        const early = yield* Effect.flip(
+          service.start("define", { threadId: "t" })
+        );
+        assert.include(early.message, "Inventory comes first");
+
+        const started = yield* service.start("inventory", {});
+        assert.strictEqual(started.steps[0]?.status, "review");
+        assert.include(started.steps[0]?.summary ?? "", "file");
+        const inventory = yield* service.inventory;
+        assert.includeMembers(
+          (inventory?.values ?? []).map(
             (v) => `${v.kind} ${v.status} ${v.value}`
-          );
-          assert.includeMembers(values, [
+          ),
+          [
             "color raw #ff0000",
             "color default color-gray-500",
             "spacing system spacing 4",
-          ]);
-          // No theme at all: a design system is to be proposed.
-          assert.strictEqual(inventory?.recommendation.mode, "propose");
-          assert.strictEqual(inventory?.against, "theme");
+          ]
+        );
+        // No theme at all: a design system is to be proposed.
+        assert.strictEqual(inventory?.recommendation.mode, "propose");
+        assert.strictEqual(inventory?.against, "theme");
+        const done = yield* service.complete("inventory");
+        assert.deepStrictEqual(statuses(done).slice(0, 2), ["done", "todo"]);
+      })
+    )
+  );
 
-          const done = yield* client["dsSetup.complete"]({ step: "inventory" });
-          assert.deepStrictEqual(statuses(done).slice(0, 2), ["done", "todo"]);
-        }),
-      30_000
-    );
-
-    it.effect(
-      "gives the Define step a thread whose command expands into the step's task",
-      () =>
+  it.effect(
+    "lets a step's agent say it is finished, for the user to review",
+    () =>
+      withProject()(
         Effect.gen(function* () {
-          const { client } = yield* TestEnv;
-          // The step's thread goes to the chat's default agent.
-          yield* client["chat.setDefaults"]({ agentId: "fake" });
-          const commands = (yield* client["commands.list"]()).map(
-            (c) => c.name
+          const service = yield* setup;
+          yield* pastUpTo("define");
+          const started = yield* service.start("define", {
+            mode: "propose",
+            threadId: "define-thread",
+          });
+          assert.strictEqual(started.steps[1]?.status, "active");
+          assert.strictEqual(started.steps[1]?.mode, "propose");
+          const finished = yield* callTool(
+            SetupTools,
+            "finish_setup_step",
+            { summary: "Proposed a palette of four colours." },
+            "define-thread"
           );
-          assert.include(commands, "design-system");
-          const { setup, task, threadId } = yield* client["dsSetup.start"]({
+          assert.deepStrictEqual(finished, {
+            status: "review",
             step: "define",
           });
-          assert.isString(threadId);
-          // The thread's first prompt is the step's task, which the editor writes in its composer.
-          assert.deepStrictEqual(task, { _tag: "SetupStep", step: "define" });
-          const [, define] = setup.steps;
-          assert.strictEqual(define?.status, "active");
-          assert.strictEqual(define?.mode, "propose");
-          assert.strictEqual(define?.threadId, threadId);
-          const again = yield* Effect.flip(
-            client["dsSetup.start"]({ step: "define" })
-          );
-          assert.include(again.message, "has started already");
-
-          yield* client["threads.prompt"]({
-            attachments: [],
-            text: "/design-system define",
-            threadId: threadId ?? "",
-          });
-          const { items } = yield* waitForThread(threadId ?? "", turnEnded);
-          assert.include(
-            said(items).join("\n"),
-            "task:design-system This is the Define step of the design-system setup, proposing a design system"
-          );
-        }),
-      30_000
-    );
-
-    it.effect(
-      "lets the step's agent say the step is finished, for the user to review",
-      () =>
-        Effect.gen(function* () {
-          const { client, port } = yield* TestEnv;
-          const { steps } = yield* client["dsSetup.get"]();
-          const threadId = steps[1]?.threadId ?? "";
-          // The fake agent reports the MCP server it was handed, token and all.
-          yield* client["threads.prompt"]({
-            attachments: [],
-            text: "mcp",
-            threadId,
-          });
-          const { items } = yield* waitForThread(threadId, turnEnded);
-          const reported = said(items).find((t) => t.startsWith("mcp:")) ?? "";
-          const [, token] = reported.slice("mcp:".length).split("|");
-          const call = (name: string, args: Record<string, unknown>) =>
-            callMcp(port, token, {
-              method: "tools/call",
-              params: { arguments: args, name },
-            }).pipe(
-              Effect.flatMap((response) =>
-                Effect.promise(
-                  () =>
-                    response.json() as Promise<{
-                      result: {
-                        content: { text: string }[];
-                        isError?: boolean;
-                      };
-                    }>
-                )
-              ),
-              Effect.map(({ result }) => ({
-                error: result.isError === true,
-                text: result.content[0]?.text ?? "",
-              }))
-            );
-          const finished = yield* call("finish_setup_step", {
-            summary: "Proposed a palette of four colours.",
-          });
-          assert.isFalse(finished.error, finished.text);
-          assert.include(finished.text, "review");
-          const after = yield* client["dsSetup.get"]();
+          const after = yield* service.get;
           assert.strictEqual(after.steps[1]?.status, "review");
           assert.strictEqual(
             after.steps[1]?.summary,
             "Proposed a palette of four colours."
           );
-        }),
-      30_000
-    );
+        })
+      )
+  );
 
-    it.effect(
-      "redoes a step: what it changed is put back, the rest of the work is left alone",
-      () =>
+  it.effect(
+    "redoes a step: what it changed is put back, the rest of the work is left alone",
+    () =>
+      withProject({ files: { "src/app.tsx": APP }, git: true })(
         Effect.gen(function* () {
-          const { client, repo } = yield* TestEnv;
+          const service = yield* setup;
+          const { repo } = yield* ProjectFixture;
           const fs = yield* FileSystem.FileSystem;
           const file = (rel: string) => path.join(repo, rel);
+          yield* pastUpTo("define");
+          yield* service.start("define", { threadId: "define-thread" });
           // The step's work: a file changed, one added, one deleted.
           yield* fs.writeFileString(
             file("src/app.tsx"),
@@ -181,14 +143,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "@theme { --color-primary: #ff0000; }\n"
           );
           yield* fs.remove(file("ui/button.tsx"));
-          const stopped = yield* client["dsSetup.stop"]({ step: "define" });
+          const stopped = yield* service.stop("define");
           assert.strictEqual(stopped.steps[1]?.status, "stopped");
           // Written after the step stopped: not the step's to put back.
           yield* fs.writeFileString(file("notes.md"), "mine\n");
 
-          const preview = yield* client["dsSetup.redoPreview"]({
-            step: "define",
-          });
+          const preview = yield* service.redoPreview("define");
           assert.deepStrictEqual(
             [...preview].sort((a, b) => a.path.localeCompare(b.path)),
             [
@@ -197,8 +157,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               { action: "restore", path: "ui/button.tsx" },
             ]
           );
-
-          const redone = yield* client["dsSetup.redo"]({ step: "define" });
+          const redone = yield* service.redo("define");
           assert.deepStrictEqual(statuses(redone).slice(0, 2), [
             "done",
             "todo",
@@ -218,23 +177,22 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             cwd: repo,
           });
           assert.strictEqual(staged.stdout, "");
-        }),
-      30_000
-    );
+        })
+      )
+  );
 
-    it.effect(
-      "redoes the inventory, which takes every later step back with it",
-      () =>
+  it.effect(
+    "redoes the inventory, which takes every later step back with it",
+    () =>
+      withProject()(
         Effect.gen(function* () {
-          const { client } = yield* TestEnv;
-          const { threadId } = yield* client["dsSetup.start"]({
+          const service = yield* setup;
+          yield* pastUpTo("define");
+          yield* service.start("define", {
             mode: "adopt",
-            step: "define",
+            threadId: "define-thread",
           });
-          const setup = yield* client["dsSetup.get"]();
-          assert.strictEqual(setup.steps[1]?.mode, "adopt");
-          assert.notStrictEqual(threadId, null);
-          const redone = yield* client["dsSetup.redo"]({ step: "inventory" });
+          const redone = yield* service.redo("inventory");
           assert.deepStrictEqual(statuses(redone), [
             "todo",
             "todo",
@@ -242,18 +200,58 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "todo",
             "todo",
           ]);
-          assert.isNull(yield* client["dsSetup.inventory"]());
-          const refs = yield* runCommand(
-            "git",
-            ["for-each-ref", "refs/ultrapaint/setup/"],
-            { cwd: (yield* TestEnv).repo }
+          assert.isNull(yield* service.inventory);
+        })
+      )
+  );
+
+  it.effect(
+    "reads an inventory and a mapping an older version kept, without the plain elements it listed",
+    () =>
+      withProject()(
+        Effect.gen(function* () {
+          const service = yield* setup;
+          const fs = yield* FileSystem.FileSystem;
+          // Where the setup keeps its files: written as an older version left them.
+          const dir = path.join(
+            yield* (yield* Storage).stateDir,
+            "design-system-setup"
           );
-          assert.strictEqual(refs.stdout.trim(), "");
-        }),
-      30_000
-    );
-  }
-);
+          yield* service.start("inventory", {});
+          const [kept] = yield* fs.readDirectory(dir);
+          const at = path.join(dir, kept ?? "", "inventory.json");
+          const inventory = JSON.parse(yield* fs.readFileString(at));
+          const element = {
+            count: 1,
+            examples: ["<button>"],
+            files: 1,
+            kind: "element",
+            locations: [],
+            status: "raw",
+            token: "Button",
+            value: "button",
+          };
+          yield* fs.writeFileString(
+            at,
+            JSON.stringify({
+              ...inventory,
+              totals: [
+                ...inventory.totals,
+                { default: 0, kind: "element", raw: 1, system: 0 },
+              ],
+              values: [...inventory.values, element],
+            })
+          );
+          const read = yield* service.inventory;
+          assert.isNotNull(read);
+          assert.notInclude(
+            (read?.values ?? []).map((v) => v.kind as string),
+            "element"
+          );
+        })
+      )
+  );
+});
 
 /** A design system Define would have saved: two colours, the spacing base, nothing else. */
 const DESIGN_SYSTEM = {
@@ -280,58 +278,19 @@ const SCREEN = `export const Screen = () => (
 );
 `;
 
-/** The MCP token a step's thread was handed, which the fake agent says when asked. */
-const tokenOf = (threadId: string) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    yield* client["threads.prompt"]({ attachments: [], text: "mcp", threadId });
-    const { items } = yield* waitForThread(threadId, turnEnded);
-    const reported = said(items).find((t) => t.startsWith("mcp:")) ?? "";
-    return reported.slice("mcp:".length).split("|")[1] ?? "";
-  });
-
-/** A tool of the editor's MCP server, called as the thread's agent. */
-const tool = (token: string, name: string, args: Record<string, unknown>) =>
-  Effect.gen(function* () {
-    const { port } = yield* TestEnv;
-    const response = yield* callMcp(port, token, {
-      method: "tools/call",
-      params: { arguments: args, name },
-    });
-    const body = (yield* Effect.promise(() => response.json())) as {
-      result: {
-        content: { text: string }[];
-        isError?: boolean;
-        structuredContent?: unknown;
-      };
-    };
-    assert.isNotTrue(body.result.isError, body.result.content[0]?.text);
-    return body.result.structuredContent as Record<string, unknown>;
-  });
-
-layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
-  "the design-system setup, from the mapping to the code",
-  (it) => {
-    it.effect(
-      "maps the values off the system, migrates a batch, reverts it and verifies",
-      () =>
+describe("the design-system setup, from the mapping to the code", () => {
+  it.effect(
+    "maps the values off the system, migrates a batch, reverts it and verifies",
+    () =>
+      withProject({ files: { "src/screen.tsx": SCREEN } })(
         Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
+          const service = yield* setup;
+          const { repo } = yield* ProjectFixture;
           const fs = yield* FileSystem.FileSystem;
           const screen = path.join(repo, "src/screen.tsx");
-          yield* fs.makeDirectory(path.join(repo, "src"));
-          yield* fs.writeFileString(screen, SCREEN);
-          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
-          yield* client["chat.setDefaults"]({ agentId: "fake" });
-
-          yield* client["dsSetup.start"]({ step: "inventory" });
-          yield* client["dsSetup.complete"]({ step: "inventory" });
-          yield* client["dsSetup.start"]({ step: "define" });
+          yield* pastUpTo("map");
           const early = yield* Effect.flip(
-            Effect.andThen(
-              client["dsSetup.complete"]({ step: "define" }),
-              client["dsSetup.start"]({ step: "map" })
-            )
+            service.start("map", { threadId: "map-thread" })
           );
           assert.include(early.message, "no design system saved");
           // What Define's agent would have written.
@@ -340,25 +299,24 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             JSON.stringify(DESIGN_SYSTEM)
           );
 
-          const { threadId: mapThread } = yield* client["dsSetup.start"]({
-            step: "map",
-          });
-          const mapping = yield* client["dsSetup.mapping"]();
-          const decided = (mapping?.entries ?? []).map(
-            (e) =>
-              `${e.kind} ${e.value} → ${e.target ?? "?"}${e.by ? ` (${e.by})` : ""}`
+          yield* service.start("map", { threadId: "map-thread" });
+          const mapping = yield* service.mapping;
+          assert.includeMembers(
+            (mapping?.entries ?? []).map(
+              (e) =>
+                `${e.kind} ${e.value} → ${e.target ?? "?"}${e.by ? ` (${e.by})` : ""}`
+            ),
+            [
+              "color #ff0000 → color-primary (rule)",
+              "spacing 16px → spacing-4 (rule)",
+              "spacing 13px → ?",
+              "color color-gray-500 → ?",
+            ]
           );
-          assert.includeMembers(decided, [
-            "color #ff0000 → color-primary (rule)",
-            "spacing 16px → spacing-4 (rule)",
-            "spacing 13px → ?",
-            "color color-gray-500 → ?",
-            "element button → Button (rule)",
-          ]);
 
           // The user decides one, and is told what cannot be.
-          const mine = yield* client["dsSetup.setMapping"]({
-            changes: [
+          const mine = yield* service.setMapping(
+            [
               {
                 kind: "color",
                 target: "color-muted-foreground",
@@ -366,34 +324,46 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
               },
               { kind: "spacing", target: "padding-big", value: "13px" },
             ],
-          });
+            "user"
+          );
           assert.lengthOf(mine.problems, 1);
           assert.include(mine.problems[0] ?? "", "spacing-<n>");
           // The agent decides the rest.
-          const token = yield* tokenOf(mapThread ?? "");
-          const saved = yield* tool(token, "map_values", {
-            entries: [
-              { kind: "spacing", target: "spacing-3", value: "13px" },
-              { keep: true, kind: "element", value: "button" },
-            ],
-          });
+          const saved = yield* callTool(
+            SetupTools,
+            "map_values",
+            {
+              entries: [
+                { kind: "spacing", target: "spacing-3", value: "13px" },
+              ],
+            },
+            "map-thread"
+          );
           assert.deepStrictEqual(saved, {
             problems: [],
-            saved: 2,
+            saved: 1,
             undecided: 0,
           });
-          yield* client["dsSetup.complete"]({ step: "map" });
+          yield* service.complete("map");
 
-          const { setup, threadId: migrateThread } = yield* client[
-            "dsSetup.start"
-          ]({ step: "migrate" });
-          const batches = setup.steps.find((s) => s.id === "migrate")?.batches;
+          const migrating = yield* service.start("migrate", {
+            threadId: "migrate-thread",
+          });
+          const batches = migrating.steps.find(
+            (s) => s.id === "migrate"
+          )?.batches;
           assert.deepStrictEqual(
             batches?.map((b) => [b.dir, b.files]),
             [["src", ["src/screen.tsx"]]]
           );
-          const agent = yield* tokenOf(migrateThread ?? "");
-          const first = yield* tool(agent, "next_batch", {});
+          const next = (done?: string) =>
+            callTool(
+              SetupTools,
+              "next_batch",
+              done === undefined ? {} : { done },
+              "migrate-thread"
+            );
+          const first = yield* next();
           assert.strictEqual(first.remaining, 0);
           assert.deepStrictEqual(first.files, [
             { changes: 4, file: "src/screen.tsx", left: [] },
@@ -403,20 +373,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             migrated,
             'className="bg-primary p-4 text-muted-foreground m-3"'
           );
-          // The plain button is kept, as the mapping says.
+          // A plain element is the repository's own business.
           assert.include(migrated, '<button type="button">');
           // Done, and there is no other batch to take.
-          const after = yield* tool(agent, "next_batch", {
-            done: "Rewrote the screen.",
-          });
-          assert.isNull(after.batch);
+          assert.isNull((yield* next("Rewrote the screen.")).batch);
 
           const batchId = batches?.[0]?.id ?? "";
-          const preview = yield* client["dsSetup.batchPreview"]({ batchId });
-          assert.deepStrictEqual(preview, [
+          assert.deepStrictEqual(yield* service.batchPreview(batchId), [
             { action: "restore", path: "src/screen.tsx" },
           ]);
-          const reverted = yield* client["dsSetup.revertBatch"]({ batchId });
+          const reverted = yield* service.revertBatch(batchId);
           assert.strictEqual(
             reverted.steps.find((s) => s.id === "migrate")?.batches?.[0]
               ?.status,
@@ -424,29 +390,25 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           );
           assert.strictEqual(yield* fs.readFileString(screen), SCREEN);
           // Taken again, it is rewritten again.
-          yield* tool(agent, "next_batch", {});
+          yield* next();
           assert.include(yield* fs.readFileString(screen), "bg-primary");
-          const none = yield* tool(agent, "next_batch", { done: "Again." });
-          assert.isNull(none.batch);
-          yield* client["dsSetup.complete"]({ step: "migrate" });
+          assert.isNull((yield* next("Again.")).batch);
+          yield* service.complete("migrate");
 
-          const verified = yield* client["dsSetup.start"]({ step: "verify" });
-          const verify = verified.setup.steps.find((s) => s.id === "verify");
+          const verified = yield* service.start("verify", {});
+          const verify = verified.steps.find((s) => s.id === "verify");
           assert.strictEqual(verify?.status, "review");
-          // The button is all that is left off the system, and it is kept on purpose.
+          // Nothing is left off the system: the plain button is not the design system's.
           assert.include(
             verify?.summary ?? "",
-            "1 now, 1 of them kept on purpose"
+            "4 uses when the mapping was made, 0 now"
           );
-          const audit = yield* client["dsSetup.audit"]();
+          const audit = yield* service.audit;
           assert.deepStrictEqual(
-            (audit?.values ?? [])
-              .filter((v) => v.status !== "system")
-              .map((v) => `${v.kind} ${v.value}`),
-            ["element button"]
+            (audit?.values ?? []).filter((v) => v.status !== "system"),
+            []
           );
-        }),
-      90_000
-    );
-  }
-);
+        })
+      )
+  );
+});

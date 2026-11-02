@@ -8,7 +8,7 @@ import type {
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useProject } from "../state/project.ts";
-import { followServer } from "../state/server-data.ts";
+import { caughtUp, followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { detect, save, saveToFile, setUpDesigns } from "./settings-actions.ts";
 
@@ -20,12 +20,10 @@ vi.mock(
 const REPO = "/work/shop";
 
 const running: Settings = {
-  componentPackages: [],
   designsDir: "designs",
   hostCss: [],
   libraryDirs: [],
   repoPath: REPO,
-  theme: "light",
 };
 
 const openInfo = (storage: ProjectInfo["storage"]): ProjectInfo => ({
@@ -44,7 +42,7 @@ const found: SetupSuggestions = {
   designsDirs: ["docs/designs"],
   libraries: [{ dir: "src", inApp: true, name: "shop", sourceDir: "src/ui" }],
   repoName: "shop",
-  tailwind: "v4",
+  styleSystem: "tailwind-v4",
 };
 
 /** What the server holds: the settings it saved and the project's info. */
@@ -81,7 +79,7 @@ beforeEach(async () => {
   fakeApi.respond("settings.set", (next: Settings) => saving(next));
   const stop = followServer({ report: () => undefined });
   // What the editor reads as the connection opens is not what a test asks about.
-  await new Promise((settled) => setTimeout(settled));
+  await caughtUp();
   fakeApi.calls.length = 0;
   return stop;
 });
@@ -99,11 +97,11 @@ describe("detecting", () => {
     let draft: Settings = running;
     const detecting = detect(REPO);
     // The settings page's form, typed in while the server reads the repository.
-    draft = { ...draft, pagePngs: true, theme: "dark" };
+    draft = { ...draft, codeTokens: "auto", pagePngs: true };
     answer(found);
     draft = (await detecting).onto(draft);
     expect(draft.pagePngs).toBe(true);
-    expect(draft.theme).toBe("dark");
+    expect(draft.codeTokens).toBe("auto");
     expect(draft.designsDir).toBe("docs/designs");
     expect(draft.libraryDirs).toEqual(["src/ui"]);
     expect(fakeApi.calls[0]?.input).toEqual({ repoPath: REPO });

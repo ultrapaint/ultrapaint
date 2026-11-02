@@ -1,15 +1,15 @@
 import path from "node:path";
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import type { CanvasLayout } from "@ultrapaint/contracts/pages";
 import { allTokens } from "@ultrapaint/contracts/token-table";
 import { renderTemplate } from "@ultrapaint/design-document/factories";
 import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
-import { ProjectManager } from "./project.ts";
+import { OpenProject } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
-import { EditorTools } from "./services/mcp/tools.ts";
+import { EditorTools } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
-import { callTool, ProjectFixture, ProjectTest } from "./testing/project.ts";
+import { callTool, ProjectFixture, withProject } from "./testing/project.ts";
 
 const THEME = `@theme {
   --color-ink: #111827;
@@ -34,20 +34,21 @@ const HOME_WITH_A_VIEW: CanvasLayout = {
 const pages = <A, E>(
   f: (service: PagesService["Service"]) => Effect.Effect<A, E>
 ) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.use(Effect.flatMap(PagesService, f))
   );
 
 const designSystem = <A, E>(
   f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
 ) =>
-  Effect.flatMap(ProjectManager, (project) =>
+  Effect.flatMap(OpenProject, (project) =>
     project.use(Effect.flatMap(DesignSystemService, f))
   );
 
+/** Each test on a project of its own (docs/TESTING.md rule 3). */
 describe("a project in-process", () => {
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
-    it.effect("makes, renames and lists pages, and writes their files", () =>
+  it.effect("makes, renames and lists pages, and writes their files", () =>
+    withProject()(
       Effect.gen(function* () {
         const { repo } = yield* ProjectFixture;
         const fs = yield* FileSystem.FileSystem;
@@ -72,11 +73,13 @@ describe("a project in-process", () => {
           yield* fs.exists(path.join(repo, "designs/plans.page.json"))
         );
       })
-    );
+    )
+  );
 
-    it.effect(
-      "calls an MCP tool's handler without a socket, as the thread that calls it",
-      () =>
+  it.effect(
+    "calls an MCP tool's handler without a socket, as the thread that calls it",
+    () =>
+      withProject()(
         Effect.gen(function* () {
           const events = yield* EventBus;
           const listed = yield* callTool(EditorTools, "list_pages", {});
@@ -104,19 +107,16 @@ describe("a project in-process", () => {
             threadId: "t-1",
           });
         })
-    );
-  });
+      )
+  );
 
-  layer(
-    ProjectTest({
-      files: { "styles/app.css": THEME },
-      settings: { hostCss: ["../../styles/app.css"] },
-    }),
-    { excludeTestServices: true }
-  )((it) => {
-    it.effect(
-      "reads the code's tokens into the design system, and sets one",
-      () =>
+  it.effect(
+    "reads the code's tokens into the design system, and sets one",
+    () =>
+      withProject({
+        files: { "styles/app.css": THEME },
+        settings: { hostCss: ["../../styles/app.css"] },
+      })(
         Effect.gen(function* () {
           const { repo } = yield* ProjectFixture;
           const fs = yield* FileSystem.FileSystem;
@@ -130,7 +130,7 @@ describe("a project in-process", () => {
           );
           assert.strictEqual(yield* tokenOf, "#111827");
           yield* designSystem((d) =>
-            d.setToken({ name: "color-ink", value: "#333333" })
+            d.edit([{ name: "color-ink", op: "setValue", value: "#333333" }])
           );
           assert.strictEqual(yield* tokenOf, "#333333");
           assert.include(
@@ -140,20 +140,18 @@ describe("a project in-process", () => {
             "#333333"
           );
         })
-    );
-  });
+      )
+  );
 
-  // Each on a project of its own: the frames one test makes would be in the other's way.
-  const withHomeView = () =>
-    ProjectTest({
-      files: { "designs/canvas.json": JSON.stringify(HOME_WITH_A_VIEW) },
-    });
+  const withHomeView = withProject({
+    files: { "designs/canvas.json": JSON.stringify(HOME_WITH_A_VIEW) },
+  });
   const framesNow = pages((p) => p.readCanvas("")).pipe(
     Effect.map((layout) => layout.frames)
   );
 
-  layer(withHomeView(), { excludeTestServices: true })((it) => {
-    it.effect("places a new page's frame past the other pages' views", () =>
+  it.effect("places a new page's frame past the other pages' views", () =>
+    withHomeView(
       Effect.gen(function* () {
         yield* pages((p) =>
           p.createWith(
@@ -172,13 +170,13 @@ describe("a project in-process", () => {
           y: 0,
         });
       })
-    );
-  });
+    )
+  );
 
-  layer(withHomeView(), { excludeTestServices: true })((it) => {
-    it.effect(
-      "sizes a page with no frame where the editor draws it, its views beside it",
-      () =>
+  it.effect(
+    "sizes a page with no frame where the editor draws it, its views beside it",
+    () =>
+      withHomeView(
         Effect.gen(function* () {
           yield* pages((p) => p.create("", { name: "Plans" }, "blank"));
           const sized = yield* callTool(EditorTools, "set_frame", {
@@ -205,8 +203,8 @@ describe("a project in-process", () => {
             HOME_WITH_A_VIEW.frames["home.page.json"]
           );
         })
-    );
-  });
+      )
+  );
 
   const PRICING = JSON.stringify(renderTemplate("blank", "Pricing"));
   // Home, its view, and Pricing a gap past it: where a copy of Home beside it would go.
@@ -223,18 +221,15 @@ describe("a project in-process", () => {
       },
     },
   };
-  layer(
-    ProjectTest({
-      files: {
-        "designs/canvas.json": JSON.stringify(HOME_THEN_PRICING),
-        "designs/pricing.page.json": PRICING,
-      },
-    }),
-    { excludeTestServices: true }
-  )((it) => {
-    it.effect(
-      "puts a copy beside its page when that is free, else past every page",
-      () =>
+  it.effect(
+    "puts a copy beside its page when that is free, else past every page",
+    () =>
+      withProject({
+        files: {
+          "designs/canvas.json": JSON.stringify(HOME_THEN_PRICING),
+          "designs/pricing.page.json": PRICING,
+        },
+      })(
         Effect.gen(function* () {
           const copy = yield* pages((p) => p.duplicate("pricing.page.json"));
           const crowded = yield* pages((p) => p.duplicate("home.page.json"));
@@ -250,11 +245,11 @@ describe("a project in-process", () => {
             x: 3510 + 1440 + 80,
           });
         })
-    );
-  });
+      )
+  );
 
-  layer(
-    ProjectTest({
+  it.effect("puts a state past every page when its row's end is taken", () =>
+    withProject({
       files: {
         // Pricing a little lower than Home: on no row of Home's, but beside it.
         "designs/canvas.json": JSON.stringify({
@@ -269,10 +264,7 @@ describe("a project in-process", () => {
         }),
         "designs/pricing.page.json": PRICING,
       },
-    }),
-    { excludeTestServices: true }
-  )((it) => {
-    it.effect("puts a state past every page when its row's end is taken", () =>
+    })(
       Effect.gen(function* () {
         const state = yield* pages((p) =>
           p.createState("home.page.json", "open")
@@ -282,24 +274,21 @@ describe("a project in-process", () => {
           x: 1990 + 1440 + 80,
         });
       })
-    );
-  });
+    )
+  );
 
   const DEFAULTS = { fill: "$color-background", theme: "dark" };
-  layer(
-    ProjectTest({
-      files: {
-        "designs/canvas.json": JSON.stringify({
-          ...HOME_WITH_A_VIEW,
-          defaults: DEFAULTS,
-        }),
-      },
-    }),
-    { excludeTestServices: true }
-  )((it) => {
-    it.effect(
-      "keeps what the canvas's pages are drawn in when its frames are written",
-      () =>
+  it.effect(
+    "keeps what the canvas's pages are drawn in when its frames are written",
+    () =>
+      withProject({
+        files: {
+          "designs/canvas.json": JSON.stringify({
+            ...HOME_WITH_A_VIEW,
+            defaults: DEFAULTS,
+          }),
+        },
+      })(
         Effect.gen(function* () {
           yield* callTool(EditorTools, "set_frame", {
             route: "home.page.json",
@@ -309,6 +298,6 @@ describe("a project in-process", () => {
           assert.strictEqual(layout.frames["home.page.json"]?.width, 1280);
           assert.deepStrictEqual(layout.defaults, DEFAULTS);
         })
-    );
-  });
+      )
+  );
 });

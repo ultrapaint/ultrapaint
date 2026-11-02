@@ -1,5 +1,5 @@
 import { request } from "node:http";
-import { assert, layer } from "@effect/vitest";
+import { assert, describe, layer } from "@effect/vitest";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { type FigmaImport, MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import type { FigGuid } from "@ultrapaint/figma-import/fig";
@@ -10,8 +10,12 @@ import {
   solid,
 } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, Path } from "effect";
+import { OpenProject } from "./project.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
+import { eachTest } from "./testing/each-test.ts";
 import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
+import { ProjectTest } from "./testing/project.ts";
 
 /** A login frame using a Button component set with a Label property, and a picture. */
 const loginFile = () => {
@@ -164,26 +168,48 @@ const uploadChunked = (port: number, total: number) =>
     }
   );
 
-layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
-  "importing a Figma file",
-  (it) => {
-    it.effect("answers a file name that is not URI-encoded with a 400", () =>
-      Effect.gen(function* () {
-        const { port } = yield* TestEnv;
-        const response = yield* Effect.promise(() =>
-          fetch(`http://127.0.0.1:${port}/api/figma/import`, {
-            body: new Uint8Array(8),
-            headers: {
-              "content-type": "application/octet-stream",
-              "x-file-name": "%E0%A4%A",
-            },
-            method: "POST",
-          })
-        );
-        assert.strictEqual(response.status, 400);
-      })
-    );
+describe("importing a Figma file", () => {
+  // Turned away before anything is read or written: the server is left as it was, so these
+  // share one (docs/TESTING.md rule 3), and its shutdown is paid once.
+  layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+    "a request turned away",
+    (it) => {
+      it.effect("answers a file name that is not URI-encoded with a 400", () =>
+        Effect.gen(function* () {
+          const { port } = yield* TestEnv;
+          const response = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${port}/api/figma/import`, {
+              body: new Uint8Array(8),
+              headers: {
+                "content-type": "application/octet-stream",
+                "x-file-name": "%E0%A4%A",
+              },
+              method: "POST",
+            })
+          );
+          assert.strictEqual(response.status, 400);
+        })
+      );
 
+      it.effect(
+        "turns away a body past the cap that declared no length, without reading it all",
+        () =>
+          Effect.gen(function* () {
+            const { port } = yield* TestEnv;
+            const total = MAX_FIG_BYTES * 2;
+            const { sent, status } = yield* uploadChunked(port, total);
+            // Answered before the client had sent it all; a reset is the server hanging up on it.
+            assert.include([413, -1], status);
+            assert.isBelow(sent, total);
+          })
+      );
+    }
+  );
+
+  eachTest(TestServer, {
+    realClock:
+      "the upload and the MCP tools are the server's routes over a real socket, and the agent a real process",
+  })((it) => {
     it.effect(
       "reads the file, lets an agent map its components, and writes a frame as a page",
       () =>
@@ -208,8 +234,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(button?.uses, 1);
           // The repository's Button is offered as what it might be.
           assert.strictEqual(button?.candidates[0]?.name, "Button");
-          const listed = yield* client["figma.list"]();
-          assert.strictEqual(listed[0]?.id, imported.id);
 
           // Bytes that are not a Figma file are refused with a reason.
           const refused = yield* upload(
@@ -250,10 +274,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           });
           assert.isNotTrue(mapped.result.isError);
           assert.deepStrictEqual(mapped.result.structuredContent.undecided, []);
-          const decided = mapped.result.structuredContent.mapping as {
-            from: string;
-          };
-          assert.isString(decided.from);
 
           const frame = yield* tool("read_figma_frame", { frame: "Login" });
           assert.isNotTrue(frame.result.isError);
@@ -285,7 +305,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(hero?.type, "image");
           assert.deepStrictEqual(instance, {
             component: "Button",
-            from: decided.from,
+            from: "@ultrapaint/system",
             id: instance?.id ?? "",
             name: "Button",
             props: { label: "Sign in", variant: "primary" },
@@ -398,18 +418,20 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
         }),
       30_000
     );
+  });
 
-    it.effect(
-      "turns away a body past the cap that declared no length, without reading it all",
-      () =>
-        Effect.gen(function* () {
-          const { port } = yield* TestEnv;
-          const total = MAX_FIG_BYTES * 2;
-          const { sent, status } = yield* uploadChunked(port, total);
-          // Answered before the client had sent it all; a reset is the server hanging up on it.
-          assert.include([413, -1], status);
-          assert.isBelow(sent, total);
-        })
+  eachTest(ProjectTest())((it) => {
+    it.effect("lists two imported at the same instant newest first", () =>
+      Effect.gen(function* () {
+        const figma = (yield* OpenProject).service(FigmaImportService);
+        yield* figma((f) => f.create("first.fig", loginFile()));
+        yield* figma((f) => f.create("second.fig", loginFile()));
+        assert.deepStrictEqual(
+          (yield* figma((f) => f.list)).map((i) => i.name),
+          ["second.fig", "first.fig"]
+        );
+        assert.strictEqual((yield* figma((f) => f.latest))?.name, "second.fig");
+      })
     );
-  }
-);
+  });
+});

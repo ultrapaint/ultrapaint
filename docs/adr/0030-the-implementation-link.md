@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-10-25. Amends 0013 (a design thread's sandbox), 0014 (one more tool, and
 the server's instructions), 0015 (`/implement`), 0019 (page states beside variants) and 0021
-(links name states). Plan: `docs/PLAN-design-source.md`.
+(links name states). Plan: `docs/plans/done/PLAN-design-source.md`.
 
 > Amended 2026-10-25 (second round): bindings follow a page moved to another canvas, and a
 > copy starts without one; pages built already are brought in in bulk; components have behaviour

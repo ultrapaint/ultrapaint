@@ -3,7 +3,6 @@
  * system and the code, and the steps that bring them together. What each side is to the engine
  * is in `sync-readings.ts`.
  */
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
   DesignSystemSetup,
   SetupStepId,
@@ -20,8 +19,6 @@ import {
   type SyncStepState,
   type TokenDiff,
 } from "@ultrapaint/contracts/sync";
-import { listedTokens } from "@ultrapaint/contracts/token-table";
-import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
 
@@ -31,28 +28,26 @@ const some = (names: readonly string[], shown = 4) =>
     ? `${names.slice(0, shown).join(", ")} and ${names.length - shown} more`
     : names.join(", ");
 
-/** What drifted between a design system and the code, by name. */
-export const driftOf = (
-  ds: DesignSystem | null,
-  tokens: readonly SourceToken[],
-  /** Whether the stylesheets were read at all: without them nothing can be said of tokens. */
-  read: boolean
-): SyncDrift => {
-  if (!ds) {
-    return emptyDrift;
-  }
-  const omitted = new Set(ds.omitted ?? []);
-  const listed = new Set(listedTokens(ds).map((t) => t.name));
-  return {
-    // A token the code does not declare is waiting for an export, not drift (ADR 0028).
-    tokensGone: [],
-    tokensUndescribed: read
-      ? tokens
-          .filter((t) => t.own && !(listed.has(t.name) || omitted.has(t.name)))
-          .map((t) => t.name)
-      : [],
-  };
-};
+/**
+ * What drifted between a design system and the code, from the code's comparison with it: the
+ * tokens it finds new in the code, which the design system takes once they are described (one
+ * left out on purpose is `ignored`). Nothing without a comparison: no design system, or no
+ * stylesheet read.
+ */
+export const driftOf = (diffs: readonly TokenDiff[] | null): SyncDrift =>
+  diffs
+    ? {
+        tokensUndescribed: [
+          ...new Set(
+            diffs
+              .filter(
+                (d) => d.outcome === "to-design" && d.design === undefined
+              )
+              .map((d) => d.name)
+          ),
+        ],
+      }
+    : emptyDrift;
 
 export const caseOf = (facts: SyncFacts): SyncCase => {
   if (facts.designSystem) {
@@ -84,7 +79,7 @@ const SETUP_DETAILS: Record<SetupStepId, string> = {
   define:
     "An agent adopts the theme there is, or proposes one from what the code uses, and asks you what to keep.",
   inventory:
-    "The colours, spacing, type, radii, shadows and plain elements the code uses, and which are the system's.",
+    "The colours, spacing, type, radii, shadows and layers the code uses, and which are the system's.",
   map: "What each value off the system becomes; rules take the exact matches, an agent the rest.",
   migrate:
     "The code rewritten onto the design system a directory at a time, each batch undoable.",
@@ -160,41 +155,6 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
       ];
 };
 
-/**
- * Designs from before (ADRs 0040, 0041): pages made with the repository's components, instances
- * of system components and drafts as they were named, and specs' files, brought up to date in
- * one step.
- */
-const systemSteps = (facts: SyncFacts): SyncStep[] => {
-  const old = facts.oldInstances;
-  const specs = old?.specs ?? 0;
-  if (!old || old.drawn + specs === 0) {
-    return [];
-  }
-  const left =
-    old.left > 0
-      ? ` ${plural(old.left, "instance")} of components no system component is like ${old.left === 1 ? "stays as it is" : "stay as they are"}.`
-      : "";
-  const what = [
-    old.drawn > 0
-      ? `${plural(old.drawn, "instance")} from before can be drawn as now, keeping their props, children and text`
-      : null,
-    specs > 0
-      ? `${plural(specs, "component spec")} can be made ${specs === 1 ? "a component" : "components"} of the components/ directory`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(", and ");
-  return [
-    step(
-      "system",
-      "Bring your designs up to date",
-      "attention",
-      `${what}, in one step you can undo.${left}`
-    ),
-  ];
-};
-
 const figmaStepOf = (facts: SyncFacts, synced: boolean) => {
   const name = facts.figma?.name;
   // Without a design system yet, Figma's tokens go into the code it is then made from.
@@ -220,10 +180,7 @@ const framesStepOf = (optional: boolean) =>
 
 /** What drifted, in words: the describe step's detail. */
 const driftParts = (drift: SyncDrift) =>
-  [
-    [drift.tokensUndescribed, "token", "the design system does not list"],
-    [drift.tokensGone, "token", "it lists that the code no longer declares"],
-  ]
+  [[drift.tokensUndescribed, "token", "the design system does not list"]]
     .filter(([names]) => (names as readonly string[]).length > 0)
     .map(([names, what, where]) => {
       const list = names as readonly string[];
@@ -335,7 +292,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
   const { drift, facts, figmaSynced, setup } = input;
   const kind = caseOf(facts);
   const figma = kind === "figma" || kind === "figma-code";
-  const head = [...settingsSteps(facts), ...systemSteps(facts)];
+  const head = settingsSteps(facts);
   if (kind === "maintain") {
     return [
       ...head,

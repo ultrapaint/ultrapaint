@@ -61,6 +61,65 @@ export const pageItem = (page: Page, root: DesignNode | null): LayerItem => ({
 export const looseItem = (frame: string, node: DesignNode): LayerItem =>
   nodeItem(frame, node, null);
 
+/**
+ * What Layers lists, and the heading over its first node: an app component edited in place, its
+ * tree alone (the rest of the canvas being out of reach); on an app component's board (ADR 0045),
+ * its tree; else the canvas's pages, each with its nodes, then the nodes beside the pages.
+ * `nodes` are the top nodes listed under the heading.
+ */
+export const layerScope = ({
+  canvasNodes,
+  edited,
+  pages,
+  roots,
+  tree,
+}: {
+  /** The nodes on the canvas beside the pages, each a frame of its own (`frameOf`). */
+  readonly canvasNodes: readonly { frame: string; node: DesignNode }[];
+  /** The app component edited in place, with its tree once the documents have it. */
+  readonly edited: {
+    readonly component: string;
+    readonly frame: string;
+    readonly root: DesignNode | null;
+  } | null;
+  readonly pages: readonly Page[];
+  /** Each page's root, by page id, null while it cannot be read. */
+  readonly roots: (pageId: string) => DesignNode | null;
+  /** An app component's tree on its board, the board it is selected in and its name. */
+  readonly tree: {
+    readonly frame: string;
+    readonly name: string;
+    readonly root: DesignNode;
+  } | null;
+}): {
+  readonly heading: string;
+  readonly items: readonly LayerItem[];
+  readonly nodes: readonly DesignNode[];
+} => {
+  if (edited?.root) {
+    return {
+      heading: `Editing ${edited.component}`,
+      items: [looseItem(edited.frame, edited.root)],
+      nodes: [edited.root],
+    };
+  }
+  if (tree) {
+    return {
+      heading: tree.name,
+      items: [looseItem(tree.frame, tree.root)],
+      nodes: [tree.root],
+    };
+  }
+  return {
+    heading: "On the canvas",
+    items: [
+      ...pages.map((page) => pageItem(page, roots(page.id))),
+      ...canvasNodes.map(({ frame, node }) => looseItem(frame, node)),
+    ],
+    nodes: canvasNodes.map(({ node }) => node),
+  };
+};
+
 /** What a filter is matched against: the name the row shows, and what the node says or is. */
 const termsOf = (item: LayerItem): string[] => {
   const { node, page } = item;

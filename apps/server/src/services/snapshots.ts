@@ -1,11 +1,11 @@
 import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
-import type { GitDiff } from "@ultrapaint/contracts/git";
 import {
   type CanvasLayout,
   emptyCanvasLayout,
   type Page,
 } from "@ultrapaint/contracts/pages";
+import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { Snapshot, type SnapshotView } from "@ultrapaint/contracts/snapshots";
 import { canvasDocOf, canvasRoot } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, CANVASES_FILE } from "@ultrapaint/shared/canvas";
@@ -14,16 +14,12 @@ import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject } from "../project.ts";
+import { parseCanvasText } from "./canvas-files.ts";
 import { makeDesignRefs } from "./design-refs.ts";
-import { parseDocument } from "./documents.ts";
+import { parseDocument } from "./document-file.ts";
 import type { EditFailure } from "./edit.ts";
-import {
-  canvasIdsIn,
-  decodeOrder,
-  pageListOf,
-  parseCanvas,
-} from "./pages-layout.ts";
+import { canvasIdsIn, decodeOrder, pageListOf } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Checkpoints } from "./threads/checkpoints.ts";
 
@@ -80,7 +76,7 @@ const layoutsOf = Effect.fnUntraced(function* (files: {
     layouts[canvas] =
       text === undefined
         ? emptyCanvasLayout()
-        : yield* parseCanvas(text).pipe(
+        : yield* parseCanvasText(text).pipe(
             Effect.map(({ layout }): CanvasLayout => layout),
             Effect.orElseSucceed(() => emptyCanvasLayout())
           );
@@ -107,7 +103,7 @@ const documentsOf = Effect.fnUntraced(function* (
   const documents: DocumentState[] = [];
   for (const page of pages) {
     const text = files[page.id] ?? "";
-    const parsed = yield* parseDocument(text, false);
+    const parsed = yield* parseDocument(text);
     documents.push({
       doc: page.id,
       hash: hashContent(text),
@@ -148,7 +144,7 @@ export class Snapshots extends Context.Service<
     readonly delete: (id: string) => Effect.Effect<void, NotFound>;
     readonly diff: (
       id: string
-    ) => Effect.Effect<GitDiff[], NotFound | NotConfigured>;
+    ) => Effect.Effect<FileDiff[], NotFound | NotConfigured>;
     readonly list: Effect.Effect<Snapshot[]>;
     readonly restore: (id: string) => Effect.Effect<void, RestoreFailure>;
     readonly view: (
@@ -159,7 +155,7 @@ export class Snapshots extends Context.Service<
   static readonly layer = Layer.effect(
     Snapshots,
     Effect.gen(function* () {
-      const project = yield* ProjectManager;
+      const project = yield* OpenProject;
       const checkpoints = yield* Checkpoints;
       const events = yield* EventBus;
       const refs = yield* makeDesignRefs({

@@ -4,6 +4,7 @@ import {
   type AgentEvent,
   type AgentFocus,
   summarise,
+  TERMINAL_TAIL,
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -157,9 +158,6 @@ const withoutThread = (s: AgentsStore, threadId: string) => {
   return { focused, items, terminals, working };
 };
 
-/** What a terminal's tail is worth keeping in memory while it runs. */
-const TERMINAL_TAIL = 8000;
-
 /** A terminal id is the agent session's; the thread makes it the editor's. */
 export const terminalKey = (threadId: string, terminalId: string) =>
   `${threadId}/${terminalId}`;
@@ -246,6 +244,19 @@ const takeAgentEvent = (ev: AgentEvent) => {
           item.kind === "turn_end"
             ? [...new Set([...s.changed, ...item.changedFiles])]
             : s.changed,
+        items: { ...s.items, [ev.threadId]: items },
+        threads: summarised(s.threads, ev.threadId, items),
+      };
+    });
+  } else if (ev.type === "itemText") {
+    // A streamed chunk: only its item changes, and only its text.
+    set((s) => {
+      const items = (s.items[ev.threadId] ?? []).map((i) =>
+        i.id === ev.itemId && (i.kind === "agent" || i.kind === "thought")
+          ? { ...i, text: i.text + ev.text }
+          : i
+      );
+      return {
         items: { ...s.items, [ev.threadId]: items },
         threads: summarised(s.threads, ev.threadId, items),
       };

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Stream } from "effect";
+import { Deferred, Effect, Stream } from "effect";
 import { firstReadyLine, watchReadyLine } from "./ready-line.ts";
 
 const out = (...chunks: string[]) =>
@@ -45,9 +45,11 @@ describe("firstReadyLine", () => {
     })
   );
 
-  it.live("watches for the line and keeps reading what comes after it", () =>
+  it.effect("watches for the line and keeps reading what comes after it", () =>
     Effect.gen(function* () {
       let read = 0;
+      // The output read to its end: what the test waits for, not time passing.
+      const drained = yield* Deferred.make<void>();
       const chunks = [
         "log\n",
         `${JSON.stringify({ ...READY, attached: true })}\n`,
@@ -61,11 +63,12 @@ describe("firstReadyLine", () => {
               read += 1;
             })
           ),
-          Stream.map((c) => new TextEncoder().encode(c))
+          Stream.map((c) => new TextEncoder().encode(c)),
+          Stream.onEnd(Deferred.succeed(drained, undefined))
         )
       );
       assert.isTrue(ready.attached);
-      yield* Effect.sleep("10 millis");
+      yield* Deferred.await(drained);
       assert.strictEqual(read, chunks.length);
       const error = yield* Effect.flip(watchReadyLine(out("nothing\n")));
       assert.include(error.message, "stopped before");

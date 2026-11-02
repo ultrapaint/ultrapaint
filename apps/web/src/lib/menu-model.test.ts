@@ -24,10 +24,10 @@ const page: DesignNode = { children: [row], id: "home", type: "page" };
 const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
   canPaste: false,
   count: 1,
+  frame: { kind: "page", page: "home.page.json" },
   hidden: false,
   index: 1,
   node: row,
-  onPage: true,
   parentSelectable: true,
   siblings: 3,
   wrappable: true,
@@ -98,7 +98,9 @@ describe("the node menu", () => {
     expect(find(entries, { kind: "link", to: null })).toMatchObject({
       label: "Remove link",
     });
-    expect(kinds(nodeEntries(facts({ onPage: false })))).not.toContain("link");
+    expect(
+      kinds(nodeEntries(facts({ frame: { kind: "node", node: "r1" } })))
+    ).not.toContain("link");
   });
 
   it("offers text editing on text only, and unwrapping on containers only", () => {
@@ -148,10 +150,43 @@ describe("the node menu", () => {
 
   it("comments only on a page, and selects a parent only when there is one", () => {
     const loose = kinds(
-      nodeEntries(facts({ onPage: false, parentSelectable: false }))
+      nodeEntries(
+        facts({
+          frame: { kind: "node", node: "r1" },
+          parentSelectable: false,
+        })
+      )
     );
     expect(loose).not.toContain("comment");
     expect(loose).not.toContain("selectParent");
+  });
+
+  it("offers a node of a tree on its board nothing of a page's, but what it does to the node", () => {
+    const onBoard = kinds(
+      nodeEntries(
+        facts({
+          frame: {
+            item: "Promo",
+            kind: "board",
+            name: "component",
+            view: "library",
+          },
+        })
+      )
+    );
+    for (const kind of [
+      "comment",
+      "makeApp",
+      "link",
+      "viewCode",
+      "copyLink",
+      "copyRef",
+    ]) {
+      expect(onBoard, kind).not.toContain(kind);
+    }
+    expect(onBoard).toEqual(
+      expect.arrayContaining(["rename", "wrap", "hide", "zoomTo", "delete"])
+    );
   });
 
   it("locks a node, and unlocks a locked one, but not a page", () => {

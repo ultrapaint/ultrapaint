@@ -421,6 +421,27 @@ export class AgentSandbox extends Context.Service<
     })
   );
 
+  /**
+   * A machine that says it confines its agents, for a test of what a confined agent is told:
+   * nothing is wrapped, and no process is started to be confined.
+   */
+  static readonly layerTestConfined = Layer.succeed(
+    AgentSandbox,
+    AgentSandbox.of({
+      available: true,
+      problem: undefined,
+      session: ({ config }) =>
+        Effect.succeed({
+          confine: (launch: AgentLaunch) => launch,
+          launch: {
+            args: config.args,
+            command: config.command,
+            env: { ...config.env, ...config.sandboxEnv },
+          },
+        }),
+    })
+  );
+
   /** For the machine the server resolved at startup. */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {

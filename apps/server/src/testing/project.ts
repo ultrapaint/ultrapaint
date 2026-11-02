@@ -7,28 +7,38 @@
  * `TEST_PORT`, so a thread's MCP address is known and its prompts reach the scripted agent.
  */
 import { NodeServices } from "@effect/platform-node";
+import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import {
   defaultSettings,
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
-import type { Tool, Toolkit } from "effect/ai";
+import { McpSchema, type Tool, type Toolkit } from "effect/ai";
+import { RpcTest } from "effect/rpc";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
+import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
-import { ProjectManager } from "../project.ts";
+import { OpenProject, ProjectManager } from "../project.ts";
+import { RpcHandlers } from "../rpc-handlers.ts";
+import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
+import { rawTools } from "../services/mcp/raw-tools.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
-import { makeFixture } from "./harness.ts";
+import { makeFixture, TestEnv } from "./harness.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** The port a test's server says it listens on: nothing does, and no scripted agent connects. */
 export const TEST_PORT = 1;
 
-/** The tests' adapters: a preview that is never started, agents the test plays, no sandbox. */
+/**
+ * The tests' adapters: agents the test plays, no sandbox, and the designs' changes the journal
+ * and the test tell of (`DesignFiles.report`), no watcher.
+ */
 export const TestAdapters = {
   agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
+  designFiles: DesignFiles.layerTest,
 } satisfies Adapters<ScriptedAgents | AgentSandbox>;
 
 /** The project the test opened: its folder, its home, and the settings it was opened with. */
@@ -65,12 +75,17 @@ export interface ProjectTestOptions {
    * with nothing saved.
    */
   readonly storage?: "managed" | "ephemeral";
+  /**
+   * Whether the designs directory is watched, as the server watches it: for the one test of a
+   * file written by hand that the watcher must see. Without, a test tells `DesignFiles` itself.
+   */
+  readonly watch?: boolean;
 }
 
 /**
  * Every service of the server, with a project open on a fresh fixture (`makeFixture`: a designs
- * package with a Home page, a component in `ui/`) and the editor's MCP tools' handlers. Build
- * one per test, or per group that shares it.
+ * package with a Home page, and a file of the application's code in `ui/`) and the editor's MCP
+ * tools' handlers. Build one per test, or per group that shares it.
  */
 export const ProjectTest = (options: ProjectTestOptions = {}) =>
   Layer.unwrap(
@@ -120,7 +135,13 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
       );
       return Layer.mergeAll(opened, listening).pipe(
         Layer.provideMerge(ToolkitHandlers),
-        Layer.provideMerge(ApplicationLayer(TestAdapters)),
+        Layer.provideMerge(
+          ApplicationLayer(
+            options.watch
+              ? { ...TestAdapters, designFiles: DesignFiles.layer }
+              : TestAdapters
+          )
+        ),
         Layer.provideMerge(
           ServerConfig.layerTest({
             cwd: repo,
@@ -145,6 +166,57 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
         : NodeServices.layer
     )
   );
+
+/**
+ * The editor's requests in-process: the RPC handlers, which only route, over a project of the
+ * test's own, called through an in-memory client with no socket and no port. It gives the socket
+ * harness's `TestEnv`, so a test of what the services do is written as the editor asks for it;
+ * what only the wire does (schema rejection, the origin and token guards, event streaming over a
+ * socket, health) stays on `TestServer`.
+ */
+export const ProjectRpc = (options: ProjectTestOptions = {}) =>
+  Layer.effect(
+    TestEnv,
+    Effect.gen(function* () {
+      const { home, repo, settings } = yield* ProjectFixture;
+      const client = yield* RpcTest.makeClient(UltrapaintRpcs);
+      const { followed } = yield* EventBus;
+      return { client, followed, home, port: 0, repo, settings };
+    })
+  ).pipe(Layer.provide(RpcHandlers), Layer.provideMerge(ProjectTest(options)));
+
+/**
+ * A file of the project written past the editor (by an agent, by hand) heard of, as the watch
+ * of the designs would hear of it: a `ProjectTest` has no watcher, and the test tells
+ * `DesignFiles` of the file as it is on disk now (`rel` from the project's folder; gone is
+ * told as gone).
+ */
+export const heardOf = Effect.fnUntraced(function* (rel: string) {
+  const { repo } = yield* ProjectFixture;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const abs = path.join(repo, rel);
+  const content = (yield* fs.exists(abs))
+    ? yield* fs.readFileString(abs)
+    : null;
+  const project = yield* OpenProject;
+  yield* project.service(DesignFiles)((files) => files.report(rel, content));
+});
+
+/**
+ * A test's own project, its services asked for directly: each test builds its world
+ * (docs/TESTING.md rule 3). A `layer(ProjectTest())` shared by several tests is shared state.
+ */
+export const withProject =
+  (options: ProjectTestOptions = {}) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(ProjectTest(options)), Effect.scoped);
+
+/** A test's own project, asked through `ProjectRpc`: each test builds its world. */
+export const inAProject =
+  (options: ProjectTestOptions = {}) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(ProjectRpc(options)), Effect.scoped);
 
 /**
  * One of the editor's MCP tools, called as an agent's call reaches its handler: the parameters
@@ -172,3 +244,36 @@ export const callTool = <
     // success.
     return last.value.result as Tool.Success<Tools[Name]>;
   }).pipe(Effect.provideService(CallingThread, thread));
+
+/**
+ * One of the editor's tools that answer by hand (`get_screenshot`, `ask_user`), called as an
+ * agent's call reaches it: its parameters decoded, its answer back as the agent gets it, a
+ * picture, a sentence or a form. `request` is what the agent's client said of itself with the
+ * call: by default it speaks the stateless revision and shows no form.
+ */
+export const callRawTool = <T extends Tool.Any>(
+  tool: T,
+  parameters: Tool.ParametersEncoded<T>,
+  options: {
+    readonly request?: Partial<McpSchema.McpRequestContext["Service"]>;
+    readonly thread?: string;
+  } = {}
+) =>
+  Effect.gen(function* () {
+    const all = yield* rawTools;
+    const found = all.find((raw) => raw.tool.name === tool.name);
+    if (found === undefined) {
+      return yield* Effect.die(
+        new Error(`${tool.name} is no tool answered by hand`)
+      );
+    }
+    return yield* found.handle(parameters);
+  }).pipe(
+    Effect.provideService(CallingThread, options.thread),
+    Effect.provideService(McpSchema.McpRequestContext, {
+      clientCapabilities: {},
+      clientId: 0,
+      protocolVersion: "2026-07-28",
+      ...options.request,
+    })
+  );

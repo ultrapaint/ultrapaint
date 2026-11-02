@@ -16,11 +16,19 @@
  *
  * Writing, `design-system.json` is the design system without its values and `design.tokens.json`
  * the values in the format.
+ *
+ * The baselines a side keeps in `design-system.json` (`codeSync`, `designMd`, `sync`) move one
+ * way, outside the undo history (ADR 0025, 0027, 0028): a step that writes the design system
+ * keeps them as the file has them, and `baselineMover` moves one through the journal's `amend`,
+ * whoever moves it: the code's side, DESIGN.md's, Sync's adapters.
  */
 import {
   DESIGN_SYSTEM_FILE,
   DesignSystem,
+  DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
+import { BadRequest } from "@ultrapaint/contracts/errors";
+import { SyncBaseline } from "@ultrapaint/contracts/sync";
 import {
   allTokens,
   fillValues,
@@ -30,8 +38,9 @@ import {
   withEmptyValues,
 } from "@ultrapaint/contracts/token-table";
 import { serialise } from "@ultrapaint/design-document/factories";
-import { Predicate, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { readDesignTokens, serialiseDesignTokens } from "./dtcg.ts";
+import type { EditService } from "./edit.ts";
 
 const decodeDesignSystem = Schema.decodeUnknownResult(DesignSystem);
 
@@ -161,12 +170,46 @@ export const writeDesignSystem = (
   tokens: serialiseDesignTokens(ds),
 });
 
-/** Whether a baseline kept in the file agrees on the same values: nothing agreed is `{}`. */
+/** What each side keeps in `design-system.json`: what it and the design system last agreed on. */
+export interface Baselines {
+  readonly codeSync: DocumentBaseline;
+  readonly designMd: DocumentBaseline;
+  readonly sync: SyncBaseline;
+}
+export type BaselineSide = keyof Baselines;
+
+/** A side's baseline as it moves: the next from the one the file has; undefined leaves it. */
+export type BaselineMove<S extends BaselineSide> = (
+  previous: Baselines[S] | undefined
+) => Baselines[S] | undefined;
+
+const BASELINES: { readonly [S in BaselineSide]: Schema.Codec<Baselines[S]> } =
+  {
+    codeSync: DocumentBaseline,
+    designMd: DocumentBaseline,
+    sync: SyncBaseline,
+  };
+
+/** A design system with the baselines `kept` has, whatever it said itself. */
+export const keepBaselines = (
+  ds: DesignSystem,
+  kept: DesignSystem | null
+): DesignSystem => {
+  const { codeSync: _c, designMd: _d, sync: _s, ...rest } = ds;
+  return {
+    ...rest,
+    ...(kept?.codeSync && { codeSync: kept.codeSync }),
+    ...(kept?.designMd && { designMd: kept.designMd }),
+    ...(kept?.sync && { sync: kept.sync }),
+  };
+};
+
+/** Whether a baseline agrees on the same values: nothing agreed is `{}`. */
 const sameAgreement = (
-  kept: unknown,
+  previous: DocumentBaseline | undefined,
   agreed: Readonly<Record<string, string>>
 ): boolean => {
-  const before = Predicate.isObject(kept) ? Object.entries(kept) : [];
+  const before = Object.entries(previous?.agreed ?? {});
   return (
     before.length === Object.keys(agreed).length &&
     before.every(([key, value]) => agreed[key] === value)
@@ -174,16 +217,34 @@ const sameAgreement = (
 };
 
 /**
- * `design-system.json`'s text with what one side and the design system agree on set, the
- * matches the file keeps for it kept, everything else as the file has it: a baseline moved
- * outside the undo history (ADR 0027, 0028). The text as it is when the side agrees on the same
- * values already; null for a file that is not there or does not read.
+ * A side agreeing with the design system on these values from `at`, the matches it keeps kept;
+ * the baseline as it is when it agrees on the same values already.
  */
-export const withAgreement = (
+export const agreeOn =
+  (
+    agreed: Readonly<Record<string, string>>,
+    at: number
+  ): BaselineMove<"codeSync" | "designMd"> =>
+  (previous) =>
+    sameAgreement(previous, agreed)
+      ? previous
+      : {
+          agreed,
+          at,
+          ...(previous?.matches !== undefined && {
+            matches: previous.matches,
+          }),
+        };
+
+/**
+ * `design-system.json`'s text with one side's baseline moved, everything else as the file has
+ * it. The text as it is when the baseline does not change; null for a file that is not there or
+ * does not read.
+ */
+export const withBaseline = <S extends BaselineSide>(
   text: string | null,
-  side: "codeSync" | "designMd",
-  agreed: Readonly<Record<string, string>>,
-  at: number
+  side: S,
+  move: BaselineMove<S>
 ): string | null => {
   if (text === null) {
     return null;
@@ -195,22 +256,50 @@ export const withAgreement = (
     // A file that does not read is left alone: reading it says why.
     return null;
   }
-  if (typeof json !== "object" || json === null || Array.isArray(json)) {
+  if (!Predicate.isObject(json) || Array.isArray(json)) {
     return null;
   }
   const record = json as Record<string, unknown>;
-  const previous = record[side] as
-    | { readonly agreed?: unknown; readonly matches?: unknown }
-    | undefined;
-  if (sameAgreement(previous?.agreed, agreed)) {
+  const previous = Schema.decodeUnknownOption(BASELINES[side])(record[side]);
+  const next = move(previous._tag === "Some" ? previous.value : undefined);
+  if (
+    next === undefined ||
+    JSON.stringify(next) === JSON.stringify(record[side])
+  ) {
     return text;
   }
-  return serialise({
-    ...record,
-    [side]: {
-      agreed,
-      at,
-      ...(previous?.matches !== undefined && { matches: previous.matches }),
-    },
-  });
+  return serialise({ ...record, [side]: next });
 };
+
+/**
+ * Moves one side's baseline in `design-system.json` (`rel`), outside the undo history: under the
+ * journal's lock, and carried into every step that touched the file, so undoing a token edit
+ * never takes back what a side agreed meanwhile. A file that is not there or does not read is
+ * left alone, and says so.
+ */
+export const baselineMover =
+  (edit: EditService["Service"], rel: string) =>
+  <S extends BaselineSide>(
+    side: S,
+    move: BaselineMove<S>
+  ): Effect.Effect<void, BadRequest> =>
+    edit
+      .amend(rel, (content) => {
+        const next = withBaseline(content, side, move);
+        return next === null
+          ? Effect.fail(
+              new BadRequest({
+                message: `${DESIGN_SYSTEM_FILE} is not there or does not read`,
+              })
+            )
+          : Effect.succeed([next, undefined] as const);
+      })
+      .pipe(
+        Effect.mapError((error) =>
+          error._tag === "BadRequest"
+            ? error
+            : new BadRequest({
+                message: `${DESIGN_SYSTEM_FILE}'s baseline could not be moved: ${error.message}`,
+              })
+        )
+      );

@@ -2,7 +2,7 @@
 
 Status: accepted and implemented, 2026-10-26. Amends 0015 (a node's fields can differ per
 breakpoint), 0020 (a page's frame has views beside it) and 0034 (a component's `matchMedia` and
-`innerWidth` answer for its frame). Plan: `docs/PLAN-responsive-views.md`.
+`innerWidth` answer for its frame). Plan: `docs/plans/done/PLAN-responsive-views.md`.
 
 ## Context
 

@@ -1,8 +1,6 @@
-import {
-  emptySystemComponent,
-  SystemComponentFile,
-} from "@ultrapaint/contracts/components";
+import { SystemComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";

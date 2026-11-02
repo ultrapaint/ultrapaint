@@ -11,6 +11,7 @@
  * website the user has open could reach the editor's tools.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
+import type { McpConnection } from "@ultrapaint/contracts/threads";
 import {
   Context,
   Effect,
@@ -63,6 +64,11 @@ export class McpAccess extends Context.Service<
     /** Whether this token may call at all, from a thread or from outside. */
     readonly allows: (token: string | undefined) => Effect.Effect<boolean>;
     /**
+     * How an agent outside the editor connects, as the settings show it: the address, the header
+     * and the project's token, unless the server was started without its MCP server.
+     */
+    readonly connection: Effect.Effect<McpConnection>;
+    /**
      * Where an agent reaches the editor's MCP server, once the server listens, and the header
      * its token goes in.
      */
@@ -72,11 +78,6 @@ export class McpAccess extends Context.Service<
     }>;
     /** The project's own token, for agents outside the editor. Made once, kept with the state. */
     readonly external: Effect.Effect<string>;
-    /**
-     * Whether the project's token was one made the old, guessable way and was replaced since the
-     * server started: the agents outside the editor still send the old one, which is turned away.
-     */
-    readonly replaced: Effect.Effect<boolean>;
     /** A token for this thread, valid until the surrounding scope closes. */
     readonly issue: (
       threadId: string
@@ -89,7 +90,7 @@ export class McpAccess extends Context.Service<
     McpAccess,
     Effect.gen(function* () {
       const storage = yield* Storage;
-      const { host } = yield* ServerConfig;
+      const { host, mcp: enabled } = yield* ServerConfig;
       const listen = yield* ListenPort;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -150,6 +151,11 @@ export class McpAccess extends Context.Service<
       const threadOf = (token: string | undefined) =>
         token === undefined ? undefined : threads.get(token);
 
+      const endpoint = Effect.map(listen.get, (port) => ({
+        header: MCP_TOKEN_HEADER,
+        url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
+      }));
+
       return McpAccess.of({
         // A thread's token is answered from memory; only anything else is compared to the file.
         allows: (token) => {
@@ -161,10 +167,14 @@ export class McpAccess extends Context.Service<
           }
           return Effect.map(external, (project) => sameToken(token, project));
         },
-        endpoint: Effect.map(listen.get, (port) => ({
-          header: MCP_TOKEN_HEADER,
-          url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
-        })),
+        // The token was one made the old, guessable way and was replaced since the server
+        // started: the agents outside the editor still send the old one, which is turned away.
+        connection: Effect.gen(function* () {
+          const { header, url } = yield* endpoint;
+          const token = enabled ? yield* external : "";
+          return { enabled, header, replaced, token, url };
+        }),
+        endpoint,
         external,
         issue: (threadId) =>
           Effect.acquireRelease(
@@ -174,7 +184,6 @@ export class McpAccess extends Context.Service<
             }),
             (token) => Effect.sync(() => threads.delete(token))
           ),
-        replaced: Effect.map(external, () => replaced),
         threadOf,
       });
     })

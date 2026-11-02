@@ -174,7 +174,9 @@ const openChanges = (files: readonly string[]) => {
 
 /**
  * The end of a turn, in a quiet line: how long it took and, when it changed files, a way to the
- * changes panel where they are listed. It speaks up only when the agent did not finish on its own.
+ * changes panel where they are listed. Files changed during the turn by someone else while the
+ * agent worked (another thread, the user) are counted apart, as changed during it rather than by
+ * the agent. It speaks up only when the agent did not finish on its own.
  */
 const TurnEnd = ({
   item,
@@ -185,6 +187,7 @@ const TurnEnd = ({
 }) => {
   const note = stopNote(item.stopReason);
   const count = item.changedFiles.length;
+  const during = item.changedDuring ?? [];
   return (
     <div className="flex items-center gap-1 font-body text-muted-foreground/70">
       {note ? (
@@ -212,6 +215,21 @@ const TurnEnd = ({
           </Button>
         </>
       )}
+      {during.length > 0 && (
+        <>
+          <span>·</span>
+          <Button
+            className="h-auto p-0 font-body text-muted-foreground/50 hover:text-foreground"
+            onClick={() => openChanges(during)}
+            size="xs"
+            title={`Changed while the agent worked, not known to be by it:\n${during.join("\n")}`}
+            variant="link"
+          >
+            {during.length} other{during.length === 1 ? "" : "s"} changed during
+            the turn
+          </Button>
+        </>
+      )}
     </div>
   );
 };
@@ -223,17 +241,21 @@ const keyOfContent = (content: ToolContent, index: number) =>
     ? `diff:${content.path}:${index}`
     : `${content.type}:${index}`;
 
-/** A terminal the agent is running: its output arrives while the command is still going. */
+/**
+ * A terminal the agent is running: its output arrives while the command is still going, and its
+ * tail is kept with the tool call once the agent is done with it, for a page opened later.
+ */
 const TerminalView = ({
+  kept,
   terminalId,
   threadId,
 }: {
+  kept: string | undefined;
   terminalId: string;
   threadId: string;
 }) => {
-  const output = useAgents(
-    (s) => s.terminals[terminalKey(threadId, terminalId)]
-  );
+  const live = useAgents((s) => s.terminals[terminalKey(threadId, terminalId)]);
+  const output = live ?? kept;
   const end = useRef<HTMLDivElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: follow the tail as it grows
   useEffect(() => {
@@ -304,7 +326,13 @@ const ToolContentView = ({
     return <DiffContentView content={content} />;
   }
   if (content.type === "terminal") {
-    return <TerminalView terminalId={content.terminalId} threadId={threadId} />;
+    return (
+      <TerminalView
+        kept={content.output}
+        terminalId={content.terminalId}
+        threadId={threadId}
+      />
+    );
   }
   return (
     <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">

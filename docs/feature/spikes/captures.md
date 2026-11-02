@@ -1,6 +1,6 @@
 # Spike: frames drawn from captures of their instances
 
-Run on 2026-10-26 on the Linux reference machine, as Phase 6 of `docs/PLAN-editor-renderer.md`,
+Run on 2026-10-26 on the Linux reference machine, as Phase 6 of `docs/plans/done/PLAN-editor-renderer.md`,
 on top of ADR 0034 (frames in the editor's page). Not merged: main stays on drawing the
 components live. The code is on the branch `experiment/captures` (e844d7f, pushed); it is copied
 below so this note stands without the branch.

@@ -8,10 +8,12 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useDocuments } from "../state/documents.ts";
-import { layoutSaved, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { layoutSaved } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
 import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import { useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
 import {
@@ -295,9 +297,8 @@ describe("a frame gesture", () => {
         layout: { frames: { [home.path]: frame }, version: 1 },
       });
 
-    beforeEach(async () => {
+    beforeEach(() => {
       stop = followServer({ report: () => undefined });
-      await new Promise((resolve) => setTimeout(resolve, 0));
       useEditor.setState({ frames: { [home.id]: start } });
     });
 
@@ -376,7 +377,7 @@ describe("a frame gesture", () => {
     // Its size is the held box's, not written as if the preview had measured it.
     expect(useEditor.getState().sizes[NODE]).toBeUndefined();
     fire("pointerup", 10.4, 5.2);
-    await vi.waitFor(() => expect(edits()).toHaveLength(1));
+    await fakeApi.requested("documents.apply");
     expect(edits()).toEqual([
       {
         edits: [
@@ -394,9 +395,8 @@ describe("a frame gesture", () => {
         label: "Resize",
       },
     ]);
-    await vi.waitFor(() =>
-      expect(useEditor.getState().held[NODE]).toBeUndefined()
-    );
+    // Let go of once the edit is answered.
+    await until(useEditor, (s) => s.held[NODE] === undefined);
   });
 
   it("a node's resize cancelled sends no edit and draws it as its document has it", async () => {

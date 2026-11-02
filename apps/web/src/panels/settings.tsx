@@ -10,6 +10,7 @@ import {
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
+import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { cn } from "cn";
 import {
@@ -32,7 +33,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { OptionSelect } from "../components/option-select.tsx";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
@@ -51,11 +51,6 @@ import {
 } from "./settings-agents.tsx";
 import { Group, Row } from "./settings-group.tsx";
 import { ProfileGroup } from "./settings-profile.tsx";
-
-const themes = [
-  { label: "Light", value: "light" },
-  { label: "Dark", value: "dark" },
-];
 
 const LIST_SEPARATOR_RE = /[\n,]/;
 
@@ -205,13 +200,11 @@ const SaveProblems = ({
   designsDir,
   onCreateDesigns,
   problems,
-  resolveFrom,
 }: {
   busy: boolean;
   designsDir: string;
   onCreateDesigns: () => void;
   problems: readonly string[];
-  resolveFrom: string | undefined;
 }) => {
   if (problems.length === 0) {
     return null;
@@ -241,11 +234,8 @@ const SaveProblems = ({
               Create {designsDir}
             </Button>
             <span className="font-body text-muted-foreground">
-              Creates the directory with a tsconfig.json
-              {resolveFrom
-                ? `, and links the dependencies of ${resolveFrom} (git-ignored) so editors resolve what the pages import`
-                : ""}
-              . Nothing is installed.
+              Creates the directory: pages import nothing (ADR 0040), so nothing
+              is installed or linked.
             </span>
           </div>
         ) : null}
@@ -254,24 +244,20 @@ const SaveProblems = ({
   );
 };
 
-/** Only Tailwind v4 is supported: anything else is said before it is saved. */
-const TailwindAlert = ({
-  tailwind,
-}: {
-  tailwind: SetupSuggestions["tailwind"];
-}) =>
-  tailwind === "v4" ? null : (
+/**
+ * Stylesheets no style system the tool has reads are said before anything is saved, in the
+ * style system's words.
+ */
+const StylesAlert = ({ found }: { found: SetupSuggestions }) =>
+  found.styleSystem === undefined ? (
     <Alert variant="destructive">
       <TriangleAlert />
       <AlertDescription>
-        {tailwind === "v3"
-          ? "The stylesheets set up Tailwind v3."
-          : "No Tailwind setup was found in the stylesheets."}{" "}
-        ultrapaint reads the design system from Tailwind v4's @theme, and only
-        supports Tailwind v4.
+        {found.stylesNote ??
+          "The stylesheets are not written in a style system ultrapaint reads."}
       </AlertDescription>
     </Alert>
-  );
+  ) : null;
 
 /**
  * Whether a section is there before anything is saved: not one that needs a project, except the
@@ -371,19 +357,19 @@ const Sidebar = ({
 
 /** The agents: before anything is saved, only those on this computer, which need no project. */
 const AgentsSection = ({
-  disabledSkills,
-  onSkill,
+  onSkills,
   saved,
+  skills,
 }: {
-  disabledSkills: readonly string[];
-  onSkill: (name: string, enabled: boolean) => void;
+  onSkills: (skills: SkillsConfig | undefined) => void;
   saved: boolean;
+  skills: SkillsConfig | undefined;
 }) =>
   saved ? (
     <>
       <MachineAgentsGroup />
       <ChatDefaultsGroup />
-      <SkillsGroup disabled={disabledSkills} onToggle={onSkill} />
+      <SkillsGroup config={skills} onChange={onSkills} />
       <McpConnectionGroup />
     </>
   ) : (
@@ -524,24 +510,12 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const libraryDirs = list(e.target.value);
     setDraft((d) => ({ ...d, libraryDirs }));
   };
-  const onComponentPackages = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const componentPackages = list(e.target.value);
-    setDraft((d) => ({ ...d, componentPackages }));
-  };
   const onPagePngs = (on: boolean) =>
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onGit = (on: boolean) =>
     setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
-  const onTheme = (v: string) =>
-    setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
-  const onSkill = (name: string, enabled: boolean) =>
-    setDraft((d) => {
-      const current = d.skills?.disabled ?? [];
-      const disabled = enabled
-        ? current.filter((n) => n !== name)
-        : [...current.filter((n) => n !== name), name];
-      return { ...d, skills: disabled.length === 0 ? undefined : { disabled } };
-    });
+  const onSkills = (skills: SkillsConfig | undefined) =>
+    setDraft((d) => ({ ...d, skills }));
 
   const label = sections.find((s) => s.id === section)?.label ?? "";
 
@@ -553,7 +527,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <AlertDescription>{describeSuggestions(found)}</AlertDescription>
         </Alert>
       ) : null}
-      {found ? <TailwindAlert tailwind={found.tailwind} /> : null}
+      {found ? <StylesAlert found={found} /> : null}
       <Group
         description="The tool runs against a local repository. Design files live inside it and are versioned with the code."
         title="Location"
@@ -623,19 +597,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             id="settings-libs"
             onChange={onLibraryDirs}
             value={draft.libraryDirs.join("\n")}
-          />
-        </Row>
-        <Row
-          description="Packages of components the application uses (a component library), one per line."
-          htmlFor="settings-packages"
-          title="Component packages"
-          wide
-        >
-          <Textarea
-            className="min-h-14 font-code"
-            id="settings-packages"
-            onChange={onComponentPackages}
-            value={draft.componentPackages.join("\n")}
           />
         </Row>
       </Group>
@@ -722,27 +683,15 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const editor = (
     <>
       <ProfileGroup />
-      <Group title="Appearance">
-        <Row
-          description="The theme the editor and the preview are drawn in."
-          title="Theme"
-        >
-          <OptionSelect
-            onChange={onTheme}
-            options={themes}
-            value={draft.theme}
-          />
-        </Row>
-      </Group>
       <SendKeyGroup />
     </>
   );
 
   const agents = (
     <AgentsSection
-      disabledSkills={draft.skills?.disabled ?? []}
-      onSkill={onSkill}
+      onSkills={onSkills}
       saved={saved !== null}
+      skills={draft.skills}
     />
   );
 
@@ -775,7 +724,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               designsDir={draft.designsDir}
               onCreateDesigns={createDesigns}
               problems={problems}
-              resolveFrom={draft.resolveFrom}
             />
             <div className="flex items-center justify-between gap-4">
               <p

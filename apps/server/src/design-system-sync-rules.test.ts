@@ -54,10 +54,7 @@ const codeChanges = (...args: Parameters<typeof changesOf>) => {
 const facts: SyncFacts = {
   app: true,
   designSystem: false,
-  libraryDirs: ["front/src/components"],
-  styleSystem: "tailwind-v4",
   stylesheets: 1,
-  tokens: 8,
 };
 
 const token = (name: string, own = true): SourceToken => ({
@@ -100,27 +97,24 @@ describe("the sync's case", () => {
 });
 
 describe("drift between the design system and the code", () => {
-  it("names what one side has and the other does not, leaving out what is omitted", () => {
-    const drift = driftOf(
-      ds,
+  it("is the tokens the code's comparison finds new in the code, leaving out what is omitted", () => {
+    const diffs = compareCode(
       [
         token("color-primary"),
         token("color-new"),
         token("color-internal"),
         token("color-red-500", false),
       ],
-      true
+      designTokensOf(ds),
+      null,
+      new Set(ds.omitted)
     );
-    expect(drift).toEqual({
-      // A token the code does not declare waits for an export (ADR 0028), it is not gone.
-      tokensGone: [],
-      tokensUndescribed: ["color-new"],
-    });
+    // A token the code does not declare waits for an export (ADR 0028): it is no drift.
+    expect(driftOf(diffs)).toEqual({ tokensUndescribed: ["color-new"] });
   });
 
-  it("says nothing is gone when the stylesheets could not be read", () => {
-    expect(driftOf(ds, [], false).tokensGone).toEqual([]);
-    expect(driftOf(null, [token("x")], true)).toEqual(emptyDrift);
+  it("says nothing without a comparison: no design system, or no stylesheet read", () => {
+    expect(driftOf(null)).toEqual(emptyDrift);
   });
 });
 
@@ -128,41 +122,11 @@ describe("the plan", () => {
   it("asks for nothing about components: the canvas draws the editor's system components", () => {
     const steps = planOf({
       drift: emptyDrift,
-      facts: { ...facts, libraryDirs: [] },
+      facts,
       figmaSynced: false,
       setup: emptySetup(0),
     });
     expect(steps.map((s) => s.kind)).not.toContain("settings");
-  });
-
-  it("offers to bring the designs from before up to date, first, while there is anything to", () => {
-    const steps = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 9, left: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(steps[0]).toMatchObject({ kind: "system", state: "attention" });
-    expect(steps[0]?.detail).toContain("9 instances from before");
-    expect(steps[0]?.detail).toContain(
-      "2 instances of components no system component"
-    );
-    const none = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 0, left: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(none.map((s) => s.kind)).not.toContain("system");
-    const specs = planOf({
-      drift: emptyDrift,
-      facts: { ...facts, oldInstances: { drawn: 0, left: 0, specs: 2 } },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(specs[0]?.detail).toBe(
-      "2 component specs can be made components of the components/ directory, in one step you can undo."
-    );
   });
 
   it("goes through the setup for code, Figma's tokens first when there is a file", () => {
@@ -587,6 +551,16 @@ describe("the code against the design system (ADR 0028)", () => {
     expect(codeChanges(diffs, [], "export").toDesign).toEqual([]);
   });
 
+  it("offers the design none of the code's tokens whose name says no kind: the design system has no list for one", () => {
+    const diffs = compareCode(
+      [code("blur-sm", "4px"), code("color-new", "#abc")],
+      [],
+      null,
+      new Set()
+    );
+    expect(diffs.map((d) => d.name)).toEqual(["color-new"]);
+  });
+
   it("takes what an agent names one way, conflicts included, and leaves the rest of them to the user", () => {
     const diffs = compareCode(
       [code("color-a", "#111"), code("color-b", "#999")],
@@ -644,7 +618,7 @@ describe("the code against the design system (ADR 0028)", () => {
   });
 
   it("lists a new token of any kind where its kind goes, not only colours, radii and spacing", () => {
-    // A token only design.tokens.json has, or one set through setTokens, Figma or DESIGN.md.
+    // A token only design.tokens.json has, or one taken from the code, Figma or DESIGN.md.
     const next = withTokenChanges(ds, [
       { name: "text-xl", value: "1.25rem" },
       { name: "shadow-lg", value: "0 10px 15px rgb(0 0 0 / 0.1)" },

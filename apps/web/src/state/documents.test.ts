@@ -6,20 +6,14 @@ import type {
 import { canvasDocOf, childrenOf } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import {
   applyEdits,
   belongsTo,
-  boardFrameOf,
-  boardOfFrame,
   drawnRootOf,
-  isBoardFrame,
-  isNodeFrame,
-  isViewFrame,
-  nodeFrameOf,
-  pageOfFrame,
   useDocuments,
-  viewFrameOf,
 } from "./documents.ts";
+import { boardFrameOf } from "./frame-ref.ts";
 import { useProject } from "./project.ts";
 
 vi.mock(
@@ -84,7 +78,6 @@ const retitled = (from: string, hash: string, title: string) => ({
   rootId: "root",
 });
 const held = () => useDocuments.getState().docs[HOME];
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("a document's changes", () => {
   beforeEach(() => {
@@ -121,7 +114,7 @@ describe("a document's changes", () => {
     useDocuments.getState().take(retitled("h3", "h4", "Four"));
     expect(held()?.hash).toBe("h1");
     answer(stateAt("h3", "Three"));
-    await settle();
+    await until(useDocuments, () => held()?.hash === "h4");
     expect(held()).toEqual(stateAt("h4", "Four"));
     expect(fakeApi.calls).toHaveLength(1);
   });
@@ -145,41 +138,6 @@ describe("a document's changes", () => {
 
 describe("a board's frame", () => {
   const frame = boardFrameOf({ item: "color", name: "light", view: "system" });
-
-  it("is told apart from pages, their views and nodes", () => {
-    expect(frame).toBe("board:system/color/light");
-    expect(isBoardFrame(frame)).toBe(true);
-    expect(isViewFrame(frame)).toBe(false);
-    expect(isNodeFrame(frame)).toBe(false);
-    for (const other of [
-      "home.page.json",
-      viewFrameOf("home.page.json", "md"),
-      nodeFrameOf("n1"),
-    ]) {
-      expect(isBoardFrame(other)).toBe(false);
-      expect(boardOfFrame(other)).toBeNull();
-    }
-  });
-
-  it("names its board, an item with a slash in it too", () => {
-    expect(boardOfFrame(frame)).toEqual({
-      item: "color",
-      name: "light",
-      view: "system",
-    });
-    const odd = boardFrameOf({
-      item: "guide-a/b#c",
-      name: "document",
-      view: "system",
-    });
-    expect(boardOfFrame(odd)).toEqual({
-      item: "guide-a/b#c",
-      name: "document",
-      view: "system",
-    });
-    expect(isViewFrame(odd)).toBe(false);
-    expect(pageOfFrame(odd)).toBe(odd);
-  });
 
   it("draws none of the documents", () => {
     const docs = {

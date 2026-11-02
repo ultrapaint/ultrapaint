@@ -8,6 +8,8 @@ frame's host has one writer, the editor), 0040 (an instance's layout is the cata
 reported by the frame) and 0041 (an app component's properties change on the server; the
 migration is one module). The terms are in `GLOSSARY.md`.
 
+> Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the migration is retired (its web menu, the renderer's stand-in, `metaOf`'s match by name and the Code tab's default imports with it); the framework seam goes; a frame has no look of its own.
+
 ## Context
 
 0040 and 0041 replaced the repository's components with the editor's own and the project's
