@@ -132,8 +132,13 @@ ones removed had one (the framework, `DesignMdLint`).
 
 ## Explored and not done
 
-- **A briefing of the skills' titles and summaries** (2,516 characters instead of 33,230): it
-  waits for a run of the design evals, which were tuned on the full text (0043).
+- **A briefing of the skills' titles and summaries by default** (2,516 characters instead of
+  33,230): it is a setting, `skills.briefing: "summaries"` in `ultrapaint.config.json` (Settings,
+  Design skills, "Told as"), and `full` by default, since the design evals were tuned on the full
+  text (0043). With it a skill is read whole before the work it is about: its MCP resource with
+  the editor's tools, else a project's file by its path, and one no file holds (a built-in, or a
+  file that extends one) is told whole without the tools. The default flips once the design evals
+  agree.
 - **Serving the Figma and setup tools only to the threads that run them.** A session's MCP
   servers are fixed when it opens while those tasks can come in any later prompt, and Effect
   filters tools by protocol, not by token. It would save Codex about 760 tokens a turn and Claude
@@ -155,7 +160,9 @@ ones removed had one (the framework, `DesignMdLint`).
   - `read_page` on the largest redesign page, from 105,760 to 2,722;
   - `get_component`'s props, from 3,343 to 1,439 characters over the system components;
   - an agent outside the editor reads the page model on connecting;
-  - a design thread reads what the evals were tuned with.
+  - a design thread reads what the evals were tuned with: 43,311 characters, or 12,739 with
+    `skills.briefing: "summaries"` (42,362 either way without the editor's tools, the built-ins
+    told whole).
 - The wire and the work:
   - a streamed 4,000-character reply went from 425 KB to 22 KB on the socket;
   - a component written with the watcher on is read and published twice, not three times;

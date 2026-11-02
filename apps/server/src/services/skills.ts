@@ -7,6 +7,7 @@ import {
   SKILLS_DIR,
   type Skill,
   type SkillList,
+  skillUri,
 } from "@ultrapaint/contracts/skills";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ServerConfig } from "../config.ts";
@@ -29,6 +30,18 @@ In this product, also (told after the built-in "${title}" skill):
 `;
 
 /**
+ * The skills that are on, as a design thread's briefing tells them. With the settings'
+ * `skills.briefing` at `summaries`, a skill read whole somewhere is a line: its MCP resource
+ * with the editor's tools, else its file, which a built-in, or a file that extends one, has not.
+ */
+export interface SkillsTold {
+  /** A line per skill told by its title and summary: `- Hierarchy (<where>): <summary>`. */
+  readonly listed: readonly string[];
+  /** The skills told whole, as one markdown text; empty when none. */
+  readonly whole: string;
+}
+
+/**
  * The design skills an agent is told: the built-in set, each replaced or extended by a project
  * file of the same name under `<designsDir>/skills/`, plus every other file there, minus what
  * the settings turn off. Read on every call, so a file saved by hand is the next briefing's.
@@ -37,10 +50,10 @@ export class SkillsService extends Context.Service<
   SkillsService,
   {
     /**
-     * The skills that are on, as one markdown text for the briefing, worded for an agent with the
-     * editor's tools or without them; empty when none.
+     * The skills that are on, as the briefing tells them, worded for an agent with the editor's
+     * tools or without them.
      */
-    readonly briefing: (tools: boolean) => Effect.Effect<string>;
+    readonly briefing: (tools: boolean) => Effect.Effect<SkillsTold>;
     /**
      * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
      * that extends it. A skill the project already has is returned as it is.
@@ -63,6 +76,7 @@ export class SkillsService extends Context.Service<
       const dir = path.join(paths.designsDir, SKILLS_DIR);
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
+      const summaries = paths.settings.skills?.briefing === "summaries";
       // As the settings show them: worded for the tools the server offers.
       const { mcp } = yield* ServerConfig;
 
@@ -138,13 +152,31 @@ export class SkillsService extends Context.Service<
       });
       const list = listFor(mcp).pipe(Effect.withSpan("SkillsService.list"));
 
+      /** Where the agent reads a skill whole, when it is told only its summary. */
+      const whereRead = (skill: Skill, tools: boolean) => {
+        if (!summaries) {
+          return;
+        }
+        if (tools) {
+          return skillUri(skill.name);
+        }
+        return skill.extends ? undefined : skill.file;
+      };
+
       const briefing = (tools: boolean) =>
-        Effect.map(listFor(tools), ({ skills }) =>
-          skills
-            .filter((s) => s.enabled)
-            .map((s) => s.text.trim())
-            .join("\n\n")
-        );
+        Effect.map(listFor(tools), ({ skills }): SkillsTold => {
+          const listed: string[] = [];
+          const whole: string[] = [];
+          for (const skill of skills.filter((s) => s.enabled)) {
+            const where = whereRead(skill, tools);
+            if (where === undefined) {
+              whole.push(skill.text.trim());
+            } else {
+              listed.push(`- ${skill.title} (${where}): ${skill.summary}`);
+            }
+          }
+          return { listed, whole: whole.join("\n\n") };
+        });
 
       const customise = Effect.fn("SkillsService.customise")(function* (
         name: string,

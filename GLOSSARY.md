@@ -160,7 +160,9 @@ refactor and the board view left.
   a tool's schema without JSON Schema's defaults (`leanSchema`), a tree too big to give whole as
   its outline (`treeForAgent`, for `read_page` and `/implement` alike). The design skills go only
   to threads that draw designs (`drawsDesigns`), and to any agent as MCP resources
-  (`skill://ultrapaint/<name>`); the slash commands are MCP prompts too.
+  (`skill://ultrapaint/<name>`): whole, or, with the setting `skills.briefing: "summaries"`, by
+  their titles and summaries with where each is read whole (`SkillsTold`); the slash commands are
+  MCP prompts too.
 - **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
   canvas beside the pages, or a node of either, by route, file or node reference (`where`).
 - **Tool kind**: whether an MCP tool reads, edits or takes something away, and whether doing it

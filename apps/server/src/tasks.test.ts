@@ -592,6 +592,87 @@ describe("the briefing", () => {
         );
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
+
+  /** A project's own skill, a built-in replaced, and a built-in extended. */
+  const ownSkills = {
+    "designs/skills/color.md":
+      "---\nextends: true\n---\nBlue is the brand; never use it for status.\n",
+    "designs/skills/spacing.md":
+      "# Our spacing\n\nEight pixels, everywhere.\n\nNever seven.\n",
+    "designs/skills/voice.md":
+      "# Voice\n\nShort words, said plainly.\n\nNo exclamation marks.\n",
+  };
+
+  test.effect(
+    "tells the skills by their titles and summaries, each read whole from its resource, when the settings say so",
+    () =>
+      Effect.gen(function* () {
+        const text = (yield* (yield* ProjectBriefing).text("design")) ?? "";
+        assert.include(
+          text,
+          "- Hierarchy (skill://ultrapaint/hierarchy): Every screen has one thing it is for."
+        );
+        assert.include(
+          text,
+          "- Our spacing (skill://ultrapaint/spacing): Eight pixels, everywhere."
+        );
+        assert.include(
+          text,
+          "- Voice (skill://ultrapaint/voice): Short words, said plainly."
+        );
+        // The extended built-in's resource holds the project's words too.
+        assert.include(text, "- Colour (skill://ultrapaint/color): ");
+        for (const body of [
+          "## One primary action",
+          "## Before you finish",
+          "Never seven.",
+          "No exclamation marks.",
+          "Blue is the brand",
+        ]) {
+          assert.notInclude(text, body);
+        }
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: ownSkills,
+            mcp: true,
+            settings: { skills: { briefing: "summaries" } },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+
+  test.effect(
+    "without the tools, tells a skill a file holds whole by its path, and the others in full",
+    () =>
+      Effect.gen(function* () {
+        const text =
+          (yield* (yield* ProjectBriefing).text("design", { tools: false })) ??
+          "";
+        assert.notInclude(text, "skill://");
+        assert.include(
+          text,
+          "- Our spacing (designs/skills/spacing.md): Eight pixels, everywhere."
+        );
+        assert.include(
+          text,
+          "- Voice (designs/skills/voice.md): Short words, said plainly."
+        );
+        assert.notInclude(text, "No exclamation marks.");
+        // No file holds a built-in, or an extended one with its built-in's words.
+        assert.include(text, "## One primary action");
+        assert.include(text, "Blue is the brand; never use it for status.");
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: ownSkills,
+            settings: { skills: { briefing: "summaries" } },
+          })
+        ),
+        Effect.scoped
+      )
+  );
 });
 
 describe("slash commands", () => {
