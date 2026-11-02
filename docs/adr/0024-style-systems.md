@@ -8,13 +8,13 @@ Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the des
 > code's side of the design system; it also writes the preview's overrides (`previewTokenCss`)
 > and reads component specs off classes (`componentSpec`, ADR 0029).
 >
-> Amended 2026-10-25 (second round, `docs/PLAN-design-source.md`): the Code tab's translation is
+> Amended 2026-10-25 (second round, `docs/plans/done/PLAN-design-source.md`): the Code tab's translation is
 > behind the interface too. `nodeClasses(designSystem)` gives a `ClassWriter` (the classes of a
 > node, and of the element around an instance that keeps its props), which
 > `@ultrapaint/design-document/code` writes its JSX with; the server writes the tab's code
 > (`code.write`), so the editor no longer knows Tailwind's utilities.
 >
-> Amended 2026-10-28 (`docs/PLAN-architecture-2.md`, step 7): a `ClassWriter` (contracts'
+> Amended 2026-10-28 (`docs/plans/done/PLAN-architecture-2.md`, step 7): a `ClassWriter` (contracts'
 > `node-style`) takes declarations, not nodes. `classes(styles)` is given an element's CSS
 > declarations at the base and at each breakpoint, tokens kept by name, as
 > `@ultrapaint/design-document/css` says them (`declarationsOf`, which the canvas draws too), and

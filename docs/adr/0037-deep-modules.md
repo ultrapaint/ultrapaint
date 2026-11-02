@@ -3,7 +3,7 @@
 Status: accepted, 2026-10-28. Amends 0011 (the renderer is told of one host; the editor's bundle
 starts in preview-core), 0019 (named snapshots are kept in the snapshot store) and 0032 (a key is
 declared with its command; the key handlers no longer stay where they were). Plan:
-`docs/PLAN-architecture.md`, steps 1 to 18. The terms are in `GLOSSARY.md`.
+`docs/plans/done/PLAN-architecture.md`, steps 1 to 18. The terms are in `GLOSSARY.md`.
 
 ## Context
 

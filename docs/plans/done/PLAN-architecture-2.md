@@ -1,8 +1,8 @@
 # Plan: deeper modules, the second review (2026-10-28)
 
 Status: built, 2026-10-28: steps 1 to 13, one commit each, under "Built". The decisions are
-recorded in [ADR 0038](adr/0038-deep-modules-second-review.md) and in the ADRs a step amends (0024,
-0029, 0031). Follows [ADR 0037](adr/0037-deep-modules.md) and
+recorded in [ADR 0038](../../adr/0038-deep-modules-second-review.md) and in the ADRs a step amends (0024,
+0029, 0031). Follows [ADR 0037](../../adr/0037-deep-modules.md) and
 [PLAN-architecture.md](PLAN-architecture.md), whose 18 steps are not proposed again. The terms are
 in `GLOSSARY.md`.
 

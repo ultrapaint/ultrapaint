@@ -763,7 +763,7 @@ needs neither. Yarn Plug'n'Play is not supported.
 - [Style systems: tokens read and written behind one interface](docs/adr/0024-style-systems.md)
 - [One Sync for the design system and the code](docs/adr/0025-design-system-sync.md)
 - [All architecture decisions](docs/adr/README.md)
-- [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
+- [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/plans/done/PLAN.md)
 
 ## Development
 

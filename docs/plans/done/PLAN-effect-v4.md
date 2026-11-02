@@ -213,7 +213,7 @@ Each phase ends with `pnpm typecheck`, `pnpm lint`, `pnpm test` green and the ap
 
 ### Phase 7: cleanup
 
-`knip`-style sweep for dead exports, README and `docs/PLAN.md` references, remove the `typescript`
+`knip`-style sweep for dead exports, README and `docs/plans/done/PLAN.md` references, remove the `typescript`
 runtime dependency of the server if nothing else needs it, final full manual pass.
 
 ## Risks

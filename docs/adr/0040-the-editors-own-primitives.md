@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-10-28. Supersedes the repository's components on the canvas of 0015 and
 0034 (the frames stay shadow roots of the editor's page) and the sandbox of
-`docs/PLAN-preview-sandbox.md`. Amends 0007 (the catalogue is the primitives), 0011 (no framework
+`docs/plans/done/PLAN-preview-sandbox.md`. Amends 0007 (the catalogue is the primitives), 0011 (no framework
 package builds or serves a preview), 0029 (a primitive's look is its spec; nothing is read off cva), 0027 (component tokens come from
 the specs)
 and 0030 (`/implement` applies a primitive to the application's own component). The terms are in

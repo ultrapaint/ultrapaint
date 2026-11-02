@@ -1,7 +1,7 @@
 # Plan: a desktop app on top of the web app
 
 Status: proposed, 2026-10-25; Phases 0, 1, 2 and 3 done 2026-10-26. Amends ADR 0017 (the desktop shell
-returns, with the reason written down) through [ADR 0031](adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
+returns, with the reason written down) through [ADR 0031](../adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
 0023.
 
 ## Why

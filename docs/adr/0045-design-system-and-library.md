@@ -1,6 +1,6 @@
 # ADR 0045: The Design system and the Library
 
-Status: accepted, 2026-10-30; built in the phases of `docs/PLAN-design-system-and-library.md`.
+Status: accepted, 2026-10-30; built in the phases of `docs/plans/done/PLAN-design-system-and-library.md`.
 Amends 0032 (the rail's places: Assets goes, Library comes, the elements move to the tools),
 0029 and 0044 (the Design system panel's Components tab goes: a component's look is edited on its
 board), 0041 (the Assets panel's components are the Library's, and an app component's variants
