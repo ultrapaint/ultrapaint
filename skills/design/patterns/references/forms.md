@@ -1,42 +1,49 @@
 # Forms: mostly sign-in, sign-up, reset, onboarding and contact pages
 
-How Untitled UI builds it, counted over the pieces of its kind in a study of 600 (a share is of
-that kind's pieces; "~n notes" is at least n). Where it differs from the design skills, the skills
-win: they hold what a person preferred when the two were compared.
+This is how the studied library builds forms, counted over the 50 pieces of this kind in a study of 575. About 30 are sign-in, sign-up, reset or verify pages and about 13 are onboarding steps. About 20 more auth and contact pages are filed elsewhere and follow the same rules. A share is of this kind's pieces. "~n notes" means at least n, because notes never record an absence. Where a pattern differs from the design skills, the skills win, because they hold what a person preferred when the two were compared. The principles win over both. A pattern here is common, not necessarily right.
 
 **Layout**
-- A split layout (~45 notes):
-  - a narrow form column, about 340–550 px (most often ~400), vertically centred;
-  - beside it, a full-height rounded photo, testimonial or product panel;
-  - the logo pinned top-left and the copyright or legal line pinned bottom-left.
-- Grouping is by space only in 82%.
+- A split screen (~40 notes):
+  - a narrow form column, about 340–480 px (most often ~360), centred in its half (~20);
+  - the logo pinned top-left, and the legal line, copyright or switch-flow line pinned to the bottom (~12);
+  - the other half is a photo or testimonial (~15): a large quote, then name, role and company on a frosted card, with round prev/next arrows. Or it is a live product preview (~6).
+- 66% group by space alone.
 
 **Header**
-- A logo mark or featured icon (~12 notes), a short title (about 3 words; ~18 px in one note), and a one-line muted subtitle.
-- 35% have a header description.
+- A title of about 3 words, ≈24 px semibold, with a muted description of about 7 words in 46%.
+- Nearly every auth form adds a one-line subtitle under a title like "Log in". That is common, and principle 1 counts it as noise when the purpose is plain.
+- ~5 centre the title over left-aligned field labels. The skills keep one alignment per section.
 
 **Fields**
-- 71% have a label above; 28% are placeholder-only.
-- Underline-only inputs with the label acting as the placeholder appear in ~12 notes, on contact and editorial pages.
-- Helper text is rare (8%), and only where a rule applies (password).
-- Required fields get an asterisk (~8). First and last name share a row (~8).
+- 67% have a visible label, set small and in medium weight. 33% are placeholder-only.
+- Underline-only fields with the placeholder as the label appear in ~10 notes, and placeholder-only fields with no label in ~7. Both are defects, not patterns to copy.
+- Helper text appears in 9%, and only where it carries a rule or live data (password).
+- Instructional placeholders ("Enter your email", "Create a password") appear in ~3, and a mail icon inside the email field in ~6 across kinds. Principle 1 names both as noise.
+- Two fields share a row only when they belong together (~10): first and last name; town, state and postcode sized wide, narrow, narrow; expiry and CVV.
 
 **Actions**
-- 84% are footer-full-width: a full-width dark or accent primary, stacked above a full-width outlined "Sign in with Google" (~12).
-- Or social first: three equal icon-only buttons, then an "or" hairline divider, then the form (~6).
-- "Remember me" and "Forgot password" share one row, left and right (~6).
-- "Already have an account? Log in" is a small centred line with an underlined or bolder link (~20).
+- 80% use a full-width footer: a near-black primary as wide as the fields (~25). The accent is kept for selection, steps and code digits.
+- A full-width outlined social sign-in button is stacked under the primary (~10). Or three equal logo-only buttons follow an "or" divider set in a rule (~6).
+- "Remember for 30 days" and "Forgot password" share one row, one at each end (~9).
+- "Already have an account? Log in" is a centred line of muted text with an underlined link (~20).
 
 **Patterns that repeat**
-- Password rules as a live checklist of check circles (~5); a 4-segment strength bar (3).
-- The one-time code as 4–6 separate square boxes; the active box has a caret or ring (~10 across kinds).
-- Step dots, where the current step is an elongated pill (~8).
-- A vertical stepper sidebar: check / number, title and hint (~5).
+- Password rules shown as a checklist whose checks fill when met (~5), or as a 4-segment meter (~3).
+- The one-time code (~9 across kinds):
+  - 4 or 6 square cells, with filled cells in accent digits or borders;
+  - the active cell shows a caret or ring, and empty cells show a pale "0";
+  - six cells are split 3–3 by a dash (3).
+- A text-in-rule divider ("or") is used instead of a heading (~15 across kinds).
 
 **Onboarding variants**
-- Rows are two-column (label left, control right) with dotted rules (3).
-- Visual choices are swatches, theme thumbnails or option cards whose selection is an accent or black border plus a check (~8).
+- Progress is shown as a vertical stepper in a tinted side panel (~7), or as pill dots with the current step stretched (~6).
+- "I'll do this later" is an outlined or grey button stacked under the primary (~6).
+- Repeated email inputs share one label, "Email(s)" (3).
+- A live preview of the product sits beside the choices (3).
+- Choice cards (~18 of ~20 across kinds):
+  - the selected card has a 2 px accent border and a filled check top-right;
+  - unselected cards keep an empty circle in the same spot;
+  - the selected card's fill stays unchanged in ~10. In ~4 it tints as well, which marks one thing several ways.
 
 **Spacing**
-- Padding 36, between 32, within 12.
-- Decorative icons in 71% of pieces (illustrations, art panels).
+- Padding 32, between groups 32, within groups 16 (a ratio of about 1 : 2).

@@ -1,43 +1,68 @@
-# Navigation: sidebars (~38 notes), footers (~7), mega navigation (~3)
+# Navigation: sidebars (~35 pieces), footers (~7), mega navigation (~13)
 
-How Untitled UI builds it, counted over the pieces of its kind in a study of 600 (a share is of
-that kind's pieces; "~n notes" is at least n). Where it differs from the design skills, the skills
-win: they hold what a person preferred when the two were compared.
+These patterns come from a study of 575 pieces. Each share is a share of the 47 navigation pieces. Mega menus were counted with menus (66 pieces). "≈n" means at least n notes show the pattern. Where a pattern differs from the design skills, the skills win, because they record what a person preferred when the two were compared. The person's principles win over both. A pattern here is common, not necessarily right.
 
 **Sidebar rows**
-- About a 20 px outline icon plus a medium-weight 16 px label, in a 36–40 px rounded row (2 notes measure this).
-- Icons appear on navigation in 88% and on list rows in 85% of navigation pieces.
+- A row is about 40 px tall: a 20 px outline icon, a 12 px gap, then a 16 px medium label. Four notes measure this.
+- Icons appear on navigation in 89% of pieces and on list rows in 68%. They are decorative in 9%.
+- Pieces use a median of 4 sizes and 2 weights. A description appears in 20%.
+- The fourth size is the 12 px group label.
 
 **Active item**
-- A **neutral filled rounded pill** (grey on light, lighter grey on dark) in ~25 notes; "no accent colour" is stated in ~10.
-- An accent tint or solid accent in ~8 notes.
-- In some notes the icon alone turns accent.
+- The most common marker is a neutral rounded fill across the full row width, with the label and its weight unchanged (≈22 of ≈30). The fill is inset from the panel's edges, never edge to edge.
+- A pale accent tint with accent text appears in ≈5, and an accent icon on a grey fill in 3. The skills keep the neutral fill and rule out the pale accent wash.
+- A solid dark fill appears in ≈4. The notes call it "the strongest element in the panel", which is chrome outweighing content.
 
 **Children**
-- Indented to the label column **without icons** (~14 notes).
-- Often hung off a thin vertical guide line, with a dot or a filled row for the current child (~6).
-- A parent expands with a chevron or a minus/plus.
+- Children are indented to the parent's label text and carry no icon (≈16), sometimes on a thin vertical guide line (≈5).
+- The parent shows − or + (≈10).
 
 **Groups**
-- Small grey labels, usually uppercase and tracked, often with a collapse dash or a kebab (~18). Sentence case appears in ~3.
-- Groups are split by a hairline (~15 notes) or by space only (~8).
+- Group labels are small and muted, never bold. Most are uppercase and tracked (≈15); muted sentence case appears in ≈8.
+- A collapse −/+ or a kebab sits at the label's right (≈15).
+- A divider separates groups in ≈14, and space alone in ≈10. Overall, 57% of pieces mix the two and 23% use dividers.
+- A group whose rows already say what it is needs no label.
 
 **Count badges**
-- Small pills right-aligned in the row (~20 notes).
+- Counts are right-aligned at the row's end.
+  - A grey filled pill appears in ≈10.
+  - A small bordered badge appears in ≈8.
+  - A dark or tinted pill appears in ≈5.
+- The skills keep counts to the grey pill. Coloured counts are out.
 
-**Pinned to the bottom (~25 notes)**
-- Utility links (Support, Settings).
-- A storage meter or upgrade card: progress bar, Upgrade link or button.
-- A user card: avatar with a presence dot, name, email, kebab or up/down chevron. It opens an account menu.
+**Pinned to the bottom**
+- Support and Settings sit low in the panel (≈10).
+- A dismissible storage or upgrade card (≈10).
+- A bordered account card (≈18): avatar with a status dot, name over a muted email, and a kebab or ↕.
+- The account menu it opens:
+  - It opens with a header row of avatar, status dot, name and email.
+  - Accounts are radio rows, with the current one filled (≈9).
+  - Actions are an outline icon plus a label.
+  - Sign out comes last. "Sign out of all" is a separate full-width outlined button (≈4).
+  - A "SWITCH ACCOUNT" label over the account rows (≈4) restates what the rows show.
 
 **Other sidebar patterns**
-- Dual tier is common (~15 notes): a ~64 px icon rail with dark tooltips, plus a ~240 px labelled panel.
-- A workspace switcher at the top.
-- The same structure is shown in light, dark and brand-colour themes in ~20 notes, with only the surface tokens changing.
+- Two tiers (≈14): a 48–80 px icon rail beside a 280–300 px labelled panel. The collapsed rail shows dark tooltips (≈8).
+- One sidebar often ships in 2–4 themes: white, grey, near-black and brand (≈18).
+  - The geometry stays identical; only the surface and selection tokens change.
+  - Dark themes are raised by lighter surfaces, not shadows (≈8).
+  - A sidebar flooded with the brand colour (≈8 variants) is the loudest chrome in the study.
+- External links carry a trailing arrow-out icon (≈6).
+- A serif panel title appears in product screens, but serif type belongs only to display headlines.
+
+**Mega navigation**
+- Each item has a 20 px line icon or a small bordered tile, a 16 px medium title, and a two-line 14 px muted description. The description is indented under the title, not under the icon (13/13).
+- Hover fills the whole item as a rounded block (≈11).
+- Column labels are 12 px uppercase, tracked and muted (≈9).
+- A side column on a grey fill holds a promo, a video or single-line links, and ends in a full-width outlined button (≈10).
+- An outlined "We're hiring!" pill sits inline after a title (≈9).
+- The open trigger's chevron flips up (≈10). The panel sits 4 px off its trigger.
+- A tile before every item, and a description that repeats its title, are decoration (≈20 tiles across item lists).
 
 **Footers**
-- 3–6 equal link columns, each with a small muted heading over dark links on a ~40 px rhythm.
-- The logo or tagline at the bottom-left and the copyright at the bottom-right, sometimes under a hairline.
+- Six equal link columns under small muted labels. The links carry no icons.
+- A "New" outlined pill follows a link.
+- A bottom bar has the logo or copyright on the left and social icons on the right.
 
 **Spacing**
-- Padding 20, between 32, **within 8**: a 4:1 ratio, the tightest groups of any kind.
+- Padding 16, between groups 24, within groups 4. The 1:6 ratio is the widest of any kind: the groups are the tightest, and the gaps between them carry the structure.
