@@ -105,11 +105,16 @@ describe("the design system written", () => {
             )
           );
           yield* Deferred.await(reached);
-          // An undo asked for meanwhile.
-          const undo = yield* Effect.forkChild(
-            Effect.flatMap(journal, (e) => e.undo)
-          );
-          yield* Effect.yieldNow;
+          // An undo asked for meanwhile. Started at once, it runs until it first waits, which is
+          // at the journal's lock or past it: the lock is taken at once when free and waited on
+          // when not, with nothing that waits before it. So the undo has reached the journal
+          // before the edit is let go, whatever the scheduler does next: it waits there while the
+          // edit holds the journal, and is inside it, before the edit's step, when the edit read
+          // the file outside it.
+          const edits = yield* journal;
+          const undo = yield* Effect.forkChild(edits.undo, {
+            startImmediately: true,
+          });
           yield* Deferred.succeed(go, undefined);
           yield* Fiber.join(edit);
           const undone = yield* Fiber.join(undo);
