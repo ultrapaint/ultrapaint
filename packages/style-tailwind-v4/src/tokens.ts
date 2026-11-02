@@ -155,6 +155,16 @@ export const resolveImport = (
   return null;
 };
 
+const readFile = (file: string): string | null => {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    // Imported but missing, unreadable, or gone since it was listed: there is nothing to
+    // read, and the stylesheets that are there are read without it.
+    return null;
+  }
+};
+
 export interface Collected {
   /** Files read, in order. */
   readonly files: string[];
@@ -180,10 +190,8 @@ export const collect = (
       return;
     }
     seen.add(file);
-    let css: string;
-    try {
-      css = readFileSync(file, "utf8");
-    } catch {
+    const css = readFile(file);
+    if (css === null) {
       return;
     }
     out.files.push(file);
@@ -276,15 +284,6 @@ interface Declared {
   /** Plain variables by theme (`""` the default), then by variable. */
   readonly scoped: Map<string, Map<string, Declaration>>;
 }
-
-const readFile = (file: string): string | null => {
-  try {
-    return readFileSync(file, "utf8");
-  } catch {
-    // Listed by the imports and gone since: there is nothing to read.
-    return null;
-  }
-};
 
 /** A `@theme` declaration taken in: a token, or a reset of the tokens declared before it. */
 const takeTheme = (out: Declared, decl: Declaration) => {
