@@ -273,6 +273,12 @@ const render = (judgement: Judgement) =>
     "",
   ].join("\n");
 
+/** A judgement, as the judge answers it, naming one of the round's skills in each finding. */
+export const judgementAnswer = (skills: readonly string[]) => ({
+  decode: Judgement,
+  schema: judgementSchema(skills),
+});
+
 const judgeRun = Effect.fn("judgeRun")(function* (
   round: string,
   run: { readonly dir: string; readonly reference: string },
@@ -302,7 +308,6 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   const content = path.join(data.captureDir(reference.id), CONTENT_FILE);
   const answer = yield* models.ask({
     cwd: data.root,
-    decode: Judgement,
     model,
     prompt: yield* prompt("judge", {
       added: (yield* fs.exists(added))
@@ -324,7 +329,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
       trace: data.fromData(path.join(run.dir, "trace.md")),
       why: reference.why,
     }),
-    schema: judgementSchema(skills),
+    ...judgementAnswer(skills),
   });
   const judgement = answer.value;
   yield* writeJson(path.join(run.dir, "judge.json"), {

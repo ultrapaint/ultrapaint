@@ -104,6 +104,12 @@ const synthesisSchema = (skills: readonly string[]) => {
   };
 };
 
+/** The gaps and proposals, as the model answers them, naming the round's skills. */
+export const synthesisAnswer = (skills: readonly string[]) => ({
+  decode: Synthesis,
+  schema: synthesisSchema(skills),
+});
+
 interface Judged {
   readonly added: readonly AddedTextEntry[];
   readonly judgement: Judgement;
@@ -266,13 +272,12 @@ export const report = Effect.fn("report")(function* (
 
   const answer = yield* models.ask({
     cwd: dir,
-    decode: Synthesis,
     model: options.model,
     prompt: yield* prompt("report", {
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       references: references.map((r) => `- ${r}: ${runsOf(r)} runs`).join("\n"),
     }),
-    schema: synthesisSchema(skills),
+    ...synthesisAnswer(skills),
   });
   const synthesis = answer.value;
 

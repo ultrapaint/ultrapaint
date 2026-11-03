@@ -15,12 +15,15 @@ import {
 } from "./reference.ts";
 
 const Brief = Schema.Struct({ brief: Schema.String });
-const BriefSchema = {
+const briefSchema = {
   additionalProperties: false,
   properties: { brief: { type: "string" } },
   required: ["brief"],
   type: "object",
 };
+
+/** The brief, as the model answers it. */
+export const briefAnswer = { decode: Brief, schema: briefSchema };
 
 export const writeBrief = Effect.fn("writeBrief")(function* (
   reference: LoadedReference,
@@ -45,7 +48,6 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
   }
   const answer = yield* models.ask({
     cwd: data.referenceDir(reference.id),
-    decode: Brief,
     model: options.model,
     prompt: yield* prompt("brief", {
       files: files.map((f) => `- ${f}`).join("\n"),
@@ -53,7 +55,7 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
       name: reference.name,
       viewports: describeViewports(viewportsOf(reference)),
     }),
-    schema: BriefSchema,
+    ...briefAnswer,
   });
   const { brief } = answer.value;
   yield* fs.writeFileString(file, `${brief.trim()}\n`);

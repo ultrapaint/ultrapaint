@@ -293,6 +293,17 @@ const download = Effect.fn("download")(function* (url: string, file: string) {
   yield* fs.writeFile(file, bytes);
 });
 
+/** The pieces of a batch of pictures, as the model answers them. */
+export const piecesAnswer = {
+  decode: Schema.Struct({ pieces: Schema.Array(Piece) }),
+  schema: {
+    additionalProperties: false,
+    properties: { pieces: { items: pieceSchema, type: "array" } },
+    required: ["pieces"],
+    type: "object",
+  },
+};
+
 /** Each picture not yet looked at: downloaded, then answered for, a batch per call. */
 export const annotate = Effect.fn("annotate")(function* (options: {
   readonly batch: number;
@@ -331,18 +342,12 @@ export const annotate = Effect.fn("annotate")(function* (options: {
         );
         const answer = yield* models.ask({
           cwd: PICTURES,
-          decode: Schema.Struct({ pieces: Schema.Array(Piece) }),
           model: options.model,
           prompt: yield* prompt("patterns-annotate", {
             files: batch.map((p) => `- ${p.file} (${p.title})`).join("\n"),
             product,
           }),
-          schema: {
-            additionalProperties: false,
-            properties: { pieces: { items: pieceSchema, type: "array" } },
-            required: ["pieces"],
-            type: "object",
-          },
+          ...piecesAnswer,
         });
         const { pieces } = answer.value;
         cost += answer.costUsd;

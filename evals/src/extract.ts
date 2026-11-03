@@ -287,6 +287,43 @@ const familyComponentList = Effect.fn("familyComponentList")(function* (
   }).join("\n");
 });
 
+/** A family's components found in its screens, as the model answers it. */
+export const familyComponentsAnswer = {
+  decode: FamilyComponents,
+  schema: {
+    additionalProperties: false,
+    properties: {
+      components: {
+        items: {
+          additionalProperties: false,
+          properties: {
+            box: {
+              additionalProperties: false,
+              properties: {
+                height: { type: "number" },
+                width: { type: "number" },
+                x: { type: "number" },
+                y: { type: "number" },
+              },
+              required: ["x", "y", "width", "height"],
+              type: "object",
+            },
+            kind: { type: "string" },
+            missing: { type: "boolean" },
+            name: { enum: COMPONENTS.map((c) => c.name), type: "string" },
+            picture: { type: "string" },
+          },
+          required: ["name", "kind", "missing", "picture", "box"],
+          type: "object",
+        },
+        type: "array",
+      },
+    },
+    required: ["components"],
+    type: "object",
+  },
+};
+
 /** Each component of the family, found once in its screens and cut out. */
 export const familyComponents = Effect.fn("familyComponents")(function* (
   family: string,
@@ -314,45 +351,13 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
   }
   const answer = yield* models.ask({
     cwd: data.references,
-    decode: FamilyComponents,
     model: options.model,
     prompt: yield* prompt("components-reference", {
       files: files.map((f) => `- ${f}`).join("\n"),
       list: componentList,
       product: family,
     }),
-    schema: {
-      additionalProperties: false,
-      properties: {
-        components: {
-          items: {
-            additionalProperties: false,
-            properties: {
-              box: {
-                additionalProperties: false,
-                properties: {
-                  height: { type: "number" },
-                  width: { type: "number" },
-                  x: { type: "number" },
-                  y: { type: "number" },
-                },
-                required: ["x", "y", "width", "height"],
-                type: "object",
-              },
-              kind: { type: "string" },
-              missing: { type: "boolean" },
-              name: { enum: COMPONENTS.map((c) => c.name), type: "string" },
-              picture: { type: "string" },
-            },
-            required: ["name", "kind", "missing", "picture", "box"],
-            type: "object",
-          },
-          type: "array",
-        },
-      },
-      required: ["components"],
-      type: "object",
-    },
+    ...familyComponentsAnswer,
   });
   const found = answer.value;
   yield* writeJson(file, found);

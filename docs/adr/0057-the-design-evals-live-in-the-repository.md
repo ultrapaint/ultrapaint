@@ -25,4 +25,6 @@ tell agents, and drifted from it.
 
 - A change to the contracts that breaks the evals fails `pnpm typecheck`.
 - A skill change can be measured from its own branch, before it is merged.
-- The evals have no tests yet, and `pnpm test` does not run them.
+- `pnpm test` runs the evals' tests: what decides a result (scores, tallies, the text a design
+  added, the models' answers and their schemas), on fixtures in temporary directories, with no
+  model, browser or data directory.
