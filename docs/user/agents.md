@@ -44,7 +44,8 @@ it is done. A selection is blue, or purple when it is a system component.
 is working or waiting for you. The element you select has a toolbar over it with what
 your design system offers for it — a component's own variants, the text styles, the colour,
 radius and spacing tokens — and a button that adds it to the chat. Shift-click or draw a marquee to
-select several, and set what they share at once. What you send while an agent works waits in the
+select several, and set what they share at once. Paste an image into the chat's box (a screenshot,
+or image files copied) and it goes with your next message as a picture. What you send while an agent works waits in the
 thread and goes when its turn ends. Right-click an element to copy
 a link that opens the editor on it, or its ID (`/orders#c_8x2k1q`), which an agent takes to find
 it.

@@ -1,7 +1,7 @@
 /**
  * What the composer of each thread sends along with its next prompt, as chips: nodes attached
- * from the canvas (Add to chat, a layer dragged in, the right-click menu), pages, and what is
- * picked on a board of Design system or the Library (ADR 0045, B11). A store, not
+ * from the canvas (Add to chat, a layer dragged in, the right-click menu), pages, what is
+ * picked on a board of Design system or the Library (ADR 0045, B11), and images pasted in. A store, not
  * the composer's state: the canvas adds to it while the chat may be closed. `attachmentsOf` says
  * what chips go with a prompt as, a comment sent to an agent's included.
  */
@@ -44,7 +44,26 @@ export type Chip =
       readonly pageId: string;
     }
   /** What is picked on a board, as the prompt carries it (`lib/board-chip.ts`). */
-  | BoardAttachment;
+  | BoardAttachment
+  /** An image pasted into the composer, sent as the picture itself. */
+  | {
+      readonly dataUrl: string;
+      /** Tells two pasted images apart, whatever their names. */
+      readonly id: string;
+      readonly kind: "image";
+      readonly name: string;
+    };
+
+let images = 0;
+
+/** The chip of an image pasted in, as a data URL. */
+export const imageChip = (name: string, dataUrl: string): Chip => {
+  images += 1;
+  return { dataUrl, id: `${Date.now()}-${images}`, kind: "image", name };
+};
+
+/** Whether a chip says where in the designs the prompt is about, which an image does not. */
+export const isPlace = (chip: Chip) => chip.kind !== "image";
 
 /** The key of a node's chip, known from where the node is without the node itself. */
 export const nodeKey = (frame: string, nodeId: string) =>
@@ -57,6 +76,9 @@ const boardChipKey = (chip: BoardAttachment) =>
 export const chipKey = (chip: Chip): string => {
   if (chip.kind === "board") {
     return boardChipKey(chip);
+  }
+  if (chip.kind === "image") {
+    return `image:${chip.id}`;
   }
   return chip.kind === "node"
     ? nodeKey(chip.frame, chip.nodeId)
@@ -190,11 +212,14 @@ export const pageChip = (page: Page): Chip => ({
 
 /**
  * The chip a prompt's attachment came from, to put a queued prompt back in the composer: a node
- * found again where it is, or a page. A picture is not kept.
+ * found again where it is, a page, or a picture.
  */
 export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
   if (attachment.kind === "board") {
     return attachment;
+  }
+  if (attachment.kind === "image") {
+    return imageChip(attachment.name, attachment.dataUrl);
   }
   const { pages } = useProject.getState();
   if (attachment.kind === "file") {
@@ -248,6 +273,14 @@ export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
   for (const chip of chips) {
     if (chip.kind === "board") {
       attachments.push(chip);
+      continue;
+    }
+    if (chip.kind === "image") {
+      attachments.push({
+        dataUrl: chip.dataUrl,
+        kind: "image",
+        name: chip.name,
+      });
       continue;
     }
     if (!files.has(chip.file)) {

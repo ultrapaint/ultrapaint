@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import {
   type ChangeEvent,
+  type ClipboardEvent,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -50,6 +51,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import { chordLabel } from "../lib/keys.ts";
+import { attachImages, pastedImages } from "../lib/pasted-images.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -59,6 +61,7 @@ import {
   chipKey,
   chipOfAttachment,
   clearChips,
+  isPlace,
   nodeChip,
   pageChip,
   removeChip,
@@ -173,14 +176,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         )
       : null
   );
-  // Nothing attached: the selection goes along, shown dashed, or on a board what is picked
-  // there. The page only when attached.
+  // Nothing attached but images: the selection goes along, shown dashed, or on a board what is
+  // picked there. The page only when attached.
   const boardChip = useBoardChip();
   const selectedChip =
     (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
     boardChip;
   const implicit =
-    chips.length > 0 ||
+    chips.some(isPlace) ||
     selectedChip === null ||
     dismissed.includes(chipKey(selectedChip))
       ? []
@@ -211,7 +214,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     const sentChips = chips;
     try {
       const attachments = await collectAttachments(
-        chips.length > 0 ? chips : implicit,
+        [...chips, ...implicit],
         attachShot && page ? { frameId: shotFrame, name: page.name } : null
       );
       await api().request("threads.prompt", {
@@ -266,6 +269,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     if (isSendKey(e, sendKey)) {
       e.preventDefault();
       send();
+    }
+  };
+  // An image on the clipboard is attached rather than pasted as text.
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = pastedImages(e.clipboardData);
+    if (images.length > 0) {
+      e.preventDefault();
+      attachImages(thread.id, images);
     }
   };
   const cancel = () =>
@@ -363,6 +374,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground"
             onChange={onTextChange}
             onKeyDown={onTextKeyDown}
+            onPaste={onPaste}
             placeholder={placeholderOf(running, agentName)}
             value={text}
           />
@@ -573,6 +585,9 @@ const chipTitle = (chip: Chip) => {
   if (chip.kind === "board") {
     return `${boardChipLabel(chip)} in ${chip.file}`;
   }
+  if (chip.kind === "image") {
+    return `${chip.name}, sent with the prompt as a picture`;
+  }
   return chip.kind === "node"
     ? `${chip.name} in ${chip.file}`
     : `Page file: ${chip.file}`;
@@ -605,6 +620,18 @@ const BoardIcon = ({ chip }: { chip: Chip & { kind: "board" } }) => {
 const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
   if (chip.kind === "board") {
     return <BoardIcon chip={chip} />;
+  }
+  if (chip.kind === "image") {
+    // The picture itself, small, so two pasted images are told apart.
+    return (
+      <img
+        alt=""
+        className="size-4 shrink-0 rounded-sm object-cover"
+        height={16}
+        src={chip.dataUrl}
+        width={16}
+      />
+    );
   }
   return chip.kind === "page" ? (
     <AppWindow className="text-muted-foreground" />
