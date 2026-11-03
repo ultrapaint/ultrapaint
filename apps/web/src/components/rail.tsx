@@ -11,11 +11,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
-import { useComponents } from "../state/components.ts";
-import { type LeftTab, useEditor } from "../state/editor.ts";
+import { type LeftTab, railTabs, useEditor } from "../state/editor.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
 import { GitUserButton } from "./git-user.tsx";
 
@@ -132,11 +130,8 @@ const RailButton = ({ value }: { value: LeftTab }) => {
  */
 export const Rail = () => {
   const panelHidden = usePanels((s) => s.left);
-  // A board view has no Layers but where there is a tree (ADR 0045): an app component's, known
-  // once the components are.
-  const surface = useSurface();
-  useComponents((s) => s.components);
-  const tabs = surface.railTabs();
+  // Every place, on a board view too (ADR 0052): one its view does not show, Layers on a board
+  // with no tree, leads back to the page canvas.
   return (
     <nav
       aria-label="Panels"
@@ -145,7 +140,7 @@ export const Rail = () => {
         panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
       )}
     >
-      {tabs.map((value) => (
+      {railTabs.map((value) => (
         <RailButton key={value} value={value} />
       ))}
       <div className="flex-1" />

@@ -202,7 +202,10 @@ const appOpen = (open: BoardPlace | null): AppComponentFile | undefined => {
   return file?.origin === "app" ? file : undefined;
 };
 
-/** The rail's places on a board view: Layers only where there is a tree, an app component's. */
+/**
+ * The left panels a board view shows itself: Layers only where there is a tree, an app
+ * component's. The rail lists Layers on every board, which leads back to the page canvas there.
+ */
 export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] =>
   open && !appOpen(open)
     ? railTabs.filter((tab) => tab !== "layers")

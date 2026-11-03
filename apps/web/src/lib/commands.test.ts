@@ -110,7 +110,7 @@ describe("on a board view (ADR 0045)", () => {
     leaveBoard("none");
   });
 
-  it("offers nothing that is about pages: their code, comments and grid, Layers with no tree", () => {
+  it("offers nothing that is about pages: their code, comments and grid; Layers leads back to them", () => {
     useEditor.setState({ workspace: "design" });
     expect(offered()).toEqual(
       expect.arrayContaining(["right:code", "grid", "panel:layers"])
@@ -121,14 +121,19 @@ describe("on a board view (ADR 0045)", () => {
       "right:comments",
       "toggleComments",
       "grid",
-      "panel:layers",
       "tool:text",
       "zoomSelection",
     ]) {
       expect(offered(), id).not.toContain(id);
     }
+    // ADR 0052: Layers is offered on every board, and takes the page canvas back.
     expect(offered()).toEqual(
-      expect.arrayContaining(["zoomFit", "panel:library", "tool:pan"])
+      expect.arrayContaining([
+        "zoomFit",
+        "panel:library",
+        "panel:layers",
+        "tool:pan",
+      ])
     );
   });
 });
