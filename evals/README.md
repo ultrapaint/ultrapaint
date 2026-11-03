@@ -158,6 +158,27 @@ pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sectionsâ
 It takes `--model` (opus) and `--effort` (high) for the reviewers and judges, and resumes like a
 round. It writes `runs/<round>/report.md` and each measured gap's line under **Result.**
 
+## Decisions
+
+When an agent needs several decisions from the person, it writes them as a deck and the person
+answers in the browser, one card at a time: a number key answers and moves on, and the answers
+are saved as they are given.
+
+```sh
+pnpm evals decide <deck> [--host <tailscale address>]   # decisions/<deck>.json in the data directory
+```
+
+A deck is `{ title, intro?, cards }`. Each card has:
+
+- `id`, `title`, an `eyebrow?` and a `body?` in markdown;
+- `pictures?`: `{ src, caption }`, with `src` a path from the data directory;
+- `options`: `{ key, label, leads? }`, where `leads` says what choosing it leads to;
+- `recommend?`: an option's key.
+
+The answers land in `decisions/<deck>.answers.json`, each with its label, the card's title and
+any comment, for the agent to read back and act on. Ask the decision itself, with what each
+answer leads to and the evidence beside it, and put the quickest cards first.
+
 ## A reference
 
 A shot from a gallery (Dribbbleâ€¦) is a reference too: `image` is the picture's URL, `capture`

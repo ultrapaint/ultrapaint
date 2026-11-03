@@ -15,6 +15,7 @@
  *   pnpm evals review <round> [rounds…]            judge what rounds made yourself, by swiping
  *   pnpm evals compare <baseline> <candidate>      two rounds' scores
  *   pnpm evals gaps                                the design gaps, with kind and status
+ *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *
  * `generate`, `judge` and `report` run one step of a round each, to resume or redo one.
@@ -29,6 +30,7 @@ import { captureReference } from "./capture.ts";
 import { compare } from "./compare.ts";
 import { judgeComponents } from "./component-judge.ts";
 import { EvalsConfig } from "./config.ts";
+import { decide } from "./decide.ts";
 import { extract, freeze } from "./extract.ts";
 import { GALLERY_SETS, gallery } from "./gallery.ts";
 import { listGaps } from "./gap.ts";
@@ -659,6 +661,37 @@ const pairwiseCommand = Command.make(
   )
 );
 
+const decideCommand = Command.make(
+  "decide",
+  {
+    deck: Argument.String("deck").pipe(
+      Argument.withDescription(
+        "A deck of decisions: decisions/<deck>.json in the data directory"
+      )
+    ),
+    host: Flag.String("host").pipe(
+      Flag.withDescription(
+        "The address the page listens on: 127.0.0.1, or a Tailscale address to answer from another device"
+      ),
+      Flag.withDefault("127.0.0.1")
+    ),
+    port: Flag.Int("port").pipe(
+      Flag.withDescription("The port the page is served on"),
+      Flag.withDefault(4480)
+    ),
+  },
+  Effect.fn(function* (input) {
+    return yield* decide(input.deck, {
+      host: input.host,
+      port: input.port,
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "The decisions an agent needs from you, one card at a time, answered by a key; answers saved as you go"
+  )
+);
+
 const gapsCommand = Command.make("gaps", {}, listGaps).pipe(
   Command.withDescription(
     "The design gaps of evals/gaps/: id, kind, status, title and the sections recall reviews"
@@ -735,6 +768,7 @@ Command.make("design-evals").pipe(
     pairwiseCommand,
     gapsCommand,
     recallCommand,
+    decideCommand,
   ]),
   Command.run({ version: "0.0.0" }),
   Effect.provide(
