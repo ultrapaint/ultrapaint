@@ -11,7 +11,8 @@ import {
   devices,
   type Page,
 } from "playwright-core";
-import { LabError } from "./errors.ts";
+import { EvalsConfig } from "./config.ts";
+import { EvalsError } from "./errors.ts";
 import type { Viewport } from "./reference.ts";
 
 const BROWSERS = [
@@ -50,7 +51,7 @@ interface TileOptions {
 }
 
 const failed = (what: string) => (cause: unknown) =>
-  new LabError({
+  new EvalsError({
     message: `${what}: ${cause instanceof Error ? cause.message : String(cause)}`,
   });
 
@@ -742,7 +743,7 @@ export class Browser extends Context.Service<
       url: string,
       viewport: Viewport,
       options: { readonly hide: readonly string[]; readonly waitMs: number }
-    ) => Effect.Effect<Capture, LabError>;
+    ) => Effect.Effect<Capture, EvalsError>;
     /**
      * How a picture of a page compares with the one taken in a shorter frame: whether its
      * content ended, and whether it stayed put rather than stretching with the frame.
@@ -753,7 +754,7 @@ export class Browser extends Context.Service<
       width: number
     ) => Effect.Effect<
       { readonly blankBottom: boolean; readonly sameTop: boolean },
-      LabError
+      EvalsError
     >;
     /**
      * Where a part of a page is in the pictures of the whole page: which picture, the box in it,
@@ -768,32 +769,34 @@ export class Browser extends Context.Service<
         readonly index: number;
         readonly score: number;
       } | null,
-      LabError
+      EvalsError
     >;
     /** A picture with a margin of its own background around it, as a PNG. */
     readonly pad: (
       png: Uint8Array,
       margin: number
-    ) => Effect.Effect<Uint8Array, LabError>;
+    ) => Effect.Effect<Uint8Array, EvalsError>;
     /** A picture cut to what it shows, with a margin, as a PNG. */
     readonly trim: (
       png: Uint8Array,
       margin: number
-    ) => Effect.Effect<Uint8Array, LabError>;
+    ) => Effect.Effect<Uint8Array, EvalsError>;
     /** A part of a picture, as a JPEG. */
     readonly crop: (
       bytes: Uint8Array,
       mime: string,
       box: Box
-    ) => Effect.Effect<Uint8Array, LabError>;
+    ) => Effect.Effect<Uint8Array, EvalsError>;
     /** A picture as the fold and the tiles of a capture, the empty end of a tall frame cut. */
     readonly cut: (
       png: Uint8Array,
       viewport: Viewport,
       whole: boolean
-    ) => Effect.Effect<readonly Uint8Array[], LabError>;
+    ) => Effect.Effect<readonly Uint8Array[], EvalsError>;
     /** Keeps a page open at the URL until the scope closes: the editor, for get_screenshot. */
-    readonly hold: (url: string) => Effect.Effect<void, LabError, Scope.Scope>;
+    readonly hold: (
+      url: string
+    ) => Effect.Effect<void, EvalsError, Scope.Scope>;
     /** A picture whole, as a JPEG at most 1,600 wide, and its parts enlarged to read. */
     readonly zoom: (
       bytes: Uint8Array,
@@ -804,17 +807,18 @@ export class Browser extends Context.Service<
         readonly size: { readonly height: number; readonly width: number };
         readonly whole: Uint8Array;
       },
-      LabError
+      EvalsError
     >;
   }
->()("ultrapaint/lab/Browser") {
+>()("ultrapaint/evals/Browser") {
   static readonly layer = Layer.effect(
     Browser,
     Effect.gen(function* () {
+      const config = yield* EvalsConfig;
       const executablePath =
-        process.env.LAB_BROWSER ?? BROWSERS.find((p) => existsSync(p));
+        config.browser ?? BROWSERS.find((p) => existsSync(p));
       if (!executablePath) {
-        return yield* new LabError({
+        return yield* new EvalsError({
           message: "no Chrome found: set LAB_BROWSER to a Chrome or Chromium",
         });
       }
@@ -947,8 +951,8 @@ export class Browser extends Context.Service<
             catch: failed(`opening ${url}`),
             try: async () => {
               const page = await context.newPage();
-              // LAB_EDITOR_LOG=1 shows what the editor says: why a picture could not be drawn.
-              if (process.env.LAB_EDITOR_LOG) {
+              // What the editor says: why a picture could not be drawn.
+              if (config.editorLog) {
                 page.on("console", (m) => {
                   if (m.type() === "error" || m.type() === "warning") {
                     process.stderr.write(`[editor ${m.type()}] ${m.text()}\n`);

@@ -10,7 +10,8 @@
 
 import path from "node:path";
 import { Effect, Schema } from "effect";
-import { listDir, REFERENCES, readJson, referenceDir } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { listDir, readJson } from "./layout.ts";
 
 export const Viewport = Schema.Struct({
   /** The window's height: what is seen before scrolling. */
@@ -85,9 +86,10 @@ export const describeViewports = (viewports: readonly Viewport[]) =>
     .join(" and ");
 
 export const loadReference = Effect.fn("loadReference")(function* (id: string) {
+  const { data } = yield* EvalsConfig;
   const reference = yield* readJson(
     Reference,
-    path.join(referenceDir(id), "reference.json")
+    path.join(data.referenceDir(id), "reference.json")
   );
   return { ...reference, id } satisfies LoadedReference;
 });
@@ -96,6 +98,7 @@ export const loadReference = Effect.fn("loadReference")(function* (id: string) {
 export const loadReferences = Effect.fn("loadReferences")(function* (
   ids: readonly string[]
 ) {
-  const all = ids.length > 0 ? ids : yield* listDir(REFERENCES);
+  const { data } = yield* EvalsConfig;
+  const all = ids.length > 0 ? ids : yield* listDir(data.references);
   return yield* Effect.forEach(all, loadReference);
 });

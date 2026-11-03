@@ -8,7 +8,7 @@
  */
 import { Context, Effect, Layer, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { LabError } from "./errors.ts";
+import { EvalsError } from "./errors.ts";
 
 export interface AskOptions {
   readonly cwd: string;
@@ -45,8 +45,8 @@ const TIMEOUT = "25 minutes";
 
 export class Claude extends Context.Service<
   Claude,
-  { readonly ask: (options: AskOptions) => Effect.Effect<Answer, LabError> }
->()("ultrapaint/lab/Claude") {
+  { readonly ask: (options: AskOptions) => Effect.Effect<Answer, EvalsError> }
+>()("ultrapaint/evals/Claude") {
   static readonly layer = Layer.effect(
     Claude,
     Effect.gen(function* () {
@@ -81,24 +81,26 @@ export class Claude extends Context.Service<
             Effect.timeout(TIMEOUT),
             Effect.mapError(
               (cause) =>
-                new LabError({ message: `claude -p failed: ${String(cause)}` })
+                new EvalsError({
+                  message: `claude -p failed: ${String(cause)}`,
+                })
             )
           );
         const result = yield* decodeResult(output.trim()).pipe(
           Effect.mapError(
             () =>
-              new LabError({
+              new EvalsError({
                 message: `claude -p answered something else than its JSON: ${output.slice(0, 500)}`,
               })
           )
         );
         if (result.is_error) {
-          return yield* new LabError({
+          return yield* new EvalsError({
             message: `claude -p reported an error: ${result.result ?? "no message"}`,
           });
         }
         if (options.schema && result.structured_output === undefined) {
-          return yield* new LabError({
+          return yield* new EvalsError({
             message: `claude -p gave no structured answer: ${(result.result ?? "").slice(0, 500)}`,
           });
         }

@@ -8,17 +8,8 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Claude } from "./claude.ts";
-import {
-  captureDir,
-  DATA,
-  fromData,
-  listDir,
-  PROMPTS,
-  prompt,
-  RUNS,
-  readJson,
-  writeJson,
-} from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { listDir, PROMPTS, prompt, readJson, writeJson } from "./layout.ts";
 
 const LEVELS = [
   "layout",
@@ -92,22 +83,23 @@ const readsOf = Effect.fn("readsOf")(function* (dir: string) {
   return [...files].sort();
 });
 
-const pictures = (dir: string) =>
-  Effect.map(listDir(dir), (files) =>
-    files
-      .filter((f) => f.endsWith(".jpg"))
-      .map((f) => `- \`${fromData(path.join(dir, f))}\``)
-      .join("\n")
-  );
+const pictures = Effect.fnUntraced(function* (dir: string) {
+  const { data } = yield* EvalsConfig;
+  return (yield* listDir(dir))
+    .filter((f) => f.endsWith(".jpg"))
+    .map((f) => `- \`${data.fromData(path.join(dir, f))}\``)
+    .join("\n");
+});
 
 /** The runs both rounds drew, as `<reference>/run-<n>`. */
 const sharedRuns = Effect.fn("sharedRuns")(function* (a: string, b: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const shot = (round: string, key: string) =>
-    fs.exists(path.join(RUNS, round, key, "shots"));
+    fs.exists(path.join(data.runs, round, key, "shots"));
   const keys: string[] = [];
-  for (const reference of yield* listDir(path.join(RUNS, a))) {
-    const dir = path.join(RUNS, a, reference);
+  for (const reference of yield* listDir(path.join(data.runs, a))) {
+    const dir = path.join(data.runs, a, reference);
     // A round's directory holds its findings and report beside the references' runs.
     if ((yield* fs.stat(dir)).type !== "Directory") {
       continue;
@@ -129,6 +121,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   key: string,
   options: { readonly model: string; readonly principles: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const claude = yield* Claude;
   const reference = key.slice(0, key.indexOf("/"));
   // Which round shows as A follows the run's name, so neither is always first.
@@ -141,14 +134,14 @@ const judgeRun = Effect.fn("judgeRun")(function* (
     return side === "A" ? first : second;
   };
   const answer = yield* claude.ask({
-    cwd: DATA,
+    cwd: data.root,
     effort: "high",
     model: options.model,
     prompt: yield* prompt("pairwise", {
-      a: yield* pictures(path.join(RUNS, first, key, "shots")),
-      b: yield* pictures(path.join(RUNS, second, key, "shots")),
+      a: yield* pictures(path.join(data.runs, first, key, "shots")),
+      b: yield* pictures(path.join(data.runs, second, key, "shots")),
       principles: options.principles,
-      reference: yield* pictures(captureDir(reference)),
+      reference: yield* pictures(data.captureDir(reference)),
     }),
     schema: verdictSchema,
   });
@@ -184,8 +177,9 @@ export const pairwise = Effect.fn("pairwise")(function* (
   b: string,
   options: { readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const out = path.join(RUNS, `${a}-vs-${b}`);
+  const out = path.join(data.runs, `${a}-vs-${b}`);
   const file = path.join(out, "pairwise.json");
   const results: Record<string, typeof Judged.Type> = (yield* fs.exists(file))
     ? { ...(yield* readJson(Results, file)) }
@@ -197,8 +191,8 @@ export const pairwise = Effect.fn("pairwise")(function* (
 
   for (const key of yield* sharedRuns(a, b)) {
     reads[key] = {
-      [a]: yield* readsOf(path.join(RUNS, a, key)),
-      [b]: yield* readsOf(path.join(RUNS, b, key)),
+      [a]: yield* readsOf(path.join(data.runs, a, key)),
+      [b]: yield* readsOf(path.join(data.runs, b, key)),
     };
     if (results[key]) {
       continue;

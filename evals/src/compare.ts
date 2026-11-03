@@ -6,8 +6,9 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
+import { EvalsConfig } from "./config.ts";
 import { LEVELS, readJudgement, roundRuns } from "./judge.ts";
-import { RUNS, readJson, writeText } from "./layout.ts";
+import { readJson, writeText } from "./layout.ts";
 import { readReview } from "./review.ts";
 
 const scoresOf = Effect.fn("scoresOf")(function* (round: string) {
@@ -33,8 +34,9 @@ const scoresOf = Effect.fn("scoresOf")(function* (round: string) {
 
 /** Unwanted texts per run, as the round's report counted them. */
 const unwantedOf = Effect.fn("unwantedOf")(function* (round: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const file = path.join(RUNS, round, "unwanted-text.json");
+  const file = path.join(data.runs, round, "unwanted-text.json");
   if (!(yield* fs.exists(file))) {
     return;
   }
@@ -63,6 +65,7 @@ export const compare = Effect.fn("compare")(function* (
   before: string,
   after: string
 ) {
+  const { data } = yield* EvalsConfig;
   const a = yield* scoresOf(before);
   const b = yield* scoresOf(after);
   const both = (key: string) => a.has(key) && b.has(key);
@@ -171,7 +174,7 @@ export const compare = Effect.fn("compare")(function* (
     "Over a few runs a small difference can be noise: two rounds of the same skills, compared, say how much.",
     "",
   ].join("\n");
-  const file = path.join(RUNS, after, `compare-${before}.md`);
+  const file = path.join(data.runs, after, `compare-${before}.md`);
   yield* writeText(file, text);
   yield* Effect.log(`\n${text}`);
 });

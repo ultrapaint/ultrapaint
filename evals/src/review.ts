@@ -26,17 +26,10 @@ import {
   HttpStaticServer,
 } from "effect/http";
 import { foldName } from "./capture.ts";
+import { type DataDir, EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
 import { type Judgement, readJudgement, roundRuns } from "./judge.ts";
-import {
-  captureDir,
-  DATA,
-  fromData,
-  listDir,
-  RUNS,
-  readJson,
-  writeJson,
-} from "./layout.ts";
+import { listDir, readJson, viewerSrc, writeJson } from "./layout.ts";
 import {
   challengeCards,
   componentCards,
@@ -158,8 +151,6 @@ export interface Card {
   readonly title: string;
 }
 
-const src = (file: string) => `/${fromData(file)}`;
-
 const DESKTOP_TILE = /^desktop-\d+\.jpg$/;
 /**
  * Data rather than words, for judgements made before the judge said which: a digit (a number,
@@ -169,40 +160,54 @@ const LOOKS_LIKE_DATA = /\d|@|^[A-Z][a-z]+ [A-Z][a-z]+$/;
 
 /** A run's design: the whole page in tiles, or its first window when it has no tiles. */
 const designPictures = Effect.fn("designPictures")(function* (dir: string) {
+  const { data } = yield* EvalsConfig;
   const shots = path.join(dir, "shots");
   const files = (yield* listDir(shots)).filter((f) => f.startsWith("desktop"));
   const tiles = files.filter((f) => !f.includes("fold"));
   return (tiles.length > 0 ? tiles : files).map((f, index) => ({
     label: tiles.length > 0 ? `page ${index + 1}` : "first window",
-    src: src(path.join(shots, f)),
+    src: viewerSrc(data, path.join(shots, f)),
   }));
 });
 
 const referencePicturesOf = Effect.fn("referencePicturesOf")(function* (
   reference: string
 ) {
-  const dir = captureDir(reference);
+  const { data } = yield* EvalsConfig;
+  const dir = data.captureDir(reference);
   const files = yield* listDir(dir);
   const tiles = files.filter((f) => DESKTOP_TILE.test(f));
   const chosen = tiles.length > 0 ? tiles : [foldName("desktop")];
   return chosen
     .filter((f) => files.includes(f))
-    .map((f) => ({ label: "reference", src: src(path.join(dir, f)) }));
+    .map((f) => ({
+      label: "reference",
+      src: viewerSrc(data, path.join(dir, f)),
+    }));
 });
 
 /**
  * Where a text is: the whole page with the text's place marked, when it was found on it; its
  * node's own picture otherwise.
  */
-const textPictures = (r: RoundRun, a: AddedTextEntry): readonly Picture[] => {
+const textPictures = (
+  data: DataDir,
+  r: RoundRun,
+  a: AddedTextEntry
+): readonly Picture[] => {
   if (a.mark) {
-    const marked = src(path.join(r.dir, a.mark.picture));
+    const marked = viewerSrc(data, path.join(r.dir, a.mark.picture));
     return r.pictures.map((p) =>
       p.src === marked ? { ...p, label: "in the screen", mark: a.mark?.box } : p
     );
   }
   return a.picture
-    ? [{ label: "in its place", src: src(path.join(r.dir, a.picture)) }]
+    ? [
+        {
+          label: "in its place",
+          src: viewerSrc(data, path.join(r.dir, a.picture)),
+        },
+      ]
     : r.pictures;
 };
 
@@ -252,6 +257,7 @@ interface LensContext {
     readonly round: string;
     readonly run: string;
   };
+  readonly data: DataDir;
   readonly hosts: ReadonlyMap<string, string>;
   readonly referenceSections: ReadonlyMap<
     string,
@@ -264,7 +270,7 @@ interface LensContext {
  * and each section the reference has that the designs have too.
  */
 const lensCardsOf = (
-  { base, hosts, referenceSections }: LensContext,
+  { base, data, hosts, referenceSections }: LensContext,
   one: RoundRun,
   other: RoundRun | undefined,
   idOf: (what: string) => string
@@ -308,7 +314,10 @@ const lensCardsOf = (
       const id = idOf(`section/${slugOf(section.name)}`);
       const [p, q] = sided(id);
       const crop = (r: RoundRun) => [
-        { label: section.name, src: src(r.sections.get(section.name) ?? "") },
+        {
+          label: section.name,
+          src: viewerSrc(data, r.sections.get(section.name) ?? ""),
+        },
       ];
       return [
         {
@@ -323,7 +332,9 @@ const lensCardsOf = (
             ? `${section.name}: which is better?`
             : `${section.name}: how good is it?`,
           ...(!other && { scale: SCALE }),
-          referencePictures: [{ label: section.name, src: src(section.crop) }],
+          referencePictures: [
+            { label: section.name, src: viewerSrc(data, section.crop) },
+          ],
           ...(q && { rightPictures: crop(q), sides: [p.round, q.round] }),
           subject: section.name,
           title,
@@ -336,11 +347,12 @@ const lensCardsOf = (
 
 /** Each round as a card names it: with the host it was designed in. */
 const hostsOf = Effect.fn("hostsOf")(function* (rounds: readonly string[]) {
+  const { data } = yield* EvalsConfig;
   const hosts = new Map<string, string>();
   for (const round of rounds) {
     const info = yield* readJson(
       RoundInfo,
-      path.join(RUNS, round, "round.json")
+      path.join(data.runs, round, "round.json")
     ).pipe(Effect.option);
     hosts.set(
       round,
@@ -390,6 +402,7 @@ const latestRounds = (
 export const buildCards = Effect.fn("buildCards")(function* (
   all: readonly string[]
 ) {
+  const { data } = yield* EvalsConfig;
   // Track A's rounds have their own cards: components, best of several.
   const extracted = yield* Effect.filter(all, isExtractRound);
   // Two extraction rounds or more: the last one's components against the ones picked before.
@@ -425,7 +438,7 @@ export const buildCards = Effect.fn("buildCards")(function* (
   const layouts: Card[] = [];
   const parts: Card[] = [];
   const pairs: Card[] = [];
-  const context: LensContext = { base, hosts, referenceSections };
+  const context: LensContext = { base, data, hosts, referenceSections };
   const lensCards = (
     one: RoundRun,
     other: RoundRun | undefined,
@@ -468,6 +481,7 @@ export const buildCards = Effect.fn("buildCards")(function* (
           return at === 0
             ? []
             : challengeCards(
+                data,
                 pictured
                   .filter((r) => of(r) && r.round === candidate)
                   .map(sectionRun),
@@ -481,6 +495,7 @@ export const buildCards = Effect.fn("buildCards")(function* (
       : [];
   const picks = severalRuns
     ? sectionPickCards(
+        data,
         pictured.map((r) => ({ ...base(r), sections: r.sections })),
         referenceSections
       )
@@ -581,7 +596,7 @@ export const buildCards = Effect.fn("buildCards")(function* (
       kind: "text" as const,
       left: "Noise, remove it",
       lines: verdict ? [`The judge: ${verdict.verdict}, ${verdict.why}`] : [],
-      pictures: textPictures(r, a),
+      pictures: textPictures(data, r, a),
       question: "Does the screen need this text?",
       quote: a.text,
       right: "Needed",
@@ -605,8 +620,9 @@ export const buildCards = Effect.fn("buildCards")(function* (
 
 /** The verdicts of a round, none when it has not been reviewed. */
 export const readReview = Effect.fn("readReview")(function* (round: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const file = path.join(RUNS, round, REVIEW_FILE);
+  const file = path.join(data.runs, round, REVIEW_FILE);
   return (yield* fs.exists(file)) ? yield* readJson(Review, file) : {};
 });
 
@@ -667,6 +683,7 @@ export const review = Effect.fn("review")(function* (
   rounds: readonly string[],
   options: { readonly host: string; readonly port: number }
 ) {
+  const { data } = yield* EvalsConfig;
   const cards = yield* buildCards(rounds);
   if (cards.length === 0) {
     return yield* Effect.logWarning(
@@ -721,7 +738,7 @@ export const review = Effect.fn("review")(function* (
     yield* lock.withPermits(1)(
       Effect.gen(function* () {
         const current = yield* readReview(card.round);
-        yield* writeJson(path.join(RUNS, card.round, REVIEW_FILE), {
+        yield* writeJson(path.join(data.runs, card.round, REVIEW_FILE), {
           ...current,
           [card.id]: verdict,
         });
@@ -743,7 +760,7 @@ export const review = Effect.fn("review")(function* (
     HttpRouter.add("GET", "/api/session", session),
     HttpRouter.add("POST", "/api/verdict", save),
     HttpRouter.add("GET", "/", HttpServerResponse.redirect("/review/")),
-    HttpStaticServer.layer({ root: DATA })
+    HttpStaticServer.layer({ root: data.root })
   );
   yield* Effect.log(
     `${cards.length} cards: open http://${options.host}:${options.port}/ (Ctrl-C to stop; verdicts are saved as you go)`

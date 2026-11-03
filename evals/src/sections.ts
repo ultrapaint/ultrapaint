@@ -12,17 +12,10 @@ import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Browser } from "./browser.ts";
 import { Claude } from "./claude.ts";
+import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry } from "./generate.ts";
 import { roundRuns } from "./judge.ts";
-import {
-  captureDir,
-  fromData,
-  listDir,
-  prompt,
-  readJson,
-  referenceDir,
-  writeJson,
-} from "./layout.ts";
+import { listDir, prompt, readJson, writeJson } from "./layout.ts";
 import { loadReference } from "./reference.ts";
 
 const Box = Schema.Struct({
@@ -149,14 +142,15 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
   id: string,
   options: { readonly force: boolean; readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const claude = yield* Claude;
-  const file = path.join(referenceDir(id), SECTIONS_FILE);
+  const file = path.join(data.referenceDir(id), SECTIONS_FILE);
   if ((yield* fs.exists(file)) && !options.force) {
     return (yield* readJson(ReferenceSections, file)).sections;
   }
   const reference = yield* loadReference(id);
-  const capture = captureDir(id);
+  const capture = data.captureDir(id);
   const answer = yield* claude.ask({
     cwd: capture,
     model: options.model,
@@ -188,6 +182,7 @@ export const runSections = Effect.fn("runSections")(function* (
   marked: readonly ReferenceSection[],
   model: string
 ) {
+  const { data } = yield* EvalsConfig;
   const claude = yield* Claude;
   const shots = path.join(dir, "shots");
   const files = (yield* listDir(shots)).filter((f) => f.startsWith("desktop"));
@@ -212,7 +207,7 @@ export const runSections = Effect.fn("runSections")(function* (
     found.sections.filter((s) => !s.missing)
   );
   yield* Effect.log(
-    `${fromData(dir)}: ${found.sections.filter((s) => !s.missing).length} of ${marked.length} sections found ($${answer.costUsd.toFixed(2)})`
+    `${data.fromData(dir)}: ${found.sections.filter((s) => !s.missing).length} of ${marked.length} sections found ($${answer.costUsd.toFixed(2)})`
   );
 });
 
@@ -224,6 +219,7 @@ const NOT_FOUND = 45;
  * so a person sees it in place on the whole screen rather than cut out alone.
  */
 const markAddedText = Effect.fn("markAddedText")(function* (dir: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
   const file = path.join(dir, ADDED_TEXT_FILE);
@@ -262,7 +258,7 @@ const markAddedText = Effect.fn("markAddedText")(function* (dir: string) {
     })
   );
   yield* Effect.log(
-    `${fromData(dir)}: ${found.size} of ${new Set(entries.flatMap((e) => e.picture ?? [])).size} added texts found on the page`
+    `${data.fromData(dir)}: ${found.size} of ${new Set(entries.flatMap((e) => e.picture ?? [])).size} added texts found on the page`
   );
 });
 
@@ -274,6 +270,7 @@ export const sections = Effect.fn("sections")(function* (
     readonly model: string;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const runs = (yield* Effect.forEach(rounds, roundRuns)).flat();
   const references = [...new Set(runs.map((r) => r.reference))];
@@ -303,7 +300,7 @@ export const sections = Effect.fn("sections")(function* (
       markAddedText(run.dir).pipe(
         Effect.catch((error) =>
           Effect.logError(
-            `${fromData(run.dir)}: added texts not found: ${String(error)}`
+            `${data.fromData(run.dir)}: added texts not found: ${String(error)}`
           )
         )
       ),
@@ -317,7 +314,7 @@ export const sections = Effect.fn("sections")(function* (
         ? runSections(run.dir, found, options.model).pipe(
             Effect.catch((error) =>
               Effect.logError(
-                `${fromData(run.dir)}: no sections: ${String(error)}`
+                `${data.fromData(run.dir)}: no sections: ${String(error)}`
               )
             )
           )
@@ -350,8 +347,9 @@ export const readRunSections = Effect.fn("readRunSections")(function* (
 /** A reference's sections with their crops; none when they were not marked. */
 export const readReferenceSections = Effect.fn("readReferenceSections")(
   function* (id: string) {
+    const { data } = yield* EvalsConfig;
     const fs = yield* FileSystem.FileSystem;
-    const file = path.join(referenceDir(id), SECTIONS_FILE);
+    const file = path.join(data.referenceDir(id), SECTIONS_FILE);
     if (!(yield* fs.exists(file))) {
       return [] as {
         readonly crop: string;
@@ -361,7 +359,7 @@ export const readReferenceSections = Effect.fn("readReferenceSections")(
     const found = yield* readJson(ReferenceSections, file);
     return found.sections.map((section) => ({
       crop: path.join(
-        captureDir(id),
+        data.captureDir(id),
         SECTIONS_DIR,
         `${slugOf(section.name)}.jpg`
       ),
