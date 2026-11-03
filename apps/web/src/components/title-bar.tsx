@@ -5,10 +5,8 @@
  * card moves the window.
  */
 
-import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
-  BoxSelect,
   GitBranch,
   PanelLeftClose,
   PanelLeftOpen,
@@ -25,16 +23,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { useInspected } from "../state/selection.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { openCommandPalette } from "./command-palette.tsx";
 import { GitUserButton } from "./git-user.tsx";
 import { IconButton } from "./icon-button.tsx";
-import { NodeIcon } from "./node-icon.tsx";
 import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
 import { openSetup } from "./setup-dialog.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
@@ -204,68 +199,48 @@ const togglePrototype = () => {
   );
 };
 
-/** Puts the right panel away, from the row of its tabs. */
-/** What the right panel is about: the layer selected, its icon and name, or how many there are. */
-const Inspecting = () => {
-  const inspected = useInspected();
-  const picked = useCanvasPicks((s) => s.ids.length);
-  if (picked > 1) {
-    return (
-      <span className="flex h-7 min-w-0 items-center gap-1.5 truncate rounded-md bg-muted px-2 font-body">
-        <BoxSelect className="size-3.5 shrink-0" />
-        {picked} frames
-      </span>
-    );
-  }
-  if (!inspected) {
-    return null;
-  }
-  const { node, nodes } = inspected;
-  const component = node.type === "instance";
-  return (
-    <span
-      className={cn(
-        "flex h-7 min-w-0 items-center gap-1.5 truncate rounded-md px-2 font-body",
-        component
-          ? "bg-component/15 text-component"
-          : "bg-muted text-foreground"
-      )}
-    >
-      <NodeIcon className="size-3.5 shrink-0" node={node} />
-      <span className="truncate">
-        {nodes.length > 1 ? `${nodes.length} layers` : nodeLabel(node)}
-      </span>
-    </span>
-  );
-};
+/** Puts the right panel away: at the end of its tabs' row, or of the board inspector's header. */
+export const HideRightPanel = () => (
+  <TopButton
+    command="toggleRight"
+    label="Hide the right panel"
+    onClick={toggleRight}
+  >
+    <PanelRightClose />
+  </TopButton>
+);
 
 /**
- * The row over the right panel, its own card: the layer it is about and the panel's toggle (as
- * pen.dev has it). Kept while the panel is put away, as wide as its toggle and that layer.
+ * The right panel put away: its own card under the actions, the panel's name beside the icon that
+ * brings it back (as pen.dev has it). Out, its toggle is in the panel's own top row.
  */
-export const RightPanelBar = ({ width }: { width: number | null }) => {
-  const hidden = usePanels((s) => s.right);
-  return (
-    <div
-      className="floating pointer-events-auto flex h-10 shrink-0 items-center gap-1 pr-1 pl-1.5"
-      style={width === null ? undefined : { width }}
-    >
-      <div className="flex min-w-0 flex-1">
-        <Inspecting />
-      </div>
-      <TopButton
-        label={hidden ? "Show the right panel" : "Hide the right panel"}
-        onClick={toggleRight}
+export const RightPanelBar = ({ name }: { name: string }) => (
+  <div className="floating pointer-events-auto flex h-10 shrink-0 items-center px-1">
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label="Show the right panel"
+            className="window-no-drag flex h-8 items-center gap-2 rounded-lg pr-2.5 pl-2 font-body text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={toggleRight}
+            type="button"
+          />
+        }
       >
-        {hidden ? <PanelRightOpen /> : <PanelRightClose />}
-      </TopButton>
-    </div>
-  );
-};
+        <PanelRightOpen className="size-4" />
+        {name}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        Show the right panel
+        <CommandKeys id="toggleRight" />
+      </TooltipContent>
+    </Tooltip>
+  </div>
+);
 
 /**
  * The actions at the window's top right, over the right panel: every command (⌘K), who the user
- * is, and the prototype. The right panel's toggle is on its own row under them (`RightPanelBar`).
+ * is, and the prototype. The right panel put away leaves its card under them (`RightPanelBar`).
  */
 export const TopActions = () => {
   const chrome = useWindowChrome();

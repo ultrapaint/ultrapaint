@@ -39,6 +39,7 @@ import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { PanelLoading, Splash } from "./components/splash.tsx";
 import {
   EDGE,
+  HideRightPanel,
   RightPanelBar,
   TitleRow,
   TopActions,
@@ -394,7 +395,7 @@ const RightPanel = ({
         onValueChange={onRightTabChange}
         value={rightTab}
       >
-        <div className="flex h-10 shrink-0 items-center border-b px-2">
+        <div className="flex h-10 shrink-0 items-center justify-between border-b pr-1 pl-2">
           <TabsList variant="line">
             <TabsTrigger className="font-body" value="design">
               Design
@@ -406,6 +407,7 @@ const RightPanel = ({
               Comments
             </TabsTrigger>
           </TabsList>
+          <HideRightPanel />
         </div>
         {/* Only the open tab is mounted: the code is written out only while it is read. */}
         <TabsContent className="min-h-0 overflow-auto" value="design">
@@ -429,6 +431,24 @@ const RightPanel = ({
  * The window's right column, floating over the canvas: the top actions, the right panel's row
  * (its layer and its toggle) and the panel when it is out.
  */
+const RIGHT_TAB_NAMES: Record<RightTab, string> = {
+  code: "Code",
+  comments: "Comments",
+  design: "Design",
+};
+
+/** The right panel's name while it is put away: its open tab, or a board view's inspector. */
+const useRightPanelName = () => {
+  const rightTab = useEditor((s) => s.rightTab);
+  const surface = useSurface();
+  const board = useBoard((s) => s.open);
+  return surface.rightPanel === "inspector" && board
+    ? "Inspector"
+    : RIGHT_TAB_NAMES[rightTab];
+};
+
+const RightPanelPutAway = () => <RightPanelBar name={useRightPanelName()} />;
+
 const RightColumn = ({
   hasRight,
   onWidthChange,
@@ -446,7 +466,7 @@ const RightColumn = ({
     style={{ bottom: EDGE, right: EDGE, top: EDGE }}
   >
     <TopActions />
-    {shown ? <RightPanelBar width={hasRight ? width : null} /> : null}
+    {shown && !hasRight ? <RightPanelPutAway /> : null}
     {hasRight ? (
       <RightPanel onWidthChange={onWidthChange} width={width} />
     ) : null}
