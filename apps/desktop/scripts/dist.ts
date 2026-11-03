@@ -1,8 +1,10 @@
 /**
  * `pnpm desktop:build`: the app staged (`stage.ts`) and packaged with electron-builder into
  * `release/` (D14): an AppImage and a deb on Linux, a dmg and a zip on macOS, for the machine it
- * runs on. Unsigned, and with no update feed until the repository is public (D15). `--dir`
- * packages without making the installers, to try the app as it is installed.
+ * runs on, unsigned. Each comes with its update feed (`latest-linux.yml`, `latest-mac.yml`), which
+ * the release workflow attaches to the GitHub release with the installers (ADR 0051): an AppImage
+ * updates itself from it. `--dir` packages without making the installers, to try the app as it is
+ * installed.
  *
  * electron-builder is run at a pinned version with npx rather than installed in the workspace:
  * its dependency tree is large, and only this script needs it.
@@ -63,7 +65,8 @@ const config = {
   // The app's dependencies are installed by `stage.ts`, for this platform, as they are.
   npmRebuild: false,
   productName: "Ultrapaint",
-  publish: null,
+  // Where the update feed points; the workflow uploads, so electron-builder never publishes.
+  publish: { owner: "ultrapaint", provider: "github", repo: "ultrapaint" },
 };
 
 const configFile = path.join(desktopDir, "build", "electron-builder.json");
@@ -78,6 +81,8 @@ execFileSync(
     "--projectDir",
     appDir,
     process.platform === "darwin" ? "--mac" : "--linux",
+    "--publish",
+    "never",
   ],
   { cwd: desktopDir, stdio: "inherit" }
 );

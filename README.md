@@ -21,28 +21,35 @@ handing off a screen means redrawing it in code. Ultrapaint keeps one source of 
 ## Installation
 
 > [!WARNING]
-> Ultrapaint needs [Node.js](https://nodejs.org) 24 or newer. It isn't on npm yet: install it from
-> a [release](https://github.com/ultrapaint/ultrapaint/releases) (with the [GitHub CLI](https://cli.github.com)).
+> The command needs [Node.js](https://nodejs.org) 24 or newer.
 >
 > Agents are optional. To use one, install it and sign in first:
 >
 > - Claude Code: install [Claude Code](https://claude.com/product/claude-code) and run `claude` once
 > - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
 
-```bash
-gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz'
-pnpm add -g ./ultrapaint-*.tgz
-```
-
-Then run it in the repository you want to design in:
+### Command line
 
 ```bash
-cd ~/code/your-repo
-ultrapaint
+npm install -g https://github.com/ultrapaint/ultrapaint/releases/latest/download/ultrapaint.tgz
 ```
 
-It opens the editor at `http://127.0.0.1:4770`. `ultrapaint --help` lists every option. There's
-also a [desktop app](docs/user/desktop.md), built from a checkout for now.
+Then run `ultrapaint` in the repository you want to design in. It opens the editor at
+`http://127.0.0.1:4770`; `ultrapaint --help` lists every option. Run the install again to update.
+
+### Desktop app
+
+On macOS (Apple silicon), with Homebrew:
+
+```bash
+brew install --cask ultrapaint/tap/ultrapaint
+```
+
+On Linux, download the AppImage (it updates itself) or the `.deb` from the
+[latest release](https://github.com/ultrapaint/ultrapaint/releases/latest).
+
+The app isn't signed yet. On macOS, run `xattr -dr com.apple.quarantine /Applications/Ultrapaint.app`
+once after installing or updating it, or macOS will say it is damaged. Windows is not supported yet.
 
 ## Some notes
 
