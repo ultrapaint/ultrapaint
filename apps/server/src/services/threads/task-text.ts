@@ -84,7 +84,9 @@ matter's token groups (colors, typography, rounded, spacing) are filled in from 
 what you write is the prose. The body is these \`##\` sections, in this order; leave one out only when there
 is nothing to say:
    - Overview: what the product is and for whom, its voice and tone, and its look as a specific
-     reference rather than adjectives ("a printed lecture handout", not "clean and modern").
+     reference rather than adjectives ("a printed lecture handout", not "clean and modern"): its
+     character, in the user's words where they gave them, and its dials in one line (temperature,
+     density, shape, accent).
    - Colors: what each colour is for, named as its token ({colors.primary}), and how dark mode
      differs.
    - Typography: the families, and which text style ({typography.heading-xl}) is for what.

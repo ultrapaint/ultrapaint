@@ -8,8 +8,9 @@ with it is the other job, in the router.
 
 ## Steps
 
-1. **Name the character** (`references/character.md`). It sets the dials a system decides: the
-   face, the warmth of the neutrals, the radius, the density, the accent's strength.
+1. **Settle the character** (`references/character.md`): from DESIGN.md, the product or the
+   user's words, else one question to the user. It sets the dials a system decides: the face, the
+   warmth of the neutrals, the radius, the density, the accent's strength.
 2. **Read what exists before deciding anything.** A product, its code or pictures of it:
    `references/design-system/extract.md`. A Figma file: `references/design-system/figma.md`. What
    the product already decides is taken as it is, even where a rule here would choose otherwise;
@@ -19,16 +20,18 @@ with it is the other job, in the router.
    widths. Every role a screen needs has a token.
 4. **Make the components** (`references/design-system/components.md`): the product's anatomy, its
    variants, sizes and states, props a page can fill.
-5. **Write down what is not a value**: the character, the voice, what each colour is for and what
-   it is never for. In DESIGN.md where the project has one; in the token descriptions otherwise.
+5. **Write down what is not a value** in DESIGN.md: the character in its Overview, the voice,
+   what each colour is for and what it is never for, the reason for each choice the user did not
+   make.
 6. **Finish with the check.** Run the "Before you finish" table of this file and of each one you
    read, and fix what fails. Your last message names each file you read and says its table holds.
 
 ## What every system holds
 
-- One sans for the interface, loaded; a mono beside it for a technical product. A serif only for
-  a page's display headlines, when the brand asks for one.
-- Neutrals neutral or warm, never blue-grey.
+- The character in DESIGN.md's Overview, in the user's words where they gave them.
+- One sans for the interface, loaded; a mono beside it for a technical product. A serif for a
+  page's display headlines when the brand asks for one, for interface text only when the user did.
+- Neutrals neutral or warm; blue-grey only when the user asked for a cool feel.
 - Two text colours plainly apart: the foreground at `15:1` or more, muted at about `4.5–5.5:1`.
 - One accent. The selected state is a neutral fill, or a solid brand fill when the product draws
   one; never a pale wash of the accent.
@@ -43,6 +46,8 @@ with it is the other job, in the router.
 | You see | Fix |
 | --- | --- |
 | A rule here chosen over what the product already does | The product's choice; say where it breaks the rule |
+| A rule here chosen over what the user said of the feel | The user's word |
+| No character in DESIGN.md's Overview | Write it |
 | A role a screen needs with no token (muted text, a field's border, focus) | Add the token |
 | A token named by its value where screens use it | Name it by its role |
 | Badge variants in green, red or amber | One neutral Badge; the dot is the screen's |

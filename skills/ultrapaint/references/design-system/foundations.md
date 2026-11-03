@@ -2,8 +2,8 @@
 
 The values every screen draws from: the face, colour by role, the type scale, spacing, radius and
 borders, elevation, motion, icons and widths. Each is a token a screen names by its role, and
-each is decided once, here. The character (`references/character.md`) sets the dials; the
-product, where there is one, sets them first.
+each is decided once, here. The character (`references/character.md`) sets the dials, and what
+the user said of it wins over a default below; the product, where there is one, sets them first.
 
 ## The face
 
@@ -13,11 +13,11 @@ the machine's fallback, and every screen looks generic. A commercial face nobody
 for gives way to the nearest free one of the same character (its geometry, x-height and width),
 and the user is told which.
 
-When the product has none yet: a neo-grotesque or geometric sans for interface text (Inter,
-Geist, Instrument Sans, Figtree, Space Grotesk); a friendly geometric or humanist sans for a
-humanistic product; a mono beside the sans for code, ids and figures in a technical one. A
-display face, a serif among them, only for a page's headlines when the brand asks for one. One
-family, two at most.
+When the product has none yet, the type voice picks it: a neo-grotesque or geometric sans for
+interface text (Inter, Geist, Instrument Sans, Figtree, Space Grotesk); a friendly geometric or
+humanist sans for a humanistic product; a mono beside the sans for code, ids and figures in a
+technical one. A display face, a serif among them, for a page's headlines when the brand asks for
+one; a serif for interface text only when the user asked for it. One family, two at most.
 
 ## Colour by role
 
@@ -26,8 +26,9 @@ card, popover, muted and muted-foreground, border, input, ring, primary and prim
 secondary, destructive and destructive-foreground, and the chart colours. A palette (`blue-50`
 to `blue-950`) sits beneath them; a role points at a step of it, and screens never name the steps.
 
-- **Neutrals** are neutral or warm: white, a warm off-white, stone. Never blue-grey: a blue-grey
-  scale makes every screen cold and generic.
+- **Neutrals** follow the temperature: warm (a warm off-white, stone), neutral (white, a true
+  grey), or cool (slate, zinc) only when the user asked for a cool, clinical feel. Unasked, a
+  blue-grey scale makes every screen cold and generic.
 - **Text**: the foreground is near-black, `15:1` or more against its background; a deep brand ink
   (navy, forest green) counts when it computes to that. Muted sits as light as legibility allows,
   about `4.5–5.5:1`; darker than about `6:1`, the two levels blur.
@@ -77,8 +78,8 @@ humanistic one.
 
 ## Radius and borders
 
-The character gives the radius: `4–8px` for a technical product, `12–20px` for a humanistic one,
-the brand's own for an expressive page. One family by element size: small (a badge, a checkbox),
+The shape gives the radius: sharp `2–6px`, soft `6–10px` (a technical product `4–8px`), round
+`12–20px` (a humanistic one), the brand's own for an expressive page. One family by element size: small (a badge, a checkbox),
 default (buttons, fields), large (cards, dialogs, quiet surfaces), full (avatars, pills). Buttons
 and fields share the default.
 
@@ -120,15 +121,16 @@ prose at about `65ch`. Breakpoints the product supports, mobile first.
 | You see | Fix |
 | --- | --- |
 | A font named in the tokens and not loaded | Load it, or the nearest free face, and say which |
-| A serif for interface text | A sans, or a mono for a technical product |
-| A blue-grey neutral scale | A neutral or warm one |
+| A serif for interface text the user did not ask for | A sans, or a mono for a technical product |
+| A blue-grey neutral scale where the character is not cool | A neutral or warm one |
+| A dial chosen here that the user's words contradict | The user's word |
 | A foreground below `15:1`, or a muted text darker than `6:1` | Move them until they compute, in every theme |
 | A role with no foreground pair | Add the pair |
 | Two categories, or a category and the primary, within `30°` | Move one |
 | A field label and control text in one style, or control text bold | Field label `600`; control text `500` |
 | Text styles for sizes the product never uses | Remove them |
 | Spacing steps of `13`, `18` or other values off the base | The nearest step of the scale |
-| A radius that contradicts the character, or buttons and fields with different radii | The character's radius; one default for both |
+| A radius that contradicts the shape, or buttons and fields with different radii | The shape's radius; one default for both |
 | Shadows on cards in a technical product | Flat cards with a border |
 | A raised surface darker than the page in the dark theme | Lighter as it rises |
 | Icons from two sets, or a size the scale does not list | One set; the listed sizes |

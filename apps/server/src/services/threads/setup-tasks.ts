@@ -100,9 +100,11 @@ ${ways.proposeWith}
    - Type: the sizes in use made a scale, the weights in use, and the text styles (headings, body,
  captions, labels).
    - Radii, shadows and the z-index layers: the few in use, on Tailwind's names (radius-md, shadow-lg).
-3. Put the decisions to the user ${ways.askUser}, a few questions at a time: the brand colour,
-   which near-duplicates are one colour, what to call them, the base of the scale. Give the values
-   (hex, px) in the options and your choice first. Wait for the answers.
+3. Put the decisions to the user ${ways.askUser}, a few questions at a time: how the product
+   should feel (who it is for, the feel, a product it should feel like; your reading of the code
+   first, theirs to correct), the brand colour, which near-duplicates are one colour, what to call
+   them, the base of the scale. Give the values (hex, px) in the options and your choice first.
+   Wait for the answers.
 4. Write the tokens into the stylesheet the code's tokens are in (${stylesheets}) as @theme variables:
    --color-*, --spacing, --text-*, --font-weight-*, --radius-*, --shadow-*. Keep what it has. A
    colour that changes with the theme is a custom property set in :root and .dark and named in
