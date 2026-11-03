@@ -217,10 +217,9 @@ export const newPage = async () => {
   if (!ensureEditable()) {
     return;
   }
+  // A page is drawn first; a URL is the prototype's business, given when a link needs one.
   const name = await promptDialog({
     confirmLabel: "Create",
-    description:
-      "Give it a URL in the Pages panel of the prototype when a link should lead to it.",
     placeholder: "Billing settings",
     title: "New page",
   });
