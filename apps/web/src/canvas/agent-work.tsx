@@ -100,19 +100,19 @@ const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
   let detail: ReactNode = null;
   if (work.done) {
     detail = (
-      <span className="flex items-center gap-0.5 font-normal opacity-90">
+      <span className="flex items-center gap-0.5 text-agent-foreground/85">
         <Check className="size-3" />
         Changed
       </span>
     );
   } else if (work.action) {
     detail = (
-      <span className="truncate font-normal opacity-85">· {work.action}</span>
+      <span className="truncate text-agent-foreground/85">· {work.action}</span>
     );
   }
   return (
     <button
-      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-[5px] bg-agent px-1.5 font-body font-semibold text-agent-foreground leading-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-sm bg-agent px-1.5 font-caption text-agent-foreground outline-none focus-visible:underline"
       onClick={() => showLeftPanel({ chat: threadId })}
       onContextMenu={(e) => openMenuAt(e, { kind: "thread", threadId })}
       style={{

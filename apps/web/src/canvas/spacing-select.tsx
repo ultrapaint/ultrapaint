@@ -1,13 +1,11 @@
 /**
- * The toolbar's padding and margin: a select that reads the padding, and a popover of the design
- * sidebar's own fields. Each row has a horizontal and a vertical field, or one per side once its
- * button opens it; ⌘-click picks several fields and the value chosen goes to all of them.
+ * The toolbar's padding and margin: a trigger that reads them as the classes they write
+ * (`px-4 py-2`), and a popover of the inspector's own Spacing section.
  */
-import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, Padding } from "@ultrapaint/contracts/document";
-import { cn } from "cn";
+import { spacingBasePx } from "@ultrapaint/contracts/token-table";
 import { ChevronDown } from "lucide-react";
-import { Fragment, type SyntheticEvent, useContext, useState } from "react";
+import { useContext } from "react";
 import {
   Popover,
   PopoverContent,
@@ -19,189 +17,115 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SidesIcon } from "../components/sides-icon.tsx";
-import { displayOf, ValueField } from "../components/value-field.tsx";
 import { updateNodesWith } from "../lib/node-actions.ts";
-import { labelOf, sharedValue } from "../lib/shared-value.ts";
+import { MIXED_LABEL, sharedValue } from "../lib/shared-value.ts";
+import { sidesOf, withSides } from "../lib/sides.ts";
 import {
-  axesSplit,
-  type Side,
-  sharedSide,
-  sidesLabel,
-  withSides,
-} from "../lib/sides.ts";
-import { useTokenOptions } from "../lib/token-options.tsx";
+  type SpacingField,
+  SpacingSection,
+  type WriteSides,
+} from "../panels/inspector-layout.tsx";
+import { useDesignSystem } from "../state/design-system.ts";
+import { classValue, TRIGGER_CLASS } from "./element-toolbar-selects.tsx";
 import { Targets, useTargetNodes } from "./toolbar-targets.ts";
-
-type SpacingField = "padding" | "margin";
-
-/** One field of a row: the sides it sets and what its tooltip calls them. */
-interface Part {
-  readonly key: string;
-  readonly name: string;
-  readonly sides: readonly Side[];
-}
-
-const AXES: readonly Part[] = [
-  { key: "x", name: "left and right", sides: ["left", "right"] },
-  { key: "y", name: "top and bottom", sides: ["top", "bottom"] },
-];
-/** Top and right, then bottom and left, as the inspector lays them. */
-const FOUR: readonly Part[] = [
-  { key: "top", name: "top", sides: ["top"] },
-  { key: "right", name: "right", sides: ["right"] },
-  { key: "bottom", name: "bottom", sides: ["bottom"] },
-  { key: "left", name: "left", sides: ["left"] },
-];
 
 const fieldOf = (node: DesignNode, field: SpacingField) =>
   node[field] as Padding | undefined;
 
-/** ⌘ on a Mac, Ctrl elsewhere: the key that adds to a pick. */
-const adds = (e: SyntheticEvent) => {
-  const native = e.nativeEvent as MouseEvent;
-  return native.metaKey || native.ctrlKey;
+/**
+ * A padding or margin as Tailwind writes it: `p-4` for every side, `px-4 py-2` for the axes,
+ * else a class per side that is set. Null when no side is.
+ */
+export const spacingClasses = (
+  value: Padding | undefined,
+  prefix: "p" | "m",
+  spacingBase: number
+): string | null => {
+  const s = sidesOf(value);
+  const of = (v: string | number | undefined) =>
+    v === undefined ? undefined : classValue(v, spacingBase, true);
+  const [top, right, bottom, left] = [s.top, s.right, s.bottom, s.left].map(of);
+  if ([top, right, bottom, left].every((v) => v === undefined)) {
+    return null;
+  }
+  if (top === right && top === bottom && top === left) {
+    return `${prefix}-${top}`;
+  }
+  if (left === right && top === bottom) {
+    return [
+      left === undefined ? null : `${prefix}x-${left}`,
+      top === undefined ? null : `${prefix}y-${top}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  return (
+    [
+      ["t", top],
+      ["r", right],
+      ["b", bottom],
+      ["l", left],
+    ] as const
+  )
+    .filter(([, v]) => v !== undefined)
+    .map(([side, v]) => `${prefix}${side}-${v}`)
+    .join(" ");
 };
 
-const SidesRow = ({
-  field,
-  nodes,
-  title,
-}: {
-  field: SpacingField;
-  nodes: readonly DesignNode[];
-  title: string;
-}) => {
+export const SpacingSelect = () => {
   const targets = useContext(Targets);
-  const spacing = useTokenOptions("spacing");
-  const values = nodes.map((n) => fieldOf(n, field));
-  // A row opens with four fields when two of them could not show what is set.
-  const [four, setFour] = useState(() => values.some(axesSplit));
-  const [picked, setPicked] = useState<readonly string[]>([]);
-  const parts = four ? FOUR : AXES;
-
-  const onPick = (part: Part) => (value: JsonValue) => {
-    const chosen = picked.includes(part.key)
-      ? parts.filter((p) => picked.includes(p.key))
-      : [part];
-    const sides = chosen.flatMap((p) => p.sides);
-    setPicked([]);
+  const nodes = useTargetNodes();
+  const base = spacingBasePx(
+    useDesignSystem((s) => s.designSystem?.spacing.base)
+  );
+  const written = sharedValue(
+    nodes.map((n) =>
+      [
+        spacingClasses(fieldOf(n, "padding"), "p", base),
+        spacingClasses(fieldOf(n, "margin"), "m", base),
+      ]
+        .filter(Boolean)
+        .join(" ")
+    )
+  );
+  let label = "p-0";
+  if (typeof written === "string" && written !== "") {
+    label = written;
+  } else if (written !== undefined && written !== "") {
+    label = MIXED_LABEL;
+  }
+  const write: WriteSides = (field, sides, value) =>
     updateNodesWith(
       targets,
       (node) => ({ [field]: withSides(fieldOf(node, field), sides, value) }),
       `Change the ${field}`
     );
-  };
-  // Runs before the field's own handlers, so a ⌘-click picks it instead of opening it.
-  const onAdd = (part: Part) => (e: SyntheticEvent) => {
-    if (!adds(e)) {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "pointerdown") {
-      setPicked((p) =>
-        p.includes(part.key)
-          ? p.filter((k) => k !== part.key)
-          : [...p, part.key]
-      );
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-heading-xsmall text-muted-foreground">{title}</span>
-      <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
-        {parts.map((part, i) => {
-          const shared = sharedSide(values, part.sides);
-          return (
-            <Fragment key={part.key}>
-              <div
-                className={cn(
-                  "flex min-w-0 rounded-md",
-                  picked.includes(part.key) &&
-                    "ring-2 ring-brand ring-offset-1 ring-offset-popover"
-                )}
-                data-picked={picked.includes(part.key) || undefined}
-                onClickCapture={onAdd(part)}
-                onMouseDownCapture={onAdd(part)}
-                onPointerDownCapture={onAdd(part)}
-              >
-                <ValueField
-                  leading={
-                    <SidesIcon className="text-foreground" lit={part.sides} />
-                  }
-                  onChange={onPick(part)}
-                  options={spacing}
-                  placeholder={shared.mixed ? "Mixed" : "0"}
-                  title={`${title}, ${part.name}`}
-                  value={shared.value}
-                />
-              </div>
-              {i === 1 ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        aria-label={`${title} on each side`}
-                        aria-pressed={four}
-                        className={cn(
-                          "flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
-                          four && "bg-muted text-foreground"
-                        )}
-                        onClick={() => {
-                          setFour(!four);
-                          setPicked([]);
-                        }}
-                        type="button"
-                      />
-                    }
-                  >
-                    <SidesIcon lit="all" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {four ? "Horizontal and vertical" : "Each side"}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              {i === 3 ? <span /> : null}
-            </Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-export const SpacingSelect = () => {
-  const nodes = useTargetNodes();
-  const label = labelOf(
-    sharedValue(nodes.map((n) => sidesLabel(fieldOf(n, "padding"), displayOf))),
-    "0"
-  );
   return (
     <Popover>
       <Tooltip>
         <TooltipTrigger
           render={
             <PopoverTrigger
-              render={
-                <button
-                  className="flex h-7 max-w-44 items-center gap-1.5 rounded-md px-2 font-body outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
-                  type="button"
-                />
-              }
+              render={<button className={TRIGGER_CLASS} type="button" />}
             />
           }
         >
-          <SidesIcon className="text-muted-foreground" lit="all" />
-          <span className="truncate font-medium">{label}</span>
-          <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+          <SidesIcon className="size-4 text-muted-foreground" lit="all" />
+          <span
+            className={
+              written === "" || written === undefined
+                ? "truncate font-code text-muted-foreground"
+                : "truncate font-code"
+            }
+          >
+            {label}
+          </span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </TooltipTrigger>
         <TooltipContent>Padding and margin</TooltipContent>
       </Tooltip>
-      <PopoverContent align="start" className="w-60 gap-3">
-        <SidesRow field="padding" nodes={nodes} title="Padding" />
-        <SidesRow field="margin" nodes={nodes} title="Margin" />
+      <PopoverContent align="start" className="w-72 gap-0 p-0">
+        <SpacingSection nodes={nodes} write={write} />
       </PopoverContent>
     </Popover>
   );

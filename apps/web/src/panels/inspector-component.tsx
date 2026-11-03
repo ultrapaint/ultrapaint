@@ -31,12 +31,18 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { promptDialog } from "../components/dialogs.tsx";
-import { Row, Section } from "../components/panel.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { reportError } from "../state/project.ts";
+import { Row, Section } from "./inspector-fields.tsx";
 
 /**
  * Changes the component's file on the server, as it is there now (ADR 0042); what the server
@@ -155,7 +161,6 @@ const DefaultField = ({
   return (
     <Input
       aria-label={`${property.name} when not set`}
-      className="h-7"
       defaultValue={String(property.default ?? "")}
       key={String(property.default)}
       onBlur={(e) => {
@@ -200,11 +205,11 @@ export const PropertyRow = ({
     });
   };
   return (
-    <div className="flex flex-col gap-1 rounded-md border px-2 py-1.5">
+    <div className="flex flex-col gap-1 rounded-lg border p-1.5">
       <div className="flex items-center gap-1">
         <Input
-          aria-label="The property's name"
-          className="h-7 min-w-0 flex-1"
+          aria-label="Property name"
+          className="min-w-0 flex-1 font-label"
           onBlur={rename}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -214,25 +219,23 @@ export const PropertyRow = ({
           }}
           value={name}
         />
-        <span className="shrink-0 font-body text-muted-foreground">
+        <span className="shrink-0 px-1 font-small text-muted-foreground">
           {KINDS.find((k) => k.kind === property.kind)?.label}
         </span>
-        <Button
-          aria-label={`Take ${property.name} out`}
+        <IconButton
+          className="text-muted-foreground"
           onClick={() =>
             changeFile(file, { name: property.name, op: "removeProperty" })
           }
-          size="icon-xs"
-          variant="ghost"
+          tooltip={`Remove ${property.name}`}
         >
           <X />
-        </Button>
+        </IconButton>
       </div>
       {property.kind === "choice" ? (
         <Row label="Members">
           <Input
-            aria-label={`${property.name}'s members`}
-            className="h-7"
+            aria-label={`${property.name}’s members`}
             defaultValue={(property.members ?? []).join(", ")}
             key={(property.members ?? []).join(",")}
             onBlur={(e) => {
@@ -259,12 +262,29 @@ export const PropertyRow = ({
           property={property}
         />
       </Row>
-      <span className="font-body text-muted-foreground">
+      <span className="px-0.5 font-small text-muted-foreground">
         {whatItSets(property)}
       </span>
     </div>
   );
 };
+
+/** The + that adds a property, in a dropdown of the kinds. */
+export const AddPropertyTrigger = () => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <DropdownMenuTrigger
+          aria-label="Add a property"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-expanded:bg-accent aria-expanded:text-foreground"
+        />
+      }
+    >
+      <Plus className="size-3.5" />
+    </TooltipTrigger>
+    <TooltipContent>Add a property</TooltipContent>
+  </Tooltip>
+);
 
 /** A field of the node selected that a property can set. */
 interface Exposable {
@@ -443,22 +463,21 @@ const NodeSection = ({
           >
             {property ? (
               <>
-                <span className="min-w-0 flex-1 truncate font-body">
+                <span className="min-w-0 flex-1 truncate px-2 font-body">
                   {property.name}
                 </span>
-                <Button
-                  aria-label={`Stop ${property.name} setting it`}
+                <IconButton
+                  className="text-muted-foreground"
                   onClick={() => unbind(file, property, field)}
-                  size="icon-xs"
-                  variant="ghost"
+                  tooltip={`Stop ${property.name} setting it`}
                 >
                   <X />
-                </Button>
+                </IconButton>
               </>
             ) : (
               <Button
                 onClick={() => expose(file, field)}
-                size="xs"
+                size="sm"
                 variant="outline"
               >
                 Expose as property
@@ -469,16 +488,18 @@ const NodeSection = ({
       })}
       {isContainer(node) && !slot ? (
         <Row label="Slot">
-          <Button onClick={makeSlot} size="xs" variant="outline">
-            Make this a slot
+          <Button onClick={makeSlot} size="sm" variant="outline">
+            Make slot
           </Button>
         </Row>
       ) : null}
       {slot ? (
         <Row label="Slot">
-          <span className="min-w-0 flex-1 truncate font-body">{slot.name}</span>
+          <span className="min-w-0 flex-1 truncate px-2 font-body">
+            {slot.name}
+          </span>
           {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button */}
-          <label className="flex shrink-0 items-center gap-1 font-body text-muted-foreground">
+          <label className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground">
             <Checkbox
               checked={slot.default === true}
               onCheckedChange={(checked) =>
@@ -488,18 +509,17 @@ const NodeSection = ({
                 })
               }
             />
-            default
+            Default
           </label>
-          <Button
-            aria-label={`Take the slot ${slot.name} out`}
+          <IconButton
+            className="text-muted-foreground"
             onClick={() =>
               changeFile(file, { name: slot.name, op: "removeSlot" })
             }
-            size="icon-xs"
-            variant="ghost"
+            tooltip={`Remove the slot ${slot.name}`}
           >
             <X />
-          </Button>
+          </IconButton>
         </Row>
       ) : null}
     </Section>
@@ -529,15 +549,9 @@ export const IsolatedComponent = ({
   return (
     <>
       <Section
-        actions={
+        action={
           <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Add a property"
-              className="flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground"
-              title="Add a property"
-            >
-              <Plus className="size-3.5" />
-            </DropdownMenuTrigger>
+            <AddPropertyTrigger />
             <DropdownMenuContent align="end">
               {KINDS.map(({ kind, label }) => (
                 <DropdownMenuItem
@@ -555,10 +569,10 @@ export const IsolatedComponent = ({
             </DropdownMenuContent>
           </DropdownMenu>
         }
-        title={`${file.name}'s properties`}
+        title={`${file.name}’s properties`}
       >
         {file.properties.length === 0 ? (
-          <p className="font-body text-muted-foreground">
+          <p className="font-small text-muted-foreground">
             What an instance sets. Expose a field of a node below, or add one.
           </p>
         ) : (

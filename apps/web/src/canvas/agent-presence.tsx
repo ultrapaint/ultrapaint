@@ -43,23 +43,23 @@ export const FramePresence = ({
     <>
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ outline: `${screenPx(2)} solid ${here.color}` }}
+        style={{ outline: `${screenPx(2)} solid var(--agent)` }}
       />
       {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
       <div
-        className="absolute right-0 flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded px-1.5 py-0.5 font-body font-medium text-white"
+        className="absolute right-0 flex h-5 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-sm bg-agent px-1.5 font-caption text-agent-foreground"
         onContextMenu={(e) =>
           openMenuAt(e, { kind: "thread", threadId: here.threadId })
         }
         style={{
-          backgroundColor: here.color,
+          // On the header's line, beside the page's name: half the page's width at most.
           bottom: `calc(100% + ${screenPx(6)})`,
-          maxWidth: onScreen(width),
+          maxWidth: onScreen(width / 2),
           transform: UNZOOM,
           transformOrigin: "bottom right",
         }}
       >
-        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-white/90" />
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-agent-foreground motion-reduce:animate-none" />
         <span className="min-w-0 truncate">
           {name} · {VERBS[here.action]}
         </span>

@@ -1,8 +1,8 @@
 /**
  * Design system's Color (ADR 0045): a board per theme, side by side, each drawn in its theme.
- * Every palette is its ramp, 50 to 950, over a gradient strip; a group that is no ramp (the
- * semantic colours) its named swatches; and under them the usual pairs of a foreground on its
- * background with their WCAG contrast ratio and grade. A swatch is named for its token and a
+ * Every palette is its ramp, 50 to 950, each shade over its step; a group that is no ramp (the
+ * semantic colours) its swatches, each with its name and its value in the theme; and under them
+ * the usual pairs of a foreground on its background with their WCAG contrast ratio and grade. A swatch is named for its token and a
  * group's title for the group, so a click picks one. Pure.
  */
 import {
@@ -11,17 +11,26 @@ import {
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import {
-  isDarkTheme,
-  themesOf,
-  valueInTheme,
-} from "@ultrapaint/contracts/themes";
+import { themesOf, valueInTheme } from "@ultrapaint/contracts/themes";
 import { shortName } from "@ultrapaint/contracts/token-table";
-import { contrastRatio } from "@ultrapaint/contracts/token-value";
+import {
+  contrastRatio,
+  hexOf,
+  parseColor,
+} from "@ultrapaint/contracts/token-value";
 import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
-import { label, MONO, sheet, text } from "./board-nodes.ts";
+import {
+  code,
+  label,
+  nameText,
+  RULE,
+  ruled,
+  sheet,
+  text,
+  WELL,
+} from "./board-nodes.ts";
 import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
@@ -48,77 +57,113 @@ const neutralDesignSystem = (): DesignSystem => ({
 export const isRamp = (group: Pick<TokenGroup, "tokens">): boolean =>
   group.tokens.length >= 3 && group.tokens.every((t) => shadeOf(t.name));
 
-const edge = (dark: boolean) => (dark ? "#ffffff1f" : "#0000001a");
+/** The board's width: three swatches a row. */
+const BOARD_WIDTH = 540;
+/** A swatch's width: a third of the board's row, less its gaps. */
+const SWATCH = 148;
 
-/** A shade of a ramp: an even share of the row, named for its token. */
-const shade = (name: string, dark: boolean): DesignNode => ({
-  border: { color: edge(dark), width: 1 },
-  children: [],
-  fill: tokenRef(name),
-  height: 28,
-  id: pickId({ kind: "token", name }),
-  radius: 4,
-  type: "group",
-  width: "fill",
-});
+const REFERENCE = /^var\(--([\w-]+)\)$/;
 
-/** A swatch's width: four to a row of the board. */
-const SWATCH = 52;
+/**
+ * A colour's value as a swatch says it in a theme: another token it names, by its short name, or
+ * the colour it comes to, in hex.
+ */
+const shownValue = (ds: DesignSystem, name: string, theme: string): string => {
+  const own = valueInTheme(ds, name, theme)?.trim() ?? "";
+  if (REFERENCE.test(own)) {
+    // `var(--color-blue-500)`: the name between `var(--` and `)`.
+    return `→ ${shortName(own.slice("var(--".length, -1))}`;
+  }
+  const followed = valueInTheme(ds, name, theme, { follow: true });
+  const color = followed ? parseColor(followed) : null;
+  return color ? hexOf(color) : own;
+};
 
-/** A colour that is no step, with its name under it. */
-const swatch = (name: string, dark: boolean): DesignNode => ({
+/** A shade of a ramp: an even share of the row, its step under it, named for its token. */
+const shade = (name: string): DesignNode => ({
   children: [
     {
-      border: { color: edge(dark), width: 1 },
+      border: { color: RULE, width: 1 },
       children: [],
       fill: tokenRef(name),
-      height: 36,
+      height: 40,
       id: `fill:${name}`,
       radius: 6,
       type: "group",
-      width: SWATCH,
+      width: "fill",
     },
-    label(`name:${name}`, shortName(name), 10),
+    code(`step:${name}`, String(shadeOf(name)?.step ?? shortName(name)), 10.5, {
+      align: "center",
+      width: "fill",
+    }),
   ],
-  gap: 4,
+  gap: 6,
+  id: pickId({ kind: "token", name }),
+  type: "column",
+  width: "fill",
+});
+
+/** A colour that is no step: its fill, then its name and its value in the board's theme. */
+const swatch = (ds: DesignSystem, name: string, theme: string): DesignNode => ({
+  children: [
+    {
+      border: { color: RULE, width: 1 },
+      children: [],
+      fill: tokenRef(name),
+      height: 56,
+      id: `fill:${name}`,
+      radius: 8,
+      type: "group",
+      width: "fill",
+    },
+    {
+      children: [
+        label(`name:${name}`, shortName(name), 12, {
+          color: "currentColor",
+          weight: 500,
+          width: "fill",
+        }),
+        code(`value:${name}`, shownValue(ds, name, theme), 11),
+      ],
+      id: `about:${name}`,
+      type: "column",
+      width: "fill",
+    },
+  ],
+  gap: 8,
   id: pickId({ kind: "token", name }),
   type: "column",
   width: SWATCH,
 });
 
-/** A group: its title, then its ramp over a gradient strip, or its swatches. */
+/** A group: its title, then its ramp, every shade over its step, or its swatches. */
 const groupNode = (
+  ds: DesignSystem,
   group: TokenGroup,
   names: readonly string[],
-  dark: boolean
+  theme: string
 ): DesignNode => {
-  const title = label(
+  const title = nameText(
     pickId({ kind: "group", name: group.name }),
     group.name,
-    11
+    14,
+    {
+      weight: 600,
+    }
   );
   if (isRamp(group)) {
     return {
       children: [
         title,
         {
-          children: names.map((n) => shade(n, dark)),
-          gap: 3,
+          children: names.map(shade),
+          gap: 4,
           id: `ramp:${group.name}`,
           type: "row",
           width: "fill",
         },
-        {
-          children: [],
-          fill: `linear-gradient(to right, ${group.tokens.map((t) => `var(--${t.name})`).join(", ")})`,
-          height: 5,
-          id: `strip:${group.name}`,
-          radius: 3,
-          type: "group",
-          width: "fill",
-        },
       ],
-      gap: 6,
+      gap: 12,
       id: `palette:${group.name}`,
       type: "column",
       width: "fill",
@@ -128,15 +173,15 @@ const groupNode = (
     children: [
       title,
       {
-        children: names.map((n) => swatch(n, dark)),
-        gap: 8,
+        children: names.map((n) => swatch(ds, n, theme)),
+        gap: 16,
         id: `swatches:${group.name}`,
         type: "row",
         width: "fill",
         wrap: true,
       },
     ],
-    gap: 6,
+    gap: 12,
     id: `palette:${group.name}`,
     type: "column",
     width: "fill",
@@ -182,17 +227,18 @@ export const contrastPairs = (
   });
 };
 
-const GRADE_COLORS: Readonly<
-  Record<ReturnType<typeof gradeOf>, readonly [string, string, string, string]>
-> = {
-  // Light fill, light text, dark fill, dark text.
-  AA: ["#dcfce7", "#166534", "#14532d", "#bbf7d0"],
-  "AA large": ["#fef3c7", "#92400e", "#78350f", "#fde68a"],
-  AAA: ["#dcfce7", "#166534", "#14532d", "#bbf7d0"],
-  Fails: ["#fee2e2", "#991b1b", "#7f1d1d", "#fecaca"],
+/** The dot beside a grade: passing, passing for large text only, failing. */
+const GRADE_DOTS: Readonly<Record<ReturnType<typeof gradeOf>, string>> = {
+  AA: "#22a35a",
+  "AA large": "#d99a12",
+  AAA: "#22a35a",
+  Fails: "#e5484d",
 };
 
-/** A pair: the background with "Aa" in the foreground, their names, the ratio and its grade. */
+/**
+ * A pair: the background with "Aa" in the foreground, their names, the ratio, and its grade in
+ * a neutral badge with a dot that says whether it passes.
+ */
 const pairNode = (
   ds: DesignSystem,
   [fg, bg]: readonly [string, string],
@@ -205,66 +251,78 @@ const pairNode = (
     return null;
   }
   const grade = gradeOf(ratio);
-  const dark = isDarkTheme(theme);
-  const [fill, color] = dark
-    ? [GRADE_COLORS[grade][2], GRADE_COLORS[grade][3]]
-    : [GRADE_COLORS[grade][0], GRADE_COLORS[grade][1]];
   const id = `${fg}:${bg}`;
   return {
     children: [
       {
         align: "center",
-        border: { color: edge(dark), width: 1 },
+        border: { color: RULE, width: 1 },
         children: [
-          text(`aa:${id}`, "Aa", 12, { color: tokenRef(fg), weight: 600 }),
+          text(`aa:${id}`, "Aa", 13, { color: tokenRef(fg), weight: 600 }),
         ],
         crossAlign: "center",
         fill: tokenRef(bg),
-        height: 30,
+        height: 32,
         id: `tile:${id}`,
         radius: 6,
         type: "row",
-        width: 30,
+        width: 32,
       },
       {
         children: [
-          text(`fg:${id}`, shortName(fg), 12),
-          label(`bg:${id}`, `on ${shortName(bg)}`, 11),
+          label(`fg:${id}`, shortName(fg), 12, {
+            color: "currentColor",
+            weight: 500,
+          }),
+          label(`bg:${id}`, `on ${shortName(bg)}`, 12),
         ],
         id: `names:${id}`,
         type: "column",
         width: "fill",
       },
-      text(`ratio:${id}`, ratio.toFixed(1), 12, { font: MONO }),
+      code(`ratio:${id}`, `${ratio.toFixed(1)}:1`, 12, {
+        color: "currentColor",
+      }),
       {
-        align: "center",
-        children: [text(`grade:${id}`, grade, 10, { color, weight: 600 })],
-        fill,
+        children: [
+          {
+            children: [],
+            fill: GRADE_DOTS[grade],
+            height: 6,
+            id: `dot:${id}`,
+            radius: 3,
+            type: "group",
+            width: 6,
+          },
+          label(`grade:${id}`, grade, 11, {
+            color: "currentColor",
+            weight: 500,
+          }),
+        ],
+        crossAlign: "center",
+        fill: WELL,
+        gap: 6,
         id: `chip:${id}`,
-        padding: { bottom: 2, top: 2 },
+        padding: { bottom: 2, left: 8, right: 8, top: 2 },
         radius: 999,
         type: "row",
-        width: 52,
+        width: 84,
       },
     ],
     crossAlign: "center",
-    gap: 8,
+    gap: 12,
     id: `pair:${id}`,
     type: "row",
     width: "fill",
   };
 };
 
-const BOARD_WIDTH = 290;
-
-/** A theme's board: the steps' scale, every group, the contrast pairs. */
+/** A theme's board: every group, then the contrast pairs. */
 const themeBoard = (
   ds: DesignSystem,
   theme: string,
   groups: readonly { group: TokenGroup; names: readonly string[] }[]
 ): DesignNode => {
-  const dark = isDarkTheme(theme);
-  const ramps = groups.some((g) => isRamp(g.group));
   const names = new Set(ds.colors.flatMap((g) => g.tokens.map((t) => t.name)));
   const pairs = contrastPairs(names).flatMap((pair) => {
     const node = pairNode(ds, pair, theme);
@@ -273,28 +331,16 @@ const themeBoard = (
   return sheet(
     `colors-${theme}`,
     [
-      ...(ramps
-        ? [
-            {
-              align: "between" as const,
-              children: ["50", "500", "950"].map((step) =>
-                label(`step-${step}`, step, 10, { font: MONO })
-              ),
-              id: "steps",
-              type: "row" as const,
-              width: "fill" as const,
-            },
-          ]
-        : []),
-      ...groups.map((g) => groupNode(g.group, g.names, dark)),
+      ...groups.map((g) => groupNode(ds, g.group, g.names, theme)),
       ...(pairs.length > 0
         ? [
             {
-              border: { color: edge(dark), width: "1px 0 0 0" },
-              children: [label("contrast-title", "Contrast", 11), ...pairs],
-              gap: 10,
+              children: [
+                nameText("contrast-title", "Contrast", 14, { weight: 600 }),
+                ...ruled(pairs, 8),
+              ],
+              gap: 12,
               id: "contrast",
-              padding: { top: 16 },
               type: "column" as const,
               width: "fill" as const,
             },
@@ -302,7 +348,7 @@ const themeBoard = (
         : []),
     ],
     BOARD_WIDTH,
-    16
+    40
   );
 };
 

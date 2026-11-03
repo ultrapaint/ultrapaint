@@ -52,20 +52,29 @@ export const Row = ({
 );
 
 export const PanelEmpty = ({
+  action,
   icon,
   title,
   children,
 }: {
+  /** The one thing to do about it, under the sentence. */
+  action?: React.ReactNode;
   icon?: React.ReactNode;
   /** What is missing, in a few words over the sentence that says what to do. */
   title?: string;
   children: React.ReactNode;
 }) => (
-  <Empty className="h-full">
-    <EmptyHeader>
-      {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}
-      {title ? <EmptyTitle>{title}</EmptyTitle> : null}
-      <EmptyDescription>{children}</EmptyDescription>
+  // A muted icon, a one-line title, one muted sentence, one action (DESIGN.md, Components).
+  <Empty className="h-full gap-3 p-4">
+    <EmptyHeader className="max-w-60">
+      {icon ? (
+        <EmptyMedia className="mb-1 text-muted-foreground [&_svg:not([class*='size-'])]:size-5">
+          {icon}
+        </EmptyMedia>
+      ) : null}
+      {title ? <EmptyTitle className="font-label">{title}</EmptyTitle> : null}
+      <EmptyDescription className="font-small">{children}</EmptyDescription>
     </EmptyHeader>
+    {action}
   </Empty>
 );

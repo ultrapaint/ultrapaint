@@ -7,24 +7,30 @@ import { cn } from "cn";
 import {
   CircleAlert,
   ListFilter,
+  MessageSquare,
   Plus,
   Search,
-  Sparkles,
   SquareDashedMousePointer,
+  SquarePen,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AgentIcon } from "../components/agent-icon.tsx";
+import { IconButton } from "../components/icon-button.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
 import { createThread } from "../lib/start-thread.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { isUnread, useAgents } from "../state/agents.ts";
@@ -79,7 +85,7 @@ const useScopeLabel = (thread: Thread) =>
     return scope.nodeId === undefined ? where : `${scope.name} · ${where}`;
   });
 
-/** The picture of what a thread works on, or the agents' mark when it works on nothing yet. */
+/** The picture of what a thread works on, or a quiet tile when it works on nothing yet. */
 export const ScopePicture = ({
   className,
   thread,
@@ -92,8 +98,11 @@ export const ScopePicture = ({
   return (
     <span
       className={cn(
-        "relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white",
-        thread.scope?.component && "border-component/60",
+        "relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md",
+        // A design is drawn on white, as on the canvas; the hairline holds its edge on any theme.
+        picture
+          ? "bg-white outline outline-black/10 -outline-offset-1 dark:outline-white/10"
+          : "bg-muted text-muted-foreground",
         className
       )}
     >
@@ -102,15 +111,15 @@ export const ScopePicture = ({
           alt=""
           className="size-full object-cover"
           draggable={false}
-          height={48}
+          height={44}
           src={picture}
-          width={48}
+          width={44}
         />
       ) : (
-        <Sparkles className="size-4 text-zinc-400" />
+        <MessageSquare className="size-4" />
       )}
       {several ? (
-        <span className="absolute right-0.5 bottom-0.5 rounded bg-foreground/80 px-1 font-body font-semibold text-background">
+        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-caption text-background tabular-nums">
           {thread.scope?.count}
         </span>
       ) : null}
@@ -118,29 +127,21 @@ export const ScopePicture = ({
   );
 };
 
-const TONE_CLASS = {
-  attention: "text-warning",
-  failed: "text-destructive",
-  working: "text-agent",
-} as const;
-
-const Status = ({ thread }: { thread: Thread }) => {
+/** Where a thread stands, when it says something: a status mark beside its word. */
+export const ThreadStatus = ({ thread }: { thread: Thread }) => {
   const { label, tone } = threadView(thread);
   if (label === null || tone === null) {
     return null;
   }
   return (
-    <span
-      className={cn(
-        "flex shrink-0 items-center gap-1 font-medium",
-        TONE_CLASS[tone]
-      )}
-    >
-      {tone === "working" ? <Spinner className="size-3" /> : null}
+    <span className="flex shrink-0 items-center gap-1.5 font-small text-foreground">
+      {tone === "working" ? <Spinner className="size-3 text-agent" /> : null}
       {tone === "attention" ? (
         <span className="size-1.5 rounded-full bg-warning" />
       ) : null}
-      {tone === "failed" ? <CircleAlert className="size-3" /> : null}
+      {tone === "failed" ? (
+        <CircleAlert className="size-3.5 text-destructive" />
+      ) : null}
       {label}
     </span>
   );
@@ -157,41 +158,44 @@ const ThreadRow = ({
 }) => {
   const scopeLabel = useScopeLabel(thread);
   const open = () => useAgents.getState().open(thread.id);
+  const { label } = threadView(thread);
   return (
     <button
-      className="flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 py-2 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="flex w-full min-w-0 items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
       onClick={open}
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
+      title={thread.title}
       type="button"
     >
       <ScopePicture thread={thread} />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 flex-1 truncate font-heading-xsmall text-foreground">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate font-label text-foreground">
             {thread.title}
           </span>
-          {unread ? (
+          {/* What an agent did since the thread was last opened; a working one says so itself. */}
+          {unread && label === null ? (
             <span
               aria-label="Unread"
-              className="size-1.5 shrink-0 rounded-full bg-selection"
+              className="size-1.5 shrink-0 rounded-full bg-agent"
               role="img"
             />
           ) : null}
-          <span className="shrink-0 font-body text-muted-foreground">
+          <span className="shrink-0 font-small text-muted-foreground tabular-nums">
             {ago(thread.updatedAt, now)}
           </span>
         </span>
-        <span className="truncate font-body text-muted-foreground">
+        <span className="truncate font-small text-muted-foreground">
           {thread.summary?.text || "Nothing sent yet"}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 pt-0.5 font-body">
+        <span className="flex min-w-0 items-center gap-1.5 font-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-muted-foreground/80">
-            {scopeLabel ?? "No scope"}
+          <span className="min-w-0 flex-1 truncate">
+            {scopeLabel ?? "Nothing attached"}
           </span>
-          <Status thread={thread} />
+          <ThreadStatus thread={thread} />
         </span>
       </span>
     </button>
@@ -199,14 +203,14 @@ const ThreadRow = ({
 };
 
 const FILTERS: readonly { label: string; value: Filter }[] = [
-  { label: "All", value: "all" },
-  { label: "Running", value: "running" },
-  { label: "This page", value: "page" },
+  { label: "All chats", value: "all" },
+  { label: "Working", value: "running" },
+  { label: "On this page", value: "page" },
 ];
 
 /**
  * The filter, at the end of the search field: which chats the list shows, each choice with how
- * many it would. Lit while it narrows the list.
+ * many it would. Pressed while it narrows the list.
  */
 const FilterMenu = ({
   counts,
@@ -218,35 +222,38 @@ const FilterMenu = ({
   onChange: (filter: Filter) => void;
 }) => (
   <DropdownMenu>
-    <DropdownMenuTrigger
-      aria-label="Filter chats"
-      className="relative flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-background/60 data-popup-open:text-foreground"
-      title="Filter chats"
-    >
-      <ListFilter
-        className={cn("size-3.5", filter !== "all" && "text-foreground")}
-      />
-      {filter === "all" ? null : (
-        <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-brand" />
-      )}
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="w-44">
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Show</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          onValueChange={(v) => onChange(v as Filter)}
-          value={filter}
-        >
-          {FILTERS.map((f) => (
-            <DropdownMenuRadioItem closeOnClick key={f.value} value={f.value}>
-              <span className="flex-1">{f.label}</span>
-              {counts[f.value] ? (
-                <span className="text-muted-foreground">{counts[f.value]}</span>
-              ) : null}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuGroup>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <DropdownMenuTrigger
+            aria-label="Filter chats"
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent data-popup-open:text-foreground",
+              filter !== "all" && "bg-accent text-foreground"
+            )}
+          />
+        }
+      >
+        <ListFilter className="size-3.5" />
+      </TooltipTrigger>
+      <TooltipContent>Filter</TooltipContent>
+    </Tooltip>
+    <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuRadioGroup
+        onValueChange={(v) => onChange(v as Filter)}
+        value={filter}
+      >
+        {FILTERS.map((f) => (
+          <DropdownMenuRadioItem closeOnClick key={f.value} value={f.value}>
+            <span className="flex-1">{f.label}</span>
+            {counts[f.value] === undefined ? null : (
+              <span className="font-small text-muted-foreground tabular-nums">
+                {counts[f.value]}
+              </span>
+            )}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
     </DropdownMenuContent>
   </DropdownMenu>
 );
@@ -277,7 +284,7 @@ const Section = ({
 }) =>
   threads.length > 0 ? (
     <section className="flex flex-col">
-      <h3 className="px-2 pt-3 pb-1 font-heading-xsmall text-muted-foreground">
+      <h3 className="px-2 pt-3 pb-1 font-small text-muted-foreground">
         {label}
       </h3>
       {threads.map((t) => (
@@ -324,53 +331,92 @@ export const ThreadList = () => {
   const today = shown.filter((t) => isToday(t.updatedAt, now));
   const earlier = shown.filter((t) => !isToday(t.updatedAt, now));
 
+  const clear = () => {
+    setQuery("");
+    setFilter("all");
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-3">
-        <span className="flex-1 font-heading-xsmall">Chats</span>
-        <Button
-          className="h-7 gap-1 px-2 font-body"
-          onClick={() => createThread()}
-          size="sm"
-          variant="secondary"
+        <h2 className="flex-1 font-heading-xsmall">Agents</h2>
+        <IconButton onClick={() => createThread()} tooltip="New chat">
+          <SquarePen />
+        </IconButton>
+      </div>
+      {threads.length === 0 ? (
+        <PanelEmpty
+          action={
+            <Button onClick={() => createThread()}>
+              <Plus data-icon="inline-start" />
+              New chat
+            </Button>
+          }
+          icon={<SquareDashedMousePointer />}
+          title="No chats yet"
         >
-          <Plus data-icon="inline-start" />
-          New
-        </Button>
-      </div>
-      <div className="px-3 pb-1">
-        <div className="flex h-7.5 items-center gap-1.5 rounded-md bg-muted pr-0.5 pl-2 text-muted-foreground has-[input:focus]:ring-2 has-[input:focus]:ring-ring/50">
-          <label className="flex min-w-0 flex-1 items-center gap-1.5">
-            <Search className="size-3.5 shrink-0" />
-            <input
-              aria-label="Search chats"
-              className="min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search chats"
-              value={query}
-            />
-          </label>
-          <FilterMenu
-            counts={{ page: onPage, running }}
-            filter={filter}
-            onChange={setFilter}
-          />
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-3">
-        {shown.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-6 pt-16 text-center text-muted-foreground">
-            <SquareDashedMousePointer className="size-5" />
-            <p>
-              {threads.length === 0
-                ? "Select something on the canvas and add it to the chat, or start a new chat."
-                : "No chat matches."}
-            </p>
+          Select something on the canvas and add it to a chat, or start one and
+          say what to make.
+        </PanelEmpty>
+      ) : (
+        <>
+          <div className="px-2 pb-1">
+            <div className="flex h-7 items-center gap-1.5 rounded-md border border-transparent bg-muted pr-0.5 pl-2 text-muted-foreground transition-colors duration-100 hover:border-input has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring/25">
+              <label className="flex min-w-0 flex-1 items-center gap-1.5">
+                <Search className="size-3.5 shrink-0" />
+                <input
+                  aria-label="Search chats"
+                  className="min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && query) {
+                      e.stopPropagation();
+                      setQuery("");
+                    }
+                  }}
+                  placeholder="Search chats"
+                  value={query}
+                />
+              </label>
+              <FilterMenu
+                counts={{ all: threads.length, page: onPage, running }}
+                filter={filter}
+                onChange={setFilter}
+              />
+            </div>
           </div>
-        ) : null}
-        <Section label="Today" now={now} seen={seen} threads={today} />
-        <Section label="Earlier" now={now} seen={seen} threads={earlier} />
-      </div>
+          <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
+            {shown.length === 0 ? (
+              <PanelEmpty
+                action={
+                  <Button onClick={clear} variant="secondary">
+                    {query ? "Clear search" : "Show all chats"}
+                  </Button>
+                }
+                icon={<Search />}
+                title="No chats found"
+              >
+                {emptyNote(filter, query.trim())}
+              </PanelEmpty>
+            ) : null}
+            <Section label="Today" now={now} seen={seen} threads={today} />
+            <Section label="Earlier" now={now} seen={seen} threads={earlier} />
+          </div>
+        </>
+      )}
     </div>
   );
+};
+
+/** Why the list is empty, in the words of the search and the filter. */
+const emptyNote = (filter: Filter, query: string) => {
+  const which = {
+    all: "chat",
+    page: "chat on this page",
+    running: "working chat",
+  }[filter];
+  if (query) {
+    return `No ${which} mentions “${query}”.`;
+  }
+  return filter === "page" ? "No chat is on this page." : "No chat is working.";
 };

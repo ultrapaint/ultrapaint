@@ -15,12 +15,7 @@ import { Canvas } from "./canvas/canvas.tsx";
 import { placedFramesDrawn } from "./canvas/editor-frame.ts";
 import { IsolationBanner } from "./canvas/isolation-banner.tsx";
 import { thePreview } from "./canvas/preview-module.ts";
-import {
-  NoUrlWarning,
-  Prototype,
-  PrototypeBar,
-  PrototypeTools,
-} from "./canvas/prototype.tsx";
+import { Prototype } from "./canvas/prototype.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
 import { provideCanvasDefaults } from "./canvas/specimens.ts";
 import { CanvasStatus } from "./canvas/status.tsx";
@@ -234,6 +229,7 @@ const leftPanels: Record<LeftTab, ComponentType> = {
 
 /** The left panels with a heading of their own. */
 const headsItself: readonly LeftTab[] = [
+  "changes",
   "chat",
   "layers",
   "designSystem",
@@ -270,10 +266,7 @@ const LeftPanel = ({
   const Active = prototype ? Pages : leftPanels[leftTab];
   return (
     <aside
-      className={cn(
-        "relative min-w-0 shrink-0",
-        hidden ? "hidden" : "flex"
-      )}
+      className={cn("relative min-w-0 shrink-0", hidden ? "hidden" : "flex")}
       style={{ width }}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
@@ -307,19 +300,8 @@ const leftCardWidth = (
   panelWidth: number
 ) => (workspace === "design" ? RAIL_WIDTH : 0) + (hidden ? 0 : panelWidth);
 
-/** The width of the prototype's column of tools, which the page it shows keeps clear of. */
-const PROTOTYPE_TOOLS = 42;
-
-/**
- * How much of the canvas the left column covers, for what floats over it to keep to the rest: its
- * card, and in the prototype the tools beside it, each with the gap after it.
- */
-const leftCoverOf = (workspace: Workspace, card: number) => {
-  const parts = [card, workspace === "prototype" ? PROTOTYPE_TOOLS : 0].filter(
-    (w) => w > 0
-  );
-  return parts.reduce((sum, w) => sum + w + EDGE, EDGE);
-};
+/** How much of the canvas the left card covers, with the gaps on either side of it. */
+const leftCoverOf = (card: number) => (card > 0 ? EDGE + card + EDGE : EDGE);
 
 /**
  * The left card: the project at its top, the canvas shown, then the rail and the left panel side
@@ -501,7 +483,7 @@ const SettingsDialog = () => {
       open={open}
     >
       <DialogContent
-        className="flex h-[min(100%-4rem,60rem)] w-[min(100%-4rem,84rem)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="flex h-[min(100%-4rem,46rem)] w-[min(100%-4rem,60rem)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
@@ -535,7 +517,7 @@ export const App = () => {
   const chrome = useWindowChrome();
   const leftCard = leftCardWidth(workspace, leftHidden, leftWidth);
   // How much of the canvas the cards at each side cover: what floats over it keeps to the rest.
-  const leftCover = leftCoverOf(workspace, leftCard);
+  const leftCover = leftCoverOf(leftCard);
   const rightCover = hasRight ? EDGE + rightWidth + EDGE : 0;
   useKeymap();
   useOpenNodeLink();
@@ -607,8 +589,10 @@ export const App = () => {
     if (!error) {
       return;
     }
-    toast.error("Something went wrong", {
-      description: error,
+    // The error says what happened, in the title; the rest of a long one below it.
+    const [first = error, ...rest] = error.split("\n");
+    toast.error(first, {
+      ...(rest.length > 0 ? { description: rest.join("\n") } : {}),
       duration: 10_000,
     });
     useProject.getState().setError(null);
@@ -651,11 +635,7 @@ export const App = () => {
               <div className="absolute inset-x-0 top-2 z-20 flex justify-center">
                 <PlaceSwitch />
               </div>
-              {workspace === "prototype" ? (
-                <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-                  <NoUrlWarning />
-                </div>
-              ) : (
+              {workspace === "prototype" ? null : (
                 <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
                   <Toolbar />
                 </div>
@@ -682,13 +662,6 @@ export const App = () => {
                 onWidthChange={setLeftWidth}
                 width={leftWidth}
               />
-              {workspace === "prototype" ? (
-                // The prototype's bar sits at the bottom of its tools, wider than their column.
-                <div className="flex flex-col items-start justify-between">
-                  <PrototypeTools />
-                  <PrototypeBar />
-                </div>
-              ) : null}
             </div>
           </div>
           <RightColumn
@@ -711,7 +684,14 @@ export const App = () => {
           closeButton
           position="bottom-right"
           theme={theme}
-          toastOptions={{ classNames: { description: "whitespace-pre-wrap" } }}
+          toastOptions={{
+            classNames: {
+              description:
+                "whitespace-pre-wrap font-small text-muted-foreground!",
+              title: "font-label",
+              toast: "font-body shadow-overlay!",
+            },
+          }}
         />
       </div>
     </TooltipProvider>

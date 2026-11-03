@@ -109,8 +109,8 @@ export const ResizeHandle = ({
     >
       <div
         className={cn(
-          "mx-auto h-full w-px transition-colors group-hover:bg-brand group-focus-visible:bg-brand",
-          dragging && "bg-brand"
+          "mx-auto h-full w-px transition-colors duration-150 group-hover:bg-foreground/25 group-focus-visible:bg-ring",
+          dragging && "bg-foreground/40"
         )}
       />
     </div>

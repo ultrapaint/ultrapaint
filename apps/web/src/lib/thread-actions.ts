@@ -29,10 +29,10 @@ export const deleteThread = async (threadId: string) => {
     return;
   }
   const ok = await confirmDialog({
-    confirmLabel: "Delete",
+    confirmLabel: "Delete chat",
     description: `“${thread.title}” and its history are removed.`,
     destructive: true,
-    title: "Delete this thread?",
+    title: "Delete this chat?",
   });
   if (ok) {
     api().request("threads.delete", { threadId }).catch(reportError);

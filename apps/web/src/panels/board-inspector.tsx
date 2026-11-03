@@ -11,7 +11,8 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { tokenKindOf, tokenOf } from "@ultrapaint/contracts/token-table";
-import { Ellipsis, Trash2 } from "lucide-react";
+import { cn } from "cn";
+import { Ellipsis, LayoutGrid, Palette, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +25,7 @@ import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
 import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { Swatch } from "../lib/token-options.tsx";
@@ -35,7 +37,6 @@ import {
 } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { commitEdits, useDesignSystem } from "../state/design-system.ts";
-import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { AppInspector, AppMenu } from "./app-inspector.tsx";
 import { GuidelineEditor } from "./guideline-editor.tsx";
 import { InspectedKey } from "./inspector-fields.tsx";
@@ -108,7 +109,12 @@ const PickMenu = ({ ds, picked }: { ds: DesignSystem; picked: Picked }) => {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button aria-label="More" size="icon" variant="ghost">
+          <Button
+            aria-label="More"
+            className="text-muted-foreground"
+            size="icon"
+            variant="ghost"
+          >
             <Ellipsis />
           </Button>
         }
@@ -145,16 +151,9 @@ const SystemBody = ({
   }
   if (!ds) {
     return (
-      <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
-        The boards draw the neutral look every design starts with. Set up a
-        design system to make it yours.
-        <Button
-          onClick={() => useDesignSystemSetup.getState().show(true)}
-          size="sm"
-        >
-          Set up
-        </Button>
-      </div>
+      <PanelEmpty icon={<Palette />} title="The neutral colours">
+        Every design draws with them until it has a design system of its own.
+      </PanelEmpty>
     );
   }
   if (picked?.kind === "token") {
@@ -168,8 +167,8 @@ const SystemBody = ({
   }
   return (
     <>
-      <p className="border-b p-3 font-body text-muted-foreground">
-        Pick a token on the board to see it here.
+      <p className="border-b px-3 py-3 font-small text-muted-foreground">
+        Select a token on the boards to edit it.
       </p>
       <FoundationActions ds={ds} item={open.item} />
     </>
@@ -184,7 +183,7 @@ const PickSwatch = ({ picked }: { picked: Picked | null }) => {
       : undefined
   );
   return color ? (
-    <span className="flex size-6 shrink-0 [&>span]:size-6 [&>span]:rounded-md">
+    <span className="flex size-5 shrink-0 [&>span]:size-5 [&>span]:rounded-sm">
       <Swatch color={color} />
     </span>
   ) : null;
@@ -198,23 +197,11 @@ const LibraryBody = ({ open }: { open: BoardPlace }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   if (open.item === OVERVIEW) {
     return (
-      <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
-        Click a component to open its board.
-        {ds ? null : (
-          <>
-            <span>
-              Every component is drawn in its default look. Set up a design
-              system to draw them in yours.
-            </span>
-            <Button
-              onClick={() => useDesignSystemSetup.getState().show(true)}
-              size="sm"
-            >
-              Set up
-            </Button>
-          </>
-        )}
-      </div>
+      <PanelEmpty icon={<LayoutGrid />} title="Every component">
+        {ds
+          ? "Select one to open its board, every variant in every state."
+          : "Drawn in their default look until you set up a design system. Select one to open its board."}
+      </PanelEmpty>
     );
   }
   return meta?.importFrom === APP_FROM ? (
@@ -260,19 +247,19 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
   const subtitle = picked ? subtitleOf(picked) : kind;
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b pr-1.5 pl-3">
         <PickSwatch picked={picked} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span
-            className={
-              picked?.kind === "token"
-                ? "truncate font-code font-medium"
-                : "truncate font-medium"
-            }
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <h2
+            className={cn(
+              "min-w-0 shrink truncate",
+              picked?.kind === "token" ? "font-code" : "font-heading-xsmall"
+            )}
+            title={title}
           >
             {title}
-          </span>
-          <span className="truncate font-body text-muted-foreground">
+          </h2>
+          <span className="min-w-0 flex-1 truncate font-small text-muted-foreground">
             {subtitle}
           </span>
         </div>

@@ -16,27 +16,133 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import { routeOf } from "@ultrapaint/shared/route";
-import { Code } from "lucide-react";
+import { Check, Code as CodeIcon, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Markdown } from "../components/markdown.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useProject } from "../state/project.ts";
+import { reportError, useProject } from "../state/project.ts";
+import { EmptyState } from "./inspector-fields.tsx";
 
-const BACKTICKS_RE = /`+/g;
+/** A piece of JSX the view draws on its own: what reads first, or what qualifies it. */
+const TOKEN_RE =
+  /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|<\/?[A-Za-z][\w.]*|\/?>|[A-Za-z_$][\w$-]*(?==)|[{}=;,]|\b(?:import|from|export|const|return)\b)/g;
+const TAG_OPEN_RE = /^<\/?/;
+const QUIET_RE =
+  /^(?:<\/?|\/?>|[{}=;,]|import|from|export|const|return|[A-Za-z_$][\w$-]*)$/;
 
-/** A fence longer than any run of backticks the code holds, so text cannot close it. */
-const fenced = (code: string, language: string) => {
-  const longest = Math.max(
-    0,
-    ...Array.from(code.matchAll(BACKTICKS_RE), (m) => m[0].length)
+const SPACES_RE = /(\s+)/;
+
+/**
+ * Text that wraps only between its words: a class (`justify-between`) is never cut at its
+ * hyphen. A word longer than a line (a URL) still breaks where it must.
+ */
+const Words = ({ text }: { text: string }) => {
+  let at = 0;
+  return text.split(SPACES_RE).map((word) => {
+    const start = at;
+    at += word.length;
+    return word.length > 0 && word.length <= 24 && !SPACES_RE.test(word) ? (
+      <span className="whitespace-nowrap" key={start}>
+        {word}
+      </span>
+    ) : (
+      word
+    );
+  });
+};
+
+/** A line's tokens: tags' names and strings in the foreground, the rest of the syntax muted. */
+const Tokens = ({ text }: { text: string }) =>
+  text.split(TOKEN_RE).map((part, i) => {
+    if (part === "") {
+      return null;
+    }
+    const key = `${i}:${part}`;
+    if (part.startsWith("<")) {
+      const name = part.replace(TAG_OPEN_RE, "");
+      return (
+        <span key={key}>
+          <span className="text-muted-foreground">
+            {part.slice(0, part.length - name.length)}
+          </span>
+          {name}
+        </span>
+      );
+    }
+    if (part.startsWith('"') || part.startsWith("'")) {
+      return (
+        <span key={key}>
+          <span className="text-muted-foreground">{part[0]}</span>
+          <Words text={part.slice(1, -1)} />
+          <span className="text-muted-foreground">{part.at(-1)}</span>
+        </span>
+      );
+    }
+    // The attributes' names and the punctuation; plain text between tags stays as it is.
+    const quiet = i % 2 === 1 && QUIET_RE.test(part);
+    return quiet ? (
+      <span className="text-muted-foreground" key={key}>
+        {part}
+      </span>
+    ) : (
+      <Words key={key} text={part} />
+    );
+  });
+
+/**
+ * The code as lines that wrap: a long class list continues under the line's own start, a little
+ * further in, so the tree's indentation still reads.
+ */
+const CodeLines = ({ code }: { code: string }) => (
+  <div className="select-text font-code">
+    {code.split("\n").map((line, i) => {
+      const indent = line.length - line.trimStart().length;
+      return (
+        <div
+          className="whitespace-pre-wrap [overflow-wrap:anywhere]"
+          // biome-ignore lint/suspicious/noArrayIndexKey: the lines are the code's, in its order.
+          key={i}
+          style={{ paddingLeft: `${indent + 2}ch`, textIndent: "-2ch" }}
+        >
+          {line.trim() === "" ? "\u00a0" : <Tokens text={line.trimStart()} />}
+        </div>
+      );
+    })}
+  </div>
+);
+
+/** Copies the code; the icon says it was, for a moment. */
+const CopyCode = ({ code }: { code: string | null }) => {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <IconButton
+      className="text-muted-foreground"
+      disabled={code === null}
+      onClick={() => {
+        if (code === null) {
+          return;
+        }
+        navigator.clipboard.writeText(code).then(
+          () => setCopied(true),
+          (error: unknown) => reportError(error)
+        );
+      }}
+      tooltip={copied ? "Copied" : "Copy code"}
+    >
+      {copied ? <Check /> : <Copy />}
+    </IconButton>
   );
-  const fence = "`".repeat(Math.max(3, longest + 1));
-  return `${fence}${language}\n${code}\n${fence}`;
 };
 
 /**
@@ -80,6 +186,7 @@ const useWritten = (request: {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const components = useComponents((s) => s.components);
   const [code, setCode] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the server writes with the design system it holds, so a change to it writes the code again.
   useEffect(() => {
     if (!node) {
@@ -95,14 +202,19 @@ const useWritten = (request: {
       .then((written) => {
         if (live) {
           setCode(written.code);
+          setFailed(false);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (live) {
+          setFailed(true);
+        }
+      });
     return () => {
       live = false;
     };
   }, [component, node, parent, designSystem, components]);
-  return code;
+  return { code, failed };
 };
 
 export const CodePanel = () => {
@@ -122,36 +234,59 @@ export const CodePanel = () => {
   } else if (parent) {
     parentLayout = layoutOf(parent);
   }
-  const code = useWritten({
+  const { code, failed } = useWritten({
     component,
     node,
     parent: parentLayout,
   });
   if (!node) {
     return (
-      <PanelEmpty icon={<Code />} title="Select a layer">
-        Click one on the canvas or in Layers to see the code it becomes.
-      </PanelEmpty>
+      <EmptyState icon={<CodeIcon />} title="Nothing selected">
+        Select a layer to read it as code, with your components and classes.
+      </EmptyState>
     );
   }
   return (
-    <div className="flex flex-col gap-2 px-3 py-2.5">
-      <div className="flex min-w-0 items-baseline gap-2">
-        <span className="truncate font-heading-xsmall">{nodeLabel(node)}</span>
-        {nodeKind(node) === nodeLabel(node) ? null : (
-          <span className="shrink-0 font-body text-muted-foreground">
-            {nodeKind(node)}
+    <div className="flex flex-col pb-2">
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-3">
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span className="truncate font-heading-xsmall">
+            {nodeLabel(node)}
           </span>
+          {nodeKind(node) === nodeLabel(node) ? null : (
+            <span className="shrink-0 font-small text-muted-foreground">
+              {nodeKind(node)}
+            </span>
+          )}
+        </div>
+        <CopyCode code={code} />
+      </div>
+      <div className="mx-2 rounded-lg bg-muted px-3 py-2.5">
+        {code === null ? (
+          <CodeWaiting failed={failed} />
+        ) : (
+          <CodeLines code={code} />
         )}
       </div>
-      <p className="font-body text-muted-foreground">
-        The node and everything in it, as your style system's classes and your
-        components, by the rules agents implement a design with. Links are
-        written as plain anchors; the application uses its router's.
-      </p>
-      {code === null ? null : (
-        <Markdown codeBlockMaxHeight="none">{fenced(code, "tsx")}</Markdown>
-      )}
     </div>
   );
 };
+
+/** While the code is written: the lines it will take; if it could not be, why. */
+const CodeWaiting = ({ failed }: { failed: boolean }) =>
+  failed ? (
+    <p className="font-small text-muted-foreground">
+      Couldn’t write the code. Select the layer again to retry.
+    </p>
+  ) : (
+    <div aria-busy="true" className="flex flex-col gap-2 py-1">
+      {["w-1/3", "w-5/6", "w-2/3", "w-3/4", "w-1/4"].map((width, i) => (
+        <span
+          className={`h-3 animate-pulse rounded-sm bg-foreground/8 ${width}`}
+          // biome-ignore lint/suspicious/noArrayIndexKey: placeholders, in a fixed order.
+          key={i}
+          style={{ marginLeft: `${(i % 3) * 2}ch` }}
+        />
+      ))}
+    </div>
+  );

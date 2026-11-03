@@ -60,10 +60,7 @@ const ProjectName = () => {
     );
   }
   return (
-    <div
-      className="flex min-w-0 flex-col justify-center"
-      title={info.repoPath}
-    >
+    <div className="flex min-w-0 flex-col justify-center" title={info.repoPath}>
       <span className="truncate font-heading-xsmall leading-4">
         {info.name}
       </span>
@@ -175,7 +172,11 @@ export const TitleRow = () => {
         <Unsaved />
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
-        <TopButton command="palette" label="Search" onClick={openCommandPalette}>
+        <TopButton
+          command="palette"
+          label="Search"
+          onClick={openCommandPalette}
+        >
           <Search />
         </TopButton>
         <TopButton

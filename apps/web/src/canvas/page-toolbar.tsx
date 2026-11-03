@@ -67,7 +67,7 @@ const ViewportSelect = ({
               <DropdownMenuRadioItem key={d.value} value={d.value}>
                 <Icon />
                 <span className="flex-1">{d.label}</span>
-                <span className="font-body text-muted-foreground">
+                <span className="font-small text-muted-foreground tabular-nums">
                   {d.size.width} × {d.size.height}
                 </span>
               </DropdownMenuRadioItem>
@@ -109,7 +109,7 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
               >
                 <Icon />
                 <span className="flex-1">{d.label}</span>
-                <span className="font-body text-muted-foreground">
+                <span className="font-small text-muted-foreground tabular-nums">
                   {d.size.width}
                 </span>
               </DropdownMenuItem>
@@ -122,7 +122,9 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
           {breakpoints.map((b) => (
             <DropdownMenuItem key={b.name} onClick={() => add(b.min)}>
               <span className="flex-1 font-code">{b.name}</span>
-              <span className="font-body text-muted-foreground">{b.min}</span>
+              <span className="font-small text-muted-foreground tabular-nums">
+                {b.min}
+              </span>
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
@@ -148,7 +150,7 @@ export const PageToolbar = ({
   return (
     <div
       aria-label="Toolbar of the page"
-      className="absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+      className="absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-lg border bg-popover p-0.5 text-popover-foreground shadow-overlay"
       data-element-toolbar
       onPointerDown={(e) => e.stopPropagation()}
       role="toolbar"

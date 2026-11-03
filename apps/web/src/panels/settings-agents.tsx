@@ -15,11 +15,19 @@ import {
   type McpConnection,
   namedChoices,
 } from "@ultrapaint/contracts/threads";
+import { Check, Copy, Ellipsis, FilePen, FilePlus2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { type AgentSetup, type PlatformAgent, platform } from "../platform.ts";
@@ -32,18 +40,18 @@ import { useSkills } from "../state/skills.ts";
 import { Group, Row } from "./settings-group.tsx";
 
 const skillsBriefings = [
-  { label: "A router, read on demand", value: "router" },
+  { label: "Router", value: "router" },
   { label: "Whole", value: "full" },
-  { label: "Titles and summaries", value: "summaries" },
+  { label: "Summaries", value: "summaries" },
 ];
 
 /** What a design thread is told, for each way of telling the skills. */
 const briefingDescriptions: Record<SkillsBriefing, string> = {
-  full: "A design thread is told every skill that is on, whole: about 70,000 characters it reads before its first prompt.",
+  full: "Every skill that is on, whole: about 70,000 characters before the first prompt.",
   router:
-    "A design thread is told the design skill's router with the parts every screen needs, about 13,000 characters, and reads every other part from its reference as the screen reaches it.",
+    "The router and what every screen needs, about 13,000 characters; the rest is read as the work reaches it.",
   summaries:
-    "A design thread is told each skill's title and summary, about 2,500 characters, and reads a skill whole before the work it is about: from the editor's MCP server, or from its file in the repository. Without the MCP server, a built-in skill, which has no file there, is told whole.",
+    "Each skill’s title and summary, about 2,500 characters; a skill is read whole before its work.",
 };
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
@@ -93,22 +101,22 @@ export const McpConnectionGroup = () => {
   return (
     <Group title="Outside the editor">
       <Row
-        description="Gives another agent the same tools the chats here use: the project's pages, its components, and the comments left on the designs. The token is this project's, and anyone who has it can use them."
-        title="Connect an agent over MCP"
-        wide
+        description="Gives an agent in a terminal this project’s pages, components and comments. Anyone with the token can use them."
+        layout="below"
+        title="Connect over MCP"
       >
-        <div className="flex items-start gap-2">
-          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-code">
+        <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted py-0.5 pr-0.5 pl-2">
+          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre py-1 font-code">
             {command}
           </code>
-          <Button onClick={copy} size="sm" variant="outline">
-            {copied ? "Copied" : "Copy"}
-          </Button>
+          <IconButton onClick={copy} size="icon-sm" tooltip="Copy command">
+            {copied ? <Check /> : <Copy />}
+          </IconButton>
         </div>
         {connection.replaced ? (
-          <p className="font-body text-destructive">
-            The token has changed: copy the command again into agents connected
-            before, which are turned away until then.
+          <p className="font-small text-destructive">
+            The token changed. Copy the command again for agents connected
+            before.
           </p>
         ) : null}
       </Row>
@@ -116,12 +124,13 @@ export const McpConnectionGroup = () => {
   );
 };
 
+/** Where a skill the project took over is written; nothing for a built-in one. */
 const sourceLabel = (skill: Skill) => {
   if (skill.source === "built-in") {
-    return "Built-in";
+    return "";
   }
   return skill.extends
-    ? `Extends the built-in, in ${skill.file}`
+    ? `Extended in ${skill.file}`
     : `Replaced by ${skill.file}`;
 };
 
@@ -143,55 +152,65 @@ const SkillRow = ({
       .customise(skill.name, mode)
       .then((result) => {
         if (result?.file) {
-          toast(`${result.file} is yours to edit.`, {
+          toast(`${result.file} is yours to edit`, {
             description:
               mode === "extend"
-                ? `What you write there is told after the built-in ${skill.title} skill.`
-                : `It replaces the built-in ${skill.title} skill.`,
+                ? `What you write is told after the built-in ${skill.title}.`
+                : `It replaces the built-in ${skill.title}.`,
           });
         }
       });
   };
+  const source = sourceLabel(skill);
   return (
     <Row
       description={
         <>
-          {skill.summary}
-          <span className="mt-1 block font-body">{sourceLabel(skill)}</span>
+          <span className="line-clamp-2" title={skill.summary}>
+            {skill.summary}
+          </span>
+          {source ? <span className="mt-0.5 block">{source}</span> : null}
           {shown ? (
-            <span className="mt-2 block rounded-md bg-muted/40 p-3 text-foreground">
+            <div className="mt-2 max-h-96 overflow-y-auto rounded-md bg-muted p-3 font-body text-foreground">
               <Markdown>{skill.text}</Markdown>
-            </span>
+            </div>
           ) : null}
         </>
       }
       htmlFor={id}
       title={skill.title}
-      wide
     >
-      <div className="flex flex-wrap items-center justify-end gap-1">
+      <div className="flex items-center gap-1">
         <Button onClick={() => setShown((v) => !v)} size="sm" variant="ghost">
-          {shown ? "Hide" : "Show"}
+          {shown ? "Hide" : "View"}
         </Button>
         {skill.source === "built-in" ? (
-          <>
-            <Button
-              onClick={() => customise("extend")}
-              size="sm"
-              variant="outline"
-            >
-              Extend…
-            </Button>
-            <Button
-              onClick={() => customise("replace")}
-              size="sm"
-              variant="outline"
-            >
-              Replace…
-            </Button>
-          </>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={`More for ${skill.title}`}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Ellipsis />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => customise("extend")}>
+                <FilePlus2 />
+                Extend in a file…
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => customise("replace")}>
+                <FilePen />
+                Replace with a file…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
         <Switch
+          aria-label={skill.title}
           checked={enabled}
           className="ml-2"
           id={id}
@@ -234,11 +253,20 @@ export const SkillsGroup = ({
   const briefing = config?.briefing ?? "router";
   return (
     <Group
-      description={`Told to every agent before it designs, ahead of DESIGN.md. A file in ${dir} with a built-in's name replaces it, or extends it when the file opens with the front matter "extends: true"; a file with any other name is a skill of its own. A switch turned off is saved with the settings.`}
+      note={
+        <>
+          Told to every agent before it designs. A file in{" "}
+          <code className="font-code">{dir}</code> with a skill’s name replaces
+          it, or extends it with{" "}
+          <code className="font-code">extends: true</code>; any other file is a
+          skill of its own.
+        </>
+      }
       title="Design skills"
     >
       <Row description={briefingDescriptions[briefing]} title="Told as">
         <OptionSelect
+          className="@xl:w-52"
           onChange={(value) =>
             onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
           }
@@ -259,26 +287,25 @@ export const SkillsGroup = ({
 };
 
 /** Kept in this browser rather than the settings file, so it applies at once and to every project. */
-export const SendKeyGroup = () => {
+export const SendKeyRow = () => {
   const sendKey = useSendKey((s) => s.sendKey);
   const setSendKey = useSendKey((s) => s.setSendKey);
   return (
-    <Group title="Chat">
-      <Row
-        description={
-          sendKey === "enter"
-            ? "Enter sends the message; Shift+Enter starts a new line."
-            : "Enter starts a new line; ⌘/Ctrl+Enter sends the message."
-        }
-        title="Send with"
-      >
-        <OptionSelect
-          onChange={(v) => setSendKey(v as SendKey)}
-          options={sendKeys}
-          value={sendKey}
-        />
-      </Row>
-    </Group>
+    <Row
+      description={
+        sendKey === "enter"
+          ? "Shift+Enter starts a new line."
+          : "Enter starts a new line."
+      }
+      title="Send messages with"
+    >
+      <OptionSelect
+        className="@xl:w-52"
+        onChange={(v) => setSendKey(v as SendKey)}
+        options={sendKeys}
+        value={sendKey}
+      />
+    </Row>
   );
 };
 
@@ -347,23 +374,23 @@ export const ChatDefaultsGroup = () => {
   };
   const onAgent = (id: string) => save({ agentId: id });
   const problem = unlisted[agentId];
-  let modelDescription =
-    "The model the agent answers with, unless the chat picks another.";
+  let modelDescription: string | undefined;
   if (problem !== undefined) {
     modelDescription = problem;
   } else if (!listed) {
-    modelDescription = "Asking the agent which models it offers…";
+    modelDescription = "Asking the agent for its models…";
   } else if (models.length === 0) {
-    modelDescription = "This agent offers no choice of model.";
+    modelDescription = "This agent has one model.";
   }
   const onModel = (model: string) => save({ agentId, model });
   return (
     <Group
-      description="Applied as soon as they are picked. A chat switches agent or model in its composer."
+      note="Applied at once. A chat can switch both in its composer."
       title="New chats"
     >
-      <Row description="The agent a new chat starts with." title="Agent">
+      <Row title="Agent">
         <OptionSelect
+          className="@xl:w-52"
           onChange={onAgent}
           options={agents.map((a) => {
             const word = readiness(machine[a.id]);
@@ -378,6 +405,7 @@ export const ChatDefaultsGroup = () => {
       </Row>
       <Row description={modelDescription} title="Model">
         <OptionSelect
+          className="@xl:w-52"
           disabled={models.length === 0}
           onChange={onModel}
           options={models.map((m) => ({
@@ -396,11 +424,13 @@ export const ChatDefaultsGroup = () => {
 /** Where an agent's executable was found, for the row that says so. */
 const foundAt = (agent: PlatformAgent) => {
   const where = {
-    download: `${agent.executable}, downloaded by the app`,
-    path: `${agent.executable}, on your PATH`,
-    setting: `${agent.executable}, set here`,
+    download: "downloaded by the app",
+    path: "on your PATH",
+    setting: "chosen here",
   }[agent.source ?? "path"];
-  return agent.version ? `${agent.version} at ${where}.` : `At ${where}.`;
+  return [agent.version, `${agent.executable}, ${where}`]
+    .filter(Boolean)
+    .join(" · ");
 };
 
 const megabytes = (bytes: number) =>
@@ -429,7 +459,7 @@ const ApiKeyField = ({
 }) => {
   const [key, setKey] = useState("");
   return (
-    <div className="flex w-full max-w-80 gap-1">
+    <div className="flex @xl:w-80 w-full gap-1">
       <Input
         aria-label="API key"
         autoComplete="off"
@@ -443,7 +473,7 @@ const ApiKeyField = ({
         onClick={() => onSave(key.trim())}
         variant="outline"
       >
-        Use the key
+        Save key
       </Button>
     </div>
   );
@@ -469,32 +499,40 @@ const MachineAgentRow = ({
     <Row
       description={
         <>
-          {agent.executable ? foundAt(agent) : null} {agent.detail}
+          {agent.executable ? (
+            <span className="block truncate" title={foundAt(agent)}>
+              {foundAt(agent)}
+            </span>
+          ) : null}
+          {agent.detail ? <span className="block">{agent.detail}</span> : null}
           {progress?.phase === "failed" ? (
-            <span className="mt-1 block text-destructive">
+            <span className="block text-destructive">
               The download failed: {progress.message}
             </span>
           ) : null}
           {agent.state === "missing" ? (
-            <>
-              {" "}
-              <a href={agent.install} rel="noreferrer" target="_blank">
-                How to install it
+            <span className="block">
+              <a
+                className="underline underline-offset-3 hover:text-foreground"
+                href={agent.install}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Install {agent.name}
               </a>
               {agent.download
                 ? `, or download ${agent.download.version} into the app.`
                 : null}
-            </>
+            </span>
           ) : null}
         </>
       }
       title={agent.name}
-      wide
     >
-      <div className="flex flex-col items-end gap-1.5">
-        <div className="flex flex-wrap items-center justify-end gap-1">
+      <div className="flex flex-col @xl:items-end gap-1.5">
+        <div className="flex flex-wrap items-center @xl:justify-end gap-1">
           {downloading ? (
-            <span className="font-body text-muted-foreground">
+            <span className="font-small text-muted-foreground">
               {downloadLabel(progress)}
             </span>
           ) : null}
@@ -503,6 +541,7 @@ const MachineAgentRow = ({
               disabled={busy}
               onClick={() => change(() => setup.download(agent.id))}
               size="sm"
+              variant="secondary"
             >
               Download ({megabytes(agent.download.size)})
             </Button>
@@ -512,6 +551,7 @@ const MachineAgentRow = ({
               disabled={busy}
               onClick={() => change(() => setup.signIn(agent.id))}
               size="sm"
+              variant="secondary"
             >
               Sign in with {agent.signInWith}
             </Button>
@@ -523,7 +563,7 @@ const MachineAgentRow = ({
               size="sm"
               variant="ghost"
             >
-              Forget the key
+              Forget key
             </Button>
           ) : null}
           {agent.customPath ? (
@@ -533,13 +573,14 @@ const MachineAgentRow = ({
               size="sm"
               variant="ghost"
             >
-              Use the PATH
+              Use PATH
             </Button>
           ) : null}
           <Button
             disabled={busy}
             onClick={() => change(() => setup.choosePath(agent.id))}
             size="sm"
+            title={`Choose the ${agent.name} executable`}
             variant="outline"
           >
             Choose…
@@ -591,10 +632,7 @@ export const MachineAgentsGroup = () => {
       .finally(() => setBusy(false));
   };
   return (
-    <Group
-      description="The agents the chats run, as this computer has them. Each runs from where it is installed, with its own sign-in."
-      title="On this computer"
-    >
+    <Group title="On this computer">
       {Object.values(agents).map((agent) => (
         <MachineAgentRow
           agent={agent}

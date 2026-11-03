@@ -23,7 +23,7 @@ const compact = [
   "[&_[data-streamdown=list-item]]:py-0",
   "[&_[data-streamdown=blockquote]]:my-2 [&_[data-streamdown=blockquote]]:border-l-2 [&_[data-streamdown=blockquote]]:pl-2",
   "[&_[data-streamdown=horizontal-rule]]:my-3",
-  "[&_[data-streamdown=inline-code]]:font-code",
+  "[&_[data-streamdown=inline-code]]:rounded-sm [&_[data-streamdown=inline-code]]:bg-muted [&_[data-streamdown=inline-code]]:px-1 [&_[data-streamdown=inline-code]]:py-0 [&_[data-streamdown=inline-code]]:font-code",
   "[&_[data-streamdown=code-block]]:my-2 [&_[data-streamdown=code-block]]:rounded-md [&_[data-streamdown=code-block]]:p-1",
   // The header keeps its height: the copy button is pulled up over it by a
   // fixed margin, and shrinking one without the other tears them apart.
@@ -31,7 +31,8 @@ const compact = [
   "[&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:p-2 [&_[data-streamdown=code-block-body]]:font-code",
   "[&_[data-streamdown=table-cell]]:px-2 [&_[data-streamdown=table-cell]]:py-1 [&_[data-streamdown=table-cell]]:font-body",
   "[&_[data-streamdown=table-header-cell]]:px-2 [&_[data-streamdown=table-header-cell]]:py-1 [&_[data-streamdown=table-header-cell]]:font-body [&_[data-streamdown=table-header-cell]]:font-semibold",
-  "[&_[data-streamdown=link]]:text-brand",
+  // A link stays in its sentence, at its weight, underlined (typography.md).
+  "[&_[data-streamdown=link]]:font-[inherit] [&_[data-streamdown=link]]:text-foreground [&_[data-streamdown=link]]:underline [&_[data-streamdown=link]]:decoration-foreground/30 [&_[data-streamdown=link]]:underline-offset-3 [&_[data-streamdown=link]:hover]:decoration-foreground",
 ].join(" ");
 
 /** Downloads are meaningless in a local panel; copy and fullscreen are not. */

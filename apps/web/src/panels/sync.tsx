@@ -7,20 +7,10 @@
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
 import { stylesheetOf } from "@ultrapaint/contracts/setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
-import { cn } from "cn";
-import {
-  Check,
-  ChevronLeft,
-  FileText,
-  FileUp,
-  RefreshCw,
-  Settings2,
-  Wand2,
-} from "lucide-react";
+import { ChevronLeft, FileText, FileUp, RefreshCw, Wand2 } from "lucide-react";
 import type * as React from "react";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -34,7 +24,13 @@ import { useAgents } from "../state/agents.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
-import { StepCard } from "./design-system-setup.tsx";
+import {
+  StepBadge,
+  StepCard,
+  StepFrame,
+  type StepTone,
+  useStepVariant,
+} from "./design-system-setup.tsx";
 import { CodeTokensStep } from "./sync-code.tsx";
 import { ScaffoldButton } from "./sync-scaffold.tsx";
 import { TokensStep } from "./sync-tokens.tsx";
@@ -45,63 +41,49 @@ const TOKEN_STEP_SOURCES = {
   "figma-tokens": "figma",
 } as const;
 
-const STATE_LABELS: Record<SyncStep["state"], string> = {
-  active: "Under way",
-  attention: "Next",
-  done: "Done",
-  todo: "Later",
+/** How a step of the sync's own is drawn: where it stands, as a step of the setup is. */
+const TONES: Record<SyncStep["state"], StepTone> = {
+  active: "working",
+  attention: "current",
+  done: "done",
+  todo: "later",
 };
 
 /** A step of the sync's own, laid out as the setup's steps are. */
 const SyncCard = ({
   children,
   index,
+  last,
   step,
 }: {
   children?: React.ReactNode;
   index: number;
+  last: boolean;
   step: SyncStep;
-}) => (
-  <li
-    className={cn(
-      "flex gap-2.5 border-b px-3 py-3",
-      step.state === "todo" && "opacity-60"
-    )}
-  >
-    <span
-      className={cn(
-        "flex size-5 shrink-0 items-center justify-center rounded-full border font-code",
-        step.state === "done" &&
-          "border-transparent bg-primary text-primary-foreground",
-        (step.state === "attention" || step.state === "active") &&
-          "border-primary text-primary",
-        step.state === "todo" && "text-muted-foreground"
-      )}
+}) => {
+  const tone = TONES[step.state];
+  const optional = step.optional && step.state !== "done";
+  let label: string | null = null;
+  if (step.state === "active") {
+    label = "Under way";
+  } else if (optional) {
+    label = "Optional";
+  }
+  return (
+    <StepFrame
+      badge={<StepBadge label={label} tone={tone} />}
+      index={index}
+      last={last}
+      title={step.title}
+      tone={tone}
     >
-      {step.state === "done" ? <Check className="size-3" /> : index + 1}
-    </span>
-    <div className="flex min-w-0 flex-1 flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <span className="font-heading-xsmall">{step.title}</span>
-        <Badge
-          className={cn(
-            "ml-auto",
-            step.state === "attention" && "bg-primary/15 text-primary"
-          )}
-          variant={step.state === "attention" ? "default" : "outline"}
-        >
-          {step.optional && step.state !== "done"
-            ? "Optional"
-            : STATE_LABELS[step.state]}
-        </Badge>
-      </div>
-      <p className="whitespace-pre-line font-body text-muted-foreground">
+      <p className="whitespace-pre-line text-pretty font-small text-muted-foreground">
         {step.detail}
       </p>
       {children}
-    </div>
-  </li>
-);
+    </StepFrame>
+  );
+};
 
 /**
  * Detection run again and its proposal shown before anything is applied: where the stylesheets
@@ -125,16 +107,18 @@ const applyDetected = async () => {
       `Application: ${next.resolveFrom ?? settings.designsDir}`,
     ];
     const ok = await confirmDialog({
-      confirmLabel: "Apply",
-      description: `Detection proposes:\n${lines.join("\n")}`,
-      title: "Point Ultrapaint at your code?",
+      confirmLabel: "Apply settings",
+      description: lines.join("\n"),
+      title: "Use what detection found?",
     });
     if (!ok) {
       return;
     }
     const problems = await save(next);
     if (problems.length === 0) {
-      toast.success("Settings applied: the editor reads your code again.");
+      toast.success("Settings applied", {
+        description: "The editor reads your code again.",
+      });
     } else {
       toast.error(problems.join(" "));
     }
@@ -146,71 +130,73 @@ const applyDetected = async () => {
 const openSettings = () =>
   useProject.getState().openSettings(true, "repository");
 
-const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
-  <SyncCard index={index} step={step}>
+interface StepProps {
+  index: number;
+  last: boolean;
+  step: SyncStep;
+}
+
+/** The main action of a step: the primary on the step to take now. */
+const MainButton = (props: React.ComponentProps<typeof Button>) => (
+  <Button size="sm" variant={useStepVariant()} {...props} />
+);
+
+const SettingsStep = (props: StepProps) => (
+  <SyncCard {...props}>
     <div className="flex flex-wrap gap-1.5">
-      <Button onClick={applyDetected} size="sm">
+      <MainButton onClick={applyDetected}>
         <Wand2 />
         Detect and apply
-      </Button>
-      <Button onClick={openSettings} size="sm" variant="outline">
-        <Settings2 />
-        Settings
+      </MainButton>
+      <Button onClick={openSettings} size="sm" variant="ghost">
+        Open settings
       </Button>
     </div>
   </SyncCard>
 );
 
-const DocumentStep = ({ index, step }: { index: number; step: SyncStep }) => (
-  <SyncCard index={index} step={step}>
-    {step.state === "done" ? null : (
+const DocumentStep = (props: StepProps) => (
+  <SyncCard {...props}>
+    {props.step.state === "done" ? null : (
       <div className="flex flex-wrap gap-1.5">
-        <Button onClick={placeDocument} size="sm">
+        <MainButton onClick={placeDocument}>
           <FileText />
-          {step.title.startsWith("Move") ? "Move it" : "Write it"}
-        </Button>
+          {props.step.title.startsWith("Move")
+            ? "Move DESIGN.md"
+            : "Write DESIGN.md"}
+        </MainButton>
       </div>
     )}
   </SyncCard>
 );
 
-const DescribeStep = ({ index, step }: { index: number; step: SyncStep }) => (
-  <SyncCard index={index} step={step}>
-    {step.state === "done" ? null : (
+const DescribeStep = (props: StepProps) => (
+  <SyncCard {...props}>
+    {props.step.state === "done" ? null : (
       <div className="flex flex-wrap gap-1.5">
-        <Button
+        <MainButton
           onClick={() => startTask({ _tag: "Sync", source: "describe" })}
-          size="sm"
         >
           <Wand2 />
           Describe with an agent
-        </Button>
+        </MainButton>
       </div>
     )}
   </SyncCard>
 );
 
-const FramesStep = ({
-  index,
-  plan,
-  step,
-}: {
-  index: number;
-  plan: SyncPlan;
-  step: SyncStep;
-}) => {
+const FramesStep = ({ plan, ...props }: StepProps & { plan: SyncPlan }) => {
   const { figma } = plan.facts;
   return (
-    <SyncCard index={index} step={step}>
+    <SyncCard {...props}>
       <div className="flex flex-wrap gap-1.5">
         {figma ? (
-          <Button
+          <MainButton
             onClick={() => startTask({ _tag: "ImportFigma", file: figma.id })}
-            size="sm"
           >
             <Wand2 />
             Map and write the pages
-          </Button>
+          </MainButton>
         ) : null}
         <Button onClick={pickFigmaFile} size="sm" variant="outline">
           <FileUp />
@@ -232,6 +218,7 @@ const PlanStep = ({
   step: SyncStep;
 }) => {
   const setup = useDesignSystemSetup((s) => s.setup);
+  const last = index === plan.steps.length - 1;
   const setupIndex = SETUP_STEPS.findIndex((s) => s.id === step.kind);
   if (setupIndex !== -1) {
     const setupStep = setup?.steps[setupIndex];
@@ -246,6 +233,7 @@ const PlanStep = ({
     return (
       <StepCard
         index={setupIndex}
+        last={last}
         later={waiting !== -1 && waiting < index}
         open={firstOpen === -1 || setupIndex <= firstOpen}
         position={index}
@@ -253,34 +241,35 @@ const PlanStep = ({
       />
     );
   }
+  const props = { index, last, step };
   if (step.kind === "settings") {
-    return <SettingsStep index={index} step={step} />;
+    return <SettingsStep {...props} />;
   }
   if (step.kind === "describe") {
-    return <DescribeStep index={index} step={step} />;
+    return <DescribeStep {...props} />;
   }
   if (step.kind === "design-md") {
-    return <DocumentStep index={index} step={step} />;
+    return <DocumentStep {...props} />;
   }
   if (step.kind === "import-frames") {
-    return <FramesStep index={index} plan={plan} step={step} />;
+    return <FramesStep {...props} plan={plan} />;
   }
   if (step.kind === "figma-tokens" || step.kind === "design-tokens") {
     return (
-      <SyncCard index={index} step={step}>
+      <SyncCard {...props}>
         <TokensStep plan={plan} source={TOKEN_STEP_SOURCES[step.kind]} />
       </SyncCard>
     );
   }
   if (step.kind === "code-tokens") {
     return (
-      <SyncCard index={index} step={step}>
+      <SyncCard {...props}>
         <CodeTokensStep plan={plan} />
       </SyncCard>
     );
   }
   return (
-    <SyncCard index={index} step={step}>
+    <SyncCard {...props}>
       <ScaffoldButton />
     </SyncCard>
   );
@@ -308,42 +297,47 @@ export const SyncView = ({
   }, []);
 
   if (!(plan && setupLoaded)) {
-    return <PanelEmpty>Reading the project…</PanelEmpty>;
+    return (
+      <PanelEmpty icon={<Spinner />} title="Reading the project…">
+        The design system, the code and DESIGN.md are compared.
+      </PanelEmpty>
+    );
   }
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-start gap-1 border-b px-1.5 py-1.5">
-        {onBack ? (
-          <IconButton onClick={onBack} tooltip="Tokens">
-            <ChevronLeft />
+      <div className="flex shrink-0 flex-col border-b pb-3">
+        <div className="flex h-11 items-center gap-1 px-3">
+          {onBack ? (
+            <IconButton className="-ml-1.5" onClick={onBack} tooltip="Tokens">
+              <ChevronLeft />
+            </IconButton>
+          ) : null}
+          <h2 className="min-w-0 flex-1 truncate font-heading-xsmall">Sync</h2>
+          <IconButton
+            className="-mr-1.5"
+            disabled={reading}
+            onClick={() => useSync.getState().load()}
+            tooltip="Read the project again"
+          >
+            {reading ? <Spinner /> : <RefreshCw />}
           </IconButton>
-        ) : null}
-        <div className="flex min-w-0 flex-1 flex-col px-1.5">
-          <span className="font-heading-xsmall">Sync</span>
-          <span className="font-body text-muted-foreground">
-            {plan.summary}
-          </span>
         </div>
-        <IconButton
-          disabled={reading}
-          onClick={() => useSync.getState().load()}
-          tooltip="Read the project again"
-        >
-          {reading ? <Spinner /> : <RefreshCw />}
-        </IconButton>
+        <p className="text-pretty px-3 font-small text-muted-foreground">
+          {plan.summary}
+        </p>
+        {plan.facts.figma ? null : (
+          <div className="mx-2 mt-3 flex items-center gap-2 rounded-lg bg-muted py-2 pr-2 pl-3">
+            <span className="min-w-0 flex-1 text-pretty font-small text-muted-foreground">
+              A Figma file’s variables and styles can become your tokens.
+            </span>
+            <Button onClick={pickFigmaFile} size="sm" variant="outline">
+              <FileUp />
+              Import…
+            </Button>
+          </div>
+        )}
       </div>
-      {plan.facts.figma ? null : (
-        <div className="flex items-center gap-2 border-b px-3 py-2 font-body">
-          <span className="min-w-0 flex-1 text-muted-foreground">
-            Have a Figma file? Its variables and styles become your tokens.
-          </span>
-          <Button onClick={pickFigmaFile} size="sm" variant="outline">
-            <FileUp />
-            Import…
-          </Button>
-        </div>
-      )}
-      <ol className="min-h-0 flex-1 overflow-auto">
+      <ol className="min-h-0 flex-1 overflow-auto py-1">
         {plan.steps.map((step, index) => (
           <PlanStep index={index} key={step.kind} plan={plan} step={step} />
         ))}

@@ -22,6 +22,7 @@ import { save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useStepVariant } from "./design-system-setup.tsx";
 import { applyPicks, Conflicts } from "./sync-tokens.tsx";
 
 type Picks = Readonly<Record<string, TokenDecision["take"]>>;
@@ -72,9 +73,7 @@ const List = ({
         ))}
       </ul>
       {diffs.length > 12 ? (
-        <span className="text-muted-foreground">
-          and {diffs.length - 12} more
-        </span>
+        <span className="text-muted-foreground">{diffs.length - 12} more</span>
       ) : null}
     </div>
   ) : null;
@@ -116,6 +115,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
   const [comparison, setComparison] = useState<TokenComparison | null>(null);
   const [picks, setPicks] = useState<Picks>({});
   const [busy, setBusy] = useState<"export" | "import" | "both" | null>(null);
+  const main = useStepVariant();
 
   // Read again whenever the plan moves: the design system or a stylesheet changed.
   useEffect(() => {
@@ -147,9 +147,9 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
 
   if (toCode.length + toDesign.length + conflicts.length === 0) {
     return (
-      <div className="flex flex-col gap-2 font-body">
+      <div className="flex flex-col gap-2 font-small">
         <p className="flex items-center gap-1.5">
-          <Check className="size-3.5 text-primary" />
+          <Check className="size-3.5 text-success" />
           The code has every value of the design.
         </p>
         <AutoExport />
@@ -157,7 +157,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
     );
   }
   return (
-    <div className="flex flex-col gap-2 font-body">
+    <div className="flex flex-col gap-2 font-small">
       {comparison.notes.map((note) => (
         <p className="text-muted-foreground" key={note}>
           {note}
@@ -165,7 +165,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
       ))}
       <List
         diffs={toCode}
-        title={`${plural(toCode.length, "token")} of the design ${toCode.length === 1 ? "waits" : "wait"} for the code (the code's value → the design's):`}
+        title={`${plural(toCode.length, "token")} to export, the code’s value → the design’s`}
       />
       {toCode.length > 0 ? (
         <Button
@@ -173,6 +173,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
           disabled={busy !== null}
           onClick={() => apply("export")}
           size="sm"
+          variant={main}
         >
           {busy === "export" ? <Spinner /> : null}
           Export {plural(toCode.length, "token")} to the code
@@ -180,7 +181,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
       ) : null}
       <List
         diffs={toDesign}
-        title={`${plural(toDesign.length, "token")} changed in the code alone (the code's → the design's):`}
+        title={`${plural(toDesign.length, "token")} changed in the code alone`}
       />
       {toDesign.length > 0 ? (
         <Button
@@ -208,6 +209,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
           disabled={busy !== null || undecided > 0}
           onClick={() => apply()}
           size="sm"
+          variant={toCode.length > 0 ? "outline" : main}
         >
           {busy === "both" ? <Spinner /> : null}
           {undecided > 0 ? `${undecided} left to pick` : "Bring them together"}

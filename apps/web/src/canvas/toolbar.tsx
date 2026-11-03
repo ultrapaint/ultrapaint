@@ -415,9 +415,9 @@ export const Toolbar = () => {
 
   return (
     <div
+      aria-label="Tools"
       className="floating pointer-events-auto flex items-center gap-0.5 p-1"
       role="toolbar"
-      aria-label="Tools"
     >
       {onBoard && !building ? null : (
         <>

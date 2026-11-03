@@ -303,7 +303,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --warning: oklch(0.7 0.15 70);
   /* The canvas: a warm paper grey a step off the pages, most of them white, and off the panels. */
   --canvas: oklch(0.945 0.004 80);
-  --canvas-grid: oklch(0.21 0.006 60 / 9%);
+  --canvas-grid: oklch(0.21 0.006 60 / 7%);
   /* A board view (ADR 0045): a blue-tinted canvas, never taken for the page canvas. */
   --board: oklch(0.95 0.012 262);
   --board-grid: oklch(0.3 0.03 262 / 20%);

@@ -1,7 +1,7 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { PersistResult, Settings } from "@ultrapaint/contracts/settings";
 import { CONFIG_FILE_NAME } from "@ultrapaint/contracts/settings";
-import { CircleAlert, CircleCheck } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,13 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { saveToFile } from "../lib/settings-actions.ts";
 import { useProject } from "../state/project.ts";
@@ -36,7 +32,7 @@ export const SaveConfigDialog = () => {
   const settings = useProject((s) => s.settings);
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="gap-5 sm:max-w-md">
         {settings ? <SaveConfigForm settings={settings} /> : null}
       </DialogContent>
     </Dialog>
@@ -61,8 +57,8 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
     } catch (error) {
       if (error instanceof RequestError && error.code === "conflict") {
         const replace = await confirmDialog({
-          confirmLabel: "Replace",
-          description: `${configPath} already exists.`,
+          confirmLabel: "Replace file",
+          description: `${configPath} is overwritten with these settings.`,
           destructive: true,
           title: "Replace the existing file?",
         });
@@ -89,20 +85,18 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
         <DialogHeader>
           <DialogTitle>Configuration saved</DialogTitle>
           <DialogDescription>
-            Settings and agent threads are kept from now on. Commit the file to
-            share the setup with your team.
+            Settings and chats are kept from now on. Commit the file to share
+            the setup.
           </DialogDescription>
         </DialogHeader>
-        <Alert>
-          <CircleCheck />
-          <AlertTitle>{saved.configPath}</AlertTitle>
-          <AlertDescription>
-            Next time, start the tool with
-            <code className="mt-1 block select-all rounded bg-muted px-2 py-1 font-mono text-foreground">
-              {saved.command}
-            </code>
-          </AlertDescription>
-        </Alert>
+        <div className="flex flex-col gap-1.5">
+          <span className="font-small text-muted-foreground">
+            Start the editor next time with
+          </span>
+          <code className="select-all rounded-md bg-muted px-2.5 py-1.5 font-code">
+            {saved.command}
+          </code>
+        </div>
         <DialogFooter>
           <Button onClick={close}>Done</Button>
         </DialogFooter>
@@ -113,46 +107,40 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Save this configuration</DialogTitle>
+        <DialogTitle>Save configuration</DialogTitle>
         <DialogDescription>
-          The tool was started without a configuration file, so nothing about
-          this run is kept. Save one to keep the settings and the chats.
+          This run started without a configuration file, so its settings and
+          chats aren’t kept. Pages are already saved in {settings.designsDir}.
         </DialogDescription>
       </DialogHeader>
-      <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel htmlFor="save-config-path">Configuration file</FieldLabel>
-          <Input
-            id="save-config-path"
-            onChange={onConfigPath}
-            value={configPath}
-          />
-          <FieldDescription>
-            Meant to be committed: it holds no path of this machine. A file
-            named {CONFIG_FILE_NAME} is found on its own when the tool is
-            started inside the repository. Agent threads go to a git-ignored
-            .ultrapaint directory next to it.
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel>Screens</FieldLabel>
-          <Input readOnly value={`${repo}/${settings.designsDir}`} />
-          <FieldDescription>
-            Screens are files in the repository and are already saved there.
-            Change the designs directory in the settings.
-          </FieldDescription>
-        </Field>
-      </FieldGroup>
+      <Field>
+        <FieldLabel htmlFor="save-config-path">Configuration file</FieldLabel>
+        <Input
+          className="font-code"
+          id="save-config-path"
+          onChange={onConfigPath}
+          spellCheck={false}
+          value={configPath}
+        />
+        <FieldDescription className="font-small">
+          Commit it to share the setup. Chats go to a git-ignored .ultrapaint
+          folder beside it.
+        </FieldDescription>
+      </Field>
       {problems.length > 0 && (
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertTitle>The configuration could not be saved</AlertTitle>
+          <AlertTitle>Couldn’t save the configuration</AlertTitle>
           <AlertDescription>
-            <ul className="list-disc pl-4">
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
+            {problems.length === 1 ? (
+              <p>{problems[0]}</p>
+            ) : (
+              <ul className="list-disc pl-4">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -161,6 +149,7 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
           Not now
         </Button>
         <Button disabled={busy} onClick={save}>
+          {busy ? <Spinner /> : null}
           {busy ? "Saving…" : "Save"}
         </Button>
       </DialogFooter>

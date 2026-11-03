@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-/** The editor is always dark, so the theme is whatever the caller passes rather than a provider's. */
+/** The theme is the editor's (`state/theme.ts`), passed by the caller rather than a provider's. */
 const Toaster = ({ ...props }: ToasterProps) => (
   <Sonner
     className="toaster group"
@@ -20,7 +20,7 @@ const Toaster = ({ ...props }: ToasterProps) => (
     }}
     style={
       {
-        "--border-radius": "var(--radius)",
+        "--border-radius": "var(--radius-lg)",
         "--normal-bg": "var(--popover)",
         "--normal-border": "var(--border)",
         "--normal-text": "var(--popover-foreground)",

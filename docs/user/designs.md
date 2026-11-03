@@ -18,7 +18,7 @@ gives an agent the whole format as a JSON Schema.
 
 A page file is JSON written one node per line: a node's own fields on its line, its children
 indented below it. A change in the inspector is a change to one line, and a reviewer reads the
-tree from the indentation. With `pagePngs` on (Settings → Repository → **PNG of every page**),
+tree from the indentation. With `pagePngs` on (Settings → Repository → **Write a PNG of every page**),
 every page also gets a PNG beside its file, `orders.page.png`, drawn by the editor's preview at
 the size of the page's frame. It is drawn again only when the page, its frame or the design system
 changes, so anyone browsing the repository sees the screens and a pull request shows them as

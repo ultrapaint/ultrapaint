@@ -32,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { OptionSelect } from "../components/option-select.tsx";
-import { Row, Section } from "../components/panel.tsx";
 import {
   ownValueIn,
   rampEdits,
@@ -51,7 +50,7 @@ import {
 } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useProject } from "../state/project.ts";
-import { TextInput, TokenField } from "./inspector-fields.tsx";
+import { Row, Section, TextInput, TokenField } from "./inspector-fields.tsx";
 
 const FIRST_STEP = /-50$/;
 const NOT_SLUG = /[^a-z0-9]+/g;
@@ -123,7 +122,7 @@ const ThemeValue = ({
     <Row label={theme.charAt(0).toUpperCase() + theme.slice(1)}>
       {isColor ? (
         <label
-          className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-md border border-input"
+          className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-input)] focus-within:ring-2 focus-within:ring-ring/25"
           style={{ background: shown || fallback }}
           title={`Pick ${name} in ${theme}`}
         >
@@ -186,29 +185,42 @@ export const UsesSection = ({
   count: (use: TokenUse) => string | null;
   uses: readonly TokenUse[];
 }) => {
-  const SHOWN = 3;
+  const SHOWN = 4;
   return (
-    <Section title="Used in">
-      <span className="font-body text-muted-foreground">
-        {uses.length === 0
-          ? "Nowhere on this canvas yet"
-          : `${uses.length} ${uses.length === 1 ? "place" : "places"}`}
-      </span>
+    <Section
+      action={
+        uses.length > 0 ? (
+          <span className="pr-1 font-small text-muted-foreground tabular-nums">
+            {uses.length}
+          </span>
+        ) : null
+      }
+      title="Used in"
+    >
+      {uses.length === 0 ? (
+        <span className="font-small text-muted-foreground">
+          Nowhere on this canvas yet
+        </span>
+      ) : null}
       {uses.slice(0, SHOWN).map((use) => (
         <span
-          className="flex items-center gap-1.5 font-body [&_svg]:size-3.5 [&_svg]:text-muted-foreground"
+          className="flex h-7 items-center gap-2 font-body [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
           key={`${use.kind}:${use.name}`}
         >
           {use.kind === "page" ? <File /> : null}
           {use.kind === "component" ? <Component /> : null}
           {use.kind === "style" ? <Type /> : null}
-          <span className="truncate">{use.name}</span>
-          <span className="text-muted-foreground">{count(use)}</span>
+          <span className="min-w-0 flex-1 truncate" title={use.name}>
+            {use.name}
+          </span>
+          <span className="shrink-0 font-small text-muted-foreground tabular-nums">
+            {count(use)}
+          </span>
         </span>
       ))}
       {uses.length > SHOWN ? (
-        <span className="font-body text-muted-foreground">
-          {uses.length - SHOWN} more
+        <span className="font-small text-muted-foreground">
+          and {uses.length - SHOWN} more
         </span>
       ) : null}
     </Section>
@@ -279,9 +291,14 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
   return (
     <Section title="Ramp">
       {base === null ? (
-        <Button onClick={start} size="sm" variant="outline">
+        <Button
+          className="self-start"
+          onClick={start}
+          size="sm"
+          variant="secondary"
+        >
           <Palette />
-          Generate ramp from…
+          Generate ramp…
         </Button>
       ) : (
         <>
@@ -297,7 +314,9 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
           {made ? (
             themesOf(ds).map((theme) => (
               <div className="flex flex-col gap-1" key={theme}>
-                <span className="font-body text-muted-foreground">{theme}</span>
+                <span className="font-small text-muted-foreground">
+                  {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                </span>
                 <div className="flex gap-0.5">
                   {made.shades.map((shade) => (
                     <span
@@ -311,24 +330,24 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
               </div>
             ))
           ) : (
-            <span className="font-body text-muted-foreground">
-              Give a colour: hex, rgb() or oklch().
+            <span className="font-small text-muted-foreground">
+              Enter a colour: hex, rgb() or oklch().
             </span>
           )}
           {made ? (
-            <span className="font-body text-muted-foreground">
+            <span className="font-small text-muted-foreground">
               {made.shades.length} shades,{" "}
               {made.shades[0]?.name.replace(FIRST_STEP, "-50…950")} in{" "}
               {made.palette.group}
               {made.palette.exists ? "" : " (a new group)"}.
             </span>
           ) : null}
-          <div className="flex gap-1.5">
-            <Button disabled={!made} onClick={apply} size="sm">
-              Apply
-            </Button>
+          <div className="flex justify-end gap-2 pt-1">
             <Button onClick={stop} size="sm" variant="ghost">
               Cancel
+            </Button>
+            <Button disabled={!made} onClick={apply} size="sm">
+              Apply ramp
             </Button>
           </div>
         </>
@@ -347,8 +366,9 @@ export const TokenInspector = ({
   const token = tokenOf(ds, name);
   if (!token) {
     return (
-      <p className="p-3 font-body text-muted-foreground">
-        The design system has no token {name}.
+      <p className="px-3 py-3 font-small text-muted-foreground">
+        The design system has no token {name}. It may have been renamed or
+        deleted.
       </p>
     );
   }
@@ -440,12 +460,18 @@ const AddToken = ({
         />
       </Row>
       {taken ? (
-        <span className="font-body text-muted-foreground">
-          {name} is there already.
+        <span className="font-small text-destructive">
+          {name} exists already. Give the new token another name.
         </span>
       ) : null}
-      <Button disabled={!ready} onClick={add} size="sm" variant="outline">
-        Add
+      <Button
+        className="mt-1 self-end"
+        disabled={!ready}
+        onClick={add}
+        size="sm"
+        variant="secondary"
+      >
+        Add token
       </Button>
     </Section>
   );
@@ -462,8 +488,8 @@ export const GroupInspector = ({
   const group = ds.colors.find((g) => g.name === name);
   if (!group) {
     return (
-      <p className="p-3 font-body text-muted-foreground">
-        There is no group {name}.
+      <p className="px-3 py-3 font-small text-muted-foreground">
+        There is no group {name}. It may have been renamed or deleted.
       </p>
     );
   }
@@ -472,22 +498,30 @@ export const GroupInspector = ({
   const slug = name.toLowerCase().replace(NOT_SLUG, "-");
   return (
     <>
-      <Section title="Name">
-        <TextInput
-          onChange={async (to) => {
-            if (
-              to.trim() &&
-              (await commitEdits([{ name, op: "renameGroup", to: to.trim() }]))
-            ) {
-              repick({ kind: "group", name: to.trim() });
-            }
-          }}
-          value={name}
-        />
-        <span className="font-body text-muted-foreground">
-          {group.tokens.length}{" "}
-          {group.tokens.length === 1 ? "colour" : "colours"}
-        </span>
+      <Section
+        action={
+          <span className="pr-1 font-small text-muted-foreground tabular-nums">
+            {group.tokens.length}{" "}
+            {group.tokens.length === 1 ? "colour" : "colours"}
+          </span>
+        }
+        title="Group"
+      >
+        <Row label="Name">
+          <TextInput
+            onChange={async (to) => {
+              if (
+                to.trim() &&
+                (await commitEdits([
+                  { name, op: "renameGroup", to: to.trim() },
+                ]))
+              ) {
+                repick({ kind: "group", name: to.trim() });
+              }
+            }}
+            value={name}
+          />
+        </Row>
       </Section>
       <AddToken
         ds={ds}
@@ -508,7 +542,7 @@ const STYLE_FIELDS: readonly {
   { kind: "font", label: "Font", setting: "font" },
   { kind: "fontSize", label: "Size", setting: "size" },
   { kind: "fontWeight", label: "Weight", setting: "weight" },
-  { kind: "leading", label: "Leading", setting: "lineHeight" },
+  { kind: "leading", label: "Line height", setting: "lineHeight" },
   { kind: "tracking", label: "Tracking", setting: "tracking" },
 ];
 
@@ -523,8 +557,8 @@ export const TextStyleInspector = ({
   const style = ds.typography.styles.find((s) => s.name === name);
   if (!style) {
     return (
-      <p className="p-3 font-body text-muted-foreground">
-        There is no text style {name}.
+      <p className="px-3 py-3 font-small text-muted-foreground">
+        There is no text style {name}. It may have been renamed or deleted.
       </p>
     );
   }
@@ -542,7 +576,7 @@ export const TextStyleInspector = ({
               kind={f.kind}
               numeric={f.setting !== "font"}
               onChange={(v) => set(f.setting, v)}
-              placeholder="From the page"
+              placeholder="As the page"
               value={style[f.setting]}
             />
           </Row>
@@ -592,25 +626,33 @@ export const FoundationActions = ({
     const taken = ds.colors.some((g) => g.name === group.trim());
     return (
       <Section title="Add a group">
-        <Input
-          aria-label="The new group's name"
-          className="h-7"
-          onChange={(e) => setGroup(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && group.trim() && !taken) {
-              add();
-            }
-          }}
-          placeholder="accent"
-          value={group}
-        />
+        <Row label="Name">
+          <Input
+            aria-label="The new group's name"
+            className="h-7"
+            onChange={(e) => setGroup(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && group.trim() && !taken) {
+                add();
+              }
+            }}
+            placeholder="Accent"
+            value={group}
+          />
+        </Row>
+        {taken ? (
+          <span className="font-small text-destructive">
+            {group.trim()} exists already. Give the new group another name.
+          </span>
+        ) : null}
         <Button
+          className="mt-1 self-end"
           disabled={!group.trim() || taken}
           onClick={add}
           size="sm"
-          variant="outline"
+          variant="secondary"
         >
-          Add
+          Add group
         </Button>
       </Section>
     );

@@ -103,7 +103,7 @@ export const SelectionTag = ({
         <DropdownMenuTrigger
           render={
             <button
-              className="flex h-5 max-w-64 items-center gap-1 rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4 outline-none"
+              className="flex h-5 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-caption text-white outline-none focus-visible:underline"
               style={{ background: color }}
               type="button"
             />
@@ -113,7 +113,7 @@ export const SelectionTag = ({
           <span className="truncate">{nodeLabel(node)}</span>
           {linked ? (
             <span
-              className="flex min-w-0 items-center gap-1 border-white/40 border-l pl-1 font-normal text-white/90"
+              className="flex min-w-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85"
               title={
                 linked.broken
                   ? "Leads to a page that is not there"
@@ -129,7 +129,7 @@ export const SelectionTag = ({
             </span>
           ) : null}
           {thread ? (
-            <span className="flex shrink-0 items-center gap-1 border-white/40 border-l pl-1 font-normal text-white/90">
+            <span className="flex shrink-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85">
               <MessageSquare className="size-2.5" />
               In chat
             </span>

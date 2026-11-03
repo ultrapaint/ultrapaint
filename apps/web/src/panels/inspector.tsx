@@ -19,28 +19,29 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
-  ArrowDown,
-  ArrowRight,
   BoxSelect,
   Code,
+  Columns3,
   Copy,
   Eye,
   EyeOff,
   Group,
   Hash,
+  Rows3,
   SquareDashedMousePointer,
   Trash2,
   Ungroup,
   Upload,
 } from "lucide-react";
+import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconButton } from "../components/icon-button.tsx";
 import { LinkField } from "../components/link-field.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { PanelEmpty, Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import {
   allSelected,
   areSiblings,
@@ -61,6 +62,7 @@ import {
 } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
+import { withSides } from "../lib/sides.ts";
 import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -72,6 +74,7 @@ import {
   useImplementation,
 } from "../state/implementation.ts";
 import { setPreset } from "../state/page-layout.ts";
+import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useInspected } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
@@ -82,18 +85,23 @@ import {
   allOf,
   allStacks,
   ColorField,
+  EmptyState,
   InspectedKey,
   nullIfMixed,
   oneComponent,
+  Row,
+  Section,
   set,
+  setEach,
   sharedOf,
   TextInput,
   useDraft,
 } from "./inspector-fields.tsx";
 import {
   LayoutSection,
-  SidesSection,
   SizeSection,
+  SpacingSection,
+  type WriteSides,
 } from "./inspector-layout.tsx";
 import { SlotsSection } from "./inspector-slots.tsx";
 import { TextSection } from "./inspector-text.tsx";
@@ -103,18 +111,14 @@ export const Inspector = () => {
   const picked = useCanvasPicks((s) => s.ids.length);
   if (picked > 1) {
     return (
-      <PanelEmpty icon={<BoxSelect />} title={`${picked} frames`}>
-        Drag any one's name to move them together. Delete removes them; a page's
-        menu acts on every page picked.
-      </PanelEmpty>
+      <EmptyState icon={<BoxSelect />} title={`${picked} frames`}>
+        Drag one’s name to move them together; a page’s menu acts on all of
+        them.
+      </EmptyState>
     );
   }
   if (!inspected) {
-    return (
-      <PanelEmpty icon={<SquareDashedMousePointer />} title="Select a layer">
-        Click one on the canvas or in Layers to see and change its design.
-      </PanelEmpty>
-    );
+    return <NothingSelected />;
   }
   const { frame, node, nodes } = inspected;
   // Updated in place from one selection to the next, not mounted again: a selection costs what
@@ -123,20 +127,19 @@ export const Inspector = () => {
     <InspectedKey.Provider
       value={`${frame}#${nodes.map((n) => n.id).join(",")}`}
     >
-      <div className="flex flex-col pb-8">
+      <div className="flex flex-col pb-4">
         <Header frame={frame} node={node} nodes={nodes} />
         {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
-        {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
         {node.type === "page" && nodes.length === 1 && (
           <PageSection frame={frame} />
         )}
+        {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
         {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
         {allOf(nodes, "text") && <TextSection nodes={nodes} />}
         {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
         {allStacks(nodes) && <LayoutSection nodes={nodes} />}
         <SizeSection frame={frame} nodes={nodes} />
-        <SidesSection field="padding" nodes={nodes} title="Padding" />
-        <SidesSection field="margin" nodes={nodes} title="Margin" />
+        <SpacingSection nodes={nodes} write={writeSides} />
         <AppearanceSection nodes={nodes} />
         {/* Only a page's node is in the prototype: nothing would follow a link anywhere else. */}
         {node.type !== "page" && hasPrototypeLinks(frameRefOf(frame)) && (
@@ -144,6 +147,39 @@ export const Inspector = () => {
         )}
       </div>
     </InspectedKey.Provider>
+  );
+};
+
+/** Each node inspected keeps its own other sides. */
+const writeSides: WriteSides = (field, sides, value) =>
+  setEach(`Change the ${field}`, (n) => ({
+    [field]: withSides(n[field], sides, value),
+  }));
+
+/** What the panel holds once something is selected, and the way to the layers to select it. */
+const NothingSelected = () => {
+  const layersShown = useEditor(
+    (s) => s.leftTab === "layers" && s.workspace === "design"
+  );
+  const leftHidden = usePanels((s) => s.left);
+  return (
+    <EmptyState
+      action={
+        layersShown && !leftHidden ? null : (
+          <Button
+            onClick={() => showLeftPanel("layers")}
+            size="sm"
+            variant="outline"
+          >
+            Show layers
+          </Button>
+        )
+      }
+      icon={<SquareDashedMousePointer />}
+      title="Nothing selected"
+    >
+      Select a layer to change its layout, size, fill and type.
+    </EmptyState>
   );
 };
 
@@ -164,7 +200,7 @@ const NameInput = ({ node }: { node: DesignNode }) => {
   return (
     <Input
       aria-label="Name"
-      className="h-7 border-transparent bg-transparent px-1 font-heading-xsmall shadow-none hover:border-input dark:bg-transparent"
+      className="-ml-1.5 h-8 min-w-0 truncate border-transparent bg-transparent px-1.5 font-heading-xsmall shadow-none placeholder:text-foreground hover:border-input focus-visible:bg-muted focus-visible:placeholder:text-muted-foreground dark:bg-transparent"
       onBlur={commit}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
@@ -181,7 +217,7 @@ const NameInput = ({ node }: { node: DesignNode }) => {
   );
 };
 
-/** One node by its kind; several by how many they are, and of which kinds. */
+/** One node by its kind and its size on the canvas; several by how many of which kinds. */
 const Kinds = ({
   frame,
   node,
@@ -196,33 +232,43 @@ const Kinds = ({
   );
   if (nodes.length > 1) {
     return (
-      <div className="truncate px-1 font-body text-muted-foreground">
+      <span className="min-w-0 truncate font-small text-muted-foreground">
         {[...new Set(nodes.map(nodeKind))].join(", ")}
-      </div>
+      </span>
     );
   }
   return (
-    <div className="flex items-center gap-2 px-1 font-body text-muted-foreground">
-      <span className={cn(node.type === "instance" && "text-component")}>
-        {nodeKind(node)}
-      </span>
+    <span className="flex min-w-0 items-center gap-2 font-small text-muted-foreground tabular-nums">
+      <span className="truncate">{nodeKind(node)}</span>
       {rect ? (
-        <span>
+        <span className="shrink-0">
           {Math.round(rect.width)} × {Math.round(rect.height)}
         </span>
       ) : null}
-      {/* The id is for agents, not for reading: copied, it finds the element. */}
-      <IconButton
-        className="ml-auto size-5"
-        onClick={() => copyNodeRef({ frame, nodeId: node.id })}
-        size="icon-xs"
-        tooltip="Copy element ID, which an agent finds it by"
-      >
-        <Hash className="size-3" />
-      </IconButton>
-    </div>
+    </span>
   );
 };
+
+/** A tooltip that names an action and its keys, when it has any; the name is the button's. */
+const keyed = (label: string, command: string) => ({
+  label,
+  tooltip: (
+    <>
+      {label}
+      <CommandKeys id={command} />
+    </>
+  ),
+});
+
+/** A quiet icon of the header, named by its tooltip. */
+const HeaderAction = (props: React.ComponentProps<typeof IconButton>) => (
+  <IconButton
+    {...props}
+    className="text-muted-foreground"
+    size="icon-sm"
+    variant="ghost"
+  />
+);
 
 const Header = ({
   frame,
@@ -235,75 +281,102 @@ const Header = ({
 }) => {
   const isRoot = node.type === "page";
   const several = nodes.length > 1;
+  // A page's root is named by its page, which the pages list renames.
+  const pageName = useProject((s) =>
+    isRoot ? s.pages.find((p) => p.id === frame)?.name : undefined
+  );
+  // What heads the panel when the name is not the node's to edit.
+  let title: string | null = pageName ?? null;
+  if (several) {
+    title = `${nodes.length} selected`;
+  }
   const hidden = nodes.every((n) => n.hidden === true);
   // Several nodes go into one container only from one parent.
   const wrappable = !several || areSiblings(allSelected());
   const wrapTip = (tip: string) =>
     wrappable ? tip : "Only siblings can be wrapped together";
   return (
-    <div className="flex flex-col gap-1 border-b px-2 py-2">
-      <div className="flex items-center gap-1">
+    <div className="flex flex-col border-b px-3 pt-1.5 pb-2">
+      <div className="flex h-8 items-center gap-1">
         <div className="min-w-0 flex-1">
-          {several ? (
-            <div className="truncate px-1 font-heading-xsmall leading-7">
-              {nodes.length} selected
-            </div>
-          ) : (
+          {title === null ? (
             <NameInput node={node} />
+          ) : (
+            <div className="truncate font-heading-xsmall" title={title}>
+              {title}
+            </div>
           )}
         </div>
-        {!isRoot && (
-          <IconButton
-            onClick={() => setHidden(!hidden)}
-            tooltip={hidden ? "Show" : "Hide"}
-          >
-            {hidden ? <EyeOff /> : <Eye />}
-          </IconButton>
+        <div className="-mr-1 flex shrink-0 items-center gap-0.5">
+          {several ? null : (
+            <HeaderAction
+              onClick={() => copyNodeRef({ frame, nodeId: node.id })}
+              tooltip="Copy element ID"
+            >
+              <Hash />
+            </HeaderAction>
+          )}
+          {isRoot ? null : (
+            <HeaderAction
+              onClick={() => setHidden(!hidden)}
+              tooltip={hidden ? "Show" : "Hide"}
+            >
+              {hidden ? <EyeOff /> : <Eye />}
+            </HeaderAction>
+          )}
+        </div>
+      </div>
+      <div className="flex h-7 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <Kinds frame={frame} node={node} nodes={nodes} />
+        </div>
+        {isRoot ? null : (
+          <div className="-mr-1 flex shrink-0 items-center gap-0.5">
+            <HeaderAction
+              disabled={!wrappable}
+              onClick={() => wrapSelection("group")}
+              {...keyed(wrapTip("Wrap in a group"), "wrap:group")}
+            >
+              <Group />
+            </HeaderAction>
+            <HeaderAction
+              disabled={!wrappable}
+              onClick={() => wrapSelection("row")}
+              {...keyed(wrapTip("Wrap in a row"), "wrap:row")}
+            >
+              <Columns3 />
+            </HeaderAction>
+            <HeaderAction
+              disabled={!wrappable}
+              onClick={() => wrapSelection("column")}
+              {...keyed(wrapTip("Wrap in a column"), "wrap:column")}
+            >
+              <Rows3 />
+            </HeaderAction>
+            {nodes.every(
+              (n) =>
+                n.type === "row" || n.type === "column" || n.type === "group"
+            ) && (
+              <HeaderAction onClick={() => unwrapSelection()} tooltip="Unwrap">
+                <Ungroup />
+              </HeaderAction>
+            )}
+            <span className="mx-0.5 h-4 w-px bg-border" />
+            <HeaderAction
+              onClick={() => duplicateSelection()}
+              {...keyed("Duplicate", "duplicate")}
+            >
+              <Copy />
+            </HeaderAction>
+            <HeaderAction
+              onClick={() => deleteSelection()}
+              {...keyed("Delete", "delete")}
+            >
+              <Trash2 />
+            </HeaderAction>
+          </div>
         )}
       </div>
-      <Kinds frame={frame} node={node} nodes={nodes} />
-      {!isRoot && (
-        <div className="flex items-center gap-0.5">
-          <IconButton
-            disabled={!wrappable}
-            onClick={() => wrapSelection("group")}
-            tooltip={wrapTip("Wrap in a group (⌘G)")}
-          >
-            <Group />
-          </IconButton>
-          <IconButton
-            disabled={!wrappable}
-            onClick={() => wrapSelection("row")}
-            tooltip={wrapTip("Wrap in a row (⌥⌘G)")}
-          >
-            <ArrowRight />
-          </IconButton>
-          <IconButton
-            disabled={!wrappable}
-            onClick={() => wrapSelection("column")}
-            tooltip={wrapTip("Wrap in a column (⇧⌘G)")}
-          >
-            <ArrowDown />
-          </IconButton>
-          {nodes.every(
-            (n) => n.type === "row" || n.type === "column" || n.type === "group"
-          ) && (
-            <IconButton onClick={() => unwrapSelection()} tooltip="Unwrap">
-              <Ungroup />
-            </IconButton>
-          )}
-          <span className="flex-1" />
-          <IconButton
-            onClick={() => duplicateSelection()}
-            tooltip="Duplicate (⌘D)"
-          >
-            <Copy />
-          </IconButton>
-          <IconButton onClick={() => deleteSelection()} tooltip="Delete (⌫)">
-            <Trash2 />
-          </IconButton>
-        </div>
-      )}
     </div>
   );
 };
@@ -317,41 +390,37 @@ const PageSection = ({ frame }: { frame: string }) => {
     return null;
   }
   return (
-    <Section title="Page">
-      <Row label="URL">
-        <button
-          className={cn(
-            "truncate text-left hover:underline",
-            page.route === undefined
-              ? "font-body text-muted-foreground"
-              : "font-code"
-          )}
-          onClick={() => editPageUrl(page)}
-          title={
-            page.route === undefined
-              ? "No link or prototype reaches it: click to give it a URL"
-              : "Change the URL"
-          }
-          type="button"
-        >
-          {page.route ?? "None"}
-        </button>
-      </Row>
-      <Row label="Viewport">
-        <OptionSelect
-          onChange={(v) => setPreset(frame, v as ViewportPreset)}
-          options={viewportPresets}
-          size="sm"
-          value={presetOf(layout)}
-        />
-      </Row>
-      <Row label="Frame">
-        <span className="font-body text-muted-foreground">
-          {Math.round(layout.width)} × {Math.round(layout.height)}
-        </span>
-      </Row>
+    <>
+      <Section title="Page">
+        <Row label="URL">
+          <button
+            className={cn(
+              "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
+              page.route === undefined
+                ? "font-body text-muted-foreground"
+                : "font-code"
+            )}
+            onClick={() => editPageUrl(page)}
+            title={
+              page.route === undefined
+                ? "No link or prototype reaches it"
+                : "Change the URL"
+            }
+            type="button"
+          >
+            {page.route ?? "None"}
+          </button>
+        </Row>
+        <Row label="Viewport">
+          <OptionSelect
+            onChange={(v) => setPreset(frame, v as ViewportPreset)}
+            options={viewportPresets}
+            value={presetOf(layout)}
+          />
+        </Row>
+      </Section>
       <CodeLink page={page} />
-    </Section>
+    </>
   );
 };
 
@@ -360,17 +429,17 @@ const PageSection = ({ frame }: { frame: string }) => {
  * them over; what changed on both sides is left for the Sync view.
  */
 const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
-  <div className="flex items-start gap-1.5 font-body text-muted-foreground">
-    <span className="min-w-0 flex-1">
+  <div className="flex items-start gap-2">
+    <p className="min-w-0 flex-1 font-small text-muted-foreground">
       {tokens.length === 1 ? "A token" : `${tokens.length} tokens`} it uses wait
       {tokens.length === 1 ? "s" : ""} for the code:{" "}
-      <span className="font-code">{tokens.join(", ")}</span>
-    </span>
+      <span className="font-code text-foreground">{tokens.join(", ")}</span>
+    </p>
     <Button
       className="shrink-0"
       onClick={() => exportTokens(tokens)}
-      size="xs"
-      variant="ghost"
+      size="sm"
+      variant="outline"
     >
       Export
     </Button>
@@ -398,67 +467,74 @@ const CodeLink = ({ page }: { page: Page }) => {
   }, [page.id, designChanged, key]);
   const changes = designChanged && read?.key === key ? read.text : null;
   const bound = item?.status === "implemented" || item?.status === "changed";
+  const draft = item?.status === "draft" || item === undefined;
+  const behind = item?.status === "changed" || tokensWaiting(item);
   return (
-    <div className="mt-1 flex flex-col gap-1.5">
-      <Row label="Code">
+    <Section title="Code">
+      <Row label="Status">
         <span
-          className={cn(
-            "truncate font-body",
-            item?.status === "changed" || tokensWaiting(item)
-              ? "text-warning"
-              : "text-muted-foreground"
-          )}
+          className="flex min-w-0 items-center gap-1.5 font-body"
           title={item?.files.join("\n")}
         >
-          {item && item.status !== "draft"
-            ? statusLabel(item)
-            : "Not implemented"}
+          {behind ? (
+            <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+          ) : null}
+          <span className={cn("truncate", draft && "text-muted-foreground")}>
+            {item && item.status !== "draft"
+              ? statusLabel(item)
+              : "Not implemented"}
+          </span>
         </span>
       </Row>
-      {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {bound && item ? (
-        <span
-          className="truncate font-code text-muted-foreground"
-          title={item.files.join("\n")}
-        >
-          {item.files.join(", ")}
-        </span>
+        <Row label="Files">
+          <span
+            className="truncate font-code text-muted-foreground"
+            title={item.files.join("\n")}
+          >
+            {item.files.join(", ")}
+          </span>
+        </Row>
       ) : null}
+      {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {changes ? (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
           {changes}
         </pre>
       ) : null}
-      <Button
-        className="justify-start"
-        onClick={() => implementPage(page)}
-        size="sm"
-        variant="outline"
-      >
-        <Code />
-        {item?.status === "changed" && item.designChanged
-          ? "Implement what changed"
-          : "Implement in the application"}
-      </Button>
-      <div className="flex flex-wrap gap-1">
-        {item?.status === "draft" || item === undefined ? (
+      <div className="flex flex-col gap-1 pt-1">
+        <Button
+          className="w-full"
+          onClick={() => implementPage(page)}
+          variant="outline"
+        >
+          <Code />
+          {item?.status === "changed" && item.designChanged
+            ? "Implement what changed"
+            : "Implement"}
+        </Button>
+        <div className="flex gap-1">
+          {draft ? (
+            <Button
+              className="flex-1"
+              onClick={() => setPageReady(page, true)}
+              size="sm"
+              variant="ghost"
+            >
+              Mark ready
+            </Button>
+          ) : null}
           <Button
-            onClick={() => setPageReady(page, true)}
+            className="flex-1"
+            onClick={() => markImplemented(page.id, page.name, item?.files)}
             size="sm"
             variant="ghost"
           >
-            Mark ready
+            {bound ? "Mark implemented again…" : "Mark implemented…"}
           </Button>
-        ) : null}
-        <Button
-          onClick={() => markImplemented(page.id, page.name, item?.files)}
-          size="sm"
-          variant="ghost"
-        >
-          {bound ? "Mark implemented again…" : "Mark implemented…"}
-        </Button>
+        </div>
       </div>
-    </div>
+    </Section>
   );
 };
 
@@ -493,41 +569,40 @@ const InstanceSection = ({
     return null;
   }
   const { mixed, props } = sharedProps(nodes);
+  // An app component's text is its properties' (ADR 0041).
+  const ownText =
+    node.from !== APP_FROM &&
+    nodes.every((n) => (n.children?.length ?? 0) === 0);
   return (
     <>
-      <Section title="Component">
-        <Row label="Name">
-          <span className="truncate font-medium text-component">
-            {node.component}
-          </span>
-        </Row>
-        <Row label="From">
-          <span
-            className="truncate font-code text-muted-foreground"
-            title={node.from}
-          >
-            {node.from}
-          </span>
-        </Row>
-        {/* An app component's text is its properties' (ADR 0041). */}
-        {node.from !== APP_FROM &&
-          nodes.every((n) => (n.children?.length ?? 0) === 0) && (
-            <Row label="Text">
-              <TextInput
-                onChange={(v) => set("text", v === "" ? null : v)}
-                {...shownAs(
-                  sharedOf(nodes, (n) => n.text),
-                  "No text"
-                )}
-              />
-            </Row>
-          )}
-      </Section>
       <ComponentProps
         mixed={mixed}
         node={{ ...node, props }}
         onSet={(name, value) => setPropsOfSelection({ [name]: value })}
-      />
+        title={
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate">{node.component}</span>
+            <span
+              className="truncate font-code font-normal text-muted-foreground"
+              title={node.from}
+            >
+              {node.from}
+            </span>
+          </span>
+        }
+      >
+        {ownText ? (
+          <Row label="Text">
+            <TextInput
+              onChange={(v) => set("text", v === "" ? null : v)}
+              {...shownAs(
+                sharedOf(nodes, (n) => n.text),
+                "No text"
+              )}
+            />
+          </Row>
+        ) : null}
+      </ComponentProps>
       {nodes.length === 1 && <SlotsSection frame={frame} node={node} />}
     </>
   );
@@ -574,6 +649,7 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
           )}
         />
         <IconButton
+          className="text-muted-foreground"
           onClick={() => input.current?.click()}
           tooltip="Upload an image"
         >
@@ -587,7 +663,7 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
           type="file"
         />
       </Row>
-      <Row label="Alt text">
+      <Row label="Alt">
         <TextInput
           onChange={(v) => set("alt", v)}
           {...shownAs(sharedOf(nodes, (n) => n.alt))}
@@ -608,7 +684,7 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
         <ColorField
           field={TOKEN_FIELDS.tint}
           nodes={nodes}
-          placeholder="Its own colours"
+          placeholder="None"
         />
       </Row>
     </Section>

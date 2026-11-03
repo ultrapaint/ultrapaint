@@ -1,42 +1,33 @@
-import type { ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useConnection } from "../state/connection.ts";
 import { useShellStatus } from "../state/shell-status.ts";
-
-const Notice = ({ children }: { children: ReactNode }) => (
-  <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex justify-center">
-    <div className="pointer-events-auto flex h-8 items-center gap-2 rounded-lg border bg-sidebar pr-1 pl-2.5 text-sidebar-foreground shadow-black/30 shadow-lg [&>svg]:size-3.5">
-      {children}
-    </div>
-  </div>
-);
+import { Banner } from "./banner.tsx";
 
 /**
- * Connection problems at the top of the canvas. Nothing shows while the backend is reachable: the
- * frames are the editor's own (ADR 0040), with nothing to start.
+ * Connection problems, just over the tools at the bottom of the canvas, out of the way of what the
+ * top says. Nothing shows while the server is reachable: the frames are the editor's own
+ * (ADR 0040), with nothing to start.
  */
 export const CanvasStatus = () => {
   const connState = useConnection((s) => s.state);
   const shell = useShellStatus();
 
-  // The shell knows more than the socket does: why the backend is away, and what it is doing.
-  if (shell) {
-    return (
-      <Notice>
-        <Spinner />
-        <span className="pr-1.5" title={shell.detail}>
-          {shell.message}
-        </span>
-      </Notice>
-    );
+  // The shell knows more than the socket does: why the server is away, and what it is doing.
+  const message =
+    shell?.message ??
+    (connState === "open" ? null : "Connecting to the server…");
+  if (message === null) {
+    return null;
   }
-  if (connState !== "open") {
-    return (
-      <Notice>
-        <Spinner />
-        <span className="pr-1.5">Connecting to the local backend…</span>
-      </Notice>
-    );
-  }
-  return null;
+  return (
+    <Banner
+      at="bottom"
+      icon={<Spinner className="text-muted-foreground" />}
+      label={message}
+    >
+      <span className="truncate pr-1.5 font-small" title={shell?.detail}>
+        {message}
+      </span>
+    </Banner>
+  );
 };

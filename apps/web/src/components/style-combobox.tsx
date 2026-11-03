@@ -28,14 +28,24 @@ interface Item extends StyleOption {
 const ArbitraryDot = ({ className }: { className?: string }) => (
   <span
     className={cn("size-1.5 shrink-0 rounded-full bg-warning", className)}
-    title="Arbitrary value, outside the design system. Prefer a value from the list."
+    title="Outside the design system"
   />
 );
+
+/** What an empty list says: what to type, or that what was typed is no value. */
+const emptyText = (typed: boolean, query: string) => {
+  if (!typed) {
+    return "No values match";
+  }
+  return query ? "Not a value this field takes" : "Type a value";
+};
 
 const matches = (o: StyleOption, q: string) =>
   `${o.label} ${o.value} ${o.description ?? ""}`.toLowerCase().includes(q);
 
 interface StyleComboboxProps {
+  /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
+  autoOpen?: boolean;
   className?: string;
   /** The value currently set, if any. */
   current: string | undefined;
@@ -75,7 +85,9 @@ type Activation = "focus" | "open";
  * while only the one in use needs to be one.
  */
 export const StyleCombobox = (props: StyleComboboxProps) => {
-  const [activated, setActivated] = useState<Activation | null>(null);
+  const [activated, setActivated] = useState<Activation | null>(
+    props.autoOpen ? "open" : null
+  );
   return activated ? (
     <ActiveCombobox {...props} activated={activated} />
   ) : (
@@ -84,9 +96,9 @@ export const StyleCombobox = (props: StyleComboboxProps) => {
 };
 
 const INPUT_CLASS =
-  "h-full min-w-0 flex-1 bg-transparent px-1.5 font-body outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed";
+  "h-full min-w-0 flex-1 cursor-default bg-transparent px-2 font-body tabular-nums outline-none placeholder:text-muted-foreground focus:cursor-text disabled:cursor-not-allowed";
 const TRIGGER_CLASS =
-  "flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-muted disabled:pointer-events-none";
+  "flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none";
 
 /** The field as it looks closed: what it shows, and nothing to set up. */
 const IdleCombobox = ({
@@ -110,12 +122,12 @@ const IdleCombobox = ({
   };
   return (
     <InputGroup
-      className={cn("h-6 min-w-0 flex-1", className)}
+      className={cn("min-w-0 flex-1", className)}
       data-disabled={disabled}
       title={title}
     >
       {leading ? (
-        <InputGroupAddon className="py-0 pl-1.5 font-body font-normal">
+        <InputGroupAddon className="py-0 pr-0 pl-2 font-body font-normal">
           {leading}
         </InputGroupAddon>
       ) : null}
@@ -132,10 +144,10 @@ const IdleCombobox = ({
         role="combobox"
         value={selected?.label ?? display}
       />
-      <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-0.5">
+      <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
         {hint && !selected ? (
           <span
-            className="min-w-0 max-w-24 truncate font-code font-normal"
+            className="min-w-0 max-w-24 truncate font-normal font-small"
             title={hint}
           >
             {hint}
@@ -239,13 +251,13 @@ const ActiveCombobox = ({
       value={selected}
     >
       <InputGroup
-        className={cn("h-6 min-w-0 flex-1", className)}
+        className={cn("min-w-0 flex-1", className)}
         data-disabled={disabled}
         ref={group}
         title={title}
       >
         {leading ? (
-          <InputGroupAddon className="py-0 pl-1.5 font-body font-normal">
+          <InputGroupAddon className="py-0 pr-0 pl-2 font-body font-normal">
             {leading}
           </InputGroupAddon>
         ) : null}
@@ -255,13 +267,10 @@ const ActiveCombobox = ({
           onFocus={selectAll}
           placeholder={selected?.label ?? display}
         />
-        <InputGroupAddon
-          align="inline-end"
-          className="min-w-0 gap-1 py-0 pr-0.5"
-        >
+        <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
           {hint && !selected ? (
             <span
-              className="min-w-0 max-w-24 truncate font-code font-normal"
+              className="min-w-0 max-w-24 truncate font-normal font-small"
               title={hint}
             >
               {hint}
@@ -277,9 +286,7 @@ const ActiveCombobox = ({
         </InputGroupAddon>
       </InputGroup>
       <ComboboxContent className="w-auto min-w-[max(10rem,var(--anchor-width))]">
-        <ComboboxEmpty>
-          {custom ? "Type a value" : "No matching values"}
-        </ComboboxEmpty>
+        <ComboboxEmpty>{emptyText(custom !== undefined, q)}</ComboboxEmpty>
         <ComboboxList>
           {(item: Item) => (
             <ComboboxItem

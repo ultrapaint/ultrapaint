@@ -45,23 +45,23 @@ export const openNewDesign = () => useNewDesign.setState({ shown: true });
 export const canMakeNewDesigns = () => platform().newDesign !== undefined;
 
 const STEP_LABELS: Record<NewDesignStepId, string> = {
-  folder: "Make the folder",
-  git: "Commit it to git",
-  install: "Install the packages",
-  open: "Open it",
-  write: "Write the configuration, the designs and the code",
+  folder: "Create the folder",
+  git: "Make the first commit",
+  install: "Install packages",
+  open: "Open the design",
+  write: "Write the designs and the code",
 };
 
 const TEMPLATE_DESCRIPTIONS = {
   blank:
-    "No components and a theme that declares nothing: draw with rows, columns, text and images, and define the design system from nothing.",
+    "No components and an empty theme: the design system starts from nothing.",
   starter:
-    "Ten components to design with (a button, inputs, a card, a dialog, tabs…), each with a spec you restyle in the editor.",
+    "Ten components to restyle in the editor: a button, inputs, a card, a dialog, tabs…",
 } as const;
 
 const CODE_DESCRIPTIONS = {
-  app: "A Vite, React and Tailwind application in app/, beside the designs: the folder stays tidy for the designs and the code alike.",
-  root: "The application at the folder's root, with the designs beside its src/: one package for the whole folder.",
+  app: "A Vite, React and Tailwind app in app/, beside the designs.",
+  root: "The app at the folder’s root, the designs beside its src/.",
 } as const;
 
 const messageOf = (error: unknown) =>
@@ -72,7 +72,7 @@ const StepIcon = ({ state }: { state: NewDesignUpdate["state"] | null }) => {
     return <Spinner />;
   }
   if (state === "done") {
-    return <Check className="text-primary" />;
+    return <Check className="text-success" />;
   }
   if (state === "failed") {
     return <X className="text-destructive" />;
@@ -100,7 +100,7 @@ const Steps = ({
     "open",
   ];
   return (
-    <ol className="flex flex-col gap-1.5">
+    <ol className="flex flex-col gap-2 rounded-lg bg-muted p-3">
       {steps.map((step) => {
         const at = progress[step];
         return (
@@ -110,11 +110,14 @@ const Steps = ({
           >
             <StepIcon state={at?.state ?? null} />
             <span className="flex min-w-0 flex-col">
-              <span className={at ? "" : "text-muted-foreground"}>
+              <span className={at ? "font-label" : "text-muted-foreground"}>
                 {STEP_LABELS[step]}
               </span>
               {at?.detail && at.state !== "failed" ? (
-                <span className="truncate text-muted-foreground">
+                <span
+                  className="truncate font-small text-muted-foreground"
+                  title={at.detail}
+                >
                   {at.detail}
                 </span>
               ) : null}
@@ -216,8 +219,8 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
       <DialogHeader>
         <DialogTitle>New design</DialogTitle>
         <DialogDescription>
-          A folder with the designs and an application to draw with, which the
-          design system is defined for. Nothing is needed but Node.js.
+          A folder with your designs and an app to draw with. Only Node.js is
+          needed.
         </DialogDescription>
       </DialogHeader>
       {busy || written || finished ? (
@@ -238,6 +241,7 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
             <FieldLabel htmlFor="new-design-folder">Folder</FieldLabel>
             <div className="flex gap-1">
               <Input
+                className="font-code"
                 id="new-design-folder"
                 onChange={(e) => {
                   setFolder(e.target.value);
@@ -251,8 +255,8 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
                 </Button>
               ) : null}
             </div>
-            <FieldDescription>
-              Made when it is not there; an empty folder otherwise.
+            <FieldDescription className="font-small">
+              Made if it is missing; otherwise it must be empty.
             </FieldDescription>
           </Field>
           <Field>
@@ -265,7 +269,7 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
               ]}
               value={template}
             />
-            <FieldDescription>
+            <FieldDescription className="font-small">
               {TEMPLATE_DESCRIPTIONS[template]}
             </FieldDescription>
           </Field>
@@ -279,14 +283,15 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
               ]}
               value={code}
             />
-            <FieldDescription>{CODE_DESCRIPTIONS[code]}</FieldDescription>
+            <FieldDescription className="font-small">
+              {CODE_DESCRIPTIONS[code]}
+            </FieldDescription>
           </Field>
           <Field orientation="horizontal">
             <FieldContent>
-              <FieldLabel htmlFor="new-design-git">Keep it in git</FieldLabel>
-              <FieldDescription>
-                git init and a first commit, and the Changes panel commits. Off,
-                the tool never writes to git.
+              <FieldLabel htmlFor="new-design-git">Keep in git</FieldLabel>
+              <FieldDescription className="font-small">
+                A first commit now; the Changes panel commits after.
               </FieldDescription>
             </FieldContent>
             <Switch
@@ -300,8 +305,10 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
       {failed ? (
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertTitle>{STEP_LABELS[failed.step]} failed</AlertTitle>
-          <AlertDescription className="whitespace-pre-wrap font-code">
+          <AlertTitle>
+            Couldn’t {STEP_LABELS[failed.step].toLowerCase()}
+          </AlertTitle>
+          <AlertDescription className="max-h-40 overflow-y-auto whitespace-pre-wrap font-code">
             {failed.message}
           </AlertDescription>
         </Alert>
@@ -310,7 +317,7 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
         <Button
           disabled={busy}
           onClick={() => useNewDesign.setState({ shown: false })}
-          variant="ghost"
+          variant="outline"
         >
           {failed || finished ? "Close" : "Cancel"}
         </Button>
@@ -346,7 +353,7 @@ export const NewDesignDialog = () => {
       }}
       open={shown}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="gap-5 sm:max-w-md">
         {/* Mounted with the dialog: each opening starts from a fresh form. */}
         {shown ? <Form designs={designs} /> : null}
       </DialogContent>

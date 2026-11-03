@@ -7,17 +7,12 @@ import type { Rect } from "@ultrapaint/contracts/preview";
 import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { AlertTriangle } from "lucide-react";
-import {
-  kindColor,
-  kindHoverColor,
-  selectionKindOf,
-} from "../lib/selection-kind.ts";
+import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
 import { useInv } from "../state/camera.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
-import { screenPx } from "./camera.ts";
 import { useFrameError } from "./editor-frame.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
@@ -48,6 +43,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
   const pageError = useFrameError(frameId);
+  const inv = useInv();
   const canvas = useEditor((s) => s.canvas);
   const frameWidth = useEditor(
     (s) =>
@@ -129,15 +125,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
           targets={group.targets}
         />
       ) : null}
-      {pageError ? (
-        <div
-          className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white"
-          style={{ fontSize: screenPx(14), padding: screenPx(12) }}
-        >
-          <AlertTriangle className="size-4 shrink-0" />
-          <pre className="whitespace-pre-wrap">{pageError.message}</pre>
-        </div>
-      ) : null}
+      {pageError ? <FrameError inv={inv} message={pageError.message} /> : null}
     </>
   );
 };
@@ -194,7 +182,31 @@ const GroupOutline = ({
   );
 };
 
-/** A frame whose size is not known yet: nothing keeps the toolbar in. */
+/**
+ * What a part of the page threw and nothing caught, over the foot of the frame at its size on
+ * screen, so it reads at any zoom; gone once the page draws again.
+ */
+const FrameError = ({ inv, message }: { inv: number; message: string }) => (
+  <div
+    className="absolute bottom-0 left-0 flex max-h-40 flex-col gap-1 overflow-auto border-destructive/40 border-t bg-popover px-3 py-2.5 text-popover-foreground"
+    data-canvas-scroll
+    role="alert"
+    style={{
+      transform: `scale(${inv})`,
+      transformOrigin: "bottom left",
+      width: `${100 / inv}%`,
+    }}
+  >
+    <span className="flex items-center gap-1.5 font-label">
+      <AlertTriangle className="size-4 shrink-0 text-destructive" />
+      Part of this page failed to draw
+    </span>
+    <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
+      {message}
+    </pre>
+  </div>
+);
+
 /** Where a node not measured yet is outlined, hidden. */
 const NO_RECT: Rect = { height: 0, width: 0, x: 0, y: 0 };
 
@@ -229,7 +241,8 @@ const Outline = ({
   // The name and the toolbar are placed by it: the room they take depends on the zoom.
   const inv = useInv();
   const tone = selectionKindOf(node);
-  const color = kind === "selection" ? kindColor(tone) : kindHoverColor(tone);
+  // Crisp, in the kind's own colour: 1px under the pointer, 2px once selected.
+  const color = kindColor(tone);
   return (
     <div
       className="pointer-events-none absolute"

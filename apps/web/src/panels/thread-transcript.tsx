@@ -6,24 +6,28 @@ import type { ThreadItem, ToolContent } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
   Check,
-  ChevronDown,
   ChevronRight,
-  ListTodo,
+  Circle,
+  CircleDashed,
   Paperclip,
   Square,
-  Zap,
+  X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
+import { Marker, MarkerContent } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Markdown } from "../components/markdown.tsx";
 import { isOpenQuestion } from "../lib/answers.ts";
 import {
@@ -82,8 +86,8 @@ export const Entry = ({
 };
 
 /**
- * A run of tool calls and thoughts, folded into one line that counts what they were. It lights up
- * while the agent is still in it; opening it shows each call as before.
+ * A run of tool calls and thoughts, folded into one quiet line that counts what they were. It
+ * shimmers while the agent is still in it; opening it shows each call, one line each.
  */
 const WorkGroup = ({
   items,
@@ -102,17 +106,16 @@ const WorkGroup = ({
   const { failed, text } = workSummary(items, active);
   return (
     <Collapsible>
-      <Disclosure className="w-full gap-1.5 border bg-muted/30">
+      <Disclosure>
+        <ChevronRight className={disclosureChevron} />
         {/* The working line under the thread spins for the turn; the group only shimmers. */}
-        <Zap className="text-muted-foreground" />
         <span className={cn("truncate", active && "text-shimmer")}>{text}</span>
         {failed > 0 && (
           <span className="shrink-0 text-destructive">· {failed} failed</span>
         )}
-        <ChevronDown className="ml-auto transition-transform group-data-panel-open/button:rotate-180" />
       </Disclosure>
-      <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
-        <div className="mt-1 ml-2 flex flex-col gap-1 border-l pl-2">
+      <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-(--ease-enter) data-ending-style:h-0 data-starting-style:h-0">
+        <div className="mt-0.5 ml-[7px] flex flex-col gap-0.5 border-l pl-2.5">
           {items.map((item) => (
             <Item
               item={item}
@@ -127,6 +130,7 @@ const WorkGroup = ({
   );
 };
 
+/** A quiet line that folds what is under it: muted small text, filled only under the pointer. */
 const Disclosure = ({
   className,
   disabled,
@@ -137,24 +141,18 @@ const Disclosure = ({
   children: ReactNode;
 }) => (
   <CollapsibleTrigger
+    className={cn(
+      "group/button -mx-1.5 flex h-7 w-[calc(100%+0.75rem)] min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left font-small text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0",
+      className
+    )}
     disabled={disabled}
-    render={
-      <Button
-        className={cn(
-          "justify-start font-normal text-muted-foreground",
-          className
-        )}
-        size="sm"
-        variant="ghost"
-      />
-    }
   >
     {children}
   </CollapsibleTrigger>
 );
 
 const disclosureChevron =
-  "transition-transform group-data-panel-open/button:rotate-90";
+  "transition-transform duration-150 group-data-panel-open/button:rotate-90";
 
 /** Keys plan entries by content, numbering repeats so keys stay unique. */
 const keyedEntries = <T extends { content: string }>(entries: readonly T[]) => {
@@ -189,50 +187,62 @@ const TurnEnd = ({
   const count = item.changedFiles.length;
   const during = item.changedDuring ?? [];
   return (
-    <div className="flex items-center gap-1 font-body text-muted-foreground/70">
+    <div className="flex flex-wrap items-center gap-x-1.5 font-small text-muted-foreground">
       {note ? (
-        <span className="flex items-center gap-1 text-warning">
-          <Square className="size-2.5 fill-current" />
+        <span className="flex items-center gap-1.5">
+          <Square className="size-2.5 fill-warning text-warning" />
           {note}
         </span>
       ) : (
-        <span className="flex items-center gap-1">
-          <Check className="size-3" />
-          Done
-          {since === undefined ? "" : ` in ${formatDuration(item.at - since)}`}
+        <span className="flex items-center gap-1.5">
+          <Check className="size-3.5" />
+          {since === undefined
+            ? "Done"
+            : `Done in ${formatDuration(item.at - since)}`}
         </span>
       )}
       {count > 0 && (
         <>
-          <span>·</span>
-          <Button
-            className="h-auto p-0 font-body text-muted-foreground/70 hover:text-foreground"
+          <span aria-hidden>·</span>
+          <button
+            className={quietLink}
             onClick={() => openChanges(item.changedFiles)}
-            size="xs"
-            variant="link"
+            type="button"
           >
-            {count} file{count === 1 ? "" : "s"} changed
-          </Button>
+            {count === 1 ? "1 file changed" : `${count} files changed`}
+          </button>
         </>
       )}
       {during.length > 0 && (
         <>
-          <span>·</span>
-          <Button
-            className="h-auto p-0 font-body text-muted-foreground/50 hover:text-foreground"
-            onClick={() => openChanges(during)}
-            size="xs"
-            title={`Changed while the agent worked, not known to be by it:\n${during.join("\n")}`}
-            variant="link"
-          >
-            {during.length} other{during.length === 1 ? "" : "s"} changed during
-            the turn
-          </Button>
+          <span aria-hidden>·</span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className={quietLink}
+                  onClick={() => openChanges(during)}
+                  type="button"
+                />
+              }
+            >
+              {during.length === 1
+                ? "1 other changed meanwhile"
+                : `${during.length} others changed meanwhile`}
+            </TooltipTrigger>
+            <TooltipContent className="max-w-80">
+              {during.join(", ")}
+            </TooltipContent>
+          </Tooltip>
         </>
       )}
     </div>
   );
 };
+
+/** A link in a line of metadata: muted like the line, underlined, the foreground under the pointer. */
+const quietLink =
+  "rounded-sm underline decoration-muted-foreground/40 underline-offset-3 outline-none transition-colors duration-100 hover:text-foreground hover:decoration-foreground/60 focus-visible:ring-2 focus-visible:ring-ring";
 
 const DIFF_SIGNS = { added: "+", removed: "-", same: " " } as const;
 
@@ -262,7 +272,7 @@ const TerminalView = ({
     end.current?.scrollIntoView({ block: "nearest" });
   }, [output]);
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
       {output ?? "…"}
       <div ref={end} />
     </pre>
@@ -292,17 +302,24 @@ const DiffContentView = ({
   }, [content.oldText, content.newText]);
   return (
     <div>
-      <div className="flex items-center gap-2 px-2 pt-1 font-code text-muted-foreground">
-        <span className="truncate">{content.path}</span>
-        <span className="ml-auto shrink-0 text-success">+{added}</span>
-        <span className="shrink-0 text-destructive">-{removed}</span>
+      <div className="flex items-center gap-2 px-2.5 font-small text-muted-foreground">
+        <span className="min-w-0 truncate" title={content.path}>
+          {content.path}
+        </span>
+        <span className="ml-auto shrink-0 text-success tabular-nums">
+          +{added}
+        </span>
+        <span className="shrink-0 text-destructive tabular-nums">
+          −{removed}
+        </span>
       </div>
-      <pre className="max-h-48 select-text overflow-auto px-2 py-1 font-code leading-4">
+      <pre className="max-h-48 select-text overflow-auto py-1 font-code">
         {rows.map((row) => (
           <div
             className={cn(
-              row.kind === "added" && "bg-success/15 text-success",
-              row.kind === "removed" && "bg-destructive/15 text-destructive",
+              "px-2.5",
+              row.kind === "added" && "bg-success/12 text-success",
+              row.kind === "removed" && "bg-destructive/12 text-destructive",
               row.kind === "same" && "text-muted-foreground"
             )}
             key={row.key}
@@ -335,11 +352,111 @@ const ToolContentView = ({
     );
   }
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
       {content.text}
     </pre>
   );
 };
+
+/** A tool call's state, beside its title: done, failed, under way, waiting to start. */
+const ToolStatus = ({ status }: { status: ToolItem["status"] }) => {
+  switch (status) {
+    case "completed":
+      return <Check aria-label="Done" />;
+    case "failed":
+      return <X aria-label="Failed" className="text-destructive" />;
+    case "in_progress":
+      return <Spinner aria-label="Running" className="text-agent" />;
+    default:
+      return <CircleDashed aria-label="Waiting" />;
+  }
+};
+
+type ToolItem = Extract<ThreadItem, { kind: "tool" }>;
+
+/** One tool call, as a line; opening it shows where it worked and what it produced. */
+const ToolCall = ({ item, threadId }: { item: ToolItem; threadId: string }) => {
+  const hasDetails = item.locations.length + item.content.length > 0;
+  return (
+    <Collapsible>
+      <Disclosure disabled={!hasDetails}>
+        <ToolStatus status={item.status} />
+        <span className="min-w-0 flex-1 truncate">{item.title}</span>
+        {hasDetails ? (
+          <ChevronRight
+            className={cn(
+              disclosureChevron,
+              "opacity-0 group-hover/button:opacity-100 group-focus-visible/button:opacity-100 group-data-panel-open/button:opacity-100"
+            )}
+          />
+        ) : null}
+      </Disclosure>
+      <CollapsibleContent>
+        <div className="my-1 flex flex-col gap-1 overflow-hidden rounded-md bg-muted py-1">
+          {item.locations.length > 0 && (
+            <div className="px-2.5 font-code text-muted-foreground">
+              {item.locations.map((l) => (
+                <div className="truncate" key={`${l.path}:${l.line ?? ""}`}>
+                  {l.line === undefined ? l.path : `${l.path}:${l.line}`}
+                </div>
+              ))}
+            </div>
+          )}
+          {item.content.map((c, index) => (
+            <ToolContentView
+              content={c}
+              key={keyOfContent(c, index)}
+              threadId={threadId}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
+
+type PlanItem = Extract<ThreadItem, { kind: "plan" }>;
+
+/** A plan step's state: done, the one under way, to come. */
+const PlanMark = ({
+  status,
+}: {
+  status: PlanItem["entries"][number]["status"];
+}) => {
+  if (status === "completed") {
+    return <Check className="size-3.5 text-muted-foreground" />;
+  }
+  return status === "in_progress" ? (
+    <span className="flex size-3.5 items-center justify-center">
+      <span className="size-1.5 rounded-full bg-agent" />
+    </span>
+  ) : (
+    <Circle className="size-3.5 text-muted-foreground/60" />
+  );
+};
+
+/** The agent's plan, its steps ticked off as it goes. */
+const Plan = ({ item }: { item: PlanItem }) => (
+  <div className="flex flex-col gap-1 rounded-lg border px-3 py-2.5">
+    <span className="font-small text-muted-foreground">Plan</span>
+    <ol className="flex flex-col gap-1">
+      {keyedEntries(item.entries).map(({ entry, key }) => (
+        <li
+          className={cn(
+            "flex items-start gap-2",
+            entry.status === "completed" && "text-muted-foreground"
+          )}
+          key={key}
+        >
+          <span className="flex h-5 shrink-0 items-center">
+            <PlanMark status={entry.status} />
+          </span>
+          <span className="min-w-0">{entry.content}</span>
+        </li>
+      ))}
+    </ol>
+  </div>
+);
 
 const Item = ({
   item,
@@ -353,23 +470,22 @@ const Item = ({
 }) => {
   switch (item.kind) {
     case "user":
+      // The person's own words: filled and set in from the left, the agent's run the full width.
       return (
-        <Message align="end">
-          <MessageContent>
-            <Bubble align="end" className="max-w-[90%]" variant="secondary">
-              <BubbleContent className="select-text whitespace-pre-wrap">
+        <Message align="end" className="pl-8">
+          <MessageContent className="gap-1">
+            <Bubble align="end" className="max-w-full" variant="secondary">
+              <BubbleContent className="select-text whitespace-pre-wrap px-3 py-2">
                 {item.text}
               </BubbleContent>
             </Bubble>
             {item.attachments.length > 0 && (
-              <div className="flex flex-wrap justify-end gap-1">
-                {item.attachments.map((a) => (
-                  <Badge key={a} variant="outline">
-                    <Paperclip />
-                    {a}
-                  </Badge>
-                ))}
-              </div>
+              <span className="flex min-w-0 items-center justify-end gap-1 font-small text-muted-foreground">
+                <Paperclip className="size-3 shrink-0" />
+                <span className="truncate" title={item.attachments.join(", ")}>
+                  {item.attachments.join(", ")}
+                </span>
+              </span>
             )}
           </MessageContent>
         </Message>
@@ -389,85 +505,19 @@ const Item = ({
     case "thought":
       return (
         <Collapsible>
-          <Disclosure className="-ml-2">
+          <Disclosure>
             <ChevronRight className={disclosureChevron} />
-            thinking
+            <span className={cn(streaming && "text-shimmer")}>Thinking</span>
           </Disclosure>
-          <CollapsibleContent className="mt-1 select-text border-l pl-2 text-muted-foreground">
-            <Markdown className="font-body" streaming={streaming}>
-              {item.text}
-            </Markdown>
+          <CollapsibleContent className="mt-0.5 mb-1 ml-[7px] select-text border-l pl-2.5 text-muted-foreground">
+            <Markdown streaming={streaming}>{item.text}</Markdown>
           </CollapsibleContent>
         </Collapsible>
       );
-    case "tool": {
-      const hasDetails = item.locations.length + item.content.length > 0;
-      return (
-        <Collapsible className="rounded-md border bg-muted/30">
-          <Disclosure className="w-full gap-1.5" disabled={!hasDetails}>
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                item.status === "completed" && "bg-success",
-                item.status === "failed" && "bg-destructive",
-                item.status === "in_progress" && "animate-pulse bg-brand",
-                item.status === "pending" && "bg-muted-foreground"
-              )}
-            />
-            <span className="truncate">{item.title}</span>
-            {item.toolKind ? (
-              <span className="ml-auto font-body text-muted-foreground/70">
-                {item.toolKind}
-              </span>
-            ) : null}
-          </Disclosure>
-          <CollapsibleContent>
-            <div className="border-t">
-              {item.locations.length > 0 && (
-                <div className="px-2 py-1 font-code text-muted-foreground">
-                  {item.locations.map((l) => (
-                    <div key={`${l.path}:${l.line ?? ""}`}>
-                      {l.line === undefined ? l.path : `${l.path}:${l.line}`}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {item.content.map((c, index) => (
-                <ToolContentView
-                  content={c}
-                  key={keyOfContent(c, index)}
-                  threadId={threadId}
-                />
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      );
-    }
+    case "tool":
+      return <ToolCall item={item} threadId={threadId} />;
     case "plan":
-      return (
-        <div className="rounded-md border px-2 py-1.5">
-          <Marker className="mb-1 font-heading-xsmall uppercase">
-            <MarkerIcon>
-              <ListTodo />
-            </MarkerIcon>
-            <MarkerContent>Plan</MarkerContent>
-          </Marker>
-          {keyedEntries(item.entries).map(({ entry, key }) => (
-            <div
-              className={cn(
-                "flex items-start gap-1.5",
-                entry.status === "completed" &&
-                  "text-muted-foreground line-through"
-              )}
-              key={key}
-            >
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              <span>{entry.content}</span>
-            </div>
-          ))}
-        </div>
-      );
+      return <Plan item={item} />;
     case "permission":
       return <Permission item={item} threadId={threadId} />;
     // A question still waiting sits over the composer; the thread keeps what came of it.
@@ -475,7 +525,7 @@ const Item = ({
       return isOpenQuestion(item) ? null : <QuestionRecord item={item} />;
     case "status":
       return (
-        <Marker>
+        <Marker className="py-1" variant="separator">
           <MarkerContent>{item.text}</MarkerContent>
         </Marker>
       );

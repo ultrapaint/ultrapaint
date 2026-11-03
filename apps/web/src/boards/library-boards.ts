@@ -24,7 +24,7 @@ import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { label, nodeCss } from "./board-nodes.ts";
+import { label, nameText, nodeCss, RULE } from "./board-nodes.ts";
 import { cellId, pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
@@ -79,8 +79,13 @@ const drawnStates = (component: SystemComponentFile): ComponentState[] => {
 /** How wide a board draws what a page would fill: an app component without a width of its own. */
 const BOARD_PAGE_WIDTH = 1200;
 
+/** A tile of the Overview, its padding, and the gap between two. */
+const TILE = 200;
+const TILE_PADDING = 12;
+const TILE_GAP = 16;
+
 /** What a tile shows a component in: its width but its padding. */
-const STAGE_WIDTH = 200 - 2 * 12;
+const STAGE_WIDTH = TILE - 2 * TILE_PADDING;
 
 /** How much the Overview scales an app component drawn `width` wide to fit its tile. */
 const stageScale = (width: number) =>
@@ -140,20 +145,21 @@ const overviewCss = (
   ].join("\n");
 
 /** Four tiles a row, and their gaps and margins. */
-const OVERVIEW_WIDTH = 4 * 200 + 3 * 12 + 2 * 24;
+const OVERVIEW_WIDTH = 4 * TILE + 3 * TILE_GAP + 2 * 32;
 
 /** A board's root: a sheet of the design's background, at a width of its own. */
 const sheet = (
   id: string,
   children: DesignNode[],
-  width: number | "fill" | "hug"
+  width: number | "fill" | "hug",
+  padding = 24
 ): DesignNode => ({
   children,
   fill: tokenRef("color-background"),
-  gap: 24,
+  gap: 32,
   id,
-  padding: 24,
-  radius: 8,
+  padding,
+  radius: 12,
   type: "column",
   width,
 });
@@ -209,51 +215,38 @@ export const overviewBoard = (
     items: readonly ComponentMeta[]
   ): DesignNode => ({
     children: [
-      {
-        color: "#71717a",
-        id: `section-label:${title}`,
-        role: "paragraph",
-        size: 12,
-        text: title,
-        type: "text",
-      },
+      nameText(`section-label:${title}`, title, 14, { weight: 600 }),
       {
         children: items.map(
           (c): DesignNode => ({
-            border: { color: "#0000001a", width: 1 },
+            border: { color: RULE, width: 1 },
             children: [
               {
                 align: "center",
                 children: [example(c)],
                 crossAlign: "center",
-                height: 96,
+                height: 104,
                 id: `stage:${c.name}`,
                 type: "row",
                 width: "fill",
               },
-              {
-                id: `title:${c.name}`,
-                role: "paragraph",
-                size: 13,
-                text: c.name,
-                type: "text",
-              },
+              nameText(`title:${c.name}`, c.name, 13),
             ],
-            gap: 8,
+            gap: 12,
             id: pickId({ kind: "item", name: c.name }),
-            padding: 12,
-            radius: 8,
+            padding: TILE_PADDING,
+            radius: 10,
             type: "column",
-            width: 200,
+            width: TILE,
           })
         ),
-        gap: 12,
+        gap: TILE_GAP,
         id: `section-items:${title}`,
         type: "row",
         wrap: true,
       },
     ],
-    gap: 8,
+    gap: 12,
     id: `section:${title}`,
     type: "column",
   });
@@ -269,7 +262,8 @@ export const overviewBoard = (
         ...(app.length > 0 ? [section("App components", app)] : []),
         section("System components", system),
       ],
-      OVERVIEW_WIDTH
+      OVERVIEW_WIDTH,
+      32
     ),
     title: "Every component",
   };
@@ -366,8 +360,9 @@ const cellOf = (
  */
 const gridCss = (id: string, columns: number) =>
   [
-    `${nodeCss(id)} { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 8px; row-gap: 4px; }`,
-    `${nodeCss(id)} > ${nodeCss("member:", "^=")} { justify-self: start; }`,
+    `${nodeCss(id)} { display: grid !important; grid-template-columns: max-content repeat(${columns}, max-content); align-items: center; justify-items: center; column-gap: 16px; row-gap: 8px; }`,
+    `${nodeCss(id)} > ${nodeCss("member:", "^=")} { justify-self: start; padding-right: 16px; }`,
+    `${nodeCss(id)} > ${nodeCss("state:", "^=")} { padding-bottom: 4px; }`,
   ].join("\n");
 
 /**
@@ -387,12 +382,12 @@ const systemComponentBoards = (
   const states: (ComponentState | null)[] = [null, ...drawnStates(file)];
   const rows = members.length > 0 ? members : [null];
   const grid: DesignNode[] = [
-    label("corner", "", 11),
+    label("corner", "", 12),
     ...states.map((s) =>
-      label(`state:${s ?? BASE_WORD}`, stateTitle(s), 11, { weight: 500 })
+      label(`state:${s ?? BASE_WORD}`, stateTitle(s), 12, { weight: 500 })
     ),
     ...rows.flatMap((member) => [
-      label(`member:${member ?? BASE_WORD}`, member ?? "", 11),
+      nameText(`member:${member ?? BASE_WORD}`, member ?? "", 12),
       ...states.map((state) =>
         cellOf(
           meta,
@@ -435,7 +430,7 @@ const systemComponentBoards = (
                       { state: null, variant: { axis: other, member } },
                       next
                     ),
-                    label(`member:${other}=${member}`, member, 11),
+                    label(`member:${other}=${member}`, member, 12),
                   ],
                   crossAlign: "center",
                   gap: 4,
@@ -444,7 +439,7 @@ const systemComponentBoards = (
                 })
               ),
               crossAlign: "end",
-              gap: 24,
+              gap: 32,
               id: `axis:${other}`,
               type: "row",
             },

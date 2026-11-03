@@ -21,7 +21,7 @@ import {
   Square,
 } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -40,64 +40,143 @@ const MODES: { label: string; value: DefineMode }[] = [
   { label: "Propose one", value: "propose" },
 ];
 
-/** What a step's badge says: where it is, and for an agent's step, what its thread is doing. */
-const useStepState = (step: SetupStep, open: boolean) => {
+/**
+ * Where a step stands, as its marker and its badge draw it: `current` is the step to take now,
+ * `waiting` one an agent left for the user, `working` one an agent is on.
+ */
+export type StepTone =
+  | "current"
+  | "done"
+  | "later"
+  | "stopped"
+  | "waiting"
+  | "working";
+
+/** A step's tone and the word its badge says, if any: what nothing else on the step shows. */
+const useStepState = (
+  step: SetupStep,
+  open: boolean
+): { label: string | null; tone: StepTone } => {
   const thread = useAgents((s) =>
     step.threadId ? s.threads.find((t) => t.id === step.threadId) : undefined
   );
   if (step.status === "done") {
-    return { label: "Done", tone: "done" as const };
+    return { label: null, tone: "done" };
   }
   if (step.status === "review") {
-    return { label: "To review", tone: "attention" as const };
+    return { label: "To review", tone: "waiting" };
   }
   if (step.status === "stopped") {
-    return { label: "Stopped", tone: "muted" as const };
+    return { label: "Stopped", tone: "stopped" };
   }
   if (step.status === "active") {
     const { busy, waiting } = threadView(thread);
     if (busy) {
-      return { label: "Working", tone: "working" as const };
+      return { label: "Working", tone: "working" };
     }
     return waiting
-      ? { label: "Waiting for you", tone: "attention" as const }
-      : { label: "Under way", tone: "working" as const };
+      ? { label: "Your turn", tone: "waiting" }
+      : { label: "Under way", tone: "working" };
   }
   return open
-    ? { label: "Next", tone: "next" as const }
-    : { label: "Later", tone: "muted" as const };
+    ? { label: null, tone: "current" }
+    : { label: null, tone: "later" };
 };
 
-const StepMarker = ({
+/** Whether the step drawn is the one to take now: its main action is then the primary one. */
+const StepIsCurrent = createContext(false);
+
+/** The variant of a step's main action: the primary on the step to take now, outline on others. */
+export const useStepVariant = () =>
+  useContext(StepIsCurrent) ? "default" : "outline";
+
+/** A step's number in its circle, a check once done. */
+export const StepMarker = ({
   index,
-  status,
+  tone,
 }: {
   index: number;
-  status: SetupStep["status"];
+  tone: StepTone;
 }) => (
   <span
     className={cn(
-      "flex size-5 shrink-0 items-center justify-center rounded-full border font-code",
-      status === "done" &&
-        "border-transparent bg-primary text-primary-foreground",
-      (status === "active" || status === "review") &&
-        "border-primary text-primary",
-      status === "stopped" && "border-dashed text-muted-foreground",
-      status === "todo" && "text-muted-foreground"
+      "flex size-5 shrink-0 items-center justify-center rounded-full font-caption",
+      tone === "done" && "bg-primary text-primary-foreground",
+      (tone === "current" || tone === "waiting" || tone === "working") &&
+        "bg-foreground text-background",
+      tone === "stopped" && "border border-dashed text-muted-foreground",
+      tone === "later" && "border text-muted-foreground"
     )}
   >
-    {status === "done" ? <Check className="size-3" /> : index + 1}
+    {tone === "done" ? <Check className="size-3" /> : index + 1}
   </span>
 );
 
-type Tone = ReturnType<typeof useStepState>["tone"];
+/** What a step's badge says, with a dot for an agent at work or the user's turn. */
+export const StepBadge = ({
+  label,
+  tone,
+}: {
+  label: string | null;
+  tone: StepTone;
+}) =>
+  label ? (
+    <Badge className="shrink-0">
+      {tone === "working" ? (
+        <span className="size-1.5 rounded-full bg-agent" />
+      ) : null}
+      {tone === "waiting" ? (
+        <span className="size-1.5 rounded-full bg-warning" />
+      ) : null}
+      {label}
+    </Badge>
+  ) : null;
 
-const badgeVariant = (tone: Tone) => {
-  if (tone === "done") {
-    return "secondary";
-  }
-  return tone === "muted" || tone === "next" ? "outline" : "default";
-};
+/**
+ * A step of a list of steps, on a line from one to the next: its marker, its title and badge,
+ * then what it says and what can be done.
+ */
+export const StepFrame = ({
+  badge,
+  children,
+  index,
+  last,
+  title,
+  tone,
+}: {
+  badge?: React.ReactNode;
+  children?: React.ReactNode;
+  index: number;
+  last: boolean;
+  title: string;
+  tone: StepTone;
+}) => (
+  <li className="relative flex gap-3 px-3 py-3">
+    {last ? null : (
+      <span
+        aria-hidden
+        className="absolute top-9 -bottom-2 left-[21.5px] w-px bg-border"
+      />
+    )}
+    <StepMarker index={index} tone={tone} />
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="flex min-h-5 items-center gap-2">
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-heading-xsmall",
+            tone === "later" && "text-muted-foreground"
+          )}
+        >
+          {title}
+        </span>
+        {badge}
+      </div>
+      <StepIsCurrent.Provider value={tone === "current" || tone === "waiting"}>
+        {children}
+      </StepIsCurrent.Provider>
+    </div>
+  </li>
+);
 
 /** Adopt or propose, chosen before Define starts, with what the inventory recommends. */
 const ModeChoice = ({
@@ -112,10 +191,10 @@ const ModeChoice = ({
     <div className="flex flex-col gap-1.5">
       <Segmented onChange={onChange} options={MODES} value={chosen} />
       {recommended ? (
-        <span className="font-body text-muted-foreground">
+        <span className="font-small text-muted-foreground">
           {recommended.mode === chosen
             ? "Recommended: "
-            : "The inventory recommends the other way: "}
+            : "The inventory recommends the other: "}
           {recommended.reason}
         </span>
       ) : null}
@@ -136,6 +215,7 @@ const StepActions = ({
   step: SetupStep;
 }) => {
   const busy = useDesignSystemSetup((s) => s.busy === step.id);
+  const main = useStepVariant();
   const definition = SETUP_STEPS[index];
   const next = SETUP_STEPS[index + 1];
   const started = step.status !== "todo";
@@ -144,7 +224,7 @@ const StepActions = ({
     return null;
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5 empty:hidden">
       {step.status === "todo" && current ? (
         <Button
           disabled={busy}
@@ -152,9 +232,12 @@ const StepActions = ({
             setup().start(step.id, step.id === "define" ? mode : undefined)
           }
           size="sm"
+          variant={main}
         >
           {busy ? <Spinner /> : <Play />}
-          {definition.agent ? "Start with an agent" : "Run"}
+          {definition.agent
+            ? "Start with an agent"
+            : `Run ${definition.title.toLowerCase()}`}
         </Button>
       ) : null}
       {step.threadId && started ? (
@@ -164,7 +247,7 @@ const StepActions = ({
           variant="outline"
         >
           <MessageSquare />
-          Thread
+          Open chat
         </Button>
       ) : null}
       {step.status === "active" && definition.agent ? (
@@ -194,7 +277,7 @@ const StepActions = ({
           disabled={busy}
           onClick={() => setup().complete(step.id)}
           size="sm"
-          variant={step.status === "review" ? "default" : "outline"}
+          variant={step.status === "review" ? main : "outline"}
         >
           <ArrowRight />
           {next ? `Continue to ${next.title}` : "Finish"}
@@ -238,7 +321,7 @@ const Folded = ({
           variant="ghost"
         >
           <ChevronDown className={cn(shown && "rotate-180")} />
-          {shown ? "Hide what it found" : "Show what it found"}
+          {shown ? "Hide results" : "Show results"}
         </Button>
       )}
       {shown ? children : null}
@@ -269,7 +352,7 @@ const DefineNote = ({ step }: { step: SetupStep }) => {
   }
   const finished = step.status === "review" || step.status === "done";
   return (
-    <span className="font-body text-muted-foreground">
+    <span className="font-small text-muted-foreground">
       {step.mode === "adopt"
         ? "Adopting the theme as the design system."
         : "Proposing a design system from what the code uses."}
@@ -280,12 +363,15 @@ const DefineNote = ({ step }: { step: SetupStep }) => {
 
 export const StepCard = ({
   index,
+  last = false,
   later = false,
   open,
   position,
   step,
 }: {
   index: number;
+  /** The last of its list: no line runs on from it. */
+  last?: boolean;
   /** Another step comes first, outside the setup: a step not started waits. */
   later?: boolean;
   /** Every step before it is done. */
@@ -305,48 +391,27 @@ export const StepCard = ({
   const started = step.status !== "todo";
   const current = open && step.status !== "done";
   return (
-    <li
-      className={cn(
-        "flex gap-2.5 border-b px-3 py-3",
-        !(open || started) && "opacity-60"
-      )}
+    <StepFrame
+      badge={<StepBadge label={state.label} tone={state.tone} />}
+      index={position ?? index}
+      last={last}
+      title={definition.title}
+      tone={state.tone}
     >
-      <StepMarker index={position ?? index} status={step.status} />
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <span className="font-heading-xsmall">{definition.title}</span>
-          <Badge
-            className={cn(
-              "ml-auto",
-              state.tone === "working" && "bg-agent/15 text-agent",
-              state.tone === "attention" && "bg-primary/15 text-primary"
-            )}
-            variant={badgeVariant(state.tone)}
-          >
-            {state.tone === "working" ? <Spinner /> : null}
-            {state.label}
-          </Badge>
-        </div>
-        {started && step.summary ? (
-          <p className="whitespace-pre-line font-body">{step.summary}</p>
-        ) : (
-          <p className="font-body text-muted-foreground">
-            {definition.description}
-          </p>
-        )}
-        {step.id === "define" && !started && current ? (
-          <ModeChoice chosen={chosen} onChange={setMode} />
-        ) : null}
-        {step.id === "define" && started ? <DefineNote step={step} /> : null}
-        <StepActions
-          current={current}
-          index={index}
-          mode={chosen}
-          step={step}
-        />
-        {started ? <StepResult step={step} /> : null}
-      </div>
-    </li>
+      {started && step.summary ? (
+        <p className="whitespace-pre-line font-small">{step.summary}</p>
+      ) : (
+        <p className="font-small text-muted-foreground">
+          {definition.description}
+        </p>
+      )}
+      {step.id === "define" && !started && current ? (
+        <ModeChoice chosen={chosen} onChange={setMode} />
+      ) : null}
+      {step.id === "define" && started ? <DefineNote step={step} /> : null}
+      <StepActions current={current} index={index} mode={chosen} step={step} />
+      {started ? <StepResult step={step} /> : null}
+    </StepFrame>
   );
 };
 
@@ -376,14 +441,12 @@ const StepBarFor = ({ index, step }: { index: number; step: SetupStep }) => {
   const state = useStepState(step, true);
   const title = SETUP_STEPS[index]?.title ?? step.id;
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-b bg-muted/30 py-2 pr-2 pl-3">
-      <StepMarker index={index} status={step.status} />
+    <div className="flex shrink-0 items-center gap-2.5 border-b py-2 pr-2 pl-3">
+      <StepMarker index={index} tone={state.tone} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="font-body text-muted-foreground">
-          Design system setup
-        </span>
-        <span className="truncate font-semibold">
-          {title} · {state.label}
+        <span className="truncate font-label">{title}</span>
+        <span className="truncate font-small text-muted-foreground">
+          Design system setup{state.label ? ` · ${state.label}` : ""}
         </span>
       </div>
       <Button onClick={showSetup} size="sm" variant="outline">
@@ -409,11 +472,10 @@ export const SetupStepIntro = ({ threadId }: { threadId: string }) => {
   const command = commandOf({ _tag: "SetupStep", step: step.id });
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-      <span className="font-heading-xsmall">{title} starts when you send</span>
-      <span className="font-body text-muted-foreground">
-        <code className="font-code">{command}</code> is the step's task; add to
-        it if you like. The agent asks you here when a decision is yours, and
-        the step waits for you in the setup when it is done.
+      <span className="font-label">{title} starts when you send</span>
+      <span className="max-w-72 text-pretty font-small text-muted-foreground">
+        <code className="font-code">{command}</code> is the step’s task; add to
+        it if you like. The agent asks here when a decision is yours.
       </span>
       <Button
         onClick={() => openStepThread(threadId, `${command} `)}

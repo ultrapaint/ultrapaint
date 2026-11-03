@@ -175,8 +175,8 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
       onContextMenu={(e) => e.preventDefault()}
       overlay={
         boards.length === 0 ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-body text-muted-foreground">
-            Nothing to draw for {name}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-small text-muted-foreground">
+            Nothing to show for {name}
           </div>
         ) : null
       }
@@ -294,11 +294,14 @@ const BoardFrame = memo(
           width: box.width,
         }}
       >
-        <FrameHeader className="font-body" width={box.width}>
-          <span className={cn(HEADER_NAME, "font-medium text-foreground")}>
-            {name}
+        {/* The board's own name: the item's is the panels' title already. */}
+        <FrameHeader width={box.width}>
+          <span
+            className={cn(HEADER_NAME, "text-muted-foreground")}
+            title={`${name}: ${board.title}`}
+          >
+            {board.title}
           </span>
-          <span className="text-muted-foreground">{board.title}</span>
         </FrameHeader>
         <PreviewSurface
           canvas={canvas}

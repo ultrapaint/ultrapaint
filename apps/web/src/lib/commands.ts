@@ -163,6 +163,8 @@ export interface FocusBinding<S extends FocusScope> extends Bound {
 
 /** A command as the palette lists it. */
 export interface Command {
+  /** For an item of the selection's menu, what it does: the palette draws the menu's icon. */
+  action?: MenuAction;
   destructive?: boolean;
   /** Further words on the right of its title: where a page is, who a chat is with. */
   detail?: string;
@@ -859,6 +861,7 @@ const itemCommand = (e: Item<MenuAction>, path: string): Command => {
   const keys = e.command ? keysOf(e.command) : undefined;
   const title = under(path, e.label);
   return {
+    action: e.action,
     ...(e.destructive ? { destructive: true } : {}),
     group: "Selection",
     id: `menu:${title}`,

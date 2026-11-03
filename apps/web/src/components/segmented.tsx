@@ -7,7 +7,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-/** Single-choice segmented control built on the shadcn ToggleGroup. */
+/**
+ * Single-choice segmented control: a muted track, the chosen option a raised chip, as the tabs
+ * draw theirs. An option drawn as an icon is named by its `title`, which its tooltip shows.
+ */
 export const Segmented = <T extends string>({
   value,
   onChange,
@@ -30,20 +33,22 @@ export const Segmented = <T extends string>({
   };
   return (
     <ToggleGroup
-      className={cn("w-full min-w-0", className)}
+      className={cn(
+        "h-7 w-full min-w-0 gap-0.5 rounded-md bg-muted p-0.5",
+        className
+      )}
       disabled={disabled}
       onValueChange={onValueChange}
       size="sm"
-      spacing={0}
+      spacing={0.5}
       value={value === null ? [] : [value]}
-      variant="outline"
     >
       {options.map((o) => {
         const item = (
           <ToggleGroupItem
             aria-label={o.title}
             // Equal while the labels fit; a longer one takes the room it needs from the others.
-            className="min-w-fit flex-1"
+            className="h-full min-w-fit flex-1 rounded-[calc(var(--radius-md)-2px)] px-1.5 font-label text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs dark:aria-pressed:bg-input [&_svg:not([class*='size-'])]:size-4"
             key={o.value}
             value={o.value}
           >

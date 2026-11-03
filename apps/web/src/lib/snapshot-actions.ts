@@ -116,7 +116,7 @@ export const restoreSnapshot = async (snapshot: Snapshot) => {
 
 export const deleteSnapshot = async (snapshot: Snapshot) => {
   const ok = await confirmDialog({
-    confirmLabel: "Delete",
+    confirmLabel: "Delete snapshot",
     description: "The design files stay as they are; only the snapshot goes.",
     destructive: true,
     title: `Delete the snapshot ${snapshot.name}?`,

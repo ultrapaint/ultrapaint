@@ -1,7 +1,7 @@
 /**
- * How a thread shows its agent at work: a mark that turns while the turn runs, and at the bottom
- * of the chat that it is working and for how long. What it is doing is in the folded work above,
- * for whoever opens it.
+ * How a thread shows its agent at work: a mark in the agents' pink that turns while the turn runs,
+ * and at the bottom of the chat that it is working and for how long. What it is doing is in the
+ * folded work above, for whoever opens it.
  */
 import { cn } from "cn";
 import { useEffect, useState } from "react";
@@ -14,7 +14,7 @@ const WorkingMark = ({ className }: { className?: string }) => (
   <svg
     aria-hidden="true"
     className={cn(
-      "size-4 text-brand motion-safe:animate-[spin_8s_linear_infinite]",
+      "size-4 text-agent motion-safe:animate-[spin_8s_linear_infinite]",
       className
     )}
     viewBox="0 0 24 24"
@@ -57,13 +57,13 @@ export const WorkingIndicator = ({
   return (
     <div
       aria-live="polite"
-      className="motion-safe:fade-in flex items-center gap-2 py-1 font-body motion-safe:animate-in"
+      className="motion-safe:fade-in flex h-7 items-center gap-2 font-small motion-safe:animate-in"
       role="status"
     >
       <WorkingMark />
       <span className="min-w-0 truncate text-shimmer">Working…</span>
       {elapsed ? (
-        <span className="ml-auto shrink-0 font-body text-muted-foreground/70 tabular-nums">
+        <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
           {elapsed}
         </span>
       ) : null}

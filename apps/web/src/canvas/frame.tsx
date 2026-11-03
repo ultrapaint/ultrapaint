@@ -18,7 +18,7 @@ import {
 } from "react";
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
-import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
+import { kindColor } from "../lib/selection-kind.ts";
 import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -132,6 +132,7 @@ export const Frame = memo(
     const isNode = frameRefOf(frameId).kind === "node";
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
+    const holdsSelection = selectedHere.length > 0;
     const hoverHere = useHoverIn(frameId);
     const canvas = useEditor((s) => s.canvas);
     // What its selection is in, and what it draws: the same but while a component is edited in place.
@@ -237,13 +238,13 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
-          zIndex: liftOf(selectedHere !== null, holdsCard || isNode),
+          zIndex: liftOf(holdsSelection, holdsCard || isNode),
         }}
       >
         <FrameChrome
           frame={frame}
           frameId={frameId}
-          holdsSelection={selectedHere !== null}
+          holdsSelection={holdsSelection}
           isNode={isNode}
           name={name}
           onDragStart={onDragStart}
@@ -253,7 +254,9 @@ export const Frame = memo(
         <div
           className={cn(
             "absolute inset-0",
-            isNode ? "overflow-visible" : "overflow-hidden bg-white shadow-2xl"
+            isNode
+              ? "overflow-visible"
+              : "overflow-hidden bg-white ring-1 ring-black/8 dark:ring-white/6"
           )}
         >
           {hosted && canvas !== null ? (
@@ -471,7 +474,7 @@ export const Marquee = ({
 
 /**
  * The breakpoint a page's frame or view is drawn at, once the page has views (ADR 0036), and on a
- * view the button that takes it away.
+ * view the button that takes it away, shown while the pointer is over the frame.
  */
 const ViewBadge = ({ frameId }: { frameId: string }) => {
   const breakpoint = useFrameBreakpoint(frameId);
@@ -482,24 +485,25 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   if (!(isView || hasViews)) {
     return null;
   }
+  const name = breakpoint ?? "base";
   return (
     <>
       <span
-        className="rounded bg-muted px-1 font-code text-muted-foreground"
-        title="The breakpoint this view shows, and the one its edits land at"
+        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-caption text-muted-foreground"
+        title={`Breakpoint ${name}: edits here land at ${name}`}
       >
-        {breakpoint ?? "base"}
+        {name}
       </span>
       {isView ? (
         <button
-          aria-label="Remove this view"
-          className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Remove view"
+          className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-[color,background-color,opacity] hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/frame:opacity-100"
           onClick={() => removeView(frameId)}
           onPointerDown={(e) => e.stopPropagation()}
-          title="Remove this view"
+          title="Remove view"
           type="button"
         >
-          <X className="size-3" />
+          <X className="size-3.5" />
         </button>
       ) : null}
     </>
@@ -542,7 +546,10 @@ const ResizeHandles = ({
   ));
 };
 
-/** One corner's handle; its size and distance from the corner are screen pixels. */
+/**
+ * One corner's handle, as Figma draws it: a small white square edged in the selection's colour,
+ * centred on the corner of the outline. Its size and place are screen pixels at any zoom.
+ */
 const ResizeHandle = ({
   corner,
   frameId,
@@ -553,14 +560,14 @@ const ResizeHandle = ({
   /** Shown whatever the pointer does: the frame is selected. */
   shown: boolean;
 }) => {
-  // Off the corner by the same distance on screen at any zoom.
-  const off = screenPx(-6);
+  // Centred on the 2px outline, which is drawn just outside the frame's edge.
+  const off = screenPx(-5);
   const north = corner[0] === "n";
   const west = corner[1] === "w";
   return (
     <div
       className={cn(
-        "absolute rounded-sm bg-brand",
+        "absolute rounded-[1px] bg-white",
         corner === "nw" || corner === "se"
           ? "cursor-nwse-resize"
           : "cursor-nesw-resize",
@@ -568,24 +575,25 @@ const ResizeHandle = ({
       )}
       onPointerDown={(e) => onDragStart(e, frameId, "resize", corner)}
       style={{
+        border: `${screenPx(1)} solid ${kindColor("element")}`,
         bottom: north ? undefined : off,
-        height: screenPx(10),
+        height: screenPx(8),
         left: west ? off : undefined,
         right: west ? undefined : off,
         top: north ? off : undefined,
-        width: screenPx(10),
+        width: screenPx(8),
       }}
     />
   );
 };
 
 /** The header's height and its distance from the frame, on screen. */
-const HEADER_HEIGHT = 26;
-const HEADER_GAP = 6;
+const HEADER_HEIGHT = 24;
+const HEADER_GAP = 4;
 
 /** The class of a header's first child, its name: cut short to the frame's width, as Figma does. */
 export const HEADER_NAME =
-  "pointer-events-auto min-w-0 max-w-full truncate leading-[26px] @max-[32px]:invisible";
+  "pointer-events-auto min-w-0 max-w-full truncate leading-6 @max-[32px]:invisible";
 
 /**
  * What is said over a frame's top edge, a page's or a board's: its name and beside it what the
@@ -606,7 +614,7 @@ export const FrameHeader = ({
 }) => (
   <div
     className={cn(
-      "@container pointer-events-none absolute left-0 flex flex-wrap items-center gap-x-2 overflow-hidden whitespace-nowrap *:pointer-events-auto",
+      "@container pointer-events-none absolute left-0 flex flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap font-small *:pointer-events-auto",
       className
     )}
     style={{
@@ -666,29 +674,29 @@ const FrameChrome = ({
   };
   return (
     <>
-      <FrameHeader
-        className={
-          lit || holdsSelection ? "text-foreground" : "text-muted-foreground"
-        }
-        width={frame.width}
-      >
+      <FrameHeader width={frame.width}>
         <button
           className={cn(
             HEADER_NAME,
-            "cursor-pointer select-none font-body font-medium hover:text-foreground",
-            lit && "text-brand hover:text-brand"
+            "cursor-pointer select-none outline-none transition-colors focus-visible:underline",
+            lit && "text-selection",
+            !lit &&
+              (holdsSelection || titleHover
+                ? "text-foreground"
+                : "text-muted-foreground")
           )}
           onClick={selectFrame}
           onContextMenu={onContextMenu}
           onPointerDown={(e) => onDragStart(e, frameId, "move")}
           onPointerEnter={() => setTitleHover(true)}
           onPointerLeave={() => setTitleHover(false)}
+          title={name}
           type="button"
         >
           {name}
         </button>
         {isNode ? null : (
-          <span className="font-body text-muted-foreground">
+          <span className="text-muted-foreground/70 tabular-nums">
             {Math.round(frame.width)} × {Math.round(frame.height)}
           </span>
         )}
@@ -704,7 +712,7 @@ const FrameChrome = ({
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            outline: `${screenPx(lit ? 2 : 1)} solid ${lit ? kindColor("element") : kindHoverColor("element")}`,
+            outline: `${screenPx(lit ? 2 : 1)} solid ${kindColor("element")}`,
           }}
         />
       ) : null}
