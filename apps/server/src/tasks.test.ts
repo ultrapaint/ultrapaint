@@ -595,6 +595,20 @@ describe("the briefing", () => {
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 
+  test.effect(
+    "tells the design-system part with the router to a thread that makes the design system",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const toldTheSystem = (text: string | undefined) =>
+          (text ?? "").includes("\n# Design system\n");
+        assert.isTrue(
+          toldTheSystem(yield* briefing.text("design", { system: true }))
+        );
+        assert.isFalse(toldTheSystem(yield* briefing.text("design")));
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
   /** A project's own skill, a built-in replaced, and a built-in extended. */
   const ownSkills = {
     "designs/skills/color.md":

@@ -19,6 +19,7 @@ import {
   referencesDirOf,
   routerText,
   skillReferences,
+  TOLD_WHEN_MAKING_THE_SYSTEM,
   TOLD_WITH_ROUTER,
 } from "../skills/index.ts";
 import { DesignFiles } from "./design-files.ts";
@@ -62,7 +63,11 @@ export class SkillsService extends Context.Service<
      * The skills that are on, as the briefing tells them, worded for an agent with the editor's
      * tools or without them.
      */
-    readonly briefing: (tools: boolean) => Effect.Effect<SkillsTold>;
+    readonly briefing: (
+      tools: boolean,
+      /** The thread's task makes the design system: its part is told with the router. */
+      system?: boolean
+    ) => Effect.Effect<SkillsTold>;
     /**
      * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
      * that extends it. A skill the project already has is returned as it is.
@@ -197,7 +202,8 @@ export class SkillsService extends Context.Service<
       };
 
       const briefing = Effect.fn("SkillsService.briefing")(function* (
-        tools: boolean
+        tools: boolean,
+        system = false
       ): Effect.fn.Return<SkillsTold> {
         yield* references;
         const { skills } = yield* listFor(tools);
@@ -210,7 +216,8 @@ export class SkillsService extends Context.Service<
           if (
             router &&
             skill.source === "built-in" &&
-            !TOLD_WITH_ROUTER.has(skill.name)
+            !TOLD_WITH_ROUTER.has(skill.name) &&
+            !(system && skill.name === TOLD_WHEN_MAKING_THE_SYSTEM)
           ) {
             continue;
           }

@@ -36,6 +36,10 @@ the server writes once to `~/.cache/ultrapaint/skills/<hash>/`, the router's `re
 rewritten to that folder, so they are there before any briefing names them and also for an agent
 that reads `skill://ultrapaint/<part>` first. `full` and `summaries` stay settings.
 
+A thread whose task makes the design system (`/init`, `/import-figma`, the setup's Define step;
+`designsTheSystem`) is told the design-system part whole with the router as well: it is the one
+part that task always reaches, and the router alone would leave it to the agent to open.
+
 ## Why the default flips
 
 The design evals compared the two on the same references, judged blind and side by side by Opus:
