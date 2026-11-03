@@ -174,14 +174,26 @@ describe("Design system's boards", () => {
     );
   });
 
-  it("draws a palette as its ramp over a gradient strip of its shades", () => {
+  it("draws a palette as its ramp, each shade over its step", () => {
     expect(isRamp(themed.colors[0] as TokenGroup)).toBe(true);
     expect(isRamp(themed.colors[1] as TokenGroup)).toBe(false);
     const { root } = systemBoards("color", themed, null).boards[0] as Board;
-    const strip = find(root, "strip:blue");
-    expect(strip?.fill).toBe(
-      "linear-gradient(to right, var(--color-blue-50), var(--color-blue-500), var(--color-blue-950))"
-    );
+    const shades = find(root, "ramp:blue") as unknown as {
+      children: DesignNode[];
+    };
+    expect(shades.children.map((c) => c.id)).toEqual([
+      "token:color-blue-50",
+      "token:color-blue-500",
+      "token:color-blue-950",
+    ]);
+    expect(find(root, "fill:color-blue-500")?.fill).toBe("$color-blue-500");
+    expect(
+      (find(root, "step:color-blue-500") as { text?: string } | undefined)?.text
+    ).toBe("500");
+    // A colour named for another says which, in the board's theme.
+    expect(
+      (find(root, "value:color-primary") as { text?: string } | undefined)?.text
+    ).toBe("→ blue-500");
   });
 
   it("grades the usual pairs in each theme, a value that is another token followed", () => {

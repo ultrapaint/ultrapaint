@@ -7,11 +7,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { Logo } from "./logo.tsx";
 
 export const Splash = ({ name }: { readonly name: string | null }) => (
-  <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background">
+  <div
+    aria-busy
+    className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-canvas"
+  >
     <Logo className="size-10" />
-    <span className="flex items-center gap-2 font-body text-muted-foreground">
-      <Spinner />
-      {name ? `Opening ${name}` : "Opening"}
+    <span className="flex items-center gap-2 font-small text-muted-foreground">
+      <Spinner className="size-3.5" />
+      {name ? `Opening ${name}` : "Opening the editor"}
     </span>
   </div>
 );
@@ -19,6 +22,6 @@ export const Splash = ({ name }: { readonly name: string | null }) => (
 /** What a panel shows in the moment its code is still on its way: never a blank panel. */
 export const PanelLoading = () => (
   <div className="flex h-full items-center justify-center text-muted-foreground">
-    <Spinner />
+    <Spinner className="size-3.5" />
   </div>
 );

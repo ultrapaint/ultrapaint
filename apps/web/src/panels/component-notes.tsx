@@ -14,6 +14,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { IconButton } from "../components/icon-button.tsx";
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 
@@ -67,16 +68,19 @@ export const Notes = ({
     ...parts.filter((p) => p.name !== ROOT_SLOT),
   ];
   return (
-    <div className="flex flex-col gap-1.5 font-body">
+    <div className="flex flex-col gap-2 font-body">
       {notes.length === 0 ? (
-        <p className="text-muted-foreground">
-          What the code must do that the design cannot show: it goes to the code
-          when the component is implemented.
+        <p className="font-small text-muted-foreground">
+          What the code must do that the design cannot show. Notes go with the
+          component when it is implemented.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col">
           {notes.map((n) => (
-            <li className="flex items-start gap-1.5" key={n.id}>
+            <li
+              className="group/note flex min-h-7 items-start gap-1.5 py-1"
+              key={n.id}
+            >
               <span className="min-w-0 flex-1">
                 {n.slot ? (
                   <span className="text-muted-foreground">
@@ -85,14 +89,14 @@ export const Notes = ({
                 ) : null}
                 {n.text}
               </span>
-              <Button
-                aria-label="Take the note out"
+              <IconButton
+                className="invisible -my-0.5 text-muted-foreground group-focus-within/note:visible group-hover/note:visible"
                 onClick={() => remove(n.id)}
-                size="icon-xs"
-                variant="ghost"
+                size="icon-sm"
+                tooltip="Delete note"
               >
                 <X />
-              </Button>
+              </IconButton>
             </li>
           ))}
         </ul>
@@ -115,7 +119,7 @@ export const Notes = ({
       ) : null}
       <div className="flex gap-1.5">
         <Input
-          aria-label="A behaviour note"
+          aria-label="New behaviour note"
           className="h-7 min-w-0 flex-1"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -130,9 +134,9 @@ export const Notes = ({
           disabled={text.trim() === ""}
           onClick={add}
           size="sm"
-          variant="outline"
+          variant="secondary"
         >
-          Note
+          Add
         </Button>
       </div>
     </div>

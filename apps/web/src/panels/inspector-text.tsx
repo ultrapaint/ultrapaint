@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { setField, updateSelection } from "../lib/node-actions.ts";
 import {
@@ -43,6 +42,8 @@ import { useDesignSystem } from "../state/design-system.ts";
 import {
   ColorField,
   nullIfMixed,
+  Row,
+  Section,
   set,
   setEach,
   sharedOf,
@@ -127,23 +128,22 @@ const TextStyleRow = ({
         onChange={onStyle}
         options={options}
         placeholder={named === MIXED ? "Mixed" : placeholder}
-        size="sm"
         value={named === MIXED ? null : (style?.name ?? "")}
       />
       {nodes.some((n) => n.textStyle !== undefined) ? (
         <IconButton
+          className="text-muted-foreground"
           onClick={detach}
-          size="icon-sm"
-          tooltip="Detach the style: change the size, weight and line height on their own"
+          tooltip="Detach style"
         >
           <Unlink2 />
         </IconButton>
       ) : (
         <IconButton
+          className="text-muted-foreground"
           disabled={styles.length === 0}
           onClick={relink}
-          size="icon-sm"
-          tooltip="Set the text in one style again"
+          tooltip="Attach to a style"
         >
           <Link2 />
         </IconButton>
@@ -198,35 +198,32 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
       kind={kind}
       numeric={numeric}
       onChange={onSetting(key)}
-      title={
-        style
-          ? `From the text style ${style.name}. Changing it detaches the style.`
-          : undefined
-      }
+      title={style ? `From ${style.name}; a change detaches it` : undefined}
       {...shownAs(settingOf(key))}
     />
   );
   return (
     <Section title="Text">
-      <TextInput
-        multiline
-        onChange={(v) => set("text", v)}
-        {...shownAs(sharedOf(nodes, (n) => n.text))}
-      />
+      <div className="pb-1">
+        <TextInput
+          multiline
+          onChange={(v) => set("text", v)}
+          {...shownAs(sharedOf(nodes, (n) => n.text))}
+        />
+      </div>
+      <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
       <Row label="Role">
         <OptionSelect
           onChange={onRole}
           options={ROLE_OPTIONS}
           placeholder="Mixed"
-          size="sm"
           value={role === MIXED ? null : (role ?? "p")}
         />
       </Row>
-      <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
+      <Row label="Font">{setting("font", "font", false)}</Row>
       <Row label="Size">{setting("size", "fontSize")}</Row>
       <Row label="Weight">{setting("weight", "fontWeight")}</Row>
-      <Row label="Font">{setting("font", "font", false)}</Row>
-      <Row label="Line">{setting("lineHeight", "leading")}</Row>
+      <Row label="Line height">{setting("lineHeight", "leading")}</Row>
       <Row label="Tracking">{setting("tracking", "tracking")}</Row>
       <Row label="Colour">
         <ColorField
@@ -239,21 +236,9 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
         <Segmented
           onChange={(v) => setField(ALIGN, v)}
           options={[
-            {
-              label: <AlignLeft className="size-3" />,
-              title: "Start",
-              value: "start",
-            },
-            {
-              label: <AlignCenter className="size-3" />,
-              title: "Center",
-              value: "center",
-            },
-            {
-              label: <AlignRight className="size-3" />,
-              title: "End",
-              value: "end",
-            },
+            { label: <AlignLeft />, title: "Start", value: "start" },
+            { label: <AlignCenter />, title: "Center", value: "center" },
+            { label: <AlignRight />, title: "End", value: "end" },
           ]}
           value={nullIfMixed(sharedField(ALIGN, nodes))}
         />

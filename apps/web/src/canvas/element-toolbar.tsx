@@ -55,8 +55,16 @@ import { SpacingSelect } from "./spacing-select.tsx";
 import { Targets } from "./toolbar-targets.ts";
 
 export const Divider = () => (
-  <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+  <span className="mx-1 h-4 w-px shrink-0 bg-border" />
 );
+
+/** The bar itself: a popover's surface floating over the canvas, its controls in one row. */
+const BAR_CLASS =
+  "pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-lg bg-popover p-1 text-popover-foreground shadow-overlay ring-1 ring-border";
+
+/** A plain button of the bar: an icon and its label. */
+const BAR_BUTTON_CLASS =
+  "flex h-7 items-center gap-1.5 rounded-md px-2 font-label outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
 const Controls = ({ node }: { node: DesignNode }) => {
   const meta = useComponents((s) =>
@@ -119,25 +127,25 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
   return (
     <>
       <span className="flex h-7 items-center gap-1.5 px-2 font-body">
-        <AgentIcon agentId={thread.agentId} className="size-3.5" />
+        <Spinner className="size-3.5 text-agent" />
+        <AgentIcon agentId={thread.agentId} className="size-4" />
         {agent?.name ?? "An agent"} is changing this
-        <Spinner className="size-3 text-agent" />
       </span>
       <Divider />
       <button
-        className="flex h-7 items-center gap-1.5 rounded-md px-2 font-body outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        className={BAR_BUTTON_CLASS}
         onClick={() => openChat(thread.id)}
         type="button"
       >
-        <MessageSquareText className="size-3.5" />
+        <MessageSquareText />
         Open chat
       </button>
       <button
-        className="flex h-7 items-center gap-1.5 rounded-md px-2 font-body outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        className={BAR_BUTTON_CLASS}
         onClick={() => stopThread(thread.id)}
         type="button"
       >
-        <Square className="size-3" />
+        <Square />
         Stop
       </button>
     </>
@@ -202,7 +210,7 @@ export const ElementToolbar = ({
     <OverFrame hidden={hidden} rect={rect}>
       <div
         aria-label={`Toolbar of ${nodeLabel(node)}`}
-        className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+        className={BAR_CLASS}
         data-element-toolbar
         onPointerDown={(e) => e.stopPropagation()}
         ref={placeAt}
@@ -245,13 +253,13 @@ export const MoreButton = ({ menu }: { menu: MenuTarget }) => {
         render={
           <button
             aria-label="More"
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
             onClick={openMore}
             type="button"
           />
         }
       >
-        <Ellipsis className="size-3.5" />
+        <Ellipsis className="size-4" />
       </TooltipTrigger>
       <TooltipContent>More</TooltipContent>
     </Tooltip>
@@ -302,7 +310,7 @@ export const GroupToolbar = ({
     <OverFrame rect={rect}>
       <div
         aria-label={`Toolbar of ${nodes.length} elements`}
-        className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+        className={BAR_CLASS}
         data-element-toolbar
         onPointerDown={(e) => e.stopPropagation()}
         ref={placeAt}

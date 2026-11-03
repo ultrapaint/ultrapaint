@@ -391,7 +391,7 @@ const askLink = async (sel: Selection) => {
  * Nodes of a page, siblings, made an app component (ADR 0041): they become its tree, and an
  * instance of it takes their place, which other pages can place too.
  */
-const makeAppOf = async (sel: Selection) => {
+export const makeAppOf = async (sel: Selection) => {
   const node = selected(nodeContext(sel))?.node;
   if (!(node && ensureEditable())) {
     return;
@@ -633,7 +633,7 @@ const runComment = async (
       return copyText(comment.text, "the comment");
     case "delete": {
       const ok = await confirmDialog({
-        confirmLabel: "Delete",
+        confirmLabel: "Delete comment",
         description: "Its replies go with it.",
         destructive: true,
         title: "Delete this comment?",

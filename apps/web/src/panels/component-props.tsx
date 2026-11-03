@@ -7,13 +7,11 @@ import {
 } from "@ultrapaint/contracts/catalogue";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
 import type * as React from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { OptionSelect } from "../components/option-select.tsx";
-import { Row, Section } from "../components/panel.tsx";
 import { useComponents } from "../state/components.ts";
-import { useDraft } from "./inspector-fields.tsx";
+import { Row, Section, useDraft } from "./inspector-fields.tsx";
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -28,13 +26,20 @@ const useComponentMeta = (node: InstanceNode) =>
  * the ones they set differently, which read as mixed until one value is set on all of them.
  */
 export const ComponentProps = ({
+  children,
+  className,
   node,
   mixed = NONE,
   onSet,
+  title,
 }: {
+  /** Rows before the props: the instance's text. */
+  children?: React.ReactNode;
+  className?: string;
   node: InstanceNode;
   mixed?: ReadonlySet<string>;
   onSet: (name: string, value: JsonValue) => void;
+  title: React.ReactNode;
 }) => {
   const meta: ComponentMeta | undefined = useComponentMeta(node);
   const props = node.props ?? {};
@@ -45,17 +50,17 @@ export const ComponentProps = ({
   for (const k of [...Object.keys(props), ...mixed]) {
     names.add(k);
   }
-  if (names.size === 0) {
+  if (names.size === 0 && !children) {
     return null;
   }
   return (
-    <Section title="Props">
+    <Section className={className} title={title}>
+      {children}
       {[...names].map((name) => {
         const propMeta = meta?.props.find((p) => p.name === name);
         const value: JsonValue = props[name] ?? null;
-        const isSet = name in props || mixed.has(name);
         return (
-          <Row className={isSet ? "" : "opacity-70"} key={name} label={name}>
+          <Row key={name} label={name}>
             <PropControl
               meta={propMeta}
               mixed={mixed.has(name)}
@@ -84,14 +89,9 @@ const placeholderOf = (
   if (mixed) {
     return MIXED;
   }
-  return meta?.defaultValue === undefined ? "unset" : show(meta.defaultValue);
-};
-
-const booleanLabel = (value: JsonValue) => {
-  if (value === true) {
-    return "true";
-  }
-  return value === false ? "false" : "unset";
+  return meta?.defaultValue === undefined
+    ? "Default"
+    : `Default (${show(meta.defaultValue)})`;
 };
 
 const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -114,10 +114,16 @@ const BooleanControl = ({
   const onCheckedChange = (checked: boolean) =>
     onSet(name, checked ? true : null);
   return (
-    <Label className="font-normal text-muted-foreground">
-      <Checkbox checked={value === true} onCheckedChange={onCheckedChange} />
-      {mixed ? MIXED : booleanLabel(value)}
-    </Label>
+    <>
+      <Switch
+        aria-label={name}
+        checked={value === true}
+        onCheckedChange={onCheckedChange}
+      />
+      {mixed ? (
+        <span className="font-small text-muted-foreground">{MIXED}</span>
+      ) : null}
+    </>
   );
 };
 
@@ -138,22 +144,15 @@ const EnumControl = ({
 }) => {
   const onChange = (v: string) => onSet(name, v === "__unset" ? null : v);
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      <OptionSelect
-        onChange={onChange}
-        options={[
-          ...members.map((m) => ({ label: m, value: m })),
-          { label: "unset (default)", value: "__unset" },
-        ]}
-        placeholder={placeholderOf(
-          mixed,
-          meta,
-          (d) => `default (${String(d)})`
-        )}
-        size="sm"
-        value={typeof value === "string" ? value : null}
-      />
-    </div>
+    <OptionSelect
+      onChange={onChange}
+      options={[
+        ...members.map((m) => ({ label: m, value: m })),
+        { label: "Default", value: "__unset" },
+      ]}
+      placeholder={placeholderOf(mixed, meta, String)}
+      value={typeof value === "string" ? value : null}
+    />
   );
 };
 
@@ -185,7 +184,8 @@ const NumberControl = ({
     setDraft(e.target.value);
   return (
     <Input
-      className="h-6 font-body"
+      aria-label={name}
+      className="font-body tabular-nums"
       onBlur={onBlur}
       onChange={onChange}
       onKeyDown={blurOnEnter}
@@ -229,11 +229,12 @@ const TextControl = ({
   };
   return (
     <Input
-      className="h-6 font-body"
+      aria-label={name}
+      className="font-body"
       onBlur={onBlur}
       onChange={onChange}
       onKeyDown={onKeyDown}
-      placeholder={placeholderOf(mixed, meta, String)}
+      placeholder={mixed ? MIXED : String(meta?.defaultValue ?? "")}
       value={draft ?? (typeof value === "string" ? value : "")}
     />
   );

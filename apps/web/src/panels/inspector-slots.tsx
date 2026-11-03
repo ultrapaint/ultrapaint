@@ -25,10 +25,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Row, Section } from "../components/panel.tsx";
 import { insertNodesAt } from "../lib/node-actions.ts";
 import { useComponents } from "../state/components.ts";
 import { select } from "../state/selection.ts";
+import { Row, Section } from "./inspector-fields.tsx";
 
 /** What a slot can be given from here: the elements a slot is mostly made of, and a button. */
 const ADDITIONS: readonly {
@@ -93,16 +93,12 @@ export const SlotsSection = ({
         const [first] = filling;
         return (
           <Row key={slot.name} label={slot.label}>
-            <div className="flex min-w-0 items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
               <button
-                className="min-w-0 flex-1 truncate rounded px-1 text-left font-body text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                className="h-7 min-w-0 flex-1 truncate rounded-md px-2 text-left font-body transition-colors hover:bg-accent disabled:text-muted-foreground disabled:hover:bg-transparent"
                 disabled={!first}
                 onClick={() => first && select({ frame, nodeId: first.id })}
-                title={
-                  first
-                    ? "Select what fills it"
-                    : `Nothing in the ${slot.label}`
-                }
+                title={first ? "Select what fills it" : undefined}
                 type="button"
               >
                 {filling.length === 0
@@ -112,10 +108,10 @@ export const SlotsSection = ({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label={`Add to the ${slot.label.toLowerCase()}`}
-                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-expanded:bg-accent aria-expanded:text-foreground"
                   title={`Add to the ${slot.label.toLowerCase()}`}
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className="size-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {ADDITIONS.map((addition) => (

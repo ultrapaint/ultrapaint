@@ -141,30 +141,28 @@ const SelectOptionSub = ({
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <span className="shrink-0">{option.name}</span>
-        <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-right font-small text-muted-foreground">
           {currentName(option)}
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className={cn("max-h-80 min-w-48", roomyItems)}>
+      <DropdownMenuSubContent className="max-h-80 min-w-52">
         <DropdownMenuRadioGroup
           onValueChange={onValueChange}
           value={option.currentValue}
         >
           {namedChoices(option).map((o) => (
             <DropdownMenuRadioItem key={o.value} value={o.value}>
-              <span className="flex min-w-0 flex-col">
-                <span>{o.name}</span>
+              <span className="flex min-w-0 flex-1 flex-col py-0.5">
+                <span className="flex items-center gap-2">
+                  {o.name}
+                  {o.value === fallback ? <Badge>Default</Badge> : null}
+                </span>
                 {o.description ? (
-                  <span className="max-w-64 whitespace-normal font-body text-muted-foreground">
+                  <span className="max-w-64 whitespace-normal font-small text-muted-foreground">
                     {o.description}
                   </span>
                 ) : null}
               </span>
-              {o.value === fallback ? (
-                <Badge className="ml-auto" variant="secondary">
-                  Default
-                </Badge>
-              ) : null}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -196,13 +194,13 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        <span className="shrink-0">Provider</span>
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-muted-foreground">
+        <span className="shrink-0">Agent</span>
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 font-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3" />
           <span className="truncate">{agent?.name ?? thread.agentId}</span>
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className={cn("min-w-48", roomyItems)}>
+      <DropdownMenuSubContent className="min-w-52">
         <DropdownMenuGroup>
           <DropdownMenuRadioGroup
             onValueChange={onAgentChange}
@@ -218,7 +216,7 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
                 <AgentIcon agentId={a.id} />
                 {a.name}
                 {readiness(machine[a.id]) ? (
-                  <span className="ml-auto pl-2 text-muted-foreground">
+                  <span className="ml-auto pl-2 font-small text-muted-foreground">
                     {readiness(machine[a.id])}
                   </span>
                 ) : null}
@@ -265,32 +263,29 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
       <DropdownMenuTrigger
         render={
           <Button
-            className={cn(pickerTrigger, "min-w-0")}
-            size="sm"
-            title={
-              modelName ? `${agentName} · ${modelName}` : `Agent: ${agentName}`
+            aria-label={
+              modelName
+                ? `Agent and model: ${agentName}, ${modelName}`
+                : `Agent: ${agentName}`
             }
+            className={pickerTrigger}
             variant="ghost"
           />
         }
       >
-        <AgentIcon agentId={thread.agentId} className="size-3.5" />
+        {/* The agent is named in the thread's header; here its mark only when there is no model. */}
+        {modelName ? null : (
+          <AgentIcon agentId={thread.agentId} className="size-3.5" />
+        )}
         <span className="truncate">{modelName ?? agentName}</span>
         {effortName ? (
-          <span className="@max-sm:hidden shrink-0 text-muted-foreground">
+          <span className="@max-sm:hidden shrink-0 opacity-70">
             {effortName}
           </span>
         ) : null}
-        <ChevronDown
-          className="shrink-0 text-muted-foreground"
-          data-icon="inline-end"
-        />
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className={cn("w-64", roomyItems)}
-        side="top"
-      >
+      <DropdownMenuContent align="start" className="w-60" side="top">
         <DropdownMenuGroup>
           <AgentSub thread={thread} />
           {model ? (
@@ -323,13 +318,12 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
   );
 };
 
-/** The composer's menus have roomier rows than the editor's. */
-export const roomyItems =
-  "[&_[role^=menuitem]]:min-h-8 [&_[role^=menuitem]]:font-body";
-
-/** The composer's pickers: plain at rest, on the secondary surface while hovered or open. */
+/**
+ * The composer's pickers, quiet selects: their value and a chevron in muted text, filled only
+ * under the pointer or while open. They give up width before the send button does.
+ */
 const pickerTrigger =
-  "shrink gap-1 px-1.5 font-normal hover:bg-secondary aria-expanded:bg-secondary dark:hover:bg-secondary";
+  "min-w-0 shrink gap-1 px-1.5 text-muted-foreground has-data-[icon=inline-end]:pr-1";
 
 /** What each agent's modes let it do, drawn small enough to stand for the mode alone. */
 const MODE_ICONS: Record<string, LucideIcon> = {
@@ -346,7 +340,7 @@ const MODE_ICONS: Record<string, LucideIcon> = {
 
 const ModeIcon = ({ modeId }: { modeId: string | undefined }) => {
   const Icon = (modeId && MODE_ICONS[modeId]) || Shield;
-  return <Icon className="size-3.5" />;
+  return <Icon className="size-4 text-muted-foreground" />;
 };
 
 export const ModePicker = ({ thread }: { thread: Thread }) => {
@@ -367,38 +361,33 @@ export const ModePicker = ({ thread }: { thread: Thread }) => {
       <DropdownMenuTrigger
         render={
           <Button
-            className={cn(pickerTrigger, "min-w-7 shrink-0")}
-            size="sm"
-            title={current ? `Mode: ${current.name}` : "Mode"}
+            aria-label={`Mode: ${current?.name ?? "none"}`}
+            className={pickerTrigger}
             variant="ghost"
           />
         }
       >
-        <ModeIcon modeId={current?.id} />
-        <span className="@max-sm:hidden truncate">
-          {current?.name ?? "Mode"}
-        </span>
-        <ChevronDown
-          className="@max-sm:hidden shrink-0 text-muted-foreground"
-          data-icon="inline-end"
-        />
+        <span className="truncate">{current?.name ?? "Mode"}</span>
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className={cn("w-60", roomyItems)}
-        side="top"
-      >
+      <DropdownMenuContent align="start" className="w-64" side="top">
         <DropdownMenuRadioGroup
           onValueChange={onValueChange}
           value={thread.currentModeId ?? null}
         >
           {modes.map((m) => (
-            <DropdownMenuRadioItem key={m.id} value={m.id}>
-              <ModeIcon modeId={m.id} />
-              <span className="flex min-w-0 flex-col">
+            <DropdownMenuRadioItem
+              className="items-start"
+              key={m.id}
+              value={m.id}
+            >
+              <span className="flex h-5 items-center">
+                <ModeIcon modeId={m.id} />
+              </span>
+              <span className="flex min-w-0 flex-col py-0.5">
                 <span>{m.name}</span>
                 {m.description ? (
-                  <span className="whitespace-normal font-body text-muted-foreground">
+                  <span className="whitespace-normal font-small text-muted-foreground">
                     {m.description}
                   </span>
                 ) : null}

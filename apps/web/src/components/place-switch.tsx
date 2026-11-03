@@ -4,14 +4,14 @@
  * user is, said once, where the eye looks first.
  */
 import { cn } from "cn";
-import { type EditorMode, showMode, useEditorMode } from "../state/panels.ts";
-import { useEditor } from "../state/editor.ts";
-import { syncWaiting, useSync } from "../state/sync.ts";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useEditor } from "../state/editor.ts";
+import { type EditorMode, showMode, useEditorMode } from "../state/panels.ts";
+import { syncWaiting, useSync } from "../state/sync.ts";
 import { CommandKeys } from "./shortcut-sheet.tsx";
 
 type Place = EditorMode | "prototype";

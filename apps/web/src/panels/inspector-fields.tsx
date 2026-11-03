@@ -1,10 +1,12 @@
 /** The inspector's own fields, and how a change reaches every node it inspects. */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { TriangleAlert } from "lucide-react";
+import { cn } from "cn";
+import { Minus, Plus, TriangleAlert } from "lucide-react";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { IconButton } from "../components/icon-button.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import {
   setField,
@@ -51,6 +53,143 @@ export const useDraft = <T,>(): readonly [
     (value) => setDraft(value === null ? null : { key, value }),
   ] as const;
 };
+
+/**
+ * A section of the inspector: its title, an action at the right (add or remove what it holds)
+ * and its rows. A section with nothing set is its title and the action that adds it.
+ */
+export const Section = ({
+  action,
+  children,
+  className,
+  title,
+}: {
+  action?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  title: ReactNode;
+}) => (
+  <section
+    className={cn(
+      "flex flex-col gap-1 border-b px-3 py-2 last:border-b-0",
+      className
+    )}
+  >
+    <div className="flex h-7 items-center justify-between gap-2">
+      <h3 className="min-w-0 truncate font-heading-xsmall">{title}</h3>
+      {action ? (
+        <div className="-mr-1 flex shrink-0 items-center gap-0.5">{action}</div>
+      ) : null}
+    </div>
+    {children}
+  </section>
+);
+
+/**
+ * A row of a section: its label in a column of its own, muted, and its controls; two fields share
+ * the row half and half. A row without a label lines its controls up under the ones above.
+ */
+export const Row = ({
+  children,
+  className,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}) => (
+  <div
+    className={cn(
+      "grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2",
+      className
+    )}
+  >
+    <span className="truncate font-small text-muted-foreground" title={label}>
+      {label}
+    </span>
+    <div className="flex min-w-0 items-center gap-2">{children}</div>
+  </div>
+);
+
+/** A section's action: a quiet icon, named by its tooltip. */
+export const SectionAction = ({
+  children,
+  onClick,
+  tooltip,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tooltip: string;
+}) => (
+  <IconButton
+    className="text-muted-foreground"
+    onClick={onClick}
+    size="icon-sm"
+    tooltip={tooltip}
+  >
+    {children}
+  </IconButton>
+);
+
+/** The + of a section with nothing set, or the − that takes what it holds off. */
+export const AddOrRemove = ({
+  name,
+  onAdd,
+  onRemove,
+  present,
+}: {
+  /** What the section holds, in the tooltips: "fill", "border". */
+  name: string;
+  onAdd: () => void;
+  onRemove: () => void;
+  /** Whether the nodes have it, or its + was pressed. */
+  present: boolean;
+}) =>
+  present ? (
+    <SectionAction onClick={onRemove} tooltip={`Remove ${name}`}>
+      <Minus />
+    </SectionAction>
+  ) : (
+    <SectionAction onClick={onAdd} tooltip={`Add ${name}`}>
+      <Plus />
+    </SectionAction>
+  );
+
+/**
+ * Whether a section shows the rows of something not set yet, its + pressed: until the inspector
+ * shows other nodes.
+ */
+export const useReveal = (): readonly [boolean, (shown: boolean) => void] => {
+  const [shown, setShown] = useDraft<boolean>();
+  return [shown === true, (next) => setShown(next ? true : null)] as const;
+};
+
+/**
+ * What a panel shows while it has nothing to show: a muted icon, what is missing, one sentence on
+ * what will be here and how to fill it, and the one action that does.
+ */
+export const EmptyState = ({
+  action,
+  children,
+  icon,
+  title,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+  icon: ReactNode;
+  title: string;
+}) => (
+  <div className="flex h-full min-h-48 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+    <div className="flex flex-col items-center gap-1">
+      <span className="mb-1 text-muted-foreground [&_svg]:size-5">{icon}</span>
+      <p className="font-label">{title}</p>
+      <p className="max-w-60 text-balance font-small text-muted-foreground">
+        {children}
+      </p>
+    </div>
+    {action}
+  </div>
+);
 
 /** Sets a field of every node inspected. */
 export const set: SetField = (field, value) =>
@@ -137,7 +276,7 @@ export const TextInput = ({
   return multiline ? (
     <Textarea
       {...common}
-      className="min-h-16 font-body"
+      className="min-h-16 resize-none font-body"
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -148,7 +287,7 @@ export const TextInput = ({
   ) : (
     <Input
       {...common}
-      className="h-6 font-body"
+      className="font-body"
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
@@ -161,7 +300,7 @@ export const TextInput = ({
 
 /** A line under a section's fields about why what they say is not what is drawn. */
 export const Warning = ({ children }: { children: ReactNode }) => (
-  <p className="flex gap-1.5 font-body text-warning [&_svg]:mt-px [&_svg]:size-3 [&_svg]:shrink-0">
+  <p className="flex gap-1.5 font-small text-muted-foreground [&_svg]:mt-0.5 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-warning">
     <TriangleAlert />
     <span>{children}</span>
   </p>
@@ -204,12 +343,14 @@ export const TokenField = ({
 /** A field of the table both the inspector and the toolbar edit, as the inspector draws it. */
 export const NodeValueField = ({
   accept,
+  autoOpen,
   field,
   leading,
   nodes,
   placeholder,
 }: {
   accept?: (query: string) => boolean;
+  autoOpen?: boolean;
   field: TokenValueField;
   leading?: ReactNode;
   nodes: readonly DesignNode[];
@@ -219,6 +360,7 @@ export const NodeValueField = ({
   return (
     <ValueField
       accept={accept}
+      autoOpen={autoOpen}
       leading={leading}
       onChange={(v) => setField(field, v)}
       options={options}
@@ -228,10 +370,12 @@ export const NodeValueField = ({
 };
 
 export const ColorField = ({
+  autoOpen,
   field,
   nodes,
   placeholder,
 }: {
+  autoOpen?: boolean;
   field: TokenValueField;
   nodes: readonly DesignNode[];
   placeholder?: string;
@@ -241,6 +385,7 @@ export const ColorField = ({
   return (
     <NodeValueField
       accept={(q) => CSS.supports("color", q)}
+      autoOpen={autoOpen}
       field={field}
       leading={<Swatch color={color} />}
       nodes={nodes}

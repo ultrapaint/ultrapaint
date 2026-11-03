@@ -1,18 +1,19 @@
 import { presetSize } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
-import { cn } from "cn";
 import {
   ArrowLeft,
   ArrowRight,
   type LucideIcon,
   MessageCircle,
   Monitor,
+  PanelsTopLeft,
   RotateCw,
   Smartphone,
   Tablet,
   TriangleAlert,
 } from "lucide-react";
 import {
+  type FormEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -20,7 +21,9 @@ import {
   useState,
 } from "react";
 import { create } from "zustand";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -48,7 +51,7 @@ import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
 
-/** Room kept free around the page for the cards at the top and the bottom strip. */
+/** Room kept free around the page for the place switch at the top and the bar at the bottom. */
 const inset = { bottom: 72, side: 32, top: 64 };
 
 /** Asks the prototype to draw its page anew, which restarts the canvas from its current route. */
@@ -143,6 +146,25 @@ const PageComments = ({
   );
 };
 
+/** A canvas with no pages: nothing to click through until one is drawn. */
+const NoPages = () => (
+  <div className="flex max-w-xs flex-col items-center gap-1 text-center">
+    <PanelsTopLeft className="mb-2 size-5 text-muted-foreground" />
+    <span className="font-label">No pages to try</span>
+    <span className="text-balance font-small text-muted-foreground">
+      The prototype clicks through the pages of this canvas. Draw one first.
+    </span>
+    <Button
+      className="mt-3"
+      onClick={() => useEditor.getState().setWorkspace("design")}
+      size="sm"
+      variant="secondary"
+    >
+      Go to the canvas
+    </Button>
+  </div>
+);
+
 /**
  * The canvas at the size of the current page's frame, or of the device picked under it, scaled
  * down only when it does not fit, with clicks going to the page itself. The editor holds the
@@ -189,9 +211,8 @@ export const Prototype = () => {
     (area.height - inset.top - inset.bottom) / size.height
   );
 
-  const content = hasPages ? null : "This canvas has no pages yet";
   // The frame only exists once the area is measured, which is after the first render.
-  const shown = content === null && canvas !== null && scale > 0;
+  const shown = hasPages && canvas !== null && scale > 0;
 
   // The editor holds the route; the preview draws the page serving it, without reloading, as
   // it is at the device's width (its breakpoints' values, ADR 0036), in the design system.
@@ -217,7 +238,7 @@ export const Prototype = () => {
     <div
       // Shown in the layer that floats over the canvas, which passes clicks through: the page
       // itself takes them.
-      className="pointer-events-auto relative flex h-full w-full items-center justify-center overflow-hidden bg-background"
+      className="pointer-events-auto relative flex h-full w-full items-center justify-center overflow-hidden bg-canvas"
       onPointerDown={closeComments}
       ref={ref}
       style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}
@@ -227,7 +248,8 @@ export const Prototype = () => {
           className="relative shrink-0"
           style={{ height: size.height * scale, width: size.width * scale }}
         >
-          <div className="relative h-full w-full overflow-hidden rounded-md bg-white shadow-2xl">
+          {/* The device's screen: the page on white, edged with a hairline in either theme. */}
+          <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-floating ring-1 ring-black/8 dark:ring-white/8">
             {canvas === null ? null : (
               <PreviewSurface
                 canvas={canvas}
@@ -251,9 +273,17 @@ export const Prototype = () => {
               />
             )}
             {pageError ? (
-              <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white">
-                <TriangleAlert className="size-4 shrink-0" />
-                <pre className="whitespace-pre-wrap">{pageError.message}</pre>
+              <div
+                className="absolute inset-x-0 bottom-0 flex max-h-40 flex-col gap-1 overflow-auto border-destructive/40 border-t bg-popover px-3 py-2.5 text-popover-foreground"
+                role="alert"
+              >
+                <span className="flex items-center gap-1.5 font-label">
+                  <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                  Part of this page failed to draw
+                </span>
+                <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
+                  {pageError.message}
+                </pre>
               </div>
             ) : null}
             {canvas === null ? null : (
@@ -274,8 +304,13 @@ export const Prototype = () => {
             />
           )}
         </div>
+      ) : null}
+      {hasPages ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-2">
+          <PrototypeControls />
+        </div>
       ) : (
-        <span className="text-muted-foreground">{content}</span>
+        <NoPages />
       )}
     </div>
   );
@@ -291,83 +326,79 @@ const BASE = "";
 const NO_VARIANTS: readonly string[] = [];
 
 /**
- * Said over the bar while the prototype shows a page that serves no URL: it can be looked at, but
- * nothing in the click-through leads to it.
+ * The page a page without a URL is a variant of, or the page itself: what the address says has
+ * no URL. Null while the prototype shows a URL, or a page that has one.
  */
-export const NoUrlWarning = () => {
+const useNoUrlPage = () => {
   const activePage = useEditor((s) => s.activePage);
   const route = useEditor((s) => s.route);
   const page = useProject((s) => s.pages.find((p) => p.id === activePage));
   if (route !== null || !page || page.route !== undefined) {
     return null;
   }
-  const base =
+  return (
     pagesOfCanvas(page.canvas).find(
       (p) => p.variant === undefined && p.path === basePathOf(page.path)
-    ) ?? page;
-  return (
-    <div
-      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar px-3 py-1.5 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
-      role="status"
-      title={NO_URL_HINT}
-    >
-      <TriangleAlert className="size-3.5 shrink-0 text-warning" />
-      <span className="min-w-0 truncate">
-        <span className="font-medium">{base.name}</span> has no URL: no link
-        leads here.
-      </span>
-    </div>
+    ) ?? page
   );
 };
 
 /**
- * Floating strip at the bottom of the prototype's column of tools: the canvas's history, a
- * restart, and the variant it clicks through when the canvas has variants. The page it is on is
- * picked in the left panel.
+ * The prototype's address, as a browser's: the URL the editor holds, which can be typed over
+ * and followed with Enter, Escape putting it back. A page without a URL says so in its place:
+ * it can be looked at, but nothing in the click-through leads to it.
  */
-export const PrototypeBar = () => {
-  const canvas = useEditor((s) => s.canvas);
-  const variant = useEditor((s) => s.variant);
-  const variants = useProject(
-    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
-  );
-  const pickVariant = (next: string) =>
-    goTo({ variant: next === BASE ? null : next });
-
-  return (
-    <div className="floating pointer-events-auto flex items-center gap-1 p-1">
-      <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
-        <ArrowLeft />
-      </IconButton>
-      <IconButton
-        className="size-8 rounded-lg"
-        disabled={canvas === null}
-        onClick={reload}
-        tooltip="Restart the prototype"
-      >
-        <RotateCw />
-      </IconButton>
-      <IconButton
-        className="size-8 rounded-lg"
-        onClick={forward}
-        tooltip="Forward"
-      >
-        <ArrowRight />
-      </IconButton>
-      {variants.length > 0 ? (
-        <div className="w-32">
-          <OptionSelect
-            className="border-transparent bg-transparent dark:bg-transparent"
-            onChange={pickVariant}
-            options={[
-              { label: "No variant", value: BASE },
-              ...variants.map((v) => ({ label: v, value: v })),
-            ]}
-            value={variant ?? BASE}
-          />
-        </div>
+const AddressField = () => {
+  const route = useEditor((s) => s.route);
+  const noUrl = useNoUrlPage();
+  const [draft, setDraft] = useState<string | null>(null);
+  const go = (e: FormEvent) => {
+    e.preventDefault();
+    const to = draft?.trim();
+    setDraft(null);
+    if (to && to !== route) {
+      followLink(to, { push: true });
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
+  const field = (
+    <form
+      className="group/address mx-1 flex h-8 w-64 min-w-0 shrink items-center gap-1.5 rounded-lg border border-transparent bg-muted px-2.5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 hover:border-input"
+      onSubmit={go}
+    >
+      {noUrl ? (
+        <TriangleAlert aria-hidden className="size-3.5 shrink-0 text-warning" />
       ) : null}
-    </div>
+      <input
+        aria-label="URL"
+        className="min-w-0 flex-1 bg-transparent font-code outline-none placeholder:font-small placeholder:text-muted-foreground"
+        onBlur={() => setDraft(null)}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setDraft(null);
+            e.currentTarget.blur();
+          }
+        }}
+        placeholder={noUrl ? `${noUrl.name} has no URL` : "/"}
+        spellCheck={false}
+        value={draft ?? route ?? ""}
+      />
+    </form>
+  );
+  if (!noUrl || draft !== null) {
+    return field;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<div className="flex min-w-0" />}>
+        {field}
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64" side="top">
+        {NO_URL_HINT}
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -377,69 +408,132 @@ const DEVICE_ICON: Record<PrototypeDevice, LucideIcon> = {
   tablet: Tablet,
 };
 
-/**
- * The prototype's tools, floating in a column beside the left panel as the canvas's are: what can
- * be pressed and commenting on the page, then, in a card of its own, the device it is tried on.
- * The app positions it.
- */
-export const PrototypeTools = () => {
-  const canvas = useEditor((s) => s.canvas);
-  const commenting = useEditor((s) => s.mode === "comment");
+/** The device the page is tried on, one always picked. */
+const DeviceSwitch = () => {
   const device = useDevice((s) => s.device);
   return (
-    <div className="flex flex-col gap-2">
-      <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
-        <HotspotsToggle />
-        <IconButton
-          aria-pressed={commenting}
-          className={cn(
-            "size-8 rounded-lg",
-            commenting && "bg-brand text-brand-foreground hover:bg-brand/90"
-          )}
-          disabled={canvas === null}
-          label={commenting ? "Stop commenting" : "Comment"}
-          onClick={toggleCommenting}
-          side="right"
-          tooltip={
-            <>
-              {commenting ? "Stop commenting" : "Comment"} <Kbd>C</Kbd>
-            </>
-          }
-        >
-          <MessageCircle />
-        </IconButton>
-      </div>
-      <div className="floating pointer-events-auto flex flex-col items-center p-1">
-        <ToggleGroup
-          aria-label="Device"
-          onValueChange={pickDevice}
-          orientation="vertical"
-          spacing={0.5}
-          value={[device]}
-        >
-          {prototypeDevices.map((d) => {
-            const Icon = DEVICE_ICON[d.value];
-            return (
-              <Tooltip key={d.value}>
-                <TooltipTrigger
-                  render={
-                    <ToggleGroupItem
-                      aria-label={d.label}
-                      className="size-8 rounded-lg data-pressed:bg-muted data-pressed:text-foreground"
-                      value={d.value}
-                    >
-                      <Icon />
-                    </ToggleGroupItem>
-                  }
-                />
-                <TooltipContent side="right">
-                  {d.label} · {d.description}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </ToggleGroup>
-      </div>
+    <ToggleGroup
+      aria-label="Device"
+      onValueChange={pickDevice}
+      spacing={0.5}
+      value={[device]}
+    >
+      {prototypeDevices.map((d) => {
+        const Icon = DEVICE_ICON[d.value];
+        return (
+          <Tooltip key={d.value}>
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem
+                  aria-label={d.label}
+                  className="size-8 rounded-lg text-muted-foreground data-pressed:bg-accent data-pressed:text-foreground"
+                  value={d.value}
+                >
+                  <Icon />
+                </ToggleGroupItem>
+              }
+            />
+            <TooltipContent side="top">
+              {d.label}
+              <span className="tabular-nums opacity-70">{d.description}</span>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </ToggleGroup>
+  );
+};
+
+const BarDivider = () => (
+  <Separator className="mx-1 h-5 self-center" orientation="vertical" />
+);
+
+/**
+ * The prototype's bar, at the bottom of it where the canvas has its tools: the history and a
+ * restart, the address, the variant it clicks through when the canvas has variants, the device it
+ * is tried on, then what can be pressed and commenting. The page it is on is picked in the left
+ * panel too.
+ */
+const PrototypeControls = () => {
+  const canvas = useEditor((s) => s.canvas);
+  const variant = useEditor((s) => s.variant);
+  const commenting = useEditor((s) => s.mode === "comment");
+  const variants = useProject(
+    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
+  );
+  const pickVariant = (next: string) =>
+    goTo({ variant: next === BASE ? null : next });
+
+  return (
+    <div
+      aria-label="Prototype"
+      className="floating pointer-events-auto flex min-w-0 items-center gap-0.5 p-1"
+      role="toolbar"
+    >
+      <IconButton
+        className="size-8 rounded-lg"
+        onClick={back}
+        side="top"
+        tooltip="Back"
+      >
+        <ArrowLeft />
+      </IconButton>
+      <IconButton
+        className="size-8 rounded-lg"
+        onClick={forward}
+        side="top"
+        tooltip="Forward"
+      >
+        <ArrowRight />
+      </IconButton>
+      <IconButton
+        className="size-8 rounded-lg"
+        disabled={canvas === null}
+        onClick={reload}
+        side="top"
+        tooltip="Restart"
+      >
+        <RotateCw />
+      </IconButton>
+      <AddressField />
+      {variants.length > 0 ? (
+        <div className="w-32 shrink-0 pl-1">
+          <OptionSelect
+            className="h-8 rounded-lg"
+            onChange={pickVariant}
+            options={[
+              { label: "No variant", value: BASE },
+              ...variants.map((v) => ({ label: v, value: v })),
+            ]}
+            value={variant ?? BASE}
+          />
+        </div>
+      ) : null}
+      <BarDivider />
+      <DeviceSwitch />
+      <BarDivider />
+      <HotspotsToggle />
+      <IconButton
+        aria-pressed={commenting}
+        className="size-8 rounded-lg aria-pressed:bg-brand aria-pressed:text-brand-foreground aria-pressed:hover:bg-brand/90"
+        disabled={canvas === null}
+        label="Comment"
+        onClick={toggleCommenting}
+        side="top"
+        tooltip={
+          <>
+            {commenting ? "Stop commenting" : "Comment"} <Kbd>C</Kbd>
+          </>
+        }
+      >
+        <MessageCircle />
+      </IconButton>
     </div>
   );
 };
+
+/*
+ * The prototype draws its own bar now, at the bottom centre where the canvas has its tools; the
+ * column of tools beside the left card and the warning over the bar are part of it. These stay
+ * until the shell stops placing them.
+ */

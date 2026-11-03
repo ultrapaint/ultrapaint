@@ -6,6 +6,7 @@ import {
   Check,
   CircleCheck,
   Cog,
+  Ellipsis,
   Pencil,
   Trash2,
   Undo2,
@@ -19,6 +20,12 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
@@ -44,8 +51,72 @@ const PIN_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M3 21V12a9 9 0 1 1 9 9Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 export const commentCursor = `url("data:image/svg+xml,${encodeURIComponent(PIN_SVG)}") 3 21, crosshair`;
 
-export const initialOf = (author: string | null) =>
-  (author?.trim()[0] ?? "?").toUpperCase();
+const WORDS_RE = /\s+/;
+
+/** "AN" for Alessandro Narciso, "C" for Claude: the first letters of a name's first two words. */
+export const initialsOf = (author: string | null) => {
+  const words = (author ?? "").trim().split(WORDS_RE).filter(Boolean);
+  return (
+    words
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
+};
+
+/** A tick once resolved, a cog on a behaviour note, else the author's initials. */
+const AvatarMark = ({
+  comment,
+}: {
+  comment: {
+    author: string | null;
+    kind?: Comment["kind"];
+    resolved?: boolean;
+  };
+}) => {
+  if (comment.resolved) {
+    return <Check className="size-3.5" />;
+  }
+  return comment.kind === "behaviour" ? (
+    <Cog className="size-3.5" />
+  ) : (
+    initialsOf(comment.author)
+  );
+};
+
+/**
+ * The round mark of who wrote a comment, or a behaviour note's cog in a rounded square: the
+ * panel's list, the card and the pin all carry it. `inverse` is the pin's: it stands out on any
+ * design under it.
+ */
+export const CommentAvatar = ({
+  className,
+  comment,
+  inverse = false,
+}: {
+  className?: string;
+  comment: {
+    author: string | null;
+    kind?: Comment["kind"];
+    resolved?: boolean;
+  };
+  inverse?: boolean;
+}) => (
+  <span
+    aria-hidden="true"
+    className={cn(
+      "flex size-6 shrink-0 items-center justify-center rounded-full font-caption",
+      inverse
+        ? "bg-foreground text-background"
+        : "bg-secondary text-secondary-foreground",
+      comment.kind === "behaviour" && "rounded-md",
+      className
+    )}
+  >
+    <AvatarMark comment={comment} />
+  </span>
+);
 
 const timeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
@@ -124,14 +195,20 @@ export const FrameComments = ({
   return (
     <>
       {shown.map((comment) => (
-        <Anchor inv={inv} key={comment.id} x={comment.x} y={comment.y}>
+        <Anchor
+          inv={inv}
+          key={comment.id}
+          raised={comment.id === open}
+          x={comment.x}
+          y={comment.y}
+        >
           <Pin comment={comment} open={comment.id === open} />
           {comment.id === open ? <Card comment={comment} /> : null}
         </Anchor>
       ))}
       {draft ? (
-        <Anchor inv={inv} x={draft.x} y={draft.y}>
-          <span className="absolute bottom-0 left-0 flex size-7 items-center justify-center rounded-full rounded-bl-none border-2 border-white bg-brand shadow-black/40 shadow-md" />
+        <Anchor inv={inv} raised x={draft.x} y={draft.y}>
+          <span className={cn(PIN, "size-8 bg-primary")} />
           <Composer />
         </Anchor>
       ) : null}
@@ -139,20 +216,28 @@ export const FrameComments = ({
   );
 };
 
-/** A point of the page that what it holds is drawn from, at screen size. */
+/**
+ * A point of the page that what it holds is drawn from, at screen size. The open card and a pin
+ * the pointer is over sit above the other pins.
+ */
 const Anchor = ({
   x,
   y,
   inv,
+  raised = false,
   children,
 }: {
   x: number;
   y: number;
   inv: number | undefined;
+  raised?: boolean;
   children: ReactNode;
 }) => (
   <div
-    className="absolute z-10 size-0"
+    className={cn(
+      "absolute size-0",
+      raised ? "z-20" : "z-10 has-[:hover]:z-20"
+    )}
     style={{
       left: x,
       top: y,
@@ -164,17 +249,12 @@ const Anchor = ({
   </div>
 );
 
-/** What a pin shows: a tick once resolved, a cog on a behaviour note, the author's initial. */
-const PinMark = ({ comment }: { comment: Comment }) => {
-  if (comment.resolved) {
-    return <Check className="size-3" />;
-  }
-  return comment.kind === "behaviour" ? (
-    <Cog className="size-3" />
-  ) : (
-    initialOf(comment.author)
-  );
-};
+/**
+ * A pin's teardrop, its point at the spot it was left on: a surface of the chrome over the design,
+ * lifted off it as a popover is, so it reads on any page.
+ */
+const PIN =
+  "absolute bottom-0 left-0 rounded-full rounded-bl-none shadow-overlay ring-1 ring-black/10 dark:ring-white/10";
 
 /** The comment's mark on the page. Hovering it previews the text; clicking opens the card. */
 const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
@@ -185,10 +265,11 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
       className={cn(
         // At rest a teardrop around the avatar. The preview opens into a card with the same
         // sharp corner on the spot, rounded like the card rather than stretched into a pill.
-        "group absolute bottom-0 left-0 flex min-h-7 w-max min-w-7 cursor-pointer items-center gap-2 rounded-[14px] rounded-bl-none border-2 border-white bg-sidebar p-0.5 text-sidebar-foreground shadow-black/40 shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        PIN,
+        "group flex min-h-8 w-max min-w-8 cursor-pointer items-center gap-2 p-1 text-popover-foreground outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
         open
-          ? "bg-brand text-brand-foreground"
-          : "hover:items-start hover:rounded-xl hover:rounded-bl-none hover:py-1.5 hover:pr-3 hover:pl-1.5",
+          ? "bg-primary"
+          : "bg-popover hover:items-start hover:rounded-xl hover:rounded-bl-none hover:p-2 hover:pr-3",
         comment.resolved && "opacity-60"
       )}
       onClick={toggle}
@@ -198,29 +279,27 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
       onPointerDown={stop}
       type="button"
     >
-      <span
-        className={cn(
-          "flex size-5 shrink-0 items-center justify-center rounded-full bg-brand font-body font-semibold text-brand-foreground leading-4",
-          comment.kind === "behaviour" && "rounded-sm bg-component",
-          open && "bg-brand-foreground text-brand"
-        )}
-      >
-        <PinMark comment={comment} />
-      </span>
+      <CommentAvatar
+        className={cn(open && "bg-primary-foreground text-primary")}
+        comment={comment}
+        inverse
+      />
       {open ? null : (
-        <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left font-body leading-4 group-hover:flex">
-          <span className="font-medium">
-            {comment.kind === "behaviour"
-              ? "Behaviour note"
-              : (comment.author ?? "Comment")}
-            <span className="ml-1.5 font-normal text-muted-foreground">
+        <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left group-hover:flex">
+          <span className="flex h-6 items-center gap-1.5">
+            <span className="truncate font-label">
+              {comment.kind === "behaviour"
+                ? "Behaviour note"
+                : (comment.author ?? "Someone")}
+            </span>
+            <span className="shrink-0 font-small text-muted-foreground">
               {relativeTime(comment.createdAt)}
               {comment.replies.length > 0
                 ? ` · ${repliesLabel(comment.replies.length)}`
                 : ""}
             </span>
           </span>
-          <span className="line-clamp-2 whitespace-pre-wrap">
+          <span className="line-clamp-2 whitespace-pre-wrap font-body">
             {comment.text}
           </span>
         </span>
@@ -230,7 +309,7 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
 };
 
 const cardClass =
-  "absolute top-[-28px] left-9 flex w-80 cursor-default flex-col gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground font-body shadow-black/40 shadow-xl";
+  "absolute top-[-32px] left-10 flex w-[22rem] cursor-default flex-col gap-3 rounded-lg bg-popover p-3 font-body text-popover-foreground shadow-overlay ring-1 ring-border";
 
 /** The open comment, beside its pin: read, edit, resolve or delete it without leaving the page. */
 const Card = ({ comment }: { comment: Comment }) => {
@@ -240,7 +319,7 @@ const Card = ({ comment }: { comment: Comment }) => {
     updateComment(comment.id, { resolved: !comment.resolved });
   const remove = async () => {
     const ok = await confirmDialog({
-      confirmLabel: "Delete",
+      confirmLabel: "Delete comment",
       description: "The comment is removed for everyone.",
       destructive: true,
       title: "Delete this comment?",
@@ -258,58 +337,78 @@ const Card = ({ comment }: { comment: Comment }) => {
   return (
     <div className={cardClass} onPointerDown={stop}>
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand font-body font-semibold text-brand-foreground leading-4">
-          {initialOf(comment.author)}
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-medium">
-            {comment.author ?? "Someone"}
+        <CommentAvatar
+          comment={{ author: comment.author, kind: comment.kind }}
+        />
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="truncate font-label" title={comment.author ?? ""}>
+            {comment.kind === "behaviour"
+              ? "Behaviour note"
+              : (comment.author ?? "Someone")}
           </span>
-          <span className="font-body text-muted-foreground">
+          <span className="shrink-0 font-small text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
         </div>
-        <SendToAgent comment={comment} />
-        <IconButton
-          onClick={toggleResolved}
-          size="icon-sm"
-          tooltip={comment.resolved ? "Reopen" : "Resolve"}
-        >
-          {comment.resolved ? <Undo2 /> : <CircleCheck />}
-        </IconButton>
-        <IconButton
-          onClick={() => setEditing(true)}
-          size="icon-sm"
-          tooltip="Edit"
-        >
-          <Pencil />
-        </IconButton>
-        <IconButton onClick={remove} size="icon-sm" tooltip="Delete">
-          <Trash2 />
-        </IconButton>
-        <IconButton onClick={close} size="icon-sm" tooltip="Close">
-          <X />
-        </IconButton>
+        <div className="-mr-1 flex shrink-0 items-center text-muted-foreground">
+          <SendToAgent comment={comment} />
+          <IconButton
+            onClick={toggleResolved}
+            size="icon-sm"
+            tooltip={comment.resolved ? "Reopen" : "Resolve"}
+          >
+            {comment.resolved ? <Undo2 /> : <CircleCheck />}
+          </IconButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="More"
+                  size="icon-sm"
+                  title="More"
+                  variant="ghost"
+                />
+              }
+            >
+              <Ellipsis />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => setEditing(true)}>
+                <Pencil />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={remove} variant="destructive">
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <IconButton onClick={close} size="icon-sm" tooltip="Close">
+            <X />
+          </IconButton>
+        </div>
       </div>
-      {comment.element ? (
-        <span className="self-start rounded bg-muted px-1.5 py-0.5 font-code text-muted-foreground">
-          {`<${comment.element}>`}
-        </span>
-      ) : null}
-      {editing ? (
-        <TextInput
-          initial={comment.text}
-          onCancel={() => setEditing(false)}
-          onSubmit={save}
-          submitLabel="Save"
-        />
-      ) : (
-        <CommentText comment={comment} />
-      )}
+      <div className="-mt-2 flex flex-col gap-1 pl-8">
+        {comment.element ? (
+          <span className="truncate font-code text-muted-foreground">
+            {`<${comment.element}>`}
+          </span>
+        ) : null}
+        {editing ? (
+          <TextInput
+            initial={comment.text}
+            onCancel={() => setEditing(false)}
+            onSubmit={save}
+            submitLabel="Save"
+          />
+        ) : (
+          <CommentText comment={comment} />
+        )}
+      </div>
       {comment.replies.length > 0 ? (
         // The canvas leaves the wheel alone over this, so a long thread scrolls.
         <div
-          className="-mx-2.5 flex max-h-72 flex-col gap-2.5 overflow-y-auto border-t px-2.5 pt-2.5"
+          className="-mx-3 flex max-h-72 flex-col gap-3 overflow-y-auto px-3"
           data-canvas-scroll
         >
           {comment.replies.map((reply) => (
@@ -326,18 +425,18 @@ const Card = ({ comment }: { comment: Comment }) => {
 const CommentText = ({ comment }: { comment: Comment }) =>
   comment.replies.length > 0 ? (
     <div className="group/root flex items-start gap-1.5">
-      <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+      <p className="min-w-0 flex-1 whitespace-pre-wrap break-words font-body">
         {comment.text}
       </p>
       <SendToAgent
-        className="-my-0.5 hidden group-hover/root:flex aria-expanded:flex"
+        className="hidden text-muted-foreground group-hover/root:flex aria-expanded:flex"
         comment={comment}
         single
         small
       />
     </div>
   ) : (
-    <p className="whitespace-pre-wrap break-words">{comment.text}</p>
+    <p className="whitespace-pre-wrap break-words font-body">{comment.text}</p>
   );
 
 /** One answer in the thread, sent to an agent or deleted from its own row. */
@@ -349,25 +448,21 @@ const Reply = ({
   reply: CommentReply;
 }) => (
   <div className="group/reply flex gap-2">
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-body font-semibold text-foreground leading-4">
-      {initialOf(reply.author)}
-    </span>
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <div className="flex h-5 items-center gap-1.5">
-        <span className="truncate font-medium">
-          {reply.author ?? "Someone"}
-        </span>
-        <span className="flex-1 truncate font-body text-muted-foreground">
+    <CommentAvatar comment={{ author: reply.author }} />
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-6 items-center gap-1.5">
+        <span className="truncate font-label">{reply.author ?? "Someone"}</span>
+        <span className="flex-1 truncate font-small text-muted-foreground">
           {relativeTime(reply.createdAt)}
         </span>
         <SendToAgent
-          className="hidden group-hover/reply:flex aria-expanded:flex"
+          className="hidden text-muted-foreground group-hover/reply:flex aria-expanded:flex"
           comment={comment}
           reply={reply}
           small
         />
         <IconButton
-          className="hidden group-hover/reply:flex"
+          className="hidden text-muted-foreground group-hover/reply:flex"
           onClick={() => deleteReply(comment.id, reply.id)}
           size="icon-xs"
           tooltip="Delete reply"
@@ -375,7 +470,7 @@ const Reply = ({
           <Trash2 />
         </IconButton>
       </div>
-      <p className="whitespace-pre-wrap break-words">{reply.text}</p>
+      <p className="whitespace-pre-wrap break-words font-body">{reply.text}</p>
     </div>
   </div>
 );
@@ -414,7 +509,7 @@ const ReplyInput = ({ commentId }: { commentId: string }) => {
       <Textarea
         aria-label="Reply"
         autoFocus
-        className="max-h-32 min-h-8 py-1.5 pr-9"
+        className="max-h-32 min-h-8 py-1.5 pr-9 font-body"
         onChange={onChange}
         onKeyDown={onKeyDown}
         placeholder="Reply"

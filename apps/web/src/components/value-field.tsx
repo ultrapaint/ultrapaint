@@ -65,6 +65,7 @@ export const displayOf = (value: JsonValue | undefined): string => {
 };
 
 export const ValueField = ({
+  autoOpen,
   value,
   options,
   onChange,
@@ -76,6 +77,8 @@ export const ValueField = ({
   className,
   title,
 }: {
+  /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
+  autoOpen?: boolean;
   value: JsonValue | undefined;
   options: readonly StyleOption[];
   onChange: (value: JsonValue) => void;
@@ -111,6 +114,7 @@ export const ValueField = ({
       : [...options, { label: "Clear", value: UNSET }];
   return (
     <StyleCombobox
+      autoOpen={autoOpen}
       className={className}
       current={current}
       custom={custom}

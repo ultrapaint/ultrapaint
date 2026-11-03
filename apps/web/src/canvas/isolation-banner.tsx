@@ -11,11 +11,12 @@ import {
   leaveIsolation,
   useIsolation,
 } from "../state/isolation.ts";
+import { Banner } from "./banner.tsx";
 
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, or Escape (the `escape` command). On its board (ADR 0045) the board edited says the member,
- * a board a variant, and the banner only names it.
+ * on, and the way out: Done, or Escape (the `escape` command). On its board (ADR 0045) the board
+ * edited says the member, a board a variant, and the banner only names it.
  */
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
@@ -32,54 +33,52 @@ export const IsolationBanner = () => {
     ? `${isolated.variant.property}\n${isolated.variant.member}`
     : "";
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
-      <div
-        className="pointer-events-auto flex h-9 items-center gap-2 rounded-lg border border-component/50 bg-sidebar pr-1 pl-2.5 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
-        role="status"
-      >
-        <Component className="size-3.5 text-component" />
-        <span className="truncate">
-          Editing <span className="font-medium">{file.name}</span>
-          <span className="text-muted-foreground">
-            {" "}
-            · every instance follows
-          </span>
+    <Banner
+      icon={<Component className="text-component" />}
+      label={`Editing ${file.name}`}
+    >
+      <span className="min-w-0 truncate font-small text-muted-foreground">
+        Editing{" "}
+        <span className="font-label text-foreground" title={file.name}>
+          {file.name}
+        </span>{" "}
+        · every instance follows
+      </span>
+      {onBoard && isolated.variant ? (
+        <span className="shrink-0 font-code text-muted-foreground">
+          {isolated.variant.property}={isolated.variant.member}
         </span>
-        {onBoard && isolated.variant ? (
-          <span className="font-code text-muted-foreground">
-            {isolated.variant.property}={isolated.variant.member}
-          </span>
-        ) : null}
-        {choices.length > 0 && !onBoard ? (
-          <NativeSelect
-            aria-label="What the edits land on"
-            onChange={(e) => {
-              const [property, member] = e.target.value.split("\n");
-              editVariant(
-                property && member !== undefined ? { member, property } : null
-              );
-            }}
-            size="sm"
-            title="Edits land on the component's own fields, or on one member of a choice"
-            value={current}
-          >
-            <NativeSelectOption value="">All variants</NativeSelectOption>
-            {choices.flatMap((p) =>
-              (p.members ?? []).map((m) => (
-                <NativeSelectOption
-                  key={`${p.name}\n${m}`}
-                  value={`${p.name}\n${m}`}
-                >
-                  {p.name}: {m}
-                </NativeSelectOption>
-              ))
-            )}
-          </NativeSelect>
-        ) : null}
-        <Button onClick={leaveIsolation} size="sm">
-          Done
-        </Button>
-      </div>
-    </div>
+      ) : null}
+      {choices.length > 0 && !onBoard ? (
+        <NativeSelect
+          aria-label="Edits land on"
+          className="shrink-0 [&>select]:bg-transparent [&>select]:font-label [&>select]:hover:border-transparent [&>select]:hover:bg-accent"
+          onChange={(e) => {
+            const [property, member] = e.target.value.split("\n");
+            editVariant(
+              property && member !== undefined ? { member, property } : null
+            );
+          }}
+          size="sm"
+          title="Edits land on the component’s own fields, or on one member of a choice"
+          value={current}
+        >
+          <NativeSelectOption value="">All variants</NativeSelectOption>
+          {choices.flatMap((p) =>
+            (p.members ?? []).map((m) => (
+              <NativeSelectOption
+                key={`${p.name}\n${m}`}
+                value={`${p.name}\n${m}`}
+              >
+                {p.name}: {m}
+              </NativeSelectOption>
+            ))
+          )}
+        </NativeSelect>
+      ) : null}
+      <Button className="shrink-0" onClick={leaveIsolation} size="sm">
+        Done
+      </Button>
+    </Banner>
   );
 };

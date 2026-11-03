@@ -9,10 +9,10 @@ import {
   type SetupSuggestions,
   stylesheetOf,
 } from "@ultrapaint/contracts/setup";
-import { CircleAlert, FolderSearch, RefreshCw, Rocket } from "lucide-react";
+import { CircleAlert, FolderGit2, FolderSearch, Rocket } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,23 +23,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-} from "@/components/ui/empty";
-import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { startApplication } from "../lib/scaffold.ts";
 import { detect, setUpDesigns } from "../lib/settings-actions.ts";
 import { showSetup as showSync } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { useSetup } from "../state/setup.ts";
+import { PanelEmpty } from "./panel.tsx";
 
 const close = () => useSetup.getState().close();
 const onOpenChange = (open: boolean) => {
@@ -76,7 +72,7 @@ export const SetupDialog = () => {
   const shown = useSetup((s) => s.shown);
   return (
     <Dialog onOpenChange={onOpenChange} open={shown}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="gap-5 sm:max-w-md">
         <ConfigureForm />
       </DialogContent>
     </Dialog>
@@ -150,15 +146,14 @@ const ConfigureForm = () => {
         <DialogHeader>
           <DialogTitle>Set up a repository</DialogTitle>
           <DialogDescription>
-            The tool does not know which folder to design in. Say in the
-            settings where it is, and where its pages go.
+            Choose the folder to design in, and where its pages are saved.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button onClick={close} variant="outline">
             Cancel
           </Button>
-          <Button onClick={configureFolders}>Configure folders…</Button>
+          <Button onClick={configureFolders}>Open settings</Button>
         </DialogFooter>
       </>
     );
@@ -169,85 +164,102 @@ const ConfigureForm = () => {
       <DialogHeader>
         <DialogTitle>Set up this repository</DialogTitle>
         <DialogDescription>
-          Pages are design documents in the repository, versioned with the code.
-          Say where they go, then Sync takes you through the design system: from
-          a Figma file, from your code, or from scratch.
+          Pages are saved in the repository, beside your code. Sync then brings
+          in the design system.
         </DialogDescription>
       </DialogHeader>
       {found ? (
         <Alert>
           <FolderSearch />
-          <AlertDescription>{describeSuggestions(found)}</AlertDescription>
+          <AlertDescription>
+            {describeSuggestions(found)}
+            {found.anchors.length === 0 ? (
+              <Button
+                className="mt-2"
+                disabled={busy}
+                onClick={() => startNew(found, repoPath)}
+                size="sm"
+                variant="outline"
+              >
+                <Rocket />
+                Start a new application…
+              </Button>
+            ) : null}
+          </AlertDescription>
         </Alert>
       ) : null}
-      {found && found.anchors.length === 0 ? (
-        <Button
-          className="self-start"
-          disabled={busy}
-          onClick={() => startNew(found, repoPath)}
-          variant="outline"
-        >
-          <Rocket />
-          Start a new application here…
-        </Button>
-      ) : null}
       <FieldGroup className="gap-4">
-        <Field>
+        <Field className="gap-1">
           <FieldLabel>Repository</FieldLabel>
-          <Input readOnly tabIndex={-1} value={repoPath} />
+          <p
+            className="truncate font-code text-muted-foreground"
+            title={repoPath}
+          >
+            {repoPath}
+          </p>
         </Field>
         <Field>
           <FieldLabel htmlFor="setup-designs">Designs directory</FieldLabel>
           <Input
+            className="font-code"
             disabled={!draft}
             id="setup-designs"
             onChange={onDesignsDir}
             placeholder={DEFAULT_DESIGNS_DIR}
+            spellCheck={false}
             value={draft?.designsDir ?? ""}
           />
-          <FieldDescription>
-            Relative to the repository, and created if it is not there yet.
+          <FieldDescription className="font-small">
+            Relative to the repository; made if it is missing.
           </FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="setup-stylesheet">Stylesheet</FieldLabel>
           <Input
+            className="font-code"
             disabled={!draft}
             id="setup-stylesheet"
             onChange={(e) => setStylesheet(e.target.value)}
             placeholder="src/index.css"
+            spellCheck={false}
             value={shownStylesheet}
           />
-          <FieldDescription>
-            Your application's stylesheet with its theme, relative to the
-            repository: Sync reads your tokens from it and writes the design's
-            back. Empty when there is none yet.
+          <FieldDescription className="font-small">
+            Your app’s theme, relative to the repository. Empty if there is none
+            yet.
           </FieldDescription>
         </Field>
       </FieldGroup>
       {problems.length > 0 && (
         <Alert variant="destructive">
           <CircleAlert />
+          <AlertTitle>Couldn’t set up the repository</AlertTitle>
           <AlertDescription>
-            <ul className="list-disc pl-4">
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
+            {problems.length === 1 ? (
+              <p>{problems[0]}</p>
+            ) : (
+              <ul className="list-disc pl-4">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            )}
           </AlertDescription>
         </Alert>
       )}
-      <DialogFooter>
-        <Button onClick={close} variant="ghost">
-          Cancel
+      <DialogFooter className="sm:justify-between">
+        <Button onClick={configureFolders} variant="ghost">
+          All settings…
         </Button>
-        <Button onClick={configureFolders} variant="outline">
-          Configure folders…
-        </Button>
-        <Button disabled={busy || !draft} onClick={setUp}>
-          <RefreshCw />
-          {busy ? "Setting up…" : "Set up and sync"}
-        </Button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <Button onClick={close} variant="outline">
+            Cancel
+          </Button>
+          <Button disabled={busy || !draft} onClick={setUp}>
+            {busy ? <Spinner /> : null}
+            {busy ? "Setting up…" : "Set up and sync"}
+          </Button>
+        </div>
       </DialogFooter>
     </>
   );
@@ -255,14 +267,15 @@ const ConfigureForm = () => {
 
 /** What a panel shows while no repository is set up. */
 export const SetupEmpty = () => (
-  <Empty className="h-full">
-    <EmptyHeader>
-      <EmptyDescription>No repository is set up yet.</EmptyDescription>
-    </EmptyHeader>
-    <EmptyContent>
+  <PanelEmpty
+    action={
       <Button onClick={openSetup} size="sm" variant="outline">
-        Set up…
+        Set up repository
       </Button>
-    </EmptyContent>
-  </Empty>
+    }
+    icon={<FolderGit2 />}
+    title="No repository yet"
+  >
+    Set one up to save pages and sync the design system.
+  </PanelEmpty>
 );

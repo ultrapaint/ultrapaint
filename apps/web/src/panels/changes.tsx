@@ -7,12 +7,11 @@ import type {
 } from "@ultrapaint/contracts/snapshots";
 import { cn } from "cn";
 import {
-  Bookmark,
+  ArrowLeft,
   BookmarkPlus,
-  Eye,
-  GitCommitHorizontal,
+  GitBranch,
   GitCompareArrows,
-  History,
+  Plus,
   RefreshCw,
   Trash2,
   Undo2,
@@ -21,6 +20,7 @@ import {
   type ChangeEvent,
   type Dispatch,
   type KeyboardEvent,
+  type ReactNode,
   type SetStateAction,
   useEffect,
   useEffectEvent,
@@ -210,34 +210,35 @@ export const Changes = () => {
   // Without a repository, a status read before is not this folder's.
   const shown = repository ? status : null;
   if (snapshots === null || checkpoints === null || (repository && !shown)) {
-    return <PanelEmpty>Loading…</PanelEmpty>;
+    return (
+      <div className="flex h-full flex-col">
+        <ChangesHeading onRefresh={refresh} />
+        <PanelEmpty>Reading the history…</PanelEmpty>
+      </div>
+    );
   }
 
   const files = shown?.files ?? [];
   const design = files.filter((f) => f.design);
   const other = files.filter((f) => !f.design);
   const openDiffs = cpDiff?.diffs ?? (diff ? [diff] : null);
+  // A file's diff is titled by its path; a snapshot's or a checkpoint's by the point it is from.
+  const since =
+    snapshots.find((x) => x.id === cpDiff?.id)?.name ??
+    checkpoints.find((x) => x.id === cpDiff?.id)?.label;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b px-2 py-1.5 text-muted-foreground">
-        <span className="flex-1 truncate">
-          {shown ? (
-            <>
-              on <span className="text-foreground">{shown.branch}</span> ·{" "}
-              {files.length} changed
-            </>
-          ) : (
-            "No git repository here"
-          )}
-        </span>
-        <IconButton onClick={refresh} tooltip="Refresh">
-          <RefreshCw />
-        </IconButton>
-      </div>
-      {shown ? (
+      <ChangesHeading onRefresh={refresh} />
+      <RepoStatus
+        busy={busy}
+        files={files.length}
+        onInit={writes ? init : null}
+        status={shown}
+      />
+      {shown && files.length > 0 ? (
         <>
-          <div className="max-h-[45%] min-h-0 overflow-auto">
+          <div className="max-h-[45%] min-h-0 shrink-0 overflow-auto px-2">
             <FileGroup
               current={diff?.path}
               files={design}
@@ -254,42 +255,27 @@ export const Changes = () => {
               setSelected={setSelected}
               title="Other files"
             />
-            {files.length === 0 && (
-              <div className="p-3 text-muted-foreground">
-                Working tree clean
-              </div>
-            )}
           </div>
           {writes ? (
-            <div className="flex gap-1 border-y p-2">
-              <Input
-                onChange={onMessageChange}
-                onKeyDown={onMessageKeyDown}
-                placeholder="Commit message"
-                value={message}
-              />
-              <Button
-                disabled={busy || !message.trim() || selected.size === 0}
-                onClick={commit}
-                title="Commit selected files"
-              >
-                <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
-              </Button>
-            </div>
+            <CommitBar
+              busy={busy}
+              message={message}
+              onCommit={commit}
+              onMessageChange={onMessageChange}
+              onMessageKeyDown={onMessageKeyDown}
+              ticked={selected.size}
+            />
           ) : null}
         </>
       ) : null}
-      {!repository && writes ? (
-        <div className="border-b p-2">
-          <Button disabled={busy} onClick={init} size="sm" variant="outline">
-            <GitCommitHorizontal data-icon="inline-start" />
-            Make this folder a git repository
-          </Button>
-        </div>
-      ) : null}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto border-t">
         {openDiffs ? (
-          <DiffView diffs={openDiffs} />
+          <DiffPane
+            diffs={openDiffs}
+            onClose={closeDiff}
+            title={diff ? diff.path : `Since ${since ?? "then"}`}
+            whole={diff === null}
+          />
         ) : (
           <>
             <Snapshots onShowDiff={setCpDiff} snapshots={snapshots} />
@@ -297,16 +283,151 @@ export const Changes = () => {
           </>
         )}
       </div>
-      {diff || cpDiff ? (
-        <div className="border-t p-1">
-          <Button onClick={closeDiff} size="sm" variant="ghost">
-            Close diff
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 };
+
+const plural = (count: number, one: string, many: string) =>
+  `${count} ${count === 1 ? one : many}`;
+
+/**
+ * Where git stands: the branch and how many files changed; or, without a repository, that the
+ * history is kept all the same, and the way to make one when writing to git is on.
+ */
+const RepoStatus = ({
+  busy,
+  files,
+  onInit,
+  status,
+}: {
+  busy: boolean;
+  files: number;
+  onInit: (() => void) | null;
+  status: GitStatus | null;
+}) =>
+  status ? (
+    <div className="flex shrink-0 items-center gap-1.5 px-3 pb-2 font-small text-muted-foreground">
+      <GitBranch className="size-3.5 shrink-0" />
+      <span className="min-w-0 truncate text-foreground">{status.branch}</span>
+      <span className="ml-auto shrink-0">
+        {files === 0
+          ? "No changes"
+          : `${plural(files, "file", "files")} changed`}
+      </span>
+    </div>
+  ) : (
+    <div className="flex shrink-0 flex-col items-start gap-2 px-3 pb-3">
+      <p className="font-small text-muted-foreground">
+        This folder is not a git repository. Snapshots and checkpoints still
+        keep the designs’ history.
+      </p>
+      {onInit ? (
+        <Button disabled={busy} onClick={onInit} size="sm" variant="outline">
+          Make it a git repository
+        </Button>
+      ) : null}
+    </div>
+  );
+
+/** The message and the commit of the ticked files: the one action the panel is for. */
+const CommitBar = ({
+  busy,
+  message,
+  onCommit,
+  onMessageChange,
+  onMessageKeyDown,
+  ticked,
+}: {
+  busy: boolean;
+  message: string;
+  onCommit: () => void;
+  onMessageChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onMessageKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
+  ticked: number;
+}) => (
+  <div className="flex shrink-0 gap-2 px-2 pt-2 pb-3">
+    <Input
+      aria-label="Commit message"
+      onChange={onMessageChange}
+      onKeyDown={onMessageKeyDown}
+      placeholder="Commit message"
+      value={message}
+    />
+    <Button
+      disabled={busy || !message.trim() || ticked === 0}
+      onClick={onCommit}
+      title={
+        ticked === 0
+          ? "Tick the files to commit"
+          : `Commit ${plural(ticked, "file", "files")}`
+      }
+    >
+      Commit
+    </Button>
+  </div>
+);
+
+/** A diff in the panel's lower half, under a bar that names it and leads back to the history. */
+const DiffPane = ({
+  diffs,
+  onClose,
+  title,
+  whole,
+}: {
+  diffs: readonly FileDiff[];
+  onClose: () => void;
+  title: string;
+  /** Several files, each under its path; else the one file the title names. */
+  whole: boolean;
+}) => (
+  <>
+    <div className="flex h-10 shrink-0 items-center gap-1 pr-3 pl-1.5">
+      <IconButton
+        className="text-muted-foreground"
+        onClick={onClose}
+        tooltip="Close diff"
+      >
+        <ArrowLeft />
+      </IconButton>
+      <span className="min-w-0 truncate font-label" title={title}>
+        {title}
+      </span>
+    </div>
+    <DiffView diffs={diffs} paths={whole} />
+  </>
+);
+
+/** The panel's title, and the read of git's status and the history again. */
+const ChangesHeading = ({ onRefresh }: { onRefresh: () => void }) => (
+  <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-3">
+    <h2 className="flex-1 font-heading-xsmall">Changes</h2>
+    <IconButton
+      className="text-muted-foreground"
+      onClick={onRefresh}
+      tooltip="Refresh"
+    >
+      <RefreshCw />
+    </IconButton>
+  </div>
+);
+
+/** A quiet label over a group of rows, with what can be done to the group at its end. */
+const GroupLabel = ({
+  action,
+  children,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+}) => (
+  <div className="flex h-9 shrink-0 items-center gap-1 pr-1 pl-2 font-small text-muted-foreground">
+    <span className="min-w-0 flex-1 truncate">{children}</span>
+    {action}
+  </div>
+);
+
+/** A row of the history: its name first, its time after, its actions in its place on hover. */
+const HISTORY_ROW =
+  "group flex h-7 items-center gap-2 rounded-md pr-1 pl-2 transition-colors duration-100 hover:bg-accent/50 focus-within:bg-accent/50";
 
 /**
  * Named points in the history of the designs, kept until deleted: opened to look at as they
@@ -321,30 +442,59 @@ const Snapshots = ({
 }) => {
   const save = () => saveSnapshot();
   return (
-    <div className="border-b p-2">
-      <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
-        <Bookmark className="size-3" />
-        <span className="flex-1">Snapshots</span>
-        <IconButton onClick={save} size="icon-xs" tooltip="Save a snapshot">
-          <BookmarkPlus className="size-3" />
-        </IconButton>
-      </div>
-      {snapshots.length === 0 && (
-        <div className="text-muted-foreground">
-          None yet. Save one to keep the designs as they are under a name, to
-          come back to.
+    <div className="flex flex-col px-2 pt-1 pb-2">
+      <GroupLabel
+        action={
+          snapshots.length > 0 ? (
+            <IconButton
+              className="text-muted-foreground"
+              onClick={save}
+              size="icon-sm"
+              tooltip="Save snapshot"
+            >
+              <Plus />
+            </IconButton>
+          ) : null
+        }
+      >
+        Snapshots
+      </GroupLabel>
+      {snapshots.length === 0 ? (
+        <div className="flex flex-col items-start gap-2 px-2 pb-1">
+          <p className="font-small text-muted-foreground">
+            Keep the designs as they are under a name, to look at again or come
+            back to.
+          </p>
+          <Button onClick={save} size="sm" variant="secondary">
+            Save snapshot
+          </Button>
         </div>
+      ) : (
+        snapshots.map((snapshot) => (
+          <SnapshotRow
+            key={snapshot.id}
+            onShowDiff={onShowDiff}
+            snapshot={snapshot}
+          />
+        ))
       )}
-      {snapshots.map((snapshot) => (
-        <SnapshotRow
-          key={snapshot.id}
-          onShowDiff={onShowDiff}
-          snapshot={snapshot}
-        />
-      ))}
     </div>
   );
 };
+
+const dateFormat = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+});
+const timeFormat = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+/** The time of a checkpoint taken today, the day of an older one. */
+const whenTaken = (at: number, now = new Date()) =>
+  new Date(at).toDateString() === now.toDateString()
+    ? timeFormat.format(at)
+    : dateFormat.format(at);
 
 const SnapshotRow = ({
   onShowDiff,
@@ -362,49 +512,51 @@ const SnapshotRow = ({
       .catch(reportError);
   const remove = () => deleteSnapshot(snapshot);
   return (
-    <div className="group flex items-center gap-0.5 py-0.5">
-      <Button
-        className={cn(
-          "-ml-2 min-w-0 flex-1 justify-start font-normal",
-          open ? "text-foreground" : "text-muted-foreground"
-        )}
+    <div className={cn(HISTORY_ROW, open && "bg-accent hover:bg-accent")}>
+      <button
+        className="flex h-full min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:underline"
         onClick={() => openSnapshot(snapshot)}
-        size="sm"
-        title="Open it, to look at the designs as they were"
-        variant="ghost"
+        title={`Open ${snapshot.name}, to look at the designs as they were`}
+        type="button"
       >
-        <span className="truncate">
+        <span className="min-w-0 flex-1 truncate font-body">
           {snapshot.name}
-          <span className="text-muted-foreground">
-            {" "}
-            · {new Date(snapshot.at).toLocaleDateString()}
-          </span>
         </span>
-      </Button>
-      <IconButton
-        onClick={() => openSnapshot(snapshot)}
-        size="icon-sm"
-        tooltip="Open to look at"
-      >
-        <Eye />
-      </IconButton>
-      <IconButton onClick={compare} size="icon-sm" tooltip="What changed since">
-        <GitCompareArrows />
-      </IconButton>
-      <IconButton
-        onClick={() => restoreSnapshot(snapshot)}
-        size="icon-sm"
-        tooltip="Restore the designs to it"
-      >
-        <Undo2 />
-      </IconButton>
-      <IconButton onClick={remove} size="icon-sm" tooltip="Delete the snapshot">
-        <Trash2 />
-      </IconButton>
+        <span className="shrink-0 font-small text-muted-foreground group-focus-within:hidden group-hover:hidden">
+          {dateFormat.format(snapshot.at)}
+        </span>
+      </button>
+      <span className="hidden shrink-0 items-center group-focus-within:flex group-hover:flex">
+        <IconButton
+          className="text-muted-foreground"
+          onClick={compare}
+          size="icon-sm"
+          tooltip="Compare with now"
+        >
+          <GitCompareArrows />
+        </IconButton>
+        <IconButton
+          className="text-muted-foreground"
+          onClick={() => restoreSnapshot(snapshot)}
+          size="icon-sm"
+          tooltip="Restore"
+        >
+          <Undo2 />
+        </IconButton>
+        <IconButton
+          className="text-muted-foreground"
+          onClick={remove}
+          size="icon-sm"
+          tooltip="Delete"
+        >
+          <Trash2 />
+        </IconButton>
+      </span>
     </div>
   );
 };
 
+/** The designs as they were before each agent turn, the last ones kept. */
 const Checkpoints = ({
   checkpoints,
   onShowDiff,
@@ -412,18 +564,17 @@ const Checkpoints = ({
   checkpoints: readonly Checkpoint[];
   onShowDiff: (diff: CheckpointDiff) => void;
 }) => (
-  <div className="p-2">
-    <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
-      <History className="size-3" /> Agent turn checkpoints
-    </div>
-    {checkpoints.length === 0 && (
-      <div className="text-muted-foreground">
-        No checkpoints yet. One is taken before each agent turn.
-      </div>
+  <div className="flex flex-col px-2 pb-3">
+    <GroupLabel>Agent checkpoints</GroupLabel>
+    {checkpoints.length === 0 ? (
+      <p className="px-2 font-small text-muted-foreground">
+        The designs are kept before each agent turn, to compare or go back to.
+      </p>
+    ) : (
+      checkpoints.map((c) => (
+        <CheckpointRow checkpoint={c} key={c.id} onShowDiff={onShowDiff} />
+      ))
     )}
-    {checkpoints.map((c) => (
-      <CheckpointRow checkpoint={c} key={c.id} onShowDiff={onShowDiff} />
-    ))}
   </div>
 );
 
@@ -454,31 +605,38 @@ const CheckpointRow = ({
     }
   };
   return (
-    <div className="flex items-center gap-1 py-0.5">
-      <Button
-        className="-ml-2 min-w-0 flex-1 justify-start font-normal text-muted-foreground"
+    <div className={HISTORY_ROW}>
+      <button
+        className="flex h-full min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:underline"
         onClick={show}
-        size="sm"
-        variant="ghost"
+        title="What changed since"
+        type="button"
       >
-        <span className="truncate">
-          {new Date(checkpoint.at).toLocaleTimeString()} · {checkpoint.label}
+        <span className="min-w-0 flex-1 truncate font-body">
+          {checkpoint.label}
         </span>
-      </Button>
-      <IconButton
-        onClick={keep}
-        size="icon-sm"
-        tooltip="Keep as a snapshot, under a name"
-      >
-        <BookmarkPlus />
-      </IconButton>
-      <IconButton
-        onClick={revert}
-        size="icon-sm"
-        tooltip="Revert design files to this checkpoint"
-      >
-        <Undo2 />
-      </IconButton>
+        <span className="shrink-0 font-small text-muted-foreground tabular-nums group-focus-within:hidden group-hover:hidden">
+          {whenTaken(checkpoint.at)}
+        </span>
+      </button>
+      <span className="hidden shrink-0 items-center group-focus-within:flex group-hover:flex">
+        <IconButton
+          className="text-muted-foreground"
+          onClick={keep}
+          size="icon-sm"
+          tooltip="Keep as snapshot"
+        >
+          <BookmarkPlus />
+        </IconButton>
+        <IconButton
+          className="text-muted-foreground"
+          onClick={revert}
+          size="icon-sm"
+          tooltip="Revert to it"
+        >
+          <Undo2 />
+        </IconButton>
+      </span>
     </div>
   );
 };
@@ -515,10 +673,11 @@ const FileGroup = ({
     return null;
   }
   return (
-    <div>
-      <Label className="gap-2 px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
+    <div className="flex flex-col">
+      <Label className="flex h-8 items-center gap-2 px-2 font-normal font-small text-muted-foreground">
         <Checkbox checked={all} onCheckedChange={toggleAll} />
-        {title} ({files.length})
+        <span className="flex-1">{title}</span>
+        <span className="font-caption tabular-nums">{files.length}</span>
       </Label>
       {files.map((f) => (
         <FileRow
@@ -532,6 +691,15 @@ const FileGroup = ({
       ))}
     </div>
   );
+};
+
+/** What git says of a file, in a word: its status code's first letter. */
+const STATUS_WORDS: Record<string, string> = {
+  "?": "New",
+  A: "Added",
+  D: "Deleted",
+  M: "Modified",
+  R: "Renamed",
 };
 
 const FileRow = ({
@@ -559,13 +727,15 @@ const FileRow = ({
       return next;
     });
   const show = () => onShow(path);
+  const parts = path.split("/");
+  const name = parts.at(-1) ?? path;
+  const folder = parts.slice(0, -1).join("/");
+  const code = file.code.trim() || "M";
   return (
     <div
       className={cn(
-        "flex h-6 items-center gap-2 px-2 font-body",
-        current
-          ? "bg-brand/20 text-foreground"
-          : "text-muted-foreground hover:bg-muted/50"
+        "flex h-7 items-center gap-2 rounded-md px-2 transition-colors duration-100",
+        current ? "bg-accent" : "hover:bg-accent/50"
       )}
     >
       <Checkbox
@@ -574,15 +744,21 @@ const FileRow = ({
         onCheckedChange={toggle}
       />
       <button
-        className="min-w-0 flex-1 truncate text-left"
+        className="flex min-w-0 flex-1 items-baseline gap-1.5 text-left outline-none focus-visible:underline"
         onClick={show}
         title={path}
         type="button"
       >
-        {path.split("/").slice(-2).join("/")}
+        <span className="min-w-0 shrink-0 truncate font-body">{name}</span>
+        <span className="min-w-0 truncate font-small text-muted-foreground">
+          {folder}
+        </span>
       </button>
-      <span className="font-code text-muted-foreground">
-        {file.code.trim() || "M"}
+      <span
+        className="w-4 shrink-0 text-center font-code text-muted-foreground"
+        title={STATUS_WORDS[code[0] ?? ""] ?? code}
+      >
+        {code}
       </span>
     </div>
   );
@@ -598,14 +774,28 @@ const diffLines = (diff: string) => {
   });
 };
 
-const DiffView = ({ diffs }: { diffs: readonly FileDiff[] }) => (
-  <div className="p-2">
+/** The diffs, each under its file's path unless the panel's title already names the one file. */
+const DiffView = ({
+  diffs,
+  paths,
+}: {
+  diffs: readonly FileDiff[];
+  paths: boolean;
+}) => (
+  <div className="flex flex-col gap-3 px-2 pb-3">
+    {diffs.length === 0 ? (
+      <p className="px-1 font-small text-muted-foreground">
+        No design file has changed since.
+      </p>
+    ) : null}
     {diffs.map((d) => (
-      <div className="mb-2" key={d.path}>
-        <div className="mb-1 truncate font-code text-muted-foreground">
-          {d.path}
-        </div>
-        <pre className="overflow-auto rounded-md bg-muted/50 p-1.5 font-code leading-4">
+      <div className="flex flex-col gap-1" key={d.path}>
+        {paths ? (
+          <div className="truncate px-1 font-small text-muted-foreground">
+            {d.path}
+          </div>
+        ) : null}
+        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
           {diffLines(d.diff).map(({ offset, text: line }) => (
             <div
               className={cn(
@@ -615,7 +805,7 @@ const DiffView = ({ diffs }: { diffs: readonly FileDiff[] }) => (
                 line.startsWith("-") &&
                   !line.startsWith("---") &&
                   "bg-destructive/15 text-destructive",
-                line.startsWith("@@") && "text-brand",
+                line.startsWith("@@") && "text-muted-foreground",
                 !DIFF_MARKER_RE.test(line) && "text-muted-foreground"
               )}
               key={offset}

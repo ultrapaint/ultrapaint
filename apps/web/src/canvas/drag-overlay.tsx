@@ -7,6 +7,7 @@ import { useEditor } from "../state/editor.ts";
 import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
 import { landingPoint, useDrag } from "./drag.ts";
 
+/** The canvas's own blue: what is dragged or drawn is what will be selected. */
 const BRAND = "var(--selection)";
 
 /**
@@ -132,7 +133,7 @@ export const CreateOverlay = () => {
 
 const Tag = ({ children, inv }: { children: ReactNode; inv: number }) => (
   <span
-    className="absolute top-0 left-0 whitespace-nowrap rounded-sm bg-brand px-1 py-0.5 font-body font-medium text-brand-foreground"
+    className="absolute top-0 left-0 flex h-5 items-center whitespace-nowrap rounded-sm bg-selection px-1.5 font-caption text-white tabular-nums"
     style={{
       transform: `translateY(calc(-100% - ${4 * inv}px)) scale(${inv})`,
       transformOrigin: "bottom left",

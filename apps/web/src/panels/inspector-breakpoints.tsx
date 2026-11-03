@@ -16,7 +16,6 @@ import {
   OptionSelect,
   type SelectOption,
 } from "../components/option-select.tsx";
-import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { useEditingBreakpoint } from "../lib/breakpoint-edits.ts";
 import { resetAt, showBy } from "../lib/node-actions.ts";
@@ -25,7 +24,7 @@ import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { useFrameBreakpoint } from "../state/selection.ts";
-import { set } from "./inspector-fields.tsx";
+import { Row, Section, set } from "./inspector-fields.tsx";
 
 /** What a node sets at a breakpoint, field by field; an instance's props one by one. */
 const fieldsAt = (node: DesignNode, name: string): string[] => {
@@ -156,56 +155,48 @@ export const BreakpointSection = ({
           .map((b) => b.name)
   );
   const visibility = visibilityOf(own, breakpoints);
-  // What the eye already says, at every width, is left out of the sentence.
-  const said =
-    visibility.kind === "every" || visibility.kind === "none"
-      ? null
-      : `Shown ${phraseOf(visibility).toLowerCase()}.`;
   return (
     <Section title="Breakpoints">
-      <p className="font-body text-muted-foreground">
-        {editing === null ? (
-          "Edits change every width."
-        ) : (
-          <>
-            Edits land at{" "}
-            <span className="font-code text-foreground">{editing}</span> and up.
-          </>
-        )}
-        {said ? ` ${said}` : null}
-      </p>
+      {editing === null ? null : (
+        <Row label="Edits at">
+          <span className="truncate font-body">
+            <span className="font-code">{editing}</span>
+            <span className="text-muted-foreground"> and up</span>
+          </span>
+        </Row>
+      )}
       {used.map((b) => (
         <Row key={b.name} label={b.name}>
           <div
             className={cn(
-              "flex min-w-0 flex-wrap gap-1",
+              "flex min-w-0 flex-wrap gap-1 py-0.5",
               !holding.has(b.name) && "opacity-50"
             )}
             title={
               holding.has(b.name)
                 ? `Set from ${b.name} (${b.min}px) up`
-                : `Set from ${b.name} (${b.min}px) up: not this view's width`
+                : `Set from ${b.name} (${b.min}px) up, wider than this view`
             }
           >
             {fieldsAt(own, b.name).map((field) => (
               <span
                 className={cn(
-                  "flex items-center gap-0.5 rounded bg-muted py-0.5 pr-0.5 pl-1.5 font-code",
-                  b.name === shown && "bg-brand/15 text-foreground"
+                  "flex h-6 items-center gap-0.5 rounded-md bg-muted pr-0.5 pl-2 font-code",
+                  b.name === shown && "bg-accent text-foreground"
                 )}
                 key={field}
               >
                 {field}
                 <button
                   aria-label={`Reset ${field} at ${b.name}`}
-                  className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+                  className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   onClick={() =>
                     resetAt({ frame, nodeId: own.id }, b.name, field)
                   }
-                  title={`Reset ${field} at ${b.name}: inherit it from below`}
+                  title={`Reset ${field} at ${b.name}`}
                   type="button"
                 >
-                  <X className="size-3" />
+                  <X className="size-3.5" />
                 </button>
               </span>
             ))}
@@ -216,7 +207,6 @@ export const BreakpointSection = ({
         <OptionSelect
           onChange={(v) => showByChoice(frame, own, v)}
           options={visibilityOptions(breakpoints, visibility)}
-          size="sm"
           value={choiceOf(visibility)}
         />
       </Row>

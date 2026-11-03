@@ -7,11 +7,11 @@ import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import { useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { guidelineId } from "../boards/system-boards.ts";
-import { Section } from "../components/panel.tsx";
 import { setGuideDraft } from "../state/board.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { reportError } from "../state/project.ts";
+import { Section } from "./inspector-fields.tsx";
 
 export const GuidelineEditor = ({
   document,
@@ -28,8 +28,8 @@ export const GuidelineEditor = ({
   const typing = useRef<string | null>(null);
   if (!section) {
     return (
-      <p className="p-3 font-body text-muted-foreground">
-        DESIGN.md has no such section.
+      <p className="px-3 py-3 font-small text-muted-foreground">
+        DESIGN.md has no such section. It may have been renamed.
       </p>
     );
   }
@@ -63,10 +63,10 @@ export const GuidelineEditor = ({
     setGuideDraft(null);
   };
   return (
-    <Section className="flex min-h-0 flex-1 flex-col border-b-0" title="Text">
+    <Section className="min-h-0 flex-1 gap-2 border-b-0 pb-3" title="Markdown">
       <Textarea
         aria-label={`${section.heading} in DESIGN.md`}
-        className="min-h-80 flex-1 resize-none font-code"
+        className="min-h-80 flex-1 resize-none font-code [field-sizing:fixed]"
         onBlur={save}
         onChange={(e) => type(e.target.value)}
         onKeyDown={(e) => {
@@ -79,8 +79,8 @@ export const GuidelineEditor = ({
         }}
         value={typed ?? section.text}
       />
-      <span className="font-body text-muted-foreground">
-        Markdown, written to DESIGN.md when you leave the field.
+      <span className="font-small text-muted-foreground">
+        Saved to DESIGN.md when you leave the field. Esc discards.
       </span>
     </Section>
   );

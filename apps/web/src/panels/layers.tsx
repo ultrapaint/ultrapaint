@@ -19,10 +19,10 @@ import {
   ChevronsUpDown,
   Eye,
   EyeOff,
-  File,
+  Layers as LayersIcon,
   Lock,
   LockOpen,
-  MoreVertical,
+  MoreHorizontal,
   Search,
   X,
 } from "lucide-react";
@@ -46,6 +46,7 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { newCanvas } from "../lib/canvas-actions.ts";
 import { scopeKeyDown } from "../lib/keymap.ts";
 import { describeLink } from "../lib/links.ts";
 import {
@@ -54,7 +55,7 @@ import {
   setHidden,
   setLocked,
 } from "../lib/node-actions.ts";
-import { renamePageTo } from "../lib/page-actions.ts";
+import { newPage, renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import { canvasNodes, useDocuments } from "../state/documents.ts";
@@ -97,9 +98,12 @@ import {
 } from "./layer-tree.ts";
 import { offsetsOf, useListWindow, windowOf } from "./list-window.ts";
 
-/** A row's own indent, and where its chevron sits inside it. */
-const ROW_PAD = 8;
-const INDENT = 12;
+/**
+ * A row's own indent, and where its chevron sits inside it. A level is the chevron and the gap
+ * after it, so a child's chevron sits under its parent's icon.
+ */
+const ROW_PAD = 4;
+const INDENT = 16;
 const CHEVRON_CENTER = 8;
 
 /** A node's row: the node, and the frame it is shown in. */
@@ -208,22 +212,22 @@ const LayerFilter = ({
     }
   };
   return (
-    <div className="flex items-center border-b px-2 py-1.5">
+    <div className="flex shrink-0 items-center px-2 pb-2">
       <InputGroup>
         <InputGroupAddon>
           <Search />
         </InputGroupAddon>
         <InputGroupInput
-          aria-label="Find layers"
+          aria-label="Search layers"
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Find layers…"
+          placeholder="Search layers"
           value={query}
         />
         {query === "" ? null : (
           <InputGroupAddon align="inline-end">
             <InputGroupButton
-              aria-label="Clear the filter"
+              aria-label="Clear search"
               onClick={() => onQuery("")}
               size="icon-xs"
             >
@@ -247,20 +251,22 @@ const LayersHeading = ({
   onCollapse?: (() => void) | undefined;
   onExpand?: (() => void) | undefined;
 }) => (
-  <div className="flex h-9 shrink-0 items-center gap-0.5 pr-1.5 pl-3">
-    <span className="flex-1 font-heading-xsmall">Layers</span>
+  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-3">
+    <h2 className="flex-1 font-heading-xsmall">Layers</h2>
     <IconButton
+      className="text-muted-foreground"
       disabled={!onExpand}
       onClick={onExpand}
-      size="icon-xs"
+      size="icon"
       tooltip="Expand one level"
     >
       <ChevronsUpDown />
     </IconButton>
     <IconButton
+      className="text-muted-foreground"
       disabled={!onCollapse}
       onClick={onCollapse}
-      size="icon-xs"
+      size="icon"
       tooltip="Collapse one level"
     >
       <ChevronsDownUp />
@@ -271,22 +277,46 @@ const LayersHeading = ({
 /** The heights of the panel's lines, which the window of drawn rows is worked out from. */
 const PAGE_ROW = 28;
 const PAGE_PROBLEM = 20;
-const NODE_ROW = 24;
-const HEADING = 32;
+const NODE_ROW = 28;
+const HEADING = 36;
 /** The room above the first line and below the last. */
 const LIST_PAD = 4;
 /** Drawn beyond what is seen, either side, so a scroll shows rows already there. */
 const OVERSCAN = 300;
 
-/** What the panel says instead of the tree, or null when there is one to show. */
-const emptyText = (canvas: string | null, loaded: boolean, count: number) => {
+/** What the panel shows instead of the tree, or null when there is one to show. */
+const emptyOf = (canvas: string | null, loaded: boolean, count: number) => {
   if (canvas === null) {
-    return "Open a canvas from the Pages panel";
+    return (
+      <PanelEmpty
+        action={
+          <Button onClick={newCanvas} size="sm" variant="secondary">
+            New canvas
+          </Button>
+        }
+        icon={<LayersIcon />}
+        title="No canvas open"
+      >
+        Pick a canvas from the menu above to see its pages and their layers.
+      </PanelEmpty>
+    );
   }
   if (!loaded) {
-    return "Reading the designs…";
+    return <PanelEmpty>Reading the designs…</PanelEmpty>;
   }
-  return count === 0 ? "Nothing on this canvas yet" : null;
+  return count === 0 ? (
+    <PanelEmpty
+      action={
+        <Button onClick={newPage} size="sm" variant="secondary">
+          New page
+        </Button>
+      }
+      icon={<LayersIcon />}
+      title="No layers yet"
+    >
+      The pages of this canvas and what is drawn on them are listed here.
+    </PanelEmpty>
+  ) : null;
 };
 
 /**
@@ -500,12 +530,12 @@ export const Layers = () => {
     }
   };
 
-  const empty = emptyText(canvas, loaded, pages.length + nodes.length);
+  const empty = emptyOf(canvas, loaded, pages.length + nodes.length);
   if (empty) {
     return (
       <div className="flex h-full flex-col">
         <LayersHeading />
-        <PanelEmpty>{empty}</PanelEmpty>
+        {empty}
       </div>
     );
   }
@@ -531,7 +561,7 @@ export const Layers = () => {
       <div
         aria-label="Layers"
         aria-multiselectable="true"
-        className="min-h-0 flex-1 overflow-auto"
+        className="group/tree min-h-0 flex-1 overflow-auto"
         onFocus={onTreeFocus}
         onKeyDown={onTreeKeyDown}
         ref={listRef}
@@ -549,7 +579,7 @@ export const Layers = () => {
             if (line.kind === "heading") {
               return (
                 <div
-                  className="flex h-8 items-end px-3 pb-0.5 font-heading-xsmall text-muted-foreground uppercase"
+                  className="flex h-9 items-end truncate px-3 pb-1.5 font-small text-muted-foreground"
                   key="heading"
                   role="presentation"
                 >
@@ -578,9 +608,9 @@ export const Layers = () => {
           })}
         </div>
         {shown.length === 0 ? (
-          <div className="px-3 py-2 font-body text-muted-foreground">
-            No layer goes by that name
-          </div>
+          <p className="px-3 py-2 font-small text-muted-foreground">
+            No layers match “{query.trim()}”.
+          </p>
         ) : null}
       </div>
     </div>
@@ -622,7 +652,7 @@ const RowName = ({
         onFocus={(e) => (e.target as HTMLInputElement).select()}
       >
         <InlineInput
-          className="h-5 px-1 font-body leading-4"
+          className="h-6 px-1.5 font-body"
           onCancel={() => shared.endRename(item.key)}
           onSubmit={(name) => {
             shared.endRename(item.key);
@@ -695,7 +725,30 @@ const TreeItem = ({
 
 /** The focus ring of a row, drawn when its treeitem has the keyboard's focus. */
 const FOCUS_RING =
-  "[:focus-visible>&]:outline-1 [:focus-visible>&]:outline-ring [:focus-visible>&]:-outline-offset-1";
+  "[:focus-visible>&]:outline-2 [:focus-visible>&]:outline-ring [:focus-visible>&]:-outline-offset-2";
+
+/**
+ * A row's shape: inset from the panel's edges and rounded, filled while it is selected and,
+ * lighter, while the pointer is over it or over what it names on the canvas.
+ */
+const ROW =
+  "group relative mx-2 flex h-7 cursor-default items-center gap-1 rounded-md pr-1 transition-colors duration-100";
+const rowTone = (selected: boolean, hovered: boolean) => {
+  if (selected) {
+    return "bg-accent";
+  }
+  return hovered ? "bg-accent/50" : "hover:bg-accent/50";
+};
+
+/** The page's size on the canvas, as its frame's header says it. */
+const PageSize = ({ id }: { id: string }) => {
+  const frame = useEditor((s) => s.frames[id]);
+  return frame ? (
+    <span className="shrink-0 font-small text-muted-foreground tabular-nums">
+      {Math.round(frame.width)} × {Math.round(frame.height)}
+    </span>
+  ) : null;
+};
 
 /** A page's own row, and its tree under it. */
 const PageRow = ({
@@ -718,6 +771,7 @@ const PageRow = ({
   const selectThePage = () => {
     selectPage(page.id);
   };
+  const route = [page.route, page.variant].filter(Boolean).join(" · ");
   const onContextMenu = (e: MouseEvent) => {
     selectThePage();
     openMenuAt(e, { kind: "page", pageId: page.id });
@@ -726,11 +780,10 @@ const PageRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
     <div
       className={cn(
-        "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-body font-medium",
-        selected
-          ? "bg-selection/25 text-foreground"
-          : "text-foreground hover:bg-muted/50",
-        dropHere !== null && "ring-1 ring-brand ring-inset",
+        ROW,
+        "gap-1.5 pr-2 text-foreground",
+        rowTone(selected, false),
+        dropHere !== null && "ring-2 ring-primary ring-inset",
         FOCUS_RING
       )}
       data-row={key}
@@ -743,17 +796,23 @@ const PageRow = ({
         hidden={item.children.length === 0}
         onToggle={() => shared.toggle(key)}
       />
-      <File className="size-3 shrink-0 text-muted-foreground" />
       <RowName
+        className="min-w-0 font-label"
         item={item}
         label={page.name}
         onRename={(name) => renamePageTo(page, name)}
         shared={shared}
       />
       {shared.renaming === key ? null : (
-        <span className="ml-auto truncate pr-1 font-code text-muted-foreground">
-          {[page.route, page.variant].filter(Boolean).join(" · ")}
-        </span>
+        <>
+          <span
+            className="min-w-0 flex-1 basis-0 truncate font-code text-muted-foreground"
+            title={route || undefined}
+          >
+            {route}
+          </span>
+          <PageSize id={page.id} />
+        </>
       )}
     </div>
   );
@@ -769,7 +828,8 @@ const PageRow = ({
       {row}
       {problem ? (
         <div
-          className="flex h-5 items-center truncate px-8 font-body text-destructive"
+          className="mx-2 flex h-5 items-center truncate font-small text-destructive"
+          style={{ paddingLeft: ROW_PAD + INDENT + 4 }}
           title={problem}
         >
           Not a valid page: {problem}
@@ -819,7 +879,7 @@ const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
     {ancestors.map((id, level) => (
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 w-px bg-border"
+        className="pointer-events-none absolute inset-y-0 w-px bg-border group-hover/tree:bg-foreground/12"
         key={id}
         style={{ left: ROW_PAD + level * INDENT + CHEVRON_CENTER }}
       />
@@ -850,20 +910,22 @@ const RowMenu = ({ row }: { row: Row }) => {
       aria-expanded={open}
       aria-haspopup="menu"
       aria-label={`Actions for ${nodeLabel(node)}`}
-      className="invisible size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
+      className="hidden shrink-0 text-muted-foreground group-focus-within:flex group-hover:flex aria-expanded:flex"
       onClick={onClick}
-      size="icon-xs"
+      size="icon-sm"
       tabIndex={-1}
+      title="More"
       variant="ghost"
     >
-      <MoreVertical className="size-3" />
+      <MoreHorizontal />
     </Button>
   );
 };
 
 /**
  * The eye or the lock of a row, as in Figma: shown while the pointer is over the row, and for
- * good while it is on, so that a hidden or a locked layer is seen to be one at a glance.
+ * good while it is on, so that a hidden or a locked layer is seen to be one at a glance. Until
+ * then they take no room from the name.
  */
 const RowToggle = ({
   children,
@@ -880,14 +942,14 @@ const RowToggle = ({
     aria-label={label}
     aria-pressed={on}
     className={cn(
-      "size-5 shrink-0 text-muted-foreground",
-      !on && "invisible group-focus-within:visible group-hover:visible"
+      "shrink-0 text-muted-foreground",
+      !on && "hidden group-focus-within:flex group-hover:flex"
     )}
     onClick={(e: MouseEvent) => {
       e.stopPropagation();
       onToggle();
     }}
-    size="icon-xs"
+    size="icon-sm"
     tabIndex={-1}
     title={label}
     variant="ghost"
@@ -909,38 +971,18 @@ const RowControls = ({ row }: { row: Row }) => {
         on={node.locked === true}
         onToggle={() => setLocked(!node.locked, target)}
       >
-        {node.locked ? (
-          <Lock className="size-3" />
-        ) : (
-          <LockOpen className="size-3" />
-        )}
+        {node.locked ? <Lock /> : <LockOpen />}
       </RowToggle>
       <RowToggle
         label={node.hidden ? "Show" : "Hide"}
         on={node.hidden === true}
         onToggle={() => setHidden(!node.hidden, target)}
       >
-        {node.hidden ? (
-          <EyeOff className="size-3" />
-        ) : (
-          <Eye className="size-3" />
-        )}
+        {node.hidden ? <EyeOff /> : <Eye />}
       </RowToggle>
       <RowMenu row={row} />
     </>
   );
-};
-
-/** A component's row takes the component colour when selected, as its selection on the canvas does. */
-const rowTone = (selected: boolean, hovered: boolean, component = false) => {
-  if (selected) {
-    return component
-      ? "bg-component/30 text-foreground"
-      : "bg-selection/25 text-foreground";
-  }
-  return hovered
-    ? "bg-muted text-foreground"
-    : "text-muted-foreground hover:bg-muted/50";
 };
 
 const LayerRow = ({
@@ -986,11 +1028,14 @@ const LayerRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
     <div
       className={cn(
-        "group relative flex h-6 cursor-default items-center gap-1 pr-1 font-body",
-        rowTone(selected, hovered, node.type === "instance"),
-        dropHere === "inside" && "ring-1 ring-brand ring-inset",
-        dropHere === "before" && "shadow-[inset_0_2px_0_0_var(--color-brand)]",
-        dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand)]",
+        ROW,
+        "font-body text-foreground",
+        rowTone(selected, hovered),
+        dropHere === "inside" && "ring-2 ring-primary ring-inset",
+        dropHere === "before" &&
+          "shadow-[inset_0_2px_0_0_var(--color-primary)]",
+        dropHere === "after" &&
+          "shadow-[inset_0_-2px_0_0_var(--color-primary)]",
         FOCUS_RING
       )}
       data-row={key}
@@ -1010,24 +1055,21 @@ const LayerRow = ({
       />
       <span
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-1",
+          "flex min-w-0 flex-1 items-center gap-1.5",
           (drawn.hidden || hiddenAbove) && "opacity-50"
         )}
       >
-        <span
+        {/* A component's instance keeps the colour its selection has on the canvas. */}
+        <NodeIcon
           className={cn(
-            "shrink-0 text-muted-foreground",
-            node.type === "instance" && "text-component",
-            selected && "text-foreground"
+            "size-3.5 shrink-0",
+            node.type === "instance"
+              ? "text-component"
+              : "text-muted-foreground"
           )}
-        >
-          <NodeIcon node={node} />
-        </span>
+          node={node}
+        />
         <RowName
-          className={cn(
-            node.type === "instance" && "font-medium text-component",
-            selected && node.type === "instance" && "text-foreground"
-          )}
           item={item}
           label={label}
           onRename={(name) => renameNodeTo(name, target)}
@@ -1035,7 +1077,7 @@ const LayerRow = ({
         />
         {node.slot && !renaming ? (
           <span
-            className="shrink-0 truncate font-body text-muted-foreground/80"
+            className="shrink-0 truncate font-small text-muted-foreground"
             title={`Fills the ${node.slot} slot of its system component`}
           >
             {node.slot}
@@ -1072,8 +1114,8 @@ const LinkTag = ({ link }: { link: string }) => {
   return (
     <span
       className={cn(
-        "min-w-0 shrink truncate font-body",
-        broken ? "text-destructive" : "text-muted-foreground/70"
+        "min-w-0 shrink truncate font-small",
+        broken ? "text-destructive" : "text-muted-foreground"
       )}
       title={broken ? `${link} leads to a page that is not there` : link}
     >

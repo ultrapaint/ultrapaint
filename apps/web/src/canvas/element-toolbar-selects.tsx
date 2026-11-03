@@ -11,18 +11,19 @@ import type {
   TextAlign,
   TextNode,
 } from "@ultrapaint/contracts/document";
-import { spacingBasePx } from "@ultrapaint/contracts/token-table";
+import {
+  shortName,
+  spacingBasePx,
+  spacingStepAt,
+} from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
+import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
+import { cn } from "cn";
 import {
   ALargeSmall,
-  BetweenHorizontalStart,
   ChevronDown,
-  Copy,
   type LucideIcon,
-  Palette,
   SlidersHorizontal,
-  SquareDashed,
-  SquareRoundCorner,
   TextAlignCenter,
   TextAlignEnd,
   TextAlignStart,
@@ -47,11 +48,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  type Control,
-  propValue,
-  tokenLabel,
-} from "../lib/element-controls.ts";
+import { type Control, propValue } from "../lib/element-controls.ts";
 import { LruMap } from "../lib/lru.ts";
 import { setField, setPropsOfNodes } from "../lib/node-actions.ts";
 import {
@@ -78,54 +75,132 @@ import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 
 const NO_STYLES: readonly TextStyle[] = [];
 
-const FIELD: Record<
-  TokenFieldName,
-  { icon: LucideIcon; name: string; utility: string }
-> = {
-  color: { icon: ALargeSmall, name: "color", utility: "text" },
-  fill: { icon: SquareDashed, name: "fill", utility: "bg" },
-  gap: { icon: BetweenHorizontalStart, name: "gap", utility: "gap" },
-  radius: { icon: SquareRoundCorner, name: "radius", utility: "rounded" },
-  shadow: { icon: Copy, name: "shadow", utility: "shadow" },
-  tint: { icon: Palette, name: "tint", utility: "bg" },
+/**
+ * A length as the end of a class: a step of the spacing scale (`4` for 16px on a 4px base), a
+ * token by its short name, anything else in brackets as Tailwind writes an arbitrary value.
+ */
+export const classValue = (
+  value: string | number,
+  spacingBase: number,
+  steps: boolean
+): string => {
+  if (typeof value === "number") {
+    const step = steps ? spacingStepAt(value, spacingBase) : null;
+    return step === null ? `[${value}px]` : String(step);
+  }
+  const arbitrary = `[${value.replaceAll(" ", "_")}]`;
+  return isToken(value) ? shortName(tokenName(value)) : arbitrary;
 };
 
-/** The trigger of every select: an icon or a swatch, the value, a chevron. */
+/** A field's value as the class it writes (`bg-card`, `rounded-lg`, `gap-4`); null when unset. */
+const classOf = (
+  field: TokenFieldName,
+  value: JsonValue | undefined,
+  spacingBase: number
+): string | null => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" && typeof value !== "number") {
+    return MIXED_LABEL;
+  }
+  return `${FIELD[field].utility}-${classValue(value, spacingBase, field === "gap")}`;
+};
+
+/** The fields whose unset value is a class of its own, read in the code face as the rest. */
+const UNSET_IS_CLASS: ReadonlySet<TokenFieldName> = new Set([
+  "gap",
+  "radius",
+  "shadow",
+]);
+
+/** What a field without a value writes, or reads as when it has none. */
+const UNSET: Record<TokenFieldName, string> = {
+  color: "Inherited",
+  fill: "No fill",
+  gap: "gap-0",
+  radius: "rounded-none",
+  shadow: "shadow-none",
+  tint: "No tint",
+};
+
+/** A field's name in its menu, its tooltip, and the utility its classes start with. */
+const FIELD: Record<
+  TokenFieldName,
+  { name: string; title: string; utility: string }
+> = {
+  color: { name: "color", title: "Text colour", utility: "text" },
+  fill: { name: "fill", title: "Fill", utility: "bg" },
+  gap: { name: "gap", title: "Gap", utility: "gap" },
+  radius: { name: "radius", title: "Radius", utility: "rounded" },
+  shadow: { name: "shadow", title: "Shadow", utility: "shadow" },
+  tint: { name: "tint", title: "Tint", utility: "bg" },
+};
+
+/** A trigger of the toolbar: compact, its value and a chevron, filled while its menu is open. */
+export const TRIGGER_CLASS =
+  "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-label outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
+
+/** A colour's dot in a trigger or a menu; a dashed ring when there is none. */
+export const SwatchDot = ({
+  color,
+  className,
+}: {
+  color: string | undefined;
+  className?: string;
+}) => (
+  <span
+    className={cn(
+      "size-3.5 shrink-0 rounded-full border border-foreground/15",
+      color === undefined && "border-foreground/30 border-dashed",
+      className
+    )}
+    style={color === undefined ? undefined : { background: color }}
+  />
+);
+
+/**
+ * The trigger of every select: an icon or a swatch, the value, a chevron. A value written as
+ * classes reads in the code face; a value that is not set, muted.
+ */
 export const ValueTrigger = ({
   children,
+  code = false,
   icon: Icon,
+  muted = false,
   swatch,
   tooltip,
 }: {
   children: ReactNode;
+  code?: boolean;
   icon?: LucideIcon;
-  swatch?: string | undefined;
+  muted?: boolean;
+  /** A colour's dot before the value; `null` for a colour field with none. */
+  swatch?: string | null;
   tooltip: string;
 }) => (
   <Tooltip>
     <TooltipTrigger
       render={
         <DropdownMenuTrigger
-          render={
-            <button
-              className="flex h-7 max-w-40 items-center gap-1.5 rounded-md px-2 font-body outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
-              type="button"
-            />
-          }
+          render={<button className={TRIGGER_CLASS} type="button" />}
         />
       }
     >
-      {Icon ? (
-        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-      ) : null}
+      {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
       {swatch === undefined ? null : (
-        <span
-          className="size-3 shrink-0 rounded-full border border-foreground/20"
-          style={{ background: swatch }}
-        />
+        <SwatchDot color={swatch === null ? undefined : swatch} />
       )}
-      <span className="truncate font-medium">{children}</span>
-      <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+      <span
+        className={cn(
+          "truncate",
+          code && "font-code",
+          muted && "text-muted-foreground"
+        )}
+      >
+        {children}
+      </span>
+      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
     </TooltipTrigger>
     <TooltipContent>{tooltip}</TooltipContent>
   </Tooltip>
@@ -141,7 +216,7 @@ export const MenuHead = ({
   <DropdownMenuLabel className="flex items-center gap-2">
     <span className="flex-1">{name}</span>
     {source ? (
-      <span className="font-code font-normal text-muted-foreground/70">
+      <span className="font-code font-normal text-muted-foreground">
         {source}
       </span>
     ) : null}
@@ -256,7 +331,7 @@ export const PropSelect = ({
               const picture = previewOf(option);
               return (
                 <DropdownMenuRadioItem key={option} value={option}>
-                  <span className="flex h-8 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-white">
+                  <span className="flex h-8 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-white ring-1 ring-border">
                     {picture ? (
                       <img
                         alt=""
@@ -292,7 +367,11 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
   };
   return (
     <DropdownMenu>
-      <ValueTrigger icon={ALargeSmall} tooltip="Text style">
+      <ValueTrigger
+        icon={ALargeSmall}
+        muted={!(mixedStyles || style || node.textStyle)}
+        tooltip="Text style"
+      >
         {mixedStyles
           ? MIXED_LABEL
           : (style?.name ?? node.textStyle ?? "No style")}
@@ -302,7 +381,7 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
           <MenuHead name="Text style" source="text styles" />
           {styles.length === 0 ? (
             <DropdownMenuLabel className="font-normal">
-              The design system has no text styles yet.
+              No text styles in the design system yet
             </DropdownMenuLabel>
           ) : null}
           <DropdownMenuRadioGroup
@@ -337,10 +416,10 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
   );
 };
 
-const ALIGNS: readonly [TextAlign, LucideIcon, string][] = [
-  ["start", TextAlignStart, "Left"],
-  ["center", TextAlignCenter, "Centre"],
-  ["end", TextAlignEnd, "Right"],
+const ALIGNS: readonly [TextAlign, LucideIcon, string, string][] = [
+  ["start", TextAlignStart, "Left", "text-left"],
+  ["center", TextAlignCenter, "Center", "text-center"],
+  ["end", TextAlignEnd, "Right", "text-right"],
 ];
 
 export const AlignSelect = ({ node }: { node: TextNode }) => {
@@ -350,12 +429,10 @@ export const AlignSelect = ({ node }: { node: TextNode }) => {
     ALIGN.read(node) ?? "start"
   );
   const found = ALIGNS.find(([v]) => v === value);
-  const icon = found?.[1] ?? TextAlignStart;
-  const label = found?.[2] ?? MIXED_LABEL;
   return (
     <DropdownMenu>
-      <ValueTrigger icon={icon} tooltip="Alignment">
-        {label}
+      <ValueTrigger code={found !== undefined} tooltip="Text align">
+        {found?.[3] ?? MIXED_LABEL}
       </ValueTrigger>
       <DropdownMenuContent className="w-40">
         <DropdownMenuGroup>
@@ -369,10 +446,11 @@ export const AlignSelect = ({ node }: { node: TextNode }) => {
             }}
             value={value}
           >
-            {ALIGNS.map(([v, Icon, l]) => (
+            {ALIGNS.map(([v, Icon, l, cls]) => (
               <DropdownMenuRadioItem key={v} value={v}>
                 <Icon />
-                {l}
+                <span className="flex-1">{l}</span>
+                <span className="font-code text-muted-foreground">{cls}</span>
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -396,30 +474,26 @@ export const TokenSelect = ({
   const def = TOKEN_FIELDS[control.field];
   const raw = def.read(node);
   const shared = sharedField(def, useTargetNodes());
-  const label =
-    shared === MIXED ? MIXED_LABEL : tokenLabel(control.field, shared, base);
+  const written =
+    shared === MIXED ? MIXED_LABEL : classOf(control.field, shared, base);
   const set = (value: JsonValue) => setField(def, value, targets);
   const colors = def.options === "color" ? colorGroups(ds) : [];
-  const swatch =
-    def.options === "color"
-      ? (colors.flatMap((g) => g.options).find((t) => t.value === raw)
-          ?.swatch ?? (typeof raw === "string" ? raw : "transparent"))
-      : undefined;
+  let swatch: string | null | undefined;
+  if (def.options === "color") {
+    swatch =
+      colors.flatMap((g) => g.options).find((t) => t.value === raw)?.swatch ??
+      (typeof raw === "string" ? raw : null);
+  }
   const current = raw === undefined || raw === null ? "" : String(raw);
 
   let items: ReactNode;
   if (def.options === "color") {
     items = colors.map((group) => (
       <DropdownMenuGroup key={group.name}>
-        <DropdownMenuLabel className="font-body font-normal">
-          {group.name}
-        </DropdownMenuLabel>
+        <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
         {group.options.map((t) => (
           <DropdownMenuRadioItem key={t.value} value={t.value}>
-            <span
-              className="size-3.5 shrink-0 rounded-full border border-foreground/20"
-              style={{ background: t.swatch }}
-            />
+            <SwatchDot color={t.swatch} />
             <span className="flex-1 truncate">{t.label}</span>
             <span className="font-code text-muted-foreground">
               {field.utility}-{t.label}
@@ -435,19 +509,21 @@ export const TokenSelect = ({
           className="h-2.5 shrink-0 rounded-sm bg-muted-foreground/40"
           style={{ width: Math.max(2, step * 3) }}
         />
-        <span className="flex-1 font-mono">
+        <span className="flex-1 font-code">
           {field.utility}-{step}
         </span>
-        <span className="font-body text-muted-foreground">{step * base}px</span>
+        <span className="font-small text-muted-foreground tabular-nums">
+          {step * base}px
+        </span>
       </DropdownMenuRadioItem>
     ));
   } else {
     items = tokenOptions(ds, def.options).map((t) => (
       <DropdownMenuRadioItem key={t.value} value={t.value}>
-        <span className="flex-1 font-mono">
+        <span className="flex-1 font-code">
           {field.utility}-{t.label}
         </span>
-        <span className="max-w-24 truncate font-body text-muted-foreground">
+        <span className="max-w-24 truncate font-small text-muted-foreground">
           {t.description}
         </span>
       </DropdownMenuRadioItem>
@@ -457,11 +533,12 @@ export const TokenSelect = ({
   return (
     <DropdownMenu>
       <ValueTrigger
-        icon={def.options === "color" ? undefined : field.icon}
+        code={written !== null || UNSET_IS_CLASS.has(control.field)}
+        muted={written === null}
         swatch={swatch}
-        tooltip={field.name}
+        tooltip={field.title}
       >
-        {label}
+        {written ?? UNSET[control.field]}
       </ValueTrigger>
       <DropdownMenuContent className="max-h-80 w-60">
         <DropdownMenuGroup>
@@ -481,7 +558,14 @@ export const TokenSelect = ({
             value={current}
           >
             <DropdownMenuRadioItem value="">
-              <span className="flex-1 text-muted-foreground">none</span>
+              <span
+                className={cn(
+                  "flex-1 text-muted-foreground",
+                  UNSET_IS_CLASS.has(control.field) && "font-code"
+                )}
+              >
+                {UNSET[control.field]}
+              </span>
             </DropdownMenuRadioItem>
             {items}
           </DropdownMenuRadioGroup>
@@ -508,21 +592,22 @@ export const MoreProps = ({
             <PopoverTrigger
               render={
                 <button
-                  className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className={cn(TRIGGER_CLASS, "pr-2 tabular-nums")}
                   type="button"
                 />
               }
             />
           }
         >
-          <SlidersHorizontal className="size-3.5" />+{count}
+          <SlidersHorizontal className="size-4 text-muted-foreground" />+{count}
         </TooltipTrigger>
-        <TooltipContent>Every prop</TooltipContent>
+        <TooltipContent>All props</TooltipContent>
       </Tooltip>
-      <PopoverContent className="w-72 gap-0 p-0">
+      <PopoverContent className="w-80 gap-0 p-0">
         <ComponentProps
           node={node}
           onSet={(name, value) => setPropsOfNodes(targets, { [name]: value })}
+          title={node.component}
         />
       </PopoverContent>
     </Popover>

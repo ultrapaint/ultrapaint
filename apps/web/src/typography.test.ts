@@ -24,10 +24,6 @@ const sources = (dir: string): string[] =>
     return SOURCE.test(entry.name) && !TEST.test(entry.name) ? [path] : [];
   });
 
-/** The one small role, for the rail's labels: everything else in the editor reads at 14px. */
-const SMALL_ROLE = /(?:^|[^\w-])font-rail(?![\w-])/;
-const SMALL_ROLE_FILES = ["components/rail.tsx"];
-
 const linesMatching = (pattern: RegExp, skipped: readonly string[]) =>
   sources(SRC)
     .map((file) => relative(SRC, file))
@@ -41,12 +37,5 @@ const linesMatching = (pattern: RegExp, skipped: readonly string[]) =>
 describe("typography", () => {
   it("sizes the editor's text with roles, never a stock size", () => {
     expect(linesMatching(STOCK_SIZE, SKIPPED)).toEqual([]);
-  });
-
-  it("keeps the small role to the rail", () => {
-    const outside = linesMatching(SMALL_ROLE, SKIPPED).filter(
-      (line) => !SMALL_ROLE_FILES.includes(line.split(":")[0] ?? "")
-    );
-    expect(outside).toEqual([]);
   });
 });

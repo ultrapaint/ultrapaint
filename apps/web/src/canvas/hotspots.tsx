@@ -97,7 +97,7 @@ export const HotspotLayer = ({
         .filter(([id]) => current.has(id))
         .map(([id, rect]) => (
           <span
-            className="absolute rounded-sm bg-sky-500/20 ring-2 ring-sky-500/80 transition-opacity"
+            className="absolute rounded-sm bg-selection/15 ring-2 ring-selection"
             key={id}
             style={{
               height: rect.height * scale,
@@ -117,10 +117,11 @@ export const HotspotsToggle = () => {
   return (
     <IconButton
       aria-pressed={shown}
-      className="size-8 rounded-lg aria-pressed:bg-muted aria-pressed:text-sky-500"
+      className="size-8 rounded-lg aria-pressed:bg-accent aria-pressed:text-foreground"
+      label="Show hotspots"
       onClick={() => useHotspots.getState().toggle()}
-      side="right"
-      tooltip={shown ? "Hide what can be pressed" : "Show what can be pressed"}
+      side="top"
+      tooltip={shown ? "Hide hotspots" : "Show hotspots"}
     >
       <MousePointerClick />
     </IconButton>

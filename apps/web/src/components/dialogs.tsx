@@ -134,9 +134,11 @@ export const DialogHost = () => {
   return (
     <>
       <AlertDialog onOpenChange={onConfirmOpenChange} open={open && !!confirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
+        <AlertDialogContent className="gap-5 p-5 data-[size=default]:sm:max-w-md">
+          <AlertDialogHeader className="gap-1.5">
+            <AlertDialogTitle className="text-balance">
+              {confirm?.title}
+            </AlertDialogTitle>
             {confirm?.description ? (
               <AlertDialogDescription className="whitespace-pre-line">
                 {confirm.description}
@@ -155,7 +157,7 @@ export const DialogHost = () => {
         </AlertDialogContent>
       </AlertDialog>
       <Dialog onOpenChange={onPromptOpenChange} open={open && !!prompt}>
-        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+        <DialogContent className="gap-5 sm:max-w-md" showCloseButton={false}>
           {prompt ? (
             <PromptForm
               key={prompt.id}
@@ -192,14 +194,14 @@ const PromptForm = ({
   };
   return (
     <form className="contents" onSubmit={onSubmit}>
-      <DialogHeader>
-        <DialogTitle>{request.title}</DialogTitle>
+      <DialogHeader className="gap-1.5">
+        <DialogTitle className="text-balance">{request.title}</DialogTitle>
         {request.description ? (
           <DialogDescription>{request.description}</DialogDescription>
         ) : null}
       </DialogHeader>
       {request.presets && request.presets.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="-mb-2 flex flex-wrap gap-1.5">
           {request.presets.map((preset) => (
             <Button
               key={preset.label}

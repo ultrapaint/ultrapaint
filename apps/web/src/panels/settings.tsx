@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { IconButton } from "../components/icon-button.tsx";
@@ -46,12 +47,12 @@ import {
   ChatDefaultsGroup,
   MachineAgentsGroup,
   McpConnectionGroup,
-  SendKeyGroup,
+  SendKeyRow,
   SkillsGroup,
 } from "./settings-agents.tsx";
 import { Group, Row } from "./settings-group.tsx";
-import { ThemeGroup } from "./settings-theme.tsx";
-import { ProfileGroup } from "./settings-profile.tsx";
+import { ProfileRow } from "./settings-profile.tsx";
+import { ThemeRow } from "./settings-theme.tsx";
 
 const LIST_SEPARATOR_RE = /[\n,]/;
 
@@ -64,9 +65,45 @@ const list = (v: string) =>
     .filter(Boolean);
 
 /**
- * Settings take the whole window rather than a dialog: the form is longer than a dialog can
- * hold. The editor is not mounted behind it. A sidebar picks a section;
- * the section is groups of rows, one setting per row, its control on the right.
+ * A list of paths, one per line. The text is the field's own while it is typed in, so a new
+ * line stays until something is written on it; the settings get the list.
+ */
+const ListField = ({
+  id,
+  onChange,
+  placeholder,
+  value,
+}: {
+  id: string;
+  onChange: (value: string[]) => void;
+  placeholder: string;
+  value: readonly string[];
+}) => {
+  const [text, setText] = useState(value.join("\n"));
+  // Detection replaces the list: the field shows what it found.
+  const [shown, setShown] = useState(value);
+  if (shown !== value && list(text).join("\n") !== value.join("\n")) {
+    setShown(value);
+    setText(value.join("\n"));
+  }
+  return (
+    <Textarea
+      className="min-h-16 font-code"
+      id={id}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(list(e.target.value));
+      }}
+      placeholder={placeholder}
+      spellCheck={false}
+      value={text}
+    />
+  );
+};
+
+/**
+ * The settings, in a dialog over the editor: their sections down its side, and the section's
+ * groups of rows, one setting per row, its control on the right.
  */
 type SectionId = "repository" | "designSystem" | "editor" | "agents";
 
@@ -83,14 +120,15 @@ const sections: readonly {
   { icon: Bot, id: "agents", label: "Agents", needsSaved: true },
 ];
 
-/** Where `/init` is started from the settings, and where its result is said to be. */
-/** Where DESIGN.md is, and whether the format's linter is content with it. */
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** DESIGN.md in a line: where it is, and what the format's linter says of it. */
 const documentDescription = (document: DesignDocument | null) => {
   if (!document) {
-    return "The design system in the open format every agent reads, at the root of the repository. There is none yet.";
+    return "Not written yet. Agents everywhere read it at the repository’s root.";
   }
   if (document.legacy) {
-    return `${document.path}: in the designs directory. At the root of the repository, agents outside the editor find it too, and its front matter follows the design system's tokens.`;
+    return `${document.path}, in the designs directory. At the root, agents outside the editor find it too.`;
   }
   const errors = document.findings.filter((f) => f.severity === "error").length;
   const warnings = document.findings.filter(
@@ -98,12 +136,13 @@ const documentDescription = (document: DesignDocument | null) => {
   ).length;
   const lint =
     errors + warnings === 0
-      ? "The format's linter finds nothing to say."
-      : `The format's linter finds ${[errors > 0 ? `${errors} error${errors === 1 ? "" : "s"}` : "", warnings > 0 ? `${warnings} warning${warnings === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}: the Design system panel lists them.`;
-  return `${document.path}, its front matter following the design system's tokens. ${lint}`;
+      ? "The linter finds nothing"
+      : `${[errors > 0 ? plural(errors, "error") : "", warnings > 0 ? plural(warnings, "warning") : ""].filter(Boolean).join(", ")}, listed in the Design system panel`;
+  return `${document.path} · ${lint}.`;
 };
 
-const DesignSystemGroup = () => {
+/** The design system the agents and the inspector know, and DESIGN.md beside it. */
+const DesignSystemRows = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const document = useDesignSystem((s) => s.document);
   const detecting = useDesignSystem((s) => s.detecting);
@@ -122,20 +161,16 @@ const DesignSystemGroup = () => {
     startInit();
   };
   return (
-    <Group
-      description="What the agents and the inspector know about the design system: its tokens, its text styles, and how it is meant to be used."
-      title="Tokens and conventions"
-    >
+    <>
       <Row
         description={
           designSystem
-            ? `Imported: ${tokensOfKind(designSystem, "color").length} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json in the designs directory, and DESIGN.md at the root of the repository.`
-            : "Not imported yet. An agent reads the Tailwind v4 theme and the components, asks you about the application, and writes design-system.json and DESIGN.md."
+            ? `${plural(tokensOfKind(designSystem, "color").length, "colour")} and ${plural(designSystem.typography.styles.length, "text style")}, in design-system.json.`
+            : "Not set up yet. An agent reads your theme and components, asks about the product, and writes it."
         }
-        title={designSystem ? "Imported design system" : "Design system"}
-        wide
+        title="Design system"
       >
-        <div className="flex flex-wrap justify-end gap-1">
+        <div className="flex flex-wrap @xl:justify-end gap-1">
           {designSystem ? (
             <Button onClick={open} variant="ghost">
               Show
@@ -146,24 +181,25 @@ const DesignSystemGroup = () => {
             onClick={() => useDesignSystem.getState().detect()}
             variant="ghost"
           >
-            Detect automatically
+            {detecting ? <Spinner /> : null}
+            Detect
           </Button>
           <Button onClick={init} variant="outline">
             <Wand2 />
-            {designSystem ? "Update with an agent" : "Initialise with an agent"}
+            {designSystem ? "Update with an agent" : "Set up with an agent"}
           </Button>
         </div>
       </Row>
       {designSystem ? (
-        <Row description={documentDescription(document)} title="DESIGN.md" wide>
+        <Row description={documentDescription(document)} title="DESIGN.md">
           {document?.legacy || !document ? (
             <Button onClick={placeDocument} variant="outline">
-              {document ? "Move to the repository root" : "Write it"}
+              {document ? "Move to the root" : "Write DESIGN.md"}
             </Button>
           ) : null}
         </Row>
       ) : null}
-    </Group>
+    </>
   );
 };
 
@@ -178,14 +214,33 @@ export const SettingsPage = () => {
 /** Where a save goes, in the words of the storage mode the server runs in. */
 const storageLine = (storage: StorageInfo, detected: boolean) => {
   if (detected) {
-    return "Detected in the repository and not saved: Apply keeps them while the tool runs, Save to file… for good.";
+    return "Detected, not saved. Apply keeps them until the editor stops.";
   }
   if (storage.mode === "ephemeral") {
     return storage.session
-      ? "Started without a configuration file: these settings are kept until the command stops."
-      : "Started without a configuration file: these settings are not saved.";
+      ? "No configuration file: kept until the command stops."
+      : "No configuration file: these settings are not kept.";
   }
   return `Saved to ${storage.configPath}`;
+};
+
+/** The primary button's words: Apply where nothing is kept, Save and open on the first run. */
+const saveLabelOf = ({
+  busy,
+  saved,
+  unsaved,
+}: {
+  busy: boolean;
+  saved: boolean;
+  unsaved: boolean;
+}) => {
+  if (busy) {
+    return "Saving…";
+  }
+  if (unsaved) {
+    return "Apply";
+  }
+  return saved ? "Save" : "Save and open";
 };
 
 /** Moves a configuration file still under its earlier name to the current one. */
@@ -216,29 +271,27 @@ const SaveProblems = ({
   return (
     <Alert variant="destructive">
       <CircleAlert />
-      <AlertTitle>The settings could not be saved</AlertTitle>
+      <AlertTitle>Couldn’t save the settings</AlertTitle>
       <AlertDescription>
-        <ul className="list-disc pl-4">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
+        {problems.length === 1 ? (
+          <p>{problems[0]}</p>
+        ) : (
+          <ul className="list-disc pl-4">
+            {problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        )}
         {missingDesigns ? (
-          <div className="mt-2 flex flex-col gap-1">
-            <Button
-              className="self-start"
-              disabled={busy}
-              onClick={onCreateDesigns}
-              size="sm"
-              variant="outline"
-            >
-              Create {designsDir}
-            </Button>
-            <span className="font-body text-muted-foreground">
-              Creates the directory: pages import nothing (ADR 0040), so nothing
-              is installed or linked.
-            </span>
-          </div>
+          <Button
+            className="mt-2"
+            disabled={busy}
+            onClick={onCreateDesigns}
+            size="sm"
+            variant="outline"
+          >
+            Create {designsDir}
+          </Button>
         ) : null}
       </AlertDescription>
     </Alert>
@@ -255,7 +308,7 @@ const StylesAlert = ({ found }: { found: SetupSuggestions }) =>
       <TriangleAlert />
       <AlertDescription>
         {found.stylesNote ??
-          "The stylesheets are not written in a style system Ultrapaint reads."}
+          "Ultrapaint can’t read these stylesheets’ style system."}
       </AlertDescription>
     </Alert>
   ) : null;
@@ -268,39 +321,7 @@ const shown = (id: SectionId) =>
   !sections.find((s) => s.id === id)?.needsSaved ||
   (id === "agents" && platform().agents !== undefined);
 
-/** The sections on the left. The first run has nothing saved, so it hides what needs a project. */
-/**
- * The sidebar's heading. In a desktop window that draws no title bar of its own (a Mac) the
- * window's buttons sit at its start: it leaves them room, is as tall as the editor's title card
- * so they stay where they were, and moves the window when dragged.
- */
-const SettingsTitle = () => (
-  <div className="flex h-12 shrink-0 items-center px-4">
-    <h1 className="font-semibold">Settings</h1>
-  </div>
-);
-
-/**
- * Where in the settings this is, as tall as the sidebar's heading, and the dialog's close
- * button, which leaves them as Cancel does.
- */
-const SectionHeader = ({
-  label,
-  onClose,
-}: {
-  label: string;
-  onClose: () => void;
-}) => (
-  <header className="flex h-12 shrink-0 items-center gap-1.5 border-b pr-2 pl-6 font-body">
-    <span className="text-muted-foreground">Settings</span>
-    <span className="text-muted-foreground">/</span>
-    <span className="font-medium">{label}</span>
-    <IconButton className="ml-auto" onClick={onClose} tooltip="Close">
-      <X />
-    </IconButton>
-  </header>
-);
-
+/** The sections down the dialog's side, under its title. The first run hides what needs a project. */
 const Sidebar = ({
   onSelect,
   section,
@@ -310,9 +331,11 @@ const Sidebar = ({
   section: SectionId;
   showAll: boolean;
 }) => (
-  <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar">
-    <SettingsTitle />
-    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 p-2">
+  <aside className="flex w-52 shrink-0 flex-col border-r bg-sidebar">
+    <h2 className="flex h-14 shrink-0 items-center px-4 font-heading-small">
+      Settings
+    </h2>
+    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 px-2">
       {sections
         .filter((s) => showAll || shown(s.id))
         .map(({ icon: Icon, id, label }) => {
@@ -321,10 +344,10 @@ const Sidebar = ({
             <button
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left font-body outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/30",
+                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25",
                 active
-                  ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
               key={id}
               onClick={() => onSelect(id)}
@@ -378,8 +401,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const repoFromFile = storage.mode === "file";
   const [problems, setProblems] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
-  const idleLabel = unsaved ? "Apply" : "Save and open";
-  const saveLabel = busy ? "Validating…" : idleLabel;
+  const saveLabel = saveLabelOf({ busy, saved: saved !== null, unsaved });
 
   const apply = async (): Promise<boolean> => {
     setBusy(true);
@@ -460,7 +482,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const chooseFolder = () =>
     pickFolder?.({
       defaultPath: draft.repoPath || undefined,
-      title: "The project's folder",
+      title: "The project’s folder",
     })
       .then((repoPath) => {
         if (repoPath) {
@@ -476,14 +498,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const designsDir = e.target.value;
     setDraft((d) => ({ ...d, designsDir }));
   };
-  const onHostCss = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const hostCss = list(e.target.value);
-    setDraft((d) => ({ ...d, hostCss }));
-  };
-  const onLibraryDirs = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const libraryDirs = list(e.target.value);
+  const onHostCss = (hostCss: string[]) => setDraft((d) => ({ ...d, hostCss }));
+  const onLibraryDirs = (libraryDirs: string[]) =>
     setDraft((d) => ({ ...d, libraryDirs }));
-  };
   const onPagePngs = (on: boolean) =>
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onGit = (on: boolean) =>
@@ -502,26 +519,25 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Alert>
       ) : null}
       {found ? <StylesAlert found={found} /> : null}
-      <Group
-        description="The tool runs against a local repository. Design files live inside it and are versioned with the code."
-        title="Location"
-      >
+      <Group>
         <Row
           description={
             repoFromFile
-              ? "Given by where the configuration file is."
-              : "Absolute path to the project's folder, a git repository or not. It needs no package.json: the canvas runs none of its code."
+              ? "Where the configuration file is."
+              : "An absolute path. Git and a package.json are optional."
           }
           htmlFor="settings-repo"
-          title="Repository path"
-          wide
+          layout="field"
+          title="Path"
         >
           <div className="flex gap-1">
             <Input
+              className="font-code"
               id="settings-repo"
               onChange={onRepoPath}
-              placeholder="/Users/you/code/repo"
+              placeholder="/Users/you/code/shop"
               readOnly={repoFromFile}
+              spellCheck={false}
               value={draft.repoPath}
             />
             {pickFolder && !repoFromFile ? (
@@ -532,134 +548,119 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           </div>
         </Row>
         <Row
-          description="Relative to the repository. Pages are saved here as design documents (.page.json, one element per line), with the design system beside them. Changing it opens the project there; the pages already written stay where they are."
+          description="Where pages are saved, relative to the repository. Pages already written stay put."
           htmlFor="settings-designs"
+          layout="field"
           title="Designs directory"
         >
           <Input
+            className="font-code"
             id="settings-designs"
             onChange={onDesignsDir}
-            placeholder="products/prime/designs"
+            placeholder="docs/designs"
+            spellCheck={false}
             value={draft.designsDir}
           />
         </Row>
       </Group>
       <Group
-        description="Optional hints for the agents that implement a design: where your application and its components are. The canvas draws Ultrapaint's system components, whatever is set here."
-        title="Implementation"
+        note="Hints for the agents that build a design. The canvas draws Ultrapaint’s own components either way."
+        title="Your code"
       >
         <Row
-          description="The package of the repository that is your application: where designs are implemented, and what its stylesheets' imports resolve from. Empty when the designs directory is a package of its own."
+          description="The package designs are built in. Empty when the designs directory is one."
           htmlFor="settings-resolve"
+          layout="field"
           title="Application"
         >
           <Input
+            className="font-code"
             id="settings-resolve"
             onChange={onResolveFrom}
             placeholder="apps/web"
+            spellCheck={false}
             value={draft.resolveFrom ?? ""}
           />
         </Row>
         <Row
-          description="Where the application's own components are, relative to the repository, one per line: where an agent applies a system component's look."
+          description="Your own components, one path per line."
           htmlFor="settings-libs"
+          layout="field"
           title="Component directories"
-          wide
         >
-          <Textarea
-            className="min-h-14 font-code"
+          <ListField
             id="settings-libs"
             onChange={onLibraryDirs}
-            value={draft.libraryDirs.join("\n")}
+            placeholder="src/components"
+            value={draft.libraryDirs}
           />
         </Row>
       </Group>
-      <Group
-        description="Pictures of the screens, kept in the repository beside the design documents."
-        title="Pictures"
-      >
+      <Group>
         <Row
-          description="Writes a PNG of every page beside its file (orders.page.png), drawn by the editor's preview at the size of the page's frame and drawn again when the page or the design system changes. Anyone browsing the repository sees the screens, and pull requests show them as image diffs."
+          description="Saved beside each page file, so pull requests show screens as image diffs."
           htmlFor="settings-page-pngs"
-          title="PNG of every page"
+          title="Write a PNG of every page"
         >
-          <div className="flex justify-end">
-            <Switch
-              checked={draft.pagePngs === true}
-              id="settings-page-pngs"
-              onCheckedChange={onPagePngs}
-            />
-          </div>
+          <Switch
+            checked={draft.pagePngs === true}
+            id="settings-page-pngs"
+            onCheckedChange={onPagePngs}
+          />
         </Row>
-      </Group>
-      <Group
-        description="Where the folder is a git repository, the Changes panel shows its status and diffs, and the branch is shown. The tool needs no git."
-        title="Git"
-      >
         <Row
-          description="Lets the Changes panel commit the files you pick, and make a folder that is no repository one. Off, the tool never writes to git."
+          description="Lets the Changes panel commit. Off, git is only read."
           htmlFor="settings-git"
           title="Write to git"
         >
-          <div className="flex justify-end">
-            <Switch
-              checked={writesGit(draft)}
-              id="settings-git"
-              onCheckedChange={onGit}
-            />
-          </div>
+          <Switch
+            checked={writesGit(draft)}
+            id="settings-git"
+            onCheckedChange={onGit}
+          />
         </Row>
-      </Group>
-      <Group title="Detection">
         <Row
-          description="Reads the repository and fills in the designs directory and the stylesheets it finds, with the hints for implementing. What you typed is replaced."
-          title="Detect from repository"
+          description="Fills the folders and stylesheets in from what it finds, replacing what you typed."
+          title="Detect from the repository"
         >
-          <div className="flex justify-end">
-            <Button
-              disabled={!draft.repoPath}
-              onClick={detectNow}
-              variant="outline"
-            >
-              <FolderSearch />
-              Detect
-            </Button>
-          </div>
+          <Button
+            disabled={!draft.repoPath}
+            onClick={detectNow}
+            variant="outline"
+          >
+            <FolderSearch />
+            Detect
+          </Button>
         </Row>
       </Group>
     </>
   );
 
   const designSystem = (
-    <>
-      <Group
-        description="Where the code's tokens are: Sync reads the design system from them and writes the design's values back."
-        title="Sources"
+    <Group>
+      {saved ? <DesignSystemRows /> : null}
+      <Row
+        description="The Tailwind v4 entry and its fonts, one per line, relative to the designs directory’s .ultrapaint folder. Sync reads tokens from them and writes them back."
+        htmlFor="settings-css"
+        layout="field"
+        title="Stylesheets"
       >
-        <Row
-          description="One per line, as the setup writes them (relative to the designs directory's .ultrapaint folder): the Tailwind v4 entry with its theme, and its fonts."
-          htmlFor="settings-css"
-          title="Stylesheets"
-          wide
-        >
-          <Textarea
-            className="min-h-14 font-code"
-            id="settings-css"
-            onChange={onHostCss}
-            value={draft.hostCss.join("\n")}
-          />
-        </Row>
-      </Group>
-      {saved ? <DesignSystemGroup /> : null}
-    </>
+        <ListField
+          id="settings-css"
+          onChange={onHostCss}
+          placeholder="../../src/index.css"
+          value={draft.hostCss}
+        />
+      </Row>
+    </Group>
   );
 
   const editor = (
-    <>
-      <ThemeGroup />
-      <ProfileGroup />
-      <SendKeyGroup />
-    </>
+    <Group note="Applied at once, in every project.">
+      <ThemeRow />
+      <ProfileRow />
+      <SendKeyRow />
+    </Group>
   );
 
   const agents = (
@@ -676,6 +677,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     editor,
     repository,
   }[section];
+  const where = storageLine(storage, detected);
 
   return (
     <div className="flex h-full min-w-0 flex-1 bg-background">
@@ -685,56 +687,58 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         showAll={saved !== null}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <SectionHeader label={label} onClose={cancel} />
+        <header className="flex h-14 shrink-0 items-center gap-2 pr-3 pl-6">
+          <h3 className="min-w-0 flex-1 truncate font-heading-small">
+            {label}
+          </h3>
+          <IconButton onClick={cancel} tooltip="Close">
+            <X />
+          </IconButton>
+        </header>
         <div className="@container min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-8">
+          <div className="flex max-w-3xl flex-col gap-6 px-6 pt-1 pb-8">
             {body}
           </div>
         </div>
-        <footer className="shrink-0 border-t">
-          <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-4">
-            <SaveProblems
-              busy={busy}
-              designsDir={draft.designsDir}
-              onCreateDesigns={createDesigns}
-              problems={problems}
-            />
-            <div className="flex items-center justify-between gap-4">
-              <p
-                className={cn(
-                  "min-w-0 truncate font-body",
-                  unsaved ? "text-warning" : "text-muted-foreground"
-                )}
-                title={storageLine(storage, detected)}
-              >
-                {storageLine(storage, detected)}
-              </p>
-              <div className="flex shrink-0 gap-1">
-                {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
-                  <Button
-                    onClick={renameConfig}
-                    title={`${LEGACY_CONFIG_FILE_NAME} is the file's old name`}
-                    variant="ghost"
-                  >
-                    Rename to {CONFIG_FILE_NAME}
-                  </Button>
-                ) : null}
-                <Button onClick={cancel} variant="outline">
-                  Cancel
+        <footer className="flex shrink-0 flex-col gap-3 border-t px-6 py-3">
+          <SaveProblems
+            busy={busy}
+            designsDir={draft.designsDir}
+            onCreateDesigns={createDesigns}
+            problems={problems}
+          />
+          <div className="flex items-center gap-4">
+            <p
+              className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground"
+              title={where}
+            >
+              {unsaved || detected ? (
+                <TriangleAlert className="size-3.5 shrink-0 text-warning" />
+              ) : null}
+              <span className="truncate">{where}</span>
+            </p>
+            <div className="flex shrink-0 gap-2">
+              {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
+                <Button
+                  onClick={renameConfig}
+                  title={`${LEGACY_CONFIG_FILE_NAME} is the file’s old name`}
+                  variant="ghost"
+                >
+                  Rename to {CONFIG_FILE_NAME}
                 </Button>
-                {unsaved ? (
-                  <Button
-                    disabled={busy}
-                    onClick={saveToFile}
-                    variant="outline"
-                  >
-                    Save to file…
-                  </Button>
-                ) : null}
-                <Button disabled={busy} onClick={saveAndOpen}>
-                  {saveLabel}
+              ) : null}
+              <Button onClick={cancel} variant="outline">
+                Cancel
+              </Button>
+              {unsaved ? (
+                <Button disabled={busy} onClick={saveToFile} variant="outline">
+                  Save to file…
                 </Button>
-              </div>
+              ) : null}
+              <Button disabled={busy} onClick={saveAndOpen}>
+                {busy ? <Spinner /> : null}
+                {saveLabel}
+              </Button>
             </div>
           </div>
         </footer>

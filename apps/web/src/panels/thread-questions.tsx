@@ -24,6 +24,13 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { IconButton } from "../components/icon-button.tsx";
 import {
   type AnswerDraft,
   answeredWell,
@@ -52,7 +59,7 @@ type PermissionItem = Extract<ThreadItem, { kind: "permission" }>;
 
 /**
  * A card that waits on the user, as a question or a permission: neutral like every other card of
- * the thread, with the brand colour kept for its icon while it waits and for what is picked.
+ * the thread, its icon in the colour of "your turn" while it waits.
  */
 const AskCard = ({
   children,
@@ -65,21 +72,41 @@ const AskCard = ({
   open: boolean;
   title: string;
 }) => (
-  <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 font-body">
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      <Icon className={cn("size-3.5 shrink-0", open && "text-brand")} />
+  <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 font-body">
+    <span className="flex items-center gap-1.5 font-small text-muted-foreground">
+      <Icon className={cn("size-3.5 shrink-0", open && "text-warning")} />
       {title}
     </span>
     {children}
   </div>
 );
 
+type PermissionOptionItem = PermissionItem["options"][number];
+
+/**
+ * The permission's answers, the one primary last: allowing once, or the agent's first way to
+ * allow; then allowing always; refusing first, at the far end from it.
+ */
+const orderedOptions = (options: readonly PermissionOptionItem[]) => {
+  const allows = options.filter((o) => o.kind.startsWith("allow"));
+  const primary =
+    allows.find((o) => o.kind === "allow_once") ?? allows[0] ?? undefined;
+  const rejects = options.filter((o) => !o.kind.startsWith("allow"));
+  const others = allows.filter((o) => o !== primary);
+  return {
+    ordered: [...rejects, ...others, ...(primary ? [primary] : [])],
+    primary,
+  };
+};
+
 const PermissionOption = ({
   option,
+  primary,
   requestId,
   threadId,
 }: {
-  option: PermissionItem["options"][number];
+  option: PermissionOptionItem;
+  primary: boolean;
   requestId: string;
   threadId: string;
 }) => {
@@ -92,11 +119,7 @@ const PermissionOption = ({
       })
       .catch(reportError);
   return (
-    <Button
-      onClick={onClick}
-      size="sm"
-      variant={option.kind.startsWith("allow") ? "default" : "outline"}
-    >
+    <Button onClick={onClick} variant={primary ? "default" : "outline"}>
       {option.name}
     </Button>
   );
@@ -110,38 +133,40 @@ export const Permission = ({
   threadId: string;
 }) => {
   const open = !item.decision;
+  const { ordered, primary } = orderedOptions(item.options);
   return (
     <AskCard
       icon={open ? ShieldQuestion : Check}
       open={open}
-      title={open ? "Permission requested" : "Permission"}
+      title={open ? "Permission needed" : "Permission"}
     >
       <span
         className={cn(
-          open ? "font-medium text-foreground" : "text-muted-foreground"
+          "wrap-break-word",
+          open ? "font-label text-foreground" : "text-muted-foreground"
         )}
       >
         {item.title}
       </span>
-      {item.detail ? (
-        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md border bg-background px-2.5 py-1.5 font-code text-muted-foreground">
+      {item.detail && open ? (
+        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md bg-muted px-2.5 py-1.5 font-code text-muted-foreground">
           {item.detail}
         </pre>
       ) : null}
       {open ? (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {item.options.map((o) => (
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          {ordered.map((o) => (
             <PermissionOption
               key={o.optionId}
               option={o}
+              primary={o === primary}
               requestId={item.requestId}
               threadId={threadId}
             />
           ))}
         </div>
       ) : (
-        <span className="flex items-center gap-2 font-medium text-foreground">
-          <Check className="size-3.5 shrink-0" />
+        <span className="font-label text-foreground">
           {item.options.find((o) => o.optionId === item.decision)?.name ??
             item.decision}
         </span>
@@ -183,29 +208,31 @@ const QuestionChoices = ({
     takesTyping(question) && Boolean(draft.other[question.id]?.trim());
   const chosen = typed ? [] : [draft.picked[question.id] ?? []].flat();
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="-mx-1.5 flex flex-col gap-0.5">
       {question.options.map((o, i) => {
         const on = chosen.includes(o.id);
         return (
           <button
             aria-pressed={on}
             className={cn(
-              "flex w-full items-start gap-3 rounded-md border border-transparent px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:border-ring",
-              on && "bg-accent hover:bg-accent"
+              "flex w-full items-start gap-3 rounded-md px-1.5 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+              on && "bg-accent"
             )}
             key={o.id}
             onClick={() => pick(itemId, question, o.id)}
             type="button"
           >
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-medium text-foreground">{o.label}</span>
+              <span className="font-label text-foreground">{o.label}</span>
               {o.description ? (
-                <span className="text-muted-foreground">{o.description}</span>
+                <span className="font-small text-muted-foreground">
+                  {o.description}
+                </span>
               ) : null}
             </span>
-            <span className="flex h-5 w-4 shrink-0 items-center justify-center text-muted-foreground tabular-nums">
-              {on ? <Check className="size-3.5 text-brand" /> : null}
-              {!on && i < KEYED_OPTIONS ? i + 1 : null}
+            <span className="flex h-5 shrink-0 items-center">
+              {on ? <Check className="size-4 text-primary" /> : null}
+              {!on && i < KEYED_OPTIONS ? <Kbd>{i + 1}</Kbd> : null}
             </span>
           </button>
         );
@@ -234,7 +261,7 @@ const questionHint = (question: QuestionOf) => {
     return question.description;
   }
   if (question.options.length === 0) {
-    return "Type the answer in the box below.";
+    return "Type the answer below.";
   }
   return question.multiple ? "Pick one or more." : undefined;
 };
@@ -253,10 +280,9 @@ export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
       title={cardTitle(item)}
     >
       {item.questions.map((q) => (
-        <div className="flex flex-col gap-1" key={q.id}>
-          <span className="text-muted-foreground">{q.question}</span>
-          <span className="flex items-center gap-2 font-medium text-foreground">
-            {answered ? <Check className="size-3.5 shrink-0" /> : null}
+        <div className="flex flex-col" key={q.id}>
+          <span className="font-small text-muted-foreground">{q.question}</span>
+          <span className="font-label text-foreground">
             {answerLabel(q, answered?.[q.id])}
           </span>
         </div>
@@ -290,61 +316,61 @@ const QuestionCard = ({
   const waiting = item.elicitation !== undefined;
   const hint = questionHint(question);
   return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 font-body">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <CircleHelp className="size-3.5 shrink-0 text-brand" />
+    <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 font-body">
+      <div className="-mr-1.5 flex h-6 items-center gap-1.5 font-small text-muted-foreground">
+        <CircleHelp className="size-3.5 shrink-0 text-warning" />
         <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
+        {count > 1 ? (
+          <span className="font-caption tabular-nums">
+            {draft.step + 1} of {count}
+          </span>
+        ) : null}
         {waiting ? (
           <Button
+            className="text-muted-foreground"
             disabled={draft.busy}
             onClick={() => declineQuestions(item, threadId)}
-            size="xs"
+            size="sm"
             variant="ghost"
           >
             Decline
           </Button>
         ) : null}
-        {count > 1 ? (
-          <span className="tabular-nums">
-            {draft.step + 1}/{count}
-          </span>
-        ) : null}
-        <Button
+        <IconButton
           aria-expanded={!collapsed}
-          aria-label={collapsed ? "Show the choices" : "Hide the choices"}
-          className="text-muted-foreground"
+          className="text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground hover:aria-expanded:bg-accent"
           onClick={() => setCollapsed((c) => !c)}
-          size="icon-xs"
-          variant="ghost"
+          size="icon-sm"
+          tooltip={collapsed ? "Show the choices" : "Hide the choices"}
         >
           <ChevronDown
-            className={cn("transition-transform", collapsed && "-rotate-90")}
+            className={cn(
+              "transition-transform duration-150",
+              collapsed && "-rotate-90"
+            )}
           />
-        </Button>
+        </IconButton>
       </div>
-      <div className="flex flex-col">
-        <span className="font-medium text-foreground">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-heading-xsmall text-foreground">
           {question.question}
           {question.optional ? (
-            <span className="font-normal text-muted-foreground">
-              {" "}
-              (optional)
-            </span>
+            <span className="font-body text-muted-foreground"> (optional)</span>
           ) : null}
         </span>
         {hint && !collapsed ? (
-          <span className="text-muted-foreground">{hint}</span>
+          <span className="font-small text-muted-foreground">{hint}</span>
         ) : null}
       </div>
       {/* Many choices scroll within the card rather than squeeze the thread above it. */}
       {collapsed ? null : (
-        <div className="max-h-[40vh] overflow-y-auto">
+        <div className="max-h-[40vh] overflow-y-auto px-1.5">
           <QuestionChoices draft={draft} itemId={item.id} question={question} />
         </div>
       )}
       {running && !waiting ? (
-        <span className="text-muted-foreground">
-          The answers can be sent once the agent has finished its turn.
+        <span className="font-small text-muted-foreground">
+          The answers go once the agent’s turn ends.
         </span>
       ) : null}
     </div>
@@ -439,8 +465,8 @@ const answerPlaceholder = (question: QuestionOf) => {
     return "Type your answer…";
   }
   return question.allowOther
-    ? "Type your own answer, or leave this blank to use the option picked"
-    : "Pick an option above, or press its number";
+    ? "Pick an option, or type your own answer…"
+    : "Pick an option, or press its number";
 };
 
 /** The composer's box while it answers: an answer of one's own to the question on screen. */
@@ -455,7 +481,7 @@ export const AnswerField = ({
   return (
     <textarea
       aria-invalid={notANumber(question, typed) || undefined}
-      className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground aria-invalid:text-destructive"
+      className={cn(composerText, "aria-invalid:text-destructive")}
       inputMode={
         question.value === "number" || question.value === "integer"
           ? "decimal"
@@ -496,36 +522,49 @@ export const AnswerButtons = ({
     : answeredWell(draft, question);
   return (
     <>
-      {running ? (
-        <Button
-          aria-label="Stop"
-          onClick={onStop}
-          size="icon-sm"
-          title="Stop"
-          variant="outline"
-        >
-          <Square />
-        </Button>
-      ) : null}
+      {running ? <StopButton onStop={onStop} /> : null}
       {draft.step > 0 ? (
         <Button
           onClick={() => setStep(asking, draft.step - 1)}
           onMouseDown={keepFocus}
-          size="sm"
-          variant="outline"
+          variant="ghost"
         >
           Previous
         </Button>
       ) : null}
-      <Button
-        disabled={!ready}
-        onClick={() => advance(answering, threadId, running)}
-        onMouseDown={keepFocus}
-        size="sm"
-        title={chordLabel("mod+enter")}
-      >
-        {last ? "Send answers" : "Next question"}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              disabled={!ready}
+              onClick={() => advance(answering, threadId, running)}
+              onMouseDown={keepFocus}
+            />
+          }
+        >
+          {last ? "Send answers" : "Next"}
+        </TooltipTrigger>
+        <TooltipContent>
+          {last ? "Send answers" : "Next question"}{" "}
+          <Kbd>{chordLabel("mod+enter")}</Kbd>
+        </TooltipContent>
+      </Tooltip>
     </>
   );
 };
+
+/** Stops the agent's turn: a square, as a media player's, round like the send button. */
+export const StopButton = ({ onStop }: { onStop: () => void }) => (
+  <IconButton
+    className="rounded-full bg-foreground text-background hover:bg-foreground/85 hover:text-background"
+    onClick={onStop}
+    onMouseDown={keepFocus}
+    tooltip="Stop"
+  >
+    <Square className="size-2.5 fill-current" />
+  </IconButton>
+);
+
+/** The composer's text: the prompt, or an answer of one's own. */
+export const composerText =
+  "field-sizing-content max-h-60 min-h-16 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 font-body outline-none placeholder:text-muted-foreground";

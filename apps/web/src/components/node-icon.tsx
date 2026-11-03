@@ -1,15 +1,19 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
-  Columns3,
   Component,
   File,
-  Group,
   Image,
-  Rows3,
+  SquareDashed,
+  StretchHorizontal,
+  StretchVertical,
   Type,
 } from "lucide-react";
 
-/** The icon of a node's type, as the layers and the selection's tag show it. */
+/**
+ * The icon of a node's type, as the layers and the selection's tag show it: one glyph per kind,
+ * drawn so a row reads as its layout. A row lays its children side by side, a column one under
+ * the other, a group stacks them freely.
+ */
 export const NodeIcon = ({
   className = "size-3",
   node,
@@ -21,11 +25,11 @@ export const NodeIcon = ({
     case "page":
       return <File className={className} />;
     case "row":
-      return <Columns3 className={className} />;
+      return <StretchVertical className={className} />;
     case "column":
-      return <Rows3 className={className} />;
+      return <StretchHorizontal className={className} />;
     case "group":
-      return <Group className={className} />;
+      return <SquareDashed className={className} />;
     case "text":
       return <Type className={className} />;
     case "image":

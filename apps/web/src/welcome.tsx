@@ -4,13 +4,14 @@
  * editor loads: the user can stop it or pick another project meanwhile. It lists the app's
  * projects and offers a new design or a folder, through `Platform`; there is no server behind it.
  */
-import { CircleAlert, FolderPlus, Plus, Server } from "lucide-react";
+import { CircleAlert, FolderOpen, Plus, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Logo } from "./components/logo.tsx";
 import {
   canMakeNewDesigns,
   NewDesignDialog,
@@ -22,6 +23,7 @@ import {
   RemoteProjectDialog,
 } from "./components/remote-project-dialog.tsx";
 import { type PlatformProject, platform } from "./platform.ts";
+import { followTheme } from "./state/theme.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 import "./styles.css";
 
@@ -51,26 +53,53 @@ const Welcome = () => {
   }, [projects]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading-small">Ultrapaint</h1>
-        <p className="font-body text-muted-foreground">
-          Start a new design, or open a folder to design in: a repository with
-          your components, or an empty folder, here or on another machine over
-          SSH. The list keeps it for next time.
-        </p>
-      </div>
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-8 px-6 py-16">
+      <header className="flex flex-col gap-4">
+        <Logo className="size-9" />
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading-small">Welcome to Ultrapaint</h1>
+          <p className="text-pretty font-body text-muted-foreground">
+            Design in a repository with your own components, beside your agents.
+            Open a folder, here or over SSH, or start a new design.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canMakeNewDesigns() ? (
+            <Button onClick={openNewDesign}>
+              <Plus />
+              New design…
+            </Button>
+          ) : null}
+          {projects ? (
+            <Button onClick={() => projects.add().catch(say)} variant="outline">
+              <FolderOpen />
+              Open folder…
+            </Button>
+          ) : null}
+          {canAddRemoteProjects() ? (
+            <Button onClick={openRemoteProject} variant="outline">
+              <Server />
+              Open over SSH…
+            </Button>
+          ) : null}
+        </div>
+      </header>
       {opening ? (
-        <div className="flex items-start gap-3 rounded-md border p-3 font-body">
-          <Spinner className="mt-0.5 shrink-0" />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span>Opening {opening.name}</span>
-            <span className="truncate text-muted-foreground">
-              {opening.detail}
-            </span>
-            <span className="text-muted-foreground">
+        <div className="flex items-start gap-3 rounded-lg border bg-card p-3">
+          <Spinner className="mt-0.5 shrink-0 text-muted-foreground" />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate font-label">Opening {opening.name}…</span>
+            {opening.detail ? (
+              <span
+                className="truncate font-small text-muted-foreground"
+                title={opening.detail}
+              >
+                {opening.detail}
+              </span>
+            ) : null}
+            <span className="mt-1 text-pretty font-small text-muted-foreground">
               Starting its server. A machine that is off or out of reach can
-              take a minute to give up: stop, or pick another project.
+              take a minute to give up.
             </span>
           </div>
           {projects ? (
@@ -87,51 +116,38 @@ const Welcome = () => {
       {problem ? (
         <Alert variant="destructive">
           <CircleAlert />
+          <AlertTitle>Couldn’t open the project</AlertTitle>
           <AlertDescription className="whitespace-pre-wrap">
             {problem}
           </AlertDescription>
         </Alert>
       ) : null}
       {list.length > 0 ? (
-        <ul className="flex flex-col">
-          {list.map((project) => (
-            <li key={project.id}>
-              <button
-                className="flex w-full flex-col rounded-md px-2 py-1.5 text-left font-body hover:bg-accent"
-                onClick={() => projects?.open(project.id).catch(say)}
-                type="button"
-              >
-                <span>{project.name}</span>
-                {project.detail ? (
-                  <span className="truncate text-muted-foreground">
-                    {project.detail}
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <section className="flex flex-col gap-2">
+          <h2 className="px-1 font-small text-muted-foreground">Recent</h2>
+          <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
+            {list.map((project) => (
+              <li key={project.id}>
+                <button
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:bg-accent"
+                  onClick={() => projects?.open(project.id).catch(say)}
+                  type="button"
+                >
+                  <span className="truncate font-label">{project.name}</span>
+                  {project.detail ? (
+                    <span
+                      className="truncate font-small text-muted-foreground"
+                      title={project.detail}
+                    >
+                      {project.detail}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        {canMakeNewDesigns() ? (
-          <Button onClick={openNewDesign}>
-            <Plus />
-            New design…
-          </Button>
-        ) : null}
-        {projects ? (
-          <Button onClick={() => projects.add().catch(say)} variant="outline">
-            <FolderPlus />
-            Add a project folder…
-          </Button>
-        ) : null}
-        {canAddRemoteProjects() ? (
-          <Button onClick={openRemoteProject} variant="outline">
-            <Server />
-            Open over SSH…
-          </Button>
-        ) : null}
-      </div>
       <NewDesignDialog />
       <RemoteProjectDialog />
     </main>
@@ -143,6 +159,9 @@ const WindowTop = () =>
   useWindowChrome().drag ? (
     <div className="window-drag fixed inset-x-0 top-0 h-11" />
   ) : null;
+
+// The editor's theme, or the system's: the page is the editor's first face.
+followTheme();
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <TooltipProvider delay={300}>

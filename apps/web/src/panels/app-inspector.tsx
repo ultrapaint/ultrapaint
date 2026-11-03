@@ -13,7 +13,7 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { findNode, nodeLabel, walk } from "@ultrapaint/design-document/tree";
-import { Code2, Ellipsis, Plus, Trash2 } from "lucide-react";
+import { Code2, Component, Ellipsis, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,7 +30,7 @@ import {
   OVERVIEW,
 } from "../boards/library-boards.ts";
 import { promptDialog } from "../components/dialogs.tsx";
-import { Section } from "../components/panel.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import { openBoard } from "../state/board.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
@@ -41,11 +41,13 @@ import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
 import {
+  AddPropertyTrigger,
   changeFile,
   KINDS,
   newProperty,
   PropertyRow,
 } from "./inspector-component.tsx";
+import { EmptyState, Section } from "./inspector-fields.tsx";
 import { removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
@@ -98,13 +100,7 @@ export const AppMenu = ({ name }: { name: string }) => (
 /** Adds a property of a kind, from the section's +. */
 const AddProperty = ({ file }: { file: AppComponentFile }) => (
   <DropdownMenu>
-    <DropdownMenuTrigger
-      aria-label="Add a property"
-      className="flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground"
-      title="Add a property"
-    >
-      <Plus className="size-3.5" />
-    </DropdownMenuTrigger>
+    <AddPropertyTrigger />
     <DropdownMenuContent align="end">
       {KINDS.map(({ kind, label }) => (
         <DropdownMenuItem
@@ -174,7 +170,7 @@ const VariantRow = ({
   return (
     <button
       aria-current={editing ? "true" : undefined}
-      className="flex h-7 items-center gap-2 rounded-md px-2 text-left font-code hover:bg-muted/60 aria-[current=true]:bg-muted"
+      className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 aria-[current=true]:bg-accent"
       onClick={() =>
         isolate(frame, inPlace.instance, { variant: inPlace.variant })
       }
@@ -182,7 +178,7 @@ const VariantRow = ({
       type="button"
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 font-body text-muted-foreground">
+      <span className="shrink-0 font-small text-muted-foreground tabular-nums">
         {inPlace.variant
           ? `${overrides} ${overrides === 1 ? "override" : "overrides"}`
           : "Base"}
@@ -203,13 +199,13 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
   return (
     <>
       {file.description ? (
-        <p className="border-b p-3 font-body text-muted-foreground">
+        <p className="border-b px-3 py-2.5 font-small text-muted-foreground">
           {file.description}
         </p>
       ) : null}
-      <Section actions={<AddProperty file={file} />} title="Properties">
+      <Section action={<AddProperty file={file} />} title="Properties">
         {file.properties.length === 0 ? (
-          <p className="font-body text-muted-foreground">
+          <p className="font-small text-muted-foreground">
             What an instance sets. Double-click the component to edit it in
             place, and expose a field of a node, or add one.
           </p>
@@ -220,16 +216,15 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
         )}
       </Section>
       <Section
-        actions={
-          <button
-            aria-label="Add a variant"
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        action={
+          <IconButton
+            className="text-muted-foreground"
             onClick={() => addVariant(file)}
-            title="Add a variant"
-            type="button"
+            size="icon-sm"
+            tooltip="Add a variant"
           >
-            <Plus className="size-3.5" />
-          </button>
+            <Plus />
+          </IconButton>
         }
         title="Variants"
       >
@@ -239,13 +234,13 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
       </Section>
       <Section title="Slots">
         {file.slots.length === 0 ? (
-          <p className="font-body text-muted-foreground">
-            None: select a container of the tree and make it a slot.
+          <p className="font-small text-muted-foreground">
+            None yet. Select a container of the tree and make it a slot.
           </p>
         ) : (
           file.slots.map((slot) => (
             <div
-              className="grid grid-cols-[80px_1fr] items-center gap-2 font-body"
+              className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2 font-body"
               key={slot.name}
             >
               <span className="truncate font-code">{slot.name}</span>
@@ -285,9 +280,9 @@ export const AppInspector = ({ name }: { name: string }) => {
   );
   if (!file) {
     return (
-      <p className="p-3 font-body text-muted-foreground">
-        {name} is not among the components any more.
-      </p>
+      <EmptyState icon={<Component />} title={`${name} is gone`}>
+        It is not among the components any more.
+      </EmptyState>
     );
   }
   return selectedInTree ? <Inspector /> : <AppBody file={file} />;

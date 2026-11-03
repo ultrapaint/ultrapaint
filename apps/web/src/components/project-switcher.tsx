@@ -58,7 +58,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
           value: p.id,
         })),
         ...(canMakeNewDesigns() ? [{ label: "New design…", value: NEW }] : []),
-        { label: "Add a project…", value: ADD },
+        { label: "Open folder…", value: ADD },
         ...(canAddRemoteProjects()
           ? [{ label: "Open over SSH…", value: REMOTE }]
           : []),

@@ -1,7 +1,7 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
-import { File, House, Split, SquareDashed, TriangleAlert } from "lucide-react";
+import { Files, TriangleAlert } from "lucide-react";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { NO_URL_HINT } from "../lib/page-actions.ts";
@@ -88,23 +88,25 @@ export const Pages = () => {
   const unreachable = entries.filter((e) => e.page.route === undefined).length;
 
   return (
-    <div className="flex flex-col">
-      <div className="flex h-9 shrink-0 items-center gap-1 px-3">
-        <span className="flex-1 truncate font-heading-xsmall">Pages</span>
+    <div className="flex h-full flex-col">
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-3">
+        <h2 className="flex-1 truncate font-heading-xsmall">Pages</h2>
         {unreachable > 0 ? (
           <span
-            className="flex items-center gap-1 font-body text-warning"
-            title={`${unreachable} ${unreachable === 1 ? "page has" : "pages have"} no URL: the prototype cannot reach ${unreachable === 1 ? "it" : "them"}`}
+            className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground"
+            title={`${unreachable === 1 ? "A page has" : `${unreachable} pages have`} no URL: no link of the prototype leads to ${unreachable === 1 ? "it" : "them"}`}
           >
-            <TriangleAlert className="size-3" />
-            {unreachable} without URL
+            <TriangleAlert className="size-3.5 text-warning" />
+            {unreachable} without a URL
           </span>
         ) : null}
       </div>
       {entries.length === 0 ? (
-        <PanelEmpty>No pages yet. Add them on the canvas.</PanelEmpty>
+        <PanelEmpty icon={<Files />} title="No pages yet">
+          The pages drawn on this canvas are listed here, to click through.
+        </PanelEmpty>
       ) : (
-        <div className="py-1">
+        <div className="flex flex-col gap-px px-2 pb-2">
           {entries.map((entry) => (
             <PageRow
               entry={entry}
@@ -118,13 +120,11 @@ export const Pages = () => {
   );
 };
 
-/** A row, lit while the prototype is on its page. */
+/** A row, filled while the prototype is on its page. */
 const rowClass = (active: boolean) =>
   cn(
-    "flex h-7 w-full items-center gap-1.5 pr-2 text-left font-body",
-    active
-      ? "bg-brand/20 text-foreground"
-      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+    "flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left font-body outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
+    active ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/50"
   );
 
 const openPage = (page: Page) => goTo({ page: page.id });
@@ -132,31 +132,24 @@ const openPage = (page: Page) => goTo({ page: page.id });
 const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
   const { page } = entry;
   const active = useEditor((s) => s.activePage === page.id);
-  const Icon = page.route === home ? House : File;
   return (
     <>
       <button
         aria-current={active ? "page" : undefined}
         className={rowClass(active)}
         onClick={() => openPage(page)}
-        style={{ paddingLeft: 10 }}
-        title={`${page.name} · ${page.file}`}
+        style={{ paddingLeft: 8 }}
+        title={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
         type="button"
       >
-        <Icon
-          className={cn(
-            "size-3 shrink-0",
-            page.route === undefined ? "text-warning" : "text-muted-foreground"
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate">{page.name}</span>
+        <span className="min-w-0 flex-1 truncate font-label">{page.name}</span>
         <StatusDot target={page.id} />
         {page.route === undefined ? (
           <span
-            className="flex shrink-0 items-center gap-1 text-warning"
+            className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground"
             title={NO_URL_HINT}
           >
-            <TriangleAlert className="size-3" />
+            <TriangleAlert className="size-3.5 text-warning" />
             No URL
           </span>
         ) : (
@@ -207,7 +200,7 @@ const VariantRow = ({ page }: { page: Page }) => {
       aria-current={active ? "page" : undefined}
       className={rowClass(active)}
       onClick={() => openPage(page)}
-      style={{ paddingLeft: 26 }}
+      style={{ paddingLeft: 24 }}
       title={
         page.state === undefined
           ? `${page.name} in the ${page.variant} variant`
@@ -215,15 +208,14 @@ const VariantRow = ({ page }: { page: Page }) => {
       }
       type="button"
     >
-      {page.state === undefined ? (
-        <Split className="size-3 shrink-0 text-muted-foreground" />
-      ) : (
-        <SquareDashed className="size-3 shrink-0 text-muted-foreground" />
-      )}
+      {/* Under its page, named by what it is: a variant, or a state of the page. */}
       <span className="min-w-0 flex-1 truncate">
         {page.variant ?? page.state}
       </span>
       <StatusDot target={page.id} />
+      <span className="shrink-0 font-small text-muted-foreground">
+        {page.state === undefined ? "Variant" : "State"}
+      </span>
     </button>
   );
 };

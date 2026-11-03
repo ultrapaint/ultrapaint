@@ -3,27 +3,13 @@
  * prompt into the composer; nothing is sent until the user sends it.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
-import {
-  ArrowUpRight,
-  ChevronDown,
-  Code,
-  CornerDownRight,
-  FileInput,
-  LayoutTemplate,
-  type LucideIcon,
-  Sparkles,
-  WandSparkles,
-} from "lucide-react";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef } from "react";
 import { importFigma } from "../lib/import-figma.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 
 interface Starter {
-  readonly description: string;
-  readonly icon: LucideIcon;
   readonly prompts: readonly string[];
   readonly title: string;
 }
@@ -37,18 +23,14 @@ const useStarters = (): readonly Starter[] => {
   });
   return [
     {
-      description: "Bring what is attached back onto the design system",
-      icon: WandSparkles,
       prompts: [
-        "Match the spacing to the design system's scale",
-        "Use the design system's text styles",
+        "Match the spacing to the design system’s scale",
+        "Use the design system’s text styles",
         "Replace the raw colours with tokens",
       ],
       title: "Tidy and polish",
     },
     {
-      description: "New pages and variants from a prompt",
-      icon: LayoutTemplate,
       prompts: [
         "Design a new page for ",
         "Make three variants of the attached element",
@@ -57,8 +39,6 @@ const useStarters = (): readonly Starter[] => {
       title: "Generate designs",
     },
     {
-      description: "Write the page with your components",
-      icon: Code,
       prompts: [
         target ? `/implement ${target}` : "/implement ",
         "Implement the attached element as a component",
@@ -68,109 +48,72 @@ const useStarters = (): readonly Starter[] => {
   ];
 };
 
+/** A prompt left open for the rest to be typed ends in an ellipsis. */
+const shownPrompt = (prompt: string) =>
+  prompt.endsWith(" ") ? `${prompt.trim()}…` : prompt;
+
 const write = (threadId: string, text: string) =>
   showLeftPanel({ chat: threadId, draft: text });
 
-const StarterGroup = ({
-  onToggle,
-  open,
-  starter,
-  threadId,
+/** A way to start, as a row: what it writes into the composer, or what it opens. */
+const StarterRow = ({
+  children,
+  onClick,
 }: {
-  onToggle: () => void;
-  open: boolean;
-  starter: Starter;
-  threadId: string;
-}) => {
-  const Icon = starter.icon;
-  return (
-    <div
-      className={cn("flex flex-col rounded-lg border", open && "bg-muted/30")}
-    >
-      <button
-        aria-expanded={open}
-        className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-        onClick={onToggle}
-        type="button"
-      >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Icon className="size-3.5" />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="font-heading-xsmall">{starter.title}</span>
-          <span className="truncate font-body text-muted-foreground">
-            {starter.description}
-          </span>
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-      {open ? (
-        <div className="flex flex-col gap-1 px-3 pb-2.5">
-          {starter.prompts.map((prompt) => (
-            <button
-              className="flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
-              key={prompt}
-              onClick={() => write(threadId, prompt)}
-              type="button"
-            >
-              <CornerDownRight className="size-3 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1">{prompt.trim()}</span>
-              <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-};
+  children: ReactNode;
+  onClick: () => void;
+}) => (
+  <button
+    className="-mx-1.5 flex min-h-7 items-center rounded-md px-1.5 py-1 text-left font-body outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+    onClick={onClick}
+    type="button"
+  >
+    {children}
+  </button>
+);
 
+const StarterGroup = ({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) => (
+  <section className="flex flex-col gap-0.5">
+    <h3 className="pb-0.5 font-small text-muted-foreground">{title}</h3>
+    {children}
+  </section>
+);
+
+/**
+ * A new thread before its first prompt: what the chat works on, then the usual ways to start,
+ * each one a prompt written into the composer, and a Figma file to import.
+ */
 export const ChatStarters = ({ thread }: { thread: Thread }) => {
   const starters = useStarters();
-  const [open, setOpen] = useState<string | null>(starters[0]?.title ?? null);
   const figma = useRef<HTMLInputElement>(null);
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-auto px-4 pt-10 pb-4">
-      <span className="flex size-11 items-center justify-center rounded-full border border-agent/50 bg-agent/15 text-agent">
-        <Sparkles className="size-5" />
-      </span>
-      <div className="flex flex-col items-center gap-1 text-center">
-        <span className="font-heading-small">What's next?</span>
-        <span className="max-w-72 text-muted-foreground">
-          The chat works on what you attach. Pick a starting point or just ask.
-        </span>
+    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-3 pt-4 pb-3">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="font-heading-xsmall">What’s next?</h3>
+        <p className="text-pretty font-small text-muted-foreground">
+          The agent works on what you attach. Select something on the canvas,
+          then pick a start or write your own.
+        </p>
       </div>
-      <div className="flex w-full flex-col gap-2">
-        {starters.map((starter) => (
-          <StarterGroup
-            key={starter.title}
-            onToggle={() =>
-              setOpen((o) => (o === starter.title ? null : starter.title))
-            }
-            open={open === starter.title}
-            starter={starter}
-            threadId={thread.id}
-          />
-        ))}
-        <button
-          className="flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          onClick={() => figma.current?.click()}
-          type="button"
-        >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-            <FileInput className="size-3.5" />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="font-heading-xsmall">Import from Figma</span>
-            <span className="truncate font-body text-muted-foreground">
-              Turn a .fig file into pages
-            </span>
-          </span>
-        </button>
+      {starters.map((starter) => (
+        <StarterGroup key={starter.title} title={starter.title}>
+          {starter.prompts.map((prompt) => (
+            <StarterRow key={prompt} onClick={() => write(thread.id, prompt)}>
+              {shownPrompt(prompt)}
+            </StarterRow>
+          ))}
+        </StarterGroup>
+      ))}
+      <StarterGroup title="From Figma">
+        <StarterRow onClick={() => figma.current?.click()}>
+          Import a .fig file…
+        </StarterRow>
         <input
           accept=".fig"
           className="hidden"
@@ -184,7 +127,7 @@ export const ChatStarters = ({ thread }: { thread: Thread }) => {
           ref={figma}
           type="file"
         />
-      </div>
+      </StarterGroup>
     </div>
   );
 };

@@ -10,17 +10,17 @@ import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import { cn } from "cn";
 import {
   ArrowUpRight,
+  Component,
   LayoutGrid,
   List,
-  Palette,
   Plus,
   Search,
 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useEffectEvent, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
@@ -36,8 +36,10 @@ import {
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { makeAppOf } from "../lib/menu-actions.ts";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
@@ -46,8 +48,8 @@ import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import { useDesignLook } from "../state/look.ts";
-import { showLeftPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
@@ -88,20 +90,12 @@ const entryHandlers = (make: () => DesignNode, name: string) => ({
   },
 });
 
-/** Opens a component's board (ADR 0045), from the Library's list or grid. */
-const OpenBoard = ({
-  className,
-  name,
-}: {
-  className?: string;
-  name: string;
-}) => (
+/** Opens a component's board (ADR 0045), from the Library's list or grid; shown on hover. */
+const OpenBoard = ({ name }: { name: string }) => (
   <IconButton
-    className={cn(
-      "size-6 shrink-0 rounded-md text-muted-foreground hover:text-foreground",
-      className
-    )}
+    className="invisible text-muted-foreground group-focus-within/item:visible group-hover/item:visible"
     onClick={() => openBoard({ item: name, view: "library" })}
+    size="icon-sm"
     tooltip={`Open ${name}'s board`}
   >
     <ArrowUpRight />
@@ -109,24 +103,74 @@ const OpenBoard = ({
 );
 
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
-  <div className="group/item flex h-7 w-full items-center pr-1.5 hover:bg-muted/60">
+  <div className="group/item mx-2 flex h-7 items-center rounded-md pr-0.5 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
-      className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left font-body text-muted-foreground hover:text-foreground"
-      title={c.description ?? c.importFrom}
+      className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-label outline-none"
+      title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
-      <span className="truncate font-medium text-foreground/90">{c.name}</span>
-      <span className="ml-auto truncate font-body text-muted-foreground/70">
-        {Object.keys(c.variants).join(" · ")}
-      </span>
+      <span className="truncate">{c.name}</span>
     </button>
-    <OpenBoard
-      className="opacity-0 focus-visible:opacity-100 group-hover/item:opacity-100"
-      name={c.name}
-    />
+    <OpenBoard name={c.name} />
   </div>
 );
+
+/**
+ * A component's picture in its tile, never larger than it was drawn: pictures of small nodes are
+ * taken at twice their size, so half the picture's own is the component's.
+ */
+const Thumbnail = ({
+  name,
+  src,
+}: {
+  name: string;
+  src: string | undefined;
+}) => {
+  // Its size and whether it loads, read from the picture before it is shown.
+  const [read, setRead] = useState<{
+    readonly failed: boolean;
+    readonly height: number;
+    readonly src: string;
+    readonly width: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!src) {
+      return;
+    }
+    const image = new Image();
+    image.onload = () =>
+      setRead({
+        failed: false,
+        height: image.naturalHeight / 2,
+        src,
+        width: image.naturalWidth / 2,
+      });
+    image.onerror = () => setRead({ failed: true, height: 0, src, width: 0 });
+    image.src = src;
+    return () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [src]);
+  if (!src || read?.src !== src) {
+    return <span className="size-full animate-pulse rounded bg-black/4" />;
+  }
+  if (read.failed) {
+    return <span className="font-small text-black/50">{name}</span>;
+  }
+  return (
+    <img
+      alt={name}
+      className="size-full object-contain"
+      draggable={false}
+      height={80}
+      src={src}
+      style={{ maxHeight: read.height, maxWidth: read.width }}
+      width={160}
+    />
+  );
+};
 
 const GridItem = ({
   component: c,
@@ -135,28 +179,17 @@ const GridItem = ({
   component: ComponentMeta;
   thumbnail: string | undefined;
 }) => (
-  <div className="flex min-w-0 flex-col overflow-hidden rounded-md border bg-background/40 hover:border-ring">
+  <div className="group/item flex min-w-0 flex-col gap-0.5 rounded-lg p-1 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
-      className="flex h-20 items-center justify-center overflow-hidden bg-white p-2"
-      title={c.description ?? c.importFrom}
+      className="flex h-20 items-center justify-center overflow-hidden rounded-md bg-white p-2 outline-none ring-1 ring-border ring-inset"
+      title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
-      {thumbnail ? (
-        <img
-          alt={c.name}
-          className="size-full object-contain"
-          draggable={false}
-          height={80}
-          src={thumbnail}
-          width={160}
-        />
-      ) : (
-        <span className="size-full animate-pulse rounded bg-zinc-100" />
-      )}
+      <Thumbnail name={c.name} src={thumbnail} />
     </button>
-    <div className="flex items-center border-t pr-1 pl-2">
-      <span className="min-w-0 flex-1 truncate py-1 font-body text-foreground/90">
+    <div className="flex h-6 items-center pl-1">
+      <span className="min-w-0 flex-1 truncate font-label" title={c.name}>
         {c.name}
       </span>
       <OpenBoard name={c.name} />
@@ -266,10 +299,11 @@ const librarySections = (
   ] as const;
 };
 
+/** A group's name over its rows: small and muted, as the rows say what it holds. */
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <div className="px-3 pt-3 pb-1 font-heading-xsmall text-muted-foreground">
+  <h3 className="flex h-9 items-end px-4 pb-1.5 font-small text-muted-foreground">
     {children}
-  </div>
+  </h3>
 );
 
 /**
@@ -281,17 +315,19 @@ const newAppComponent = async () => {
     return;
   }
   const given = await promptDialog({
-    confirmLabel: "Make",
+    confirmLabel: "Make component",
     description:
-      "It starts as an empty column, on a board of its own: build it there, then place it from Components.",
-    placeholder: "PricingCard",
-    title: "A new app component",
+      "It starts empty, on a board of its own. Build it there, then place it from Components.",
+    placeholder: "Pricing card",
+    title: "New app component",
   });
   if (!given?.trim()) {
     return;
   }
   try {
-    const made = await api().request("components.create", { name: given });
+    const made = await api().request("components.create", {
+      name: given.trim(),
+    });
     await useComponents.getState().load();
     if (made.component) {
       openBoard({ item: made.component.name, view: "library" });
@@ -301,19 +337,17 @@ const newAppComponent = async () => {
   }
 };
 
-/** The panel's title, as the rail names it, and + New. */
+/** The panel's title, as the rail names it, and New. */
 const Title = () => (
-  <div className="flex h-10 shrink-0 items-center px-3 font-heading-xsmall">
-    Components
-    <button
-      className="ml-auto flex h-6 items-center gap-1 rounded-md px-1.5 font-body font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-3">
+    <h2 className="flex-1 font-heading-xsmall">Components</h2>
+    <IconButton
+      className="text-muted-foreground"
       onClick={newAppComponent}
-      title="Make a new app component"
-      type="button"
+      tooltip="New app component"
     >
-      <Plus className="size-3.5" />
-      New
-    </button>
+      <Plus />
+    </IconButton>
   </div>
 );
 
@@ -332,14 +366,21 @@ const SearchBar = ({
   query: string;
   view?: View;
 }) => (
-  <div className="flex items-center gap-1 px-2 pb-1.5">
+  <div className="flex shrink-0 items-center gap-1.5 px-2 pb-2">
     <InputGroup>
       <InputGroupAddon>
         <Search />
       </InputGroupAddon>
       <InputGroupInput
+        aria-label="Search components"
         onChange={(e) => onQuery(e.target.value)}
-        placeholder="Search components…"
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && query) {
+            e.stopPropagation();
+            onQuery("");
+          }
+        }}
+        placeholder="Search"
         value={query}
       />
     </InputGroup>
@@ -349,12 +390,12 @@ const SearchBar = ({
           onChange={onView}
           options={[
             {
-              label: <List className="size-3" />,
+              label: <List className="size-3.5" />,
               title: "List",
               value: "list",
             },
             {
-              label: <LayoutGrid className="size-3" />,
+              label: <LayoutGrid className="size-3.5" />,
               title: "Grid",
               value: "grid",
             },
@@ -366,20 +407,74 @@ const SearchBar = ({
   </div>
 );
 
+/** A search that finds nothing: what it looked for, and the way back. */
+const NoMatch = ({
+  onClear,
+  query,
+}: {
+  onClear: () => void;
+  query: string;
+}) => (
+  <PanelEmpty
+    action={
+      <Button onClick={onClear} size="sm" variant="secondary">
+        Clear search
+      </Button>
+    }
+    icon={<Search />}
+    title={`No components match “${query.trim()}”`}
+  >
+    Search by a component’s name or its category.
+  </PanelEmpty>
+);
+
+/**
+ * No app component yet: what they are, and one way to make one, from the selection on a page
+ * when there is one, else an empty one.
+ */
+const NoAppComponents = () => {
+  const selection = useEditor((s) => s.selection);
+  const fromSelection =
+    selection !== null && pageOfRef(frameRefOf(selection.frame)) !== null;
+  return (
+    <div className="flex flex-col items-start gap-1 px-4 pt-1 pb-3">
+      <Component className="mb-1 size-5 text-muted-foreground" />
+      <span className="font-label">No app components yet</span>
+      <span className="font-small text-muted-foreground">
+        Your own components, made from part of a page: select it, then make it
+        one.
+      </span>
+      <Button
+        className="mt-2"
+        onClick={() =>
+          fromSelection ? makeAppOf(selection) : newAppComponent()
+        }
+        size="sm"
+        variant="secondary"
+      >
+        {fromSelection ? "Make from selection" : "New app component"}
+      </Button>
+    </div>
+  );
+};
+
 /** A place of the board view's navigation: lit while it is open, a click opening it. */
 const NavRow = ({
   children,
   item,
   lit,
+  title,
 }: {
   children: React.ReactNode;
   item: string;
   lit: boolean;
+  title?: string;
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
-    className="mx-1 flex h-7 w-[calc(100%-0.5rem)] items-center gap-2 rounded-md px-2 text-left font-body text-foreground/90 hover:bg-muted/60 aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-label text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item, view: "library" })}
+    title={title}
     type="button"
   >
     {children}
@@ -394,52 +489,42 @@ const LibraryNav = ({ open }: { open: string }) => {
   const components = useComponents((s) => s.catalogue);
   const [query, setQuery] = useState("");
   const sections = librarySections(components, query);
+  const none = sections.every((s) => s.items.length === 0);
   return (
     <div className="flex h-full flex-col">
       <Title />
       <SearchBar onQuery={setQuery} query={query} />
       <div className="min-h-0 flex-1 overflow-auto pb-2">
-        <div className="pt-1">
+        {query.trim() ? null : (
           <NavRow item={OVERVIEW} lit={open === OVERVIEW}>
-            <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground" />
+            <LayoutGrid className="size-4 shrink-0" />
             Overview
           </NavRow>
-        </div>
+        )}
+        {none && query.trim() ? (
+          <NoMatch onClear={() => setQuery("")} query={query} />
+        ) : null}
         {sections.map((section) =>
           section.items.length === 0 ? null : (
             <section key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
               {section.items.map((c) => (
-                <NavRow item={c.name} key={c.name} lit={open === c.name}>
+                <NavRow
+                  item={c.name}
+                  key={c.name}
+                  lit={open === c.name}
+                  title={c.description ?? c.name}
+                >
                   <span className="truncate">{c.name}</span>
-                  <span className="ml-auto truncate text-muted-foreground/70">
-                    {Object.keys(c.variants).join(" · ")}
-                  </span>
                 </NavRow>
               ))}
             </section>
           )
         )}
       </div>
-      <ToDesignSystem />
     </div>
   );
 };
-
-/** The quiet way from the components to the values they are drawn with. */
-const ToDesignSystem = () => (
-  <p className="shrink-0 border-t px-3 py-2 font-body text-muted-foreground">
-    <Palette className="mr-1.5 inline size-3 align-[-0.125em]" />
-    Colours, type and spacing are in{" "}
-    <button
-      className="text-foreground hover:underline"
-      onClick={() => showLeftPanel("designSystem")}
-      type="button"
-    >
-      the Design System
-    </button>
-  </p>
-);
 
 export const Library = () => {
   const configured = useProject((s) => s.info.configured);
@@ -452,28 +537,14 @@ export const Library = () => {
   return open === null ? <InsertList /> : <LibraryNav open={open} />;
 };
 
-/** The Library on a page canvas: the insert list. */
-const InsertList = () => {
-  const components = useComponents((s) => s.catalogue);
+/** Where a click inserts: the page or the node selected, in the foreground. */
+const InsertHint = () => {
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
   const activePage = useEditor((s) => s.activePage);
   const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
-  const [query, setQuery] = useState("");
-  const [view, setView] = useState<View>(storedView);
-  const sections = librarySections(components, query);
-  const thumbnails = useThumbnails(
-    sections.flatMap((s) => s.items),
-    view === "grid"
-  );
-
-  const onView = (next: View) => {
-    setView(next);
-    localStorage.setItem(VIEW_KEY, next);
-  };
-
   const target = insertTarget({
     activePage,
     canvas,
@@ -481,53 +552,75 @@ const InsertList = () => {
     selectedPage,
     selection,
   });
+  return (
+    <p className="shrink-0 truncate px-4 pb-1 font-small text-muted-foreground">
+      {target ? (
+        <>
+          Inserts into <span className="text-foreground">{target.name}</span>
+        </>
+      ) : (
+        "Drag onto a page or the canvas"
+      )}
+    </p>
+  );
+};
+
+/** The Library on a page canvas: the insert list. */
+const InsertList = () => {
+  const components = useComponents((s) => s.catalogue);
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState<View>(storedView);
+  const sections = librarySections(components, query);
+  const thumbnails = useThumbnails(
+    sections.flatMap((s) => s.items),
+    view === "grid"
+  );
+  const searching = query.trim() !== "";
+  const none = sections.every((s) => s.items.length === 0);
+
+  const onView = (next: View) => {
+    setView(next);
+    localStorage.setItem(VIEW_KEY, next);
+  };
 
   return (
     <div className="flex h-full flex-col">
       <Title />
       <SearchBar onQuery={setQuery} onView={onView} query={query} view={view} />
-      <div className="border-b px-3 pb-1.5 font-body text-muted-foreground">
-        {target ? (
-          <>
-            Click to insert into{" "}
-            <span className="text-foreground">{target.name}</span>, or drag
-            anywhere
-          </>
-        ) : (
-          "Drag onto a page or the canvas"
-        )}
-      </div>
+      <InsertHint />
       <div className="min-h-0 flex-1 overflow-auto pb-2">
-        {sections.map((section) => (
-          <section key={section.title}>
-            <SectionTitle>{section.title}</SectionTitle>
-            {section.items.length === 0 &&
-            section.title === "App components" &&
-            !query.trim() ? (
-              <p className="px-3 pb-2 font-body text-muted-foreground">
-                None yet. Make one with + New, or select part of a page and
-                choose "Make an app component…" in its menu.
-              </p>
-            ) : null}
-            {view === "list" ? (
-              section.items.map((c) => (
-                <ListItem component={c} key={`${c.importFrom}:${c.name}`} />
-              ))
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5 px-2">
-                {section.items.map((c) => (
-                  <GridItem
-                    component={c}
-                    key={`${c.importFrom}:${c.name}`}
-                    thumbnail={thumbnails[c.name]}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        ))}
+        {none && searching ? (
+          <NoMatch onClear={() => setQuery("")} query={query} />
+        ) : null}
+        {sections.map((section) => {
+          const empty = section.items.length === 0;
+          // App components keep their place, empty, until there are some to search.
+          if (empty && (searching || section.title !== "App components")) {
+            return null;
+          }
+          return (
+            <section key={section.title}>
+              <SectionTitle>{section.title}</SectionTitle>
+              {empty ? <NoAppComponents /> : null}
+              {view === "list" ? (
+                section.items.map((c) => (
+                  <ListItem component={c} key={`${c.importFrom}:${c.name}`} />
+                ))
+              ) : (
+                <div className="grid grid-cols-2 gap-1 px-1">
+                  {section.items.map((c) => (
+                    <GridItem
+                      component={c}
+                      key={`${c.importFrom}:${c.name}`}
+                      thumbnail={thumbnails[c.name]}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
-      <ToDesignSystem />
     </div>
   );
 };

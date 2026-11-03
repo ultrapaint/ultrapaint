@@ -8,7 +8,7 @@
 import { CircleAlert } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { create } from "zustand";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +47,8 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
   const [hosts, setHosts] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Opened with a field left empty: the empty ones say so.
+  const [tried, setTried] = useState(false);
   const suggestions = useId();
 
   useEffect(() => {
@@ -58,6 +60,10 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
   }, [projects]);
 
   const add = async () => {
+    if (host.trim() === "" || path.trim() === "") {
+      setTried(true);
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {
@@ -86,18 +92,19 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
       }}
     >
       <DialogHeader>
-        <DialogTitle>Open a folder over SSH</DialogTitle>
+        <DialogTitle>Open over SSH</DialogTitle>
         <DialogDescription>
-          The editor runs on the other machine, with its Node.js and its agents,
-          through your ssh, its configuration and your keys. The machine needs
-          Node.js and the ultrapaint command.
+          The editor runs on the other machine, with its Node.js and agents,
+          through your ssh setup and keys.
         </DialogDescription>
       </DialogHeader>
       <FieldGroup className="gap-4">
         <Field>
           <FieldLabel htmlFor="remote-host">Host</FieldLabel>
           <Input
+            aria-invalid={tried && host.trim() === ""}
             autoFocus
+            className="font-code"
             disabled={busy}
             id="remote-host"
             list={suggestions}
@@ -111,14 +118,16 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
               <option key={alias} value={alias} />
             ))}
           </datalist>
-          <FieldDescription>
-            A Host of your ~/.ssh/config, or user@host. A password is not asked
-            for: the key must be in your agent or need no passphrase.
+          <FieldDescription className="font-small">
+            A Host from ~/.ssh/config, or user@host. Your key must be in your
+            ssh agent or have no passphrase.
           </FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="remote-path">Folder</FieldLabel>
           <Input
+            aria-invalid={tried && path.trim() === ""}
+            className="font-code"
             disabled={busy}
             id="remote-path"
             onChange={(e) => setPath(e.target.value)}
@@ -130,6 +139,7 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
         <Field>
           <FieldLabel htmlFor="remote-command">Command</FieldLabel>
           <Input
+            className="font-code"
             disabled={busy}
             id="remote-command"
             onChange={(e) => setCommand(e.target.value)}
@@ -137,16 +147,16 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
             spellCheck={false}
             value={command}
           />
-          <FieldDescription>
-            What runs the editor there, in the folder, from a login shell.
-            Another than ultrapaint, say node ~/ultrapaint/scripts/cli.ts.
+          <FieldDescription className="font-small">
+            What starts the editor there, when it isn’t ultrapaint on the PATH.
           </FieldDescription>
         </Field>
       </FieldGroup>
       {problem ? (
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertDescription className="whitespace-pre-wrap">
+          <AlertTitle>Couldn’t open the folder</AlertTitle>
+          <AlertDescription className="max-h-40 overflow-y-auto whitespace-pre-wrap">
             {problem}
           </AlertDescription>
         </Alert>
@@ -156,14 +166,11 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
           disabled={busy}
           onClick={() => useRemoteProject.setState({ shown: false })}
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           Cancel
         </Button>
-        <Button
-          disabled={busy || host.trim() === "" || path.trim() === ""}
-          type="submit"
-        >
+        <Button disabled={busy} type="submit">
           {busy ? <Spinner /> : null}
           {busy ? "Connecting…" : "Open"}
         </Button>
@@ -188,7 +195,7 @@ export const RemoteProjectDialog = () => {
       }}
       open={shown}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="gap-5 sm:max-w-md">
         {/* Mounted with the dialog: each opening starts from a fresh form. */}
         {shown ? <Form projects={projects} /> : null}
       </DialogContent>

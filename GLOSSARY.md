@@ -325,9 +325,13 @@ refactor and the board view left.
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
   rename in its Layers row) that waits until the panel takes it up (`useRequest`).
-- **Mode**: Canvas or Design System, the toggle under the project, over the canvas selector (ADR 0053; the web's
-  `useEditorMode`, `showMode`): the page canvas, or the design system on boards. It is Design
-  System exactly while a board view is open, and the rail shows the mode's places.
+- **Mode**: Canvas or Design system (ADR 0053; the web's `useEditorMode`, `showMode`): the page
+  canvas, or the design system on boards. It is Design system exactly while a board view is open,
+  and the rail shows the mode's places.
+- **Place switch**: Canvas · Design system · Prototype at the top centre of the canvas (ADR 0055;
+  `components/place-switch.tsx`): the two modes and the prototype workspace in one control.
+- **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0055;
+  `state/theme.ts`); the editor's chrome only, never a design's theme.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
   `library` in the code): **App components**, then **System components**. In Canvas mode it is
   the **insert list** (a click inserts into the selection, a drag places anywhere, ↗ opens a

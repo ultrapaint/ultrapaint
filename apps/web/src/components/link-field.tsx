@@ -37,7 +37,7 @@ export const LinkField = ({
   link,
   mixed = false,
   onChange,
-  size = "sm",
+  size = "default",
 }: {
   className?: string;
   link: string | undefined;
@@ -99,9 +99,9 @@ export const LinkField = ({
         value={mixed ? null : current}
       />
       {described?.broken ? (
-        <span className="flex items-center gap-1 font-body text-destructive">
-          <TriangleAlert className="size-3 shrink-0" />
-          Leads to a page that is not there
+        <span className="flex items-center gap-1.5 font-small text-destructive">
+          <TriangleAlert className="size-3.5 shrink-0" />
+          Goes to a page that is not there
         </span>
       ) : null}
     </div>

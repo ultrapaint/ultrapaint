@@ -33,6 +33,7 @@ import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
+import { useStepVariant } from "./design-system-setup.tsx";
 
 const LEAVE_OUT = "__leave-out";
 const NEW_NAMED = "__new-named";
@@ -166,11 +167,11 @@ const MatchRow = ({
         title={token.variable}
       >
         <Value kind={token.kind} value={token.source ?? ""} />
-        <span className="ml-auto shrink-0 font-body text-muted-foreground">
+        <span className="ml-auto shrink-0 font-small text-muted-foreground">
           {token.by ? BY[token.by] : ""}
         </span>
       </span>
-      <span className="truncate font-body text-muted-foreground">
+      <span className="truncate font-small text-muted-foreground">
         {token.variable}
         {token.alias ? ` → ${token.alias}` : ""}
       </span>
@@ -218,6 +219,7 @@ const Matches = ({
   const unmatched = unmatchedIn(tokens);
   const [open, setOpen] = useState(unmatched.length > 0);
   const [all, setAll] = useState(false);
+  const main = useStepVariant();
   // The unmatched first: they are what is left to do.
   const ordered = [
     ...unmatched,
@@ -245,7 +247,7 @@ const Matches = ({
             })
           }
           size="sm"
-          variant={unmatched.length > 0 ? "default" : "outline"}
+          variant={unmatched.length > 0 ? main : "outline"}
         >
           <Wand2 />
           Match with an agent
@@ -461,6 +463,7 @@ export const TokensStep = ({
   const [comparison, setComparison] = useState<TokenComparison | null>(null);
   const [picks, setPicks] = useState<Picks>({});
   const [busy, setBusy] = useState(false);
+  const main = useStepVariant();
 
   // Read again whenever the plan moves: a new import, the code or the document changed.
   useEffect(() => {
@@ -497,9 +500,9 @@ export const TokensStep = ({
 
   if (agreed) {
     return (
-      <div className="flex flex-col gap-2 font-body">
+      <div className="flex flex-col gap-2 font-small">
         <p className="flex items-center gap-1.5">
-          <Check className="size-3.5 text-primary" />
+          <Check className="size-3.5 text-success" />
           {plural(same.length, "token")} agree with {comparison.file}.
           {behind.length > 0
             ? ` ${target.charAt(0).toUpperCase()}${target.slice(1)} changed ${behind.length} since; ${label} is behind.`
@@ -512,7 +515,7 @@ export const TokensStep = ({
     );
   }
   return (
-    <div className="flex flex-col gap-2 font-body">
+    <div className="flex flex-col gap-2 font-small">
       {comparison.notes.map((note) => (
         <p className="text-muted-foreground" key={note}>
           {note}
@@ -521,13 +524,10 @@ export const TokensStep = ({
       {matchedSource(source) ? (
         <Matches comparison={comparison} target={target} />
       ) : null}
-      <Listed
-        diffs={added}
-        title={`${added.length} new, added to ${target}:`}
-      />
+      <Listed diffs={added} title={`${added.length} new, added to ${target}`} />
       <Listed
         diffs={changed}
-        title={`${changed.length} changed in ${label}, taken into ${target}:`}
+        title={`${changed.length} changed in ${label}, taken into ${target}`}
       />
       <Listed
         diffs={behind}
@@ -550,6 +550,7 @@ export const TokensStep = ({
         disabled={busy || undecided > 0 || (writes === 0 && unmatched > 0)}
         onClick={apply}
         size="sm"
+        variant={main}
       >
         {busy ? <Spinner /> : null}
         {applyLabel(undecided, writes, unmatched, target)}

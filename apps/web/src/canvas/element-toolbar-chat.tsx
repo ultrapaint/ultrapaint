@@ -103,7 +103,7 @@ const chatAction = (
 };
 
 const AGENT_BUTTON =
-  "relative flex h-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50";
+  "relative flex h-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Solid to add, to the open thread or a new one; outlined when attached to the open thread, which a
@@ -220,7 +220,7 @@ export const GroupChatButton = ({
             aria-label={label}
             className={cn(
               AGENT_BUTTON,
-              "gap-1.5 px-2 font-body font-medium",
+              "gap-1.5 px-2 font-label tabular-nums",
               LOOK[action]
             )}
             onClick={onClick}

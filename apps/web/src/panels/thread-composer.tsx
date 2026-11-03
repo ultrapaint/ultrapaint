@@ -15,13 +15,11 @@ import {
   ArrowUp,
   BookText,
   Camera,
-  Clock,
   Component,
   ListPlus,
   Palette,
   Pencil,
   Plus,
-  Square,
   SquareDashedMousePointer,
   Type,
   X,
@@ -42,9 +40,14 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
@@ -76,12 +79,14 @@ import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
-import { ModelPicker, ModePicker, roomyItems } from "./thread-pickers.tsx";
+import { ModelPicker, ModePicker } from "./thread-pickers.tsx";
 import {
   AnswerButtons,
   AnswerField,
+  composerText,
   OpenQuestion,
   onAnswerKey,
+  StopButton,
   useAnswering,
 } from "./thread-questions.tsx";
 
@@ -297,14 +302,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   };
 
   return (
-    <div className="flex flex-col gap-1.5 p-2">
+    <div className="flex flex-col gap-2 px-2 pb-2">
       <QueuedPrompts
         onEdit={(queued) => setText(queued.text)}
         running={running}
         thread={thread}
       />
       <OpenQuestion answering={answering} threadId={thread.id} />
-      <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
+      <div className="flex flex-col rounded-lg border border-transparent bg-muted transition-colors duration-100 hover:border-input has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/25">
         {images.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {images.map((chip) => (
@@ -336,24 +341,23 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             {showShot && page ? (
               <ContextChip
                 icon={<Camera />}
-                label="Screenshot"
+                label={`Screenshot of ${page.name}`}
                 onRemove={() => setAttachShot(false)}
-                title={`Screenshot of ${page.name}`}
               />
             ) : null}
           </div>
         ) : null}
         {offered.length > 0 && !answering ? (
           <div
-            className="mx-2 mt-2 flex flex-col overflow-hidden rounded-md border bg-popover"
+            className="mx-1 mt-1 flex max-h-56 flex-col overflow-y-auto border-b pb-1"
             role="listbox"
           >
             {offered.map((command, i) => (
               <button
                 aria-selected={i === commandIndex}
                 className={cn(
-                  "flex flex-col items-start gap-0.5 px-2 py-1.5 text-left font-body hover:bg-muted",
-                  i === commandIndex && "bg-muted"
+                  "flex flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-accent",
+                  i === commandIndex && "bg-accent"
                 )}
                 key={command.name}
                 onClick={() => complete(command.name)}
@@ -361,15 +365,15 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                 role="option"
                 type="button"
               >
-                <span className="font-medium font-mono">
+                <span className="font-code text-foreground">
                   /{command.name}
                   {command.argument ? (
-                    <span className="ml-1 text-muted-foreground">
+                    <span className="ml-1.5 text-muted-foreground">
                       {command.argument}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="font-small text-muted-foreground">
                   {command.description}
                 </span>
               </button>
@@ -380,7 +384,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
           <AnswerField answering={answering} onKeyDown={onTextKeyDown} />
         ) : (
           <textarea
-            className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground"
+            aria-label="Prompt"
+            className={composerText}
             onChange={onTextChange}
             onKeyDown={onTextKeyDown}
             onPaste={onPaste}
@@ -388,40 +393,41 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             value={text}
           />
         )}
-        <div className="@container flex min-w-0 items-center gap-1 px-1.5 pb-1.5">
+        <div className="@container flex min-w-0 items-center gap-0.5 p-1.5 pt-0">
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label="Add context"
-                  className="text-muted-foreground"
-                  size="icon-sm"
-                  title="Add context"
-                  variant="ghost"
-                />
-              }
-            >
-              <Plus />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className={cn("w-60", roomyItems)}
-              side="top"
-            >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        aria-label="Attach"
+                        className="text-muted-foreground"
+                        size="icon"
+                        variant="ghost"
+                      />
+                    }
+                  />
+                }
+              >
+                <Plus />
+              </TooltipTrigger>
+              <TooltipContent>Attach</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start" className="w-64" side="top">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>
-                  Send along with the prompt
-                </DropdownMenuLabel>
                 <DropdownMenuItem
                   disabled={!selectedChip}
                   onClick={attachSelection}
                 >
                   <SquareDashedMousePointer />
-                  {attachLabel(selectedChip)}
+                  <span className="truncate">{attachLabel(selectedChip)}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled={!page} onClick={attachPage}>
                   <AppWindow />
-                  {page ? `Attach the page ${page.name}` : "Attach the page"}
+                  <span className="truncate">
+                    {page ? `Attach the page ${page.name}` : "Attach the page"}
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuCheckboxItem
                   checked={attachShot}
@@ -436,22 +442,24 @@ export const Composer = ({ thread }: { thread: Thread }) => {
           </DropdownMenu>
           <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
-          <div className="flex-1" />
-          {answering ? (
-            <AnswerButtons
-              answering={answering}
-              onStop={cancel}
-              running={running}
-              threadId={thread.id}
-            />
-          ) : (
-            <SendButtons
-              canSend={!busy && Boolean(text.trim())}
-              onSend={send}
-              onStop={cancel}
-              running={running}
-            />
-          )}
+          <div className="min-w-1 flex-1" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {answering ? (
+              <AnswerButtons
+                answering={answering}
+                onStop={cancel}
+                running={running}
+                threadId={thread.id}
+              />
+            ) : (
+              <SendButtons
+                canSend={!busy && Boolean(text.trim())}
+                onSend={send}
+                onStop={cancel}
+                running={running}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -500,61 +508,67 @@ const QueuedPrompts = ({
       .request("threads.sendQueued", { threadId: thread.id })
       .catch(reportError);
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-dashed px-2 py-1.5">
-      <div className="flex items-center gap-1.5 font-body text-muted-foreground">
-        <Clock className="size-3" />
-        <span className="flex-1">
+    <section
+      aria-label="Queued prompts"
+      className="flex flex-col gap-1 rounded-lg border px-3 py-2"
+    >
+      <div className="flex min-h-6 items-center gap-2 font-small text-muted-foreground">
+        <span className="min-w-0 flex-1">
           {running
-            ? `${queued.length} waiting for the turn to end`
-            : `${queued.length} waiting: the last turn did not finish`}
+            ? `${queued.length} queued, sent when this turn ends`
+            : `${queued.length} queued: the last turn didn’t finish`}
         </span>
         {running ? null : (
-          <Button
-            className="h-6 px-2"
-            onClick={sendNow}
-            size="sm"
-            variant="secondary"
-          >
+          <Button onClick={sendNow} size="sm" variant="secondary">
             Send now
           </Button>
         )}
       </div>
-      {queued.map((q) => (
-        <div className="group flex items-start gap-1.5" key={q.id}>
-          <span className="line-clamp-2 min-w-0 flex-1 font-body">
-            {q.text}
-            {q.attachments.length > 0 ? (
-              <span className="ml-1 text-muted-foreground">
-                · {q.attachments.length} attached
-              </span>
-            ) : null}
-          </span>
-          <IconButton
-            className="size-6"
-            onClick={() => edit(q.id)}
-            tooltip="Edit"
+      <ol className="flex flex-col">
+        {queued.map((q) => (
+          <li
+            className="group/queued -mx-1.5 flex items-start gap-1 rounded-md py-1 pl-1.5 hover:bg-accent"
+            key={q.id}
           >
-            <Pencil />
-          </IconButton>
-          <IconButton
-            className="size-6"
-            onClick={() => unqueue(q.id).catch(reportError)}
-            tooltip="Remove"
-          >
-            <X />
-          </IconButton>
-        </div>
-      ))}
-    </div>
+            <span className="min-w-0 flex-1 truncate font-body" title={q.text}>
+              {q.text}
+              {q.attachments.length > 0 ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {q.attachments.length} attached
+                </span>
+              ) : null}
+            </span>
+            <span className="flex shrink-0 items-center pr-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover/queued:opacity-100">
+              <IconButton
+                onClick={() => edit(q.id)}
+                size="icon-sm"
+                tooltip="Edit"
+              >
+                <Pencil />
+              </IconButton>
+              <IconButton
+                onClick={() => unqueue(q.id).catch(reportError)}
+                size="icon-sm"
+                tooltip="Remove"
+              >
+                <X />
+              </IconButton>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 };
 
 const placeholderOf = (running: boolean, agentName: string) =>
-  running
-    ? "Queue a follow-up…"
-    : `Ask ${agentName} to change the design, or type / for commands…`;
+  running ? "Queue a follow-up…" : `Ask ${agentName}, or type / for commands…`;
 
-/** Send, or queue while the agent works, next to Stop. */
+/**
+ * Send; while the agent works, Stop, and Queue beside it once there is something to queue. One
+ * round button at the composer's corner in each case, so the pickers keep their width.
+ */
 const SendButtons = ({
   canSend,
   onSend,
@@ -565,40 +579,43 @@ const SendButtons = ({
   onSend: () => void;
   onStop: () => void;
   running: boolean;
-}) => (
-  <>
-    {running ? (
-      <Button onClick={onStop} size="sm" variant="outline">
-        <Square data-icon="inline-start" /> Stop
-      </Button>
-    ) : null}
-    <Button
-      aria-label={running ? "Queue" : "Send"}
-      className="rounded-full"
-      disabled={!canSend}
-      onClick={onSend}
-      size="icon-sm"
-      title={
-        running
-          ? `Queue for when the turn ends (${chordLabel("mod+enter")})`
-          : `Send (${chordLabel("mod+enter")})`
-      }
-    >
-      {running ? <ListPlus /> : <ArrowUp />}
-    </Button>
-  </>
-);
+}) => {
+  const label = running ? "Queue" : "Send";
+  return (
+    <>
+      {running ? <StopButton onStop={onStop} /> : null}
+      {running && !canSend ? null : (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={label}
+                className="rounded-full"
+                disabled={!canSend}
+                onClick={onSend}
+                size="icon"
+              />
+            }
+          >
+            {running ? <ListPlus /> : <ArrowUp />}
+          </TooltipTrigger>
+          <TooltipContent>
+            {label} <Kbd>{chordLabel("mod+enter")}</Kbd>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </>
+  );
+};
 
 const chipTitle = (chip: Chip) => {
   if (chip.kind === "board") {
-    return `${boardChipLabel(chip)} in ${chip.file}`;
+    return `${boardChipLabel(chip)} · ${chip.file}`;
   }
   if (chip.kind === "image") {
-    return `${chip.name}, sent with the prompt as a picture`;
+    return chip.name;
   }
-  return chip.kind === "node"
-    ? `${chip.name} in ${chip.file}`
-    : `Page file: ${chip.file}`;
+  return chip.kind === "node" ? `${chip.name} · ${chip.file}` : chip.file;
 };
 
 /** The + menu's entry that attaches what is selected, or picked on a board. */
@@ -613,29 +630,26 @@ const attachLabel = (chip: Chip | null) => {
 const BoardIcon = ({ chip }: { chip: Chip & { kind: "board" } }) => {
   switch (chip.pick) {
     case "textStyle":
-      return <Type className="text-muted-foreground" />;
+      return <Type />;
     case "guideline":
-      return <BookText className="text-muted-foreground" />;
+      return <BookText />;
     case "systemComponent":
     case "appComponent":
-      return <Component className="text-component" />;
+      return <Component />;
     default:
-      return <Palette className="text-muted-foreground" />;
+      return <Palette />;
   }
 };
 
-/** The icon a chip leads with: a page, a node in its selection colour, a board's pick. */
+/** The icon a chip leads with: a page, a component, an element, a board's pick. */
 const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
   if (chip.kind === "board") {
     return <BoardIcon chip={chip} />;
   }
-  return chip.kind === "page" ? (
-    <AppWindow className="text-muted-foreground" />
-  ) : (
-    <SquareDashedMousePointer
-      className={component ? "text-component" : "text-selection"}
-    />
-  );
+  if (chip.kind === "page") {
+    return <AppWindow />;
+  }
+  return component ? <Component /> : <SquareDashedMousePointer />;
 };
 
 type ImageChip = Extract<Chip, { kind: "image" }>;
@@ -656,14 +670,14 @@ const ImageThumb = ({
   >
     <img
       alt={chip.name}
-      className="size-full rounded-md border object-cover"
+      className="size-full rounded-md object-cover outline outline-black/10 -outline-offset-1 dark:outline-white/10"
       height={56}
       src={chip.dataUrl}
       width={56}
     />
     <button
       aria-label={`Remove ${chip.name}`}
-      className="absolute -top-1.5 -right-1.5 flex size-4.5 items-center justify-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/thumb:opacity-100 [&_svg]:size-3"
+      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-foreground text-background opacity-0 outline-none transition-opacity duration-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/thumb:opacity-100 [&_svg]:size-3"
       onClick={onRemove}
       type="button"
     >
@@ -672,10 +686,32 @@ const ImageThumb = ({
   </span>
 );
 
+/** The chips' look: a raised neutral tag in the composer's well; dashed when only implied. */
+const chipClass =
+  "flex h-6 min-w-0 items-center gap-1 rounded-md pr-0.5 pl-1.5 font-small [&_svg]:size-3.5 [&_svg]:shrink-0";
+
+/** A chip's ×, muted until the pointer is on it. */
+const ChipRemove = ({
+  name,
+  onRemove,
+}: {
+  name: string;
+  onRemove: () => void;
+}) => (
+  <button
+    aria-label={`Remove ${name}`}
+    className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3"
+    onClick={onRemove}
+    type="button"
+  >
+    <X />
+  </button>
+);
+
 /**
- * An attachment of the next prompt. A node takes its selection colour, purple for a component;
- * the context sent because nothing was attached is dashed, and removing it keeps it out of this
- * prompt.
+ * An attachment of the next prompt: a raised tag with its icon, an element, a component, a page
+ * or a board's pick. The context sent because nothing was attached (the selection) is dashed,
+ * and removing it keeps it out of this prompt.
  */
 const AttachmentChip = ({
   chip,
@@ -690,34 +726,29 @@ const AttachmentChip = ({
     (chip.kind === "node" && chip.component) ||
     (chip.kind === "board" &&
       (chip.pick === "systemComponent" || chip.pick === "appComponent"));
-  const element = chip.kind === "node" && !chip.component;
   const name = chip.kind === "board" ? boardChipLabel(chip) : chip.name;
   return (
-    <span
-      className={cn(
-        "flex h-5.5 min-w-0 items-center gap-1 rounded-md border pr-0.5 pl-1.5 font-body leading-4 [&_svg]:size-3 [&_svg]:shrink-0",
-        implicit && "border-dashed text-muted-foreground",
-        !implicit && component && "border-component/60 bg-component/15",
-        !implicit && element && "border-selection/60 bg-selection/10",
-        !(implicit || component || element) && "bg-background/40"
-      )}
-      title={
-        implicit
-          ? "Sent with the prompt because nothing else is attached"
-          : chipTitle(chip)
-      }
-    >
-      <ChipIcon chip={chip} component={component} />
-      <span className="max-w-60 truncate">{name}</span>
-      <button
-        aria-label={`Remove ${name}`}
-        className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        onClick={onRemove}
-        type="button"
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn(
+              chipClass,
+              implicit
+                ? "border border-input border-dashed text-muted-foreground"
+                : "bg-background text-foreground shadow-xs [&>svg]:text-muted-foreground"
+            )}
+          />
+        }
       >
-        <X />
-      </button>
-    </span>
+        <ChipIcon chip={chip} component={component} />
+        <span className="max-w-48 truncate">{name}</span>
+        <ChipRemove name={name} onRemove={onRemove} />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-72">
+        {implicit ? "The selection, sent with the prompt" : chipTitle(chip)}
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -725,27 +756,20 @@ const AttachmentChip = ({
 const ContextChip = ({
   icon,
   label,
-  title,
   onRemove,
 }: {
   icon: ReactNode;
   label: string;
-  title: string;
   onRemove: () => void;
 }) => (
   <span
-    className="flex h-5 min-w-0 items-center gap-1 rounded-md border bg-background/40 pr-0.5 pl-1.5 font-body leading-4 [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
-    title={title}
+    className={cn(
+      chipClass,
+      "bg-background text-foreground shadow-xs [&>svg]:text-muted-foreground"
+    )}
   >
     {icon}
-    <span className="max-w-32 truncate">{label}</span>
-    <button
-      aria-label={`Remove ${label}`}
-      className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-      onClick={onRemove}
-      type="button"
-    >
-      <X />
-    </button>
+    <span className="max-w-48 truncate">{label}</span>
+    <ChipRemove name={label} onRemove={onRemove} />
   </span>
 );

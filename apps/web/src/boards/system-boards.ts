@@ -16,7 +16,7 @@ import type {
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
-import { found, sheet, tokensFound } from "./board-nodes.ts";
+import { found, sheet, tokensFound, UI_FONT } from "./board-nodes.ts";
 import { colorBoards } from "./color-boards.ts";
 import { foundationBoards } from "./foundation-boards.ts";
 
@@ -157,10 +157,40 @@ export const systemItemName = (
 
 const HEADING_RE = /^(#{3,6})\s+(.*)$/;
 const LINE_BREAK = /\n/;
+const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])\s+/;
+const BULLET = /^\s*[-*+]\s+/;
+const EMPHASIS = /\*\*|__|`/g;
+
+/** What a reader sees of a line of markdown: no emphasis marks, a bullet for a list's dash. */
+const readable = (line: string) =>
+  line.replace(BULLET, "•  ").replace(EMPHASIS, "").trim();
+
+/**
+ * A block of markdown as it reads: a paragraph's lines, wrapped where they were written, joined
+ * into one; a list keeps a line an item, an item's wrapped lines joined to it.
+ */
+const blockText = (block: string): string => {
+  const lines = block.split(LINE_BREAK);
+  if (!lines.some((l) => LIST_LINE.test(l))) {
+    return readable(lines.join(" ").replace(/\s+/g, " "));
+  }
+  const items: string[] = [];
+  for (const line of lines) {
+    if (LIST_LINE.test(line) || items.length === 0) {
+      items.push(line.trim());
+    } else {
+      items[items.length - 1] = `${items.at(-1)} ${line.trim()}`;
+    }
+  }
+  return items.map(readable).join("\n");
+};
+
+/** The documentation's own face for a guideline's prose: the editor's, which loads it. */
+const PROSE_FONT = UI_FONT;
 
 /**
  * A section's markdown as the nodes of a readable document: a paragraph per block, a `###`
- * heading as a heading, a list's lines as they are.
+ * heading as a heading, a list's items a line each.
  */
 const proseNodes = (markdown: string): DesignNode[] =>
   markdown
@@ -171,19 +201,25 @@ const proseNodes = (markdown: string): DesignNode[] =>
       const heading: RegExpExecArray | null = HEADING_RE.exec(block);
       if (heading && !LINE_BREAK.test(block)) {
         return {
+          font: PROSE_FONT,
           id: `paragraph-${i}`,
           level: Math.min(6, (heading[1] ?? "###").length),
+          lineHeight: 1.4,
+          margin: { top: 8 },
           role: "heading",
-          text: heading[2] ?? "",
+          size: 17,
+          text: readable(heading[2] ?? ""),
           type: "text",
+          weight: 600,
         };
       }
       return {
+        font: PROSE_FONT,
         id: `paragraph-${i}`,
-        lineHeight: 1.6,
+        lineHeight: 1.65,
         role: "paragraph",
         size: 15,
-        text: block,
+        text: blockText(block),
         type: "text",
         width: "fill",
       };
@@ -205,20 +241,29 @@ const guidelineBoards = (
     boards: [
       {
         name: "document",
-        root: sheet(
-          "document",
-          [
-            {
-              id: "heading",
-              level: 2,
-              role: "heading",
-              text: section.heading,
-              type: "text",
-            },
-            ...paragraphs,
-          ],
-          560
-        ),
+        root: {
+          ...sheet(
+            "document",
+            [
+              {
+                font: PROSE_FONT,
+                id: "heading",
+                level: 2,
+                lineHeight: 1.25,
+                role: "heading",
+                size: 26,
+                text: section.heading,
+                tracking: "-0.02em",
+                type: "text",
+                weight: 600,
+              },
+              ...paragraphs,
+            ],
+            704,
+            16
+          ),
+          padding: { bottom: 48, left: 48, right: 48, top: 40 },
+        },
         title: "DESIGN.md",
       },
     ],

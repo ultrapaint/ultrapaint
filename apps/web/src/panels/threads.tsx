@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   MessageScroller,
@@ -22,6 +23,11 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
@@ -64,9 +70,11 @@ export const Threads = () => {
   }
   return (
     <div className="flex h-full flex-col">
-      <ThreadHeader thread={thread} />
+      <div className="flex shrink-0 flex-col border-b">
+        <ThreadHeader thread={thread} />
+        <ScopeBar thread={thread} />
+      </div>
       <SetupStepBar threadId={thread.id} />
-      <ScopeBar thread={thread} />
       <ThreadView items={items ?? []} thread={thread} />
     </div>
   );
@@ -82,7 +90,7 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the header's menu is the thread's; its buttons raise it from the keyboard.
     <div
-      className="flex h-13 shrink-0 items-center gap-1 border-b px-1.5"
+      className="flex h-12 shrink-0 items-center gap-1 pr-2 pl-1.5"
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
@@ -94,30 +102,28 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
         <ChevronLeft />
       </IconButton>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-heading-xsmall">{thread.title}</span>
-        <span className="flex min-w-0 items-center gap-1 font-body text-muted-foreground">
+        <h2 className="truncate font-heading-xsmall" title={thread.title}>
+          {thread.title}
+        </h2>
+        <span className="flex min-w-0 items-center gap-1.5 font-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
           <span className="truncate">
-            {[agentName, model].filter(Boolean).join(" · ")}
+            {[agentName ?? thread.agentId, model].filter(Boolean).join(" · ")}
           </span>
-          <span
-            className={cn(
-              "shrink-0 rounded-sm border px-1 leading-4",
-              thread.purpose === "implement" && "border-agent text-agent"
-            )}
-            title={
-              thread.purpose === "implement"
-                ? "Implements: it may write the application's code"
-                : "Designs: it writes the designs only; behaviour it is asked for becomes notes for the code"
-            }
-          >
-            {thread.purpose === "implement" ? "Implements" : "Designs"}
-          </span>
+          {/* A design thread is the rule; one that may write the code says so (ADR 0030). */}
+          {thread.purpose === "implement" ? (
+            <Tooltip>
+              <TooltipTrigger render={<Badge className="shrink-0" />}>
+                Implements
+              </TooltipTrigger>
+              <TooltipContent>May change the application’s code</TooltipContent>
+            </Tooltip>
+          ) : null}
         </span>
       </div>
       <IconButton
         aria-pressed={following}
-        className={cn(following && "text-agent hover:text-agent")}
+        className={cn(following && "bg-accent text-foreground")}
         onClick={() => toggleFollowing(thread.id)}
         tooltip={following ? "Stop following" : "Follow on the canvas"}
       >
@@ -136,34 +142,34 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
 /** What the thread works on, pinned under its header, with the way to it on the canvas. */
 const ScopeBar = ({ thread }: { thread: Thread }) => {
   const { scope } = thread;
-  const route = useProject((s) => {
+  // A node's page by its name and URL; a page by its URL; a node beside the pages, the canvas.
+  const where = useProject((s) => {
     const page = s.pages.find((p) => p.file === scope?.file);
-    return page ? (page.route ?? page.name) : undefined;
+    if (!page) {
+      return "On the canvas";
+    }
+    const route = page.route ?? page.name;
+    return scope?.nodeId === undefined ? route : `${page.name} · ${route}`;
   });
   if (!scope) {
     return null;
   }
+  const more = scope.count && scope.count > 1 ? scope.count - 1 : 0;
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-b bg-muted/30 py-2 pr-2 pl-3">
-      <ScopePicture className="size-9" thread={thread} />
+    <div className="flex items-center gap-2.5 px-3 pb-2">
+      <ScopePicture className="size-8" thread={thread} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="font-body text-muted-foreground">Working on</span>
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span
-            className={cn(
-              "truncate font-semibold",
-              scope.component && "text-component"
-            )}
-          >
-            {scope.name}
-            {scope.count ? ` +${scope.count - 1}` : ""}
-          </span>
-          <span className="truncate font-code text-muted-foreground">
-            {route ?? "canvas"}
-          </span>
+        <span className="truncate font-label" title={scope.name}>
+          {scope.name}
+          {more ? (
+            <span className="text-muted-foreground"> and {more} more</span>
+          ) : null}
+        </span>
+        <span className="truncate font-small text-muted-foreground">
+          {where}
         </span>
       </div>
-      <Button onClick={() => showScope(thread)} size="sm" variant="outline">
+      <Button onClick={() => showScope(thread)} size="sm" variant="ghost">
         <LocateFixed data-icon="inline-start" />
         Show
       </Button>
@@ -202,7 +208,7 @@ const ThreadView = ({
         >
           <MessageScroller className="flex-1">
             <MessageScrollerViewport>
-              <MessageScrollerContent className="gap-2 p-2">
+              <MessageScrollerContent className="gap-3 px-3 pt-3 pb-4">
                 {entries.map((entry) => (
                   <MessageScrollerItem
                     key={keyOfEntry(entry)}

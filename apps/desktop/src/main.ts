@@ -15,6 +15,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeTheme,
   net,
   protocol,
   safeStorage,
@@ -76,11 +77,11 @@ let window: BrowserWindow | null = null;
 
 /**
  * On a Mac the window draws no title bar: its buttons sit inside the editor's title card, the
- * top-left of the floating cards (8px from the window's edges, 44px tall), centred on its
+ * top-left of the floating cards (8px from the window's edges, 48px tall), centred on its
  * height. Elsewhere the system draws the frame.
  */
 const ownTitleBar = process.platform === "darwin";
-const TRAFFIC_LIGHTS = { x: 22, y: 24 };
+const TRAFFIC_LIGHTS = { x: 22, y: 26 };
 /** Where the editor's content may begin past the buttons: their width (52px) and a gap. */
 const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 12;
 
@@ -316,7 +317,8 @@ const folderArgument = (argv: readonly string[]) =>
 
 const makeWindow = () => {
   const created = new BrowserWindow({
-    backgroundColor: "#1a1a1d",
+    // The editor's canvas in the theme it opens in, so the window shows no flash before it draws.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#121110" : "#ecebe8",
     height: 950,
     show: false,
     ...(ownTitleBar

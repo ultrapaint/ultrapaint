@@ -13,27 +13,39 @@ import {
   type Token,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { shortName, spacingBasePx } from "@ultrapaint/contracts/token-table";
+import {
+  shortName,
+  spacingBasePx,
+  tokenOf,
+} from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toMs, toPx } from "@ultrapaint/contracts/token-value";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { isToken, tokenRef } from "@ultrapaint/design-document/tokens";
 import {
+  code,
+  INK,
   label,
-  MONO,
+  nameText,
   nodeCss,
+  pxOf,
+  RULE,
+  ruled,
   section,
   sheet,
   text,
   tokenRow,
   tokensFound as tokensOf,
+  WELL,
+  withPx,
 } from "./board-nodes.ts";
 import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
 
 const SAMPLE = "The quick brown fox jumps over the lazy dog";
-const WIDE = 560;
-const ACCENT = "#6366f1";
-const SURFACE = "#8a8a9326";
+const WIDE = 640;
+/** A specimen's fill: the design's primary colour, faint, else its text colour's. */
+const TINT =
+  "color-mix(in oklab, var(--color-primary, currentColor) 14%, transparent)";
 
 /** A board when it has anything to draw. */
 const board = (
@@ -41,68 +53,80 @@ const board = (
   title: string,
   children: DesignNode[],
   width = WIDE,
-  css?: string
+  css?: string,
+  gap = 0
 ): Board[] =>
   children.length === 0
     ? []
     : [
         {
           name,
-          root: sheet(name, children, width, 4),
+          root: sheet(name, children, width, gap),
           title,
           ...(css && { css }),
         },
       ];
 
-/** A style's setting as it reads: a token by its short name, a number as it is. */
-const settingOf = (value: string | number | undefined): string | undefined => {
+/** A style's setting as the design system has it: a token's value, a number as it is. */
+const settingOf = (
+  ds: DesignSystem,
+  value: string | number | undefined
+): string | undefined => {
   if (value === undefined) {
     return undefined;
   }
-  return isToken(value) ? shortName(value.slice(1)) : String(value);
+  if (!isToken(value)) {
+    return String(value);
+  }
+  const named = value.slice(1);
+  return tokenOf(ds, named)?.value ?? shortName(named);
 };
 
-/** A text style: its name and settings over a sample set in it. */
-const styleNode = (style: TextStyle): DesignNode => {
-  const settings = [style.size, style.weight, style.lineHeight, style.tracking]
-    .map(settingOf)
-    .filter((s): s is string => s !== undefined);
-  return {
-    children: [
-      {
-        children: [
-          text(`style-name:${style.name}`, style.name, 12, { weight: 600 }),
-          label(
-            `style-settings:${style.name}`,
-            [style.level ? `h${style.level}` : null, ...settings]
-              .filter(Boolean)
-              .join(" · "),
-            11,
-            { font: MONO }
-          ),
-        ],
-        crossAlign: "baseline",
-        gap: 10,
-        id: `style-head:${style.name}`,
-        type: "row",
-      },
-      {
-        id: `style-sample:${style.name}`,
-        ...(style.level !== undefined && { level: style.level }),
-        role: style.role,
-        text: SAMPLE,
-        textStyle: style.name,
-        type: "text",
-        width: "fill",
-      },
-    ],
-    gap: 4,
-    id: pickId({ kind: "style", name: style.name }),
-    padding: { bottom: 10, top: 10 },
-    type: "column",
-    width: "fill",
-  };
+/** A style's settings as a type specimen says them: `24px / 1.25 · 600 · -0.02em`. */
+const settingsText = (ds: DesignSystem, style: TextStyle): string => {
+  const size = settingOf(ds, style.size);
+  const px = size === undefined ? null : toPx(size, { em: ROOT_PX });
+  const sizeText = px === null ? size : `${Math.round(px * 100) / 100}px`;
+  const leading = settingOf(ds, style.lineHeight);
+  return [
+    style.level ? `h${style.level}` : undefined,
+    [sizeText, leading].filter(Boolean).join(" / ") || undefined,
+    settingOf(ds, style.weight),
+    settingOf(ds, style.tracking),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 };
+
+/** A text style: its name and settings beside a sample set in it. */
+const styleNode = (ds: DesignSystem, style: TextStyle): DesignNode => ({
+  children: [
+    {
+      children: [
+        nameText(`style-name:${style.name}`, style.name, 13, { weight: 600 }),
+        code(`style-settings:${style.name}`, settingsText(ds, style), 11),
+      ],
+      gap: 2,
+      id: `style-head:${style.name}`,
+      type: "column",
+      width: 200,
+    },
+    {
+      id: `style-sample:${style.name}`,
+      ...(style.level !== undefined && { level: style.level }),
+      role: style.role,
+      text: SAMPLE,
+      textStyle: style.name,
+      type: "text",
+      width: "fill",
+    },
+  ],
+  crossAlign: "center",
+  gap: 24,
+  id: pickId({ kind: "style", name: style.name }),
+  type: "row",
+  width: "fill",
+});
 
 const typographyBoards = (ds: DesignSystem, q: string): Boards => {
   const styles = ds.typography.styles.filter(
@@ -114,74 +138,96 @@ const typographyBoards = (ds: DesignSystem, q: string): Boards => {
       section(
         `styles-${group}`,
         TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label ?? group,
-        list.map(styleNode),
-        0
+        ruled(
+          list.map((style) => styleNode(ds, style)),
+          14
+        ),
+        8
       )
     );
   const sizes = tokensOf(ds, "fontSize", q).map((size) =>
     tokenRow(
       size,
-      text(`sample:${size.name}`, "Ag", 13, { size: tokenRef(size.name) }),
-      96
+      text(`sample:${size.name}`, "Aa", 13, { size: tokenRef(size.name) }),
+      120,
+      "start",
+      withPx(size.value)
     )
   );
-  const fonts = tokensOf(ds, "font", q).map((font) => ({
-    children: [
-      label(`font-name:${font.name}`, `${font.name} · ${font.value}`, 11, {
-        font: MONO,
-      }),
-      text(
-        `font-sample:${font.name}`,
-        "Aa Bb Cc 0123 — The quick brown fox",
-        22,
-        {
+  const fonts = tokensOf(ds, "font", q).map(
+    (font): DesignNode => ({
+      children: [
+        code(`font-name:${font.name}`, font.name, 12.5, {
+          color: "currentColor",
+        }),
+        code(`font-value:${font.name}`, font.value, 11),
+        text(`font-sample:${font.name}`, "Aa Bb Cc Dd Ee Ff 0123456789", 28, {
           font: tokenRef(font.name),
-        }
-      ),
-    ],
-    gap: 4,
-    id: pickId({ kind: "token", name: font.name }),
-    padding: { bottom: 8, top: 8 },
-    type: "column" as const,
-    width: "fill" as const,
-  }));
+          lineHeight: 1.3,
+        }),
+        ...(font.description
+          ? [label(`font-about:${font.name}`, font.description, 12)]
+          : []),
+      ],
+      gap: 4,
+      id: pickId({ kind: "token", name: font.name }),
+      type: "column",
+      width: "fill",
+    })
+  );
   const weights = tokensOf(ds, "fontWeight", q).map((weight) =>
     tokenRow(
       weight,
-      text(`sample:${weight.name}`, "Ag", 18, { weight: tokenRef(weight.name) })
+      text(`sample:${weight.name}`, "Aa", 22, {
+        weight: tokenRef(weight.name),
+      }),
+      120,
+      "start"
     )
   );
   const spacing = [
     ...tokensOf(ds, "leading", q).map((t) =>
-      tokenRow(t, label(`sample:${t.name}`, "≡", 16))
+      tokenRow(
+        t,
+        text(`sample:${t.name}`, "Line one\nLine two", 13, {
+          lineHeight: tokenRef(t.name),
+        }),
+        120,
+        "start"
+      )
     ),
     ...tokensOf(ds, "tracking", q).map((t) =>
       tokenRow(
         t,
-        text(`sample:${t.name}`, "AV", 15, { tracking: tokenRef(t.name) })
+        text(`sample:${t.name}`, "Tracking", 15, {
+          tracking: tokenRef(t.name),
+        }),
+        120,
+        "start"
       )
     ),
   ];
   return {
     boards: [
-      ...board("styles", "Text styles", grouped),
-      ...board("scale", "Type scale", sizes),
-      ...board("families", "Families and weights", [...fonts, ...weights]),
-      ...board("leading", "Line height and tracking", spacing),
+      ...board("styles", "Text styles", grouped, 760, undefined, 40),
+      ...board("scale", "Type scale", ruled(sizes)),
+      ...board(
+        "families",
+        "Families and weights",
+        ruled([...fonts, ...weights], 16)
+      ),
+      ...board("leading", "Line height and tracking", ruled(spacing)),
     ],
     direction: "column",
   };
 };
 
-/** A length as pixels, an `em` at the root's size; 0 when it is none. */
-const pxOf = (value: string) => toPx(value, { em: ROOT_PX }) ?? 0;
-
-const bar = (id: string, width: number, height = 10): DesignNode => ({
+const bar = (id: string, width: number, height = 12): DesignNode => ({
   children: [],
-  fill: ACCENT,
+  fill: INK,
   height,
   id,
-  radius: 2,
+  radius: 3,
   type: "group",
   width: Math.max(2, Math.round(width)),
 });
@@ -197,27 +243,36 @@ const spacingBoards = (ds: DesignSystem, q: string): Boards => {
     ? [
         tokenRow(
           {
-            description: "The step every spacing multiplies",
+            description: "Every spacing is a multiple of it.",
             name: "spacing",
             value: ds.spacing.base,
           },
           bar("bar:spacing", base),
-          88,
-          "start"
+          96,
+          "start",
+          withPx(ds.spacing.base)
         ),
         ...SPACING_SAMPLE.map(
           (step): DesignNode => ({
             children: [
-              label(`step-name-${step}`, `${step} · ${step * base}px`, 11, {
-                font: MONO,
-                width: 88,
-              }),
+              {
+                children: [
+                  code(`step-name-${step}`, String(step), 12.5, {
+                    color: "currentColor",
+                    width: 40,
+                  }),
+                  code(`step-px-${step}`, `${step * base}px`, 12),
+                ],
+                crossAlign: "baseline",
+                id: `step-names-${step}`,
+                type: "row",
+                width: 96,
+              },
               bar(`step-bar-${step}`, step * base),
             ],
             crossAlign: "center",
-            gap: 12,
+            gap: 24,
             id: `step-${step}`,
-            padding: { bottom: 3, top: 3 },
             type: "row",
             width: "fill",
           })
@@ -229,54 +284,98 @@ const spacingBoards = (ds: DesignSystem, q: string): Boards => {
       t,
       bar(`bar:${t.name}`, Math.min(pxOf(t.value), 240)),
       260,
-      "start"
+      "start",
+      withPx(t.value)
     )
   );
   return {
     boards: [
-      ...board("scale", "Scale", steps),
-      ...board("named", "Named spacing", named),
+      ...board("scale", "Scale", ruled(steps, 10)),
+      ...board("named", "Named spacing", ruled(named)),
     ],
     direction: "column",
   };
 };
 
-const radiusBoards = (ds: DesignSystem, q: string): Boards => ({
-  boards: board(
-    "radii",
-    "Radii",
-    tokensOf(ds, "radius", q).map((t) =>
-      tokenRow(t, {
-        border: { color: ACCENT, width: 2 },
-        children: [],
-        fill: SURFACE,
-        height: 48,
-        id: `tile:${t.name}`,
-        radius: tokenRef(t.name),
-        type: "group",
-        width: 48,
-      })
-    ),
-    480
-  ),
-  direction: "column",
+/** A radius: a tile drawn with it, its name and value under it. */
+const radiusTile = (t: Token): DesignNode => ({
+  children: [
+    {
+      border: { color: INK, width: 1.5 },
+      children: [],
+      fill: TINT,
+      height: 80,
+      id: `tile:${t.name}`,
+      radius: tokenRef(t.name),
+      type: "group",
+      width: 80,
+    },
+    {
+      children: [
+        code(`name:${t.name}`, t.name, 12, { color: "currentColor" }),
+        code(`value:${t.name}`, withPx(t.value), 11),
+      ],
+      id: `names:${t.name}`,
+      type: "column",
+      width: "fill",
+    },
+  ],
+  gap: 10,
+  id: pickId({ kind: "token", name: t.name }),
+  type: "column",
+  width: 120,
 });
 
-/** A surface lifted by a shadow, named as it is given: a token or CSS. */
+const radiusBoards = (ds: DesignSystem, q: string): Boards => {
+  const tiles = tokensOf(ds, "radius", q).map(radiusTile);
+  return {
+    boards: board(
+      "radii",
+      "Radii",
+      tiles.length === 0
+        ? []
+        : [
+            {
+              children: tiles,
+              gap: 24,
+              id: "tiles",
+              type: "row",
+              width: "fill",
+              wrap: true,
+            },
+          ]
+    ),
+    direction: "column",
+  };
+};
+
+/** A surface lifted by a shadow, named as it is given (a token or CSS), on a well that shows it. */
 const lifted = (
   id: string,
   surface: string | undefined,
   shadow: string | undefined
 ): DesignNode => ({
-  border: { color: "#8a8a9333", width: 1 },
-  children: [],
-  fill: surface ?? tokenRef("color-background"),
-  height: 44,
-  id,
-  radius: 8,
-  ...(shadow && { shadow }),
-  type: "group",
-  width: 64,
+  align: "center",
+  children: [
+    {
+      border: { color: RULE, width: 1 },
+      children: [],
+      fill: surface ?? tokenRef("color-background"),
+      height: 52,
+      id,
+      radius: 8,
+      ...(shadow && { shadow }),
+      type: "group",
+      width: 88,
+    },
+  ],
+  crossAlign: "center",
+  fill: WELL,
+  id: `well:${id}`,
+  padding: 20,
+  radius: 10,
+  type: "row",
+  width: 128,
 });
 
 const elevationBoards = (ds: DesignSystem, q: string): Boards => {
@@ -285,29 +384,26 @@ const elevationBoards = (ds: DesignSystem, q: string): Boards => {
     .map(
       (level): DesignNode => ({
         children: [
-          {
-            align: "center",
-            children: [
-              lifted(`surface:${level.name}`, level.surface, level.shadow),
-            ],
-            id: `level-preview:${level.name}`,
-            type: "row",
-            width: 96,
-          },
+          lifted(`surface:${level.name}`, level.surface, level.shadow),
           {
             children: [
-              text(`level-name:${level.name}`, level.name, 13, { weight: 600 }),
-              ...(level.description
-                ? [label(`level-about:${level.name}`, level.description, 11)]
-                : []),
-              label(
+              nameText(`level-name:${level.name}`, level.name, 13, {
+                weight: 600,
+              }),
+              code(
                 `level-values:${level.name}`,
                 [level.surface, level.shadow, level.layer && `z-${level.layer}`]
                   .filter(Boolean)
                   .join(" · "),
-                11,
-                { font: MONO }
+                11.5
               ),
+              ...(level.description
+                ? [
+                    label(`level-about:${level.name}`, level.description, 12, {
+                      width: "fill",
+                    }),
+                  ]
+                : []),
             ],
             gap: 2,
             id: `level-names:${level.name}`,
@@ -316,20 +412,19 @@ const elevationBoards = (ds: DesignSystem, q: string): Boards => {
           },
         ],
         crossAlign: "center",
-        gap: 16,
+        gap: 24,
         id: `level:${level.name}`,
-        padding: { bottom: 12, top: 12 },
         type: "row",
         width: "fill",
       })
     );
   const shadows = tokensOf(ds, "shadow", q).map((t) =>
-    tokenRow(t, lifted(`tile:${t.name}`, undefined, tokenRef(t.name)), 96)
+    tokenRow(t, lifted(`tile:${t.name}`, undefined, tokenRef(t.name)), 128)
   );
   return {
     boards: [
-      ...board("levels", "Levels", levels),
-      ...board("shadows", "Shadows", shadows),
+      ...board("levels", "Levels", ruled(levels, 16)),
+      ...board("shadows", "Shadows", ruled(shadows, 16)),
     ],
     direction: "column",
   };
@@ -343,7 +438,7 @@ const track = (name: string): DesignNode => ({
   children: [
     {
       children: [],
-      fill: ACCENT,
+      fill: INK,
       height: DOT,
       id: `dot:${name}`,
       radius: DOT / 2,
@@ -351,7 +446,7 @@ const track = (name: string): DesignNode => ({
       width: DOT,
     },
   ],
-  fill: SURFACE,
+  fill: WELL,
   height: DOT,
   id: `track:${name}`,
   radius: DOT / 2,
@@ -359,13 +454,26 @@ const track = (name: string): DesignNode => ({
   width: TRACK,
 });
 
+/** An animation's specimen: a square its own animation moves, where the design defines it. */
+const animated = (name: string): DesignNode => ({
+  children: [],
+  fill: INK,
+  height: 20,
+  id: `anim:${name}`,
+  radius: 4,
+  type: "group",
+  width: 20,
+});
+
 /**
  * The motion board's stylesheet (B12): one movement along the track, each easing's dot moved by
- * it over a second and a half with its curve, each duration's with the default curve over it.
+ * it over a second and a half with its curve, each duration's with the default curve over it,
+ * and each animation's square by itself.
  */
 const motionCss = (
   easings: readonly Token[],
-  durations: readonly Token[]
+  durations: readonly Token[],
+  animations: readonly Token[] = []
 ): string =>
   [
     `@keyframes ed-board-move { from { translate: 0 0; } to { translate: ${TRACK - DOT}px 0; } }`,
@@ -377,7 +485,11 @@ const motionCss = (
       (t) =>
         `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move var(--${t.name}, ${t.value}) ease-in-out infinite alternate; }`
     ),
-    `@media (prefers-reduced-motion: reduce) { ${nodeCss("dot:", "^=")} { animation: none; } }`,
+    ...animations.map(
+      (t) =>
+        `${nodeCss(`anim:${t.name}`)} { animation: var(--${t.name}, ${t.value}); }`
+    ),
+    `@media (prefers-reduced-motion: reduce) { ${nodeCss("dot:", "^=")}, ${nodeCss("anim:", "^=")} { animation: none; } }`,
   ].join("\n");
 
 const motionBoards = (ds: DesignSystem, q: string): Boards => {
@@ -386,13 +498,12 @@ const motionBoards = (ds: DesignSystem, q: string): Boards => {
   const durations = tokensOf(ds, "duration", q);
   const timed = durations.filter((t) => (toMs(t.value) ?? 0) > 0);
   const animations = tokensOf(ds, "animation", q);
-  const css = motionCss(easings, timed);
   return {
     boards: [
       ...board(
         "easings",
         "Easings and durations",
-        [
+        ruled([
           ...easings.map((t) => tokenRow(t, track(t.name), TRACK + 16)),
           ...durations.map((t) =>
             tokenRow(
@@ -403,14 +514,16 @@ const motionBoards = (ds: DesignSystem, q: string): Boards => {
               TRACK + 16
             )
           ),
-        ],
+        ]),
         WIDE,
-        css
+        motionCss(easings, timed)
       ),
       ...board(
         "animations",
         "Animations",
-        animations.map((t) => tokenRow(t, label(`sample:${t.name}`, "~", 16)))
+        ruled(animations.map((t) => tokenRow(t, animated(t.name), 64))),
+        WIDE,
+        motionCss([], [], animations)
       ),
     ],
     direction: "column",
@@ -422,12 +535,15 @@ const BAR_MAX = 280;
 /** Lengths as bars to one scale, the widest the full width. */
 const lengthRows = (tokens: readonly Token[]): DesignNode[] => {
   const widest = Math.max(1, ...tokens.map((t) => pxOf(t.value)));
-  return tokens.map((t) =>
-    tokenRow(
-      t,
-      bar(`bar:${t.name}`, (pxOf(t.value) / widest) * BAR_MAX, 8),
-      BAR_MAX + 8,
-      "start"
+  return ruled(
+    tokens.map((t) =>
+      tokenRow(
+        t,
+        bar(`bar:${t.name}`, (pxOf(t.value) / widest) * BAR_MAX, 8),
+        BAR_MAX + 8,
+        "start",
+        withPx(t.value)
+      )
     )
   );
 };

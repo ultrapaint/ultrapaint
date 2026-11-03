@@ -31,8 +31,8 @@ import {
 } from "@ultrapaint/design-document/look-places";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import { cn } from "cn";
-import { Code2, Ellipsis, RotateCcw, X } from "lucide-react";
+import { Brush, Code2, Ellipsis, RotateCcw, X } from "lucide-react";
+import type * as React from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/native-select";
 import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
 import { cellId, placeOfCell } from "../boards/pick.ts";
-import { Row, Section } from "../components/panel.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
 import { nodesOf } from "../lib/node-actions.ts";
@@ -73,6 +73,7 @@ import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
+import { Row, Section } from "./inspector-fields.tsx";
 
 /**
  * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
@@ -121,21 +122,25 @@ const takeOver = async (name: string) => {
 const inheritedText = (inherited: Inherited | undefined) =>
   inherited ? `${String(inherited.value)} (${inherited.from})` : "Not set";
 
-/** One style field of a part, over the design system's tokens. */
+/** One style field of a part, over the design system's tokens: a row's control, unlabelled. */
 const Field = ({
+  half = false,
   inherited,
   kind,
   label,
+  mark,
   onChange,
   onPreview,
-  side = false,
   value,
 }: {
+  /** One of two sharing a row: where a value comes from is left to its tooltip. */
+  half?: boolean;
   inherited?: Inherited | undefined;
   kind: FieldTokenKind | "opacity";
+  /** What it sets, for its tooltip and a screen reader: "Border width". */
   label: string;
-  /** One side of the padding, labelled by the side alone, set in under Padding. */
-  side?: boolean;
+  /** A letter in the field before the value, for a side of the padding: "T". */
+  mark?: string;
   onChange: (value: JsonValue) => void;
   /** The value gone through or typed, drawn before it is committed; undefined once none is. */
   onPreview?: ((value: JsonValue | undefined) => void) | undefined;
@@ -143,35 +148,35 @@ const Field = ({
 }) => {
   const options = useTokenOptions(kind === "opacity" ? "spacing" : kind);
   const color = useColorOf(value ?? inherited?.value);
-  const name = side ? `Padding ${label.toLowerCase()}` : label;
-  return (
-    <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
-      <span
-        className={cn(
-          "truncate font-body text-muted-foreground",
-          side && "pl-3"
-        )}
-      >
-        {label}
+  let leading: React.ReactNode;
+  if (kind === "color") {
+    leading = <Swatch color={color} />;
+  } else if (mark) {
+    leading = (
+      <span className="w-3 text-center font-caption text-muted-foreground">
+        {mark}
       </span>
-      <ValueField
-        {...(kind === "color" && {
-          accept: (q: string) => CSS.supports("color", q),
-          leading: <Swatch color={color} />,
-        })}
-        {...(inherited && { hint: `from ${inherited.from}` })}
-        onChange={onChange}
-        {...(onPreview && { onPreview })}
-        options={kind === "opacity" ? [] : options}
-        placeholder={inherited ? displayOf(inherited.value) : "Not set"}
-        title={
-          inherited && value === undefined
-            ? `${name}: ${inheritedText(inherited)}`
-            : name
-        }
-        value={value}
-      />
-    </div>
+    );
+  }
+  return (
+    <ValueField
+      {...(kind === "color" && {
+        accept: (q: string) => CSS.supports("color", q),
+      })}
+      {...(leading !== undefined && { leading })}
+      {...(inherited && !half && { hint: `from ${inherited.from}` })}
+      className="min-w-0 flex-1"
+      onChange={onChange}
+      {...(onPreview && { onPreview })}
+      options={kind === "opacity" ? [] : options}
+      placeholder={inherited ? displayOf(inherited.value) : "Not set"}
+      title={
+        inherited && value === undefined
+          ? `${label}: ${inheritedText(inherited)}`
+          : label
+      }
+      value={value}
+    />
   );
 };
 
@@ -203,7 +208,7 @@ const withSide = (
     : ({ ...rest, padding: sides } as PartStyle);
 };
 
-/** One field of a part that takes one of a few words. */
+/** One field of a part that takes one of a few words: a row's control, unlabelled. */
 const Choice = ({
   inherited,
   label,
@@ -217,25 +222,21 @@ const Choice = ({
   options: readonly string[];
   value: string | undefined;
 }) => (
-  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
-    <span className="truncate font-body text-muted-foreground">{label}</span>
-    <NativeSelect
-      aria-label={label}
-      className="w-full"
-      onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
-      size="sm"
-      value={value ?? ""}
-    >
-      <NativeSelectOption value="">
-        {inheritedText(inherited)}
+  <NativeSelect
+    aria-label={label}
+    className="min-w-0 flex-1"
+    onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+    size="sm"
+    title={label}
+    value={value ?? ""}
+  >
+    <NativeSelectOption value="">{inheritedText(inherited)}</NativeSelectOption>
+    {options.map((o) => (
+      <NativeSelectOption key={o} value={o}>
+        {o}
       </NativeSelectOption>
-      {options.map((o) => (
-        <NativeSelectOption key={o} value={o}>
-          {o}
-        </NativeSelectOption>
-      ))}
-    </NativeSelect>
-  </div>
+    ))}
+  </NativeSelect>
 );
 
 /** A style with one field set, or taken off when the value is empty. */
@@ -305,134 +306,201 @@ const SlotFields = ({
           : n
       );
     });
+  const side = (which: Side) => field((value) => withSide(style, which, value));
   return (
-    <div className="flex flex-col gap-1.5">
-      <Field
-        inherited={inherited.fill}
-        kind="color"
-        label="Fill"
-        value={style.fill}
-        {...set("fill")}
-      />
-      <Field
-        inherited={inherited.color}
-        kind="color"
-        label="Text"
-        value={style.color}
-        {...set("color")}
-      />
-      <Field
-        inherited={inherited["border.color"]}
-        kind="color"
-        label="Border"
-        value={style.border?.color}
-        {...border("color")}
-      />
-      <Field
-        inherited={inherited["border.width"]}
-        kind="borderWidth"
-        label="Border width"
-        value={style.border?.width}
-        {...border("width")}
-      />
-      <Field
-        inherited={inherited.radius}
-        kind="radius"
-        label="Radius"
-        value={style.radius}
-        {...set("radius")}
-      />
-      <Field
-        inherited={inherited.shadow}
-        kind="shadow"
-        label="Shadow"
-        value={style.shadow}
-        {...set("shadow")}
-      />
-      <Field
-        inherited={inherited.opacity}
-        kind="opacity"
-        label="Opacity"
-        value={style.opacity}
-        {...number("opacity")}
-      />
-      <Field
-        inherited={inherited.fontSize}
-        kind="fontSize"
-        label="Text size"
-        value={style.fontSize}
-        {...set("fontSize")}
-      />
-      <Field
-        inherited={inherited.fontWeight}
-        kind="fontWeight"
-        label="Weight"
-        value={style.fontWeight}
-        {...set("fontWeight")}
-      />
-      <span className="mt-1 font-heading-xsmall">Layout</span>
-      <Choice
-        inherited={inherited.direction}
-        label="Direction"
-        onChange={set("direction").onChange}
-        options={["row", "column"]}
-        value={style.direction}
-      />
-      <Choice
-        inherited={inherited.align}
-        label="Align"
-        onChange={set("align").onChange}
-        options={["start", "center", "end", "between", "around"]}
-        value={style.align}
-      />
-      <Choice
-        inherited={inherited.crossAlign}
-        label="Cross align"
-        onChange={set("crossAlign").onChange}
-        options={["start", "center", "end", "stretch", "baseline"]}
-        value={style.crossAlign}
-      />
-      <Field
-        inherited={inherited.gap}
-        kind="spacing"
-        label="Gap"
-        value={style.gap}
-        {...set("gap")}
-      />
-      <Field
-        inherited={inherited.padding}
-        kind="spacing"
-        label="Padding"
-        value={typeof style.padding === "object" ? undefined : style.padding}
-        {...set("padding")}
-      />
-      {SIDES.map((side) => (
-        <Field
-          inherited={inherited[`padding.${side}`]}
-          key={side}
-          kind="spacing"
-          label={`${side[0]?.toUpperCase()}${side.slice(1)}`}
-          // A side of the padding above: its label set in under Padding's, read whole.
-          side
-          value={sideOf(style.padding, side)}
-          {...field((value) => withSide(style, side, value))}
-        />
-      ))}
-      <Field
-        inherited={inherited.height}
-        kind="spacing"
-        label="Height"
-        value={style.height}
-        {...set("height")}
-      />
-      <Field
-        inherited={inherited.order}
-        kind="opacity"
-        label="Order"
-        value={style.order}
-        {...number("order")}
-      />
-    </div>
+    <>
+      <Section title="Appearance">
+        <Row label="Fill">
+          <Field
+            inherited={inherited.fill}
+            kind="color"
+            label="Fill"
+            value={style.fill}
+            {...set("fill")}
+          />
+        </Row>
+        <Row label="Border">
+          <Field
+            half
+            inherited={inherited["border.color"]}
+            kind="color"
+            label="Border colour"
+            value={style.border?.color}
+            {...border("color")}
+          />
+          <Field
+            half
+            inherited={inherited["border.width"]}
+            kind="borderWidth"
+            label="Border width"
+            value={style.border?.width}
+            {...border("width")}
+          />
+        </Row>
+        <Row label="Radius">
+          <Field
+            inherited={inherited.radius}
+            kind="radius"
+            label="Radius"
+            value={style.radius}
+            {...set("radius")}
+          />
+        </Row>
+        <Row label="Shadow">
+          <Field
+            inherited={inherited.shadow}
+            kind="shadow"
+            label="Shadow"
+            value={style.shadow}
+            {...set("shadow")}
+          />
+        </Row>
+        <Row label="Opacity">
+          <Field
+            inherited={inherited.opacity}
+            kind="opacity"
+            label="Opacity"
+            value={style.opacity}
+            {...number("opacity")}
+          />
+        </Row>
+      </Section>
+      <Section title="Text">
+        <Row label="Colour">
+          <Field
+            inherited={inherited.color}
+            kind="color"
+            label="Text colour"
+            value={style.color}
+            {...set("color")}
+          />
+        </Row>
+        <Row label="Font">
+          <Field
+            half
+            inherited={inherited.fontSize}
+            kind="fontSize"
+            label="Text size"
+            value={style.fontSize}
+            {...set("fontSize")}
+          />
+          <Field
+            half
+            inherited={inherited.fontWeight}
+            kind="fontWeight"
+            label="Weight"
+            value={style.fontWeight}
+            {...set("fontWeight")}
+          />
+        </Row>
+      </Section>
+      <Section title="Layout">
+        <Row label="Direction">
+          <Choice
+            inherited={inherited.direction}
+            label="Direction"
+            onChange={set("direction").onChange}
+            options={["row", "column"]}
+            value={style.direction}
+          />
+        </Row>
+        <Row label="Align">
+          <Choice
+            inherited={inherited.align}
+            label="Align"
+            onChange={set("align").onChange}
+            options={["start", "center", "end", "between", "around"]}
+            value={style.align}
+          />
+          <Choice
+            inherited={inherited.crossAlign}
+            label="Cross align"
+            onChange={set("crossAlign").onChange}
+            options={["start", "center", "end", "stretch", "baseline"]}
+            value={style.crossAlign}
+          />
+        </Row>
+        <Row label="Gap">
+          <Field
+            inherited={inherited.gap}
+            kind="spacing"
+            label="Gap"
+            value={style.gap}
+            {...set("gap")}
+          />
+        </Row>
+        <Row label="Padding">
+          <Field
+            inherited={inherited.padding}
+            kind="spacing"
+            label="Padding"
+            value={
+              typeof style.padding === "object" ? undefined : style.padding
+            }
+            {...set("padding")}
+          />
+        </Row>
+        {/* Each side of the padding, under Padding's own field, marked by its letter. */}
+        <Row>
+          <Field
+            half
+            inherited={inherited["padding.top"]}
+            kind="spacing"
+            label="Padding top"
+            mark="T"
+            value={sideOf(style.padding, "top")}
+            {...side("top")}
+          />
+          <Field
+            half
+            inherited={inherited["padding.bottom"]}
+            kind="spacing"
+            label="Padding bottom"
+            mark="B"
+            value={sideOf(style.padding, "bottom")}
+            {...side("bottom")}
+          />
+        </Row>
+        <Row>
+          <Field
+            half
+            inherited={inherited["padding.left"]}
+            kind="spacing"
+            label="Padding left"
+            mark="L"
+            value={sideOf(style.padding, "left")}
+            {...side("left")}
+          />
+          <Field
+            half
+            inherited={inherited["padding.right"]}
+            kind="spacing"
+            label="Padding right"
+            mark="R"
+            value={sideOf(style.padding, "right")}
+            {...side("right")}
+          />
+        </Row>
+        <Row label="Height">
+          <Field
+            inherited={inherited.height}
+            kind="spacing"
+            label="Height"
+            value={style.height}
+            {...set("height")}
+          />
+        </Row>
+        <Row label="Order">
+          <Field
+            inherited={inherited.order}
+            kind="opacity"
+            label="Order"
+            value={style.order}
+            {...number("order")}
+          />
+        </Row>
+      </Section>
+    </>
   );
 };
 
@@ -506,11 +574,11 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
   return (
     <div className="flex flex-col gap-3 font-body">
       {optional.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Optional parts</span>
+        <div className="flex flex-col">
+          <span className="font-small text-muted-foreground">Shown</span>
           {optional.map((part) => (
             // biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button
-            <label className="flex items-center gap-2" key={part.name}>
+            <label className="flex h-7 items-center gap-2" key={part.name}>
               <Checkbox
                 checked={!hidden.has(part.name)}
                 onCheckedChange={(shown) => show(part.name, shown)}
@@ -521,15 +589,17 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
         </div>
       ) : null}
       {holding.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Content when empty</span>
+        <div className="flex flex-col">
+          <span className="font-small text-muted-foreground">
+            Content when empty
+          </span>
           {holding.map((slot) => {
             const held = file.content?.[slot.name] ?? [];
             return (
-              <div className="flex items-center gap-1.5" key={slot.name}>
+              <div className="flex h-7 items-center gap-1.5" key={slot.name}>
                 <span className="min-w-0 flex-1 truncate">
                   {slot.label}{" "}
-                  <span className="text-muted-foreground">
+                  <span className="font-small text-muted-foreground">
                     {held.length === 0
                       ? "nothing"
                       : `${held.length} node${held.length === 1 ? "" : "s"}`}
@@ -539,20 +609,20 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
                   onClick={() =>
                     fromSelection((nodes) => setContent(slot.name, nodes))
                   }
-                  size="xs"
-                  variant="outline"
+                  size="sm"
+                  variant="secondary"
                 >
                   Use selection
                 </Button>
                 {held.length > 0 ? (
-                  <Button
-                    aria-label={`Clear what ${slot.label} holds`}
+                  <IconButton
+                    className="text-muted-foreground"
                     onClick={() => setContent(slot.name, [])}
-                    size="icon-xs"
-                    variant="ghost"
+                    size="icon-sm"
+                    tooltip={`Clear ${slot.label}`}
                   >
                     <X />
-                  </Button>
+                  </IconButton>
                 ) : null}
               </div>
             );
@@ -561,9 +631,9 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
       ) : null}
       {meta.templatedItems ? (
         <div className="flex flex-col gap-1">
-          <span className="font-medium">Item</span>
-          <div className="flex items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          <span className="font-small text-muted-foreground">Item</span>
+          <div className="flex items-start gap-1.5">
+            <span className="min-w-0 flex-1 py-0.5 font-small">
               {file.item
                 ? "Drawn from your nodes: the first text is the label, the first image its picture."
                 : "Its label alone."}
@@ -584,20 +654,20 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
                   )
                 )
               }
-              size="xs"
-              variant="outline"
+              size="sm"
+              variant="secondary"
             >
               Use selection
             </Button>
             {file.item ? (
-              <Button
-                aria-label="Draw items by their label alone"
+              <IconButton
+                className="text-muted-foreground"
                 onClick={() => setItem(null)}
-                size="icon-xs"
-                variant="ghost"
+                size="icon-sm"
+                tooltip="Draw items by their label alone"
               >
                 <X />
-              </Button>
+              </IconButton>
             ) : null}
           </div>
         </div>
@@ -620,7 +690,12 @@ export const SystemMenu = ({ name }: { name: string }) => {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button aria-label="More" size="icon" variant="ghost">
+          <Button
+            aria-label="More"
+            className="text-muted-foreground"
+            size="icon"
+            variant="ghost"
+          >
             <Ellipsis />
           </Button>
         }
@@ -642,6 +717,7 @@ export const SystemMenu = ({ name }: { name: string }) => {
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem onClick={() => takeOver(name)}>
+            <Brush />
             Take the look over
           </DropdownMenuItem>
         )}
@@ -715,12 +791,42 @@ export const LookInspector = ({
       nodeId: cellId(next),
     });
 
-  const placeFields = (
+  const partPicker =
+    parts.length > 1 ? (
+      <Row label="Part">
+        {parts.length <= 3 ? (
+          <Segmented
+            onChange={setSlot}
+            options={parts.map((p) => ({
+              label: p.name === ROOT_SLOT ? name : p.label,
+              value: p.name,
+            }))}
+            value={slot}
+          />
+        ) : (
+          <NativeSelect
+            aria-label="Part"
+            className="min-w-0 flex-1"
+            onChange={(e) => setSlot(e.target.value)}
+            size="sm"
+            value={slot}
+          >
+            {parts.map((p) => (
+              <NativeSelectOption key={p.name} value={p.name}>
+                {p.name === ROOT_SLOT ? name : p.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
+      </Row>
+    ) : null;
+
+  const placeFields = (editing: boolean) => (
     <Section title="Place">
       <Row label="Variant">
         <NativeSelect
           aria-label="Variant"
-          className="w-full"
+          className="min-w-0 flex-1"
           onChange={(e) => {
             const [axis = "", member = ""] = e.target.value.split("=");
             pickPlace({
@@ -746,7 +852,7 @@ export const LookInspector = ({
       <Row label="State">
         <NativeSelect
           aria-label="State"
-          className="w-full"
+          className="min-w-0 flex-1"
           onChange={(e) =>
             pickPlace({
               ...place,
@@ -763,17 +869,19 @@ export const LookInspector = ({
           ))}
         </NativeSelect>
       </Row>
+      {editing ? partPicker : null}
     </Section>
   );
 
   if (!file) {
     return (
       <>
-        {placeFields}
-        <div className="flex flex-col items-start gap-2 border-b p-3 font-body text-muted-foreground">
-          {name} is drawn in its default look, over your tokens. Take it over to
-          change any part of it here; implementing gives your application's own{" "}
-          {name} the look.
+        {placeFields(false)}
+        <div className="flex flex-col items-start gap-3 border-b px-3 py-3">
+          <p className="font-small text-muted-foreground">
+            {name} is drawn in its default look, over your tokens. Take the look
+            over to change any part of it.
+          </p>
           <Button disabled={!fallback} onClick={() => takeOver(name)} size="sm">
             Take the look over
           </Button>
@@ -797,40 +905,13 @@ export const LookInspector = ({
 
   return (
     <>
-      {placeFields}
-      <Section title="Look">
-        {parts.length > 1 && parts.length <= 3 ? (
-          <Segmented
-            onChange={setSlot}
-            options={parts.map((p) => ({
-              label: p.name === ROOT_SLOT ? name : p.label,
-              value: p.name,
-            }))}
-            value={slot}
-          />
-        ) : null}
-        {parts.length > 3 ? (
-          <NativeSelect
-            aria-label="Part"
-            className="w-full"
-            onChange={(e) => setSlot(e.target.value)}
-            size="sm"
-            value={slot}
-          >
-            {parts.map((p) => (
-              <NativeSelectOption key={p.name} value={p.name}>
-                {p.name === ROOT_SLOT ? name : p.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
-        <SlotFields
-          inherited={inheritedAt(file, fallback, place, slot)}
-          onChange={commit}
-          onPreview={preview}
-          style={style}
-        />
-      </Section>
+      {placeFields(true)}
+      <SlotFields
+        inherited={inheritedAt(file, fallback, place, slot)}
+        onChange={commit}
+        onPreview={preview}
+        style={style}
+      />
       {systemComponentOf(name)?.slots.some(
         (s) => s.optional || s.holds !== undefined
       ) || systemComponentOf(name)?.templatedItems ? (
@@ -839,7 +920,7 @@ export const LookInspector = ({
         </Section>
       ) : null}
       <ComponentUsedIn from={SYSTEM_FROM} name={name} />
-      <Section title="Notes">
+      <Section title="Behaviour notes">
         <Notes component={file} parts={parts} />
       </Section>
     </>
