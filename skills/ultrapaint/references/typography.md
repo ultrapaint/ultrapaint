@@ -16,8 +16,7 @@ Override one field only for what no style covers, with a token of the scale (`"$
 ## The face, loaded
 
 Text is in the product's own face, actually loaded. A screen in the machine's fallback looks
-generic, and an accidental fallback beside the designed face reads as a defect. Interface text is
-a neo-grotesque or geometric sans, or a mono for a technical product. A serif may carry the
+generic, and an accidental fallback beside the designed face reads as a defect. A serif may carry the
 display headlines of a landing or brand page when the brand asks for one. The product screens
 shown beneath those headlines stay sans. A text serif fits only long-form editorial reading.
 Navigation, labels, controls and tables stay sans.
@@ -37,14 +36,14 @@ a small form ("Settings", "Reset your password") is body size, one weight step u
 modest size, never bold and large. A key figure is large, and its weight may stay regular. A
 display headline of `48px` and up ranks by its size: regular or medium by default, bold only when
 the brand calls for it.
-Navigation items, tabs and buttons share one weight, usually medium, never bold. Navigation items
-are in the muted colour, and the current one takes the foreground and its row's fill. A link
+Control text (navigation items, tabs, buttons, menu items) is one style: medium, never bold.
+Navigation items are in the muted colour, and the current one takes the foreground and its row's fill. A link
 inside a sentence stays in the sentence, at its weight, underlined.
 
 An eyebrow over a heading stays only when it states a fact the heading does not: a section number,
 a date, a category. One that repeats its heading, or that the brief did not ask for, is removed.
 
-Labels are one text style wherever a label sits: a field's label, the first line of a checkbox or
+Field labels are one text style wherever one sits: a field's label, the first line of a checkbox or
 switch row, a group's label, a table's row label. Semibold, `600`, in the foreground colour, a
 clear step heavier than the description under it. In a control that shows a label and its value
 ("View · Daily"), the label is muted and the value takes the foreground.
@@ -111,9 +110,9 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | A bold display headline with no brand reason | Regular or medium |
 | An eyebrow that repeats its heading | Remove it |
 | A headline with two or more accents | One, or none |
-| Navigation labels in bold, or all in the foreground colour | One weight, usually medium, muted; the current one in the foreground |
-| A label at the same weight as its description, or muted | Semibold, the foreground |
-| Labels of fields, checkboxes, groups and table rows in different styles | One label style for all |
+| Control text in bold, or navigation all in the foreground colour | Medium, muted; the current one in the foreground |
+| A field label at the same weight as its description, or muted | Semibold, the foreground |
+| Field labels of fields, checkboxes, groups and table rows in different styles | One field-label style for all |
 | A placeholder in the foreground colour | Muted |
 | A link bold, or on its own line after its sentence | In the sentence, underlined |
 | A paragraph wider than about 75 characters | `maxWidth` on it or its column |

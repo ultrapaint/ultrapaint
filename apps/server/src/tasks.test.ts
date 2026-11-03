@@ -578,6 +578,9 @@ describe("the editor's tools in what an agent is told", () => {
   });
 });
 
+/** Where a briefing says the design system's foundations are read. */
+const FOUNDATIONS_RE = /`(\S+\/design-system\/foundations\.md)`/;
+
 describe("the briefing", () => {
   test.effect(
     "tells the design skills to a thread that draws designs, and to no other",
@@ -602,10 +605,18 @@ describe("the briefing", () => {
         const briefing = yield* ProjectBriefing;
         const toldTheSystem = (text: string | undefined) =>
           (text ?? "").includes("\n# Design system\n");
-        assert.isTrue(
-          toldTheSystem(yield* briefing.text("design", { system: true }))
-        );
+        const told = yield* briefing.text("design", { system: true });
+        assert.isTrue(toldTheSystem(told));
         assert.isFalse(toldTheSystem(yield* briefing.text("design")));
+
+        // Its files are named where they are written, read whole from there.
+        // Typed by hand: the linter otherwise takes the match for non-null.
+        const found: RegExpExecArray | null = FOUNDATIONS_RE.exec(told ?? "");
+        const fs = yield* FileSystem.FileSystem;
+        assert.include(
+          yield* fs.readFileString(found?.[1] ?? ""),
+          "# Foundations"
+        );
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 

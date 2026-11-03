@@ -10,7 +10,9 @@ noise is noise in every character.
 The design system says it first: its faces, its radius, its colours, its DESIGN.md. Then the
 brief: who uses it and for what. Without either, the job decides: a tool for operators and data
 is technical, one for people's own lives is humanistic, a page that sells or tells a story is
-expressive. A product can sit between two; its own screens settle it.
+expressive. A product can sit between two; its own screens settle it. When the design system is
+being made, there is none to read yet: the brief and the product's pictures decide, and the
+character then sets the system's dials (`references/design-system/foundations.md`).
 
 ## Technical: admin, data, developer tools
 
