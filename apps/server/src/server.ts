@@ -14,7 +14,6 @@ import {
   HttpServer,
   HttpServerRequest,
   HttpServerResponse,
-  HttpStaticServer,
 } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
@@ -27,6 +26,7 @@ import {
   isLoopback,
   ServerConfig,
 } from "./config.ts";
+import { editorBuild } from "./editor-build.ts";
 import { ListenPort } from "./listen-port.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
@@ -215,7 +215,7 @@ const HealthRoute = HttpRouter.use(
 /** Serves the built editor when `--web-dist` is given; in development Vite does that. */
 const StaticRoute = Layer.unwrap(
   Effect.map(ServerConfig, ({ webDist }) =>
-    webDist ? HttpStaticServer.layer({ root: webDist, spa: true }) : Layer.empty
+    webDist ? editorBuild(webDist) : Layer.empty
   )
 );
 

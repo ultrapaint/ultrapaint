@@ -250,6 +250,21 @@ export class EditorFrame {
     return this.mount?.drawn === true;
   }
 
+  /** It is open and on the canvas, not parked. */
+  get placed() {
+    return this.mount?.placed === true;
+  }
+
+  /** It has drawn the last thing it was told, and that is a page or a message, not nothing. */
+  get settled() {
+    const { shown } = this;
+    return (
+      shown !== null &&
+      this.rendered >= shown.renderId &&
+      (shown.root !== null || shown.message !== undefined)
+    );
+  }
+
   /** When it was parked, or null while it is placed or not open. */
   parkedAt(): number | null {
     return this.mount && !this.mount.placed ? this.mount.touched : null;
@@ -593,6 +608,26 @@ export const frameErrors = (): Readonly<Record<string, string>> =>
 
 /** Whether a frame has drawn: it shows at once when placed. */
 export const isWarm = (id: string) => frames.get(id)?.warm === true;
+
+/**
+ * Whether every frame placed on the canvas has drawn what it was last told, and how many are
+ * placed: the editor's splash waits for them (`app.tsx`), so the canvas it uncovers is drawn, not
+ * blank frames filling in.
+ */
+export const placedFramesDrawn = (): {
+  readonly drawn: boolean;
+  readonly placed: number;
+} => {
+  let placed = 0;
+  let drawn = true;
+  for (const frame of frames.values()) {
+    if (frame.placed) {
+      placed += 1;
+      drawn &&= frame.settled;
+    }
+  }
+  return { drawn, placed };
+};
 
 /** Hears whenever a frame has drawn or gone: the frames that may draw next. */
 export const onPoolChange = (listener: () => void) => {

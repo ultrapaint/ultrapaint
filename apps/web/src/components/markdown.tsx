@@ -4,12 +4,18 @@
  * Until it arrives the text is shown as it is.
  */
 import { cn } from "cn";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { deferred } from "../lib/deferred.ts";
 import type { MarkdownProps } from "./markdown-render.tsx";
 
-const MarkdownRender = lazy(() =>
-  import("./markdown-render.tsx").then((m) => ({ default: m.MarkdownRender }))
+const renderer = deferred(() =>
+  import("./markdown-render.tsx").then((m) => m.MarkdownRender)
 );
+
+/** Fetches the renderer ahead of the first message, as the editor starts. */
+export const preloadMarkdown = renderer.preload;
+
+const MarkdownRender = renderer.Component;
 
 export const Markdown = (props: MarkdownProps) => (
   <Suspense
