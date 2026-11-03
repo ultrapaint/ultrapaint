@@ -77,3 +77,6 @@ It works with React, Vite and Tailwind v4 today. Other frameworks and styling sy
 Ultrapaint is free software under the [GNU AGPL v3](LICENSE). Use it, change it, and run it for
 your team as you like; if you distribute a changed version or offer one as a service, publish your
 changes under the same licence. What you design and build with it is yours.
+
+This licence covers every version of Ultrapaint in this repository, including the commits made
+before the `LICENSE` file was added.
