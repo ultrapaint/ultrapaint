@@ -182,8 +182,11 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const selectedChip =
     (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
     boardChip;
+  // Pictures show as themselves, over the chips of the places the prompt is about.
+  const images = chips.filter(isImage);
+  const places = chips.filter(isPlace);
   const implicit =
-    chips.some(isPlace) ||
+    places.length > 0 ||
     selectedChip === null ||
     dismissed.includes(chipKey(selectedChip))
       ? []
@@ -273,10 +276,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   };
   // An image on the clipboard is attached rather than pasted as text.
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const images = pastedImages(e.clipboardData);
-    if (images.length > 0) {
+    const pasted = pastedImages(e.clipboardData);
+    if (pasted.length > 0) {
       e.preventDefault();
-      attachImages(thread.id, images);
+      attachImages(thread.id, pasted);
     }
   };
   const cancel = () =>
@@ -307,9 +310,20 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       />
       <OpenQuestion answering={answering} threadId={thread.id} />
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
-        {chips.length > 0 || implicit.length > 0 || showShot ? (
+        {images.length > 0 ? (
+          <div className="flex flex-wrap gap-2 px-2 pt-2">
+            {images.map((chip) => (
+              <ImageThumb
+                chip={chip}
+                key={chipKey(chip)}
+                onRemove={() => removeChip(thread.id, chipKey(chip))}
+              />
+            ))}
+          </div>
+        ) : null}
+        {places.length > 0 || implicit.length > 0 || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
-            {chips.map((chip) => (
+            {places.map((chip) => (
               <AttachmentChip
                 chip={chip}
                 key={chipKey(chip)}
@@ -621,18 +635,6 @@ const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
   if (chip.kind === "board") {
     return <BoardIcon chip={chip} />;
   }
-  if (chip.kind === "image") {
-    // The picture itself, small, so two pasted images are told apart.
-    return (
-      <img
-        alt=""
-        className="size-4 shrink-0 rounded-sm object-cover"
-        height={16}
-        src={chip.dataUrl}
-        width={16}
-      />
-    );
-  }
   return chip.kind === "page" ? (
     <AppWindow className="text-muted-foreground" />
   ) : (
@@ -641,6 +643,40 @@ const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
     />
   );
 };
+
+type ImageChip = Extract<Chip, { kind: "image" }>;
+
+const isImage = (chip: Chip): chip is ImageChip => chip.kind === "image";
+
+/** A picture sent with the next prompt, as itself; its × shows over its corner on hover. */
+const ImageThumb = ({
+  chip,
+  onRemove,
+}: {
+  chip: ImageChip;
+  onRemove: () => void;
+}) => (
+  <span
+    className="group/thumb relative size-14 shrink-0"
+    title={chipTitle(chip)}
+  >
+    <img
+      alt={chip.name}
+      className="size-full rounded-md border object-cover"
+      height={56}
+      src={chip.dataUrl}
+      width={56}
+    />
+    <button
+      aria-label={`Remove ${chip.name}`}
+      className="absolute -top-1.5 -right-1.5 flex size-4.5 items-center justify-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/thumb:opacity-100 [&_svg]:size-3"
+      onClick={onRemove}
+      type="button"
+    >
+      <X />
+    </button>
+  </span>
+);
 
 /**
  * An attachment of the next prompt. A node takes its selection colour, purple for a component;
