@@ -14,7 +14,6 @@ import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { cn } from "cn";
 import {
-  ArrowLeft,
   Bot,
   CircleAlert,
   FolderGit2,
@@ -24,6 +23,7 @@ import {
   SwatchBook,
   TriangleAlert,
   Wand2,
+  X,
 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { IconButton } from "../components/icon-button.tsx";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
@@ -41,7 +42,6 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { useWindowChrome } from "../state/window-controls.ts";
 import {
   ChatDefaultsGroup,
   MachineAgentsGroup,
@@ -273,45 +273,38 @@ const shown = (id: SectionId) =>
  * window's buttons sit at its start: it leaves them room, is as tall as the editor's title card
  * so they stay where they were, and moves the window when dragged.
  */
-const SettingsTitle = () => {
-  const chrome = useWindowChrome();
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center px-4",
-        chrome.drag ? "window-drag h-15" : "h-12"
-      )}
-      style={chrome.inset > 0 ? { paddingLeft: chrome.inset } : undefined}
-    >
-      <h1 className="font-semibold">Settings</h1>
-    </div>
-  );
-};
+const SettingsTitle = () => (
+  <div className="flex h-12 shrink-0 items-center px-4">
+    <h1 className="font-semibold">Settings</h1>
+  </div>
+);
 
-/** Where in the settings this is; as tall as the sidebar's heading, and as draggable. */
-const SectionHeader = ({ label }: { label: string }) => {
-  const chrome = useWindowChrome();
-  return (
-    <header
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 border-b px-6 font-body",
-        chrome.drag ? "window-drag h-15" : "h-12"
-      )}
-    >
-      <span className="text-muted-foreground">Settings</span>
-      <span className="text-muted-foreground">/</span>
-      <span className="font-medium">{label}</span>
-    </header>
-  );
-};
+/**
+ * Where in the settings this is, as tall as the sidebar's heading, and the dialog's close
+ * button, which leaves them as Cancel does.
+ */
+const SectionHeader = ({
+  label,
+  onClose,
+}: {
+  label: string;
+  onClose: () => void;
+}) => (
+  <header className="flex h-12 shrink-0 items-center gap-1.5 border-b pr-2 pl-6 font-body">
+    <span className="text-muted-foreground">Settings</span>
+    <span className="text-muted-foreground">/</span>
+    <span className="font-medium">{label}</span>
+    <IconButton className="ml-auto" onClick={onClose} tooltip="Close">
+      <X />
+    </IconButton>
+  </header>
+);
 
 const Sidebar = ({
-  onBack,
   onSelect,
   section,
   showAll,
 }: {
-  onBack: () => void;
   onSelect: (id: SectionId) => void;
   section: SectionId;
   showAll: boolean;
@@ -342,16 +335,6 @@ const Sidebar = ({
           );
         })}
     </nav>
-    <div className="mt-auto p-2">
-      <Button
-        className="w-full justify-start text-muted-foreground"
-        onClick={onBack}
-        variant="ghost"
-      >
-        <ArrowLeft />
-        Back to the editor
-      </Button>
-    </div>
   </aside>
 );
 
@@ -467,16 +450,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   };
 
   const cancel = () => useProject.getState().openSettings(false);
-  // Escape leaves the page, as it closed the dialog. The editor opens without settings too.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) {
-        useProject.getState().openSettings(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
   const onRepoPath = (e: React.ChangeEvent<HTMLInputElement>) => {
     const repoPath = e.target.value;
     setDraft((d) => ({ ...d, repoPath }));
@@ -703,15 +676,14 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   }[section];
 
   return (
-    <div className="flex h-full bg-background">
+    <div className="flex h-full min-w-0 flex-1 bg-background">
       <Sidebar
-        onBack={cancel}
         onSelect={setSection}
         section={section}
         showAll={saved !== null}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <SectionHeader label={label} />
+        <SectionHeader label={label} onClose={cancel} />
         <div className="@container min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-8">
             {body}
