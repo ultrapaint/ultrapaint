@@ -5,7 +5,10 @@
 import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, type Effect, type Option } from "effect";
 
-/** What the window shows: a project's editor, or the page that asks for a first project. */
+/**
+ * What the window shows: a project's editor; the page that asks for a project, or says why one
+ * could not be opened; or that page saying a project is opening, until its editor loads.
+ */
 export type View =
   | {
       readonly _tag: "Editor";
@@ -15,6 +18,12 @@ export type View =
        */
       readonly keepLocation?: boolean;
       readonly url: string;
+    }
+  | {
+      readonly _tag: "Opening";
+      /** Where the project is: its folder, or its host and folder. */
+      readonly detail: string;
+      readonly name: string;
     }
   | { readonly _tag: "Welcome"; readonly problem?: string | undefined };
 

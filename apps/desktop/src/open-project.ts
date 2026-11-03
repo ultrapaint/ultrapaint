@@ -4,6 +4,9 @@
  * with an agent at work is stopped only once the user says so (D3, D13); a server the app
  * attached to, rather than started (D5), is left running. A signal (SIGINT, SIGTERM) asks
  * nobody: it answers a question on screen no and stops the server at once.
+ *
+ * While a project opens the window says so, from the first moment: a machine that does not
+ * answer leaves no blank window, and the user can stop it for the list or pick another project.
  */
 import {
   Context,
@@ -23,6 +26,7 @@ import { ProjectServer, type RunningServer } from "./project-server.ts";
 import {
   type Project,
   ProjectStore,
+  projectDetail,
   type RemoteProjectInput,
 } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
@@ -110,6 +114,8 @@ export class OpenProject extends Context.Service<
     readonly restart: Effect.Effect<void, StoreError | ServerStartError>;
     /** At start: the project opened last, or the page that asks for one. */
     readonly start: Effect.Effect<void, StoreError>;
+    /** Stops the project opening, if one is, and shows the list in its place. */
+    readonly stopOpening: Effect.Effect<void>;
     /**
      * Stops the open project's server, as the app quits. With `ask`, an agent at work is the
      * user's to stop: false when they would rather it went on, and nothing is stopped; a second
@@ -138,6 +144,14 @@ export class OpenProject extends Context.Service<
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
+        /**
+         * The project opening and how to stop it: for the list, when the user asks, or for
+         * another project picked meanwhile.
+         */
+        let opening: {
+          readonly id: string;
+          readonly stop: Deferred.Deferred<"list" | "switch">;
+        } | null = null;
         // Done once a signal stops the app: no question is answered yes after it.
         const signalled = yield* Deferred.make<void>();
         // The quit being asked, whose answer a second close or Cmd-Q meanwhile waits for.
@@ -244,16 +258,64 @@ export class OpenProject extends Context.Service<
             )
           );
 
-        /** Opens a project in place of the open one; false when the user kept that one. */
+        /**
+         * Launches `project`, the window saying so meanwhile; false when it was stopped first,
+         * for the list (shown then) or for another project.
+         */
+        const launchShown = Effect.fnUntraced(function* (
+          project: Project,
+          query?: Readonly<Record<string, string>>
+        ) {
+          const stop = yield* Deferred.make<"list" | "switch">();
+          opening = { id: project.id, stop };
+          yield* shell.show({
+            _tag: "Opening",
+            detail: projectDetail(project),
+            name: project.name,
+          });
+          // Stopped, the launch is interrupted: its scope closes, and the connection with it.
+          const stopped = yield* Effect.raceFirst(
+            Effect.as(launch(project, { query }), Option.none()),
+            Effect.map(Deferred.await(stop), Option.some)
+          ).pipe(
+            Effect.ensuring(
+              Effect.sync(() => {
+                if (opening?.stop === stop) {
+                  opening = null;
+                }
+              })
+            )
+          );
+          if (Option.isSome(stopped) && stopped.value === "list") {
+            yield* shell.show({ _tag: "Welcome" });
+          }
+          return Option.isNone(stopped);
+        });
+
+        /** Stops the project opening, for `reason`; nothing when none is. */
+        const stopOpening = (reason: "list" | "switch") =>
+          Effect.suspend(() =>
+            opening
+              ? Effect.asVoid(Deferred.succeed(opening.stop, reason))
+              : Effect.void
+          );
+
+        /**
+         * Opens a project in place of the open one, stopping one still opening; false when the
+         * user kept the open one, or the opening was stopped.
+         */
         const openProject = (
           project: Project,
           query?: Readonly<Record<string, string>>
         ) =>
-          switching.withPermits(1)(
-            Effect.flatMap(release("switch", true), (released) =>
-              released
-                ? Effect.as(showFailure(launch(project, { query })), true)
-                : Effect.succeed(false)
+          Effect.andThen(
+            stopOpening("switch"),
+            switching.withPermits(1)(
+              Effect.flatMap(release("switch", true), (released) =>
+                released
+                  ? showFailure(launchShown(project, query))
+                  : Effect.succeed(false)
+              )
             )
           );
 
@@ -313,7 +375,8 @@ export class OpenProject extends Context.Service<
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
           open: (id) =>
             Effect.flatMap(store.get(id), (project) =>
-              open?.project.id === id
+              // The one open, or the one opening already, goes on as it is.
+              open?.project.id === id || opening?.id === id
                 ? Effect.void
                 : Effect.asVoid(openProject(project))
             ),
@@ -338,6 +401,7 @@ export class OpenProject extends Context.Service<
             yield* Effect.ignore(openProject(last.value));
           }),
           stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
+          stopOpening: stopOpening("list"),
         });
       })
     );

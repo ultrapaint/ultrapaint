@@ -1,13 +1,15 @@
 /**
  * The welcome page of the desktop app (`welcome.html`): shown while no project is open, at the
- * first start or when a project could not start, with why. It lists the app's projects and
- * offers a new design or a folder, through `Platform`; there is no server behind it.
+ * first start or when a project could not start, with why, and while a project opens, until its
+ * editor loads: the user can stop it or pick another project meanwhile. It lists the app's
+ * projects and offers a new design or a folder, through `Platform`; there is no server behind it.
  */
 import { CircleAlert, FolderPlus, Plus, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   canMakeNewDesigns,
@@ -34,6 +36,12 @@ const Welcome = () => {
     new URLSearchParams(window.location.search).get("problem")
   );
   const say = (error: unknown) => setProblem(messageOf(error));
+  // The project the app is opening, until its editor takes the window's place.
+  const [opening] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    const name = query.get("opening");
+    return name ? { detail: query.get("detail") ?? "", name } : null;
+  });
 
   useEffect(() => {
     projects
@@ -52,6 +60,30 @@ const Welcome = () => {
           SSH. The list keeps it for next time.
         </p>
       </div>
+      {opening ? (
+        <div className="flex items-start gap-3 rounded-md border p-3 font-body">
+          <Spinner className="mt-0.5 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span>Opening {opening.name}</span>
+            <span className="truncate text-muted-foreground">
+              {opening.detail}
+            </span>
+            <span className="text-muted-foreground">
+              Starting its server. A machine that is off or out of reach can
+              take a minute to give up: stop, or pick another project.
+            </span>
+          </div>
+          {projects ? (
+            <Button
+              onClick={() => projects.stopOpening().catch(say)}
+              size="sm"
+              variant="outline"
+            >
+              Stop
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {problem ? (
         <Alert variant="destructive">
           <CircleAlert />
