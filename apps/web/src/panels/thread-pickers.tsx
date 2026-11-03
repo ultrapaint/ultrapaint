@@ -410,33 +410,3 @@ export const ModePicker = ({ thread }: { thread: Thread }) => {
     </DropdownMenu>
   );
 };
-
-/** "1.2k of 200k tokens in context · 0.12 USD so far" */
-const contextTitle = (context: NonNullable<Thread["context"]>) => {
-  const tokens = (n: number) =>
-    n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n);
-  const cost = context.cost
-    ? ` · ${context.cost.amount.toFixed(2)} ${context.cost.currency} so far`
-    : "";
-  return `${tokens(context.used)} of ${tokens(context.size)} tokens in context${cost}`;
-};
-
-/** How full the agent's context is, as it last said; nothing until it says. */
-export const ContextMeter = ({ thread }: { thread: Thread }) => {
-  const { context } = thread;
-  if (!context || context.size <= 0) {
-    return null;
-  }
-  const percent = Math.min(
-    100,
-    Math.round((context.used / context.size) * 100)
-  );
-  return (
-    <span
-      className="shrink-0 px-1 font-body text-muted-foreground tabular-nums"
-      title={contextTitle(context)}
-    >
-      {percent}%
-    </span>
-  );
-};
