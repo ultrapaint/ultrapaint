@@ -169,6 +169,11 @@ refactor and the board view left.
   (`skill://ultrapaint/<name>`): whole, or, with the setting `skills.briefing: "summaries"`, by
   their titles and summaries with where each is read whole (`SkillsTold`); the slash commands are
   MCP prompts too.
+- **Design gap**: what a person found wrong in a design made with the design skill, kept until
+  the lab shows a change to the skill catches it (ADR 0059): one file each in `evals/gaps/`, read
+  by evals' `gap.ts`, its kind (missing, missed, process) and status (open, testing, done,
+  wontfix). `pnpm evals recall` measures a candidate against the shipped skill on the gaps'
+  sections and writes its result into each gap.
 - **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
   canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
   (`where`).

@@ -14,6 +14,8 @@
  *   pnpm evals learn <round>                       what your picks say, as rules for the skills
  *   pnpm evals review <round> [rounds…]            judge what rounds made yourself, by swiping
  *   pnpm evals compare <baseline> <candidate>      two rounds' scores
+ *   pnpm evals gaps                                the design gaps, with kind and status
+ *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *
  * `generate`, `judge` and `report` run one step of a round each, to resume or redo one.
  * See evals/README.md.
@@ -29,6 +31,7 @@ import { judgeComponents } from "./component-judge.ts";
 import { EvalsConfig } from "./config.ts";
 import { extract, freeze } from "./extract.ts";
 import { GALLERY_SETS, gallery } from "./gallery.ts";
+import { listGaps } from "./gap.ts";
 import { generate } from "./generate.ts";
 import { setupHost } from "./host.ts";
 import { judge } from "./judge.ts";
@@ -36,6 +39,7 @@ import { learn } from "./learn.ts";
 import { Models } from "./models.ts";
 import { pairwise } from "./pairwise.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
+import { recall } from "./recall.ts";
 import { loadReferences } from "./reference.ts";
 import { report } from "./report.ts";
 import { review } from "./review.ts";
@@ -655,6 +659,57 @@ const pairwiseCommand = Command.make(
   )
 );
 
+const gapsCommand = Command.make("gaps", {}, listGaps).pipe(
+  Command.withDescription(
+    "The design gaps of evals/gaps/: id, kind, status, title and the sections recall reviews"
+  )
+);
+
+const recallCommand = Command.make(
+  "recall",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the reviewers and judges think"),
+      Flag.withDefault("high")
+    ),
+    model: model("opus", "that reviews and judges"),
+    name,
+    runs: Flag.Int("runs").pipe(
+      Flag.withDescription("Reviews per section and version"),
+      Flag.withDefault(2)
+    ),
+    // Positional arguments are read in the order of their keys, sorted: `name`, then `sections`.
+    sections: Argument.String("sections").pipe(
+      Argument.withDescription(
+        "Sections of the data directory's gaps/sections/; all when none"
+      ),
+      Argument.variadic()
+    ),
+    skills: Flag.String("skills").pipe(
+      Flag.withDescription(
+        "The versions of the skill, comma-separated: built-in, candidates/<fix>"
+      ),
+      Flag.withDefault("built-in")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* recall({
+      concurrency: input.concurrency,
+      effort: input.effort,
+      model: input.model,
+      round: input.name,
+      runs: input.runs,
+      sections: input.sections,
+      skills: input.skills.split(",").map((s) => s.trim()),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Have reviewers with each version of the skill review the gaps' sections, and count what they found of the person's findings"
+  )
+);
+
 Command.make("design-evals").pipe(
   Command.withDescription(
     "Find what the shipped design skills fail to teach, by remaking good screens and comparing"
@@ -678,6 +733,8 @@ Command.make("design-evals").pipe(
     learnCommand,
     compareCommand,
     pairwiseCommand,
+    gapsCommand,
+    recallCommand,
   ]),
   Command.run({ version: "0.0.0" }),
   Effect.provide(

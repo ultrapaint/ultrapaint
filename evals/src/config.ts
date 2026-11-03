@@ -26,6 +26,8 @@ export interface DataDir {
   readonly fromData: (file: string) => string;
   /** The shots a person chooses references from. */
   readonly gallery: string;
+  /** A gap's pictures: the person's screenshots of what they corrected. */
+  readonly gapDir: (gap: string) => string;
   readonly hostDir: (host: string) => string;
   /** The projects the agents design in, one directory each, made with `ultrapaint new`. */
   readonly hosts: string;
@@ -36,6 +38,11 @@ export interface DataDir {
   readonly runDir: (round: string, reference: string, run: number) => string;
   /** One directory per round: what was generated, how it was judged, the report. */
   readonly runs: string;
+  /**
+   * The sections `recall` reviews, one directory each: `section.json`, its pictures and its code as
+   * it was when they were taken.
+   */
+  readonly sections: string;
   /** What the studies wrote, one directory per model. */
   readonly studies: string;
   /** Scratch: the servers' configurations, designs directories and logs. */
@@ -56,6 +63,7 @@ export const dataDirAt = (root: string): DataDir => {
     familyDir: (family) => path.join(families, family),
     fromData: (file) => path.relative(root, file),
     gallery: path.join(root, "gallery"),
+    gapDir: (gap) => path.join(root, "gaps", gap),
     hostDir: (host) => path.join(hosts, host),
     hosts,
     referenceDir: (reference) => path.join(references, reference),
@@ -64,6 +72,7 @@ export const dataDirAt = (root: string): DataDir => {
     runDir: (round, reference, run) =>
       path.join(runs, round, reference, `run-${run}`),
     runs,
+    sections: path.join(root, "gaps", "sections"),
     studies: path.join(root, "studies"),
     work: path.join(root, ".work"),
   };
@@ -88,6 +97,8 @@ export class EvalsConfig extends Context.Service<
     readonly data: DataDir;
     /** The Chrome or Chromium to run (`LAB_BROWSER`); the first one installed without it. */
     readonly browser: string | undefined;
+    /** The design gaps, one file each: `evals/gaps/`, in git beside the code. */
+    readonly gaps: string;
     /** Whether the editor's console errors are printed (`LAB_EDITOR_LOG`): why a picture failed. */
     readonly editorLog: boolean;
     /**
@@ -108,6 +119,7 @@ export class EvalsConfig extends Context.Service<
         )
       ),
       editorLog: Boolean(env.LAB_EDITOR_LOG),
+      gaps: path.join(EVALS, "gaps"),
       skillsBriefing: env.EVAL_SKILLS_BRIEFING,
     });
 

@@ -40,3 +40,8 @@ there.
 Besides what the skills started with, the design evals (`evals/`): agents remake good reference
 screens, a judge and a person compare the results section by section, and the changes that win
 are written back here.
+
+A change to the skill starts from a gap in `evals/gaps/`, what a person found wrong in a design
+made with it. It is tried as a candidate in the data directory's `candidates/` and measured with
+`pnpm evals recall` against the shipped skill. A change that lands names the gaps it closes, and
+their status becomes `done`.

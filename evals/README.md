@@ -23,6 +23,7 @@ hosts/          the projects the agents design in (below)
 references/     one directory per reference: reference.json, capture/, brief.md
 families/       a product's screens and component crops, for track A
 candidates/     skill files to try in a round (--skills candidates/<fix>)
+gaps/           the design gaps' pictures, and the sections recall reviews (gaps/README.md)
 runs/           one directory per round, and <a>-vs-<b>/ for pairwise
 corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources and notes
 .work/          the servers' configurations, scratch designs directories and logs
@@ -139,6 +140,23 @@ Needs Chrome (or `LAB_BROWSER`), the `claude` command signed in, and the agent t
 signed in too. Run rounds one at a time: when the checkout has moved since its editor was last
 built, `ultrapaint` rebuilds it as it starts, and two rounds starting at once collide. Every run costs one full agent session, and every judgement one Claude session over
 a dozen pictures: start with one reference and `--runs 1`.
+
+## Gaps and recall
+
+The design skill's known gaps are files in `gaps/` (`pnpm evals gaps` lists them): what a
+person found wrong in a design made with the skill, and what the lab tried. [`gaps/README.md`](gaps/README.md)
+says how to add one. `recall` measures a fix for them: a fresh reviewer, told one version of the
+skill, reviews each gap's section from its pictures and code; a judge blind to the version
+matches the review with the person's findings; what no gap matches is grouped for the person
+to rate.
+
+```sh
+pnpm evals gaps
+pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sections…]
+```
+
+It takes `--model` (opus) and `--effort` (high) for the reviewers and judges, and resumes like a
+round. It writes `runs/<round>/report.md` and each measured gap's line under **Result.**
 
 ## A reference
 

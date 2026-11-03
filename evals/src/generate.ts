@@ -180,7 +180,11 @@ const placeSkills = Effect.fn("placeSkills")(function* (
   }
   const fs = yield* FileSystem.FileSystem;
   const from = path.resolve(data.root, skills);
-  const files = (yield* listDir(from)).filter((f) => f.endsWith(".md"));
+  // A candidate's `SKILL.md` is the router, which a project's skills cannot replace: only
+  // `recall` reads it.
+  const files = (yield* listDir(from)).filter(
+    (f) => f.endsWith(".md") && f !== "SKILL.md"
+  );
   if (files.length === 0) {
     return yield* new EvalsError({ message: `no skill files in ${skills}` });
   }
