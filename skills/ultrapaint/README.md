@@ -37,6 +37,6 @@ there.
 
 ## Where the rules come from
 
-Besides what the skills started with, the design evals lab: agents remake good reference
+Besides what the skills started with, the design evals (`evals/`): agents remake good reference
 screens, a judge and a person compare the results section by section, and the changes that win
 are written back here.

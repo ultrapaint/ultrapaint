@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - evals
 
 catalog:
   '@effect/platform-node': 4.0.0
