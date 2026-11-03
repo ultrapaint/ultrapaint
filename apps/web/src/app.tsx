@@ -2,15 +2,16 @@ import { cn } from "cn";
 import {
   type ComponentType,
   type CSSProperties,
-  lazy,
   Suspense,
   useEffect,
+  useState,
 } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Canvas } from "./canvas/canvas.tsx";
+import { placedFramesDrawn } from "./canvas/editor-frame.ts";
 import { IsolationBanner } from "./canvas/isolation-banner.tsx";
 import { thePreview } from "./canvas/preview-module.ts";
 import {
@@ -26,6 +27,7 @@ import { Toolbar, ZoomControl } from "./canvas/toolbar.tsx";
 import { CommandPalette } from "./components/command-palette.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
+import { preloadMarkdown } from "./components/markdown.tsx";
 import { NewDesignDialog } from "./components/new-design-dialog.tsx";
 import { Rail, railItems } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
@@ -33,12 +35,14 @@ import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { SetupDialog } from "./components/setup-dialog.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
+import { PanelLoading, Splash } from "./components/splash.tsx";
 import {
   EDGE,
   HideRightPanel,
   TitleCard,
   TopActions,
 } from "./components/title-bar.tsx";
+import { deferred } from "./lib/deferred.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openNewDesignOnSync } from "./lib/new-design.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
@@ -57,6 +61,7 @@ import { setView } from "./state/camera.ts";
 import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
 import { useDesignSystem } from "./state/design-system.ts";
+import { useDocuments } from "./state/documents.ts";
 import {
   type LeftTab,
   type RightTab,
@@ -81,42 +86,138 @@ import { useSync } from "./state/sync.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
 /*
- * Loaded when first opened: the chat is the panel the editor opens on, and the others, the
- * settings above all, bring code nobody needs until they are looked at.
+ * Each in a file of its own, apart from the editor's first bundle, and all fetched while the
+ * splash is up (`preloadPanels`): the editor shows itself once they are in, and a panel then opens
+ * at once.
  */
-const Changes = lazy(() =>
-  import("./panels/changes.tsx").then((m) => ({ default: m.Changes }))
+const boardCanvasPanel = deferred(() =>
+  import("./canvas/board-canvas.tsx").then((m) => m.BoardCanvas)
 );
-const Comments = lazy(() =>
-  import("./panels/comments.tsx").then((m) => ({ default: m.Comments }))
+const boardInspectorPanel = deferred(() =>
+  import("./panels/board-inspector.tsx").then((m) => m.BoardInspector)
 );
-const BoardCanvas = lazy(() =>
-  import("./canvas/board-canvas.tsx").then((m) => ({
-    default: m.BoardCanvas,
-  }))
+const changesPanel = deferred(() =>
+  import("./panels/changes.tsx").then((m) => m.Changes)
 );
-const BoardInspector = lazy(() =>
-  import("./panels/board-inspector.tsx").then((m) => ({
-    default: m.BoardInspector,
-  }))
+const commentsPanel = deferred(() =>
+  import("./panels/comments.tsx").then((m) => m.Comments)
 );
-const DesignSystemList = lazy(() =>
-  import("./panels/design-system-list.tsx").then((m) => ({
-    default: m.DesignSystemList,
-  }))
+const designSystemListPanel = deferred(() =>
+  import("./panels/design-system-list.tsx").then((m) => m.DesignSystemList)
 );
-const Layers = lazy(() =>
-  import("./panels/layers.tsx").then((m) => ({ default: m.Layers }))
+const layersPanel = deferred(() =>
+  import("./panels/layers.tsx").then((m) => m.Layers)
 );
-const Library = lazy(() =>
-  import("./panels/library.tsx").then((m) => ({ default: m.Library }))
+const libraryPanel = deferred(() =>
+  import("./panels/library.tsx").then((m) => m.Library)
 );
-const Pages = lazy(() =>
-  import("./panels/pages.tsx").then((m) => ({ default: m.Pages }))
+const pagesPanel = deferred(() =>
+  import("./panels/pages.tsx").then((m) => m.Pages)
 );
-const SettingsPage = lazy(() =>
-  import("./panels/settings.tsx").then((m) => ({ default: m.SettingsPage }))
+const settingsPanel = deferred(() =>
+  import("./panels/settings.tsx").then((m) => m.SettingsPage)
 );
+
+/** Fetches every panel's code; done when all are in, or failed (a panel then loads when opened). */
+const preloadPanels = () =>
+  Promise.allSettled([
+    ...[
+      boardCanvasPanel,
+      boardInspectorPanel,
+      changesPanel,
+      commentsPanel,
+      designSystemListPanel,
+      layersPanel,
+      libraryPanel,
+      pagesPanel,
+      settingsPanel,
+    ].map((panel) => panel.preload()),
+    preloadMarkdown(),
+  ]);
+
+const BoardCanvas = boardCanvasPanel.Component;
+const BoardInspector = boardInspectorPanel.Component;
+const Changes = changesPanel.Component;
+const Comments = commentsPanel.Component;
+const DesignSystemList = designSystemListPanel.Component;
+const Layers = layersPanel.Component;
+const Library = libraryPanel.Component;
+const Pages = pagesPanel.Component;
+const SettingsPage = settingsPanel.Component;
+
+/** How long the splash waits at most: a server that does not answer leaves the editor to say so. */
+const SPLASH_LIMIT_MS = 10_000;
+
+/** How long the splash waits for the frames on screen, once everything else is in. */
+const FRAMES_LIMIT_MS = 2000;
+
+/** Whether the project is read and the designs of the canvas it opens on are in. */
+const designsIn = () => {
+  const { canvases, info, loaded } = useProject.getState();
+  const { canvas } = useEditor.getState();
+  return (
+    loaded &&
+    (!info.configured ||
+      canvases.length === 0 ||
+      (canvas !== null && useDocuments.getState().loaded))
+  );
+};
+
+/**
+ * Whether the frames on screen have drawn their designs. Only the page canvas has frames to wait
+ * for: the prototype, a board view and the settings draw their own.
+ */
+const framesIn = () => {
+  const { pages, settingsOpen } = useProject.getState();
+  const { canvas, workspace } = useEditor.getState();
+  if (
+    settingsOpen ||
+    workspace === "prototype" ||
+    useBoard.getState().open !== null ||
+    !pages.some((page) => page.canvas === canvas)
+  ) {
+    return true;
+  }
+  const frames = placedFramesDrawn();
+  return frames.placed > 0 && frames.drawn;
+};
+
+/**
+ * The splash, until the editor is ready to be shown whole: every panel's code fetched, the designs
+ * in and the frames on screen drawn. Once gone it stays gone: a canvas opened later reads its
+ * designs under the editor.
+ */
+const StartSplash = () => {
+  const name = useProject((s) =>
+    s.info.configured ? (s.info.name ?? null) : null
+  );
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    let panels = false;
+    // When the rest was in: a canvas whose frames are all off screen does not hold the splash.
+    let inSince: number | null = null;
+    // Looked at once a frame while the splash is up: the frames say when they draw, not to whom.
+    let frame = requestAnimationFrame(function check(now) {
+      if (panels && designsIn()) {
+        inSince ??= now;
+        if (framesIn() || now - inSince > FRAMES_LIMIT_MS) {
+          setStarted(true);
+          return;
+        }
+      }
+      frame = requestAnimationFrame(check);
+    });
+    preloadPanels().then(() => {
+      panels = true;
+    });
+    const limit = setTimeout(() => setStarted(true), SPLASH_LIMIT_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(limit);
+    };
+  }, []);
+  return started ? null : <Splash name={name} />;
+};
 
 /** What each left panel of the canvas shows; its title and icon are the rail's. */
 const leftPanels: Record<LeftTab, ComponentType> = {
@@ -181,7 +282,7 @@ const LeftPanel = ({
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-auto">
-          <Suspense fallback={null}>
+          <Suspense fallback={<PanelLoading />}>
             <Active />
           </Suspense>
         </div>
@@ -273,7 +374,7 @@ const RightPanel = ({
         data-canvas-cover="right"
         style={{ width }}
       >
-        <Suspense fallback={null}>
+        <Suspense fallback={<PanelLoading />}>
           <BoardInspector open={board} />
         </Suspense>
         {handle}
@@ -315,7 +416,7 @@ const RightPanel = ({
           <CodePanel />
         </TabsContent>
         <TabsContent className="min-h-0 overflow-auto" value="comments">
-          <Suspense fallback={null}>
+          <Suspense fallback={<PanelLoading />}>
             <Comments />
           </Suspense>
         </TabsContent>
@@ -428,9 +529,10 @@ export const App = () => {
 
   return (
     <TooltipProvider delay={300}>
+      <StartSplash />
       <div className="flex h-full flex-col">
         {settingsOpen ? (
-          <Suspense fallback={null}>
+          <Suspense fallback={<PanelLoading />}>
             <SettingsPage />
           </Suspense>
         ) : (

@@ -5,8 +5,25 @@
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <title>Ultrapaint</title>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin: 0; background: oklch(0.141 0.005 285.823)">
+    <!--
+      The splash before the editor's code has arrived, drawn without it; React then draws the same
+      (`components/splash.tsx`) until the editor is ready, in its place.
+    -->
+    <div id="root">
+      <div
+        style="position: fixed; inset: 0; display: flex; flex-direction: column; gap: 16px; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+      >
+        <span
+          style="display: flex; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 12px; background: oklch(0.68 0.17 255); color: oklch(0.985 0 0); font-size: 16px; font-weight: 700; letter-spacing: -0.02em"
+          >UP</span
+        >
+        <span
+          style="color: oklch(0.705 0.015 286.067); font-size: 14px; line-height: 20px"
+          >Opening</span
+        >
+      </div>
+    </div>
     <script src="/src/main.tsx" type="module"></script>
   </body>
 </html>

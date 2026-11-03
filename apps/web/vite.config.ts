@@ -45,5 +45,22 @@ export default defineConfig({
       "/ws": { target: `ws://${serverHost}:${serverPort}`, ws: true },
     },
     strictPort: true,
+    // Compiled as the server starts rather than when first asked for: the editor fetches every
+    // panel's code behind its splash, and each file's first compile is what kept it waiting.
+    warmup: {
+      clientFiles: [
+        "./src/main.tsx",
+        "./src/canvas/board-canvas.tsx",
+        "./src/components/markdown-render.tsx",
+        "./src/panels/board-inspector.tsx",
+        "./src/panels/changes.tsx",
+        "./src/panels/comments.tsx",
+        "./src/panels/design-system-list.tsx",
+        "./src/panels/layers.tsx",
+        "./src/panels/library.tsx",
+        "./src/panels/pages.tsx",
+        "./src/panels/settings.tsx",
+      ],
+    },
   },
 });
