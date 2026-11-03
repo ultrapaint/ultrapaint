@@ -183,7 +183,6 @@ export const TitleCard = ({ width }: { width: number | null }) => {
       <TopButton
         label={hidden ? "Show the left panel" : "Hide the left panel"}
         onClick={toggleLeft}
-        pressed={!hidden}
       >
         <PanelIcon />
       </TopButton>
