@@ -43,7 +43,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -392,8 +391,9 @@ const ThemeSwitch = () => {
   );
 };
 
+/** A short rule between the tools' groups, centred on their line. */
 const ToolbarDivider = () => (
-  <Separator className="mx-1 h-5 self-center" orientation="vertical" />
+  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-input" />
 );
 
 /**
