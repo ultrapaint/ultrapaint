@@ -79,7 +79,10 @@ export const Comments = () => {
         </IconButton>
       </div>
       {listed.length === 0 ? (
-        <PanelEmpty icon={<MessageCircle />}>
+        <PanelEmpty
+          icon={<MessageCircle />}
+          title={comments.length === 0 ? "No comments yet" : "All resolved"}
+        >
           {comments.length === 0 ? (
             <>
               No comments yet. Pick the comment tool{" "}

@@ -27,6 +27,7 @@ import {
   EyeOff,
   Group,
   Hash,
+  SquareDashedMousePointer,
   Trash2,
   Ungroup,
   Upload,
@@ -99,8 +100,8 @@ export const Inspector = () => {
   const inspected = useInspected();
   if (!inspected) {
     return (
-      <PanelEmpty>
-        Select a node on the canvas or in the layers panel
+      <PanelEmpty icon={<SquareDashedMousePointer />} title="Select a layer">
+        Click one on the canvas or in Layers to see and change its design.
       </PanelEmpty>
     );
   }

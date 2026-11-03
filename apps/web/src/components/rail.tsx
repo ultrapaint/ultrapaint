@@ -8,7 +8,6 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { useComponents } from "../state/components.ts";
@@ -17,7 +16,6 @@ import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
-import { GitUserButton } from "./git-user.tsx";
 
 /** `rail` is the word under the icon, `label` the panel's title and the button's name. */
 export const railItems: Record<
@@ -136,6 +134,7 @@ export const Rail = () => {
   // with Layers on an app component's, known once the components are.
   const surface = useSurface();
   useComponents((s) => s.components);
+  const tabs = surface.railTabs();
   return (
     <nav
       aria-label="Panels"
@@ -144,18 +143,20 @@ export const Rail = () => {
         panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
       )}
     >
-      {surface.railTabs().map((value) => (
-        <RailButton key={value} value={value} />
-      ))}
+      {tabs
+        .filter((value) => value !== "changes")
+        .map((value) => (
+          <RailButton key={value} value={value} />
+        ))}
       <div className="flex-1" />
+      {/* At the foot, over the settings: what changed, the project's own business. */}
+      {tabs.includes("changes") ? <RailButton value="changes" /> : null}
       <RailItem
         icon={Settings}
         label="Settings"
         name="Settings"
         onClick={openSettings}
       />
-      <Separator className="mt-1.5 mb-2 w-7" />
-      <GitUserButton />
     </nav>
   );
 };

@@ -12,7 +12,13 @@ import { openBoard, useBoard } from "./board.ts";
 import { measureViewportWith } from "./camera.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
-import { showLeftPanel, showMode, takeRequest, usePanels } from "./panels.ts";
+import {
+  showLeftPanel,
+  showMode,
+  startRightPanel,
+  takeRequest,
+  usePanels,
+} from "./panels.ts";
 import { useProject } from "./project.ts";
 
 const prompted = vi.hoisted(() => ({ count: 0 }));
@@ -66,7 +72,7 @@ beforeEach(() => {
   fakeApi.respond("threads.items", () => []);
   prompted.count = 0;
   // Every panel put away, the right one too.
-  usePanels.setState({ left: true, right: true });
+  usePanels.setState({ left: true, right: true, rightWaits: false });
   useAttachments.setState({ byThread: {} });
   useProject.setState({
     pages: [
@@ -210,6 +216,40 @@ describe("showLeftPanel", () => {
     expect(useEditor.getState().leftTab).toBe("layers");
     expect(takeRequest("rename")).toEqual(HERO);
     expect(takeRequest("rename")).toBeNull();
+  });
+});
+
+describe("the right panel as the editor starts", () => {
+  it("waits for something to be selected, then comes out", () => {
+    usePanels.setState({ right: true, rightWaits: true });
+    useEditor.setState({ selectedPage: null, selection: null });
+    const stop = startRightPanel();
+    expect(usePanels.getState().right).toBe(true);
+    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
+    expect(usePanels.getState().right).toBe(false);
+    // Once out, it is the user's: put away, it stays away whatever is selected next.
+    usePanels.getState().toggleRight();
+    useEditor.setState({ selection: null });
+    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
+    expect(usePanels.getState().right).toBe(true);
+    stop();
+  });
+
+  it("comes out for a board view, whose inspector always has something", () => {
+    usePanels.setState({ right: true, rightWaits: true });
+    useEditor.setState({ selectedPage: null, selection: null });
+    const stop = startRightPanel();
+    openBoard({ item: "color", view: "system" }, "none");
+    expect(usePanels.getState().right).toBe(false);
+    stop();
+  });
+
+  it("stays away when the user put it away, a selection or not", () => {
+    usePanels.setState({ right: true, rightWaits: false });
+    const stop = startRightPanel();
+    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
+    expect(usePanels.getState().right).toBe(true);
+    stop();
   });
 });
 
