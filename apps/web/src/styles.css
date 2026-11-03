@@ -332,4 +332,9 @@ input[type="number"]::-webkit-inner-spin-button {
   html {
     @apply font-sans;
   }
+  /* Tailwind v4 gives buttons the default cursor; the pointer back, as shadcn's docs have it. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
