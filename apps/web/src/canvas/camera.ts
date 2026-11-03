@@ -264,11 +264,90 @@ export const useSpacePan = () => {
 const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
   a.size === b.size && [...a].every((id) => b.has(id));
 
+/** How long a zoom rests before the frames it brought near are drawn. */
+const ZOOM_REST_MS = 120;
+
+type EditorState = ReturnType<typeof useEditor.getState>;
+
+/**
+ * The frames to show next, from those shown and the screen's size, as the view, the frames and
+ * a drag have them now.
+ */
+const framesShownNext = (
+  shown: ReadonlySet<string>,
+  seen: { readonly height: number; readonly width: number }
+): Set<string> => {
+  const boxes = allFrames();
+  const now = useEditor.getState().view;
+  // While the camera glides to a place, what is there loads, not what it passes over: the
+  // frames shown stay while they are near, and only those where it goes are added.
+  const target = viewTarget();
+  const view = target ?? now;
+  const near = framesNear(boxes, view, seen, NEAR_MARGIN);
+  if (target) {
+    for (const id of framesNear(boxes, now, seen, NEAR_MARGIN)) {
+      if (shown.has(id)) {
+        near.add(id);
+      }
+    }
+  }
+  const next = framesToShow({
+    boxes,
+    loadingMax: LOADING_MAX,
+    near,
+    screen: seen,
+    shown,
+    view,
+    warm: isWarm,
+  });
+  const { dragged } = useDrag.getState();
+  if (dragged?.kind === "loose") {
+    next.add(dragged.frame);
+  }
+  return next;
+};
+
+/** A zoom by the user, not a glide to a place (which loads where it goes). */
+const zoomedBy = (s: EditorState, prev: EditorState) =>
+  s.view.zoom !== prev.view.zoom && !viewTarget();
+
+/** What changes which frames are near the screen, or where they are. */
+const movesFrames = (s: EditorState, prev: EditorState) =>
+  s.view !== prev.view ||
+  s.frames !== prev.frames ||
+  s.sizes !== prev.sizes ||
+  s.held !== prev.held ||
+  s.canvas !== prev.canvas;
+
+/**
+ * Whether a zoom goes on: `zoomed` says one did, and `rested` is called once none has for
+ * `ZOOM_REST_MS`. `stop` lets go of the wait.
+ */
+const zoomRest = (rested: () => void) => {
+  let zooming = false;
+  let rest: ReturnType<typeof setTimeout> | undefined;
+  return {
+    stop: () => clearTimeout(rest),
+    zoomed: () => {
+      zooming = true;
+      clearTimeout(rest);
+      rest = setTimeout(() => {
+        zooming = false;
+        rested();
+      }, ZOOM_REST_MS);
+    },
+    zooming: () => zooming,
+  };
+};
+
 /**
  * The frames to show: those near the screen, worked out once a frame from the view, the frames
  * and the nodes on the canvas, and handed to React only when the set changes. A frame whose
  * preview is loaded (kept by the pool) shows at once; the others load a few at a time, nearest the
  * middle first (`framesToShow`). A node dragged by its name is shown: it is where the pointer is.
+ * While a zoom goes on the frames shown stay as they are, a page drawn being a frame's whole work:
+ * the ones it brought near are drawn once it has rested `ZOOM_REST_MS`. A glide (a fit, a zoom to
+ * the selection) loads where it goes at once.
  */
 export const useFramesInView = (screen: {
   height: number;
@@ -279,36 +358,14 @@ export const useFramesInView = (screen: {
   const { height, width } = screen;
   useEffect(() => {
     let pending: number | null = null;
+    // A zoom going on: nothing is drawn anew until it rests.
+    const zoom = zoomRest(() => soon());
     const update = () => {
       pending = null;
-      const boxes = allFrames();
-      const seen = { height, width };
-      const now = useEditor.getState().view;
-      // While the camera glides to a place, what is there loads, not what it passes over: the
-      // frames shown stay while they are near, and only those where it goes are added.
-      const target = viewTarget();
-      const view = target ?? now;
-      const near = framesNear(boxes, view, seen, NEAR_MARGIN);
-      if (target) {
-        for (const id of framesNear(boxes, now, seen, NEAR_MARGIN)) {
-          if (shown.current.has(id)) {
-            near.add(id);
-          }
-        }
+      if (zoom.zooming()) {
+        return;
       }
-      const next = framesToShow({
-        boxes,
-        loadingMax: LOADING_MAX,
-        near,
-        screen: seen,
-        shown: shown.current,
-        view,
-        warm: isWarm,
-      });
-      const { dragged } = useDrag.getState();
-      if (dragged?.kind === "loose") {
-        next.add(dragged.frame);
-      }
+      const next = framesShownNext(shown.current, { height, width });
       if (!sameSet(shown.current, next)) {
         shown.current = next;
         setInView(next);
@@ -321,13 +378,10 @@ export const useFramesInView = (screen: {
     update();
     const offs = [
       useEditor.subscribe((s, prev) => {
-        if (
-          s.view !== prev.view ||
-          s.frames !== prev.frames ||
-          s.sizes !== prev.sizes ||
-          s.held !== prev.held ||
-          s.canvas !== prev.canvas
-        ) {
+        if (zoomedBy(s, prev)) {
+          zoom.zoomed();
+        }
+        if (movesFrames(s, prev)) {
           soon();
         }
       }),
@@ -351,6 +405,7 @@ export const useFramesInView = (screen: {
       if (pending !== null) {
         cancelAnimationFrame(pending);
       }
+      zoom.stop();
     };
   }, [height, width]);
   return inView;
