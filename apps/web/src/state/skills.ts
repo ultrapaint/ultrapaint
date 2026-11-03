@@ -1,6 +1,6 @@
 /**
  * The design skills agents are told: the shipped set, the project's own files, and what the
- * settings turn off. The settings page lists them from here.
+ * settings turn off. The settings list them from here.
  */
 import type {
   CustomiseMode,

@@ -56,7 +56,7 @@ export const readUrl = (): UrlRead => {
     node: params.get("node"),
     page: onPage ? page : null,
     route: onPage ? null : normaliseRoute(route ?? "/"),
-    // The section of the settings page when it is open: `?settings=repository`.
+    // The section of the settings when they are open: `?settings=repository`.
     settings: params.get("settings"),
     variant: variant === "" ? null : variant,
   };
