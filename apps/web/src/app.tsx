@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -452,6 +453,34 @@ const RightColumn = ({
   </div>
 );
 
+/**
+ * The settings, a dialog over the editor with their sections down its side (as T3 Code has
+ * them): the editor stays as it was under it. Escape, the close button or Cancel close it.
+ */
+const SettingsDialog = () => {
+  const open = useProject((s) => s.settingsOpen);
+  return (
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next) {
+          useProject.getState().openSettings(false);
+        }
+      }}
+      open={open}
+    >
+      <DialogContent
+        className="flex h-[min(100%-4rem,60rem)] w-[min(100%-4rem,84rem)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
+        showCloseButton={false}
+      >
+        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <Suspense fallback={<PanelLoading />}>
+          <SettingsPage />
+        </Suspense>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export const App = () => {
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
@@ -461,7 +490,6 @@ export const App = () => {
   const canvas = useEditor((s) => s.canvas);
   const workspace = useEditor((s) => s.workspace);
   const leftTab = useEditor((s) => s.leftTab);
-  const settingsOpen = useProject((s) => s.settingsOpen);
   const board = useBoard((s) => s.open);
   const surface = useSurface();
   const leftPanel =
@@ -559,97 +587,90 @@ export const App = () => {
     <TooltipProvider delay={300}>
       <StartSplash />
       <div className="flex h-full flex-col">
-        {settingsOpen ? (
-          <Suspense fallback={<PanelLoading />}>
-            <SettingsPage />
-          </Suspense>
-        ) : (
-          <div className="relative min-h-0 flex-1">
-            {/* The covers are handed down as variables, for what centres itself on the canvas. */}
-            <main
-              className="absolute inset-0"
-              style={
-                {
-                  "--cover-left": `${leftCover}px`,
-                  "--cover-right": `${rightCover}px`,
-                } as CSSProperties
-              }
-            >
-              {workspace !== "prototype" && surface.kind === "page" && (
-                <Canvas />
-              )}
-              {workspace !== "prototype" && board !== null && (
-                <Suspense
-                  fallback={<div className="absolute inset-0 bg-board" />}
-                >
-                  <BoardCanvas open={board} />
-                </Suspense>
-              )}
-              {/* What floats over the canvas belongs in the part the panels leave to be seen, and
-                so does the prototype, which is centred rather than panned. */}
-              <div
-                className="pointer-events-none absolute inset-y-0"
-                style={{ left: leftCover, right: rightCover }}
+        <div className="relative min-h-0 flex-1">
+          {/* The covers are handed down as variables, for what centres itself on the canvas. */}
+          <main
+            className="absolute inset-0"
+            style={
+              {
+                "--cover-left": `${leftCover}px`,
+                "--cover-right": `${rightCover}px`,
+              } as CSSProperties
+            }
+          >
+            {workspace !== "prototype" && surface.kind === "page" && <Canvas />}
+            {workspace !== "prototype" && board !== null && (
+              <Suspense
+                fallback={<div className="absolute inset-0 bg-board" />}
               >
-                {workspace === "prototype" && <Prototype />}
-                <ShellNotices />
-                <CanvasStatus />
-                <SnapshotBanner />
-                {workspace === "prototype" ? null : <IsolationBanner />}
-                {workspace === "prototype" ? (
-                  <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-                    <NoUrlWarning />
-                  </div>
-                ) : (
-                  <div className="absolute right-2 bottom-2 z-10">
-                    <ZoomControl />
-                  </div>
-                )}
-              </div>
-            </main>
-            {/* The top of a desktop window with no title bar of its own moves it, between the cards. */}
-            {chrome.drag ? (
-              <div
-                className="window-drag absolute inset-x-0 top-0 z-20"
-                style={{ height: EDGE }}
-              />
-            ) : null}
-            {/* The left column: the project over the rail and the left panel, and the tools beside
-              them. Only the cards take the pointer; between them is the canvas. */}
+                <BoardCanvas open={board} />
+              </Suspense>
+            )}
+            {/* What floats over the canvas belongs in the part the panels leave to be seen, and
+                so does the prototype, which is centred rather than panned. */}
             <div
-              className="pointer-events-none absolute z-30 flex flex-col gap-2"
-              data-canvas-cover="left"
-              style={{ bottom: EDGE, left: EDGE, top: EDGE }}
+              className="pointer-events-none absolute inset-y-0"
+              style={{ left: leftCover, right: rightCover }}
             >
-              <TitleCard width={titleWidth} />
-              <CanvasCard width={titleWidth} />
-              <div className="flex min-h-0 flex-1 gap-2">
-                <LeftCard
-                  defaultWidth={leftPanel.defaultWidth}
-                  onWidthChange={setLeftWidth}
-                  width={leftWidth}
-                />
-                {workspace === "design" ? (
-                  <div className="self-start">
-                    <Toolbar />
-                  </div>
-                ) : (
-                  // The prototype's bar sits at the bottom of its tools, wider than their column.
-                  <div className="flex flex-col items-start justify-between">
-                    <PrototypeTools />
-                    <PrototypeBar />
-                  </div>
-                )}
-              </div>
+              {workspace === "prototype" && <Prototype />}
+              <ShellNotices />
+              <CanvasStatus />
+              <SnapshotBanner />
+              {workspace === "prototype" ? null : <IsolationBanner />}
+              {workspace === "prototype" ? (
+                <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+                  <NoUrlWarning />
+                </div>
+              ) : (
+                <div className="absolute right-2 bottom-2 z-10">
+                  <ZoomControl />
+                </div>
+              )}
             </div>
-            <RightColumn
-              hasRight={hasRight}
-              onWidthChange={setRightWidth}
-              shown={workspace === "design"}
-              width={rightWidth}
+          </main>
+          {/* The top of a desktop window with no title bar of its own moves it, between the cards. */}
+          {chrome.drag ? (
+            <div
+              className="window-drag absolute inset-x-0 top-0 z-20"
+              style={{ height: EDGE }}
             />
+          ) : null}
+          {/* The left column: the project over the rail and the left panel, and the tools beside
+              them. Only the cards take the pointer; between them is the canvas. */}
+          <div
+            className="pointer-events-none absolute z-30 flex flex-col gap-2"
+            data-canvas-cover="left"
+            style={{ bottom: EDGE, left: EDGE, top: EDGE }}
+          >
+            <TitleCard width={titleWidth} />
+            <CanvasCard width={titleWidth} />
+            <div className="flex min-h-0 flex-1 gap-2">
+              <LeftCard
+                defaultWidth={leftPanel.defaultWidth}
+                onWidthChange={setLeftWidth}
+                width={leftWidth}
+              />
+              {workspace === "design" ? (
+                <div className="self-start">
+                  <Toolbar />
+                </div>
+              ) : (
+                // The prototype's bar sits at the bottom of its tools, wider than their column.
+                <div className="flex flex-col items-start justify-between">
+                  <PrototypeTools />
+                  <PrototypeBar />
+                </div>
+              )}
+            </div>
           </div>
-        )}
+          <RightColumn
+            hasRight={hasRight}
+            onWidthChange={setRightWidth}
+            shown={workspace === "design"}
+            width={rightWidth}
+          />
+        </div>
+        <SettingsDialog />
         <SaveConfigDialog />
         <SetupDialog />
         <NewDesignDialog />
