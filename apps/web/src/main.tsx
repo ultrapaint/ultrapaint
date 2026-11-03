@@ -17,6 +17,7 @@ import { goTo } from "./state/location.ts";
 import { showLeftPanel } from "./state/panels.ts";
 import { useProject } from "./state/project.ts";
 import { select } from "./state/selection.ts";
+import { followTheme } from "./state/theme.ts";
 import "./styles.css";
 
 if (import.meta.env.DEV) {
@@ -51,5 +52,7 @@ if (import.meta.env.DEV) {
     },
   };
 }
+
+followTheme();
 
 createRoot(document.getElementById("root") as HTMLElement).render(<App />);

@@ -24,12 +24,13 @@ import {
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
 import { provideCanvasDefaults } from "./canvas/specimens.ts";
 import { CanvasStatus } from "./canvas/status.tsx";
-import { Toolbar, ZoomControl } from "./canvas/toolbar.tsx";
+import { Toolbar } from "./canvas/toolbar.tsx";
 import { CommandPalette } from "./components/command-palette.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { preloadMarkdown } from "./components/markdown.tsx";
 import { NewDesignDialog } from "./components/new-design-dialog.tsx";
+import { PlaceSwitch } from "./components/place-switch.tsx";
 import { Rail, railItems } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
@@ -42,7 +43,6 @@ import {
   HideRightPanel,
   RightPanelBar,
   TitleRow,
-  TopActions,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
 import { useKeymap } from "./lib/keymap.ts";
@@ -86,6 +86,7 @@ import { bindScreenshots } from "./state/screenshots.ts";
 import { followServer } from "./state/server-data.ts";
 import { useSurface } from "./state/surface.ts";
 import { useSync } from "./state/sync.ts";
+import { useTheme } from "./state/theme.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
 /*
@@ -244,8 +245,8 @@ const leftBounds = { defaultWidth: 288, max: 480, min: 200 };
 const chatBounds = { ...leftBounds, defaultWidth: 340, max: 960 };
 const rightBounds = { defaultWidth: 320, max: 560, min: 240 };
 
-/** The rail's width with the card's borders, which the cards above span with the left panel. */
-const RAIL_WIDTH = 70;
+/** The rail's width with its hairline. */
+const RAIL_WIDTH = 44;
 
 /**
  * The rest of the rail's card, beside the rail, floating over the canvas instead of pushing it: widening it
@@ -270,8 +271,7 @@ const LeftPanel = ({
   return (
     <aside
       className={cn(
-        "relative shrink-0",
-        prototype ? "rounded-[inherit]" : "rounded-r-[inherit] border-l",
+        "relative min-w-0 shrink-0",
         hidden ? "hidden" : "flex"
       )}
       style={{ width }}
@@ -280,7 +280,7 @@ const LeftPanel = ({
         {/* The chat heads itself, its list and each thread; the pages, the layers, Design system
           and the Library have their own actions in their heading. */}
         {prototype || headsItself.includes(leftTab) ? null : (
-          <div className="flex h-9 shrink-0 items-center px-3 font-heading-xsmall">
+          <div className="flex h-11 shrink-0 items-center px-3 font-heading-xsmall">
             {railItems[leftTab].label}
           </div>
         )}
@@ -322,8 +322,9 @@ const leftCoverOf = (workspace: Workspace, card: number) => {
 };
 
 /**
- * The rail and the left panel, one card, the rail at its left edge. The prototype has no rail:
- * with its panel put away, there is no card.
+ * The left card: the project at its top, the canvas shown, then the rail and the left panel side
+ * by side. Put away, the panel takes the rail and the canvas with it, and the card is the project's
+ * row alone. The prototype has no rail.
  */
 const LeftCard = (props: {
   defaultWidth: number;
@@ -332,13 +333,25 @@ const LeftCard = (props: {
 }) => {
   const workspace = useEditor((s) => s.workspace);
   const hidden = usePanels((s) => s.left);
-  if (workspace === "prototype" && hidden) {
-    return null;
-  }
+  const width = leftCardWidth(workspace, hidden, props.width);
   return (
-    <div className="floating pointer-events-auto flex shrink-0">
-      {workspace === "design" ? <Rail /> : null}
-      <LeftPanel {...props} />
+    <div
+      className={cn(
+        "floating pointer-events-auto flex flex-col overflow-hidden",
+        hidden ? "self-start" : "min-h-0 flex-1"
+      )}
+      style={hidden ? undefined : { width }}
+    >
+      <TitleRow />
+      {hidden ? null : (
+        <>
+          <ModeAndCanvases />
+          <div className="flex min-h-0 flex-1 border-t">
+            {workspace === "design" ? <Rail /> : null}
+            <LeftPanel {...props} />
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -395,15 +408,15 @@ const RightPanel = ({
         onValueChange={onRightTabChange}
         value={rightTab}
       >
-        <div className="flex h-10 shrink-0 items-center justify-between border-b pr-1 pl-2">
-          <TabsList variant="line">
-            <TabsTrigger className="font-body" value="design">
+        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pr-1.5 pl-1.5">
+          <TabsList className="h-8!" variant="default">
+            <TabsTrigger className="px-2.5" value="design">
               Design
             </TabsTrigger>
-            <TabsTrigger className="font-body" value="code">
+            <TabsTrigger className="px-2.5" value="code">
               Code
             </TabsTrigger>
-            <TabsTrigger className="font-body" value="comments">
+            <TabsTrigger className="px-2.5" value="comments">
               Comments
             </TabsTrigger>
           </TabsList>
@@ -465,7 +478,6 @@ const RightColumn = ({
     className="pointer-events-none absolute z-30 flex flex-col items-end gap-2"
     style={{ bottom: EDGE, right: EDGE, top: EDGE }}
   >
-    <TopActions />
     {shown && !hasRight ? <RightPanelPutAway /> : null}
     {hasRight ? (
       <RightPanel onWidthChange={onWidthChange} width={width} />
@@ -502,6 +514,7 @@ const SettingsDialog = () => {
 };
 
 export const App = () => {
+  const theme = useTheme((s) => s.resolved);
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
   const projectName = useProject((s) => s.info.name);
@@ -523,8 +536,6 @@ export const App = () => {
   const leftCard = leftCardWidth(workspace, leftHidden, leftWidth);
   // How much of the canvas the cards at each side cover: what floats over it keeps to the rest.
   const leftCover = leftCoverOf(workspace, leftCard);
-  // The project's card spans the left card when its panel is out.
-  const titleWidth = leftHidden ? null : leftCard;
   const rightCover = hasRight ? EDGE + rightWidth + EDGE : 0;
   useKeymap();
   useOpenNodeLink();
@@ -637,13 +648,16 @@ export const App = () => {
               <CanvasStatus />
               <SnapshotBanner />
               {workspace === "prototype" ? null : <IsolationBanner />}
+              <div className="absolute inset-x-0 top-2 z-20 flex justify-center">
+                <PlaceSwitch />
+              </div>
               {workspace === "prototype" ? (
                 <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
                   <NoUrlWarning />
                 </div>
               ) : (
-                <div className="absolute right-2 bottom-2 z-10">
-                  <ZoomControl />
+                <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
+                  <Toolbar />
                 </div>
               )}
             </div>
@@ -655,38 +669,26 @@ export const App = () => {
               style={{ height: EDGE }}
             />
           ) : null}
-          {/* The left column: the project over the rail and the left panel, and the tools beside
-              them. Only the cards take the pointer; between them is the canvas. */}
+          {/* The left column: the left card, and in the prototype its tools beside it. Only the
+              cards take the pointer; between them is the canvas. */}
           <div
-            className="pointer-events-none absolute z-30 flex flex-col gap-2"
+            className="pointer-events-none absolute z-30 flex flex-col"
             data-canvas-cover="left"
             style={{ bottom: EDGE, left: EDGE, top: EDGE }}
           >
-            {/* One card: the project in the rail's shade, the mode, the canvas. */}
-            <div
-              className="floating pointer-events-auto flex shrink-0 flex-col overflow-hidden"
-              style={titleWidth === null ? undefined : { width: titleWidth }}
-            >
-              <TitleRow />
-              <ModeAndCanvases />
-            </div>
             <div className="flex min-h-0 flex-1 gap-2">
               <LeftCard
                 defaultWidth={leftPanel.defaultWidth}
                 onWidthChange={setLeftWidth}
                 width={leftWidth}
               />
-              {workspace === "design" ? (
-                <div className="self-start">
-                  <Toolbar />
-                </div>
-              ) : (
+              {workspace === "prototype" ? (
                 // The prototype's bar sits at the bottom of its tools, wider than their column.
                 <div className="flex flex-col items-start justify-between">
                   <PrototypeTools />
                   <PrototypeBar />
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
           <RightColumn
@@ -708,7 +710,7 @@ export const App = () => {
         <Toaster
           closeButton
           position="bottom-right"
-          theme="dark"
+          theme={theme}
           toastOptions={{ classNames: { description: "whitespace-pre-wrap" } }}
         />
       </div>

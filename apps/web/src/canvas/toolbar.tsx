@@ -9,14 +9,17 @@ import {
   ArrowRight,
   ChevronDown,
   Component,
+  Grid3x3,
   Hand,
   Image,
+  Maximize,
   MessageCircle,
   Moon,
   MousePointer2,
   Plus,
   Pointer,
   Redo2,
+  Scan,
   SquareDashed,
   Sun,
   Type,
@@ -91,8 +94,7 @@ const modes: {
     label: "Group",
     tooltip: (
       <>
-        Group <CommandKeys id="tool:group" /> · draw one, or click for the
-        default size
+        Group <CommandKeys id="tool:group" />
       </>
     ),
     value: "group",
@@ -109,11 +111,10 @@ const modes: {
   },
   {
     icon: <Pointer />,
-    label: "Use components",
+    label: "Interact",
     tooltip: (
       <>
-        Use components <CommandKeys id="tool:interact" /> · press their buttons,
-        open their menus. Links are followed in Prototype.
+        Interact <CommandKeys id="tool:interact" />
       </>
     ),
     value: "interact",
@@ -133,8 +134,7 @@ const modes: {
     label: "Comment",
     tooltip: (
       <>
-        Comment <CommandKeys id="tool:comment" /> · show or hide comments{" "}
-        <CommandKeys id="toggleComments" />
+        Comment <CommandKeys id="tool:comment" />
       </>
     ),
     value: "comment",
@@ -161,7 +161,11 @@ const toggleGrid = () => useCanvasGrid.getState().toggle();
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {
   const onClick = () => zoomBy(pct / 100 / nextView().zoom);
-  return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
+  return (
+    <DropdownMenuItem className="pl-8" onClick={onClick}>
+      {pct}%
+    </DropdownMenuItem>
+  );
 };
 
 /**
@@ -173,69 +177,71 @@ const ZoomLevel = () => {
   return <>{pct}%</>;
 };
 
-/** The zoom, floating at the canvas's bottom right: out, the level and its menu, in. */
-export const ZoomControl = () => {
+/** The zoom level and its menu, at the end of the tools. */
+const ZoomMenu = () => {
   const grid = useCanvasGrid((s) => s.visible);
   return (
-    <div className="floating pointer-events-auto flex items-center gap-0.5 p-1">
-      <IconButton
-        className="size-8 rounded-lg"
-        onClick={zoomOut}
-        tooltip="Zoom out"
-      >
-        <ZoomOut />
-      </IconButton>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger
           render={
-            <Button
-              className="h-8 w-16 justify-between rounded-lg tabular-nums"
-              variant="ghost"
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Zoom"
+                  className="h-8 w-[4.25rem] justify-between gap-0.5 rounded-lg px-2 tabular-nums data-popup-open:bg-accent"
+                  variant="ghost"
+                />
+              }
             />
           }
         >
           <ZoomLevel />
-          <ChevronDown
-            className="text-muted-foreground"
-            data-icon="inline-end"
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48" side="top">
-          <DropdownMenuGroup>
-            {[50, 100, 200].map((pct) => (
-              <ZoomPresetItem key={pct} pct={pct} />
-            ))}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={zoomToFit}>
-              Zoom to fit
-              <DropdownMenuShortcut>{keysOf("zoomFit")}</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={zoomToSelection}>
-              Zoom to selection
-              <DropdownMenuShortcut>
-                {keysOf("zoomSelection")}
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={toggleGrid}>
-              {grid ? "Hide grid" : "Show grid"}
-              <DropdownMenuShortcut>{keysOf("grid")}</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <IconButton
-        className="size-8 rounded-lg"
-        onClick={zoomIn}
-        tooltip="Zoom in"
-      >
-        <ZoomIn />
-      </IconButton>
-    </div>
+          <ChevronDown className="size-3.5! text-muted-foreground" />
+        </TooltipTrigger>
+        <TooltipContent side="top">Zoom</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-52" side="top">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={zoomIn}>
+            <ZoomIn />
+            Zoom in
+            <DropdownMenuShortcut>{keysOf("zoomIn")}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={zoomOut}>
+            <ZoomOut />
+            Zoom out
+            <DropdownMenuShortcut>{keysOf("zoomOut")}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={zoomToFit}>
+            <Maximize />
+            Zoom to fit
+            <DropdownMenuShortcut>{keysOf("zoomFit")}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={zoomToSelection}>
+            <Scan />
+            Zoom to selection
+            <DropdownMenuShortcut>
+              {keysOf("zoomSelection")}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          {[50, 100, 200].map((pct) => (
+            <ZoomPresetItem key={pct} pct={pct} />
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={toggleGrid}>
+            <Grid3x3 />
+            {grid ? "Hide grid" : "Show grid"}
+            <DropdownMenuShortcut>{keysOf("grid")}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
@@ -312,7 +318,7 @@ const InsertMenu = ({ components = false }: { components?: boolean }) => (
             render={
               <Button
                 aria-label="Insert"
-                className="size-8 rounded-lg data-popup-open:bg-muted"
+                className="size-8 rounded-lg data-popup-open:bg-accent"
                 size="icon"
                 variant="ghost"
               />
@@ -322,11 +328,9 @@ const InsertMenu = ({ components = false }: { components?: boolean }) => (
       >
         <Plus />
       </TooltipTrigger>
-      <TooltipContent side="right">
-        Insert a row, a column, text or an image
-      </TooltipContent>
+      <TooltipContent side="top">Insert</TooltipContent>
     </Tooltip>
-    <DropdownMenuContent align="start" className="w-40" side="right">
+    <DropdownMenuContent align="start" className="w-48" side="top">
       <InsertItems />
       {components ? <InsertComponents /> : null}
     </DropdownMenuContent>
@@ -358,10 +362,9 @@ const ThemeSwitch = () => {
   };
   return (
     <>
-      <Separator className="my-0.5 w-5" />
+      <ToolbarDivider />
       <ToggleGroup
         onValueChange={onChange}
-        orientation="vertical"
         spacing={0.5}
         value={[theme ?? light]}
       >
@@ -374,14 +377,14 @@ const ThemeSwitch = () => {
               render={
                 <ToggleGroupItem
                   aria-label={t.label}
-                  className="size-8 rounded-lg aria-pressed:bg-muted data-pressed:bg-muted"
+                  className="size-8 rounded-lg aria-pressed:bg-accent data-pressed:bg-accent"
                   value={t.value}
                 >
                   {t.icon}
                 </ToggleGroupItem>
               }
             />
-            <TooltipContent side="right">{t.label}</TooltipContent>
+            <TooltipContent side="top">{t.label}</TooltipContent>
           </Tooltip>
         ))}
       </ToggleGroup>
@@ -389,9 +392,13 @@ const ThemeSwitch = () => {
   );
 };
 
+const ToolbarDivider = () => (
+  <Separator className="mx-1 h-5 self-center" orientation="vertical" />
+);
+
 /**
- * The canvas's tools, floating in a column at the top, beside the left panel: Insert, the tools,
- * then undo and redo. On a board view, its few tools and the theme it draws in.
+ * The canvas's tools, floating in one row at the bottom of the canvas, as Figma's are: Insert,
+ * the tools, undo and redo, then the zoom. On a board view, its few tools and the theme it draws in.
  */
 export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
@@ -407,16 +414,19 @@ export const Toolbar = () => {
   const shown = modes.filter((m) => surface.modes.includes(m.value));
 
   return (
-    <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
+    <div
+      className="floating pointer-events-auto flex items-center gap-0.5 p-1"
+      role="toolbar"
+      aria-label="Tools"
+    >
       {onBoard && !building ? null : (
         <>
           <InsertMenu components={building} />
-          <Separator className="my-0.5 w-5" />
+          <ToolbarDivider />
         </>
       )}
       <ToggleGroup
         onValueChange={onModeChange}
-        orientation="vertical"
         spacing={0.5}
         value={[effective]}
       >
@@ -433,18 +443,18 @@ export const Toolbar = () => {
                 </ToggleGroupItem>
               }
             />
-            <TooltipContent side="right">{m.tooltip}</TooltipContent>
+            <TooltipContent side="top">{m.tooltip}</TooltipContent>
           </Tooltip>
         ))}
       </ToggleGroup>
       {onBoard ? <ThemeSwitch /> : null}
-      <Separator className="my-0.5 w-5" />
+      <ToolbarDivider />
       <IconButton
         className="size-8 rounded-lg"
         disabled={!undo.canUndo}
         label={undo.undoLabel ? `Undo ${undo.undoLabel}` : "Undo"}
         onClick={undoEdit}
-        side="right"
+        side="top"
         tooltip={
           <>
             Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""}{" "}
@@ -459,7 +469,7 @@ export const Toolbar = () => {
         disabled={!undo.canRedo}
         label="Redo"
         onClick={redoEdit}
-        side="right"
+        side="top"
         tooltip={
           <>
             Redo <CommandKeys id="redo" />
@@ -468,6 +478,8 @@ export const Toolbar = () => {
       >
         <Redo2 />
       </IconButton>
+      <ToolbarDivider />
+      <ZoomMenu />
     </div>
   );
 };

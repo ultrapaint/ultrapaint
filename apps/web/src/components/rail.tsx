@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   GitCompareArrows,
   Layers as LayersIcon,
@@ -8,6 +7,11 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { useComponents } from "../state/components.ts";
@@ -16,68 +20,68 @@ import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
+import { GitUserButton } from "./git-user.tsx";
+import { CommandKeys } from "./shortcut-sheet.tsx";
 
-/** `rail` is the word under the icon, `label` the panel's title and the button's name. */
-export const railItems: Record<
-  LeftTab,
-  { label: string; rail: string; icon: LucideIcon }
-> = {
-  changes: { icon: GitCompareArrows, label: "Changes", rail: "Changes" },
-  chat: { icon: Sparkles, label: "Agents", rail: "Agents" },
-  designSystem: {
-    icon: PaletteIcon,
-    label: "Foundations",
-    rail: "Foundations",
-  },
-  layers: { icon: LayersIcon, label: "Layers", rail: "Layers" },
-  library: { icon: LibraryBig, label: "Components", rail: "Components" },
+/** `label` is the panel's title, the button's name and its tooltip. */
+export const railItems: Record<LeftTab, { label: string; icon: LucideIcon }> = {
+  changes: { icon: GitCompareArrows, label: "Changes" },
+  chat: { icon: Sparkles, label: "Agents" },
+  designSystem: { icon: PaletteIcon, label: "Foundations" },
+  layers: { icon: LayersIcon, label: "Layers" },
+  library: { icon: LibraryBig, label: "Components" },
 };
 
 const openSettings = () => useProject.getState().openSettings(true);
 
 /**
- * One place on the rail: the icon in its tile, the word under it. `dot` says what is going on
- * there (an agent is working, the sync has something waiting); it sits in the icon's own
- * top-right corner, over it, so nothing moves when it comes and goes.
+ * One place on the rail: its icon, named by a tooltip and by the panel's own title once open.
+ * `dot` says what is going on there (an agent is working, the sync has something waiting); it
+ * sits in the icon's top-right corner, over it, so nothing moves when it comes and goes.
  */
 const RailItem = ({
   active = false,
+  command,
   dot = null,
   icon: Icon,
-  label,
   name,
   onClick,
 }: {
   active?: boolean;
+  /** The command it is, whose keys the tooltip shows. */
+  command?: string;
   /** What the dot says, for a screen reader; no dot when null. */
   dot?: string | null;
   icon: LucideIcon;
-  label: string;
   name: string;
   onClick: () => void;
 }) => (
-  <button
-    aria-label={name}
-    aria-pressed={active}
-    className="group flex w-16 flex-col items-center gap-0.5 rounded-lg py-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground"
-    onClick={onClick}
-    title={name === label ? undefined : name}
-    type="button"
-  >
-    <span className="flex h-7.5 w-9 items-center justify-center rounded-lg transition-colors group-hover:bg-muted group-aria-pressed:bg-muted">
-      <span className="relative flex">
-        <Icon className="size-4.5" />
-        {dot ? (
-          <span
-            aria-label={dot}
-            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-agent ring-2 ring-rail group-hover:ring-muted group-aria-pressed:ring-muted"
-            role="status"
-          />
-        ) : null}
-      </span>
-    </span>
-    <span className="line-clamp-2 w-full text-center font-rail">{label}</span>
-  </button>
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <button
+          aria-label={name}
+          aria-pressed={active}
+          className="group relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-accent aria-pressed:text-foreground"
+          onClick={onClick}
+          type="button"
+        />
+      }
+    >
+      <Icon className="size-[18px]" strokeWidth={1.75} />
+      {dot ? (
+        <span
+          aria-label={dot}
+          className="absolute top-1 right-1 size-2 rounded-full bg-agent ring-2 ring-sidebar"
+          role="status"
+        />
+      ) : null}
+    </TooltipTrigger>
+    <TooltipContent side="right">
+      {name}
+      {command ? <CommandKeys id={command} /> : null}
+    </TooltipContent>
+  </Tooltip>
 );
 
 const RailButton = ({ value }: { value: LeftTab }) => {
@@ -113,9 +117,9 @@ const RailButton = ({ value }: { value: LeftTab }) => {
   return (
     <RailItem
       active={active}
+      command={`panel:${value}`}
       dot={dot}
       icon={item.icon}
-      label={item.rail}
       name={item.label}
       onClick={onClick}
     />
@@ -123,13 +127,10 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 };
 
 /**
- * The left panels the workspace offers, in a column at the window's left, each named under its
- * icon: the agents always first. Design system's opens its board view. Settings and who the user
- * is at its foot. It shares one card with the left panel, a shade darker; with the panel put away
- * it is the whole card.
+ * The left panels the workspace offers, in a column of icons at the left card's edge: the agents
+ * always first. What changed, the settings and who the user is sit at its foot.
  */
 export const Rail = () => {
-  const panelHidden = usePanels((s) => s.left);
   // The mode's places (ADR 0053): Canvas's on the page canvas, Design System's on a board view,
   // with Layers on an app component's, known once the components are.
   const surface = useSurface();
@@ -138,10 +139,7 @@ export const Rail = () => {
   return (
     <nav
       aria-label="Panels"
-      className={cn(
-        "flex min-h-0 w-17 shrink-0 flex-col items-center gap-0.5 overflow-y-auto bg-rail py-2 [scrollbar-width:none]",
-        panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
-      )}
+      className="flex min-h-0 w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r py-2 [scrollbar-width:none]"
     >
       {tabs
         .filter((value) => value !== "changes")
@@ -149,14 +147,16 @@ export const Rail = () => {
           <RailButton key={value} value={value} />
         ))}
       <div className="flex-1" />
-      {/* At the foot, over the settings: what changed, the project's own business. */}
       {tabs.includes("changes") ? <RailButton value="changes" /> : null}
       <RailItem
+        command="settings"
         icon={Settings}
-        label="Settings"
         name="Settings"
         onClick={openSettings}
       />
+      <div className="mt-1 flex size-8 items-center justify-center">
+        <GitUserButton />
+      </div>
     </nav>
   );
 };

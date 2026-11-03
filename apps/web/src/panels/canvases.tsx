@@ -21,7 +21,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   newCanvas,
@@ -32,9 +31,8 @@ import {
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
-import { type EditorMode, showMode, useEditorMode } from "../state/panels.ts";
+import { useEditorMode } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { syncWaiting, useSync } from "../state/sync.ts";
 
 const CANVAS_DRAG_TYPE = "application/x-ultrapaint-canvas";
 
@@ -178,8 +176,8 @@ const CanvasRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here.
     <div
       className={cn(
-        "group relative flex h-7 items-center gap-1.5 rounded-md pr-1 pl-1.5 font-body has-focus-visible:bg-muted/50",
-        current ? "text-foreground" : "text-muted-foreground hover:bg-muted/50"
+        "group relative flex h-7 items-center gap-2 rounded-md pr-1 pl-2 font-body has-focus-visible:bg-accent",
+        current ? "bg-accent text-foreground" : "hover:bg-accent"
       )}
       draggable={!renaming}
       onContextMenu={menu}
@@ -194,7 +192,7 @@ const CanvasRow = ({
         <span className="absolute inset-x-1.5 bottom-0 h-px bg-brand" />
       ) : null}
       <span className="flex size-4 shrink-0 items-center justify-center">
-        {current ? <Check className="size-3" /> : null}
+        {current ? <Check className="size-4" /> : null}
       </span>
       {renaming ? (
         <InlineInput
@@ -206,7 +204,7 @@ const CanvasRow = ({
         <button
           className={cn(
             "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
-            current && "font-medium"
+            current && "font-label"
           )}
           onClick={open}
           onDoubleClick={() => setRenaming(true)}
@@ -218,7 +216,7 @@ const CanvasRow = ({
       )}
       {renaming ? null : (
         <>
-          <span className="shrink-0 font-body text-muted-foreground group-hover:hidden">
+          <span className="shrink-0 font-small text-muted-foreground tabular-nums group-hover:hidden">
             {count} {count === 1 ? "page" : "pages"}
           </span>
           <IconButton
@@ -227,7 +225,7 @@ const CanvasRow = ({
             size="icon-xs"
             tooltip="Canvas actions"
           >
-            <EllipsisVertical className="size-3" />
+            <EllipsisVertical className="size-3.5" />
           </IconButton>
         </>
       )}
@@ -236,63 +234,22 @@ const CanvasRow = ({
 };
 
 /**
- * The two modes (ADR 0053): the canvas's pages, or the design system. The rail shows the mode's
- * places.
- */
-const ModeToggle = () => {
-  const mode = useEditorMode();
-  // The design system and the code need syncing: said here too, seen from the canvas.
-  const waiting = useSync((s) => syncWaiting(s.plan));
-  return (
-    <Tabs
-      className="shrink-0 p-1.5"
-      onValueChange={(value) => showMode(value as EditorMode)}
-      value={mode}
-    >
-      <TabsList aria-label="Mode" className="w-full">
-        <TabsTrigger className="flex-1" value="canvas">
-          Canvas
-        </TabsTrigger>
-        <TabsTrigger className="flex-1" value="designSystem">
-          Design System
-          {waiting ? (
-            <span
-              aria-label="The design system and the code need syncing"
-              className="size-1.5 shrink-0 rounded-full bg-agent"
-              role="status"
-            />
-          ) : null}
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-};
-
-/**
- * Under the project, in its card: the mode (Canvas or Design System), then in Canvas mode the
- * canvas shown, whose list opens over the left panel rather than growing the card.
+ * Under the project, in its card: the canvas shown, in Canvas mode and the prototype; its list
+ * opens over the left panel rather than growing the card. The mode itself is the place switch's.
  */
 export const ModeAndCanvases = () => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
   const current = useEditor((s) => s.canvas);
   const mode = useEditorMode();
-  if (!configured || canvases.length === 0) {
+  if (!configured || canvases.length === 0 || mode !== "canvas") {
     return null;
   }
-  return (
-    <section aria-label="Mode and canvases" className="flex flex-col">
-      {/* The mode first; the canvases are the Canvas mode's alone. */}
-      <ModeToggle />
-      {mode === "canvas" ? (
-        <CanvasPicker canvases={canvases} current={current} />
-      ) : null}
-    </section>
-  );
+  return <CanvasPicker canvases={canvases} current={current} />;
 };
 
 const MENU_ROW =
-  "flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground outline-none hover:bg-muted/50 hover:text-foreground focus-visible:bg-muted/50 focus-visible:text-foreground";
+  "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body outline-none hover:bg-accent focus-visible:bg-accent [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
 /** The canvas shown, which opens the list of canvases and what makes a new one, over the panel. */
 const CanvasPicker = ({
@@ -304,27 +261,27 @@ const CanvasPicker = ({
 }) => (
   <Popover>
     <PopoverTrigger
-      className="group flex h-9 shrink-0 items-center gap-2 border-t px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40 data-popup-open:bg-muted/40"
-      title="The canvases"
+      className="group mx-1.5 mb-1.5 flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent data-popup-open:bg-accent"
+      title="Canvases"
     >
-      <Frame className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-medium">
+      <Frame className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate font-label">
         {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
       </span>
-      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
+      <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
     </PopoverTrigger>
     <PopoverContent
       align="start"
-      className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-1 overflow-auto p-1"
-      sideOffset={6}
+      className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-0.5 overflow-auto p-1"
+      sideOffset={4}
     >
-      <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
+      <div className="px-2 pt-1.5 pb-1 font-small text-muted-foreground">
         Canvases
       </div>
       <CanvasList canvases={canvases} current={current} />
       <div className="my-0.5 h-px bg-border" />
       <button className={MENU_ROW} onClick={newCanvas} type="button">
-        <Plus className="size-3.5" />
+        <Plus />
         New canvas
       </button>
       <button
@@ -333,7 +290,7 @@ const CanvasPicker = ({
         title="An agent turns the frames of a .fig file into pages of this canvas"
         type="button"
       >
-        <FileUp className="size-3.5" />
+        <FileUp />
         Import a Figma file…
       </button>
     </PopoverContent>
