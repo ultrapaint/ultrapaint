@@ -219,7 +219,8 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
   },
   {
     category: "Forms",
-    description: "A text field, with an optional label above it.",
+    description:
+      "A text field, with an optional label above it and an icon at the start of its box (input-icon).",
     example: { label: "Email", placeholder: "you@example.com" },
     layer: "inline",
     name: "Input",
@@ -244,6 +245,7 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       { label: "Field", name: ROOT_SLOT },
       { label: "Label", name: "field-label", optional: true },
       { label: "Input", name: "input" },
+      { holds: "nodes", label: "Icon", layout: "row", name: "input-icon" },
     ],
     states: ["hover", "focus", "disabled", "invalid"],
     variants: { size: SIZES },

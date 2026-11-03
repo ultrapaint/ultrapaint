@@ -1,7 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { applicationFileOf } from "@ultrapaint/contracts/catalogue";
+import {
+  applicationFileOf,
+  applicationNameOf,
+} from "@ultrapaint/contracts/catalogue";
 import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
 import { afterAll, describe, expect, it } from "vitest";
 import { detect } from "./detect.ts";
@@ -26,6 +29,9 @@ const written = (files: Readonly<Record<string, string>>) => {
 
 const { files: app } = scaffold({ dir: ".", name: "x", tokens: {} });
 const ui = (name: string) => String(app[`src/components/ui/${name}.tsx`]);
+
+/** What a source exports, in its one `export { … };`. */
+const EXPORTS_RE = /export \{ ([^}]+) \};/;
 
 /** Every `data-slot` a source marks, in order. */
 const slotsOf = (source: string) =>
@@ -201,6 +207,22 @@ describe("its components", () => {
       "export { Dialog, DialogFooter, DialogHeader, DialogTrigger, dialogVariants };"
     );
     expect(ui("card")).toContain("export { Card, CardFooter, CardHeader };");
+    expect(ui("input")).toContain(
+      "export { Input, InputIcon, inputVariants };"
+    );
     expect(app["src/lib/parts.ts"]).toContain("export function split(");
+  });
+
+  it("export a part for every slot that holds nodes, by the name the Code tab writes", () => {
+    for (const meta of SYSTEM_COMPONENTS) {
+      const exported = ui(kebab(meta.name)).match(EXPORTS_RE)?.[1];
+      const names = new Set(exported?.split(", "));
+      expect(
+        meta.slots
+          .filter((s) => s.holds === "nodes")
+          .map((s) => applicationNameOf(meta.name, s.name))
+          .filter((name) => !names.has(name))
+      ).toEqual([]);
+    }
   });
 });

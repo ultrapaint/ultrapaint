@@ -319,10 +319,12 @@ const LOOKS: Readonly<Record<string, Look>> = {
     base: {
       "field-label": label,
       input: { ...field, height: "2.25rem", padding: pad(0, "0.75rem") },
+      // The placeholder's colour: an icon tinted `currentColor` takes it.
+      "input-icon": { color: "$color-muted-foreground" },
       root: { gap: "0.375rem" },
     },
     states: {
-      disabled: { input: UNUSABLE },
+      disabled: { input: UNUSABLE, "input-icon": UNUSABLE },
       focus: { input: RING },
       invalid: { input: WRONG },
     },

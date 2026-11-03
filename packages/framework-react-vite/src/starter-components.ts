@@ -353,6 +353,10 @@ const FIELD_BOX =
 const INPUT = `import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "@/lib/cn";
+import { part, split } from "@/lib/parts";
+
+/** The icon at the start of the field's box: an envelope in an email field. */
+const InputIcon = part("InputIcon");
 
 const inputVariants = cva(
   "${FIELD_BOX}",
@@ -370,8 +374,9 @@ const inputVariants = cva(
   }
 );
 
-/** A text field, with an optional label above it. */
+/** A text field, with an optional label above it and an icon at the start of its box. */
 function Input({
+  children,
   className,
   invalid,
   label,
@@ -379,20 +384,37 @@ function Input({
   ...props
 }: Omit<React.ComponentProps<"input">, "size"> &
   VariantProps<typeof inputVariants> & { invalid?: boolean; label?: string }) {
+  const [, icon] = split(children, InputIcon);
+  const input = (
+    <input
+      aria-invalid={invalid || undefined}
+      className={cn(inputVariants({ size }), icon.length > 0 && "ps-9")}
+      data-slot="input"
+      {...props}
+    />
+  );
   return (
     <label className={cn("flex min-w-0 flex-col gap-1.5", className)} data-slot="root">
       {label ? ${FIELD_LABEL}{label}</span> : null}
-      <input
-        aria-invalid={invalid || undefined}
-        className={inputVariants({ size })}
-        data-slot="input"
-        {...props}
-      />
+      {icon.length > 0 ? (
+        <span className="relative flex min-w-0 flex-col">
+          <span
+            className="pointer-events-none absolute inset-y-0 start-3 flex items-center gap-1 text-muted-foreground data-disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0"
+            data-disabled={props.disabled || undefined}
+            data-slot="input-icon"
+          >
+            {icon}
+          </span>
+          {input}
+        </span>
+      ) : (
+        input
+      )}
     </label>
   );
 }
 
-export { Input, inputVariants };
+export { Input, InputIcon, inputVariants };
 `;
 
 const TEXTAREA = `import type * as React from "react";
