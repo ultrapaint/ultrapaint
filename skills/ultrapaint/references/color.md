@@ -15,7 +15,8 @@ primary, destructive and their pairs. A palette colour (`"$color-blue-500"`) on 
 decision the design system did not make; use one only where DESIGN.md's Colors section does.
 
 The neutrals are the design system's, neutral or warm (`references/design-system/foundations.md`).
-When the system's are blue-grey, tell the user rather than overriding them on one screen.
+When the system's are blue-grey and its character is not cool, tell the user rather than
+overriding them on one screen.
 
 ## A token only in its role
 
@@ -102,7 +103,7 @@ values in each theme the design system has.
 | --- | --- |
 | A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
 | A palette token in a component's colours | The semantic token it stands for |
-| A blue-grey neutral | A neutral or warm one; if the system's own is blue-grey, tell the user |
+| A blue-grey neutral the character does not ask for | A neutral or warm one; if the system's own is blue-grey, tell the user |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
 | A second hue with no fixed job, or any second hue in a product's own screens | Remove it |
 | A badge on a tinted green or red fill | The neutral Badge; at most a coloured dot inside it |

@@ -19,7 +19,7 @@ Text is in the product's own face, actually loaded. A screen in the machine's fa
 generic, and an accidental fallback beside the designed face reads as a defect. A serif may carry the
 display headlines of a landing or brand page when the brand asks for one. The product screens
 shown beneath those headlines stay sans. A text serif fits only long-form editorial reading.
-Navigation, labels, controls and tables stay sans.
+Navigation, labels, controls and tables stay sans, unless the user asked for a serif interface.
 
 ## Few sizes, emphasis from weight
 
@@ -102,7 +102,7 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | --- | --- |
 | `size` or `weight` as a raw number | A `textStyle`, or the scale's token |
 | Text in the machine's fallback face | Load the product's face |
-| A serif in navigation, labels, controls or tables | The product's sans |
+| A serif in navigation, labels, controls or tables the user did not ask for | The product's sans |
 | On a product screen, four sizes without a display figure, or five or more | Merge to the nearest of three |
 | A public page with two hero sizes, or more than six sizes | One hero size; merge the rest |
 | A level 3 heading larger than its level 2 | A smaller style for the lower level |

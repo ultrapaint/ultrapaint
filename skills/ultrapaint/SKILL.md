@@ -15,8 +15,10 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 
 ## On every screen
 
-- Text in the design system's face and styles, never a size or a colour of its own. A serif only
-  for a page's display headlines.
+- Text in the design system's face and styles, never a size or a colour of its own: one sans,
+  loaded, Inter or Geist when nothing names one. A serif only for a page's display headlines,
+  unless the user asked for one.
+- Neutrals neutral or warm, unless the user asked for a cool feel.
 - Two text colours, plainly apart: titles, names, values and field labels in the foreground;
   hints, descriptions, metadata and placeholders muted. A field label is semibold; control text
   (navigation, tabs, buttons) medium.
@@ -28,8 +30,10 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 
 ## Designing a screen or page
 
-1. **Name the character**, technical, humanistic or expressive, from the design system and the
-   brief (`references/character.md`). It sets the dials the other references leave open.
+1. **Settle the character** (`references/character.md`): read it in DESIGN.md; else from the
+   product, the picture or the request; else ask the user once whether to decide from the request
+   or hear it described. Write it down before the first node. It sets the dials the other
+   references leave open, and what the user said wins over their defaults.
 2. **Name the screen's one job** and its primary action in one sentence
    (`references/hierarchy.md`).
 3. **Read the four every screen has**, before the first node: `references/layout.md`,
@@ -47,9 +51,9 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 Creating one, reading one off a product's code or pictures, importing one from Figma, making or
 changing its components: read `references/design-system.md` and follow its steps. A screen that
 needs something the system lacks says so, and the system is changed by that job, not by the
-screen. A project with no design system yet (a theme that declares nothing) still gets a loaded
-face, warm or neutral greys and real scales: take the defaults of
-`references/design-system/foundations.md` before the first node, and say so.
+screen. A project with no design system yet (a theme that declares nothing) gets one before the
+first node: the character settled, then `references/design-system/foundations.md` in that
+character, a loaded face and real scales, written down with it in DESIGN.md.
 
 ## When the screen has one
 
