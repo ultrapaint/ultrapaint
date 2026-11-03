@@ -6,8 +6,11 @@ import {
   addChip,
   attachmentsOf,
   type Chip,
+  chipKey,
+  chipOfAttachment,
   chipOfComment,
   clearChips,
+  imageChip,
   useAttachments,
 } from "./attachments.ts";
 
@@ -113,6 +116,37 @@ describe("attachmentsOf", () => {
   it("sends a comment on the page itself as the page", () => {
     expect(attachmentsOf([chipOfComment(comment(null, null), home)])).toEqual([
       { kind: "file", path: "designs/home.page.json" },
+    ]);
+  });
+
+  it("sends a pasted image as the picture, each one however it is named", () => {
+    const shot = imageChip("Pasted image", "data:image/png;base64,AAAA");
+    const again = imageChip("Pasted image", "data:image/png;base64,BBBB");
+    expect(chipKey(shot)).not.toBe(chipKey(again));
+    expect(attachmentsOf([page("home"), shot])).toEqual([
+      { kind: "file", path: "designs/home.page.json" },
+      {
+        dataUrl: "data:image/png;base64,AAAA",
+        kind: "image",
+        name: "Pasted image",
+      },
+    ]);
+  });
+});
+
+describe("chipOfAttachment", () => {
+  it("puts a queued prompt's picture back as an image chip", () => {
+    const chip = chipOfAttachment({
+      dataUrl: "data:image/png;base64,AAAA",
+      kind: "image",
+      name: "Home screenshot",
+    });
+    expect(chip && attachmentsOf([chip])).toEqual([
+      {
+        dataUrl: "data:image/png;base64,AAAA",
+        kind: "image",
+        name: "Home screenshot",
+      },
     ]);
   });
 });
