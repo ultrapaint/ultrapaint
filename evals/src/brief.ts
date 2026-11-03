@@ -4,16 +4,17 @@
  * gives the agent the same brief, so rounds can be compared.
  */
 import path from "node:path";
-import { Effect, FileSystem } from "effect";
-import { Claude } from "./claude.ts";
+import { Effect, FileSystem, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { listDir, prompt } from "./layout.ts";
+import { Models } from "./models.ts";
 import {
   describeViewports,
   type LoadedReference,
   viewportsOf,
 } from "./reference.ts";
 
+const Brief = Schema.Struct({ brief: Schema.String });
 const BriefSchema = {
   additionalProperties: false,
   properties: { brief: { type: "string" } },
@@ -27,7 +28,7 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const file = data.briefFile(reference.id);
   if ((yield* fs.exists(file)) && !options.force) {
     yield* Effect.log(
@@ -42,8 +43,9 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
     yield* Effect.logWarning(`${reference.id}: capture it first`);
     return;
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.referenceDir(reference.id),
+    decode: Brief,
     model: options.model,
     prompt: yield* prompt("brief", {
       files: files.map((f) => `- ${f}`).join("\n"),
@@ -53,7 +55,7 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
     }),
     schema: BriefSchema,
   });
-  const { brief } = answer.structured as { readonly brief: string };
+  const { brief } = answer.value;
   yield* fs.writeFileString(file, `${brief.trim()}\n`);
   yield* Effect.log(
     `${reference.id}: brief written ($${answer.costUsd.toFixed(2)}); read it before a round`

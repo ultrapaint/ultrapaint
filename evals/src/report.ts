@@ -14,10 +14,11 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
 import {
+  isLevel,
   type Judgement,
   LEVELS,
   readJudgement,
@@ -25,6 +26,7 @@ import {
   roundSkills,
 } from "./judge.ts";
 import { PROMPTS, prompt, readJson, writeJson, writeText } from "./layout.ts";
+import { Models } from "./models.ts";
 import { readReview, scoreOf, type Verdict } from "./review.ts";
 
 const Gap = Schema.Struct({
@@ -159,7 +161,7 @@ export const report = Effect.fn("report")(function* (
   options: { readonly model: string }
 ) {
   const { data } = yield* EvalsConfig;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const dir = path.join(data.runs, round);
   const info = yield* readJson(RoundInfo, path.join(dir, "round.json"));
   const skills = yield* roundSkills(round);
@@ -262,8 +264,9 @@ export const report = Effect.fn("report")(function* (
     }))
   );
 
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: dir,
+    decode: Synthesis,
     model: options.model,
     prompt: yield* prompt("report", {
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
@@ -271,9 +274,7 @@ export const report = Effect.fn("report")(function* (
     }),
     schema: synthesisSchema(skills),
   });
-  const synthesis = yield* Schema.decodeUnknownEffect(Synthesis)(
-    answer.structured
-  );
+  const synthesis = answer.value;
 
   /** In how many runs of each reference a gap was seen. */
   const counted = synthesis.gaps
@@ -315,9 +316,7 @@ export const report = Effect.fn("report")(function* (
   );
   const areas = [
     ...LEVELS.filter((l) => scored.has(l)),
-    ...skills.filter(
-      (s) => scored.has(s) && !(LEVELS as readonly string[]).includes(s)
-    ),
+    ...skills.filter((s) => scored.has(s) && !isLevel(s)),
     "overall",
   ];
   const unwantedOf = (reference?: string, kind?: Unwanted["kind"]) =>

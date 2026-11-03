@@ -10,7 +10,7 @@ import path from "node:path";
 import { Effect, FileSystem } from "effect";
 import { Browser } from "./browser.ts";
 import { EvalsConfig } from "./config.ts";
-import { EvalsError } from "./errors.ts";
+import { fetchPicture } from "./fetch-picture.ts";
 import { listDir, writeText } from "./layout.ts";
 import { type LoadedReference, viewportsOf } from "./reference.ts";
 
@@ -31,20 +31,7 @@ const captureImage = Effect.fn("captureImage")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
-  const downloaded = yield* Effect.tryPromise({
-    catch: (cause) =>
-      new EvalsError({ message: `downloading ${image}: ${String(cause)}` }),
-    try: async () => {
-      const response = await fetch(image);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return {
-        bytes: new Uint8Array(await response.arrayBuffer()),
-        mime: response.headers.get("content-type") ?? "image/png",
-      };
-    },
-  });
+  const downloaded = yield* fetchPicture(image);
   const zoomed = yield* browser.zoom(downloaded.bytes, downloaded.mime);
   yield* fs.writeFile(path.join(dir, foldName("desktop")), zoomed.whole);
   yield* Effect.forEach(zoomed.parts, (part, index) =>

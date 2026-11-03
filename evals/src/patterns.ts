@@ -13,9 +13,9 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
 import { type DataDir, EvalsConfig } from "./config.ts";
-import { EvalsError } from "./errors.ts";
+import { fetchPicture } from "./fetch-picture.ts";
 import {
   listDir,
   PROMPTS,
@@ -24,6 +24,7 @@ import {
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 
 export const CORPUS_NAMES = [
   "landing",
@@ -288,17 +289,7 @@ const download = Effect.fn("download")(function* (url: string, file: string) {
   if (path.isAbsolute(url)) {
     return yield* fs.copyFile(url, file);
   }
-  const bytes = yield* Effect.tryPromise({
-    catch: (cause) =>
-      new EvalsError({ message: `downloading ${url}: ${String(cause)}` }),
-    try: async () => {
-      const response = await fetch(`${url}?resize=2000x1500`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return new Uint8Array(await response.arrayBuffer());
-    },
-  });
+  const { bytes } = yield* fetchPicture(`${url}?resize=2000x1500`);
   yield* fs.writeFile(file, bytes);
 });
 
@@ -312,7 +303,7 @@ export const annotate = Effect.fn("annotate")(function* (options: {
 }) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const { NOTES, STUDY, PICTURES, product } = placesOf(data, options.corpus);
   yield* fs.makeDirectory(PICTURES, { recursive: true });
   yield* fs.makeDirectory(NOTES, { recursive: true });
@@ -338,8 +329,9 @@ export const annotate = Effect.fn("annotate")(function* (options: {
           (p) => download(p.image, path.join(PICTURES, p.file)),
           { concurrency: 4 }
         );
-        const answer = yield* claude.ask({
+        const answer = yield* models.ask({
           cwd: PICTURES,
+          decode: Schema.Struct({ pieces: Schema.Array(Piece) }),
           model: options.model,
           prompt: yield* prompt("patterns-annotate", {
             files: batch.map((p) => `- ${p.file} (${p.title})`).join("\n"),
@@ -352,9 +344,7 @@ export const annotate = Effect.fn("annotate")(function* (options: {
             type: "object",
           },
         });
-        const { pieces } = yield* Schema.decodeUnknownEffect(
-          Schema.Struct({ pieces: Schema.Array(Piece) })
-        )(answer.structured);
+        const { pieces } = answer.value;
         cost += answer.costUsd;
         for (const piece of pieces) {
           const picture = batch.find((p) => p.file === piece.file);
@@ -482,7 +472,7 @@ export const book = Effect.fn("book")(function* (options: {
 }) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const { NOTES, STUDY, product } = placesOf(data, options.corpus);
   const pieces: Piece[] = [];
   for (const file of yield* listDir(NOTES)) {
@@ -532,7 +522,8 @@ export const book = Effect.fn("book")(function* (options: {
     recursive: true,
   });
   yield* fs.copy(skills, path.join(STUDY, "skills"));
-  const answer = yield* claude.ask({
+  // No schema: an enforced answer format made the study's notes terse, so the book comes as text.
+  const answer = yield* models.write({
     cwd: STUDY,
     model: options.model,
     prompt: yield* prompt("patterns-book", {
@@ -540,7 +531,6 @@ export const book = Effect.fn("book")(function* (options: {
       product,
     }),
   });
-  // No schema: an enforced answer format made the study's notes terse, so the book comes as text.
   const { text } = answer;
   yield* writeText(
     path.join(STUDY, "book.md"),

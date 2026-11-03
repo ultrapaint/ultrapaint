@@ -8,7 +8,7 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { COMPONENTS, COMPONENTS_DIR, COMPONENTS_FILE } from "./extract.ts";
 import {
@@ -19,6 +19,7 @@ import {
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 import { readReview } from "./review.ts";
 import { slugOf } from "./sections.ts";
 
@@ -139,7 +140,7 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const kindsFile = path.join(data.familyDir(family), COMPONENTS_FILE);
   const kinds = (yield* fs.exists(kindsFile))
     ? (yield* readJson(FoundKinds, kindsFile)).components
@@ -185,8 +186,9 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
   if (lines.length === 0) {
     return;
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.root,
+    decode: ComponentJudgement,
     model: options.model,
     prompt: yield* prompt("judge-components", {
       components: lines.join("\n"),
@@ -195,9 +197,7 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
     }),
     schema: judgementSchema,
   });
-  const judgement = yield* Schema.decodeUnknownEffect(ComponentJudgement)(
-    answer.structured
-  );
+  const judgement = answer.value;
   yield* writeJson(
     path.join(data.runs, round, family, run, "judge-components.json"),
     judgement
@@ -229,10 +229,7 @@ export const judgeComponents = Effect.fn("judgeComponents")(function* (
   const against = options.against
     ? {
         round: options.against,
-        verdicts: (yield* readReview(options.against)) as Record<
-          string,
-          { readonly pick?: string | undefined }
-        >,
+        verdicts: yield* readReview(options.against),
       }
     : undefined;
   const runs: { readonly family: string; readonly run: string }[] = [];

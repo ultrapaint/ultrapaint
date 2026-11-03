@@ -18,11 +18,25 @@ import { EvalsConfig } from "./config.ts";
 import { readJson, writeJson } from "./layout.ts";
 import { loadReferences } from "./reference.ts";
 
+export const GALLERY_SETS = ["shadcn", "shots"] as const;
+export type GallerySet = (typeof GALLERY_SETS)[number];
+
 /**
  * The sets a person can swipe: the shots to take references from, or looks to like (shadcn's
  * showcase in random presets), each with its own file of decisions and its own words.
  */
-const SETS = {
+const SETS: Record<
+  GallerySet,
+  {
+    readonly heading: string;
+    readonly link: string;
+    readonly selection: string;
+    readonly shots: string;
+    readonly skip: string;
+    readonly take: string;
+    readonly taken: string;
+  }
+> = {
   shadcn: {
     heading: "Which looks do you like?",
     link: "open in shadcn",
@@ -41,9 +55,7 @@ const SETS = {
     take: "Take",
     taken: "Taken",
   },
-} as const;
-export type GallerySet = keyof typeof SETS;
-export const GALLERY_SETS = Object.keys(SETS) as GallerySet[];
+};
 
 const Shot = Schema.Struct({
   href: Schema.String,

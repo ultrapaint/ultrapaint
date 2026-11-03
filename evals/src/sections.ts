@@ -11,11 +11,12 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Browser } from "./browser.ts";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry } from "./generate.ts";
 import { roundRuns } from "./judge.ts";
 import { listDir, prompt, readJson, writeJson } from "./layout.ts";
+import { Models } from "./models.ts";
 import { loadReference } from "./reference.ts";
 
 const Box = Schema.Struct({
@@ -144,15 +145,16 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const file = path.join(data.referenceDir(id), SECTIONS_FILE);
   if ((yield* fs.exists(file)) && !options.force) {
     return (yield* readJson(ReferenceSections, file)).sections;
   }
   const reference = yield* loadReference(id);
   const capture = data.captureDir(id);
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: capture,
+    decode: ReferenceSections,
     model: options.model,
     prompt: yield* prompt("sections-reference", {
       files: pictureList(
@@ -165,9 +167,7 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
     }),
     schema: referenceSchema,
   });
-  const found = yield* Schema.decodeUnknownEffect(ReferenceSections)(
-    answer.structured
-  );
+  const found = answer.value;
   yield* writeJson(file, found);
   yield* cutOut(capture, found.sections);
   yield* Effect.log(
@@ -183,14 +183,15 @@ export const runSections = Effect.fn("runSections")(function* (
   model: string
 ) {
   const { data } = yield* EvalsConfig;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const shots = path.join(dir, "shots");
   const files = (yield* listDir(shots)).filter((f) => f.startsWith("desktop"));
   if (files.length === 0) {
     return;
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: shots,
+    decode: DesignSections,
     model,
     prompt: yield* prompt("sections-design", {
       files: pictureList(files),
@@ -198,9 +199,7 @@ export const runSections = Effect.fn("runSections")(function* (
     }),
     schema: designSchema(marked.map((s) => s.name)),
   });
-  const found = yield* Schema.decodeUnknownEffect(DesignSections)(
-    answer.structured
-  );
+  const found = answer.value;
   yield* writeJson(path.join(dir, SECTIONS_FILE), found);
   yield* cutOut(
     shots,
@@ -350,13 +349,9 @@ export const readReferenceSections = Effect.fn("readReferenceSections")(
     const { data } = yield* EvalsConfig;
     const fs = yield* FileSystem.FileSystem;
     const file = path.join(data.referenceDir(id), SECTIONS_FILE);
-    if (!(yield* fs.exists(file))) {
-      return [] as {
-        readonly crop: string;
-        readonly section: ReferenceSection;
-      }[];
-    }
-    const found = yield* readJson(ReferenceSections, file);
+    const found: typeof ReferenceSections.Type = (yield* fs.exists(file))
+      ? yield* readJson(ReferenceSections, file)
+      : { sections: [] };
     return found.sections.map((section) => ({
       crop: path.join(
         data.captureDir(id),

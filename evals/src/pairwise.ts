@@ -7,9 +7,10 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { listDir, PROMPTS, prompt, readJson, writeJson } from "./layout.ts";
+import { Models } from "./models.ts";
 
 const LEVELS = [
   "layout",
@@ -122,7 +123,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   options: { readonly model: string; readonly principles: string }
 ) {
   const { data } = yield* EvalsConfig;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const reference = key.slice(0, key.indexOf("/"));
   // Which round shows as A follows the run's name, so neither is always first.
   const flip = hash(key) % 2 === 1;
@@ -133,8 +134,9 @@ const judgeRun = Effect.fn("judgeRun")(function* (
     }
     return side === "A" ? first : second;
   };
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.root,
+    decode: Verdict,
     effort: "high",
     model: options.model,
     prompt: yield* prompt("pairwise", {
@@ -145,7 +147,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
     }),
     schema: verdictSchema,
   });
-  const verdict = yield* Schema.decodeUnknownEffect(Verdict)(answer.structured);
+  const verdict = answer.value;
   return {
     levels: Object.fromEntries(
       Object.entries(verdict.levels).map(([l, v]) => [l, nameOf(v)])

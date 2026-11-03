@@ -6,10 +6,11 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { roundSkills } from "./judge.ts";
 import { PROMPTS, prompt, writeJson, writeText } from "./layout.ts";
+import { Models } from "./models.ts";
 import { buildCards, NONE, readReview } from "./review.ts";
 
 const Pattern = Schema.Struct({
@@ -58,7 +59,7 @@ export const learn = Effect.fn("learn")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const verdicts = yield* readReview(round);
   // A candidate round reviewed against an earlier one: its cards are built from both.
   const rounds = options.against
@@ -87,8 +88,9 @@ export const learn = Effect.fn("learn")(function* (
   if (choices.length === 0) {
     return yield* Effect.logWarning(`${round}: no picks to learn from yet`);
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.root,
+    decode: Learned,
     model: options.model,
     prompt: yield* prompt("learn", {
       choices: choices.join("\n"),
@@ -97,7 +99,7 @@ export const learn = Effect.fn("learn")(function* (
     }),
     schema: learnedSchema,
   });
-  const learned = yield* Schema.decodeUnknownEffect(Learned)(answer.structured);
+  const learned = answer.value;
   const dir = path.join(data.runs, round);
   yield* writeJson(path.join(dir, "learned.json"), learned);
   const rules = learned.patterns.filter((p) => p.strength === "rule");
