@@ -1,7 +1,9 @@
 /**
- * The selection's name on its top-left edge, in Vibe: in its colour, the same size at every zoom.
- * Its menu walks up to the parents and down to the children, which is how a nested element is
- * reached without the layers. When the element is in a chat, the tag says so.
+ * The selection's name on its top-left edge, in its colour, the same size at every zoom, with the
+ * agent's button beside it: all that hangs off the selection on the canvas, never wider than the
+ * element, the icon alone on a small one (ADR 0055). Its controls are in the bar above the tools.
+ * The name's menu walks up to the parents and down to the children, which is how a nested element
+ * is reached without the layers. When the element is in a chat, the tag says so.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { childrenOf, nodeLabel } from "@ultrapaint/design-document/tree";
@@ -17,48 +19,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NodeIcon } from "../components/node-icon.tsx";
-import { chatLinkOf } from "../lib/chat-link.ts";
 import { describeLink } from "../lib/links.ts";
-import { useAgents } from "../state/agents.ts";
-import { fileOfFrame, useAttachments } from "../state/attachments.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { select } from "../state/selection.ts";
+import { ChatButton, useChatLink } from "./element-toolbar-chat.tsx";
 
-/** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
-export const useChatLink = () => {
-  const selection = useEditor((s) => s.selection);
-  const threads = useAgents((s) => s.threads);
-  const current = useAgents((s) => s.current);
-  const byThread = useAttachments((s) => s.byThread);
-  return selection
-    ? chatLinkOf(
-        threads,
-        byThread,
-        current,
-        selection,
-        fileOfFrame(selection.frame)
-      )
-    : null;
-};
+/** The tag's height on screen, which the element needs above it in its frame to sit over it. */
+export const TAG_HEIGHT = 20;
+/** The narrowest the tag gets: the element's icon and the agent's button. */
+const TAG_MIN_WIDTH = 46;
+/** Under this width on screen the element's name and what follows it go, its icon stays. */
+const TAG_NAMED_WIDTH = 96;
 
-export const SelectionTag = ({
-  color,
-  inside = false,
-  inv,
-  node,
-}: {
-  color: string;
-  /** No room above the element in its frame: the tag goes inside its top-left corner. */
-  inside?: boolean;
-  inv: number;
-  node: DesignNode;
-}) => {
-  const selection = useEditor((s) => s.selection);
+/** What follows the icon on a tag with room for it: the name, where it leads, that it is in a chat. */
+const TagName = ({ inChat, node }: { inChat: boolean; node: DesignNode }) => {
   const canvas = useEditor((s) => s.canvas);
-  const docs = useDocuments((s) => s.docs);
   // Subscribed to so the label follows a page renamed or removed.
   const pages = useProject((s) => s.pages);
   const linked = node.link
@@ -67,6 +45,55 @@ export const SelectionTag = ({
         node.link
       )
     : null;
+  return (
+    <>
+      <span className="truncate">{nodeLabel(node)}</span>
+      {linked ? (
+        <span
+          className="flex min-w-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85"
+          title={
+            linked.broken
+              ? "Leads to a page that is not there"
+              : "Where it leads in the prototype"
+          }
+        >
+          <Link2 className="size-2.5 shrink-0" />
+          <span
+            className={linked.broken ? "truncate line-through" : "truncate"}
+          >
+            {linked.label}
+          </span>
+        </span>
+      ) : null}
+      {inChat ? (
+        <span className="flex shrink-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85">
+          <MessageSquare className="size-2.5" />
+          In chat
+        </span>
+      ) : null}
+      <ChevronDown className="size-2.5 shrink-0 opacity-80" />
+    </>
+  );
+};
+
+export const SelectionTag = ({
+  color,
+  inside = false,
+  inv,
+  node,
+  width,
+}: {
+  color: string;
+  /** No room above the element in its frame: the tag goes inside its top-left corner. */
+  inside?: boolean;
+  inv: number;
+  node: DesignNode;
+  /** The element's width on screen, which the tag keeps within. */
+  width: number;
+}) => {
+  const selection = useEditor((s) => s.selection);
+  const canvas = useEditor((s) => s.canvas);
+  const docs = useDocuments((s) => s.docs);
   const path = useMemo(
     () =>
       selection
@@ -82,11 +109,13 @@ export const SelectionTag = ({
       select({ frame: selection.frame, nodeId: target.id });
     }
   };
+  const named = width >= TAG_NAMED_WIDTH;
   return (
     <div
-      className="pointer-events-auto absolute left-0 flex items-center"
-      style={
-        inside
+      className="pointer-events-auto absolute left-0 flex items-end gap-0.5"
+      style={{
+        maxWidth: Math.max(width, TAG_MIN_WIDTH),
+        ...(inside
           ? {
               top: 0,
               transform: `scale(${inv})`,
@@ -96,45 +125,23 @@ export const SelectionTag = ({
               bottom: "100%",
               transform: `translate(${-1 * inv}px, ${-1 * inv}px) scale(${inv})`,
               transformOrigin: "bottom left",
-            }
-      }
+            }),
+      }}
     >
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <button
-              className="flex h-5 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-caption text-white outline-none focus-visible:underline"
+              aria-label={named ? undefined : nodeLabel(node)}
+              className="flex h-5 min-w-0 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-caption text-white outline-none focus-visible:underline"
               style={{ background: color }}
+              title={named ? undefined : nodeLabel(node)}
               type="button"
             />
           }
         >
           <NodeIcon className="size-3 shrink-0" node={node} />
-          <span className="truncate">{nodeLabel(node)}</span>
-          {linked ? (
-            <span
-              className="flex min-w-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85"
-              title={
-                linked.broken
-                  ? "Leads to a page that is not there"
-                  : "Where it leads in the prototype"
-              }
-            >
-              <Link2 className="size-2.5 shrink-0" />
-              <span
-                className={linked.broken ? "truncate line-through" : "truncate"}
-              >
-                {linked.label}
-              </span>
-            </span>
-          ) : null}
-          {thread ? (
-            <span className="flex shrink-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85">
-              <MessageSquare className="size-2.5" />
-              In chat
-            </span>
-          ) : null}
-          <ChevronDown className="size-2.5 shrink-0 opacity-80" />
+          {named ? <TagName inChat={thread !== null} node={node} /> : null}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           {parents.length > 0 ? (
@@ -175,6 +182,7 @@ export const SelectionTag = ({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {selection ? <ChatButton selection={selection} /> : null}
     </div>
   );
 };

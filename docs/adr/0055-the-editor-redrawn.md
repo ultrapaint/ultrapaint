@@ -31,6 +31,14 @@ under the project. Where the user was, what was primary and what was metadata re
     the prototype workspace are said in one control, where the eye looks first; the toggle under
     the project and the Play button go;
   - the tools in one row at the bottom centre, the zoom at their end;
+  - over the tools while something is selected, its bar: an element's design-system selects (a
+    component's variants, a text's style, the colour, radius, spacing and shadow tokens), a link
+    and its menu; several elements' shared selects and Wrap in; a page's viewport, views and menu.
+    On the canvas the selection keeps only its tag: its name and the agent's ✦ button, never wider
+    than the element, the icon and ✦ alone on a small one. The bar that hung over the selection
+    covered the frames around it when zoomed out and left the screen when zoomed in; docked, the
+    controls are in one place at every zoom, as in Canva, and the one action that is about the
+    element itself, asking an agent, stays on it;
   - the right card: Design, Code and Comments as a segmented control, and its toggle.
 - The rail's 10px labels go: nothing in the editor is set below 12px.
 
@@ -40,4 +48,6 @@ under the project. Where the user was, what was primary and what was metadata re
 - The rail is smaller and the left card one surface, so the canvas gets the width the labels and
   the second card took.
 - A machine without the system's font sees the same editor as a Mac.
+- The selection's controls are a reach away from the element, at the bottom centre; zooming and
+  panning never move them or put them over the design.
 - `font-rail` is gone; `typography.test.ts` keeps only the rule that no stock size is used.

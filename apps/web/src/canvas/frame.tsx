@@ -39,7 +39,6 @@ import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
-import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import { pickedFramesMoved } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { pageRequest } from "./page-request.ts";
@@ -159,10 +158,6 @@ export const Frame = memo(
     const drawn = visible;
     const hosted = visible || kept;
     const name = frameName(page, drawnRoot);
-    // A callback ref: the selection's toolbar is drawn in it once it is there.
-    const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
-      null
-    );
 
     // What the frame says, heard while it is on screen and drawn. Its error the frame keeps,
     // whoever listens (`Highlights`).
@@ -290,9 +285,7 @@ export const Frame = memo(
           )}
           <AgentWorkOverlay frameId={frameId} pieces={work.pieces} />
           {marquee ? <Marquee box={marquee} /> : null}
-          <ToolbarLayer.Provider value={toolbarLayer}>
-            <Highlights frameId={frameId} />
-          </ToolbarLayer.Provider>
+          <Highlights frameId={frameId} />
         </div>
 
         {page ? <FrameComments page={page} /> : null}
@@ -302,11 +295,6 @@ export const Frame = memo(
           isNode={isNode}
           onDragStart={onDragStart}
           root={root}
-        />
-
-        <div
-          className="pointer-events-none absolute inset-0"
-          ref={setToolbarLayer}
         />
       </div>
     );
@@ -703,10 +691,7 @@ const FrameChrome = ({
         {isNode ? null : <ViewBadge frameId={frameId} />}
       </FrameHeader>
       {frameRefOf(frameId).kind === "page" && isSelected ? (
-        <PageToolbar
-          headerHeight={HEADER_GAP + HEADER_HEIGHT}
-          pageId={frameId}
-        />
+        <PageToolbar pageId={frameId} />
       ) : null}
       {lit || titleHover ? (
         <div

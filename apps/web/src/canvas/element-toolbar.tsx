@@ -1,23 +1,17 @@
 /**
- * The Vibe toolbar over the selection: only what the design system has — a component's own
- * variants, a text's styles, the colour, radius, spacing and shadow tokens of a container — then
- * Add to chat and the element's menu. Every control is a select that shows its value alone; the
- * menu it opens says which prop or token it sets. Design keeps the plain selection and the
- * inspector instead.
+ * The selection's bar, docked above the tools (ADR 0055): only what the design system has — a
+ * component's own variants, a text's styles, the colour, radius, spacing and shadow tokens of a
+ * container — then the element's menu. Every control is a select that shows its value alone; the
+ * menu it opens says which prop or token it sets. Add to chat is on the selection's tag, on the
+ * canvas.
  */
 
 import { metaOf } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { Rect } from "@ultrapaint/contracts/preview";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { Ellipsis, Group, MessageSquareText, Square } from "lucide-react";
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  useContext,
-} from "react";
-import { createPortal } from "react-dom";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,8 +33,6 @@ import { useComponents } from "../state/components.ts";
 import { type MenuTarget, showMenu } from "../state/context-menu.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
-import { ChatButton, GroupChatButton } from "./element-toolbar-chat.tsx";
-import { ToolbarLayer, usePlacement } from "./element-toolbar-placement.ts";
 import {
   AlignSelect,
   MenuHead,
@@ -51,16 +43,9 @@ import {
   ValueTrigger,
 } from "./element-toolbar-selects.tsx";
 import { LinkControl } from "./link-control.tsx";
+import { Divider, SelectionDock } from "./selection-dock.tsx";
 import { SpacingSelect } from "./spacing-select.tsx";
 import { Targets } from "./toolbar-targets.ts";
-
-export const Divider = () => (
-  <span className="mx-1 h-4 w-px shrink-0 bg-border" />
-);
-
-/** The bar itself: a popover's surface floating over the canvas, its controls in one row. */
-const BAR_CLASS =
-  "pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-lg bg-popover p-1 text-popover-foreground shadow-overlay ring-1 ring-border";
 
 /** A plain button of the bar: an icon and its label. */
 const BAR_BUTTON_CLASS =
@@ -152,54 +137,7 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
   );
 };
 
-/** A box over the element, in the frame's toolbar layer, that the toolbar hangs from. */
-const OverFrame = ({
-  children,
-  hidden = false,
-  rect,
-}: {
-  children: ReactNode;
-  /** Kept but not drawn: its element is not measured yet. */
-  hidden?: boolean;
-  rect: Rect;
-}) => {
-  const layer = useContext(ToolbarLayer);
-  return layer
-    ? createPortal(
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            height: rect.height,
-            left: rect.x,
-            top: rect.y,
-            visibility: hidden ? "hidden" : undefined,
-            width: rect.width,
-          }}
-        >
-          {children}
-        </div>,
-        layer
-      )
-    : null;
-};
-
-export const ElementToolbar = ({
-  frame,
-  hidden = false,
-  inv,
-  node,
-  rect,
-}: {
-  /** The frame's size, which the toolbar stays inside while it fits. */
-  frame: { height: number; width: number };
-  /** Kept but not drawn, while the element it is over is measured. */
-  hidden?: boolean;
-  inv: number;
-  node: DesignNode;
-  /** Where the element is in the frame, which decides where the toolbar can go. */
-  rect: Rect;
-}) => {
-  const [placeAt, placement] = usePlacement(rect, inv, frame);
+export const ElementToolbar = ({ node }: { node: DesignNode }) => {
   const selection = useEditor((s) => s.selection);
   const dragging = useDrag((s) => s.dragged !== null);
   const workedOnBy = useWorkOn(selection);
@@ -207,46 +145,36 @@ export const ElementToolbar = ({
     return null;
   }
   return (
-    <OverFrame hidden={hidden} rect={rect}>
-      <div
-        aria-label={`Toolbar of ${nodeLabel(node)}`}
-        className={BAR_CLASS}
-        data-element-toolbar
-        onPointerDown={(e) => e.stopPropagation()}
-        ref={placeAt}
-        role="toolbar"
-        style={placement}
-      >
-        {workedOnBy ? (
+    <SelectionDock label={`Toolbar of ${nodeLabel(node)}`}>
+      {workedOnBy ? (
+        <>
           <AgentAtWork thread={workedOnBy} />
-        ) : (
-          <Targets.Provider value={[selection]}>
-            <Controls node={node} />
-            <Divider />
-            <ChatButton selection={selection} />
-          </Targets.Provider>
-        )}
-        <MoreButton
-          menu={{
-            frame: selection.frame,
-            kind: "node",
-            nodeId: selection.nodeId,
-          }}
-        />
-      </div>
-    </OverFrame>
+          <Divider />
+        </>
+      ) : (
+        <Targets.Provider value={[selection]}>
+          <Controls node={node} />
+          <Divider />
+        </Targets.Provider>
+      )}
+      <MoreButton
+        menu={{
+          frame: selection.frame,
+          kind: "node",
+          nodeId: selection.nodeId,
+        }}
+      />
+    </SelectionDock>
   );
 };
 
 /**
- * The context menu of what the toolbar is over, under the button. Opened on a node of the
+ * The context menu of what the bar acts on, against the button. Opened on a node of the
  * selection, it acts on the whole selection, as a right-click on it does.
  */
 export const MoreButton = ({ menu }: { menu: MenuTarget }) => {
-  const openMore = (e: ReactMouseEvent) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    showMenu(menu, { x: r.left, y: r.bottom + 4 });
-  };
+  // Against the button: the menu opens on the side it has room on.
+  const openMore = (e: ReactMouseEvent) => showMenu(menu, e.currentTarget);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -283,23 +211,16 @@ const WRAPS = [
 ] as const;
 
 /**
- * The toolbar over several selected elements: what they share when they are of one kind, set on
- * all of them at once; wrapping siblings in a row, a column or a group; all of them to the chat.
+ * The bar of several selected elements: what they share when they are of one kind, set on all of
+ * them at once; wrapping siblings in a row, a column or a group. The chat is on their tag.
  */
 export const GroupToolbar = ({
-  frame,
-  inv,
   nodes,
-  rect,
   targets,
 }: {
-  frame: { height: number; width: number };
-  inv: number;
   nodes: readonly DesignNode[];
-  rect: Rect;
   targets: readonly Selection[];
 }) => {
-  const [placeAt, placement] = usePlacement(rect, inv, frame);
   const dragging = useDrag((s) => s.dragged !== null);
   const [first] = nodes;
   if (dragging || !first) {
@@ -307,52 +228,43 @@ export const GroupToolbar = ({
   }
   const siblings = areSiblings(targets);
   return (
-    <OverFrame rect={rect}>
-      <div
-        aria-label={`Toolbar of ${nodes.length} elements`}
-        className={BAR_CLASS}
-        data-element-toolbar
-        onPointerDown={(e) => e.stopPropagation()}
-        ref={placeAt}
-        role="toolbar"
-        style={placement}
-      >
-        <Targets.Provider value={targets}>
-          {sameKind(nodes) ? (
-            <>
-              <Controls node={first} />
-              <Divider />
-            </>
-          ) : null}
-          <DropdownMenu>
-            <ValueTrigger
-              icon={Group}
-              tooltip={
-                siblings
-                  ? "Wrap them in"
-                  : "Only siblings can be wrapped together"
-              }
-            >
-              Wrap in
-            </ValueTrigger>
-            <DropdownMenuContent className="w-40">
-              <DropdownMenuGroup>
-                <MenuHead name="wrap in" />
-                {WRAPS.map(([type, label]) => (
-                  <DropdownMenuItem
-                    disabled={!siblings}
-                    key={type}
-                    onClick={() => wrapNodes(targets, type)}
-                  >
-                    {label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Divider />
-          <GroupChatButton targets={targets} />
-          {targets[0] ? (
+    <SelectionDock label={`Toolbar of ${nodes.length} elements`}>
+      <Targets.Provider value={targets}>
+        {sameKind(nodes) ? (
+          <>
+            <Controls node={first} />
+            <Divider />
+          </>
+        ) : null}
+        <DropdownMenu>
+          <ValueTrigger
+            icon={Group}
+            tooltip={
+              siblings
+                ? "Wrap them in"
+                : "Only siblings can be wrapped together"
+            }
+          >
+            Wrap in
+          </ValueTrigger>
+          <DropdownMenuContent className="w-40">
+            <DropdownMenuGroup>
+              <MenuHead name="wrap in" />
+              {WRAPS.map(([type, label]) => (
+                <DropdownMenuItem
+                  disabled={!siblings}
+                  key={type}
+                  onClick={() => wrapNodes(targets, type)}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {targets[0] ? (
+          <>
+            <Divider />
             <MoreButton
               menu={{
                 frame: targets[0].frame,
@@ -360,9 +272,9 @@ export const GroupToolbar = ({
                 nodeId: targets[0].nodeId,
               }}
             />
-          ) : null}
-        </Targets.Provider>
-      </div>
-    </OverFrame>
+          </>
+        ) : null}
+      </Targets.Provider>
+    </SelectionDock>
   );
 };

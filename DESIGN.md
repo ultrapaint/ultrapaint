@@ -101,6 +101,9 @@ follows the system's unless the person picks one in Settings › Editor.
   tooltip and by the panel's own title. Put away, the card is the project's row alone.
 - **Place switch**, top centre: Canvas · Design system · Prototype, the three places of the editor.
 - **Tools**, bottom centre, one row: Insert, the tools, undo and redo, the zoom.
+- **Element toolbar**, over the tools while something is selected: its design-system selects and
+  its menu, in one place at every zoom. On the canvas the selection keeps only its tag, its name
+  and the agent's ✦, never wider than the element.
 - **Right card**: Design · Code · Comments as a segmented control, and the panel's toggle.
 
 ## Colors

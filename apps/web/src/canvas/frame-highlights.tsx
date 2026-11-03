@@ -15,8 +15,8 @@ import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { useFrameError } from "./editor-frame.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
-import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
-import { SelectionTag } from "./selection-tag.tsx";
+import { GroupChatButton } from "./element-toolbar-chat.tsx";
+import { SelectionTag, TAG_HEIGHT } from "./selection-tag.tsx";
 
 /** The node hovered in this frame, if the pointer is over one here. */
 export const useHoverIn = (frameId: string) =>
@@ -45,21 +45,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const pageError = useFrameError(frameId);
   const inv = useInv();
   const canvas = useEditor((s) => s.canvas);
-  const frameWidth = useEditor(
-    (s) =>
-      s.frames[frameId]?.width ??
-      s.held[frameId]?.width ??
-      s.sizes[frameId]?.width ??
-      Number.POSITIVE_INFINITY
-  );
-  const frameHeight = useEditor(
-    (s) =>
-      s.frames[frameId]?.height ??
-      s.held[frameId]?.height ??
-      s.sizes[frameId]?.height ??
-      Number.POSITIVE_INFINITY
-  );
-  const frame = { height: frameHeight, width: frameWidth };
   // This frame's document only: an edit elsewhere has nothing to outline here. As the frame
   // draws it: a row from a breakpoint on is named a row there (ADR 0036).
   const own = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
@@ -101,7 +86,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       {selectedRect || selectedNode ? (
         <Outline
           bare={many || !madeHere}
-          frame={frame}
           hidden={!selectedRect}
           kind="selection"
           node={selectedNode}
@@ -119,7 +103,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       ))}
       {group?.rect && madeHere ? (
         <GroupOutline
-          frame={frame}
           nodes={group.nodes}
           rect={group.rect}
           targets={group.targets}
@@ -131,21 +114,19 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
 };
 
 /**
- * The box around several selected nodes: their count on its edge and the toolbar of what they
- * share.
+ * The box around several selected nodes: their count and the agent's button on its edge, and the
+ * bar of what they share above the tools.
  */
 const GroupOutline = ({
-  frame,
   nodes,
   rect,
   targets,
 }: {
-  frame: { height: number; width: number };
   nodes: readonly DesignNode[];
   rect: Rect;
   targets: readonly Selection[];
 }) => {
-  // The toolbar is placed by it: the room it takes depends on the zoom.
+  // The tag is drawn at its size on screen, whatever the zoom.
   const inv = useInv();
   const color = kindColor("element");
   return (
@@ -160,24 +141,23 @@ const GroupOutline = ({
         width: rect.width,
       }}
     >
-      <span
-        className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4"
+      <div
+        className="pointer-events-auto absolute left-0 flex items-end gap-0.5"
         style={{
-          background: color,
           bottom: "100%",
           transform: `translate(${-1 * inv}px, ${-4 * inv}px) scale(${inv})`,
           transformOrigin: "bottom left",
         }}
       >
-        {nodes.length} selected
-      </span>
-      <GroupToolbar
-        frame={frame}
-        inv={inv}
-        nodes={nodes}
-        rect={rect}
-        targets={targets}
-      />
+        <span
+          className="flex h-5 items-center whitespace-nowrap rounded-t-sm px-1.5 font-caption text-white"
+          style={{ background: color }}
+        >
+          {nodes.length} selected
+        </span>
+        <GroupChatButton targets={targets} />
+      </div>
+      <GroupToolbar nodes={nodes} targets={targets} />
     </div>
   );
 };
@@ -210,35 +190,27 @@ const FrameError = ({ inv, message }: { inv: number; message: string }) => (
 /** Where a node not measured yet is outlined, hidden. */
 const NO_RECT: Rect = { height: 0, width: 0, x: 0, y: 0 };
 
-const UNBOUNDED = {
-  height: Number.POSITIVE_INFINITY,
-  width: Number.POSITIVE_INFINITY,
-};
-
 /**
  * A node's outline, in the colour of what it is: blue for an element, purple for a component. The
- * selection's name sits on its top-left edge, where the element toolbar hangs its controls from;
- * its size is the inspector's.
+ * selection's tag sits on its top-left edge, its controls in the bar above the tools; its size is
+ * the inspector's.
  */
 const Outline = ({
   bare = false,
-  frame = UNBOUNDED,
   hidden = false,
   rect,
   kind,
   node,
 }: {
-  /** One of several selected: outlined only, the group carries the name and the toolbar. */
+  /** One of several selected: outlined only, the group carries the tag and the bar. */
   bare?: boolean;
-  /** The frame's size, which the toolbar stays inside while it fits. */
-  frame?: { height: number; width: number };
-  /** Not drawn while its node is not measured yet, its toolbar kept. */
+  /** Not drawn while its node is not measured yet, its bar kept. */
   hidden?: boolean;
   rect: { x: number; y: number; width: number; height: number };
   kind: "hover" | "selection";
   node: DesignNode | null;
 }) => {
-  // The name and the toolbar are placed by it: the room they take depends on the zoom.
+  // The tag is placed by it: the room it takes depends on the zoom.
   const inv = useInv();
   const tone = selectionKindOf(node);
   // Crisp, in the kind's own colour: 1px under the pointer, 2px once selected.
@@ -263,14 +235,9 @@ const Outline = ({
             inside={rect.y < TAG_HEIGHT * inv}
             inv={inv}
             node={node}
+            width={rect.width / inv}
           />
-          <ElementToolbar
-            frame={frame}
-            hidden={hidden}
-            inv={inv}
-            node={node}
-            rect={rect}
-          />
+          <ElementToolbar node={node} />
         </>
       ) : null}
     </div>
