@@ -39,8 +39,18 @@ into your agent (`ssh-add`) or set one up (`ssh-copy-id <host>`), and connect on
 to accept the host's key. A dropped connection is made again by itself, the canvas saying so
 meanwhile; quitting or switching stops what the app started there.
 
-Releases do not carry it yet: build it from a checkout, for the machine you are on (an AppImage
-and a deb on Linux, a dmg and a zip on macOS, unsigned), or run it from the checkout.
+Each [release](https://github.com/ultrapaint/ultrapaint/releases) carries it, unsigned for now
+([ADR 0051](../adr/0051-desktop-distribution.md)):
+
+- **macOS** (Apple silicon): `brew install --cask ultrapaint/tap/ultrapaint`, or the `.dmg`. macOS
+  says an unsigned app "is damaged": run `xattr -dr com.apple.quarantine /Applications/Ultrapaint.app`
+  once after installing or updating it. When a newer release is out, a banner over the editor says
+  so, with `brew upgrade --cask ultrapaint` to copy and the download.
+- **Linux**: the AppImage, which updates itself (it downloads the release in the background and
+  installs it when the app quits), or the `.deb`, whose updates the same banner announces.
+
+Windows is not supported yet. To build it from a checkout, for the machine you are on (an
+AppImage and a deb on Linux, a dmg and a zip on macOS), or run it from the checkout:
 
 ```bash
 pnpm desktop:build                              # installers in apps/desktop/release

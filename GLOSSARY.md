@@ -348,6 +348,10 @@ refactor and the board view left.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
+- **Notice**: what the desktop app tells the editor it found missing or out of date on this
+  machine, shown as a banner over it until dismissed or the editor loads again
+  (`Platform.notices`, the desktop's `Notices`): Node.js, and a newer release where the app does
+  not update itself (`updates.ts`, ADR 0051).
 
 ## Server
 

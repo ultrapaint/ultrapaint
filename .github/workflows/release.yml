@@ -1,9 +1,10 @@
 # Run by hand, from the Actions tab on main: raises the version in the root package.json, commits
-# and tags it, and attaches the command's package (`pnpm pack:local`) to a GitHub release, to be
-# installed for any repository with `pnpm add -g ./ultrapaint-<version>.tgz`. The desktop app is
-# then built from the tag on Linux and macOS (`pnpm desktop:build`), unsigned, and kept as the
-# run's artifacts: not attached to the release, and no update feed, until the repository is
-# public (PLAN-desktop D15).
+# and tags it, and makes a draft GitHub release with the command's package (`pnpm pack:local`),
+# installed for any repository with `npm install -g <its URL>`. The desktop app is then built
+# from the tag on Linux and macOS (`pnpm desktop:build`, unsigned, Apple silicon only on macOS)
+# and its installers and update feeds attached to the draft (ADR 0051). Once both are there, the
+# release is published: AppImages update to it, and the cask in ultrapaint/homebrew-tap follows it
+# within the hour, by a workflow of the tap's own.
 name: Release
 
 on:
@@ -87,28 +88,29 @@ jobs:
           git tag "v$VERSION"
           git push origin HEAD:main "v$VERSION"
 
-      - name: Publish the release
+      - name: Draft the release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+        # A draft until the desktop app is attached: nothing updates to a release without it.
+        # The package twice: by its version, and as `ultrapaint.tgz`, which `releases/latest/download/`
+        # always finds.
         run: |
-          gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" \
+          cp "dist/ultrapaint-$VERSION.tgz" dist/ultrapaint.tgz
+          gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" dist/ultrapaint.tgz \
+            --draft \
             --title "v$VERSION" \
             --generate-notes \
-            --notes "Needs Node.js 24 or newer. To run it without installing, in the repository you want to design in:
+            --notes "**The command** needs Node.js 24 or newer. Install it, then run \`ultrapaint\` in any repository:
 
           \`\`\`bash
-          dir=\$(mktemp -d)
-          gh release download v$VERSION --repo $GITHUB_REPOSITORY --pattern '*.tgz' --dir \"\$dir\"
-          pnpm dlx \"\$dir\"/ultrapaint-$VERSION.tgz
+          npm install -g https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/ultrapaint-$VERSION.tgz
           \`\`\`
 
-          To install it, then run \`ultrapaint\` in any repository:
+          **The desktop app**, unsigned for now:
 
-          \`\`\`bash
-          gh release download v$VERSION --repo $GITHUB_REPOSITORY --pattern '*.tgz'
-          pnpm add -g ./ultrapaint-$VERSION.tgz
-          \`\`\`"
+          - macOS (Apple silicon): \`brew install --cask ultrapaint/tap/ultrapaint\`, or the \`.dmg\` below. Unsigned, it opens once you run \`xattr -dr com.apple.quarantine /Applications/Ultrapaint.app\`.
+          - Linux: the AppImage, which updates itself, or the \`.deb\`."
 
   desktop:
     needs: release
@@ -131,12 +133,22 @@ jobs:
       - name: Build the desktop app
         run: pnpm desktop:build
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ultrapaint-${{ needs.release.outputs.version }}-${{ runner.os }}
-          path: |
-            apps/desktop/release/*.AppImage
-            apps/desktop/release/*.deb
-            apps/desktop/release/*.dmg
-            apps/desktop/release/*.zip
-          if-no-files-found: error
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        # The installers, their block maps and the update feed (latest-linux.yml, latest-mac.yml).
+        run: |
+          shopt -s nullglob
+          cd apps/desktop/release
+          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" *.AppImage *.deb *.dmg *.zip *.blockmap latest*.yml --clobber
+
+  publish:
+    needs: [release, desktop]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest

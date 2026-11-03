@@ -5,32 +5,23 @@ Ultrapaint needs [Node.js](https://nodejs.org) 24 or newer. Agents are optional:
 ## From a release
 
 Each [release](https://github.com/ultrapaint/ultrapaint/releases) carries the command as a
-package, `ultrapaint-<version>.tgz`: the server and the editor already built, nothing to clone.
-The repository is private, so download it with the [GitHub CLI](https://cli.github.com), or from
-the release page while signed in.
-
-To try it without installing anything, run this in the repository you want to design in. It
-downloads the latest release to a temporary directory and runs it from there:
+package: the server and the editor already built, nothing to clone. The latest is always at the
+same address, so installing and updating are the same command:
 
 ```bash
-dir=$(mktemp -d)
-gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz' --dir "$dir"
-pnpm dlx "$dir"/ultrapaint-*.tgz
+npm install -g https://github.com/ultrapaint/ultrapaint/releases/latest/download/ultrapaint.tgz
 ```
 
-`pnpm dlx` needs the tarball's absolute path: a relative one is read from pnpm's cache, not from
-where you are. Flags go after the path (`pnpm dlx "$dir"/ultrapaint-*.tgz --port 4800`).
+`pnpm add -g` takes the same address; if pnpm says its global directory is not on your `PATH`,
+run `pnpm setup` once and open a new shell. A release's own package, `ultrapaint-<version>.tgz`,
+installs that version.
 
-To keep the command, install it globally instead:
+To try it without installing anything, run it once from the address, in the repository you want
+to design in. Flags go after the address (`--port 4800`):
 
 ```bash
-gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz'
-pnpm add -g ./ultrapaint-*.tgz
+npx https://github.com/ultrapaint/ultrapaint/releases/latest/download/ultrapaint.tgz
 ```
-
-pnpm installs global commands into a directory of its own; if it says that directory is not on
-your `PATH`, run `pnpm setup` once and open a new shell. `npm install -g ./ultrapaint-*.tgz`
-works too. To update, download the newer release and install it the same way.
 
 ## From a checkout
 

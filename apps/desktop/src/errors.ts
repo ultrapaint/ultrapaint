@@ -37,3 +37,9 @@ export class HiddenCapability extends Schema.TaggedError<HiddenCapability>()(
     return `${this.capability} is not shown for a project on another machine`;
   }
 }
+
+/** GitHub could not say which release is the latest: offline, rate-limited, or another answer. */
+export class UpdateCheckError extends Schema.TaggedError<UpdateCheckError>()(
+  "UpdateCheckError",
+  { message: Schema.String }
+) {}

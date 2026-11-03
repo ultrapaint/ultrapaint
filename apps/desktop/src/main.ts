@@ -21,6 +21,7 @@ import {
   shell,
   type WebContents,
 } from "electron";
+import { autoUpdater } from "electron-updater";
 import { AgentDownloads } from "./agent-downloads.ts";
 import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
@@ -229,6 +230,16 @@ const ElectronSecrets = Layer.sync(Secrets, () =>
   })
 );
 
+/**
+ * An AppImage replaces itself with the latest release (electron-updater, from GitHub Releases).
+ * Elsewhere the app is told of one by a notice (ADR 0051): the macOS app is unsigned, which
+ * Squirrel will not update, and a deb is installed again.
+ */
+const selfUpdating =
+  app.isPackaged &&
+  process.platform === "linux" &&
+  Boolean(process.env.APPIMAGE);
+
 const serverLaunch = {
   args: serverArgs,
   command: process.execPath,
@@ -240,7 +251,7 @@ const runtime = ManagedRuntime.make(
     NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
       Layer.provideMerge(OpenProject.layer(dataDir))
     ),
-    Notices.layer
+    Notices.layer({ fetch, selfUpdating, version: app.getVersion() })
   ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
     Layer.provideMerge(
@@ -352,6 +363,14 @@ const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
   window = makeWindow();
+  if (selfUpdating) {
+    // Downloaded in the background and installed when the app quits; the system says so.
+    autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
+      console.error(
+        `[desktop] the update could not be checked: ${String(error)}`
+      );
+    });
+  }
   const folder = folderArgument(process.argv);
   await runtime.runPromise(
     OpenProject.use((o) =>

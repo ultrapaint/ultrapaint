@@ -32,7 +32,7 @@ needed, and a new design is a button.
 | D12 | SSH | The app runs the server on the remote machine through the system `ssh` (its config, keys and agent), forwards the server's port to loopback (the preview comes through it since ADR 0034), and loads the editor through it. Agents and the preview run on the remote machine |
 | D13 | Window close | Quits: every server the app started stops, after asking when an agent is working |
 | D14 | Platforms | macOS and Linux first (dmg, AppImage and deb). Windows once the agent sandbox exists there |
-| D15 | Updates | None until the repository is public; then GitHub Releases through electron-updater |
+| D15 | Updates | None until the repository is public; then GitHub Releases through electron-updater. Public since 2026-11-03: an AppImage updates itself, the unsigned macOS app and a deb are told by a notice ([ADR 0051](../adr/0051-desktop-distribution.md)) |
 
 ## Measured: the agent adapters
 
