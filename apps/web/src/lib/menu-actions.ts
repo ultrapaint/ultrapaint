@@ -104,7 +104,7 @@ import {
   updateSelection,
   wrapSelection,
 } from "./node-actions.ts";
-import { copyNodeLink, copyNodeRef } from "./node-links.ts";
+import { copyNodeLink, copyNodeRef, copyPageLink } from "./node-links.ts";
 import {
   adoptPages,
   deletePages,
@@ -543,6 +543,8 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
       return unlinkImplementation(page.id, page.name);
     case "comment":
       return startComment(page.id, target.at ?? { x: 40, y: 40 });
+    case "copyLink":
+      return copyPageLink(page);
     case "delete":
       return deletePages(pagesActedOn(page.id));
     default:

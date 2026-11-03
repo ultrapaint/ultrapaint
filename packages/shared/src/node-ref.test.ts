@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNodeRef, parseNodeRef } from "./node-ref.ts";
+import { formatNodeRef, parseEditorLink, parseNodeRef } from "./node-ref.ts";
 
 describe("node references", () => {
   it("read a route and a node id", () => {
@@ -50,5 +50,42 @@ describe("node references", () => {
       const ref = parseNodeRef(text);
       expect(ref && formatNodeRef(ref)).toBe(text);
     }
+  });
+
+  it("read a link the editor copies to one node", () => {
+    expect(
+      parseNodeRef(
+        "http://localhost:4643/?canvas=redesign&route=/vibe&node=c_1"
+      )
+    ).toEqual({ canvas: "redesign", nodeId: "c_1", page: "/vibe" });
+    expect(
+      parseNodeRef(
+        "http://localhost:4643/?canvas=redesign&page=redesign%2Fdraft.page.json&node=c_1"
+      )
+    ).toEqual({
+      canvas: "redesign",
+      nodeId: "c_1",
+      page: "redesign/draft.page.json",
+    });
+    // Neither route nor page: a node beside the pages.
+    expect(parseNodeRef("https://editor.example/?node=g_3")).toEqual({
+      nodeId: "g_3",
+      page: null,
+    });
+    expect(parseNodeRef("https://example.com/?q=1")).toBeNull();
+  });
+});
+
+describe("editor links", () => {
+  it("name a page without a node", () => {
+    expect(
+      parseEditorLink("http://localhost:4643/?canvas=samples&route=/pricing")
+    ).toEqual({ canvas: "samples", page: "/pricing" });
+  });
+
+  it("are not read out of anything else", () => {
+    expect(parseEditorLink("/pricing")).toBeNull();
+    expect(parseEditorLink("http://localhost:4643/?canvas=samples")).toBeNull();
+    expect(parseEditorLink("http://localhost:4643/?node=a b")).toBeNull();
   });
 });

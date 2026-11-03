@@ -758,6 +758,7 @@ const EVERY_ACTION = {
   page: {
     adopt: true,
     comment: true,
+    copyLink: true,
     copyTo: true,
     delete: true,
     duplicate: true,
