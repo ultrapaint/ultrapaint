@@ -16,7 +16,7 @@ as thumbnails: a click inserts one into the selection, a drag places it anywhere
 board, and **+ New** makes an empty app component and opens its board. Colours, type and spacing
 are in the **Design System**.
 
-**Design System mode.** Under the canvas selector, a toggle switches between **Canvas** (the pages,
+**Design System mode.** Under the project, a toggle switches between **Canvas** (the pages,
 with Agents, Layers, Components and Changes on the rail) and **Design System** (Agents,
 **Foundations**, **Components** and Changes). Design System mode shows the item picked alone on a
 canvas of its own, blue-tinted and dotted so that it is never taken for the pages: its **boards**,

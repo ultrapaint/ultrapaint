@@ -42,8 +42,9 @@ fields they differ on say "Mixed"), the menus, the toolbar and the keys, as one 
 them. ⌘K (Ctrl+K) finds any command by its name: a panel, a tool, a zoom, what the selection's
 right-click menu offers, a page, a canvas or a chat.
 
-The editor is cards floating over the canvas: the project at the top left, the canvas
-selector under it with the **Canvas** / **Design System** toggle, the rail of panels under that
+The editor is cards floating over the canvas: the project at the top left, the
+**Canvas** / **Design System** toggle under it with, in Canvas mode, the canvas selector, the rail
+of panels under that
 (Agents, Layers, Components and Changes on the canvas; Agents, Foundations, Components and Changes
 in the design system) beside the left panel, the tools in
 a column next to it (the first, **+**, inserts a row, a column, a text or an image), and at the
