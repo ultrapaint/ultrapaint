@@ -212,9 +212,10 @@ const requestRpcs = [
     payload: { id: Schema.String },
     success: Page,
   }),
+  /** Deletes the pages, their variants and states with a base page: one undo step. */
   Rpc.make("pages.delete", {
     error: PagesError,
-    payload: { id: Schema.String },
+    payload: { ids: Schema.Array(Schema.String) },
   }),
   /**
    * The page drawn again for a variant: a copy of it serving the same URL, in the file of the

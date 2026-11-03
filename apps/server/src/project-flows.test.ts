@@ -140,7 +140,7 @@ describe("flows in the services", () => {
             p.create("", { name: "Pricing", route: "/pricing" }, "blank")
           );
           yield* pages((p) => p.createVariant(pricing.id, "bold"));
-          const gone = yield* pages((p) => p.delete(pricing.id));
+          const gone = yield* pages((p) => p.delete([pricing.id]));
           assert.deepStrictEqual(
             gone.map((p) => p.file),
             ["designs/pricing.page.json", "designs/pricing@bold.page.json"]

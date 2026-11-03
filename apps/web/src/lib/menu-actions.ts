@@ -107,7 +107,7 @@ import {
 import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
   adoptPages,
-  deletePage,
+  deletePages,
   duplicatePage,
   editPageUrl,
   goToPage,
@@ -544,7 +544,7 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
     case "comment":
       return startComment(page.id, target.at ?? { x: 40, y: 40 });
     case "delete":
-      return deletePage(page);
+      return deletePages(pagesActedOn(page.id));
     default:
       return unhandled(act);
   }

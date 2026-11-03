@@ -4,7 +4,7 @@
  */
 import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import { toast } from "sonner";
-import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
+import { promptDialog } from "../components/dialogs.tsx";
 
 import { useBoard } from "../state/board.ts";
 import { setView, zoomToFit } from "../state/camera.ts";
@@ -18,9 +18,6 @@ import { startTask } from "./start-thread.ts";
 
 export const canvasById = (id: string): Canvas | undefined =>
   useProject.getState().canvases.find((c) => c.id === id);
-
-const pagesOf = (id: string) =>
-  useProject.getState().pages.filter((p) => p.canvas === id);
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
@@ -202,18 +199,8 @@ export const deleteCanvas = async (canvas: Canvas) => {
     toast.error("The last canvas cannot be deleted");
     return;
   }
-  const count = pagesOf(canvas.id).length;
-  const ok = await confirmDialog({
-    confirmLabel: "Delete",
-    description: `Its ${plural(count, "page")}, its layout and its comments are removed from the designs directory. Undo brings them back.`,
-    destructive: true,
-    title: `Delete the canvas ${canvas.name}?`,
-  });
-  if (ok) {
-    await api()
-      .request("canvases.delete", { id: canvas.id })
-      .catch(reportError);
-  }
+  // Undo brings it back with its pages, its layout and its comments: nothing asks first.
+  await api().request("canvases.delete", { id: canvas.id }).catch(reportError);
 };
 
 /** Moves a canvas up or down the list by `by` places. */

@@ -205,7 +205,9 @@ export const PageToolsLive = PageTools.toLayer(
         canvas,
       }) {
         const page = yield* pageAt(route, canvas);
-        const gone = yield* pagesService((service) => service.delete(page.id));
+        const gone = yield* pagesService((service) =>
+          service.delete([page.id])
+        );
         return { deleted: gone.map((p) => p.file) };
       }),
 

@@ -86,11 +86,11 @@ export class PagesService extends Context.Service<
       order: readonly string[]
     ) => Effect.Effect<void, PagesFailure>;
     /**
-     * Deletes the page, with its comments and, for a base page, its variants and states: one
-     * undo step. Answers with the pages deleted, the page first.
+     * Deletes the pages, with their comments and, for a base page, its variants and states: one
+     * undo step. Answers with the pages deleted, the first asked for first.
      */
     readonly delete: (
-      id: string
+      ids: readonly string[]
     ) => Effect.Effect<readonly Page[], PagesFailure>;
     readonly duplicate: (id: string) => Effect.Effect<Page, PagesFailure>;
     readonly list: Effect.Effect<PageList>;
