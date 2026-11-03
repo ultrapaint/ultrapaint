@@ -1,6 +1,7 @@
 # ADR 0050: The character is settled with the user and written in DESIGN.md
 
-Status: accepted, 2026-11-03. Amends 0049 (a project with no system, the taste rules).
+Status: accepted, 2026-11-03. Amends 0049 (a project with no system, the taste rules). Amended by
+0054 (the dials in an extracted Overview).
 
 ## Context
 
