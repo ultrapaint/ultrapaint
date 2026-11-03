@@ -139,10 +139,11 @@ section at a time.
   selection:
   - covered small elements when zoomed out;
   - drifted off-screen when zoomed in.
-- **The fix proposed** (not built):
+- **The fix used** (branch `redesign`, `a647e13`):
   - A name tag with one action stays attached, capped to the element's width, and shrinks below
     a threshold.
-  - The element's other controls dock in a fixed bar above the tools.
+  - The element's other controls dock in a fixed bar above the tools, as do a page's and those of
+    several elements.
 - **The skill now.** No pattern under `patterns/` covers a canvas or chrome that follows an
   object.
 - **Proposed.** A canvas-tools pattern for:
