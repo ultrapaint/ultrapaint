@@ -19,6 +19,7 @@ export const TestData = Layer.effect(
       checkout: path.resolve(import.meta.dirname, "..", ".."),
       data: dataDirAt(root),
       editorLog: false,
+      gaps: path.join(root, "evals-gaps"),
       skillsBriefing: undefined,
     });
   })
