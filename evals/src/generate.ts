@@ -22,7 +22,14 @@ import { Browser } from "./browser.ts";
 import { foldName, tileName } from "./capture.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
-import { listDir, prompt, readJson, writeJson, writeText } from "./layout.ts";
+import {
+  listDir,
+  prompt,
+  readJson,
+  readPageFile,
+  writeJson,
+  writeText,
+} from "./layout.ts";
 import {
   describeViewports,
   familyOf,
@@ -360,11 +367,8 @@ const recordAddedText = Effect.fn("recordAddedText")(function* (
   }
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const page = yield* fs.readFileString(path.join(session.root, options.file));
-  const added = addedTexts(
-    pageTexts(yield* Effect.try(() => JSON.parse(page))),
-    options.brief
-  );
+  const page = yield* readPageFile(path.join(session.root, options.file));
+  const added = addedTexts(pageTexts(page), options.brief);
   yield* session.tool("set_frame", {
     height: options.viewport.height,
     route: options.route,

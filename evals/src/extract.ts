@@ -10,14 +10,22 @@
  * track B (`freeze`), where screens are composed from it.
  */
 import path from "node:path";
-import { Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Predicate, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Browser } from "./browser.ts";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import { commitOf, traceOf } from "./generate.ts";
-import { listDir, prompt, readJson, writeJson, writeText } from "./layout.ts";
+import {
+  listDir,
+  prompt,
+  readJson,
+  readPageFile,
+  writeJson,
+  writeText,
+} from "./layout.ts";
+import { Models } from "./models.ts";
 import { familyOf, loadReferences } from "./reference.ts";
 import { slugOf } from "./sections.ts";
 import { launch, rpc, runPrompt, type UltrapaintSession } from "./session.ts";
@@ -286,7 +294,7 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const dir = data.familyDir(family);
   const file = path.join(dir, COMPONENTS_FILE);
   if ((yield* fs.exists(file)) && !options.force) {
@@ -304,8 +312,9 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
       }
     }
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.references,
+    decode: FamilyComponents,
     model: options.model,
     prompt: yield* prompt("components-reference", {
       files: files.map((f) => `- ${f}`).join("\n"),
@@ -345,9 +354,7 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
       type: "object",
     },
   });
-  const found = yield* Schema.decodeUnknownEffect(FamilyComponents)(
-    answer.structured
-  );
+  const found = answer.value;
   yield* writeJson(file, found);
   yield* cutFamilyComponents(family, found);
   yield* Effect.log(
@@ -368,31 +375,30 @@ export const cutSheet = Effect.fn("cutSheet")(function* (
   if (!sheet) {
     return ["no page at /components"];
   }
-  const page = JSON.parse(
-    yield* fs.readFileString(path.join(session.root, sheet.file))
-  ) as { readonly root?: unknown };
+  const page = yield* readPageFile(path.join(session.root, sheet.file));
   // The rows are found by their layer names, wherever the agent nested them.
   const rows = new Map<string, string>();
   const visit = (node: unknown) => {
-    if (typeof node !== "object" || node === null) {
+    if (!Predicate.isObject(node)) {
       return;
     }
-    const n = node as {
-      readonly children?: readonly unknown[];
-      readonly id?: string;
-      readonly name?: string;
-    };
+    const name = Predicate.isString(node.name) ? node.name : undefined;
     const wanted = COMPONENTS.find(
-      (c) => c.name.toLowerCase() === n.name?.trim().toLowerCase()
+      (c) => c.name.toLowerCase() === name?.trim().toLowerCase()
     );
-    if (wanted && n.id && !rows.has(wanted.name)) {
-      rows.set(wanted.name, n.id);
+    if (
+      wanted &&
+      Predicate.isString(node.id) &&
+      node.id &&
+      !rows.has(wanted.name)
+    ) {
+      rows.set(wanted.name, node.id);
     }
-    for (const child of n.children ?? []) {
+    for (const child of Array.isArray(node.children) ? node.children : []) {
       visit(child);
     }
   };
-  visit(page.root);
+  visit(Predicate.isObject(page) ? page.root : undefined);
   yield* session.tool("set_frame", {
     height: 900,
     route: "/components",

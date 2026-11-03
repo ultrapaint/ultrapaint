@@ -7,9 +7,9 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
-import { LEVELS, readJudgement, roundRuns } from "./judge.ts";
+import { isLevel, LEVELS, readJudgement, roundRuns } from "./judge.ts";
 import { readJson, writeText } from "./layout.ts";
-import { readReview } from "./review.ts";
+import { readReview, type Verdict } from "./review.ts";
 
 const scoresOf = Effect.fn("scoresOf")(function* (round: string) {
   const scores = new Map<string, number[]>();
@@ -51,6 +51,12 @@ const unwantedOf = Effect.fn("unwantedOf")(function* (round: string) {
   );
 });
 
+/** The cards that set two designs side by side, by what they show. */
+const SIDE_BY_SIDE: Partial<Record<Verdict["kind"], string>> = {
+  layout: "layout only",
+  pair: "whole design",
+};
+
 const mean = (values: readonly number[] | undefined) =>
   values && values.length > 0
     ? values.reduce((a, b) => a + b, 0) / values.length
@@ -70,12 +76,7 @@ export const compare = Effect.fn("compare")(function* (
   const b = yield* scoresOf(after);
   const both = (key: string) => a.has(key) && b.has(key);
   const others = [...new Set([...a.keys()].filter((k) => !k.includes("@")))]
-    .filter(
-      (k) =>
-        k !== "runs" &&
-        k !== "overall" &&
-        !(LEVELS as readonly string[]).includes(k)
-    )
+    .filter((k) => k !== "runs" && k !== "overall" && !isLevel(k))
     .sort();
   const areas = [...LEVELS, ...others, "overall"].filter((k) => both(k));
   const references = [
@@ -128,9 +129,7 @@ export const compare = Effect.fn("compare")(function* (
     }
     const winner = v.sides[v.choice === "left" ? 0 : 1];
     const what =
-      v.kind === "section"
-        ? `section: ${v.subject}`
-        : { layout: "layout only", pair: "whole design" }[v.kind as string];
+      v.kind === "section" ? `section: ${v.subject}` : SIDE_BY_SIDE[v.kind];
     if (!what || (winner !== before && winner !== after)) {
       continue;
     }

@@ -149,23 +149,41 @@ const outlineInBrowser = (limit: number) => {
     return box.width > 0 && box.height > 0;
   };
   const textOf = (el: Element) =>
-    ((el as HTMLElement).innerText ?? el.textContent ?? "")
+    (
+      (el instanceof HTMLElement ? el.innerText : undefined) ??
+      el.textContent ??
+      ""
+    )
       .replace(/\s+/g, " ")
       .trim();
+  /** A form field, by its label or what it asks for, and its value; null for anything else. */
+  const fieldOf = (node: Element, label: string | null): string | null => {
+    if (
+      !(
+        node instanceof HTMLInputElement ||
+        node instanceof HTMLTextAreaElement ||
+        node instanceof HTMLSelectElement
+      )
+    ) {
+      return null;
+    }
+    const placeholder =
+      node instanceof HTMLSelectElement ? undefined : node.placeholder;
+    const name = label || placeholder || node.name || node.type || "field";
+    return ` [field: ${name}${node.value ? ` = ${node.value}` : ""}] `;
+  };
   /** A control or a picture, as one bracketed line part; null for anything else. */
   const leafOf = (node: Element, tag: string): string | null => {
     const label = node.getAttribute("aria-label");
     if (tag === "SVG") {
       return label ? ` [icon: ${label}] ` : "";
     }
-    if (tag === "IMG") {
-      return ` [image: ${(node as HTMLImageElement).alt || "undescribed"}] `;
+    if (node instanceof HTMLImageElement) {
+      return ` [image: ${node.alt || "undescribed"}] `;
     }
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
-      const field = node as HTMLInputElement;
-      const name =
-        label || field.placeholder || field.name || field.type || "field";
-      return ` [field: ${name}${field.value ? ` = ${field.value}` : ""}] `;
+    const field = fieldOf(node, label);
+    if (field !== null) {
+      return field;
     }
     const role = node.getAttribute("role");
     if (tag === "BUTTON" || role === "button" || role === "tab") {

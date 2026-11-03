@@ -63,6 +63,24 @@ export const writeText = (file: string, text: string) =>
     yield* fs.writeFileString(file, text);
   });
 
+/**
+ * A page file of the designs, as JSON. Its nodes are walked for the few fields a step reads, not
+ * decoded as the contracts' `PageDocument`: a round may measure another commit of Ultrapaint, whose
+ * pages need not match this one's contracts.
+ */
+export const readPageFile = Effect.fn("readPageFile")(function* (file: string) {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* fs.readFileString(file).pipe(
+    Effect.flatMap(
+      Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))
+    ),
+    Effect.mapError(
+      (cause) =>
+        new EvalsError({ message: `cannot read the page ${file}: ${cause}` })
+    )
+  );
+});
+
 /** The files of a directory, sorted; none when it is not there. */
 export const listDir = (dir: string) =>
   Effect.gen(function* () {

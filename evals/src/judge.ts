@@ -11,7 +11,7 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { CONTENT_FILE } from "./capture.ts";
-import { Claude } from "./claude.ts";
+
 import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE } from "./generate.ts";
 import {
@@ -22,6 +22,7 @@ import {
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 import { loadReference } from "./reference.ts";
 
 /**
@@ -39,6 +40,9 @@ export const LEVELS = [
   "craft",
 ] as const;
 export type Level = (typeof LEVELS)[number];
+const LEVEL_NAMES: ReadonlySet<string> = new Set(LEVELS);
+/** Whether a score's area is one of the levels; the others are older rounds' skills, or `overall`. */
+export const isLevel = (area: string): area is Level => LEVEL_NAMES.has(area);
 
 export const ADDED_VERDICTS = ["noise", "invented", "needed"] as const;
 /**
@@ -276,7 +280,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   model: string
 ) {
   const { data } = yield* EvalsConfig;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const fs = yield* FileSystem.FileSystem;
   const reference = yield* loadReference(run.reference);
   const pictures = (dir: string) =>
@@ -296,8 +300,9 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   const info = yield* fs.readFileString(path.join(run.dir, "run.json"));
   const added = path.join(run.dir, ADDED_TEXT_FILE);
   const content = path.join(data.captureDir(reference.id), CONTENT_FILE);
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: data.root,
+    decode: Judgement,
     model,
     prompt: yield* prompt("judge", {
       added: (yield* fs.exists(added))
@@ -321,9 +326,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
     }),
     schema: judgementSchema(skills),
   });
-  const judgement = yield* Schema.decodeUnknownEffect(Judgement)(
-    answer.structured
-  );
+  const judgement = answer.value;
   yield* writeJson(path.join(run.dir, "judge.json"), {
     ...judgement,
     costUsd: answer.costUsd,

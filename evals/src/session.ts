@@ -13,6 +13,7 @@ import {
   Effect,
   FileSystem,
   Layer,
+  Option,
   Schema,
   type Scope,
   Stream,
@@ -86,6 +87,30 @@ export const rpc = <A, E, R>(what: string, effect: Effect.Effect<A, E, R>) =>
     )
   );
 
+/** A JSON-RPC message from the MCP server: a reply carries the id of the request it answers. */
+const McpMessage = Schema.Struct({
+  error: Schema.optional(Schema.Unknown),
+  id: Schema.optional(Schema.Unknown),
+  result: Schema.optional(Schema.Unknown),
+});
+const decodeMessage = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(McpMessage)
+);
+const RpcError = Schema.Struct({ message: Schema.String });
+const Initialized = Schema.Struct({ protocolVersion: Schema.String });
+const ToolCallResult = Schema.Struct({
+  content: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        data: Schema.optional(Schema.String),
+        text: Schema.optional(Schema.String),
+        type: Schema.String,
+      })
+    )
+  ),
+  isError: Schema.optional(Schema.Unknown),
+});
+
 /** A minimal MCP client over Streamable HTTP: initialize once, then call tools. */
 const connectMcp = Effect.fn("connectMcp")(function* (connection: {
   readonly header: string;
@@ -96,14 +121,21 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
   let version = "2025-06-18";
   let nextId = 1;
 
-  const post = (body: Record<string, unknown>) =>
-    Effect.tryPromise({
-      catch: (cause) =>
-        new EvalsError({
-          message: `the editor's MCP server did not answer ${String(body.method)}: ${String(cause)}`,
-        }),
-      try: async () => {
-        const response = await fetch(connection.url, {
+  /** The result of a request, none for a notification; the server's error as a failure. */
+  const post = Effect.fnUntraced(function* (
+    body: { readonly id?: number; readonly method: string } & Record<
+      string,
+      unknown
+    >
+  ) {
+    const notAnswered = (cause: unknown) =>
+      new EvalsError({
+        message: `the editor's MCP server did not answer ${body.method}: ${String(cause)}`,
+      });
+    const response = yield* Effect.tryPromise({
+      catch: notAnswered,
+      try: () =>
+        fetch(connection.url, {
           body: JSON.stringify({ jsonrpc: "2.0", ...body }),
           headers: {
             accept: "application/json, text/event-stream",
@@ -113,28 +145,35 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
             ...(session !== undefined && { "mcp-session-id": session }),
           },
           method: "POST",
-        });
-        session = response.headers.get("mcp-session-id") ?? session;
-        const text = await response.text();
-        if (body.id === undefined || text.trim() === "") {
-          return;
-        }
-        // A reply comes as JSON, or as the data of a server-sent event.
-        const messages = response.headers
-          .get("content-type")
-          ?.includes("text/event-stream")
-          ? text
-              .split("\n")
-              .filter((line) => line.startsWith("data:"))
-              .map((line) => JSON.parse(line.slice(5)))
-          : [JSON.parse(text)];
-        const reply = messages.find((m) => m?.id === body.id);
-        if (reply?.error) {
-          throw new Error(reply.error.message ?? JSON.stringify(reply.error));
-        }
-        return reply?.result as Record<string, unknown> | undefined;
-      },
+        }),
     });
+    session = response.headers.get("mcp-session-id") ?? session;
+    const text = yield* Effect.tryPromise({
+      catch: notAnswered,
+      try: () => response.text(),
+    });
+    if (body.id === undefined || text.trim() === "") {
+      return;
+    }
+    // A reply comes as JSON, or as the data of a server-sent event.
+    const messages = yield* Effect.forEach(
+      response.headers.get("content-type")?.includes("text/event-stream")
+        ? text
+            .split("\n")
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5))
+        : [text],
+      (message) => decodeMessage(message).pipe(Effect.mapError(notAnswered))
+    );
+    const reply = messages.find((m) => m.id === body.id);
+    if (reply?.error !== undefined) {
+      const said = Schema.decodeUnknownOption(RpcError)(reply.error);
+      return yield* notAnswered(
+        Option.isSome(said) ? said.value.message : JSON.stringify(reply.error)
+      );
+    }
+    return reply?.result;
+  });
 
   const initialized = yield* post({
     id: nextId,
@@ -145,8 +184,9 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
       protocolVersion: version,
     },
   });
-  if (typeof initialized?.protocolVersion === "string") {
-    version = initialized.protocolVersion;
+  const agreed = Schema.decodeUnknownOption(Initialized)(initialized);
+  if (Option.isSome(agreed)) {
+    version = agreed.value.protocolVersion;
   }
   nextId += 1;
   yield* post({ method: "notifications/initialized" });
@@ -156,21 +196,27 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
     args: Record<string, unknown>
   ) {
     nextId += 1;
-    const result = yield* post({
+    const answer = yield* post({
       id: nextId,
       method: "tools/call",
       params: { arguments: args, name },
     });
-    const content = (result?.content ?? []) as readonly {
-      readonly data?: string;
-      readonly text?: string;
-      readonly type: string;
-    }[];
+    const result = yield* Schema.decodeUnknownEffect(ToolCallResult)(
+      answer ?? {}
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new EvalsError({
+            message: `${name} answered something else than a tool's result: ${String(cause)}`,
+          })
+      )
+    );
+    const content = result.content ?? [];
     return {
       images: content
         .filter((c) => c.type === "image" && c.data)
         .map((c) => new Uint8Array(Buffer.from(c.data ?? "", "base64"))),
-      isError: result?.isError === true,
+      isError: result.isError === true,
       text: content
         .filter((c) => c.type === "text")
         .map((c) => c.text ?? "")

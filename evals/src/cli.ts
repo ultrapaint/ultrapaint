@@ -24,7 +24,6 @@ import { Argument, Command, Flag } from "effect/cli";
 import { writeBrief } from "./brief.ts";
 import { Browser } from "./browser.ts";
 import { captureReference } from "./capture.ts";
-import { Claude } from "./claude.ts";
 import { compare } from "./compare.ts";
 import { judgeComponents } from "./component-judge.ts";
 import { EvalsConfig } from "./config.ts";
@@ -34,6 +33,7 @@ import { generate } from "./generate.ts";
 import { setupHost } from "./host.ts";
 import { judge } from "./judge.ts";
 import { learn } from "./learn.ts";
+import { Models } from "./models.ts";
 import { pairwise } from "./pairwise.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
 import { loadReferences } from "./reference.ts";
@@ -681,7 +681,7 @@ Command.make("design-evals").pipe(
   ]),
   Command.run({ version: "0.0.0" }),
   Effect.provide(
-    Claude.layer.pipe(
+    Models.layer.pipe(
       Layer.provideMerge(NodeServices.layer),
       // The only place the evals read their environment.
       Layer.provideMerge(EvalsConfig.layerFrom(process.env))
