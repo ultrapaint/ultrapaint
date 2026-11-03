@@ -1,6 +1,6 @@
 # ADR 0052: The way back from a board view
 
-Status: accepted, 2026-11-03. Amends 0045 (the rail on a board view).
+Status: superseded by 0053, 2026-11-03. Amended 0045 (the rail on a board view).
 
 ## Context
 

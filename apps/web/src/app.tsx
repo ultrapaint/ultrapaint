@@ -242,7 +242,7 @@ const chatBounds = { ...leftBounds, defaultWidth: 340, max: 960 };
 const rightBounds = { defaultWidth: 320, max: 560, min: 240 };
 
 /** The rail's width with the card's borders, which the cards above span with the left panel. */
-const RAIL_WIDTH = 64;
+const RAIL_WIDTH = 70;
 
 /**
  * The rest of the rail's card, beside the rail, floating over the canvas instead of pushing it: widening it

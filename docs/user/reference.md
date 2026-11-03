@@ -23,12 +23,13 @@ type after it is added to it.
 
 | Where | What to do there |
 |---|---|
-| Design system → **Sync** (⟳), or its empty state | Bring the design system and the code together, whatever you start from |
-| Design system → Sync → **Import a Figma file…** | Take a `.fig` file's tokens, then its frames |
-| Design system → a foundation or a guideline | Its boards; click a token, a group or a text style to edit it in the inspector |
-| Design system → the wand | Run `/init` again |
-| Library, on a page | Your components, as a list or thumbnails: click to insert, drag onto the canvas, ↗ for its board, **+ New** |
-| Library → a component's board | Its look in every variant and state, or an app component's variants; the inspector edits it |
+| Foundations → **Sync** (⟳), or its empty state | Bring the design system and the code together, whatever you start from |
+| Foundations → Sync → **Import a Figma file…** | Take a `.fig` file's tokens, then its frames |
+| Foundations → a foundation or a guideline | Its boards; click a token, a group or a text style to edit it in the inspector |
+| Foundations → the wand | Run `/init` again |
+| Components, on the canvas | Your components, as a list or thumbnails: click to insert, drag onto the canvas, ↗ for its board, **+ New** |
+| Components → a component's board | Its look in every variant and state, or an app component's variants; the inspector edits it |
+| Canvas / Design System, under the canvas selector | Switch between the pages and the design system; the rail shows each one's panels |
 | Tools → **+** | Insert a row, a column, a text or an image |
 | A board's inspector → the chat button | Send what is picked to the chat |
 | Pages panel → **Implement** | `/implement` for that page |
@@ -37,7 +38,7 @@ type after it is added to it.
 | Settings → Design system | The design skills agents are told, and the ones you replace or extend |
 | Title card → **Not saved** (⚠) | Save the configuration to `ultrapaint.config.json` |
 | ⌘K, or **Commands** at the top right | Every command of the editor, by name |
-| Rail → Design system dot | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
+| A dot on **Design System**, and on Foundations | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
 
 ## The configuration file
 

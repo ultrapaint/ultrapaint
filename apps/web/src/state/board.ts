@@ -38,10 +38,11 @@ import { setView, type View, viewportSize } from "./camera.ts";
 import { appComponentOf, useComponents } from "./components.ts";
 import type { useDocuments } from "./documents.ts";
 import {
+  canvasRail,
   type LeftTab,
   type Mode,
-  railTabs,
   type Selection,
+  systemRail,
   unpicked,
   useEditor,
 } from "./editor.ts";
@@ -203,13 +204,18 @@ const appOpen = (open: BoardPlace | null): AppComponentFile | undefined => {
 };
 
 /**
- * The left panels a board view shows itself: Layers only where there is a tree, an app
- * component's. The rail lists Layers on every board, which leads back to the page canvas there.
+ * The rail where the board view is open, or on the page canvas with none (ADR 0053): Canvas
+ * mode's, or Design System mode's, with Layers after the components on an app component's board,
+ * whose tree it shows.
  */
-export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] =>
-  open && !appOpen(open)
-    ? railTabs.filter((tab) => tab !== "layers")
-    : railTabs;
+export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] => {
+  if (!open) {
+    return canvasRail;
+  }
+  return appOpen(open)
+    ? ["chat", "designSystem", "library", "layers", "changes"]
+    : systemRail;
+};
 
 /**
  * The tree an app component's board view shows in Layers, and the board it is selected in: the

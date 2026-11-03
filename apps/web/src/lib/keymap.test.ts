@@ -372,15 +372,12 @@ describe("Escape, one step back at a time", () => {
     expect(pressOn("escape")).toEqual({ prevented: false, ran: false });
   });
 
-  it("lets go of what is picked on a board, then goes back to the page", () => {
+  it("lets go of what is picked on a board", () => {
     openBoard({ item: "color", view: "system" }, "none");
     pickOnBoard({ frame: "board:system/color/light", nodeId: "token:color-x" });
     pressOn("escape");
     expect(pickOf(useBoard.getState())).toBeNull();
-    expect(useBoard.getState().open).not.toBeNull();
-    // Nothing picked: the board view is the step back left.
-    expect(pressOn("escape")).toMatchObject({ prevented: true });
-    expect(useBoard.getState().open).toBeNull();
+    leaveBoard("none");
   });
 });
 

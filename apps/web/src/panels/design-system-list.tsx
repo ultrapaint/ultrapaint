@@ -21,7 +21,6 @@ import {
   guidelinesOf,
   type SystemItem,
 } from "../boards/system-boards.ts";
-import { BackToPage } from "../components/back-to-page.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
@@ -115,11 +114,8 @@ export const DesignSystemList = () => {
 
   return (
     <div className="flex h-full flex-col">
-      {openItem === null ? null : <BackToPage />}
       <div className="flex h-10 shrink-0 items-center gap-1 pr-1.5 pl-3">
-        <span className="flex-1 truncate font-heading-xsmall">
-          Design system
-        </span>
+        <span className="flex-1 truncate font-heading-xsmall">Foundations</span>
         <IconButton
           onClick={showSetup}
           tooltip="Sync the design system and the code"
@@ -144,7 +140,6 @@ export const DesignSystemList = () => {
       </div>
       <div className="min-h-0 flex-1 overflow-auto pb-2">
         {loaded ? null : <PanelEmpty>Reading the design system…</PanelEmpty>}
-        {foundations.length > 0 ? <Heading>Foundations</Heading> : null}
         {foundations.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
         ))}

@@ -6,6 +6,7 @@ import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 
+import { useBoard } from "../state/board.ts";
 import { setView, zoomToFit } from "../state/camera.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -47,8 +48,9 @@ const showCanvas = async (id: string, at?: Omit<GoTo, "canvas">) => {
   }
 };
 
+/** Shows canvas `id`; the one shown already, in Design System mode too, goes back to Canvas mode. */
 export const openCanvas = (id: string) => {
-  if (useEditor.getState().canvas !== id) {
+  if (useEditor.getState().canvas !== id || useBoard.getState().open) {
     showCanvas(id);
   }
 };

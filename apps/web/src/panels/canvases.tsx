@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   newCanvas,
@@ -26,7 +27,9 @@ import {
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
+import { type EditorMode, showMode, useEditorMode } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { syncWaiting, useSync } from "../state/sync.ts";
 
 const CANVAS_DRAG_TYPE = "application/x-ultrapaint-canvas";
 
@@ -232,6 +235,39 @@ const CanvasRow = ({
  * workspace: canvases hold pages, so the switch between them sits above whatever panel is open.
  * Expanded, the card lists the canvases and grows down, and the panel under it gets shorter.
  */
+/**
+ * The two modes under the canvas (ADR 0053): the canvas's pages, or the design system. The rail
+ * shows the mode's places.
+ */
+const ModeToggle = () => {
+  const mode = useEditorMode();
+  // The design system and the code need syncing: said here too, seen from the canvas.
+  const waiting = useSync((s) => syncWaiting(s.plan));
+  return (
+    <Tabs
+      className="shrink-0 border-t p-1.5"
+      onValueChange={(value) => showMode(value as EditorMode)}
+      value={mode}
+    >
+      <TabsList aria-label="Mode" className="w-full">
+        <TabsTrigger className="flex-1" value="canvas">
+          Canvas
+        </TabsTrigger>
+        <TabsTrigger className="flex-1" value="designSystem">
+          Design System
+          {waiting ? (
+            <span
+              aria-label="The design system and the code need syncing"
+              className="size-1.5 shrink-0 rounded-full bg-agent"
+              role="status"
+            />
+          ) : null}
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+};
+
 export const CanvasCard = ({ width }: { width: number | null }) => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
@@ -289,6 +325,7 @@ export const CanvasCard = ({ width }: { width: number | null }) => {
           </button>
         </div>
       ) : null}
+      <ModeToggle />
     </section>
   );
 };

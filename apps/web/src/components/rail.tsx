@@ -11,9 +11,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
-import { type LeftTab, railTabs, useEditor } from "../state/editor.ts";
+import { useComponents } from "../state/components.ts";
+import { type LeftTab, useEditor } from "../state/editor.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
 import { GitUserButton } from "./git-user.tsx";
 
@@ -26,11 +28,11 @@ export const railItems: Record<
   chat: { icon: Sparkles, label: "Agents", rail: "Agents" },
   designSystem: {
     icon: PaletteIcon,
-    label: "Design system",
-    rail: "Design system",
+    label: "Foundations",
+    rail: "Foundations",
   },
   layers: { icon: LayersIcon, label: "Layers", rail: "Layers" },
-  library: { icon: LibraryBig, label: "Library", rail: "Library" },
+  library: { icon: LibraryBig, label: "Components", rail: "Components" },
 };
 
 const openSettings = () => useProject.getState().openSettings(true);
@@ -59,7 +61,7 @@ const RailItem = ({
   <button
     aria-label={name}
     aria-pressed={active}
-    className="group flex w-14 flex-col items-center gap-0.5 rounded-lg py-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground"
+    className="group flex w-16 flex-col items-center gap-0.5 rounded-lg py-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground"
     onClick={onClick}
     title={name === label ? undefined : name}
     type="button"
@@ -130,17 +132,19 @@ const RailButton = ({ value }: { value: LeftTab }) => {
  */
 export const Rail = () => {
   const panelHidden = usePanels((s) => s.left);
-  // Every place, on a board view too (ADR 0052): one its view does not show, Layers on a board
-  // with no tree, leads back to the page canvas.
+  // The mode's places (ADR 0053): Canvas's on the page canvas, Design System's on a board view,
+  // with Layers on an app component's, known once the components are.
+  const surface = useSurface();
+  useComponents((s) => s.components);
   return (
     <nav
       aria-label="Panels"
       className={cn(
-        "flex min-h-0 w-15.5 shrink-0 flex-col items-center gap-0.5 overflow-y-auto bg-rail py-2 [scrollbar-width:none]",
+        "flex min-h-0 w-17 shrink-0 flex-col items-center gap-0.5 overflow-y-auto bg-rail py-2 [scrollbar-width:none]",
         panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
       )}
     >
-      {railTabs.map((value) => (
+      {surface.railTabs().map((value) => (
         <RailButton key={value} value={value} />
       ))}
       <div className="flex-1" />

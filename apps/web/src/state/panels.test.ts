@@ -3,6 +3,7 @@ import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addToChat } from "../lib/add-to-chat.ts";
+import { openCanvas } from "../lib/canvas-actions.ts";
 import { renameNode } from "../lib/node-actions.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useAgents } from "./agents.ts";
@@ -11,7 +12,7 @@ import { openBoard, useBoard } from "./board.ts";
 import { measureViewportWith } from "./camera.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
-import { showLeftPanel, takeRequest, usePanels } from "./panels.ts";
+import { showLeftPanel, showMode, takeRequest, usePanels } from "./panels.ts";
 import { useProject } from "./project.ts";
 
 const prompted = vi.hoisted(() => ({ count: 0 }));
@@ -133,6 +134,28 @@ describe("showLeftPanel", () => {
     await showLeftPanel("layers");
     expect(useBoard.getState().open).toBeNull();
     expect(useEditor.getState().leftTab).toBe("layers");
+  });
+
+  it("switches between Canvas and Design System, the page found as it was left", async () => {
+    useEditor.setState({ leftTab: "layers" });
+    await showMode("designSystem");
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    expect(useEditor.getState().leftTab).toBe("designSystem");
+    await showMode("canvas");
+    expect(useBoard.getState().open).toBeNull();
+    expect(useEditor.getState().leftTab).toBe("layers");
+  });
+
+  it("goes back to Canvas mode when the canvas shown is picked again", async () => {
+    await showMode("designSystem");
+    openCanvas(useEditor.getState().canvas ?? "");
+    expect(useBoard.getState().open).toBeNull();
+  });
+
+  it("takes Canvas mode back from the prototype", async () => {
+    useEditor.setState({ workspace: "prototype" });
+    await showMode("canvas");
+    expect(useEditor.getState().workspace).toBe("design");
   });
 
   it("brings the canvas back from the prototype", async () => {

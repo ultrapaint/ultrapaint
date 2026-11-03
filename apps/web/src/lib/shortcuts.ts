@@ -8,7 +8,6 @@ import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { cancelGesture } from "../canvas/frame-gesture.ts";
-import { useBoard } from "../state/board.ts";
 import { nextView, setView, viewportSize } from "../state/camera.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -16,7 +15,6 @@ import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { leaveIsolation } from "../state/isolation.ts";
-import { toPageCanvas } from "../state/location.ts";
 import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { select, selectPage } from "../state/selection.ts";
@@ -131,17 +129,7 @@ export const stepBack = (): boolean =>
   leaveIsolation() ||
   dismiss() ||
   surfaceNow().escape() ||
-  walkSelection("Escape") ||
-  leaveBoardView();
-
-/** The last step back on a board view, nothing picked or selected there: the page it was opened from. */
-const leaveBoardView = () => {
-  if (!useBoard.getState().open) {
-    return false;
-  }
-  toPageCanvas();
-  return true;
-};
+  walkSelection("Escape");
 
 /** Where on screen a point of the canvas is. */
 const screenOf = (x: number, y: number) => {
