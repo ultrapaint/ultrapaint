@@ -4,6 +4,8 @@
  * window's title bar: the window's buttons sit at the title card's start, and dragging either
  * card moves the window.
  */
+
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   GitBranch,
@@ -25,9 +27,12 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { useInspected } from "../state/selection.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { openCommandPalette } from "./command-palette.tsx";
+import { GitUserButton } from "./git-user.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { NodeIcon } from "./node-icon.tsx";
 import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
 import { openSetup } from "./setup-dialog.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
@@ -198,21 +203,62 @@ const togglePrototype = () => {
 };
 
 /** Puts the right panel away, from the row of its tabs. */
-export const HideRightPanel = () => (
-  <TopButton label="Hide the right panel" onClick={toggleRight}>
-    <PanelRightClose />
-  </TopButton>
-);
+/** What the right panel is about: the layer selected, its icon and name, or how many there are. */
+const Inspecting = () => {
+  const inspected = useInspected();
+  if (!inspected) {
+    return null;
+  }
+  const { node, nodes } = inspected;
+  const component = node.type === "instance";
+  return (
+    <span
+      className={cn(
+        "flex h-7 min-w-0 items-center gap-1.5 truncate rounded-md px-2 font-body",
+        component
+          ? "bg-component/15 text-component"
+          : "bg-muted text-foreground"
+      )}
+    >
+      <NodeIcon className="size-3.5 shrink-0" node={node} />
+      <span className="truncate">
+        {nodes.length > 1 ? `${nodes.length} layers` : nodeLabel(node)}
+      </span>
+    </span>
+  );
+};
 
 /**
- * The actions at the window's top right, over the right panel: every command (⌘K), the
- * prototype, and with the right panel put away the button that brings it back; the one that
- * hides it is in the panel's own tab row.
+ * The row over the right panel, its own card: the layer it is about and the panel's toggle (as
+ * pen.dev has it). Kept while the panel is put away, as wide as its toggle and that layer.
+ */
+export const RightPanelBar = ({ width }: { width: number | null }) => {
+  const hidden = usePanels((s) => s.right);
+  return (
+    <div
+      className="floating pointer-events-auto flex h-10 shrink-0 items-center gap-1 pr-1 pl-1.5"
+      style={width === null ? undefined : { width }}
+    >
+      <div className="flex min-w-0 flex-1">
+        <Inspecting />
+      </div>
+      <TopButton
+        label={hidden ? "Show the right panel" : "Hide the right panel"}
+        onClick={toggleRight}
+      >
+        {hidden ? <PanelRightOpen /> : <PanelRightClose />}
+      </TopButton>
+    </div>
+  );
+};
+
+/**
+ * The actions at the window's top right, over the right panel: every command (⌘K), who the user
+ * is, and the prototype. The right panel's toggle is on its own row under them (`RightPanelBar`).
  */
 export const TopActions = () => {
   const chrome = useWindowChrome();
   const prototype = useEditor((s) => s.workspace === "prototype");
-  const hidden = usePanels((s) => s.right);
   return (
     <div
       className={cn(
@@ -240,6 +286,9 @@ export const TopActions = () => {
           Everything the editor can do, by name
         </TooltipContent>
       </Tooltip>
+      <span className="window-no-drag flex size-8 items-center justify-center">
+        <GitUserButton />
+      </span>
       <TopButton
         command={prototype ? "workspace:design" : "workspace:prototype"}
         label={prototype ? "Back to the canvas" : "Prototype: click through"}
@@ -248,11 +297,6 @@ export const TopActions = () => {
       >
         {prototype ? <Square className="fill-current" /> : <Play />}
       </TopButton>
-      {!prototype && hidden ? (
-        <TopButton label="Show the right panel" onClick={toggleRight}>
-          <PanelRightOpen />
-        </TopButton>
-      ) : null}
     </div>
   );
 };

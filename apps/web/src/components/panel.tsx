@@ -5,6 +5,7 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 
@@ -52,14 +53,18 @@ export const Row = ({
 
 export const PanelEmpty = ({
   icon,
+  title,
   children,
 }: {
   icon?: React.ReactNode;
+  /** What is missing, in a few words over the sentence that says what to do. */
+  title?: string;
   children: React.ReactNode;
 }) => (
   <Empty className="h-full">
     <EmptyHeader>
       {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}
+      {title ? <EmptyTitle>{title}</EmptyTitle> : null}
       <EmptyDescription>{children}</EmptyDescription>
     </EmptyHeader>
   </Empty>

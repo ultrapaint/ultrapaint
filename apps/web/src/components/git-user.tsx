@@ -43,7 +43,7 @@ export const GitUserButton = () => {
       >
         {initials}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 gap-3" side="right">
+      <PopoverContent align="end" className="w-64 gap-3" side="bottom">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted font-body font-semibold">
             {initials}

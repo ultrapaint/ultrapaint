@@ -16,6 +16,7 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import { routeOf } from "@ultrapaint/shared/route";
+import { Code } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -128,8 +129,8 @@ export const CodePanel = () => {
   });
   if (!node) {
     return (
-      <PanelEmpty>
-        Select an element on the canvas or in the layers to see its code
+      <PanelEmpty icon={<Code />} title="Select a layer">
+        Click one on the canvas or in Layers to see the code it becomes.
       </PanelEmpty>
     );
   }

@@ -42,8 +42,10 @@ selector under it with the **Canvas** / **Design System** toggle, the rail of pa
 (Agents, Layers, Components and Changes on the canvas; Agents, Foundations, Components and Changes
 in the design system) beside the left panel, the tools in
 a column next to it (the first, **+**, inserts a row, a column, a text or an image), and at the
-top right the commands, the prototype (▷) and the right panel, with the inspector, the code and
-the comments. Each side panel is put away on its own: with
+top right the commands, who you are and the prototype (▷). Under them, a row names the layer
+selected and opens or puts away the right panel, with the inspector, the code and the comments; the
+panel starts put away until something is selected. Changes and Settings are at the foot of the
+rail. Each side panel is put away on its own: with
 the right one away the canvas is the agent's, with the chat beside it. ⌃1 is the canvas and ⌃2
 the prototype on a Mac, Alt+1 and Alt+2 elsewhere. In the desktop app on a Mac the window's
 buttons sit in the project's card, and dragging the cards at the top moves the window.

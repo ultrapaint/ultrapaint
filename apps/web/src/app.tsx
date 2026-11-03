@@ -38,7 +38,7 @@ import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { PanelLoading, Splash } from "./components/splash.tsx";
 import {
   EDGE,
-  HideRightPanel,
+  RightPanelBar,
   TitleCard,
   TopActions,
 } from "./components/title-bar.tsx";
@@ -77,7 +77,7 @@ import {
 } from "./state/location.ts";
 import { followLook } from "./state/look.ts";
 import { canvasDefaults } from "./state/page-layout.ts";
-import { usePanels } from "./state/panels.ts";
+import { startRightPanel, usePanels } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { followServer } from "./state/server-data.ts";
@@ -404,9 +404,6 @@ const RightPanel = ({
               Comments
             </TabsTrigger>
           </TabsList>
-          <div className="ml-auto">
-            <HideRightPanel />
-          </div>
         </div>
         {/* Only the open tab is mounted: the code is written out only while it is read. */}
         <TabsContent className="min-h-0 overflow-auto" value="design">
@@ -425,6 +422,34 @@ const RightPanel = ({
     </aside>
   );
 };
+
+/**
+ * The window's right column, floating over the canvas: the top actions, the right panel's row
+ * (its layer and its toggle) and the panel when it is out.
+ */
+const RightColumn = ({
+  hasRight,
+  onWidthChange,
+  shown,
+  width,
+}: {
+  hasRight: boolean;
+  onWidthChange: (width: number) => void;
+  /** Whether the workspace has a right panel at all: the prototype has none. */
+  shown: boolean;
+  width: number;
+}) => (
+  <div
+    className="pointer-events-none absolute z-30 flex flex-col items-end gap-2"
+    style={{ bottom: EDGE, right: EDGE, top: EDGE }}
+  >
+    <TopActions />
+    {shown ? <RightPanelBar width={hasRight ? width : null} /> : null}
+    {hasRight ? (
+      <RightPanel onWidthChange={onWidthChange} width={width} />
+    ) : null}
+  </div>
+);
 
 export const App = () => {
   const error = useProject((s) => s.error);
@@ -513,6 +538,7 @@ export const App = () => {
   // What follows the editor's other stores: a board view gives way to the prototype, an app
   // component edited in place to another canvas.
   useEffect(() => startBoardView(), []);
+  useEffect(() => startRightPanel(), []);
   useEffect(() => startIsolation(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
@@ -614,15 +640,12 @@ export const App = () => {
                 )}
               </div>
             </div>
-            <div
-              className="pointer-events-none absolute z-30 flex flex-col items-end gap-2"
-              style={{ bottom: EDGE, right: EDGE, top: EDGE }}
-            >
-              <TopActions />
-              {hasRight ? (
-                <RightPanel onWidthChange={setRightWidth} width={rightWidth} />
-              ) : null}
-            </div>
+            <RightColumn
+              hasRight={hasRight}
+              onWidthChange={setRightWidth}
+              shown={workspace === "design"}
+              width={rightWidth}
+            />
           </div>
         )}
         <SaveConfigDialog />

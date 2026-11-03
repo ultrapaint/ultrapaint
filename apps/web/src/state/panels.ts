@@ -41,6 +41,11 @@ const toggledAll = (hidden: Hidden, hasRight: boolean): Hidden => {
 };
 
 interface PanelsStore extends Hidden {
+  /**
+   * The right panel is away until something is selected, as the editor starts (a choice of the
+   * user's ends the wait): with nothing to inspect it would show only that nothing is selected.
+   */
+  rightWaits: boolean;
   setHidden: (hidden: Partial<Hidden>) => void;
   /** ⌘\: hides both side panels, or shows them again. */
   toggleAll: () => void;
@@ -52,7 +57,9 @@ interface PanelsStore extends Hidden {
 
 export const usePanels = create<PanelsStore>((set, get) => ({
   left: localStorage.getItem(LEFT_KEY) === "true",
-  right: localStorage.getItem(RIGHT_KEY) === "true",
+  // Away as the editor starts: put away last time, or waiting for something to be selected.
+  right: true,
+  rightWaits: localStorage.getItem(RIGHT_KEY) !== "true",
   setHidden: (hidden) => {
     if (hidden.left !== undefined) {
       localStorage.setItem(LEFT_KEY, String(hidden.left));
@@ -60,7 +67,7 @@ export const usePanels = create<PanelsStore>((set, get) => ({
     if (hidden.right !== undefined) {
       localStorage.setItem(RIGHT_KEY, String(hidden.right));
     }
-    set(hidden);
+    set(hidden.right === undefined ? hidden : { ...hidden, rightWaits: false });
   },
   toggleAll: () =>
     get().setHidden(
@@ -69,6 +76,34 @@ export const usePanels = create<PanelsStore>((set, get) => ({
   toggleLeft: () => get().setHidden({ left: !get().left }),
   toggleRight: () => get().setHidden({ right: !get().right }),
 }));
+
+/**
+ * Brings the right panel waiting for a selection (`rightWaits`) once there is one, a layer or a
+ * page, or a board view opens, whose inspector always has something to show. Until the answer is
+ * called.
+ */
+export const startRightPanel = () => {
+  const check = () => {
+    if (!usePanels.getState().rightWaits) {
+      return;
+    }
+    const { selectedPage, selection } = useEditor.getState();
+    if (
+      selection !== null ||
+      selectedPage !== null ||
+      useBoard.getState().open
+    ) {
+      usePanels.getState().setHidden({ right: false });
+    }
+  };
+  const stops = [useEditor.subscribe(check), useBoard.subscribe(check)];
+  check();
+  return () => {
+    for (const stop of stops) {
+      stop();
+    }
+  };
+};
 
 /**
  * What the left panel is asked to show: a tab, or a tab with what it is to show there. A thread in
