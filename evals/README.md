@@ -1,0 +1,258 @@
+# Design evals
+
+The design skills (`skills/ultrapaint/`) are what every agent is told about designing well
+before it designs. This finds what they fail to teach: take a screen someone made well, give an
+agent its content and none of its design, let it design the screen in Ultrapaint, and compare
+the two. What the agent misses in every run is something no skill teaches; what it misses in some
+runs is something a skill teaches too weakly to hold.
+
+Internal only: it changes nothing in the product. It runs the `ultrapaint` command of this
+checkout as a user would, in a host project (`hosts/` of the data directory), so a round measures
+the skills, the briefing and the tools as they are on the checkout's current commit, in a project
+with or without a design system. It reaches Ultrapaint through its command and its wire contracts
+(`@ultrapaint/contracts`) only, so `pnpm typecheck` says when a change to the contracts breaks it.
+
+## The data directory
+
+The code and its prompts are here; what they read and write is not in git: the references and
+their captures, the hosts, the rounds, the studies' corpus. It is `ULTRAPAINT_EVALS_DATA`, else
+`~/Code/ultrapaint-data`:
+
+```
+hosts/          the projects the agents design in (below)
+references/     one directory per reference: reference.json, capture/, brief.md
+families/       a product's screens and component crops, for track A
+candidates/     skill files to try in a round (--skills candidates/<fix>)
+runs/           one directory per round, and <a>-vs-<b>/ for pairwise
+corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources and notes
+.work/          the servers' configurations, scratch designs directories and logs
+```
+
+### Hosts
+
+The projects the agents design in. Each is what a user gets from `ultrapaint new`, so a round
+measures the skills in the situation a real project puts them in.
+
+| Host | Made with | Components | Design system |
+| --- | --- | --- | --- |
+| `blank` | `ultrapaint new <data>/hosts/blank --template blank` | none | none: a theme that declares nothing |
+| `starter` | `ultrapaint new <data>/hosts/starter --template starter`, then `pnpm evals setup-host starter` | the starter's ten | imported by Ultrapaint's own `/init`: tokens, text styles, components, `DESIGN.md` |
+
+Every run starts from the host's `designs/`, copied into a scratch `.eval-designs/` beside it, and
+the host's `DESIGN.md` is put back after each run, so nothing a run writes stays. The
+application's code (`app/`) is the host's, and is not changed by a round. `node scripts/cli.ts`
+from the repository's root is the `ultrapaint` command; after copying a host, run `pnpm install`
+in its `app/`.
+
+## Two tracks
+
+Remaking a screen asks two things of an agent that are best measured apart:
+
+- **Track A, the design system** (`extract`): given the screens of one product (a *family* of
+  references: `family` in `reference.json`), an agent makes a project's design system match
+  them, as a user would ask: tokens and components restyled in an implement thread, brought into
+  Ultrapaint with `/sync`, then laid out on a sheet at `/components` by a design thread. Each
+  component of the sheet is cut out and compared with the same component cut from the family's
+  screens (`families/<family>/components/`). A run's project is kept, and the best becomes the
+  family's library: `freeze <family> <round> <run>` copies it to `hosts/<family>`.
+- **Track B, the composition** (`round --host family`): each reference is designed on its
+  family's library, several runs each, so what is measured is the layout, the words and the
+  data, not a design system the agent had to invent.
+
+Both are reviewed best of several: the same component, or the same section, from every run,
+lettered A, B, C in a shuffled order beside the reference; you pick the best, or none, with a
+comment when there is something to say. `learn <round>` then reads your picks: what the winners do
+that the others do not, as rules for the skills (`runs/<round>/learned.md`).
+
+```sh
+pnpm evals extract <round> [families…] --runs 3        # track A
+pnpm evals freeze <family> <round> <run>               # its best run, the family's library
+pnpm evals round <round> --host family --runs 3        # track B
+pnpm evals review <round>                              # pick the best of each
+pnpm evals learn <round>                               # what the picks say
+```
+
+## The loop
+
+1. **Collect** a reference: `references/<id>/reference.json` (below).
+2. **Capture** it: `capture` takes its pictures at 1440 and 390 wide, the first window and the
+   whole page in tiles, and its text in reading order.
+3. **Brief** it: `brief` writes its content, without its design, to `brief.md`. Read the brief and
+   fix it by hand: it is what the agent gets, every round, so it has to carry all the content and
+   no design.
+4. **Run a round**: `round <name> --host <host>` has the agent design every reference from its
+   brief, three times each, in the host project, each time from the host's designs as committed;
+   a judge compares each run with its reference; a report puts the judgements together.
+5. **Review it yourself**: `review <name> [<other round>…]` opens a viewer in the browser (on a
+   phone too: `--host <tailscale address>`) where you swipe through cards, the quickest first:
+   the layout alone (blurred and grey, nothing to read), one section at a time (the sidebar, the
+   key figures, the table) beside the same section of the reference, whole designs, the judge's
+   findings (real problem or not), and every text the agent added (needed or noise). With two
+   rounds, designs are compared side by side, sides hidden. A comment is optional. Your verdicts overrule the judge in the report,
+   and your comments are the synthesis's first evidence.
+6. **Read the report** (`runs/<name>/report.md`): scores per level of design, how much the agents
+   added that should not be there, and the gaps, most frequent first, each with its level, the
+   skill it belongs to and why it happened. Run `report` again after a review.
+7. **Try a fix**: copy the proposals worth trying from `runs/<name>/proposals/` (or write your
+   own) into `candidates/<fix>/`, run `round <name>-<fix> --host <host> --skills
+   candidates/<fix>`, and `compare <name> <name>-<fix>`. What helps goes into the shipped skills
+   later, by hand.
+
+The same references in two hosts, compared, say what a design system changes: which gaps it
+closes, and which rules only hold with tokens to hold them.
+
+## Commands
+
+From the repository's root:
+
+```sh
+pnpm evals capture [refs…]                     # --force to take them again
+pnpm evals brief [refs…]                       # --force to write them again
+pnpm evals round <name> [refs…] --host <host>  # generate + judge + report
+pnpm evals sections <name> [rounds…]           # cut designs into sections (round does it)
+pnpm evals review <name> [rounds…]             # swipe through it in the browser
+pnpm evals compare <baseline> <candidate>
+pnpm evals pairwise <a> <b>                    # the two judged blind, run by run
+pnpm evals setup-host <host>                   # import a host's design system with /init
+```
+
+`round` takes `--runs` (3), `--agent` (claude-code), `--agent-model` (the name the agent's model
+picker shows; its default otherwise), `--skills candidates/<fix>`, `--minutes` (30, per run),
+`--judge-model` (opus) and `--concurrency` (3 judgements at once). It resumes: a run with a
+`run.json` and a judged run are kept, so after a failure, run the same command again. Its steps
+are also commands of their own: `generate`, `judge` (`--force` to judge again) and `report`.
+
+Rounds measure the checkout the command runs from. To measure another commit (the skills before a
+change, to compare with after), make a worktree of it, install it, and point
+`ULTRAPAINT_CHECKOUT` at it; say which in the round's name:
+
+```sh
+git worktree add ../before <commit> && pnpm -C ../before install
+ULTRAPAINT_CHECKOUT=../before pnpm evals round before-<name> --host blank --runs 1
+```
+
+Work going on in the checkout changes a round half way (it did once: four commits landed during
+two rounds), so run rounds from a worktree that stays put. `LAB_EDITOR_LOG=1` prints the editor's
+console errors, which say why a picture could not be drawn.
+
+Needs Chrome (or `LAB_BROWSER`), the `claude` command signed in, and the agent the round uses
+signed in too. Run rounds one at a time: when the checkout has moved since its editor was last
+built, `ultrapaint` rebuilds it as it starts, and two rounds starting at once collide. Every run costs one full agent session, and every judgement one Claude session over
+a dozen pictures: start with one reference and `--runs 1`.
+
+## A reference
+
+A shot from a gallery (Dribbble…) is a reference too: `image` is the picture's URL, `capture`
+downloads it as the desktop first window and cuts its parts, enlarged, into `zoom-*.jpg` so its
+small text can be read. A shot shows one viewport, so `viewports` says which, and the agent
+designs for that one only. The brief's writer and the judge are told to look past the shot's
+backdrop, window or device, and not to complete what it cuts off.
+
+```json
+{
+  "image": "https://cdn.dribbble.com/userupload/…/file/….jpg",
+  "kind": "app",
+  "name": "Untitled UI: notification settings",
+  "source": "https://dribbble.com/shots/…",
+  "viewports": ["desktop"],
+  "why": "What makes it good: what the judge should look at first."
+}
+```
+
+A site:
+
+```json
+{
+  "kind": "dashboard",
+  "name": "shadcn/ui: dashboard block",
+  "url": "https://ui.shadcn.com/view/new-york-v4/dashboard-01",
+  "why": "What makes it good: what the judge should look at first.",
+  "hide": [".cookie-banner"],
+  "waitMs": 1500
+}
+```
+
+Pick screens of every kind the product is used for (landing pages, dashboards, app screens,
+settings, forms, empty states), from anywhere: a public site, a prototype, a gallery. Prefer a
+page that is the screen alone; a page that frames it (a docs site around an example) puts the
+frame in the pictures. A screen behind a login, or only a picture, has no `url`: put its pictures
+in `capture/` by hand, under the names `capture` uses (`desktop-fold.jpg`, `desktop-01.jpg`…,
+`mobile-fold.jpg`, `mobile-01.jpg`…), and, if there is one, its text in `content.md`.
+
+## What a round leaves
+
+```
+runs/<name>/
+  round.json            agent, model, commit, which skills
+  skills/<skill>.md     the skills as the agents were told them this round
+  <ref>/run-<n>/
+    shots/              the agent's page, in the same pictures as the reference
+    pages/              its page files
+    trace.md            its tool calls in order, failures with what they said
+    agent.md            what it said at the end
+    run.json            calls, tokens, seconds, problems
+    added-text.json     texts the page shows that the brief did not have
+    parts/              each of them in its place
+    judge.json, judge.md
+  findings.json, gaps.json, unwanted-text.json
+  review.json           your verdicts, card by card
+  review-notes.md       your comments
+  report.md             scores, less is more, gaps, proposals
+  proposals/<skill>.md  proposed replacements of the shipped skills
+```
+
+All of it is in the data directory, on the machine that ran the round.
+
+## How a run is done
+
+The agent gets the prompt in `prompts/generate.md` with the brief in it, in a design thread of
+its own, as a user would type it. Nobody is there to click, so every tool call it asks permission
+for is allowed, and every question it asks gets its first option.
+
+Its page is then drawn at each viewport, through the same `set_frame` and `get_screenshot` the
+agent has: the first window at the window's height, then the whole page, the frame growing until
+the content ends. A page drawn to the window's height (a full-height layout) is its first window.
+A viewport is drawn from the variant made for it, `<page>@mobile`, when the agent made one.
+
+## How it is judged
+
+The judge reads the principles (`prompts/principles.md`: less is more first), the brief, every
+skill, both sets of pictures and the run's trace, and looks for the places where the agent's
+design is visibly worse than the reference: the reference is one good answer, so a different
+choice that works as well is no finding. Each finding is at one level of design:
+
+| Level | Looks at |
+| --- | --- |
+| layout | regions, proportions, grid, alignment, use of space, what breaks |
+| hierarchy | what is primary, order and grouping of content and data, how it scans |
+| components | the right control for each job, consistency, the design system's own |
+| restraint | less is more: labels, descriptions, headings, icons, boxes the screen does not need |
+| typography, color, spacing | scale and weight, palette and contrast, rhythm and density |
+| craft | icons, radii, number formats, states, wording, alignment to the pixel |
+
+and names the skill whose subject it is, and how that skill covers it:
+
+| Coverage | Means | Fix |
+| --- | --- | --- |
+| not covered | no skill says it | add the rule |
+| covered, not followed | a skill says it, the agent did not do it | make the rule harder to miss: an exact value, a check in "Before you finish" |
+| rule misleads | following the skill made it worse | change or remove the rule |
+| tool limitation | Ultrapaint could not do it | not a skill: a product issue |
+
+The tool limitations are a by-product worth reading: they are what the editor lacks for designs
+like the reference's.
+
+Each run is scored 1–5 per level. The report groups the findings of all runs into gaps and counts
+them: seen in every run of a reference, it is consistent; in some, it is flaky. Scores that
+disagree by 2 or more between runs of one reference are marked ⚠.
+
+### Less is more, counted
+
+After a run, every text its page shows is matched against the brief's content (its lists, tables
+and quoted copy, not the brief writer's own words): what is left is what the agent wrote itself.
+Each is pictured in its place (`parts/`), and the judge says of each whether it is noise, invented
+content, or needed. The report counts the noise and the invented per run; `compare` says whether
+a change to the skills made it go down. Your verdict on a text card overrules the judge's.
+
+`prompts/principles.md` is where taste is written down. Add to it what your review comments
+keep saying: it goes to the judge and to the synthesis of every round.

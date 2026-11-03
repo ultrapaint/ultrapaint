@@ -33,6 +33,7 @@ release is made by hand: the **Release** workflow in the Actions tab raises the 
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 - `apps/desktop` — the desktop app: an Electron window around the same server and editor, its project list, the server it starts per project, the agents' adapters bundled and run on Electron's Node, the agents found, downloaded and signed in; `pnpm desktop:dev` and `pnpm desktop:build`.
+- `evals` — the design evals (`pnpm evals`): agents remake good reference screens in a host project with the shipped skills, a judge and a person compare the results, and what wins goes back into `skills/ultrapaint/`. Its data (references, hosts, rounds) is outside git, in `ULTRAPAINT_EVALS_DATA` or `~/Code/ultrapaint-data`; see [`evals/README.md`](../evals/README.md).
 - `scripts/command.ts` — the `ultrapaint` command, run from a checkout (with its `--dev` mode) or bundled into the release package by `scripts/pack.ts`; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.
 
 ## Background
