@@ -261,7 +261,7 @@ const CanvasPicker = ({
 }) => (
   <Popover>
     <PopoverTrigger
-      className="group mx-1.5 mb-1 flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-foreground/6 focus-visible:bg-foreground/6 data-popup-open:bg-foreground/6"
+      className="group mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-md bg-foreground/5 px-2 text-left outline-none ring-1 ring-border transition-colors hover:bg-foreground/8 focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-foreground/8"
       title="Canvases"
     >
       <Frame className="size-4 shrink-0 text-muted-foreground" />
