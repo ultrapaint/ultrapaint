@@ -203,6 +203,8 @@ describe("designsTheSystem", () => {
     expect(
       designsTheSystem({ _tag: "SetupStep", extra: "", step: "map" })
     ).toBe(false);
+    expect(designsTheSystem({ _tag: "Sync", source: "figma" })).toBe(true);
+    expect(designsTheSystem({ _tag: "Sync", source: "code" })).toBe(false);
     expect(designsTheSystem({ _tag: "Redraw", canvas: '""' })).toBe(false);
   });
 });

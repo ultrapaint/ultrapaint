@@ -2,7 +2,9 @@
 
 A screen made from a picture looks like the picture: every part of it there, nothing added, each
 piece the same kind, in the same place, in the same style. The picture decides how it looks; the
-words of the request decide what it says.
+words of the request decide what it says. The picture is the character
+(`references/character.md`): its warmth, radius, density and face win over the defaults of the
+references.
 
 Read `references/studies/picture.md` when the picture holds photographs, screenshots or illustrations and you need to know how well-made sites treat them. It holds counts by kind and by character, art direction, palette, crops and edges, and recipes.
 
@@ -38,8 +40,10 @@ drag handle at the top right, filters below the title or on its line as the pict
 
 - Icons: the same number, the same glyphs, the same style. Filled stays filled.
 - Fills: every strong fill is kept, a selected item in the brand colour, a dark featured card, a
-  coloured button. None becomes a white card with a hairline.
-- Badges: the same kind, solid, tinted, outlined, neutral with a coloured dot, or a bare number.
+  coloured button, a row or a cell tinted by its state. None becomes a white card with a hairline,
+  or a grey row with a coloured bar.
+- Badges: the system's neutral Badge in the picture's case, radius and border, a coloured dot only
+  where the picture marks a status; a bare number stays a bare number.
 - Colours that tell things apart: each tag's hue, each step of a stepper, each category. None
   flattens to one grey.
 - Images: each one is there and loaded, and keeps the same kind. A photo stays a photo, and a screenshot stays the real interface, never a grey box. Each keeps the same crop, corner and frame, and the same treatment: a duotone, a greyscale logo strip, a scrim under text. An image that overhangs a band or bleeds off a tile still does, and none is boxed in a card of its own.
@@ -55,7 +59,7 @@ drag handle at the top right, filters below the title or on its line as the pict
 | Separate buttons where the picture joins them, tabs where it lists | The picture's component |
 | A control moved away from what it belongs to | Its place in the picture |
 | Outline icons for filled ones, or more icons than the picture | Its icons and their style |
-| A white card where the picture fills with a colour | The fill |
+| A white card where the picture fills with a colour, a grey row where it tints the row | The fill, the tint |
 | An image left as a placeholder, a broken box or a blank section | The picture's image, loaded |
 | An image recoloured, recropped or boxed, where the picture tones it, bleeds it or lets it overhang | Its crop, frame, treatment and edge |
 | Text darker, bolder or larger than the picture's | Its size, weight and colour |

@@ -39,9 +39,9 @@ const skillsBriefings = [
 
 /** What a design thread is told, for each way of telling the skills. */
 const briefingDescriptions: Record<SkillsBriefing, string> = {
-  full: "A design thread is told every skill that is on, whole: about 33,000 characters it reads before its first prompt.",
+  full: "A design thread is told every skill that is on, whole: about 70,000 characters it reads before its first prompt.",
   router:
-    "A design thread is told the design skill's router with the parts every screen needs, about 12,000 characters, and reads every other part from its reference as the screen reaches it.",
+    "A design thread is told the design skill's router with the parts every screen needs, about 13,000 characters, and reads every other part from its reference as the screen reaches it.",
   summaries:
     "A design thread is told each skill's title and summary, about 2,500 characters, and reads a skill whole before the work it is about: from the editor's MCP server, or from its file in the repository. Without the MCP server, a built-in skill, which has no file there, is told whole.",
 };
