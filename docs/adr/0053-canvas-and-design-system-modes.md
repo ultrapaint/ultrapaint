@@ -11,7 +11,7 @@ and Escape stepping out (0052). It read as getting lost in a place the rail had 
 
 ## Decision
 
-- The editor has two modes, switched by a toggle under the canvas selector: **Canvas**, the pages
+- The editor has two modes, switched by a toggle under the project, over the canvas selector: **Canvas**, the pages
   of the canvas and what is placed on them, and **Design System**, the design system's foundations,
   guidelines and components on boards. The mode is Design System exactly while a board view is
   open; nothing else keeps it.

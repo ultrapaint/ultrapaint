@@ -315,7 +315,7 @@ refactor and the board view left.
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
   rename in its Layers row) that waits until the panel takes it up (`useRequest`).
-- **Mode**: Canvas or Design System, the toggle under the canvas selector (ADR 0053; the web's
+- **Mode**: Canvas or Design System, the toggle under the project, over the canvas selector (ADR 0053; the web's
   `useEditorMode`, `showMode`): the page canvas, or the design system on boards. It is Design
   System exactly while a board view is open, and the rail shows the mode's places.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
