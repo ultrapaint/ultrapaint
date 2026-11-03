@@ -9,7 +9,7 @@ import {
   MessageCircle,
   Undo2,
 } from "lucide-react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   CommentAvatar,
@@ -31,6 +31,14 @@ import { useProject } from "../state/project.ts";
 
 const toggleVisible = () => useComments.getState().toggleVisible();
 
+/** The panel's title on the rail's side (ADR 0055), with how many are open and its actions. */
+const CommentsHeading = ({ children }: { children?: ReactNode }) => (
+  <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-3">
+    <h2 className="shrink-0 font-heading-xsmall">Comments</h2>
+    {children}
+  </div>
+);
+
 /** Every comment of the open canvas, page by page, newest first. */
 export const Comments = () => {
   const configured = useProject((s) => s.info.configured);
@@ -42,7 +50,12 @@ export const Comments = () => {
   const showResolved = useComments((s) => s.showResolved);
 
   if (!configured) {
-    return <SetupEmpty />;
+    return (
+      <div className="flex h-full flex-col">
+        <CommentsHeading />
+        <SetupEmpty />
+      </div>
+    );
   }
 
   const resolvedCount = comments.filter((c) => c.resolved).length;
@@ -57,8 +70,8 @@ export const Comments = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-0.5 pr-2 pl-3">
-        <span className="flex-1 truncate font-small text-muted-foreground">
+      <CommentsHeading>
+        <span className="min-w-0 flex-1 truncate font-small text-muted-foreground tabular-nums">
           {comments.length === 0
             ? null
             : `${comments.length - resolvedCount} open${resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ""}`}
@@ -84,7 +97,7 @@ export const Comments = () => {
         >
           {visible ? <Eye /> : <EyeOff />}
         </IconButton>
-      </div>
+      </CommentsHeading>
       {listed.length === 0 ? (
         <PanelEmpty
           action={

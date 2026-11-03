@@ -3,6 +3,7 @@ import {
   Layers as LayersIcon,
   LibraryBig,
   type LucideIcon,
+  MessageCircle,
   Palette as PaletteIcon,
   Settings,
   Sparkles,
@@ -27,6 +28,7 @@ import { CommandKeys } from "./shortcut-sheet.tsx";
 export const railItems: Record<LeftTab, { label: string; icon: LucideIcon }> = {
   changes: { icon: GitCompareArrows, label: "Changes" },
   chat: { icon: Sparkles, label: "Agents" },
+  comments: { icon: MessageCircle, label: "Comments" },
   designSystem: { icon: PaletteIcon, label: "Foundations" },
   layers: { icon: LayersIcon, label: "Layers" },
   library: { icon: LibraryBig, label: "Components" },

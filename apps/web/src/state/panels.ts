@@ -1,6 +1,7 @@
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { useAgents } from "./agents.ts";
 import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
 import { useCanvasPicks } from "./canvas-picks.ts";
@@ -34,7 +35,7 @@ export interface Hidden {
 
 /**
  * What ⌘\ leaves hidden: while any panel can be seen, every panel goes; once none can, every one
- * comes back. A right panel the workspace does not show counts as out of sight already.
+ * comes back. A right panel with nothing to show counts as out of sight already.
  */
 const toggledAll = (hidden: Hidden, hasRight: boolean): Hidden => {
   const anyShown = !hidden.left || (hasRight && !hidden.right);
@@ -42,25 +43,18 @@ const toggledAll = (hidden: Hidden, hasRight: boolean): Hidden => {
 };
 
 interface PanelsStore extends Hidden {
-  /**
-   * The right panel is away until something is selected, as the editor starts (a choice of the
-   * user's ends the wait): with nothing to inspect it would show only that nothing is selected.
-   */
-  rightWaits: boolean;
   setHidden: (hidden: Partial<Hidden>) => void;
   /** ⌘\: hides both side panels, or shows them again. */
   toggleAll: () => void;
   /** The left panel alone. */
   toggleLeft: () => void;
-  /** The right panel alone: the inspector, the code and the comments. */
+  /** The right panel alone: the inspector and the code. */
   toggleRight: () => void;
 }
 
 export const usePanels = create<PanelsStore>((set, get) => ({
   left: localStorage.getItem(LEFT_KEY) === "true",
-  // Away as the editor starts: put away last time, or waiting for something to be selected.
-  right: true,
-  rightWaits: localStorage.getItem(RIGHT_KEY) !== "true",
+  right: localStorage.getItem(RIGHT_KEY) === "true",
   setHidden: (hidden) => {
     if (hidden.left !== undefined) {
       localStorage.setItem(LEFT_KEY, String(hidden.left));
@@ -68,47 +62,50 @@ export const usePanels = create<PanelsStore>((set, get) => ({
     if (hidden.right !== undefined) {
       localStorage.setItem(RIGHT_KEY, String(hidden.right));
     }
-    set(hidden.right === undefined ? hidden : { ...hidden, rightWaits: false });
+    set(hidden);
   },
-  toggleAll: () =>
-    get().setHidden(
-      toggledAll(get(), useEditor.getState().workspace === "design")
-    ),
+  toggleAll: () => get().setHidden(toggledAll(get(), rightHasSubject())),
   toggleLeft: () => get().setHidden({ left: !get().left }),
   toggleRight: () => get().setHidden({ right: !get().right }),
 }));
 
 /**
- * Brings the right panel waiting for a selection (`rightWaits`) once there is one, a layer or a
- * page, or a board view opens, whose inspector always has something to show. Until the answer is
- * called.
+ * Whether the right panel has something to show (ADR 0055): on the canvas, a layer or a page
+ * selected or several frames picked; on a board view, its inspector, which always has. With
+ * nothing, the panel is not drawn at all, whether the user put it away or not.
  */
-export const startRightPanel = () => {
-  const check = () => {
-    if (!usePanels.getState().rightWaits) {
-      return;
-    }
-    const { selectedPage, selection } = useEditor.getState();
-    if (
-      selection !== null ||
-      selectedPage !== null ||
-      useCanvasPicks.getState().ids.length > 1 ||
-      useBoard.getState().open
-    ) {
-      usePanels.getState().setHidden({ right: false });
-    }
-  };
-  const stops = [
-    useEditor.subscribe(check),
-    useBoard.subscribe(check),
-    useCanvasPicks.subscribe(check),
-  ];
-  check();
-  return () => {
-    for (const stop of stops) {
-      stop();
-    }
-  };
+const subjectOf = (
+  editor: Pick<
+    ReturnType<typeof useEditor.getState>,
+    "selectedPage" | "selection" | "workspace"
+  >,
+  picks: number,
+  board: boolean
+) =>
+  editor.workspace === "design" &&
+  (editor.selection !== null ||
+    editor.selectedPage !== null ||
+    picks > 1 ||
+    board);
+
+export const rightHasSubject = () =>
+  subjectOf(
+    useEditor.getState(),
+    useCanvasPicks.getState().ids.length,
+    useBoard.getState().open !== null
+  );
+
+export const useRightSubject = () => {
+  const editor = useEditor(
+    useShallow((s) => ({
+      selectedPage: s.selectedPage,
+      selection: s.selection,
+      workspace: s.workspace,
+    }))
+  );
+  const picks = useCanvasPicks((s) => s.ids.length);
+  const board = useBoard((s) => s.open !== null);
+  return subjectOf(editor, picks, board);
 };
 
 /**
@@ -297,7 +294,10 @@ export const showMode = async (mode: EditorMode) => {
   toPageCanvas();
 };
 
-/** Shows a tab of the right panel, on the canvas, bringing the panel back when it was put away. */
+/**
+ * Shows a tab of the right panel, on the canvas, bringing the panel back when it was put away; it
+ * is drawn while there is something to show in it.
+ */
 export const showRightPanel = (tab: RightTab) => {
   const editor = useEditor.getState();
   editor.setWorkspace("design");

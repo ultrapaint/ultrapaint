@@ -96,15 +96,17 @@ follows the system's unless the person picks one in Settings › Editor.
 ## Navigation
 
 - **Left card**: the project (mark, name over branch), search (⌘K) and the panel's toggle; the
-  canvas shown, a filled select of its own with 8px under it; then an icon rail beside the panel. Rail: Agents, Layers (Foundations in the design
-  system), Components; at its foot Changes, Settings and who the user is. A rail icon is named by its
+  canvas shown, a filled select of its own with 8px under it; then an icon rail beside the panel.
+  Rail: Agents, Layers (Foundations in the design system), Components, Comments (on the canvas);
+  at its foot Changes, Settings and who the user is. A rail icon is named by its
   tooltip and by the panel's own title. Put away, the card is the project's row alone.
 - **Place switch**, top centre: Canvas · Design system · Prototype, the three places of the editor.
-- **Tools**, bottom centre, one row: Insert, the tools, undo and redo, the zoom.
+- **Tools**, bottom centre of the window, one row: Insert, the tools, undo and redo, the zoom.
 - **Element toolbar**, over the tools while something is selected: its design-system selects and
   its menu, in one place at every zoom. On the canvas the selection keeps only its tag, its name
   and the agent's ✦, never wider than the element.
-- **Right card**: Design · Code · Comments as a segmented control, and the panel's toggle.
+- **Right card**: Design · Code as a segmented control, and the panel's toggle; drawn only while
+  something is selected (a layer, a page, several frames, or a board's pick), gone otherwise.
 
 ## Colors
 

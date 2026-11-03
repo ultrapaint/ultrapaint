@@ -111,14 +111,14 @@ describe("on a board view (ADR 0045)", () => {
   });
 
   it("offers nothing that is about pages: their code, comments and grid; Layers leads back to them", () => {
-    useEditor.setState({ workspace: "design" });
+    // The code is offered with something to show it of.
+    useEditor.setState({ selectedPage: "home", workspace: "design" });
     expect(offered()).toEqual(
       expect.arrayContaining(["right:code", "grid", "panel:layers"])
     );
     openBoard({ item: "color", view: "system" }, "none");
     for (const id of [
       "right:code",
-      "right:comments",
       "toggleComments",
       "grid",
       "tool:text",
