@@ -70,6 +70,9 @@ export const TOLD_WITH_ROUTER: ReadonlySet<string> = new Set([
   "restraint",
 ]);
 
+/** Told with the router too when the thread's task makes the design system. */
+export const TOLD_WHEN_MAKING_THE_SYSTEM = "design-system";
+
 /** The router, naming the editor's tools when they are offered. */
 export const routerText = (tools: ToolNames | null) =>
   withWays(designSkill.router, tools);
