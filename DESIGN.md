@@ -96,7 +96,7 @@ follows the system's unless the person picks one in Settings › Editor.
 ## Navigation
 
 - **Left card**: the project (mark, name over branch), search (⌘K) and the panel's toggle; the
-  canvas shown; then an icon rail beside the panel. Rail: Agents, Layers (Foundations in the design
+  canvas shown, a filled select of its own with 8px under it; then an icon rail beside the panel. Rail: Agents, Layers (Foundations in the design
   system), Components; at its foot Changes, Settings and who the user is. A rail icon is named by its
   tooltip and by the panel's own title. Put away, the card is the project's row alone.
 - **Place switch**, top centre: Canvas · Design system · Prototype, the three places of the editor.
