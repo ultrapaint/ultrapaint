@@ -22,7 +22,8 @@ colors:
   warning: oklch(0.82 0.14 78)
   canvas: oklch(0.165 0.004 70)
   board: oklch(0.185 0.018 262)
-  sidebar: oklch(0.215 0.004 70)
+  sidebar: oklch(0.222 0.004 70)
+  rail: oklch(0.176 0.004 70)
   selection: "#4f8cff"
   component: "#8b5cf6"
   agent: "#ec4899"
@@ -147,7 +148,10 @@ and from each other. Dialogs are 28rem wide by default, 20px padding.
 ## Elevation & Depth
 
 The canvas is the ground. The left card, the right card, the place switch and the tools float over
-it: {colors.sidebar}, a hairline border, `shadow-floating`. Menus, popovers and tooltips sit above
+it: {colors.sidebar}, a hairline border, `shadow-floating`. The left card has two levels: its frame
+(the project, the canvas picker, the rail) on {colors.rail}, a step down, and the panel raised
+inside it on {colors.sidebar} with a hairline and `shadow-xs`, inset 4px with a 10px radius. The
+rail's current place is raised the same way, so it reads as the panel it opens. Menus, popovers and tooltips sit above
 with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a 30% (light) or 60%
 (dark) black backdrop, no blur. Inside a card, depth is a filled field or a hairline, never a shadow.
 

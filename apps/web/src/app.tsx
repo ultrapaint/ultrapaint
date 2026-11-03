@@ -269,7 +269,9 @@ const LeftPanel = ({
       className={cn("relative min-w-0 shrink-0", hidden ? "hidden" : "flex")}
       style={{ width }}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
+      {/* The panel is raised inside the card's frame: the card's surface, a hairline and a
+          shadow, inset from the frame's edges with the card's radius less the inset. */}
+      <div className="mr-1 mb-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-sidebar shadow-xs ring-1 ring-border">
         {/* The chat heads itself, its list and each thread; the pages, the layers, Design system
           and the Library have their own actions in their heading. */}
         {prototype || headsItself.includes(leftTab) ? null : (
@@ -319,7 +321,7 @@ const LeftCard = (props: {
   return (
     <div
       className={cn(
-        "floating pointer-events-auto flex flex-col overflow-hidden",
+        "floating pointer-events-auto flex flex-col overflow-hidden bg-rail",
         hidden ? "self-start" : "min-h-0 flex-1"
       )}
       style={hidden ? undefined : { width }}
@@ -328,7 +330,12 @@ const LeftCard = (props: {
       {hidden ? null : (
         <>
           <ModeAndCanvases />
-          <div className="flex min-h-0 flex-1 border-t">
+          <div
+            className={cn(
+              "flex min-h-0 flex-1",
+              workspace === "design" ? null : "pl-1"
+            )}
+          >
             {workspace === "design" ? <Rail /> : null}
             <LeftPanel {...props} />
           </div>
