@@ -7,6 +7,7 @@ import {
   nextView,
   setView,
   setViewSoon,
+  zoomNotches,
   zoomToFit,
 } from "./camera.ts";
 import { useEditor } from "./editor.ts";
@@ -100,5 +101,57 @@ describe("setViewSoon", () => {
     expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
     vi.advanceTimersByTime(16);
     expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
+  });
+});
+
+describe("zoomNotches", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
+      setTimeout(cb, 16)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+    useEditor.setState({ view: { x: 100, y: 50, zoom: 1 } });
+  });
+
+  /** The canvas point under `at` on screen. */
+  const under = (at: { x: number; y: number }) => {
+    const { x, y, zoom } = useEditor.getState().view;
+    return { x: (at.x - x) / zoom, y: (at.y - y) / zoom };
+  };
+
+  it("glides a notch's step, the point under the cursor staying put", () => {
+    const cursor = { x: 400, y: 300 };
+    const point = under(cursor);
+    zoomNotches(1, cursor);
+    vi.advanceTimersByTime(16);
+    const between = useEditor.getState().view.zoom;
+    // On its way, not there in one jump.
+    expect(between).toBeGreaterThan(1);
+    expect(between).toBeLessThan(1.25);
+    vi.advanceTimersByTime(1000);
+    expect(useEditor.getState().view.zoom).toBe(1.25);
+    expect(under(cursor).x).toBeCloseTo(point.x, 6);
+    expect(under(cursor).y).toBeCloseTo(point.y, 6);
+  });
+
+  it("adds a notch to where the last one was going, out as well as in", () => {
+    const cursor = { x: 400, y: 300 };
+    zoomNotches(1, cursor);
+    vi.advanceTimersByTime(16);
+    zoomNotches(1, cursor);
+    vi.advanceTimersByTime(1000);
+    expect(useEditor.getState().view.zoom).toBeCloseTo(1.5625, 9);
+    zoomNotches(-2, cursor);
+    vi.advanceTimersByTime(1000);
+    expect(useEditor.getState().view.zoom).toBeCloseTo(1, 9);
+  });
+
+  it("stops where it is when the canvas is moved otherwise", () => {
+    zoomNotches(1, { x: 400, y: 300 });
+    vi.advanceTimersByTime(16);
+    setViewSoon({ x: nextView().x - 10 });
+    vi.advanceTimersByTime(1000);
+    expect(useEditor.getState().view.zoom).toBeLessThan(1.25);
   });
 });

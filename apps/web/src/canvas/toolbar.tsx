@@ -164,9 +164,17 @@ const ZoomPresetItem = ({ pct }: { pct: number }) => {
   return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
 };
 
+/**
+ * The zoom level as a whole percentage: drawn on its own, so a zoom redraws this text alone and not
+ * the menu around it, once a frame.
+ */
+const ZoomLevel = () => {
+  const pct = useEditor((s) => Math.round(s.view.zoom * 100));
+  return <>{pct}%</>;
+};
+
 /** The zoom, floating at the canvas's bottom right: out, the level and its menu, in. */
 export const ZoomControl = () => {
-  const zoom = useEditor((s) => s.view.zoom);
   const grid = useCanvasGrid((s) => s.visible);
   return (
     <div className="floating pointer-events-auto flex items-center gap-0.5 p-1">
@@ -186,7 +194,7 @@ export const ZoomControl = () => {
             />
           }
         >
-          {Math.round(zoom * 100)}%
+          <ZoomLevel />
           <ChevronDown
             className="text-muted-foreground"
             data-icon="inline-end"
