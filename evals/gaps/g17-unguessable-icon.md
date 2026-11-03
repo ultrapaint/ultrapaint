@@ -2,7 +2,7 @@
 id: g17
 title: An icon alone for an action nobody would guess
 kind: missed
-status: testing
+status: wontfix
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/iconography.md]
@@ -26,3 +26,4 @@ action outside the list: give it a label". Today the table checks only for a mis
 
 - `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 1/2 (+1 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no gain: the shipped skill caught it 2/2; the new table row didn't help.
+- Decision of 2026-11-03 (`decisions/recall-redesign-1`): no new row: the shipped skill caught it 2/2, and the candidate's iconography row added nothing. It was dropped.

@@ -2,7 +2,7 @@
 id: g10
 title: Actions offered where they can't act
 kind: missing
-status: testing
+status: wontfix
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/states.md, references/usability.md]
@@ -39,3 +39,4 @@ act in the state drawn.
 
 - `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2, P6), not for want of a rule.
+- Decision of 2026-11-03 (`decisions/recall-redesign-1`): no rule: the shipped skill caught it 2/2 with an independent reviewer per section, so what missed it was how the redesign was run (p02, p06). The candidate's rules were dropped.
