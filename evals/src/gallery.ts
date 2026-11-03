@@ -14,16 +14,29 @@ import {
   HttpServerResponse,
   HttpStaticServer,
 } from "effect/http";
-import { DATA, readJson, writeJson } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { readJson, writeJson } from "./layout.ts";
 import { loadReferences } from "./reference.ts";
 
-export const GALLERY = path.join(DATA, "gallery");
+export const GALLERY_SETS = ["shadcn", "shots"] as const;
+export type GallerySet = (typeof GALLERY_SETS)[number];
 
 /**
  * The sets a person can swipe: the shots to take references from, or looks to like (shadcn's
  * showcase in random presets), each with its own file of decisions and its own words.
  */
-const SETS = {
+const SETS: Record<
+  GallerySet,
+  {
+    readonly heading: string;
+    readonly link: string;
+    readonly selection: string;
+    readonly shots: string;
+    readonly skip: string;
+    readonly take: string;
+    readonly taken: string;
+  }
+> = {
   shadcn: {
     heading: "Which looks do you like?",
     link: "open in shadcn",
@@ -42,9 +55,7 @@ const SETS = {
     take: "Take",
     taken: "Taken",
   },
-} as const;
-export type GallerySet = keyof typeof SETS;
-export const GALLERY_SETS = Object.keys(SETS) as GallerySet[];
+};
 
 const Shot = Schema.Struct({
   href: Schema.String,
@@ -75,10 +86,11 @@ export const gallery = Effect.fn("gallery")(function* (options: {
   readonly port: number;
   readonly set: GallerySet;
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const set = SETS[options.set];
-  const SHOTS = path.join(GALLERY, set.shots);
-  const SELECTION = path.join(GALLERY, set.selection);
+  const SHOTS = path.join(data.gallery, set.shots);
+  const SELECTION = path.join(data.gallery, set.selection);
   const shots = yield* readJson(Schema.Array(Shot), SHOTS);
   // Shots already references are marked; looks to like have none.
   const used =
@@ -151,7 +163,7 @@ export const gallery = Effect.fn("gallery")(function* (options: {
     HttpRouter.add("GET", "/api/gallery", session),
     HttpRouter.add("POST", "/api/gallery", toggle),
     HttpRouter.add("GET", "/", HttpServerResponse.redirect("/gallery/")),
-    HttpStaticServer.layer({ root: DATA })
+    HttpStaticServer.layer({ root: data.root })
   );
   yield* Effect.log(
     `${shots.length} shots: open http://${options.host}:${options.port}/ (Ctrl-C to stop; the selection is saved as you go)`

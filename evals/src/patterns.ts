@@ -13,58 +13,66 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
-import { LabError } from "./errors.ts";
+
+import { type DataDir, EvalsConfig } from "./config.ts";
+import { fetchPicture } from "./fetch-picture.ts";
 import {
-  DATA,
-  fromData,
   listDir,
   PROMPTS,
   prompt,
-  RUNS,
   readJson,
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 
-export const PATTERNS = path.join(DATA, "patterns");
+export const CORPUS_NAMES = [
+  "landing",
+  "landing-opus",
+  "untitled-ui",
+  "untitled-ui-opus",
+] as const;
+export type CorpusName = (typeof CORPUS_NAMES)[number];
 
 /**
  * The corpora studied: each a list of shots and their pictures (URLs, or files on this machine),
- * the product they show, and the directory its study is kept in.
+ * the product they show, and the directory its study is kept in, both in the data directory.
  */
-export const CORPORA = {
+const CORPORA: Record<
+  CorpusName,
+  { readonly dir: string; readonly product: string; readonly shots: string }
+> = {
   landing: {
-    dir: path.join(DATA, "patterns-landing"),
+    dir: "patterns-landing",
     product:
       "a set of well-made SaaS landing pages, each cut into slices of its height",
-    shots: path.join(DATA, "corpus", "landing", "tiles.json"),
+    shots: path.join("corpus", "landing", "tiles.json"),
   },
-  /** The same pictures looked at again by Opus 5.5 (`src/api-patterns.mjs`), for the books. */
+  /** The same pictures looked at again by Opus 5.5 (a one-off script of the old lab, kept in the data directory's `lab-archive/src/api-patterns.mjs`), for the books. */
   "landing-opus": {
-    dir: path.join(DATA, "studies", "opus-5.5-patterns", "landing"),
+    dir: path.join("studies", "opus-5.5-patterns", "landing"),
     product:
       "a set of well-made SaaS landing pages, each cut into slices of its height",
-    shots: path.join(DATA, "corpus", "landing", "tiles.json"),
+    shots: path.join("corpus", "landing", "tiles.json"),
   },
   "untitled-ui": {
-    dir: PATTERNS,
+    dir: "patterns",
     product: "Untitled UI",
-    shots: path.join(DATA, "gallery", "untitled-ui.json"),
+    shots: path.join("gallery", "untitled-ui.json"),
   },
   "untitled-ui-opus": {
-    dir: path.join(DATA, "studies", "opus-5.5-patterns", "untitled-ui"),
+    dir: path.join("studies", "opus-5.5-patterns", "untitled-ui"),
     product: "Untitled UI",
-    shots: path.join(DATA, "gallery", "untitled-ui.json"),
+    shots: path.join("gallery", "untitled-ui.json"),
   },
-} as const;
-export type CorpusName = keyof typeof CORPORA;
+};
 
 /** Where a corpus's study is kept. */
-const placesOf = (corpus: CorpusName) => {
-  const { dir, product, shots } = CORPORA[corpus];
+const placesOf = (data: DataDir, corpus: CorpusName) => {
+  const { product } = CORPORA[corpus];
+  const dir = path.join(data.root, CORPORA[corpus].dir);
   return {
-    CORPUS: shots,
+    CORPUS: path.join(data.root, CORPORA[corpus].shots),
     NOTES: path.join(dir, "notes"),
     PICTURES: path.join(dir, "pictures"),
     product,
@@ -221,7 +229,8 @@ const idOf = (url: string) =>
 const corpusPictures = Effect.fn("corpusPictures")(function* (
   corpus: CorpusName
 ) {
-  const { CORPUS } = placesOf(corpus);
+  const { data } = yield* EvalsConfig;
+  const { CORPUS } = placesOf(data, corpus);
   const shots = [...(yield* readJson(Schema.Array(CorpusShot), CORPUS))].sort(
     (a, b) => idOf(a.href).localeCompare(idOf(b.href))
   );
@@ -252,7 +261,8 @@ const corpusPictures = Effect.fn("corpusPictures")(function* (
 
 /** Every picture, with whether it has been looked at: what a later, larger sample goes on from. */
 const writeIndex = Effect.fn("writeIndex")(function* (corpus: CorpusName) {
-  const { NOTES, STUDY } = placesOf(corpus);
+  const { data } = yield* EvalsConfig;
+  const { NOTES, STUDY } = placesOf(data, corpus);
   const all = yield* corpusPictures(corpus);
   const noted = new Set(yield* listDir(NOTES));
   yield* writeJson(
@@ -275,23 +285,24 @@ const download = Effect.fn("download")(function* (url: string, file: string) {
   if (yield* fs.exists(file)) {
     return;
   }
-  // A picture already on this machine: a file of the lab's own corpus.
+  // A picture already on this machine: a file of the data directory's own corpus.
   if (path.isAbsolute(url)) {
     return yield* fs.copyFile(url, file);
   }
-  const bytes = yield* Effect.tryPromise({
-    catch: (cause) =>
-      new LabError({ message: `downloading ${url}: ${String(cause)}` }),
-    try: async () => {
-      const response = await fetch(`${url}?resize=2000x1500`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return new Uint8Array(await response.arrayBuffer());
-    },
-  });
+  const { bytes } = yield* fetchPicture(`${url}?resize=2000x1500`);
   yield* fs.writeFile(file, bytes);
 });
+
+/** The pieces of a batch of pictures, as the model answers them. */
+export const piecesAnswer = {
+  decode: Schema.Struct({ pieces: Schema.Array(Piece) }),
+  schema: {
+    additionalProperties: false,
+    properties: { pieces: { items: pieceSchema, type: "array" } },
+    required: ["pieces"],
+    type: "object",
+  },
+};
 
 /** Each picture not yet looked at: downloaded, then answered for, a batch per call. */
 export const annotate = Effect.fn("annotate")(function* (options: {
@@ -301,9 +312,10 @@ export const annotate = Effect.fn("annotate")(function* (options: {
   readonly limit: number;
   readonly model: string;
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
-  const { NOTES, STUDY, PICTURES, product } = placesOf(options.corpus);
+  const models = yield* Models;
+  const { NOTES, STUDY, PICTURES, product } = placesOf(data, options.corpus);
   yield* fs.makeDirectory(PICTURES, { recursive: true });
   yield* fs.makeDirectory(NOTES, { recursive: true });
   const all = yield* corpusPictures(options.corpus);
@@ -328,23 +340,16 @@ export const annotate = Effect.fn("annotate")(function* (options: {
           (p) => download(p.image, path.join(PICTURES, p.file)),
           { concurrency: 4 }
         );
-        const answer = yield* claude.ask({
+        const answer = yield* models.ask({
           cwd: PICTURES,
           model: options.model,
           prompt: yield* prompt("patterns-annotate", {
             files: batch.map((p) => `- ${p.file} (${p.title})`).join("\n"),
             product,
           }),
-          schema: {
-            additionalProperties: false,
-            properties: { pieces: { items: pieceSchema, type: "array" } },
-            required: ["pieces"],
-            type: "object",
-          },
+          ...piecesAnswer,
         });
-        const { pieces } = yield* Schema.decodeUnknownEffect(
-          Schema.Struct({ pieces: Schema.Array(Piece) })
-        )(answer.structured);
+        const { pieces } = answer.value;
         cost += answer.costUsd;
         for (const piece of pieces) {
           const picture = batch.find((p) => p.file === piece.file);
@@ -367,7 +372,7 @@ export const annotate = Effect.fn("annotate")(function* (options: {
   );
   const index = yield* writeIndex(options.corpus);
   yield* Effect.log(
-    `${index.noted} of ${index.all} pictures looked at; the list is ${fromData(path.join(STUDY, "index.json"))}`
+    `${index.noted} of ${index.all} pictures looked at; the list is ${data.fromData(path.join(STUDY, "index.json"))}`
   );
 });
 
@@ -470,9 +475,10 @@ export const book = Effect.fn("book")(function* (options: {
   readonly model: string;
   readonly skillsFrom: string;
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
-  const { NOTES, STUDY, product } = placesOf(options.corpus);
+  const models = yield* Models;
+  const { NOTES, STUDY, product } = placesOf(data, options.corpus);
   const pieces: Piece[] = [];
   for (const file of yield* listDir(NOTES)) {
     const piece = yield* readJson(Piece, path.join(NOTES, file)).pipe(
@@ -515,13 +521,14 @@ export const book = Effect.fn("book")(function* (options: {
   // set them against.
   const skills = path.isAbsolute(options.skillsFrom)
     ? options.skillsFrom
-    : path.join(RUNS, options.skillsFrom, "skills");
+    : path.join(data.runs, options.skillsFrom, "skills");
   yield* fs.remove(path.join(STUDY, "skills"), {
     force: true,
     recursive: true,
   });
   yield* fs.copy(skills, path.join(STUDY, "skills"));
-  const answer = yield* claude.ask({
+  // No schema: an enforced answer format made the study's notes terse, so the book comes as text.
+  const answer = yield* models.write({
     cwd: STUDY,
     model: options.model,
     prompt: yield* prompt("patterns-book", {
@@ -529,13 +536,12 @@ export const book = Effect.fn("book")(function* (options: {
       product,
     }),
   });
-  // No schema: an enforced answer format made the study's notes terse, so the book comes as text.
   const { text } = answer;
   yield* writeText(
     path.join(STUDY, "book.md"),
     `<!-- From ${pieces.length} pieces of ${product}; $${answer.costUsd.toFixed(2)}. -->\n\n${text.trim()}\n`
   );
   yield* Effect.log(
-    `pattern book: ${fromData(path.join(STUDY, "book.md"))} (${pieces.length} pieces)`
+    `pattern book: ${data.fromData(path.join(STUDY, "book.md"))} (${pieces.length} pieces)`
   );
 });

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -13,7 +14,9 @@
     "playwright-core": "^1.64.1"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "^24.0.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1"
   }
 }

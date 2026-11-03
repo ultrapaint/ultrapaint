@@ -6,12 +6,12 @@
  */
 import path from "node:path";
 import { Effect, FileSystem } from "effect";
-import { COMPONENTS, COMPONENTS_DIR, familyDir } from "./extract.ts";
-import { fromData, listDir, RUNS } from "./layout.ts";
+import { type DataDir, EvalsConfig } from "./config.ts";
+import { COMPONENTS, COMPONENTS_DIR } from "./extract.ts";
+import { listDir, viewerSrc } from "./layout.ts";
 import type { Card } from "./review.ts";
 import { slugOf } from "./sections.ts";
 
-const src = (file: string) => `/${fromData(file)}`;
 const LETTERS = "ABCDEFGH";
 
 /** A stable shuffle of a card's options, by its id. */
@@ -41,8 +41,9 @@ const lettered = (
 export const isExtractRound = Effect.fn("isExtractRound")(function* (
   round: string
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const file = path.join(RUNS, round, "round.json");
+  const file = path.join(data.runs, round, "round.json");
   return (
     (yield* fs.exists(file)) &&
     (yield* fs.readFileString(file)).includes('"track": "extract"')
@@ -59,19 +60,20 @@ const pickedBefore = Effect.fn("pickedBefore")(function* (
   family: string,
   slug: string
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const pick =
     before.verdicts[`component/${before.round}/${family}/${slug}`]?.pick;
   const runs =
     pick === undefined || pick === NONE_PICKED
-      ? (yield* listDir(path.join(RUNS, before.round, family))).filter((r) =>
-          r.startsWith("run-")
+      ? (yield* listDir(path.join(data.runs, before.round, family))).filter(
+          (r) => r.startsWith("run-")
         )
       : [pick];
   const found: { id: string; src: string }[] = [];
   for (const run of runs) {
     const crop = path.join(
-      RUNS,
+      data.runs,
       before.round,
       family,
       run,
@@ -79,7 +81,7 @@ const pickedBefore = Effect.fn("pickedBefore")(function* (
       `${slug}.png`
     );
     if (yield* fs.exists(crop)) {
-      found.push({ id: `${before.round}/${run}`, src: src(crop) });
+      found.push({ id: `${before.round}/${run}`, src: viewerSrc(data, crop) });
     }
   }
   return found;
@@ -97,17 +99,18 @@ const componentCard = Effect.fn("componentCard")(function* (
   /** An earlier round, whose pick for this component the round's runs are set against. */
   before?: Before
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const { family, round, runs } = where;
   const slug = slugOf(component.name);
   const crop = (r: string, run: string) =>
-    path.join(RUNS, r, family, run, COMPONENTS_DIR, `${slug}.png`);
+    path.join(data.runs, r, family, run, COMPONENTS_DIR, `${slug}.png`);
   const options: { id: string; src: string }[] = [];
   for (const run of runs) {
     if (yield* fs.exists(crop(round, run))) {
       options.push({
         id: before ? `${round}/${run}` : run,
-        src: src(crop(round, run)),
+        src: viewerSrc(data, crop(round, run)),
       });
     }
   }
@@ -118,7 +121,11 @@ const componentCard = Effect.fn("componentCard")(function* (
   if (!first) {
     return;
   }
-  const reference = path.join(familyDir(family), COMPONENTS_DIR, `${slug}.jpg`);
+  const reference = path.join(
+    data.familyDir(family),
+    COMPONENTS_DIR,
+    `${slug}.jpg`
+  );
   const shown = yield* fs.exists(reference);
   const id = `component/${round}/${family}/${slug}`;
   const one = options.length === 1;
@@ -138,7 +145,7 @@ const componentCard = Effect.fn("componentCard")(function* (
       : `${component.name}: which is closest to the product's?`,
     reference: family,
     referencePictures: shown
-      ? [{ label: component.name, src: src(reference) }]
+      ? [{ label: component.name, src: viewerSrc(data, reference) }]
       : [],
     right: "Yes",
     round,
@@ -163,16 +170,17 @@ export const componentCards = Effect.fn("componentCards")(function* (
   scale: readonly string[],
   before?: Before
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const cards: Card[] = [];
-  for (const family of yield* listDir(path.join(RUNS, round))) {
+  for (const family of yield* listDir(path.join(data.runs, round))) {
     // Beside the families' directories: round.json.
-    const info = yield* fs.stat(path.join(RUNS, round, family));
+    const info = yield* fs.stat(path.join(data.runs, round, family));
     if (info.type !== "Directory") {
       continue;
     }
-    const runs = (yield* listDir(path.join(RUNS, round, family))).filter((r) =>
-      r.startsWith("run-")
+    const runs = (yield* listDir(path.join(data.runs, round, family))).filter(
+      (r) => r.startsWith("run-")
     );
     for (const component of runs.length > 0 ? COMPONENTS : []) {
       const card = yield* componentCard(
@@ -203,6 +211,7 @@ export interface SectionRun {
 
 /** Track B's cards: each section of each reference, from every run of the round. */
 export const sectionPickCards = (
+  data: DataDir,
   runs: readonly SectionRun[],
   referenceSections: ReadonlyMap<
     string,
@@ -216,7 +225,7 @@ export const sectionPickCards = (
       (section): Card[] => {
         const options = ofReference.flatMap((r) => {
           const crop = r.sections.get(section.name);
-          return crop ? [{ id: r.run, src: src(crop) }] : [];
+          return crop ? [{ id: r.run, src: viewerSrc(data, crop) }] : [];
         });
         if (options.length < 2) {
           return [];
@@ -234,7 +243,7 @@ export const sectionPickCards = (
             question: `${section.name}: which is best?`,
             reference,
             referencePictures: [
-              { label: section.name, src: src(section.crop) },
+              { label: section.name, src: viewerSrc(data, section.crop) },
             ],
             right: "Yes",
             round,
@@ -254,6 +263,7 @@ export const sectionPickCards = (
  * question. A pick names its run (`run-2`) or, made on such a card itself, its round too.
  */
 export const challengeCards = (
+  data: DataDir,
   candidate: readonly SectionRun[],
   before: readonly SectionRun[],
   /** The earlier rounds, oldest first, each with its verdicts. */
@@ -293,7 +303,9 @@ export const challengeCards = (
         );
         const options = [...ofReference, ...rivals].flatMap((r) => {
           const crop = r.sections.get(section.name);
-          return crop ? [{ id: `${r.round}/${r.run}`, src: src(crop) }] : [];
+          return crop
+            ? [{ id: `${r.round}/${r.run}`, src: viewerSrc(data, crop) }]
+            : [];
         });
         if (
           options.length < 2 ||
@@ -314,7 +326,7 @@ export const challengeCards = (
             question: `${section.name}: which is best?`,
             reference,
             referencePictures: [
-              { label: section.name, src: src(section.crop) },
+              { label: section.name, src: viewerSrc(data, section.crop) },
             ],
             right: "Yes",
             round,

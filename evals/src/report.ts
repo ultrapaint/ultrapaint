@@ -14,24 +14,19 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
+import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
 import {
-  type Judgement,
+  isLevel,
+  type JudgeFile,
   LEVELS,
   readJudgement,
   roundRuns,
   roundSkills,
 } from "./judge.ts";
-import {
-  fromData,
-  PROMPTS,
-  prompt,
-  RUNS,
-  readJson,
-  writeJson,
-  writeText,
-} from "./layout.ts";
+import { PROMPTS, prompt, readJson, writeJson, writeText } from "./layout.ts";
+import { Models } from "./models.ts";
 import { readReview, scoreOf, type Verdict } from "./review.ts";
 
 const Gap = Schema.Struct({
@@ -109,9 +104,15 @@ const synthesisSchema = (skills: readonly string[]) => {
   };
 };
 
+/** The gaps and proposals, as the model answers them, naming the round's skills. */
+export const synthesisAnswer = (skills: readonly string[]) => ({
+  decode: Synthesis,
+  schema: synthesisSchema(skills),
+});
+
 interface Judged {
   readonly added: readonly AddedTextEntry[];
-  readonly judgement: Judgement;
+  readonly judgement: JudgeFile;
   readonly reference: string;
   readonly run: string;
 }
@@ -165,8 +166,9 @@ export const report = Effect.fn("report")(function* (
   round: string,
   options: { readonly model: string }
 ) {
-  const claude = yield* Claude;
-  const dir = path.join(RUNS, round);
+  const { data } = yield* EvalsConfig;
+  const models = yield* Models;
+  const dir = path.join(data.runs, round);
   const info = yield* readJson(RoundInfo, path.join(dir, "round.json"));
   const skills = yield* roundSkills(round);
   const runs = yield* roundRuns(round);
@@ -268,18 +270,16 @@ export const report = Effect.fn("report")(function* (
     }))
   );
 
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: dir,
     model: options.model,
     prompt: yield* prompt("report", {
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       references: references.map((r) => `- ${r}: ${runsOf(r)} runs`).join("\n"),
     }),
-    schema: synthesisSchema(skills),
+    ...synthesisAnswer(skills),
   });
-  const synthesis = yield* Schema.decodeUnknownEffect(Synthesis)(
-    answer.structured
-  );
+  const synthesis = answer.value;
 
   /** In how many runs of each reference a gap was seen. */
   const counted = synthesis.gaps
@@ -321,9 +321,7 @@ export const report = Effect.fn("report")(function* (
   );
   const areas = [
     ...LEVELS.filter((l) => scored.has(l)),
-    ...skills.filter(
-      (s) => scored.has(s) && !(LEVELS as readonly string[]).includes(s)
-    ),
+    ...skills.filter((s) => scored.has(s) && !isLevel(s)),
     "overall",
   ];
   const unwantedOf = (reference?: string, kind?: Unwanted["kind"]) =>
@@ -365,7 +363,7 @@ export const report = Effect.fn("report")(function* (
         j.judgement.scores.filter((s) => s.area === area).map((s) => s.score)
       );
   const judgeCost = judged.reduce(
-    (sum, j) => sum + ((j.judgement as { costUsd?: number }).costUsd ?? 0),
+    (sum, j) => sum + (j.judgement.costUsd ?? 0),
     0
   );
 
@@ -462,5 +460,5 @@ export const report = Effect.fn("report")(function* (
     "",
   ];
   yield* writeText(path.join(dir, "report.md"), lines.join("\n"));
-  yield* Effect.log(`report: ${fromData(path.join(dir, "report.md"))}`);
+  yield* Effect.log(`report: ${data.fromData(path.join(dir, "report.md"))}`);
 });

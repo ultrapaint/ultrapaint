@@ -8,24 +8,18 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
+import { EvalsConfig } from "./config.ts";
+import { COMPONENTS, COMPONENTS_DIR, COMPONENTS_FILE } from "./extract.ts";
 import {
-  COMPONENTS,
-  COMPONENTS_DIR,
-  COMPONENTS_FILE,
-  familyDir,
-} from "./extract.ts";
-import {
-  DATA,
-  fromData,
   listDir,
   PROMPTS,
   prompt,
-  RUNS,
   readJson,
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 import { readReview } from "./review.ts";
 import { slugOf } from "./sections.ts";
 
@@ -86,6 +80,12 @@ const judgementSchema = {
   type: "object",
 };
 
+/** A family's components judged, as the judge answers it. */
+export const componentJudgementAnswer = {
+  decode: ComponentJudgement,
+  schema: judgementSchema,
+};
+
 const FoundKinds = Schema.Struct({
   components: Schema.Array(
     Schema.Struct({
@@ -105,6 +105,7 @@ const earlierCrop = Effect.fn("earlierCrop")(function* (
   family: string,
   slug: string
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const pick =
     against.verdicts[`component/${against.round}/${family}/${slug}`]?.pick;
@@ -115,7 +116,7 @@ const earlierCrop = Effect.fn("earlierCrop")(function* (
     return;
   }
   const crop = path.join(
-    RUNS,
+    data.runs,
     round,
     family,
     run,
@@ -143,9 +144,10 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
     readonly model: string;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
-  const kindsFile = path.join(familyDir(family), COMPONENTS_FILE);
+  const models = yield* Models;
+  const kindsFile = path.join(data.familyDir(family), COMPONENTS_FILE);
   const kinds = (yield* fs.exists(kindsFile))
     ? (yield* readJson(FoundKinds, kindsFile)).components
     : [];
@@ -153,7 +155,7 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
   for (const component of COMPONENTS) {
     const slug = slugOf(component.name);
     const made = path.join(
-      RUNS,
+      data.runs,
       round,
       family,
       run,
@@ -163,7 +165,11 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
     if (!(yield* fs.exists(made))) {
       continue;
     }
-    const product = path.join(familyDir(family), COMPONENTS_DIR, `${slug}.jpg`);
+    const product = path.join(
+      data.familyDir(family),
+      COMPONENTS_DIR,
+      `${slug}.jpg`
+    );
     const earlier = options.against
       ? yield* earlierCrop(options.against, family, slug)
       : undefined;
@@ -173,11 +179,11 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
     lines.push(
       [
         `- ${component.name}${kind && kind.toLowerCase() !== component.name.toLowerCase() ? ` (in this product: ${kind})` : ""}, in its states: ${component.states}`,
-        `  - the agent's: \`${fromData(made)}\``,
+        `  - the agent's: \`${data.fromData(made)}\``,
         (yield* fs.exists(product))
-          ? `  - the product's: \`${fromData(product)}\``
+          ? `  - the product's: \`${data.fromData(product)}\``
           : "  - the product's: not shown in its screens",
-        earlier ? `  - the earlier version: \`${fromData(earlier)}\`` : "",
+        earlier ? `  - the earlier version: \`${data.fromData(earlier)}\`` : "",
       ]
         .filter(Boolean)
         .join("\n")
@@ -186,21 +192,19 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
   if (lines.length === 0) {
     return;
   }
-  const answer = yield* claude.ask({
-    cwd: DATA,
+  const answer = yield* models.ask({
+    cwd: data.root,
     model: options.model,
     prompt: yield* prompt("judge-components", {
       components: lines.join("\n"),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       product: family,
     }),
-    schema: judgementSchema,
+    ...componentJudgementAnswer,
   });
-  const judgement = yield* Schema.decodeUnknownEffect(ComponentJudgement)(
-    answer.structured
-  );
+  const judgement = answer.value;
   yield* writeJson(
-    path.join(RUNS, round, family, run, "judge-components.json"),
+    path.join(data.runs, round, family, run, "judge-components.json"),
     judgement
   );
   const wins = judgement.components.filter((c) => c.better === "new").length;
@@ -225,19 +229,17 @@ export const judgeComponents = Effect.fn("judgeComponents")(function* (
     readonly model: string;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const against = options.against
     ? {
         round: options.against,
-        verdicts: (yield* readReview(options.against)) as Record<
-          string,
-          { readonly pick?: string | undefined }
-        >,
+        verdicts: yield* readReview(options.against),
       }
     : undefined;
   const runs: { readonly family: string; readonly run: string }[] = [];
-  for (const family of yield* listDir(path.join(RUNS, round))) {
-    const dir = path.join(RUNS, round, family);
+  for (const family of yield* listDir(path.join(data.runs, round))) {
+    const dir = path.join(data.runs, round, family);
     if ((yield* fs.stat(dir)).type !== "Directory") {
       continue;
     }
@@ -283,7 +285,7 @@ export const judgeComponents = Effect.fn("judgeComponents")(function* (
     )
     .slice(0, 40);
   yield* writeText(
-    path.join(RUNS, round, "components-report.md"),
+    path.join(data.runs, round, "components-report.md"),
     [
       `# ${round}: the components, judged${options.against ? ` against ${options.against}'s picks` : ""}`,
       "",
@@ -298,6 +300,6 @@ export const judgeComponents = Effect.fn("judgeComponents")(function* (
     ].join("\n")
   );
   yield* Effect.log(
-    `report: ${fromData(path.join(RUNS, round, "components-report.md"))}`
+    `report: ${data.fromData(path.join(data.runs, round, "components-report.md"))}`
   );
 });

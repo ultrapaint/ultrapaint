@@ -5,8 +5,9 @@
  */
 import path from "node:path";
 import { Effect } from "effect";
+import { EvalsConfig } from "./config.ts";
 import { traceOf } from "./generate.ts";
-import { WORK, writeText } from "./layout.ts";
+import { writeText } from "./layout.ts";
 import { launch, runPrompt } from "./session.ts";
 
 export const setupHost = Effect.fn("setupHost")(function* (
@@ -17,6 +18,7 @@ export const setupHost = Effect.fn("setupHost")(function* (
     readonly model: string | undefined;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const turn = yield* Effect.scoped(
     Effect.gen(function* () {
       const session = yield* launch(host, "own");
@@ -34,7 +36,7 @@ export const setupHost = Effect.fn("setupHost")(function* (
     .filter((i) => i.kind === "agent")
     .map((i) => (i.kind === "agent" ? i.text : ""))
     .join("\n\n");
-  const file = path.join(WORK, host, "init.md");
+  const file = path.join(data.work, host, "init.md");
   yield* writeText(
     file,
     `# /init in ${host}\n\n${said.trim()}\n\n## Tool calls\n\n${traceOf(turn.items)}\n`

@@ -11,21 +11,18 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { CONTENT_FILE } from "./capture.ts";
-import { Claude } from "./claude.ts";
+
+import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE } from "./generate.ts";
 import {
-  briefFile,
-  captureDir,
-  DATA,
-  fromData,
   listDir,
   PROMPTS,
   prompt,
-  RUNS,
   readJson,
   writeJson,
   writeText,
 } from "./layout.ts";
+import { Models } from "./models.ts";
 import { loadReference } from "./reference.ts";
 
 /**
@@ -43,6 +40,9 @@ export const LEVELS = [
   "craft",
 ] as const;
 export type Level = (typeof LEVELS)[number];
+const LEVEL_NAMES: ReadonlySet<string> = new Set(LEVELS);
+/** Whether a score's area is one of the levels; the others are older rounds' skills, or `overall`. */
+export const isLevel = (area: string): area is Level => LEVEL_NAMES.has(area);
 
 export const ADDED_VERDICTS = ["noise", "invented", "needed"] as const;
 /**
@@ -205,25 +205,27 @@ const judgementSchema = (skills: readonly string[]) => {
 };
 
 /** The skills the round's agents were told, by name. */
-export const roundSkills = (round: string) =>
-  Effect.map(listDir(path.join(RUNS, round, "skills")), (files) =>
-    files.filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3))
-  );
+export const roundSkills = Effect.fn("roundSkills")(function* (round: string) {
+  const { data } = yield* EvalsConfig;
+  const files = yield* listDir(path.join(data.runs, round, "skills"));
+  return files.filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3));
+});
 
 /** Every run of a round that was generated: `<round>/<reference>/run-<n>/run.json`. */
 export const roundRuns = Effect.fn("roundRuns")(function* (round: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const found: { readonly dir: string; readonly reference: string }[] = [];
   const isDirectory = (dir: string) =>
     Effect.map(fs.stat(dir), (info) => info.type === "Directory");
-  for (const reference of yield* listDir(path.join(RUNS, round))) {
+  for (const reference of yield* listDir(path.join(data.runs, round))) {
     // Beside the references' directories: round.json, the report, skills/, proposals/.
-    if (!(yield* isDirectory(path.join(RUNS, round, reference)))) {
+    if (!(yield* isDirectory(path.join(data.runs, round, reference)))) {
       continue;
     }
-    const runs = yield* listDir(path.join(RUNS, round, reference));
+    const runs = yield* listDir(path.join(data.runs, round, reference));
     for (const run of runs.filter((name) => name.startsWith("run-"))) {
-      const dir = path.join(RUNS, round, reference, run);
+      const dir = path.join(data.runs, round, reference, run);
       if (yield* fs.exists(path.join(dir, "run.json"))) {
         found.push({ dir, reference });
       }
@@ -271,60 +273,65 @@ const render = (judgement: Judgement) =>
     "",
   ].join("\n");
 
+/** A judgement, as the judge answers it, naming one of the round's skills in each finding. */
+export const judgementAnswer = (skills: readonly string[]) => ({
+  decode: Judgement,
+  schema: judgementSchema(skills),
+});
+
 const judgeRun = Effect.fn("judgeRun")(function* (
   round: string,
   run: { readonly dir: string; readonly reference: string },
   skills: readonly string[],
   model: string
 ) {
-  const claude = yield* Claude;
+  const { data } = yield* EvalsConfig;
+  const models = yield* Models;
   const fs = yield* FileSystem.FileSystem;
   const reference = yield* loadReference(run.reference);
   const pictures = (dir: string) =>
     Effect.map(listDir(dir), (files) =>
       files
         .filter((f) => f.endsWith(".jpg") || f.endsWith(".png"))
-        .map((f) => `- ${fromData(path.join(dir, f))}`)
+        .map((f) => `- ${data.fromData(path.join(dir, f))}`)
         .join("\n")
     );
   const generated = yield* pictures(path.join(run.dir, "shots"));
   if (generated === "") {
     // Judged blind, a run would only be found wanting for what nobody could see.
     return yield* Effect.logWarning(
-      `${fromData(run.dir)}: not judged: it has no pictures (its run.json says why)`
+      `${data.fromData(run.dir)}: not judged: it has no pictures (its run.json says why)`
     );
   }
   const info = yield* fs.readFileString(path.join(run.dir, "run.json"));
   const added = path.join(run.dir, ADDED_TEXT_FILE);
-  const content = path.join(captureDir(reference.id), CONTENT_FILE);
-  const answer = yield* claude.ask({
-    cwd: DATA,
+  const content = path.join(data.captureDir(reference.id), CONTENT_FILE);
+  const answer = yield* models.ask({
+    cwd: data.root,
     model,
     prompt: yield* prompt("judge", {
       added: (yield* fs.exists(added))
-        ? fromData(added)
+        ? data.fromData(added)
         : "(not recorded for this run: leave addedText empty)",
-      agent: fromData(path.join(run.dir, "agent.md")),
-      brief: fromData(briefFile(reference.id)),
+      agent: data.fromData(path.join(run.dir, "agent.md")),
+      brief: data.fromData(data.briefFile(reference.id)),
       content: (yield* fs.exists(content))
-        ? fromData(content)
+        ? data.fromData(content)
         : "none: a shot has only its pictures",
       generated,
       kind: reference.kind,
       name: reference.name,
-      pages: fromData(path.join(run.dir, "pages")),
+      pages: data.fromData(path.join(run.dir, "pages")),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
-      reference: yield* pictures(captureDir(reference.id)),
+      reference: yield* pictures(data.captureDir(reference.id)),
       run: info,
-      skills: fromData(path.join(RUNS, round, "skills")),
-      trace: fromData(path.join(run.dir, "trace.md")),
+      skills: data.fromData(path.join(data.runs, round, "skills")),
+      trace: data.fromData(path.join(run.dir, "trace.md")),
       why: reference.why,
     }),
-    schema: judgementSchema(skills),
+    ...judgementAnswer(skills),
   });
-  const judgement = yield* Schema.decodeUnknownEffect(Judgement)(
-    answer.structured
-  );
+  const judgement = answer.value;
   yield* writeJson(path.join(run.dir, "judge.json"), {
     ...judgement,
     costUsd: answer.costUsd,
@@ -332,7 +339,7 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   yield* writeText(path.join(run.dir, "judge.md"), render(judgement));
   const overall = judgement.scores.find((s) => s.area === "overall")?.score;
   yield* Effect.log(
-    `${fromData(run.dir)}: ${judgement.findings.length} findings, overall ${overall ?? "?"}/5 ($${answer.costUsd.toFixed(2)})`
+    `${data.fromData(run.dir)}: ${judgement.findings.length} findings, overall ${overall ?? "?"}/5 ($${answer.costUsd.toFixed(2)})`
   );
 });
 
@@ -344,6 +351,7 @@ export const judge = Effect.fn("judge")(function* (
     readonly model: string;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const skills = yield* roundSkills(round);
   const runs = yield* roundRuns(round);
@@ -359,13 +367,22 @@ export const judge = Effect.fn("judge")(function* (
       judgeRun(round, run, skills, options.model).pipe(
         // One judgement that fails is reported and the others go on; judge again to retry it.
         Effect.catch((error) =>
-          Effect.logError(`${fromData(run.dir)}: not judged: ${String(error)}`)
+          Effect.logError(
+            `${data.fromData(run.dir)}: not judged: ${String(error)}`
+          )
         )
       ),
     { concurrency: options.concurrency }
   );
 });
 
+/** A run's `judge.json`: the judgement, and what it cost when that was recorded. */
+const JudgeFile = Schema.Struct({
+  ...Judgement.fields,
+  costUsd: Schema.optional(Schema.Number),
+});
+export type JudgeFile = typeof JudgeFile.Type;
+
 /** A run's judgement, when it has one. */
 export const readJudgement = (dir: string) =>
-  readJson(Judgement, path.join(dir, "judge.json"));
+  readJson(JudgeFile, path.join(dir, "judge.json"));

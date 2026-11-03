@@ -13,6 +13,7 @@ import {
   Effect,
   FileSystem,
   Layer,
+  Option,
   Schema,
   type Scope,
   Stream,
@@ -21,8 +22,9 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { RpcClient, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
 import { Browser } from "./browser.ts";
-import { LabError } from "./errors.ts";
-import { CHECKOUT, hostDir, readJson, WORK, writeJson } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { EvalsError } from "./errors.ts";
+import { readJson, writeJson } from "./layout.ts";
 
 /** Where the preview keeps what it generates inside the designs directory. */
 const PREVIEW_FILES = ".ultrapaint";
@@ -73,7 +75,7 @@ export interface UltrapaintSession {
   readonly tool: (
     name: string,
     args: Record<string, unknown>
-  ) => Effect.Effect<ToolResult, LabError>;
+  ) => Effect.Effect<ToolResult, EvalsError>;
   readonly url: string;
 }
 
@@ -81,9 +83,33 @@ export interface UltrapaintSession {
 export const rpc = <A, E, R>(what: string, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.mapError(
-      (cause) => new LabError({ message: `${what}: ${String(cause)}` })
+      (cause) => new EvalsError({ message: `${what}: ${String(cause)}` })
     )
   );
+
+/** A JSON-RPC message from the MCP server: a reply carries the id of the request it answers. */
+const McpMessage = Schema.Struct({
+  error: Schema.optional(Schema.Unknown),
+  id: Schema.optional(Schema.Unknown),
+  result: Schema.optional(Schema.Unknown),
+});
+const decodeMessage = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(McpMessage)
+);
+const RpcError = Schema.Struct({ message: Schema.String });
+const Initialized = Schema.Struct({ protocolVersion: Schema.String });
+const ToolCallResult = Schema.Struct({
+  content: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        data: Schema.optional(Schema.String),
+        text: Schema.optional(Schema.String),
+        type: Schema.String,
+      })
+    )
+  ),
+  isError: Schema.optional(Schema.Unknown),
+});
 
 /** A minimal MCP client over Streamable HTTP: initialize once, then call tools. */
 const connectMcp = Effect.fn("connectMcp")(function* (connection: {
@@ -95,14 +121,21 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
   let version = "2025-06-18";
   let nextId = 1;
 
-  const post = (body: Record<string, unknown>) =>
-    Effect.tryPromise({
-      catch: (cause) =>
-        new LabError({
-          message: `the editor's MCP server did not answer ${String(body.method)}: ${String(cause)}`,
-        }),
-      try: async () => {
-        const response = await fetch(connection.url, {
+  /** The result of a request, none for a notification; the server's error as a failure. */
+  const post = Effect.fnUntraced(function* (
+    body: { readonly id?: number; readonly method: string } & Record<
+      string,
+      unknown
+    >
+  ) {
+    const notAnswered = (cause: unknown) =>
+      new EvalsError({
+        message: `the editor's MCP server did not answer ${body.method}: ${String(cause)}`,
+      });
+    const response = yield* Effect.tryPromise({
+      catch: notAnswered,
+      try: () =>
+        fetch(connection.url, {
           body: JSON.stringify({ jsonrpc: "2.0", ...body }),
           headers: {
             accept: "application/json, text/event-stream",
@@ -112,28 +145,35 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
             ...(session !== undefined && { "mcp-session-id": session }),
           },
           method: "POST",
-        });
-        session = response.headers.get("mcp-session-id") ?? session;
-        const text = await response.text();
-        if (body.id === undefined || text.trim() === "") {
-          return;
-        }
-        // A reply comes as JSON, or as the data of a server-sent event.
-        const messages = response.headers
-          .get("content-type")
-          ?.includes("text/event-stream")
-          ? text
-              .split("\n")
-              .filter((line) => line.startsWith("data:"))
-              .map((line) => JSON.parse(line.slice(5)))
-          : [JSON.parse(text)];
-        const reply = messages.find((m) => m?.id === body.id);
-        if (reply?.error) {
-          throw new Error(reply.error.message ?? JSON.stringify(reply.error));
-        }
-        return reply?.result as Record<string, unknown> | undefined;
-      },
+        }),
     });
+    session = response.headers.get("mcp-session-id") ?? session;
+    const text = yield* Effect.tryPromise({
+      catch: notAnswered,
+      try: () => response.text(),
+    });
+    if (body.id === undefined || text.trim() === "") {
+      return;
+    }
+    // A reply comes as JSON, or as the data of a server-sent event.
+    const messages = yield* Effect.forEach(
+      response.headers.get("content-type")?.includes("text/event-stream")
+        ? text
+            .split("\n")
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5))
+        : [text],
+      (message) => decodeMessage(message).pipe(Effect.mapError(notAnswered))
+    );
+    const reply = messages.find((m) => m.id === body.id);
+    if (reply?.error !== undefined) {
+      const said = Schema.decodeUnknownOption(RpcError)(reply.error);
+      return yield* notAnswered(
+        Option.isSome(said) ? said.value.message : JSON.stringify(reply.error)
+      );
+    }
+    return reply?.result;
+  });
 
   const initialized = yield* post({
     id: nextId,
@@ -144,8 +184,9 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
       protocolVersion: version,
     },
   });
-  if (typeof initialized?.protocolVersion === "string") {
-    version = initialized.protocolVersion;
+  const agreed = Schema.decodeUnknownOption(Initialized)(initialized);
+  if (Option.isSome(agreed)) {
+    version = agreed.value.protocolVersion;
   }
   nextId += 1;
   yield* post({ method: "notifications/initialized" });
@@ -155,21 +196,27 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
     args: Record<string, unknown>
   ) {
     nextId += 1;
-    const result = yield* post({
+    const answer = yield* post({
       id: nextId,
       method: "tools/call",
       params: { arguments: args, name },
     });
-    const content = (result?.content ?? []) as readonly {
-      readonly data?: string;
-      readonly text?: string;
-      readonly type: string;
-    }[];
+    const result = yield* Schema.decodeUnknownEffect(ToolCallResult)(
+      answer ?? {}
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new EvalsError({
+            message: `${name} answered something else than a tool's result: ${String(cause)}`,
+          })
+      )
+    );
+    const content = result.content ?? [];
     return {
       images: content
         .filter((c) => c.type === "image" && c.data)
         .map((c) => new Uint8Array(Buffer.from(c.data ?? "", "base64"))),
-      isError: result?.isError === true,
+      isError: result.isError === true,
       text: content
         .filter((c) => c.type === "text")
         .map((c) => c.text ?? "")
@@ -188,11 +235,12 @@ export const launch = Effect.fn("launch")(function* (
   host: string,
   designsIn: "scratch" | "own"
 ) {
+  const { checkout, data, skillsBriefing: briefing } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const browser = yield* Browser;
 
-  const root = path.isAbsolute(host) ? host : hostDir(host);
+  const root = path.isAbsolute(host) ? host : data.hostDir(host);
   const own = yield* readJson(HostConfig, path.join(root, CONFIG_FILE));
   const ownDir =
     typeof own.designsDir === "string" ? own.designsDir : "designs";
@@ -205,14 +253,13 @@ export const launch = Effect.fn("launch")(function* (
 
   // A copy's configuration and log are kept by its path, so two copies never share them.
   const work = path.join(
-    WORK,
+    data.work,
     path.isAbsolute(host)
-      ? path.relative(WORK, host).replaceAll("/", "_")
+      ? path.relative(data.work, host).replaceAll("/", "_")
       : host
   );
   const config = path.join(work, CONFIG_FILE);
-  // How the skills are told (`full`, `summaries`, `router`), when a round tries another way.
-  const briefing = process.env.EVAL_SKILLS_BRIEFING;
+  // How the skills are told, when a round tries another way.
   const skills = {
     ...(typeof own.skills === "object" && own.skills),
     ...(briefing !== undefined && { briefing }),
@@ -235,7 +282,7 @@ export const launch = Effect.fn("launch")(function* (
       ChildProcess.make(
         process.execPath,
         [
-          path.join(CHECKOUT, "scripts/cli.ts"),
+          path.join(checkout, "scripts/cli.ts"),
           "--config",
           config,
           "--port",
@@ -250,7 +297,7 @@ export const launch = Effect.fn("launch")(function* (
     .pipe(
       Effect.mapError(
         (cause) =>
-          new LabError({ message: `Ultrapaint did not start: ${cause}` })
+          new EvalsError({ message: `Ultrapaint did not start: ${cause}` })
       )
     );
 
@@ -279,7 +326,7 @@ export const launch = Effect.fn("launch")(function* (
     Effect.timeout("5 minutes"),
     Effect.mapError(
       () =>
-        new LabError({
+        new EvalsError({
           message: `Ultrapaint did not say it was ready; see ${log}`,
         })
     )
@@ -421,7 +468,7 @@ export const runPrompt = (
     readonly purpose?: "design" | "implement";
     readonly text: string;
   }
-): Effect.Effect<Turn, LabError, Scope.Scope> =>
+): Effect.Effect<Turn, EvalsError, Scope.Scope> =>
   Effect.gen(function* () {
     const { client } = session;
     const thread = yield* Effect.acquireRelease(
@@ -546,7 +593,7 @@ const pinModel = Effect.fn("pinModel")(function* (
     Effect.timeout("2 minutes"),
     Effect.mapError(
       () =>
-        new LabError({ message: "the agent never said which models it has" })
+        new EvalsError({ message: "the agent never said which models it has" })
     )
   );
   const models =
@@ -555,7 +602,7 @@ const pinModel = Effect.fn("pinModel")(function* (
       ?.configOptions?.find((option) => option.id === "model")?.options ?? [];
   const choice = models.find((m) => m.name === model || m.value === model);
   if (!choice) {
-    return yield* new LabError({
+    return yield* new EvalsError({
       message: `no model "${model}"; the agent has ${models.map((m) => `"${m.name}"`).join(", ")}`,
     });
   }
