@@ -170,6 +170,28 @@ describe("report", () => {
       }).pipe(Effect.provide(TestData))
   );
 
+  it.effect("its cost is the judge's, run by run, and its own", () =>
+    Effect.gen(function* () {
+      const costing = (run: number, costUsd: number) => ({
+        [`runs/r/home/run-${run}/run.json`]: {},
+        [`runs/r/home/run-${run}/judge.json`]: {
+          ...judgement({ overall: 3 }),
+          costUsd,
+        },
+      });
+      yield* writeData({
+        "runs/r/round.json": ROUND,
+        ...costing(1, 1.25),
+        ...costing(2, 0.5),
+      });
+      yield* reported();
+      assert.include(
+        yield* readData("runs/r/report.md"),
+        "- Judging and this report cost $1.75"
+      );
+    }).pipe(Effect.provide(TestData))
+  );
+
   it.effect(
     "counts each gap in the runs of each reference, the ones seen most first",
     () =>

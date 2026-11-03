@@ -19,7 +19,7 @@ import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
 import {
   isLevel,
-  type Judgement,
+  type JudgeFile,
   LEVELS,
   readJudgement,
   roundRuns,
@@ -112,7 +112,7 @@ export const synthesisAnswer = (skills: readonly string[]) => ({
 
 interface Judged {
   readonly added: readonly AddedTextEntry[];
-  readonly judgement: Judgement;
+  readonly judgement: JudgeFile;
   readonly reference: string;
   readonly run: string;
 }
@@ -363,7 +363,7 @@ export const report = Effect.fn("report")(function* (
         j.judgement.scores.filter((s) => s.area === area).map((s) => s.score)
       );
   const judgeCost = judged.reduce(
-    (sum, j) => sum + ((j.judgement as { costUsd?: number }).costUsd ?? 0),
+    (sum, j) => sum + (j.judgement.costUsd ?? 0),
     0
   );
 
