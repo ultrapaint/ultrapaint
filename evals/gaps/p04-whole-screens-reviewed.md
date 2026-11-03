@@ -2,7 +2,7 @@
 id: p04
 title: Whole screens reviewed instead of sections
 kind: process
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md]
@@ -20,3 +20,5 @@ earlier finding that sections compared one at a time catch problems that whole s
 It applied to the new chat's starters too.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 0/6 (+2 partly), redesign-gaps 2/6 (+3 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)

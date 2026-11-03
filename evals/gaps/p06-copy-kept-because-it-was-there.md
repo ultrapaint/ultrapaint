@@ -2,7 +2,7 @@
 id: p06
 title: Copy kept because it was there
 kind: process
-status: open
+status: testing
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [SKILL.md, references/restraint.md, references/content.md]
@@ -23,3 +23,5 @@ apply to inherited copy as much as to new copy.
 **Test.** Restyle tasks on legacy screens: the share of the legacy copy's problems fixed.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 11/16 (+2 partly), redesign-gaps 15/16 (+1 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)

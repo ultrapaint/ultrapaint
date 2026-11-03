@@ -2,7 +2,7 @@
 id: p03
 title: The final tables check defects, not weight
 kind: process
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md, references/hierarchy.md]
@@ -19,3 +19,5 @@ must be what the section is for.
 **Test.** Count the hierarchy findings caught with and without it.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 13/24 (+5 partly), redesign-gaps 21/24 (+3 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)

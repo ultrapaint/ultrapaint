@@ -2,7 +2,7 @@
 id: g04
 title: A hint shown when it says nothing
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/restraint.md]
@@ -21,3 +21,6 @@ the action it affects (here, a footer shown with a selection).
 **Test.** Panels whose action depends on a selection, drawn in both states.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2 (+2 partly), redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule took it from 0/2 to 2/2 (partly by construction).

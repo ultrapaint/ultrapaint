@@ -2,7 +2,7 @@
 id: g09
 title: Chrome attached to a canvas object breaks at zoom
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/patterns.md]
@@ -31,3 +31,6 @@ object.
 **Test.** Editor-like pieces with a selection, drawn at three zoom levels.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2, P4), not for want of a rule.
