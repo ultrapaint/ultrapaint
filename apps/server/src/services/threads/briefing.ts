@@ -173,13 +173,18 @@ export class ProjectBriefing extends Context.Service<
     /**
      * The briefing for the open project, for a thread of this purpose (ADR 0030), or nothing when
      * no project is open. `tools`: its agent has the editor's tools (ADR 0039), the server's MCP
-     * setting when it is not said. `designs`: the thread draws designs and is told the design
+     * setting when it is not said. `system`: its task makes the design system, whose part of the
+     * design skill it is told. `designs`: the thread draws designs and is told the design
      * skills; a design thread does unless said otherwise (`drawsDesigns`), an implement thread
      * never.
      */
     readonly text: (
       purpose: ThreadPurpose,
-      options?: { readonly designs?: boolean; readonly tools?: boolean }
+      options?: {
+        readonly designs?: boolean;
+        readonly system?: boolean;
+        readonly tools?: boolean;
+      }
     ) => Effect.Effect<string | undefined>;
   }
 >()("ultrapaint/server/ProjectBriefing") {
@@ -193,7 +198,8 @@ export class ProjectBriefing extends Context.Service<
       const build = Effect.fnUntraced(function* (
         purpose: ThreadPurpose,
         tools: boolean,
-        designs: boolean
+        designs: boolean,
+        makesTheSystem: boolean
       ) {
         const ways = agentWays(tools);
         const paths = yield* RepoPaths;
@@ -212,7 +218,7 @@ export class ProjectBriefing extends Context.Service<
         const skills = designs
           ? yield* Effect.orElseSucceed(
               Effect.flatMap(SkillsService, (service) =>
-                service.briefing(tools)
+                service.briefing(tools, makesTheSystem)
               ),
               () => none
             )
@@ -299,7 +305,8 @@ never write it; when styles are missing, send the user to Sync in the Design sys
               build(
                 purpose,
                 options.tools ?? mcp,
-                purpose === "design" && options.designs !== false
+                purpose === "design" && options.designs !== false,
+                options.system ?? false
               )
             )
             // No project open, or a repository the server cannot read: the agent manages without.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   commandNameOf,
   commandOf,
+  designsTheSystem,
   parseCommand,
   slashCommands,
   type TaskRequest,
@@ -189,5 +190,19 @@ describe("taskPurpose", () => {
     );
     expect(taskPurpose({ _tag: "Adopt", targets: [] })).toBe("design");
     expect(taskPurpose({ _tag: "Sync", source: "code" })).toBe("design");
+  });
+});
+
+describe("designsTheSystem", () => {
+  it("is the tasks that import or define the design system (ADR 0048)", () => {
+    expect(designsTheSystem({ _tag: "Init", extra: "" })).toBe(true);
+    expect(designsTheSystem({ _tag: "ImportFigma", extra: "" })).toBe(true);
+    expect(
+      designsTheSystem({ _tag: "SetupStep", extra: "", step: "define" })
+    ).toBe(true);
+    expect(
+      designsTheSystem({ _tag: "SetupStep", extra: "", step: "map" })
+    ).toBe(false);
+    expect(designsTheSystem({ _tag: "Redraw", canvas: '""' })).toBe(false);
   });
 });

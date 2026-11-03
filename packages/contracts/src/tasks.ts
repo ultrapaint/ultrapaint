@@ -113,6 +113,23 @@ export const drawsDesigns = (request: TaskRequest): boolean => {
   }
 };
 
+/**
+ * Whether the task makes the design system, beside or before any page (ADR 0048): the
+ * repository's imported, a Figma file's brought in, one defined. Its thread is told the design
+ * skill's design-system part with the router, not left to find it.
+ */
+export const designsTheSystem = (request: TaskRequest): boolean => {
+  switch (request._tag) {
+    case "Init":
+    case "ImportFigma":
+      return true;
+    case "SetupStep":
+      return request.step === "define";
+    default:
+      return false;
+  }
+};
+
 const ROOT_CANVAS = '""';
 const ADOPT_FLAG = "--adopt";
 const WHITESPACE_RE = /\s+/;

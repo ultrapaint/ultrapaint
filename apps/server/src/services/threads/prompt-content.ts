@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
 import type { LookPlace } from "@ultrapaint/contracts/components";
 import {
+  designsTheSystem,
   drawsDesigns,
   parseCommand,
   taskPurpose,
@@ -254,8 +255,10 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     // told how to design well.
     const parsed = parseCommand(text);
     const designs = parsed?._tag !== "Request" || drawsDesigns(parsed.request);
+    const system =
+      parsed?._tag === "Request" && designsTheSystem(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { designs, tools })
+      ? yield* briefing.text(purpose, { designs, system, tools })
       : undefined;
     const recap = resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((said): ContentBlock[] =>

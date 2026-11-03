@@ -51,9 +51,53 @@ const SHARP_CROP_WIDTH = 800;
 
 /**
  * Every image of a canvas is one URL told apart by its query, and html-to-image caches what it
- * fetched by the URL without its query unless told otherwise.
+ * fetched by the URL without its query unless told otherwise. An image it cannot fetch (a server
+ * that sends no CORS header, as avatar services often do) draws as a grey placeholder: without
+ * one, that image failed the whole picture, and every `get_screenshot` of its page.
  */
-const PICTURE_OPTIONS = { cacheBust: true, includeQueryParams: true };
+const PICTURE_OPTIONS = {
+  cacheBust: true,
+  imagePlaceholder:
+    "data:image/gif;base64,R0lGODlhAQABAIAAAMzMzAAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==",
+  includeQueryParams: true,
+};
+
+/**
+ * html-to-image copies an element's computed style but not its `::placeholder`, so an empty
+ * field's placeholder was pictured in the field's text colour: every picture showed it as if
+ * typed. While a picture is taken, an empty field takes its placeholder's colour as its own (the
+ * placeholder is the only text it shows); the function returned puts each one back.
+ */
+const showPlaceholders = (
+  roots: readonly (ParentNode | null | undefined)[]
+): (() => void) => {
+  const changed: { el: HTMLElement; color: string; priority: string }[] = [];
+  for (const root of roots) {
+    for (const el of root?.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement
+    >("input[placeholder], textarea[placeholder]") ?? []) {
+      if (el.value !== "") {
+        continue;
+      }
+      const { color } = getComputedStyle(el, "::placeholder");
+      changed.push({
+        color: el.style.getPropertyValue("color"),
+        el,
+        priority: el.style.getPropertyPriority("color"),
+      });
+      el.style.setProperty("color", color, "important");
+    }
+  }
+  return () => {
+    for (const { color, el, priority } of changed) {
+      if (color === "") {
+        el.style.removeProperty("color");
+      } else {
+        el.style.setProperty("color", color, priority);
+      }
+    }
+  };
+};
 
 /** Events a frame stops while it is a picture or an element of it is being edited. */
 const GUARDED = [
@@ -512,6 +556,15 @@ const mountFrame = (
   // ---- Pictures ----
   const capture = async (nodeId: string | undefined) => {
     const target = mode === "fit" ? canvas : body;
+    const restore = showPlaceholders([target, shadow]);
+    try {
+      return await captureOf(target, nodeId);
+    } finally {
+      restore();
+    }
+  };
+
+  const captureOf = async (target: HTMLElement, nodeId: string | undefined) => {
     if (nodeId === undefined) {
       return await toPng(target, {
         ...PICTURE_OPTIONS,

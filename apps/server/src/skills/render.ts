@@ -1,0 +1,71 @@
+/**
+ * The design skill's source is `skills/ultrapaint/` at the repository's root, one skill in the
+ * Agent Skills layout: its `SKILL.md`, the router an agent reads first, and `references/`, one
+ * file per part of a design (`layout.md`, `typography.md`…) with the knowledge parts point to
+ * beneath (`patterns/`, `studies/`). The server does not read them at run time:
+ * `pnpm -F @ultrapaint/server skills` writes them into `design.generated.ts`, which the bundle
+ * carries like any module, and a test fails when the two differ.
+ *
+ * Pure, synchronous and free of Effect: the build script and the test both run it.
+ */
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import { parseSkillFile } from "@ultrapaint/contracts/skills";
+
+/** `skills/ultrapaint/` from this module, in the checkout's sources. */
+export const SKILLS_SOURCE = path.resolve(
+  import.meta.dirname,
+  "../../../../skills/ultrapaint"
+);
+
+export interface SkillSource {
+  /** Every file under `references/`, by its path there: what agents read when they need it. */
+  readonly references: Readonly<Record<string, string>>;
+  /** The router's markdown, its front matter left out. */
+  readonly router: string;
+  /** Each part's reference at the top of `references/`, by its name (`typography`). */
+  readonly sections: Readonly<Record<string, string>>;
+}
+
+const MARKDOWN_RE = /\.md$/;
+
+/** Every markdown file under `dir`, by its path from `dir`, in path order. */
+const markdownUnder = (dir: string, prefix = ""): [string, string][] =>
+  readdirSync(dir)
+    .sort()
+    .flatMap((name): [string, string][] => {
+      const file = path.join(dir, name);
+      if (statSync(file).isDirectory()) {
+        return markdownUnder(file, `${prefix}${name}/`);
+      }
+      return MARKDOWN_RE.test(name)
+        ? [[`${prefix}${name}`, readFileSync(file, "utf8")]]
+        : [];
+    });
+
+/** The skill under `dir`: its router, its parts and every file of its references. */
+export const readSkillSource = (dir: string): SkillSource => {
+  const references = markdownUnder(path.join(dir, "references"));
+  return {
+    references: Object.fromEntries(references),
+    router: `${parseSkillFile(readFileSync(path.join(dir, "SKILL.md"), "utf8")).body.trim()}\n`,
+    sections: Object.fromEntries(
+      references
+        .filter(([file]) => !file.includes("/"))
+        .map(([file, text]) => [
+          file.replace(MARKDOWN_RE, ""),
+          `${text.trim()}\n`,
+        ])
+    ),
+  };
+};
+
+/** The generated module's source for the skill found. */
+export const renderSkills = (skill: SkillSource) =>
+  [
+    "// Generated from skills/ultrapaint/ by `pnpm -F @ultrapaint/server skills`. Do not edit.",
+    'import type { SkillSource } from "./render.ts";',
+    "",
+    `export const designSkill: SkillSource = ${JSON.stringify(skill, null, 2)};`,
+    "",
+  ].join("\n");

@@ -462,7 +462,9 @@ describe("the editor's tools in what an agent is told", () => {
     read.filter((r) => !r.task).map((r) => r.of);
 
   /** A project on either server, its briefing with the built-in design skills. */
-  const project = (mcp: boolean) => ProjectTest({ git: true, mcp });
+  // Told whole, so every skill's words with and without the tools are in the briefing.
+  const project = (mcp: boolean) =>
+    ProjectTest({ git: true, mcp, settings: { skills: { briefing: "full" } } });
 
   /** The built-in skills that name tools, by a line each says with the tools and without. */
   const skillLines = {
@@ -590,6 +592,20 @@ describe("the briefing", () => {
         assert.isFalse(
           skilled(yield* briefing.text("design", { designs: false }))
         );
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  test.effect(
+    "tells the design-system part with the router to a thread that makes the design system",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const toldTheSystem = (text: string | undefined) =>
+          (text ?? "").includes("\n# Design system\n");
+        assert.isTrue(
+          toldTheSystem(yield* briefing.text("design", { system: true }))
+        );
+        assert.isFalse(toldTheSystem(yield* briefing.text("design")));
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 
