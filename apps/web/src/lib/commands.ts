@@ -28,7 +28,12 @@ import {
   workspaceOrder,
 } from "../state/editor.ts";
 import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
-import { showLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
+import {
+  rightHasSubject,
+  showLeftPanel,
+  showRightPanel,
+  usePanels,
+} from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { surfaceNow } from "../state/surface.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
@@ -257,6 +262,7 @@ const leftPanels: readonly {
     tab: "library",
     title: "Components",
   },
+  { keywords: "feedback notes pins", tab: "comments", title: "Comments" },
   { keywords: "history diff git", tab: "changes", title: "Changes" },
 ];
 
@@ -329,7 +335,8 @@ const panelCommands = (): CommandSpec[] => [
     group: "Panels",
     id: "right:design",
     keywords: "inspector properties style",
-    offered: onCanvas,
+    // The right panel is drawn only with something in it.
+    offered: () => onCanvas() && rightHasSubject(),
     run: () => showRightPanel("design"),
     title: "Show the inspector",
   },
@@ -337,17 +344,9 @@ const panelCommands = (): CommandSpec[] => [
     group: "Panels",
     id: "right:code",
     keywords: "jsx tailwind source",
-    offered: onCanvas,
+    offered: () => onCanvas() && rightHasSubject(),
     run: () => showRightPanel("code"),
     title: "Show the code",
-  },
-  {
-    group: "Panels",
-    id: "right:comments",
-    keywords: "feedback notes pins",
-    offered: onCanvas,
-    run: () => showRightPanel("comments"),
-    title: "Show the comments",
   },
   {
     group: "Panels",

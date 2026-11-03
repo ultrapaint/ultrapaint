@@ -59,7 +59,7 @@ export interface Surface {
    * view (ADR 0053), as the components known now say (an app component's board has Layers).
    */
   readonly railTabs: () => readonly LeftTab[];
-  /** The right panel: the page's tabs (Design, Code, Comments), or the inspector of the pick. */
+  /** The right panel: the selection's tabs (Design, Code), or the inspector of the pick. */
   readonly rightPanel: "tabs" | "inspector";
   /** What a selection made in one of its frames does besides being made. */
   readonly selectedIn: (frame: string) => void;
@@ -105,12 +105,7 @@ const panelOf = (id: string): LeftTab | null =>
   id.startsWith("panel:") ? (id.slice("panel:".length) as LeftTab) : null;
 
 /** What a board view has nothing for: the pages' code, comments and grid, and the page tools. */
-const NOT_ON_BOARDS = new Set([
-  "right:code",
-  "right:comments",
-  "toggleComments",
-  "grid",
-]);
+const NOT_ON_BOARDS = new Set(["right:code", "toggleComments", "grid"]);
 
 /** The board view open on `place`. */
 const boardSurface = (place: BoardPlace): Surface => {

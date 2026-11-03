@@ -25,12 +25,16 @@ under the project. Where the user was, what was primary and what was metadata re
 - **The shell** is three floating cards and two bars over the canvas:
   - the left card, one card: the project (mark, name over branch), search (⌘K) and the panel's
     toggle; the canvas shown; an icon rail beside the panel, its places named by tooltips and by
-    the panel's title, with Changes, Settings and who the user is at its foot. Put away, the card is
+    the panel's title, with Changes, Settings and who the user is at its foot. The pages'
+    comments are a place of the rail on the canvas, after Components, rather than a tab of the
+    right card: they are the canvas's, not the selection's. Put away, the card is
     the project's row alone;
   - the place switch at the top centre: **Canvas · Design system · Prototype**. 0053's two modes and
     the prototype workspace are said in one control, where the eye looks first; the toggle under
     the project and the Play button go;
-  - the tools in one row at the bottom centre, the zoom at their end;
+  - the tools in one row at the bottom centre of the window, the zoom at their end: centred on the
+    window rather than on the canvas between the cards, so they stay put as the right card comes
+    and goes;
   - over the tools while something is selected, its bar: an element's design-system selects (a
     component's variants, a text's style, the colour, radius, spacing and shadow tokens), a link
     and its menu; several elements' shared selects and Wrap in; a page's viewport, views and menu.
@@ -39,7 +43,11 @@ under the project. Where the user was, what was primary and what was metadata re
     covered the frames around it when zoomed out and left the screen when zoomed in; docked, the
     controls are in one place at every zoom, as in Canva, and the one action that is about the
     element itself, asking an agent, stays on it;
-  - the right card: Design, Code and Comments as a segmented control, and its toggle.
+  - the right card: Design and Code as a segmented control, and its toggle. It is drawn only
+    while there is something to show in it: a layer or a page selected, several frames picked, or
+    a board view, whose inspector always has. With nothing selected the canvas has the whole
+    width; put away by the user, it is its bar alone while something is selected. The wait for a
+    first selection as the editor starts goes with it.
 - The rail's 10px labels go: nothing in the editor is set below 12px.
 
 ## Consequences
@@ -48,6 +56,8 @@ under the project. Where the user was, what was primary and what was metadata re
 - The rail is smaller and the left card one surface, so the canvas gets the width the labels and
   the second card took.
 - A machine without the system's font sees the same editor as a Mac.
+- Comments are found where the other places of the canvas are, and the right card no longer
+  stands open to say that nothing is selected.
 - The selection's controls are a reach away from the element, at the bottom centre; zooming and
   panning never move them or put them over the design.
 - `font-rail` is gone; `typography.test.ts` keeps only the rule that no stock size is used.

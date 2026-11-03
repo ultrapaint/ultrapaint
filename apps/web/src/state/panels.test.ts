@@ -13,9 +13,9 @@ import { measureViewportWith } from "./camera.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import {
+  rightHasSubject,
   showLeftPanel,
   showMode,
-  startRightPanel,
   takeRequest,
   usePanels,
 } from "./panels.ts";
@@ -72,7 +72,7 @@ beforeEach(() => {
   fakeApi.respond("threads.items", () => []);
   prompted.count = 0;
   // Every panel put away, the right one too.
-  usePanels.setState({ left: true, right: true, rightWaits: false });
+  usePanels.setState({ left: true, right: true });
   useAttachments.setState({ byThread: {} });
   useProject.setState({
     pages: [
@@ -219,37 +219,43 @@ describe("showLeftPanel", () => {
   });
 });
 
-describe("the right panel as the editor starts", () => {
-  it("waits for something to be selected, then comes out", () => {
-    usePanels.setState({ right: true, rightWaits: true });
-    useEditor.setState({ selectedPage: null, selection: null });
-    const stop = startRightPanel();
-    expect(usePanels.getState().right).toBe(true);
-    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
-    expect(usePanels.getState().right).toBe(false);
-    // Once out, it is the user's: put away, it stays away whatever is selected next.
-    usePanels.getState().toggleRight();
-    useEditor.setState({ selection: null });
-    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
-    expect(usePanels.getState().right).toBe(true);
-    stop();
+describe("the right panel (ADR 0055)", () => {
+  it("has nothing to show with nothing selected, and is not drawn", () => {
+    useEditor.setState({
+      selectedPage: null,
+      selection: null,
+      workspace: "design",
+    });
+    expect(rightHasSubject()).toBe(false);
   });
 
-  it("comes out for a board view, whose inspector always has something", () => {
-    usePanels.setState({ right: true, rightWaits: true });
-    useEditor.setState({ selectedPage: null, selection: null });
-    const stop = startRightPanel();
+  it("shows a selected layer or page", () => {
+    useEditor.setState({
+      selectedPage: null,
+      selection: { frame: HOME, nodeId: "home" },
+      workspace: "design",
+    });
+    expect(rightHasSubject()).toBe(true);
+    useEditor.setState({ selectedPage: HOME, selection: null });
+    expect(rightHasSubject()).toBe(true);
+  });
+
+  it("has nothing in the prototype, a selection kept or not", () => {
+    useEditor.setState({
+      selection: { frame: HOME, nodeId: "home" },
+      workspace: "prototype",
+    });
+    expect(rightHasSubject()).toBe(false);
+  });
+
+  it("always shows a board view's inspector", () => {
+    useEditor.setState({
+      selectedPage: null,
+      selection: null,
+      workspace: "design",
+    });
     openBoard({ item: "color", view: "system" }, "none");
-    expect(usePanels.getState().right).toBe(false);
-    stop();
-  });
-
-  it("stays away when the user put it away, a selection or not", () => {
-    usePanels.setState({ right: true, rightWaits: false });
-    const stop = startRightPanel();
-    useEditor.setState({ selection: { frame: HOME, nodeId: "home" } });
-    expect(usePanels.getState().right).toBe(true);
-    stop();
+    expect(rightHasSubject()).toBe(true);
   });
 });
 

@@ -32,6 +32,7 @@ export type LeftTab =
   | "layers"
   | "designSystem"
   | "library"
+  | "comments"
   | "changes";
 
 /**
@@ -50,17 +51,19 @@ export const railTabs: readonly LeftTab[] = [
   "layers",
   "designSystem",
   "library",
+  "comments",
   "changes",
 ];
 
 /**
  * The rail in Canvas mode (ADR 0053): the agents, the pages' layers, the components to place,
- * the changes.
+ * the pages' comments (ADR 0055), the changes.
  */
 export const canvasRail: readonly LeftTab[] = [
   "chat",
   "layers",
   "library",
+  "comments",
   "changes",
 ];
 
@@ -75,11 +78,8 @@ export const systemRail: readonly LeftTab[] = [
   "changes",
 ];
 
-/**
- * What the right panel shows: the selection's fields, the code it stands for, or the canvas's
- * comments.
- */
-export type RightTab = "design" | "code" | "comments";
+/** What the right panel shows: the selection's fields, or the code it stands for. */
+export type RightTab = "design" | "code";
 
 /**
  * A node of a design. `frame` is where it is shown: a page's id, or `node:<id>` for a node

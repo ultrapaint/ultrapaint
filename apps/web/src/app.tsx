@@ -76,7 +76,7 @@ import {
 } from "./state/location.ts";
 import { followLook } from "./state/look.ts";
 import { canvasDefaults } from "./state/page-layout.ts";
-import { startRightPanel, usePanels } from "./state/panels.ts";
+import { usePanels, useRightSubject } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { followServer } from "./state/server-data.ts";
@@ -223,6 +223,7 @@ const StartSplash = () => {
 const leftPanels: Record<LeftTab, ComponentType> = {
   changes: Changes,
   chat: Threads,
+  comments: Comments,
   designSystem: DesignSystemList,
   layers: Layers,
   library: Library,
@@ -232,6 +233,7 @@ const leftPanels: Record<LeftTab, ComponentType> = {
 const headsItself: readonly LeftTab[] = [
   "changes",
   "chat",
+  "comments",
   "layers",
   "designSystem",
   "library",
@@ -406,9 +408,6 @@ const RightPanel = ({
             <TabsTrigger className="px-2.5" value="code">
               Code
             </TabsTrigger>
-            <TabsTrigger className="px-2.5" value="comments">
-              Comments
-            </TabsTrigger>
           </TabsList>
           <HideRightPanel />
         </div>
@@ -418,11 +417,6 @@ const RightPanel = ({
         </TabsContent>
         <TabsContent className="min-h-0 overflow-auto" value="code">
           <CodePanel />
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-auto" value="comments">
-          <Suspense fallback={<PanelLoading />}>
-            <Comments />
-          </Suspense>
         </TabsContent>
       </Tabs>
       {handle}
@@ -436,7 +430,6 @@ const RightPanel = ({
  */
 const RIGHT_TAB_NAMES: Record<RightTab, string> = {
   code: "Code",
-  comments: "Comments",
   design: "Design",
 };
 
@@ -455,20 +448,20 @@ const RightPanelPutAway = () => <RightPanelBar name={useRightPanelName()} />;
 const RightColumn = ({
   hasRight,
   onWidthChange,
-  shown,
+  putAway,
   width,
 }: {
   hasRight: boolean;
   onWidthChange: (width: number) => void;
-  /** Whether the workspace has a right panel at all: the prototype has none. */
-  shown: boolean;
+  /** Put away by the user while there is something to show in it: its bar alone. */
+  putAway: boolean;
   width: number;
 }) => (
   <div
     className="pointer-events-none absolute z-30 flex flex-col items-end gap-2"
     style={{ bottom: EDGE, right: EDGE, top: EDGE }}
   >
-    {shown && !hasRight ? <RightPanelPutAway /> : null}
+    {putAway ? <RightPanelPutAway /> : null}
     {hasRight ? (
       <RightPanel onWidthChange={onWidthChange} width={width} />
     ) : null}
@@ -521,7 +514,9 @@ export const App = () => {
   const [rightWidth, setRightWidth] = usePanelWidth("right", rightBounds);
   const leftHidden = usePanels((s) => s.left);
   const rightHidden = usePanels((s) => s.right);
-  const hasRight = workspace === "design" && !rightHidden;
+  // With nothing selected there is no right panel at all (ADR 0055); `subject` says the canvas.
+  const subject = useRightSubject();
+  const hasRight = subject && !rightHidden;
   const chrome = useWindowChrome();
   const leftCard = leftCardWidth(workspace, leftHidden, leftWidth);
   // How much of the canvas the cards at each side cover: what floats over it keeps to the rest.
@@ -588,7 +583,6 @@ export const App = () => {
   // What follows the editor's other stores: a board view gives way to the prototype, an app
   // component edited in place to another canvas.
   useEffect(() => startBoardView(), []);
-  useEffect(() => startRightPanel(), []);
   useEffect(() => startCanvasPicks(), []);
   useEffect(() => startIsolation(), []);
 
@@ -640,13 +634,15 @@ export const App = () => {
               <CanvasStatus />
               <SnapshotBanner />
               {workspace === "prototype" ? null : <IsolationBanner />}
-              {workspace === "prototype" ? null : (
-                <div className="absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-2">
-                  <SelectionDockSlot />
-                  <Toolbar />
-                </div>
-              )}
             </div>
+            {/* Centred on the window, as the place switch is: the right panel comes and goes
+                with the selection, and the tools stay where they are. */}
+            {workspace === "prototype" ? null : (
+              <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-2">
+                <SelectionDockSlot />
+                <Toolbar />
+              </div>
+            )}
           </main>
           {/* The top of a desktop window with no title bar of its own moves it, between the cards. */}
           {chrome.drag ? (
@@ -680,7 +676,7 @@ export const App = () => {
           <RightColumn
             hasRight={hasRight}
             onWidthChange={setRightWidth}
-            shown={workspace === "design"}
+            putAway={subject && rightHidden}
             width={rightWidth}
           />
         </div>
