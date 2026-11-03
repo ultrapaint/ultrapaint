@@ -34,7 +34,6 @@ import {
   useDrag,
 } from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
-import { BackToPage } from "../components/back-to-page.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -284,7 +283,7 @@ const newAppComponent = async () => {
   const given = await promptDialog({
     confirmLabel: "Make",
     description:
-      "It starts as an empty column, on a board of its own: build it there, then place it from the Library.",
+      "It starts as an empty column, on a board of its own: build it there, then place it from Components.",
     placeholder: "PricingCard",
     title: "A new app component",
   });
@@ -305,7 +304,7 @@ const newAppComponent = async () => {
 /** The panel's title, as the rail names it, and + New. */
 const Title = () => (
   <div className="flex h-10 shrink-0 items-center px-3 font-heading-xsmall">
-    Library
+    Components
     <button
       className="ml-auto flex h-6 items-center gap-1 rounded-md px-1.5 font-body font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       onClick={newAppComponent}
@@ -388,8 +387,8 @@ const NavRow = ({
 );
 
 /**
- * The Library on a board view (ADR 0045): the same list, now the navigation. Back to the page
- * left at its top, the Overview, then every component; the one open is lit.
+ * Components in Design System mode (ADR 0045, 0053): the same list, now the navigation. The
+ * Overview, then every component; the one open is lit.
  */
 const LibraryNav = ({ open }: { open: string }) => {
   const components = useComponents((s) => s.catalogue);
@@ -397,7 +396,6 @@ const LibraryNav = ({ open }: { open: string }) => {
   const sections = librarySections(components, query);
   return (
     <div className="flex h-full flex-col">
-      <BackToPage />
       <Title />
       <SearchBar onQuery={setQuery} query={query} />
       <div className="min-h-0 flex-1 overflow-auto pb-2">
@@ -438,7 +436,7 @@ const ToDesignSystem = () => (
       onClick={() => showLeftPanel("designSystem")}
       type="button"
     >
-      Design system
+      the Design System
     </button>
   </p>
 );

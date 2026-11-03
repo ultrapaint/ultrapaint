@@ -285,20 +285,32 @@ const PLAN = {
 
 const FEATURED = "board:library/Plan/tone=featured";
 
-describe("the rail", () => {
-  it("has no Layers on a board view, but on an app component's", () => {
-    expect(railTabsFor(null)).toContain("layers");
+describe("the rail (ADR 0053)", () => {
+  it("is Canvas mode's on the page canvas, Design System mode's on a board view", () => {
+    expect(railTabsFor(null)).toEqual(["chat", "layers", "library", "changes"]);
     expect(railTabsFor({ item: "color", view: "system" })).toEqual([
       "chat",
       "designSystem",
       "library",
       "changes",
     ]);
+    expect(railTabsFor({ item: "Button", view: "library" })).toEqual([
+      "chat",
+      "designSystem",
+      "library",
+      "changes",
+    ]);
+  });
+
+  it("has Layers after the components on an app component's board, for its tree", () => {
     useComponents.setState({ components: [PLAN] });
-    expect(railTabsFor({ item: "Plan", view: "library" })).toContain("layers");
-    expect(railTabsFor({ item: "Button", view: "library" })).not.toContain(
-      "layers"
-    );
+    expect(railTabsFor({ item: "Plan", view: "library" })).toEqual([
+      "chat",
+      "designSystem",
+      "library",
+      "layers",
+      "changes",
+    ]);
   });
 });
 

@@ -42,12 +42,34 @@ const workspaceInUrl = (): Workspace =>
   workspaceOrder.find((w) => w === readUrl().mode) ?? "design";
 
 /**
- * The canvas's left panels, in rail order: the agents always first. The prototype has no rail:
- * its left panel is its pages and the URLs they serve.
+ * Every left panel, in the order the command palette lists them: the agents always first. The
+ * prototype has no rail: its left panel is its pages and the URLs they serve.
  */
 export const railTabs: readonly LeftTab[] = [
   "chat",
   "layers",
+  "designSystem",
+  "library",
+  "changes",
+];
+
+/**
+ * The rail in Canvas mode (ADR 0053): the agents, the pages' layers, the components to place,
+ * the changes.
+ */
+export const canvasRail: readonly LeftTab[] = [
+  "chat",
+  "layers",
+  "library",
+  "changes",
+];
+
+/**
+ * The rail in Design System mode (ADR 0053): the agents, the foundations and guidelines, the
+ * components' boards, the changes.
+ */
+export const systemRail: readonly LeftTab[] = [
+  "chat",
   "designSystem",
   "library",
   "changes",

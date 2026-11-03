@@ -219,14 +219,14 @@ const leftPanels: readonly {
   { keywords: "chat threads agent", tab: "chat", title: "Agents" },
   { keywords: "tree outline", tab: "layers", title: "Layers" },
   {
-    keywords: "tokens colours typography theme sync guidelines",
+    keywords: "design system tokens colours typography theme sync guidelines",
     tab: "designSystem",
-    title: "Design system",
+    title: "Foundations",
   },
   {
-    keywords: "components insert assets",
+    keywords: "library insert assets",
     tab: "library",
-    title: "Library",
+    title: "Components",
   },
   { keywords: "history diff git", tab: "changes", title: "Changes" },
 ];

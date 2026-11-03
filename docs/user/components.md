@@ -11,18 +11,20 @@ two origins, each kept as a file of the designs directory, `components/<Name>.co
   pricing card, a site header.
 
 Layout, text and image nodes are **elements**, inserted from the **+** at the head of the tools.
-The **Library**, on the rail, lists the App components, then the System components, as a list or
+**Components**, on the rail, lists the App components, then the System components, as a list or
 as thumbnails: a click inserts one into the selection, a drag places it anywhere, **↗** opens its
 board, and **+ New** makes an empty app component and opens its board. Colours, type and spacing
-are in **Design system**.
+are in the **Design System**.
 
-**Boards.** Opening Design system, or a component in the Library, shows that item alone on a
+**Design System mode.** Under the canvas selector, a toggle switches between **Canvas** (the pages,
+with Agents, Layers, Components and Changes on the rail) and **Design System** (Agents,
+**Foundations**, **Components** and Changes). Design System mode shows the item picked alone on a
 canvas of its own, blue-tinted and dotted so that it is never taken for the pages: its **boards**,
 drawn by the renderer that draws the pages from the design system and the component files, so
 they cannot drift from them. The camera is the canvas's (wheel, pan, zoom), an item first seen
 fits between the panels, the URL says where you are (`?view=library&item=Button`) so a reload or a
-link lands on it, and **Back to** the page, or the browser's back, returns to the page as it was.
-On a board the left panel is the list to go from item to item (the Library's **Overview** shows
+link lands on it, and **Canvas**, picking a canvas, or the browser's back returns to the page as it
+was. On a board the left panel is the list to go from item to item (Components' **Overview** shows
 every component), and the right panel is the inspector of what is open and picked there. Its
 title has the chat button the element toolbar has on a page: what is picked (a token, a text
 style, a guideline, a component at a variant and a state) goes to the chat, and an agent is told
@@ -39,7 +41,7 @@ open where its `open` prop says, and nothing in the frame takes the pointer; in 
 with the interact tool the system components behave (a menu opens, items take the hover, Escape
 and a click outside close it), each in its own frame.
 
-**A system component's look is yours.** Its board in the Library draws it in every variant and
+**A system component's look is yours.** Its board in Components draws it in every variant and
 every state at full size (hover, focus, disabled, open, checked, highlighted…), the members and
 the states named, and a board for each further axis (Button's sizes); the interact tool makes
 hover and press live there. It is in its **default look** (over your tokens) until you **take the
@@ -72,7 +74,7 @@ properties are its props in the inspector; **Detach** turns it back into plain n
 property or one of a choice's members, or taking one out, follows into its variants and every
 instance's props, in one step you can undo; two properties, slots or members cannot share a name.
 **Implement** writes an app component as a component of your application, a prop for each
-property and children for its slots. Its board in the Library draws each of its variants side by
+property and children for its slots. Its board in Components draws each of its variants side by
 side: a click picks one, a double-click edits the tree in place there (Layers lists it, the edits
 landing on that variant), and the inspector lists its properties, variants (with how many fields
 each overrides), slots, where it is used and its notes.

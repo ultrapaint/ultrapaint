@@ -233,6 +233,29 @@ export const showLeftPanel = async (shown: LeftShown) => {
   }
 };
 
+/**
+ * The editor's two modes (ADR 0053): the page canvas, with its pages and what is placed on them,
+ * or the design system, its foundations and components on boards. The mode is Design System while
+ * a board view is open.
+ */
+export type EditorMode = "canvas" | "designSystem";
+
+export const useEditorMode = (): EditorMode =>
+  useBoard((s) => (s.open ? "designSystem" : "canvas"));
+
+/**
+ * Switches to `mode`: Design System opens its foundations where they were left; Canvas takes the
+ * page canvas back as it was left, its camera, its selection and its panel, from the prototype too.
+ */
+export const showMode = async (mode: EditorMode) => {
+  if (mode === "designSystem") {
+    await showLeftPanel("designSystem");
+    return;
+  }
+  useEditor.getState().setWorkspace("design");
+  toPageCanvas();
+};
+
 /** Shows a tab of the right panel, on the canvas, bringing the panel back when it was put away. */
 export const showRightPanel = (tab: RightTab) => {
   const editor = useEditor.getState();

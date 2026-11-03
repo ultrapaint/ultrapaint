@@ -315,11 +315,14 @@ refactor and the board view left.
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
   rename in its Layers row) that waits until the panel takes it up (`useRequest`).
-- **Library**: the components as the rail's Library place lists them (ADR 0045): **App
-  components**, then **System components**. On a page canvas it is the **insert list** (a click
-  inserts into the selection, a drag places anywhere, ↗ opens a component's board, + New makes an
-  app component); on a board view the same list is the navigation, with Back to the page left and
-  an **Overview** of every component in its default look. The elements are not in it: the tools'
+- **Mode**: Canvas or Design System, the toggle under the canvas selector (ADR 0053; the web's
+  `useEditorMode`, `showMode`): the page canvas, or the design system on boards. It is Design
+  System exactly while a board view is open, and the rail shows the mode's places.
+- **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
+  `library` in the code): **App components**, then **System components**. In Canvas mode it is
+  the **insert list** (a click inserts into the selection, a drag places anywhere, ↗ opens a
+  component's board, + New makes an app component); in Design System mode the same list is the
+  navigation, with an **Overview** of every component in its default look. The elements are not in it: the tools'
   **Insert** menu offers them.
 - **Board**: a generated document drawn as a frame, by the renderer that draws pages, to show one
   item of the design system or the Library (ADR 0045): a palette's ramps in a theme, a type
@@ -329,7 +332,8 @@ refactor and the board view left.
   inspector of what is picked. A pick sent to the chat is a
   **board attachment**: what it is, what it is now and its file, told to the agent in a sentence
   (`boardPickText`), with no tool added.
-- **Board view**: the main area while a Design system or Library item is open (ADR 0045): the
+- **Board view**: the main area in Design System mode, a Foundations or Components item open
+  (ADR 0045, 0053): the
   canvas's pan and zoom over that item's boards only, on a tinted dotted background of its own
   and with a camera of its own, no element toolbar, the URL saying the item
   (`?view=system&item=color`, `?view=library&item=Button`). Leaving it goes back to the page and

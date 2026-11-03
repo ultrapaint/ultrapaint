@@ -37,8 +37,10 @@ fields they differ on say "Mixed"), the menus, the toolbar and the keys, as one 
 them. ⌘K (Ctrl+K) finds any command by its name: a panel, a tool, a zoom, what the selection's
 right-click menu offers, a page, a canvas or a chat.
 
-The editor is cards floating over the canvas: the project at the top left, the rail of panels
-under it (Agents, Layers, Design system, Library and Changes) beside the left panel, the tools in
+The editor is cards floating over the canvas: the project at the top left, the canvas
+selector under it with the **Canvas** / **Design System** toggle, the rail of panels under that
+(Agents, Layers, Components and Changes on the canvas; Agents, Foundations, Components and Changes
+in the design system) beside the left panel, the tools in
 a column next to it (the first, **+**, inserts a row, a column, a text or an image), and at the
 top right the commands, the prototype (▷) and the right panel, with the inspector, the code and
 the comments. Each side panel is put away on its own: with
@@ -75,7 +77,7 @@ but it keeps the link between the two:
 - **Behaviour notes.** A comment can be a behaviour note: what the code must do that a design
   cannot show ("only admins can delete", "disabled until the form is valid"). It is pinned to its
   element and goes to the code with the page. A component has its own, in its file (the
-  **Notes** of its board's inspector, in the Library), and they go to the code when it is
+  **Notes** of its board's inspector, in Components), and they go to the code when it is
   implemented.
 - **Bringing a project in.** Pages built before the project came into the editor start as
   drafts. Pick several in the Pages panel (⌘ or Shift) to **Mark them ready** at once, or **Find

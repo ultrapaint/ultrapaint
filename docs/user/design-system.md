@@ -26,8 +26,8 @@ The design system is two files, both meant to be committed:
 the same in the [Design Tokens format](https://www.designtokens.org/tr/2025.10/) for Style
 Dictionary, Tokens Studio and Figma's variables. When one of those tools changes
 `design.tokens.json`, the editor does not write over it: Sync offers what it changed (**Take
-design.tokens.json's changes into the design system**), then writes the file again. **Design system**,
-on the rail, lists the **Foundations** it has tokens for (Color, Typography, Spacing, Radius,
+design.tokens.json's changes into the design system**), then writes the file again. In **Design System**
+mode, **Foundations**, on the rail, lists the foundations it has tokens for (Color, Typography, Spacing, Radius,
 Elevation, Motion, Breakpoints) and the **Guidelines**, `DESIGN.md`'s sections, with a search over
 the tokens, and opens each as boards: every palette as its ramp, 50 to 950, the light and the dark
 theme side by side, with the usual pairs of foreground and background and their contrast; the
@@ -50,8 +50,8 @@ the linter says is listed under the guidelines.
 ## Sync
 
 **Sync** (the panel's ⟳ button, its empty state, or `/sync` in a chat) reads what the
-repository has and lays out the steps for its case. The Design system button on the left rail
-has a dot while something is waiting.
+repository has and lays out the steps for its case. The Foundations button on the rail has a
+dot while something is waiting.
 
 | You have | Sync does |
 |---|---|
@@ -133,6 +133,6 @@ A project takes a skill over with a markdown file in `skills/` inside the design
 **Replace…** and **Extend…** in Settings start that file for you, as one undo step. The file's
 first heading is its title and the paragraph after it the summary Settings show.
 
-**Design system**'s boards show them: swatches per theme, type specimens in your own fonts,
-spacing, radius, shadows, elevation, border widths, layout and motion tokens. The **Library**
+Foundations' boards show them: swatches per theme, type specimens in your own fonts,
+spacing, radius, shadows, elevation, border widths, layout and motion tokens. **Components**
 lists the components, or shows them as a grid of thumbnails drawn with the example props.

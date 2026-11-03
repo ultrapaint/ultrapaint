@@ -23,7 +23,13 @@ import {
   useBoard,
 } from "./board.ts";
 import { useComments } from "./comments.ts";
-import { type LeftTab, type Mode, railTabs, useEditor } from "./editor.ts";
+import {
+  canvasRail,
+  type LeftTab,
+  type Mode,
+  railTabs,
+  useEditor,
+} from "./editor.ts";
 import { pageCanvasFrames } from "./page-layout.ts";
 import { selectPage } from "./selection.ts";
 
@@ -48,8 +54,8 @@ export interface Surface {
   /** A press on the ground, on nothing: what is selected or picked is let go. */
   readonly onGroundPress: () => void;
   /**
-   * The left panels it shows itself, as the components known now say (an app component's board
-   * has Layers). The rail lists every place: one not shown here leads back to the page canvas.
+   * The rail's places on it: Canvas mode's on the page canvas, Design System mode's on a board
+   * view (ADR 0053), as the components known now say (an app component's board has Layers).
    */
   readonly railTabs: () => readonly LeftTab[];
   /** The right panel: the page's tabs (Design, Code, Comments), or the inspector of the pick. */
@@ -86,7 +92,7 @@ const pageSurface: Surface = {
     useComments.getState().setDraft(null);
     useComments.getState().setOpen(null);
   },
-  railTabs: () => railTabs,
+  railTabs: () => canvasRail,
   rightPanel: "tabs",
   selectedIn: () => undefined,
   takesSelection: () => true,
@@ -121,7 +127,7 @@ const boardSurface = (place: BoardPlace): Surface => {
     kind: "board",
     modes: BOARD_MODES,
     offers: (id) => {
-      // A panel the board does not show is offered too: it leads back to the page canvas.
+      // The palette offers every panel: one of the other mode takes the canvas there.
       if (panelOf(id) !== null) {
         return true;
       }
