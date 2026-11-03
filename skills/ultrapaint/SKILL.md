@@ -68,6 +68,7 @@ and, where one is missing, its parts, and say in your last message what Sync wil
 | Movement and transitions | `references/motion.md` |
 | Words: headings, labels, buttons, errors, empty states | `references/content.md` |
 | Loading, empty, error and the other states | `references/states.md` |
+| Actions and flows: Nielsen's heuristics, a way out, shortcuts, help | `references/usability.md` |
 | The design system's components | `references/components.md` |
 | An attached picture to make it from | `references/picture.md` |
 | Keyboard, screen reader, contrast, targets | `references/accessibility.md` |

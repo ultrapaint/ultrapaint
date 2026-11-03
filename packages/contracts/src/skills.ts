@@ -1,7 +1,7 @@
 /**
  * Design skills: the craft guidance every agent is told before it designs. Hierarchy, layout,
- * spacing, type, colour, elevation, borders, icons, motion, content, states, components,
- * accessibility: what applies to any product, as opposed to `DESIGN.md`, which is this
+ * spacing, type, colour, elevation, borders, icons, motion, content, states, usability,
+ * components, accessibility: what applies to any product, as opposed to `DESIGN.md`, which is this
  * product's own conventions and comes after them.
  *
  * The tool ships a set. A project puts a markdown file with the same name in
