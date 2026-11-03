@@ -49,6 +49,9 @@ const learnedSchema = {
   type: "object",
 };
 
+/** What the picks say, as the model answers it. */
+export const learnedAnswer = { decode: Learned, schema: learnedSchema };
+
 const LEADING_SLASH = /^\//;
 /** A picture's path from the lab, as the viewer's URL names it. */
 const fromUrl = (src: string) => src.replace(LEADING_SLASH, "");
@@ -90,14 +93,13 @@ export const learn = Effect.fn("learn")(function* (
   }
   const answer = yield* models.ask({
     cwd: data.root,
-    decode: Learned,
     model: options.model,
     prompt: yield* prompt("learn", {
       choices: choices.join("\n"),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       skills: (yield* roundSkills(round)).join(", ") || "the design skills",
     }),
-    schema: learnedSchema,
+    ...learnedAnswer,
   });
   const learned = answer.value;
   const dir = path.join(data.runs, round);

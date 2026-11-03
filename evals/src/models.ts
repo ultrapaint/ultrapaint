@@ -166,4 +166,28 @@ export class Models extends Context.Service<
       });
     })
   );
+
+  /**
+   * Models that answer from a script, for tests: each question gets what `answer` returns for it,
+   * decoded with the question's schema as a real answer is.
+   */
+  static readonly layerTest = (answer: (question: Asked) => unknown) =>
+    Layer.succeed(
+      Models,
+      Models.of({
+        ask: (question) =>
+          Schema.decodeUnknownEffect(question.decode)(answer(question)).pipe(
+            Effect.mapError(
+              (issue) =>
+                new EvalsError({
+                  message: `the scripted answer does not fit: ${issue}`,
+                })
+            ),
+            Effect.map((value) => ({ costUsd: 0, tokens: 0, value }))
+          ),
+        runsIn: (model) => backendOf(model).kind,
+        write: (question) =>
+          Effect.succeed({ costUsd: 0, text: String(answer(question)) }),
+      })
+    );
 }

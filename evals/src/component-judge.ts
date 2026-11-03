@@ -80,6 +80,12 @@ const judgementSchema = {
   type: "object",
 };
 
+/** A family's components judged, as the judge answers it. */
+export const componentJudgementAnswer = {
+  decode: ComponentJudgement,
+  schema: judgementSchema,
+};
+
 const FoundKinds = Schema.Struct({
   components: Schema.Array(
     Schema.Struct({
@@ -188,14 +194,13 @@ const judgeFamilyRun = Effect.fn("judgeFamilyRun")(function* (
   }
   const answer = yield* models.ask({
     cwd: data.root,
-    decode: ComponentJudgement,
     model: options.model,
     prompt: yield* prompt("judge-components", {
       components: lines.join("\n"),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       product: family,
     }),
-    schema: judgementSchema,
+    ...componentJudgementAnswer,
   });
   const judgement = answer.value;
   yield* writeJson(

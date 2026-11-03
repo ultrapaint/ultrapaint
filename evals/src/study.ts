@@ -112,7 +112,7 @@ const siteSchema = group({
 });
 
 /** A site's note as it is decoded: `siteSchema`, field for field. */
-export const SiteNote = Schema.Struct({
+const SiteNote = Schema.Struct({
   capture: Schema.Literals(["ok", "broken"]),
   character: Schema.Literals(CHARACTERS),
   color: Schema.Struct({
@@ -167,10 +167,16 @@ export const SiteNote = Schema.Struct({
     tracking: Schema.String,
   }),
 });
-export const siteNotesSchema = group({
-  sites: { items: siteSchema, type: "array" },
-});
-export const SiteNotes = Schema.Struct({ sites: Schema.Array(SiteNote) });
+/** The notes of a batch of sites, as the model answers them. */
+export const siteNotesAnswer = {
+  decode: Schema.Struct({ sites: Schema.Array(SiteNote) }),
+  schema: group({ sites: { items: siteSchema, type: "array" } }),
+};
+/** A dimension's reference, as the model writes it. */
+export const studyReferenceAnswer = {
+  decode: Schema.Struct({ reference: Schema.String }),
+  schema: group({ reference: str }),
+};
 
 /** Every pictured site of the sources, with its slices, in a fixed shuffled order. */
 export const sitesOf = Effect.fn("sitesOf")(function* (
@@ -257,12 +263,11 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
         const text = yield* prompt("study-annotate", { sites: listing });
         const answer = yield* models.ask({
           cwd: data.corpus,
-          decode: SiteNotes,
           ...(runsIn !== "claude" && { effort: options.effort }),
           images,
           model: options.model,
           prompt: text,
-          schema: siteNotesSchema,
+          ...siteNotesAnswer,
         });
         cost += answer.costUsd;
         tokens += answer.tokens;
@@ -398,7 +403,6 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
   );
   const answer = yield* models.ask({
     cwd: work,
-    decode: Schema.Struct({ reference: Schema.String }),
     model: options.model,
     prompt: yield* prompt("study-book", {
       dimension: options.dimension,
@@ -407,7 +411,7 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
         ? `the ${notes.length} ${options.character} sites`
         : `all ${notes.length} sites`,
     }),
-    schema: group({ reference: str }),
+    ...studyReferenceAnswer,
   });
   const { reference } = answer.value;
   const out = path.join(data.studies, options.notes, `${name}.md`);

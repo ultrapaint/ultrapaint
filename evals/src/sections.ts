@@ -93,6 +93,17 @@ const designSchema = (names: readonly string[]) =>
     type: "object",
   });
 
+/** A reference's sections, as the model marks them. */
+export const referenceSectionsAnswer = {
+  decode: ReferenceSections,
+  schema: referenceSchema,
+};
+/** The reference's sections found in a design, as the model marks them. */
+export const designSectionsAnswer = (names: readonly string[]) => ({
+  decode: DesignSections,
+  schema: designSchema(names),
+});
+
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
@@ -154,7 +165,6 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
   const capture = data.captureDir(id);
   const answer = yield* models.ask({
     cwd: capture,
-    decode: ReferenceSections,
     model: options.model,
     prompt: yield* prompt("sections-reference", {
       files: pictureList(
@@ -165,7 +175,7 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
       kind: reference.kind,
       name: reference.name,
     }),
-    schema: referenceSchema,
+    ...referenceSectionsAnswer,
   });
   const found = answer.value;
   yield* writeJson(file, found);
@@ -191,13 +201,12 @@ export const runSections = Effect.fn("runSections")(function* (
   }
   const answer = yield* models.ask({
     cwd: shots,
-    decode: DesignSections,
     model,
     prompt: yield* prompt("sections-design", {
       files: pictureList(files),
       sections: marked.map((s) => `- ${s.name}: ${s.what}`).join("\n"),
     }),
-    schema: designSchema(marked.map((s) => s.name)),
+    ...designSectionsAnswer(marked.map((s) => s.name)),
   });
   const found = answer.value;
   yield* writeJson(path.join(dir, SECTIONS_FILE), found);
