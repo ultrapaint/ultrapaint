@@ -132,6 +132,22 @@ export const CanvasGround = ({
     setPanning(false);
   };
 
+  /**
+   * A press anywhere on the canvas takes the focus from what had it outside, the chat's composer
+   * or a panel's field, as a click on the page would: the presses that draw a marquee or move a
+   * frame keep the browser from doing it, so the canvas does. Typing is the canvas's again.
+   */
+  const onDownCapture = (e: ReactPointerEvent) => {
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLElement &&
+      focused !== document.body &&
+      !e.currentTarget.contains(focused)
+    ) {
+      focused.blur();
+    }
+  };
+
   const onDown = (e: ReactPointerEvent) => {
     if (!(e.button === 1 || pansAnywhere(useEditor.getState()))) {
       onPointerDown?.(e);
@@ -189,6 +205,7 @@ export const CanvasGround = ({
       onContextMenu={onContextMenu}
       onPointerCancel={onCancel}
       onPointerDown={onDown}
+      onPointerDownCapture={onDownCapture}
       onPointerLeave={onPointerLeave}
       onPointerMove={onMove}
       onPointerUp={onUp}
