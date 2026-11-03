@@ -204,8 +204,8 @@ section at a time.
 redesign. The redesign pass restyled them: it removed the accordion, the icon tiles and the
 descriptions, which put all ten choices on screen at once, and it lengthened the intro. Neither
 it nor the lead's review questioned the words or the choices. The person asked for a judgement;
-the lead scored it 5/10. Of the findings below, G13, G14, G16 and G17 come from rules the skill
-has. G10, G11, G12 and G15 come from the lead's own judgement.
+the lead scored it 5/10. Of the findings below, G11, G12, G14, G16 and G17 come from rules the
+skill has. G10, G13 and G15 come from the lead's own judgement.
 
 ### G10. Actions offered where they can't act (missing, open)
 
