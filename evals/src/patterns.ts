@@ -48,7 +48,7 @@ const CORPORA: Record<
       "a set of well-made SaaS landing pages, each cut into slices of its height",
     shots: path.join("corpus", "landing", "tiles.json"),
   },
-  /** The same pictures looked at again by Opus 5.5 (`src/api-patterns.mjs`), for the books. */
+  /** The same pictures looked at again by Opus 5.5 (a one-off script of the old lab, kept in the data directory's `lab-archive/src/api-patterns.mjs`), for the books. */
   "landing-opus": {
     dir: path.join("studies", "opus-5.5-patterns", "landing"),
     product:
