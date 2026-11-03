@@ -21,6 +21,9 @@ for its state. What the screen holds decides which; a static page has none to dr
 Before there is anything, the region keeps its place and says what will be there, with one
 action that fills it. The words are content's.
 
+Suggestions in an empty state (a chat's starters, a search's recent queries) are three or four,
+chosen for the moment. More belong in search or a command.
+
 ## Loading keeps the layout
 
 For a page or a region, skeletons in the shape of what is coming. For an action, a spinner
@@ -61,3 +64,4 @@ dismissed.
 | A banner at the top for one field's error | The error under the field |
 | A disabled submit with no reason given | Enabled; say what is missing on submit |
 | A name that only ever fits | One that wraps or truncates, drawn |
+| More than four suggestions in an empty state | Three or four for the moment; the rest in search or a command |

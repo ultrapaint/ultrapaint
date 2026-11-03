@@ -2,7 +2,7 @@
 id: g11
 title: Ten equal choices in an empty state
 kind: missing
-status: testing
+status: done
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/states.md, references/hierarchy.md]
@@ -34,3 +34,4 @@ check.
 
 - `recall-redesign-1`: 2026-11-03, caught: shipped 0/2 (+1 partly), redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rules took it from 0/2 to 2/2 (partly by construction).
+- Closed 2026-11-03 by the shipped skill: `hierarchy.md` (rows of equal weight are a menu) and `states.md` (three or four suggestions in an empty state).

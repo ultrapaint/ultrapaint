@@ -28,6 +28,18 @@ wrong: fix the grouping, not the caption.
 
 The fix is to remove it, not to shrink it or grey it out.
 
+## Context shows in its state
+
+Context that depends on a selection or a mode appears only in that state, beside the action it
+affects (a footer shown with a selection). Shown without it, it names only a default and says
+nothing.
+
+## A list holds one kind of item
+
+A list holds one kind of item, doing one kind of thing. An item that does something else goes
+where that kind of thing lives (an import goes in the attach menu), not into a group of its own
+whose label repeats it.
+
 ## Content leads, chrome recedes
 
 The data, the text and the primary action are the heaviest things on the screen; frames,
@@ -44,6 +56,8 @@ Icons share one style, one corner radius and one way of drawing a dot or a badge
 | You see | Fix |
 | --- | --- |
 | A heading, caption or description that repeats what is beside it | Remove it |
+| A hint about a selection or mode shown when there is none | Show it only in that state, beside the action it affects |
+| An item doing another kind of thing in a list, or in a group of one | Move it where that kind of thing lives |
 | A sentence explaining how to use a control | Remove it; the control's label says it |
 | An intro, eyebrow or subtitle on a screen whose purpose is plain | Remove it |
 | A heading over a group its content already names | Remove it; a surface or space holds the group |

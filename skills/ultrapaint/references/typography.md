@@ -85,6 +85,11 @@ qualifies its neighbour: a description under a title, a hint, a timestamp, an em
 a column of metadata. A description under a heading is muted, never the heading's colour. When
 the two read as nearly one grey, the screen has no second level.
 
+A group label outranks the details inside its group, by weight or by position: a small heading
+style, or a caption-sized label set apart by space above it. It is never the same small grey as
+a count or a description. In one region, muted text plays at most two roles; past that, the
+labels that structure it read no different from the details that qualify a row.
+
 ## Wrap or truncate on purpose
 
 A name or a title in a dense row truncates to one line with an ellipsis. Its full value stays
@@ -120,5 +125,6 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | A light weight at `14px` | `400` or heavier |
 | Uppercase display of `40px` and up tracked wide | `0` or tighter |
 | A description under a heading in the foreground colour | Muted |
+| Group labels in the same small muted style as the counts or descriptions under them | Weight or space above the label; muted plays at most two roles in a region |
 | `...` or straight quotes in prose | `…` and curly quotes |
 | Capitals typed into the text | Sentence case, uppercase from the style |
