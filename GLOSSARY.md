@@ -233,7 +233,8 @@ refactor and the board view left.
   beside the breakpoints', so a change to the component itself lands in every variant. _Avoid_
   for a page's alternate (a **page variant**) and for Tailwind's `md:` (a class's **prefix**).
 - **Slot**: a part of a component that holds nodes (a Dialog's `trigger`, `dialog-header`,
-  `dialog-content`, `dialog-footer`; a container of an app component's tree): an instance's child
+  `dialog-content`, `dialog-footer`; an Input's `input-icon`, ADR 0056; a container of an app
+  component's tree): an instance's child
   fills the slot it names (`slot`), the rest fill the **default** slot. **Filling slots** is one
   rule for both origins (design-document's `fillSlots`): a child naming a slot the component lacks
   is in the default one, and a slot given nothing holds the component's own **content**. A slot's
