@@ -347,7 +347,7 @@ export const ThreadList = () => {
       {threads.length === 0 ? (
         <PanelEmpty
           action={
-            <Button onClick={() => createThread()}>
+            <Button onClick={() => createThread()} variant="secondary">
               <Plus data-icon="inline-start" />
               New chat
             </Button>

@@ -632,9 +632,6 @@ export const App = () => {
               <CanvasStatus />
               <SnapshotBanner />
               {workspace === "prototype" ? null : <IsolationBanner />}
-              <div className="absolute inset-x-0 top-2 z-20 flex justify-center">
-                <PlaceSwitch />
-              </div>
               {workspace === "prototype" ? null : (
                 <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
                   <Toolbar />
@@ -649,6 +646,13 @@ export const App = () => {
               style={{ height: EDGE }}
             />
           ) : null}
+          {/* Where the user is, centred on the window so it never moves from place to place. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center"
+            style={{ top: EDGE }}
+          >
+            <PlaceSwitch />
+          </div>
           {/* The left column: the left card, and in the prototype its tools beside it. Only the
               cards take the pointer; between them is the canvas. */}
           <div
