@@ -245,7 +245,7 @@ const ModeToggle = () => {
   const waiting = useSync((s) => syncWaiting(s.plan));
   return (
     <Tabs
-      className="shrink-0 border-t p-1.5"
+      className="shrink-0 p-1.5"
       onValueChange={(value) => showMode(value as EditorMode)}
       value={mode}
     >
@@ -268,64 +268,96 @@ const ModeToggle = () => {
   );
 };
 
+/**
+ * The card under the project's: the mode (Canvas or Design System), then in Canvas mode the
+ * canvas shown, which opens the list of canvases.
+ */
 export const CanvasCard = ({ width }: { width: number | null }) => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
   const current = useEditor((s) => s.canvas);
+  const mode = useEditorMode();
   const [open, setOpen] = useState(false);
   if (!configured || canvases.length === 0) {
     return null;
   }
-  const name = canvases.find((c) => c.id === current)?.name ?? "No canvas";
   return (
     <section
-      aria-label="Canvases"
+      aria-label="Mode and canvases"
       className="floating pointer-events-auto flex max-h-[50%] shrink-0 flex-col"
       style={width === null ? undefined : { width }}
     >
-      <button
-        aria-expanded={open}
-        className="flex h-9 shrink-0 items-center gap-2 rounded-[inherit] px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
-        onClick={() => setOpen(!open)}
-        title={open ? "Hide the canvases" : "Show the canvases"}
-        type="button"
-      >
-        <Frame className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-      {open ? (
-        <div className="flex min-h-0 flex-col gap-1 overflow-auto border-t p-1">
-          <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
-            Canvases
-          </div>
-          <CanvasList canvases={canvases} current={current} />
-          <div className="my-0.5 h-px bg-border" />
-          <button
-            className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            onClick={newCanvas}
-            type="button"
-          >
-            <Plus className="size-3.5" />
-            New canvas
-          </button>
-          <button
-            className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            onClick={pickFigmaFile}
-            title="An agent turns the frames of a .fig file into pages of this canvas"
-            type="button"
-          >
-            <FileUp className="size-3.5" />
-            Import a Figma file…
-          </button>
-        </div>
-      ) : null}
+      {/* The mode first; the canvases are the Canvas mode's alone. */}
       <ModeToggle />
+      {mode === "canvas" ? (
+        <CanvasPicker
+          canvases={canvases}
+          current={current}
+          name={canvases.find((c) => c.id === current)?.name ?? "No canvas"}
+          open={open}
+          setOpen={setOpen}
+        />
+      ) : null}
     </section>
   );
 };
+
+/** The canvas shown, and with it open the list of canvases and what makes a new one. */
+const CanvasPicker = ({
+  canvases,
+  current,
+  name,
+  open,
+  setOpen,
+}: {
+  canvases: readonly Canvas[];
+  current: string | null;
+  name: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) => (
+  <>
+    <button
+      aria-expanded={open}
+      className="flex h-9 shrink-0 items-center gap-2 rounded-b-[inherit] border-t px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+      onClick={() => setOpen(!open)}
+      title={open ? "Hide the canvases" : "Show the canvases"}
+      type="button"
+    >
+      <Frame className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+      <ChevronDown
+        className={cn(
+          "size-3.5 shrink-0 text-muted-foreground transition-transform",
+          open && "rotate-180"
+        )}
+      />
+    </button>
+    {open ? (
+      <div className="flex min-h-0 flex-col gap-1 overflow-auto border-t p-1">
+        <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
+          Canvases
+        </div>
+        <CanvasList canvases={canvases} current={current} />
+        <div className="my-0.5 h-px bg-border" />
+        <button
+          className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          onClick={newCanvas}
+          type="button"
+        >
+          <Plus className="size-3.5" />
+          New canvas
+        </button>
+        <button
+          className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          onClick={pickFigmaFile}
+          title="An agent turns the frames of a .fig file into pages of this canvas"
+          type="button"
+        >
+          <FileUp className="size-3.5" />
+          Import a Figma file…
+        </button>
+      </div>
+    ) : null}
+  </>
+);

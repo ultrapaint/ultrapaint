@@ -29,7 +29,7 @@ type after it is added to it.
 | Foundations → the wand | Run `/init` again |
 | Components, on the canvas | Your components, as a list or thumbnails: click to insert, drag onto the canvas, ↗ for its board, **+ New** |
 | Components → a component's board | Its look in every variant and state, or an app component's variants; the inspector edits it |
-| Canvas / Design System, under the canvas selector | Switch between the pages and the design system; the rail shows each one's panels |
+| Canvas / Design System, under the project | Switch between the pages and the design system; the rail shows each one's panels |
 | Tools → **+** | Insert a row, a column, a text or an image |
 | A board's inspector → the chat button | Send what is picked to the chat |
 | Pages panel → **Implement** | `/implement` for that page |
