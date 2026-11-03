@@ -108,6 +108,7 @@ describe("zoomNotches", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
+      // fake clock: a frame is a timer of the fake clock set above.
       setTimeout(cb, 16)
     );
     vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
