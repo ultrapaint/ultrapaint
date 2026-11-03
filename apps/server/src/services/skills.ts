@@ -13,7 +13,15 @@ import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
-import { builtInSkills } from "../skills/index.ts";
+import {
+  builtInSkills,
+  REFERENCES_MENTION,
+  referencesDirOf,
+  routerText,
+  skillReferences,
+  TOLD_WHEN_MAKING_THE_SYSTEM,
+  TOLD_WITH_ROUTER,
+} from "../skills/index.ts";
 import { DesignFiles } from "./design-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -33,6 +41,8 @@ In this product, also (told after the built-in "${title}" skill):
  * The skills that are on, as a design thread's briefing tells them. With the settings'
  * `skills.briefing` at `summaries`, a skill read whole somewhere is a line: its MCP resource
  * with the editor's tools, else its file, which a built-in, or a file that extends one, has not.
+ * At `router`, the design skill's router is told, with the parts every screen needs and the
+ * project's own files; the router names where the agent reads every other part.
  */
 export interface SkillsTold {
   /** A line per skill told by its title and summary: `- Hierarchy (<where>): <summary>`. */
@@ -53,7 +63,11 @@ export class SkillsService extends Context.Service<
      * The skills that are on, as the briefing tells them, worded for an agent with the editor's
      * tools or without them.
      */
-    readonly briefing: (tools: boolean) => Effect.Effect<SkillsTold>;
+    readonly briefing: (
+      tools: boolean,
+      /** The thread's task makes the design system: its part is told with the router. */
+      system?: boolean
+    ) => Effect.Effect<SkillsTold>;
     /**
      * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
      * that extends it. A skill the project already has is returned as it is.
@@ -77,8 +91,29 @@ export class SkillsService extends Context.Service<
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
       const summaries = paths.settings.skills?.briefing === "summaries";
+      const router = (paths.settings.skills?.briefing ?? "router") === "router";
       // As the settings show them: worded for the tools the server offers.
-      const { mcp } = yield* ServerConfig;
+      const { machine, mcp } = yield* ServerConfig;
+      const referencesDir = referencesDirOf(machine.home, path.join);
+
+      /*
+       * The references written where agents read them, once per server. One that cannot be
+       * written leaves its skill pointing at nothing, which costs the agent the reference and
+       * nothing else: the thread goes on.
+       */
+      const references = yield* Effect.cached(
+        Effect.forEach(Object.entries(skillReferences), ([file, text]) =>
+          Effect.gen(function* () {
+            const into = path.join(referencesDir, file);
+            yield* fs.makeDirectory(path.dirname(into), { recursive: true });
+            yield* fs.writeFileString(into, text);
+          })
+        ).pipe(Effect.ignore)
+      );
+
+      /** A built-in text, each file of the references named where it is written. */
+      const withReferences = (text: string) =>
+        text.replaceAll(REFERENCES_MENTION, `\`${referencesDir}/`);
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
@@ -88,7 +123,7 @@ export class SkillsService extends Context.Service<
         extends: false,
         name,
         source: "built-in",
-        text,
+        text: withReferences(text),
         ...describeSkill(name, text),
       });
 
@@ -150,7 +185,10 @@ export class SkillsService extends Context.Service<
         }
         return { dir: relDir, skills } satisfies SkillList;
       });
-      const list = listFor(mcp).pipe(Effect.withSpan("SkillsService.list"));
+      // Written before any skill is read, whole or in the briefing, so its folder is there.
+      const list = Effect.andThen(references, listFor(mcp)).pipe(
+        Effect.withSpan("SkillsService.list")
+      );
 
       /** Where the agent reads a skill whole, when it is told only its summary. */
       const whereRead = (skill: Skill, tools: boolean) => {
@@ -164,12 +202,25 @@ export class SkillsService extends Context.Service<
       };
 
       const briefing = Effect.fn("SkillsService.briefing")(function* (
-        tools: boolean
+        tools: boolean,
+        system = false
       ): Effect.fn.Return<SkillsTold> {
+        yield* references;
         const { skills } = yield* listFor(tools);
         const listed: string[] = [];
-        const whole: string[] = [];
+        const whole: string[] = router
+          ? [withReferences(routerText(agentWays(tools).tools)).trim()]
+          : [];
         for (const skill of skills.filter((s) => s.enabled)) {
+          // Read from the references when the router names it: what the project wrote is told.
+          if (
+            router &&
+            skill.source === "built-in" &&
+            !TOLD_WITH_ROUTER.has(skill.name) &&
+            !(system && skill.name === TOLD_WHEN_MAKING_THE_SYSTEM)
+          ) {
+            continue;
+          }
           const where = whereRead(skill, tools);
           if (where === undefined) {
             whole.push(skill.text.trim());
