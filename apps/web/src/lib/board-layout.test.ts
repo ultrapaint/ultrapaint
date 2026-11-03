@@ -78,7 +78,7 @@ describe("wrappedBoards", () => {
   });
 
   it("draws wide variants stacked at 100% where side by side they would shrink", () => {
-    const seen = { width: 640, x: 400 };
+    const seen = { height: 800, width: 640, x: 400 };
     const wide = {
       a: { height: 100, width: 552 },
       b: { height: 100, width: 552 },
@@ -89,12 +89,26 @@ describe("wrappedBoards", () => {
 });
 
 describe("firstBoardView", () => {
-  const seen = { width: 1000, x: 400 };
+  const seen = { height: 800, width: 1000, x: 400 };
 
-  it("starts the boards a little in from the seen part's corner, at 100%", () => {
+  it("centres boards that fit in the seen part, at 100%", () => {
     expect(
       firstBoardView([{ height: 200, width: 400, x: 0, y: 0 }], seen)
-    ).toEqual({ x: 400 + BOARD_MARGIN.x, y: BOARD_MARGIN.y, zoom: 1 });
+    ).toEqual({ x: 400 + (1000 - 400) / 2, y: (800 - 200) / 2, zoom: 1 });
+  });
+
+  it("starts boards taller than the seen part at its top, centred across", () => {
+    expect(
+      firstBoardView([{ height: 2000, width: 400, x: 0, y: 0 }], seen)
+    ).toEqual({ x: 400 + (1000 - 400) / 2, y: BOARD_MARGIN.y, zoom: 1 });
+  });
+
+  it("starts from the seen part's corner before the boards are measured", () => {
+    expect(firstBoardView([], seen)).toEqual({
+      x: 400 + BOARD_MARGIN.x,
+      y: BOARD_MARGIN.y,
+      zoom: 1,
+    });
   });
 
   it("zooms out until every board fits between the panels, never in", () => {
