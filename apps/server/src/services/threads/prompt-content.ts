@@ -254,9 +254,11 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     // A session started for a task that draws nothing (Map, an implementation's link) is not
     // told how to design well.
     const parsed = parseCommand(text);
-    const designs = parsed?._tag !== "Request" || drawsDesigns(parsed.request);
     const system =
       parsed?._tag === "Request" && designsTheSystem(parsed.request);
+    // Matching Figma's tokens draws nothing, and makes the design system all the same.
+    const designs =
+      parsed?._tag !== "Request" || drawsDesigns(parsed.request) || system;
     const about = briefingEnabled
       ? yield* briefing.text(purpose, { designs, system, tools })
       : undefined;

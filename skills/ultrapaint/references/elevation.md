@@ -34,11 +34,6 @@ undimmed. A dialog is centred and dims the page behind it.
 Sunken is for a code block, a well of filters, the track of a progress bar. Sections of a page
 keep the default surface.
 
-## Dark themes raise with light
-
-Shadows barely show on dark, so a raised surface is lighter than the page. Check that each
-level's surface gets lighter as the level rises in the dark theme.
-
 ## Before you finish
 
 | You see | Fix |

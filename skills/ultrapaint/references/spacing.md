@@ -23,7 +23,7 @@ field than the field above it, a heading nearer what it introduces than what cam
 
 A form or a page groups with space alone. When a screen or a dialog does several jobs (a link to
 copy, people to invite, plans to choose from), each job sits on its own quiet surface: a faint
-grey fill or a `1px` border and a `12–16px` radius. Padding inside is `16px` in a dialog or a tool screen and `24–32px` on a page. The surface says what belongs together, so the job needs no heading over it.
+grey fill or a `1px` border and the system's large radius. Padding inside is `16px` in a dialog or a tool screen and `24–32px` on a page. The surface says what belongs together, so the job needs no heading over it.
 
 A page section is not a surface by default. Give it a card only when it has a job to hold. Otherwise let type, image and position group it.
 

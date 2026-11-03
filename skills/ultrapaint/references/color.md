@@ -14,8 +14,9 @@ Surfaces, text and borders come from semantic tokens: background, foreground, mu
 primary, destructive and their pairs. A palette colour (`"$color-blue-500"`) on a screen is a
 decision the design system did not make; use one only where DESIGN.md's Colors section does.
 
-Neutrals are neutral or warm: white, a warm off-white, stone. They are never blue-grey. When the design system's neutral is
-blue-grey, tell the user.
+The neutrals are the design system's, neutral or warm (`references/design-system/foundations.md`).
+When the system's are blue-grey and its character is not cool, tell the user rather than
+overriding them on one screen.
 
 ## A token only in its role
 
@@ -44,12 +45,12 @@ foreground, whatever its role. Muted text sits as light as legibility allows: ab
 Compute both from [with the editor's tools: `read_design_system` | without: `design.tokens.json`]. When the muted token is darker than about `6:1`, the two
 levels blur. Say so to the user, and set descriptions and metadata in muted all the same.
 
-## Badges are neutral, their mark is coloured
+## Badges are neutral
 
-A status or change badge (Paid, Active, ↗ 1.2%) sits on a neutral fill that differs from its
-card's surface (a muted grey on a white card), with the foreground or muted text; only its small
-mark is coloured: the green dot, the green arrow. Blurred, the screen shows no coloured block
-where a badge is. A filter for that status repeats the same dot.
+A status or change badge (Paid, Active, ↗ 1.2%) is the system's Badge: a neutral fill that
+differs from its card's surface, the foreground or muted text. A status may add a small coloured
+dot inside it, a change its arrow; nothing else in it takes a colour. Blurred, the screen shows
+no coloured block where a badge is. A filter for that status repeats the same dot.
 
 ## One colour, one meaning
 
@@ -73,9 +74,9 @@ what reads in every theme. Text over a photograph sits on a scrim or a solid sur
 
 ## States are steps of one role
 
-Hover and pressed are a shade of the same fill: the hover tokens when the system has them, the
-fill at `90%` opacity when it has not. Selected is the accent's subtle fill, focus is the ring
-colour, disabled is `50%` opacity. A state brings no new hue.
+Hover, pressed, focus and disabled are the system's, steps of the same role, drawn through the
+component's own states. Selected is the system's selected style: a neutral fill, or a solid brand
+fill, never a pale wash of the accent. A state brings no new hue.
 
 ## Gradients
 
@@ -102,12 +103,13 @@ values in each theme the design system has.
 | --- | --- |
 | A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
 | A palette token in a component's colours | The semantic token it stands for |
-| A blue-grey neutral | A neutral or warm one; if the system's own is blue-grey, tell the user |
+| A blue-grey neutral the character does not ask for | A neutral or warm one; if the system's own is blue-grey, tell the user |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
 | A second hue with no fixed job, or any second hue in a product's own screens | Remove it |
-| A badge on a tinted green or red fill | A neutral fill; only its dot or arrow is coloured |
+| A badge on a tinted green or red fill | The neutral Badge; at most a coloured dot inside it |
+| A selected item on a pale tint of the accent | The system's selected style: neutral, or solid brand |
 | A gradient on navigation, cards, buttons or a state | A solid fill; a gradient only lights the page |
-| A foreground ink below `15:1` | Darken it until it computes |
+| A foreground ink below `15:1` | The foreground token; if the token itself is below, tell the user |
 | A legend for series the line styles already tell apart | Remove it |
 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
