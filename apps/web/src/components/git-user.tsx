@@ -36,39 +36,39 @@ export const GitUserButton = () => {
         render={
           <button
             aria-label={`Git user: ${name}`}
-            className="flex size-7 items-center justify-center rounded-full border bg-muted font-body font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:border-foreground data-popup-open:text-foreground"
+            className="flex size-7 items-center justify-center rounded-full bg-secondary font-caption text-secondary-foreground outline-none ring-1 ring-border transition-shadow hover:ring-input focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:ring-2 data-popup-open:ring-ring/50"
             type="button"
           />
         }
       >
         {initials}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 gap-3" side="bottom">
+      <PopoverContent align="end" className="w-64 gap-3" side="right">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted font-body font-semibold">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary font-caption ring-1 ring-border">
             {initials}
           </span>
           <div className="flex min-w-0 flex-col">
             {fullName ? (
-              <span className="truncate font-semibold">{fullName}</span>
+              <span className="truncate font-heading-xsmall">{fullName}</span>
             ) : null}
             {user?.email ? (
-              <span className="truncate text-muted-foreground">
+              <span className="truncate font-small text-muted-foreground">
                 {user.email}
               </span>
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col gap-1.5 border-t pt-2.5 font-body text-muted-foreground">
+        <div className="flex flex-col gap-1.5 border-t pt-3 font-small text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <GitBranch className="size-3" />
+            <GitBranch className="size-3.5" />
             {user?.name
-              ? "From git config in this repository"
-              : "Your display name, from Settings"}
+              ? "Your name from git in this repository"
+              : "Your name from Settings"}
           </span>
           <span className="flex items-center gap-1.5">
-            <MessageCircle className="size-3" />
-            Signs your comments on the canvas
+            <MessageCircle className="size-3.5" />
+            Your comments are signed with it
           </span>
         </div>
       </PopoverContent>

@@ -40,7 +40,7 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           className={cn(
-            "data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-y-auto overflow-x-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md outline-none ring-1 ring-foreground/10 duration-100 data-closed:animate-out data-open:animate-in data-closed:overflow-hidden",
+            "data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-y-auto overflow-x-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md outline-none ring-1 ring-border duration-100 data-closed:animate-out data-open:animate-in data-closed:overflow-hidden",
             className
           )}
           data-slot="dropdown-menu-content"
@@ -65,7 +65,7 @@ function DropdownMenuLabel({
   return (
     <MenuPrimitive.GroupLabel
       className={cn(
-        "px-2 py-1.5 font-body text-muted-foreground data-inset:pl-7.5",
+        "px-2 pt-2 pb-1 font-small text-muted-foreground data-inset:pl-8",
         className
       )}
       data-inset={inset}
@@ -139,7 +139,7 @@ function DropdownMenuSubContent({
       align={align}
       alignOffset={alignOffset}
       className={cn(
-        "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 w-auto min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-closed:animate-out data-open:animate-in",
+        "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 w-auto min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-overlay ring-1 ring-border duration-100 data-closed:animate-out data-open:animate-in",
         className
       )}
       data-slot="dropdown-menu-sub-content"
@@ -229,7 +229,7 @@ function DropdownMenuSeparator({
 }: MenuPrimitive.Separator.Props) {
   return (
     <MenuPrimitive.Separator
-      className={cn("-mx-1 my-1 h-px bg-border/50", className)}
+      className={cn("-mx-1 my-1 h-px bg-border", className)}
       data-slot="dropdown-menu-separator"
       {...props}
     />
@@ -243,7 +243,7 @@ function DropdownMenuShortcut({
   return (
     <span
       className={cn(
-        "ml-auto font-body text-muted-foreground tracking-widest group-focus/dropdown-menu-item:text-accent-foreground",
+        "ml-auto font-small text-muted-foreground tracking-wide group-focus/dropdown-menu-item:text-accent-foreground",
         className
       )}
       data-slot="dropdown-menu-shortcut"

@@ -50,6 +50,7 @@ import {
   SkillsGroup,
 } from "./settings-agents.tsx";
 import { Group, Row } from "./settings-group.tsx";
+import { ThemeGroup } from "./settings-theme.tsx";
 import { ProfileGroup } from "./settings-profile.tsx";
 
 const LIST_SEPARATOR_RE = /[\n,]/;
@@ -655,6 +656,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const editor = (
     <>
+      <ThemeGroup />
       <ProfileGroup />
       <SendKeyGroup />
     </>
