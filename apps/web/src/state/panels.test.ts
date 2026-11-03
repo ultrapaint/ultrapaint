@@ -219,7 +219,7 @@ describe("showLeftPanel", () => {
   });
 });
 
-describe("the right panel (ADR 0055)", () => {
+describe("the right panel (ADR 0058)", () => {
   it("has nothing to show with nothing selected, and is not drawn", () => {
     useEditor.setState({
       selectedPage: null,

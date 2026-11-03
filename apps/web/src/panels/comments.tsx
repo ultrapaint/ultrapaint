@@ -31,7 +31,7 @@ import { useProject } from "../state/project.ts";
 
 const toggleVisible = () => useComments.getState().toggleVisible();
 
-/** The panel's title on the rail's side (ADR 0055), with how many are open and its actions. */
+/** The panel's title on the rail's side (ADR 0058), with how many are open and its actions. */
 const CommentsHeading = ({ children }: { children?: ReactNode }) => (
   <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-3">
     <h2 className="shrink-0 font-heading-xsmall">Comments</h2>
