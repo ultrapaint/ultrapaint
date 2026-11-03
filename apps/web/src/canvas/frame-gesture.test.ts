@@ -4,6 +4,7 @@ import type { FrameLayout, Page } from "@ultrapaint/contracts/pages";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
+import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { layoutSaved } from "../state/page-layout.ts";
@@ -17,6 +18,7 @@ import {
   beginFrameGesture,
   cancelGesture,
   followLooseDrag,
+  pickedFramesMoved,
   placeFrame,
   resizeFrom,
 } from "./frame-gesture.ts";
@@ -258,6 +260,48 @@ describe("a frame gesture", () => {
     expect(listeners.size).toBe(0);
     await layoutSaved();
     expect(saved()).toEqual([{ [home.path]: { ...start, x: 30, y: 41 } }]);
+  });
+
+  it("moves the frames picked together by any one's name, the pages saved as one step", async () => {
+    const about: Page = {
+      ...home,
+      file: "designs/about.page.json",
+      id: "about.page.json",
+      name: "about",
+      path: "about.page.json",
+      route: "/about",
+    };
+    useProject.setState({ pages: [home, about] });
+    useEditor.setState({
+      frames: { [about.id]: frameAt(2000, 0), [home.id]: start },
+    });
+    useCanvasPicks.setState({ ids: [home.id, about.id, NODE] });
+    beginFrameGesture(press(0, 0), about.id, "move");
+    fire("pointermove", 50, 30);
+    fire("pointerup", 50, 30);
+    await layoutSaved();
+    expect(saved()).toEqual([
+      {
+        [about.path]: { ...frameAt(2000, 0), x: 2050, y: 30 },
+        [home.path]: { ...start, x: 50, y: 30 },
+      },
+    ]);
+    await fakeApi.requested("documents.apply");
+    expect(edits()).toEqual([
+      {
+        edits: [
+          {
+            doc: CANVAS,
+            ops: [{ id: "n1", op: "update", set: { x: 150, y: 130 } }],
+          },
+        ],
+        label: "Move",
+      },
+    ]);
+    await until(useEditor, (s) => s.held[NODE] === undefined);
+    // The click that ends the move keeps them picked.
+    expect(pickedFramesMoved()).toBe(true);
+    useCanvasPicks.setState({ ids: [] });
   });
 
   it("a cancelled pointer puts the frame back and saves nothing", async () => {

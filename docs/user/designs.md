@@ -31,6 +31,11 @@ or on the canvas. The tree is walked with the arrow keys, a layer is renamed wit
 F2, hidden with its eye and locked with its lock, so a click on the canvas passes it by; the field
 at the top finds layers by name, text or component.
 
+Dragging on the empty canvas draws a selection box, as in Figma: the pages and the nodes placed on
+the canvas it touches are picked together (Shift adds to what is picked), moved together by
+dragging any one's name, deleted together with Delete, and a page's menu acts on every page
+picked. A box drawn from inside a page selects that page's elements instead.
+
 Several elements selected at once are changed together everywhere, in the inspector (where the
 fields they differ on say "Mixed"), the menus, the toolbar and the keys, as one undo step. ⌘\
 (Ctrl+\) puts the panels away, and `?` lists every shortcut, written as your platform writes

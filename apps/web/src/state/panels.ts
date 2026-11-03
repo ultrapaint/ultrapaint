@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent } from "react";
 import { create } from "zustand";
 import { useAgents } from "./agents.ts";
 import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
+import { useCanvasPicks } from "./canvas-picks.ts";
 import {
   type LeftTab,
   type RightTab,
@@ -91,12 +92,17 @@ export const startRightPanel = () => {
     if (
       selection !== null ||
       selectedPage !== null ||
+      useCanvasPicks.getState().ids.length > 1 ||
       useBoard.getState().open
     ) {
       usePanels.getState().setHidden({ right: false });
     }
   };
-  const stops = [useEditor.subscribe(check), useBoard.subscribe(check)];
+  const stops = [
+    useEditor.subscribe(check),
+    useBoard.subscribe(check),
+    useCanvasPicks.subscribe(check),
+  ];
   check();
   return () => {
     for (const stop of stops) {

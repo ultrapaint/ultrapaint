@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { cancelGesture } from "../canvas/frame-gesture.ts";
 import { nextView, setView, viewportSize } from "../state/camera.ts";
+import { clearCanvasPicks } from "../state/canvas-picks.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
@@ -129,6 +130,7 @@ export const stepBack = (): boolean =>
   leaveIsolation() ||
   dismiss() ||
   surfaceNow().escape() ||
+  clearCanvasPicks() ||
   walkSelection("Escape");
 
 /** Where on screen a point of the canvas is. */

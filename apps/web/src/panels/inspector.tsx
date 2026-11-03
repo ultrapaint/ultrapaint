@@ -21,6 +21,7 @@ import { cn } from "cn";
 import {
   ArrowDown,
   ArrowRight,
+  BoxSelect,
   Code,
   Copy,
   Eye,
@@ -60,6 +61,7 @@ import {
 } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
+import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
@@ -98,6 +100,15 @@ import { TextSection } from "./inspector-text.tsx";
 
 export const Inspector = () => {
   const inspected = useInspected();
+  const picked = useCanvasPicks((s) => s.ids.length);
+  if (picked > 1) {
+    return (
+      <PanelEmpty icon={<BoxSelect />} title={`${picked} frames`}>
+        Drag any one's name to move them together. Delete removes them; a page's
+        menu acts on every page picked.
+      </PanelEmpty>
+    );
+  }
   if (!inspected) {
     return (
       <PanelEmpty icon={<SquareDashedMousePointer />} title="Select a layer">

@@ -21,6 +21,14 @@ import { useFollowAgent } from "./agent-presence.tsx";
 import { useFramesInView } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
 import {
+  beginCanvasMarquee,
+  CanvasMarquee,
+  cancelCanvasMarquee,
+  endCanvasMarquee,
+  isDrawingCanvasMarquee,
+  moveCanvasMarquee,
+} from "./canvas-marquee.tsx";
+import {
   beginCreate,
   cancelCreate,
   endCreate,
@@ -170,7 +178,11 @@ export const Canvas = () => {
     []
   );
 
-  /** The Group and Text tools draw what they make; a press anywhere else is the ground's. */
+  /**
+   * The Group and Text tools draw what they make; the select tool draws a marquee from a press
+   * on nothing (`canvas-marquee.tsx`), which picks the frames it touches; a press anywhere else is
+   * the ground's.
+   */
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button === 0 && isCreateTool(mode)) {
       e.preventDefault();
@@ -179,11 +191,21 @@ export const Canvas = () => {
       }
       beginCreate(e.clientX, e.clientY, holdsFree(e));
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
+    if (e.button === 0 && mode === "select" && e.target === e.currentTarget) {
+      e.preventDefault();
+      beginCanvasMarquee(e);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
 
   const onPointerMove = (e: ReactPointerEvent, panning: boolean) => {
     lastPointer.current = canvasPoint(e.clientX, e.clientY);
+    if (isDrawingCanvasMarquee()) {
+      moveCanvasMarquee(e);
+      return;
+    }
     if (!panning && isCreateTool(mode) && !spacePan && !isFollowing()) {
       moveCreate(e.clientX, e.clientY, holdsFree(e));
       hoverCreate(e.clientX, e.clientY);
@@ -191,9 +213,18 @@ export const Canvas = () => {
   };
 
   const onPointerUp = () => {
+    if (isDrawingCanvasMarquee()) {
+      endCanvasMarquee();
+      return;
+    }
     if (isCreateTool(mode) && useCreate.getState().from) {
       endCreate(mode);
     }
+  };
+
+  const onPointerCancel = () => {
+    cancelCreate();
+    cancelCanvasMarquee();
   };
 
   /**
@@ -227,7 +258,7 @@ export const Canvas = () => {
       }
       groundRef={ref}
       onContextMenu={onContextMenu}
-      onPointerCancel={cancelCreate}
+      onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
@@ -275,6 +306,7 @@ export const Canvas = () => {
       })}
       <DragOverlay />
       <CreateOverlay />
+      <CanvasMarquee />
     </CanvasGround>
   );
 };

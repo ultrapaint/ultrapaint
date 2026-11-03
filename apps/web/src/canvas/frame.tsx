@@ -19,6 +19,7 @@ import {
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
+import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -39,6 +40,7 @@ import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
+import { pickedFramesMoved } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PageToolbar } from "./page-toolbar.tsx";
@@ -628,8 +630,15 @@ const FrameChrome = ({
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, isNode, root);
+  // One of several frames picked together by a marquee: outlined and lit, as a selected one.
+  const picked = useCanvasPicks((s) => isPicked(s.ids, frameId));
+  const lit = isSelected || picked;
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
+    // The click that ends moving the picked frames together keeps them picked.
+    if (pickedFramesMoved()) {
+      return;
+    }
     if (!isNode) {
       selectPage(frameId);
     } else if (root) {
@@ -648,15 +657,13 @@ const FrameChrome = ({
     <>
       <FrameHeader
         className={
-          isSelected || holdsSelection
-            ? "text-foreground"
-            : "text-muted-foreground"
+          lit || holdsSelection ? "text-foreground" : "text-muted-foreground"
         }
       >
         <button
           className={cn(
             "cursor-pointer select-none font-body font-medium hover:text-foreground",
-            isSelected && "text-brand hover:text-brand"
+            lit && "text-brand hover:text-brand"
           )}
           onClick={selectFrame}
           onContextMenu={onContextMenu}
@@ -680,11 +687,11 @@ const FrameChrome = ({
           pageId={frameId}
         />
       ) : null}
-      {isSelected || titleHover ? (
+      {lit || titleHover ? (
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            outline: `${screenPx(isSelected ? 2 : 1)} solid ${isSelected ? kindColor("element") : kindHoverColor("element")}`,
+            outline: `${screenPx(lit ? 2 : 1)} solid ${lit ? kindColor("element") : kindHoverColor("element")}`,
           }}
         />
       ) : null}
