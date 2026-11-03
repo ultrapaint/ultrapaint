@@ -215,26 +215,15 @@ export const HideRightPanel = () => (
  * brings it back (as pen.dev has it). Out, its toggle is in the panel's own top row.
  */
 export const RightPanelBar = ({ name }: { name: string }) => (
-  <div className="floating pointer-events-auto flex h-10 shrink-0 items-center px-1">
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            aria-label="Show the right panel"
-            className="window-no-drag flex h-8 items-center gap-2 rounded-lg pr-2.5 pl-2 font-body text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={toggleRight}
-            type="button"
-          />
-        }
-      >
-        <PanelRightOpen className="size-4" />
-        {name}
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        Show the right panel
-        <CommandKeys id="toggleRight" />
-      </TooltipContent>
-    </Tooltip>
+  <div className="floating pointer-events-auto flex h-10 shrink-0 items-center gap-1 pr-3 pl-1">
+    <TopButton
+      command="toggleRight"
+      label="Show the right panel"
+      onClick={toggleRight}
+    >
+      <PanelRightOpen />
+    </TopButton>
+    <span className="font-body text-muted-foreground">{name}</span>
   </div>
 );
 
