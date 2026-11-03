@@ -47,7 +47,10 @@ export interface Surface {
   readonly offers: (commandId: string) => boolean;
   /** A press on the ground, on nothing: what is selected or picked is let go. */
   readonly onGroundPress: () => void;
-  /** The rail's places on it, as the components known now say (an app component's has Layers). */
+  /**
+   * The left panels it shows itself, as the components known now say (an app component's board
+   * has Layers). The rail lists every place: one not shown here leads back to the page canvas.
+   */
   readonly railTabs: () => readonly LeftTab[];
   /** The right panel: the page's tabs (Design, Code, Comments), or the inspector of the pick. */
   readonly rightPanel: "tabs" | "inspector";
@@ -118,9 +121,9 @@ const boardSurface = (place: BoardPlace): Surface => {
     kind: "board",
     modes: BOARD_MODES,
     offers: (id) => {
-      const panel = panelOf(id);
-      if (panel !== null) {
-        return tabs().includes(panel);
+      // A panel the board does not show is offered too: it leads back to the page canvas.
+      if (panelOf(id) !== null) {
+        return true;
       }
       if (id.startsWith("tool:")) {
         return BOARD_MODES.includes(id.slice("tool:".length) as Mode);
