@@ -171,13 +171,17 @@ pnpm evals decide <deck> [--host <tailscale address>]   # decisions/<deck>.json 
 A deck is `{ title, intro?, cards }`. Each card has:
 
 - `id`, `title`, an `eyebrow?` and a `body?` in markdown;
-- `pictures?`: `{ src, caption }`, with `src` a path from the data directory;
+- `pictures?`: `{ src, caption, marks? }`, with `src` a path from the data directory. `marks`
+  are boxes drawn around what the card asks about, `{ x, y, width, height, label?, at? }` in
+  fractions of the picture, the label `above`, `below`, `right` or `inside` it;
 - `options`: `{ key, label, leads? }`, where `leads` says what choosing it leads to;
 - `recommend?`: an option's key.
 
 The answers land in `decisions/<deck>.answers.json`, each with its label, the card's title and
 any comment, for the agent to read back and act on. Ask the decision itself, with what each
-answer leads to and the evidence beside it, and put the quickest cards first.
+answer leads to and the evidence beside it, and put the quickest cards first. Show each item as
+a close-up with a box around it, never a whole screen to search. An item that no picture shows
+says so on its card.
 
 ## A reference
 
