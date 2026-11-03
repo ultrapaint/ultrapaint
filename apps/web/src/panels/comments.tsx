@@ -59,8 +59,9 @@ export const Comments = () => {
     <div className="flex h-full flex-col">
       <div className="flex h-10 shrink-0 items-center gap-0.5 pr-2 pl-3">
         <span className="flex-1 truncate font-small text-muted-foreground">
-          {comments.length - resolvedCount} open
-          {resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ""}
+          {comments.length === 0
+            ? null
+            : `${comments.length - resolvedCount} open${resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ""}`}
         </span>
         <IconButton
           aria-pressed={showResolved}

@@ -237,9 +237,13 @@ const Kinds = ({
       </span>
     );
   }
+  // A layer named for its kind ("Row") says it once, in the name above.
+  const kind = nodeKind(node);
+  const named =
+    node.name !== undefined && node.name !== "" && node.name !== kind;
   return (
     <span className="flex min-w-0 items-center gap-2 font-small text-muted-foreground tabular-nums">
-      <span className="truncate">{nodeKind(node)}</span>
+      {named ? <span className="truncate">{kind}</span> : null}
       {rect ? (
         <span className="shrink-0">
           {Math.round(rect.width)} × {Math.round(rect.height)}
