@@ -62,7 +62,7 @@ const RailItem = ({
         <button
           aria-label={name}
           aria-pressed={active}
-          className="group relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-accent aria-pressed:text-foreground"
+          className="group relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-sidebar aria-pressed:text-foreground aria-pressed:shadow-xs aria-pressed:ring-1 aria-pressed:ring-border"
           onClick={onClick}
           type="button"
         />
@@ -72,7 +72,7 @@ const RailItem = ({
       {dot ? (
         <span
           aria-label={dot}
-          className="absolute top-1 right-1 size-2 rounded-full bg-agent ring-2 ring-sidebar"
+          className="absolute top-1 right-1 size-2 rounded-full bg-agent ring-2 ring-rail"
           role="status"
         />
       ) : null}
@@ -139,7 +139,7 @@ export const Rail = () => {
   return (
     <nav
       aria-label="Panels"
-      className="flex min-h-0 w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r py-2 [scrollbar-width:none]"
+      className="flex min-h-0 w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto pt-0.5 pb-2 [scrollbar-width:none]"
     >
       {tabs
         .filter((value) => value !== "changes")
