@@ -23,7 +23,6 @@ import {
 import { create } from "zustand";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -445,7 +444,7 @@ const DeviceSwitch = () => {
 };
 
 const BarDivider = () => (
-  <Separator className="mx-1 h-5 self-center" orientation="vertical" />
+  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-input" />
 );
 
 /**
