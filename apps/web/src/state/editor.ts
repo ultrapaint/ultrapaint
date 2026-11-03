@@ -57,7 +57,7 @@ export const railTabs: readonly LeftTab[] = [
 
 /**
  * The rail in Canvas mode (ADR 0053): the agents, the pages' layers, the components to place,
- * the pages' comments (ADR 0055), the changes.
+ * the pages' comments (ADR 0058), the changes.
  */
 export const canvasRail: readonly LeftTab[] = [
   "chat",

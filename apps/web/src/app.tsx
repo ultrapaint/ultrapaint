@@ -514,7 +514,7 @@ export const App = () => {
   const [rightWidth, setRightWidth] = usePanelWidth("right", rightBounds);
   const leftHidden = usePanels((s) => s.left);
   const rightHidden = usePanels((s) => s.right);
-  // With nothing selected there is no right panel at all (ADR 0055); `subject` says the canvas.
+  // With nothing selected there is no right panel at all (ADR 0058); `subject` says the canvas.
   const subject = useRightSubject();
   const hasRight = subject && !rightHidden;
   const chrome = useWindowChrome();

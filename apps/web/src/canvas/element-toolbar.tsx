@@ -1,5 +1,5 @@
 /**
- * The selection's bar, docked above the tools (ADR 0055): only what the design system has — a
+ * The selection's bar, docked above the tools (ADR 0058): only what the design system has — a
  * component's own variants, a text's styles, the colour, radius, spacing and shadow tokens of a
  * container — then the element's menu. Every control is a select that shows its value alone; the
  * menu it opens says which prop or token it sets. Add to chat is on the selection's tag, on the

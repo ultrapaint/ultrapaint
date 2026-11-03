@@ -1,5 +1,5 @@
 /**
- * The bar of a selected page, docked above the tools as an element's is (ADR 0055): the viewports
+ * The bar of a selected page, docked above the tools as an element's is (ADR 0058): the viewports
  * it can be drawn at, the views it is drawn in beside its frame (ADR 0036), then the page's menu.
  * The frame's header keeps its name and size; the inspector keeps its Viewport field.
  */

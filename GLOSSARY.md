@@ -313,7 +313,7 @@ refactor and the board view left.
 - **Element toolbar**: the selection's design-system controls and its menu, in a bar docked over
   the tools at the bottom centre while something is selected (the web's `ElementToolbar`,
   `GroupToolbar` and `PageToolbar`, drawn through `selection-dock`), the same at every zoom (ADR
-  0055). On the canvas the selection keeps only its **tag**: its name, which walks to its parents
+  0058). On the canvas the selection keeps only its **tag**: its name, which walks to its parents
   and children, and the agent's ✦ button, never wider than the element.
 - **Field**: one of a node's fields that the inspector and the element toolbar both edit (align,
   text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
@@ -333,9 +333,9 @@ refactor and the board view left.
 - **Mode**: Canvas or Design system (ADR 0053; the web's `useEditorMode`, `showMode`): the page
   canvas, or the design system on boards. It is Design system exactly while a board view is open,
   and the rail shows the mode's places.
-- **Place switch**: Canvas · Design system · Prototype at the top centre of the canvas (ADR 0055;
+- **Place switch**: Canvas · Design system · Prototype at the top centre of the canvas (ADR 0058;
   `components/place-switch.tsx`): the two modes and the prototype workspace in one control.
-- **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0055;
+- **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
   `library` in the code): **App components**, then **System components**. In Canvas mode it is

@@ -1,5 +1,5 @@
 /**
- * The selection's bar, docked above the tools at the bottom centre (ADR 0055): the controls of what
+ * The selection's bar, docked above the tools at the bottom centre (ADR 0058): the controls of what
  * is selected, in the same place at every zoom and never over the design. On the canvas the
  * selection keeps only its name and the agent's button.
  */

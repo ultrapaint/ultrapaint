@@ -70,7 +70,7 @@ export const usePanels = create<PanelsStore>((set, get) => ({
 }));
 
 /**
- * Whether the right panel has something to show (ADR 0055): on the canvas, a layer or a page
+ * Whether the right panel has something to show (ADR 0058): on the canvas, a layer or a page
  * selected or several frames picked; on a board view, its inspector, which always has. With
  * nothing, the panel is not drawn at all, whether the user put it away or not.
  */

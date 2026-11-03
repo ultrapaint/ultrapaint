@@ -1,7 +1,7 @@
 /**
  * The agent's button: it adds what is selected to the open chat, takes it out again, opens the
  * chat it is in, or with ⌘ starts a new one. On the canvas it sits on the selection's tag (ADR
- * 0055). A board has no tag of its own: its inspector's title has the button for what is picked
+ * 0058). A board has no tag of its own: its inspector's title has the button for what is picked
  * there (ADR 0045, B11).
  */
 import type { BoardAttachment } from "@ultrapaint/contracts/threads";

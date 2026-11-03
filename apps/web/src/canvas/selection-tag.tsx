@@ -1,7 +1,7 @@
 /**
  * The selection's name on its top-left edge, in its colour, the same size at every zoom, with the
  * agent's button beside it: all that hangs off the selection on the canvas, never wider than the
- * element, the icon alone on a small one (ADR 0055). Its controls are in the bar above the tools.
+ * element, the icon alone on a small one (ADR 0058). Its controls are in the bar above the tools.
  * The name's menu walks up to the parents and down to the children, which is how a nested element
  * is reached without the layers. When the element is in a chat, the tag says so.
  */
