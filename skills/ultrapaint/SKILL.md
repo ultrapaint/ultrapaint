@@ -53,7 +53,10 @@ changing its components: read `references/design-system.md` and follow its steps
 needs something the system lacks says so, and the system is changed by that job, not by the
 screen. A project with no design system yet (a theme that declares nothing) gets one before the
 first node: the character settled, then `references/design-system/foundations.md` in that
-character, a loaded face and real scales, written down with it in DESIGN.md.
+character, a loaded face and real scales, written down with it in DESIGN.md.[with the editor's tools:  A
+component written into the code is placed once the user runs Sync, in either job. Do not ask them
+to run it, and do not wait: draw what the job asks for now, with the components the system has
+and, where one is missing, its parts, and say in your last message what Sync will bring in. | without: ]
 
 ## When the screen has one
 
@@ -65,6 +68,7 @@ character, a loaded face and real scales, written down with it in DESIGN.md.
 | Movement and transitions | `references/motion.md` |
 | Words: headings, labels, buttons, errors, empty states | `references/content.md` |
 | Loading, empty, error and the other states | `references/states.md` |
+| Actions and flows: Nielsen's heuristics, a way out, shortcuts, help | `references/usability.md` |
 | The design system's components | `references/components.md` |
 | An attached picture to make it from | `references/picture.md` |
 | Keyboard, screen reader, contrast, targets | `references/accessibility.md` |
