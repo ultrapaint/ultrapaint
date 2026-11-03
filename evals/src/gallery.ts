@@ -14,10 +14,9 @@ import {
   HttpServerResponse,
   HttpStaticServer,
 } from "effect/http";
-import { DATA, readJson, writeJson } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { readJson, writeJson } from "./layout.ts";
 import { loadReferences } from "./reference.ts";
-
-export const GALLERY = path.join(DATA, "gallery");
 
 /**
  * The sets a person can swipe: the shots to take references from, or looks to like (shadcn's
@@ -75,10 +74,11 @@ export const gallery = Effect.fn("gallery")(function* (options: {
   readonly port: number;
   readonly set: GallerySet;
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const set = SETS[options.set];
-  const SHOTS = path.join(GALLERY, set.shots);
-  const SELECTION = path.join(GALLERY, set.selection);
+  const SHOTS = path.join(data.gallery, set.shots);
+  const SELECTION = path.join(data.gallery, set.selection);
   const shots = yield* readJson(Schema.Array(Shot), SHOTS);
   // Shots already references are marked; looks to like have none.
   const used =
@@ -151,7 +151,7 @@ export const gallery = Effect.fn("gallery")(function* (options: {
     HttpRouter.add("GET", "/api/gallery", session),
     HttpRouter.add("POST", "/api/gallery", toggle),
     HttpRouter.add("GET", "/", HttpServerResponse.redirect("/gallery/")),
-    HttpStaticServer.layer({ root: DATA })
+    HttpStaticServer.layer({ root: data.root })
   );
   yield* Effect.log(
     `${shots.length} shots: open http://${options.host}:${options.port}/ (Ctrl-C to stop; the selection is saved as you go)`

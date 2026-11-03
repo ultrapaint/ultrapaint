@@ -11,23 +11,20 @@ import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Claude } from "./claude.ts";
 import { askCodex } from "./codex.ts";
+import { type DataDir, EvalsConfig } from "./config.ts";
 import { askCursor } from "./cursor.ts";
 import {
-  DATA,
-  fromData,
   listDir,
   PROMPTS,
   prompt,
-  RUNS,
   readJson,
   writeJson,
   writeText,
 } from "./layout.ts";
 
-const CORPUS = path.join(DATA, "corpus");
-const STUDIES = path.join(DATA, "studies");
 /** Each model's reading of the library is kept apart, so they can be compared. */
-const notesOf = (model: string) => path.join(STUDIES, model, "notes");
+const notesOf = (data: DataDir, model: string) =>
+  path.join(data.studies, model, "notes");
 const isCodexModel = (model: string) => model.startsWith("gpt-");
 /** The notes' folder names where a model runs, so the same model on another plan can be compared. */
 const CURSOR_MODELS: Record<string, string> = {
@@ -125,10 +122,11 @@ export const siteSchema = group({
 export const sitesOf = Effect.fn("sitesOf")(function* (
   sources: readonly string[]
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const sites: Site[] = [];
   for (const corpus of sources) {
-    const file = path.join(CORPUS, corpus, "index.json");
+    const file = path.join(data.corpus, corpus, "index.json");
     if (!(yield* fs.exists(file))) {
       continue;
     }
@@ -137,7 +135,7 @@ export const sitesOf = Effect.fn("sitesOf")(function* (
       if (
         e.status === "ok" &&
         key !== undefined &&
-        (yield* fs.exists(path.join(CORPUS, corpus, key, "slice-2.jpg")))
+        (yield* fs.exists(path.join(data.corpus, corpus, key, "slice-2.jpg")))
       ) {
         sites.push({ corpus, key, tags: e.tags ?? [], title: e.title ?? key });
       }
@@ -151,8 +149,8 @@ export const sitesOf = Effect.fn("sitesOf")(function* (
   return sites.sort((a, b) => order(a) - order(b));
 });
 
-const noteFile = (s: Site, model: string) =>
-  path.join(notesOf(model), `${s.corpus}__${s.key}.json`);
+const noteFile = (data: DataDir, s: Site, model: string) =>
+  path.join(notesOf(data, model), `${s.corpus}__${s.key}.json`);
 
 /** Each site not yet looked at, a few per call, every dimension answered at once. */
 export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
@@ -163,16 +161,17 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
   readonly model: string;
   readonly sources: readonly string[];
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const claude = yield* Claude;
-  yield* fs.makeDirectory(notesOf(options.model), { recursive: true });
+  yield* fs.makeDirectory(notesOf(data, options.model), { recursive: true });
   const all = yield* sitesOf(options.sources);
   const pending: Site[] = [];
   for (const s of all) {
     if (pending.length >= options.limit) {
       break;
     }
-    if (!(yield* fs.exists(noteFile(s, options.model)))) {
+    if (!(yield* fs.exists(noteFile(data, s, options.model)))) {
       pending.push(s);
     }
   }
@@ -205,7 +204,7 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
         const ask = () => {
           if (cursorModel) {
             return askCursor({
-              cwd: CORPUS,
+              cwd: data.corpus,
               model: `${cursorModel}-${options.effort}`,
               prompt: text,
               schema,
@@ -213,7 +212,7 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
           }
           if (codex) {
             return askCodex({
-              cwd: CORPUS,
+              cwd: data.corpus,
               effort: options.effort,
               images,
               model: options.model,
@@ -222,7 +221,7 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
             });
           }
           return claude.ask({
-            cwd: CORPUS,
+            cwd: data.corpus,
             model: options.model,
             prompt: text,
             schema,
@@ -244,7 +243,7 @@ export const studyAnnotate = Effect.fn("studyAnnotate")(function* (options: {
         for (const note of sites) {
           const site = batch.find((s) => s.key === note.key);
           if (site) {
-            yield* writeJson(noteFile(site, options.model), {
+            yield* writeJson(noteFile(data, site, options.model), {
               ...note,
               corpus: site.corpus,
               model: options.model,
@@ -318,13 +317,14 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
   readonly notes: string;
   readonly skillsFrom: string;
 }) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const claude = yield* Claude;
   const notes: Note[] = [];
-  for (const file of yield* listDir(notesOf(options.notes))) {
+  for (const file of yield* listDir(notesOf(data, options.notes))) {
     const note = yield* readJson(
       Schema.Record(Schema.String, Schema.Unknown),
-      path.join(notesOf(options.notes), file)
+      path.join(notesOf(data, options.notes), file)
     ).pipe(Effect.option);
     if (
       note._tag === "Some" &&
@@ -340,7 +340,7 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
   const name = options.character
     ? `${options.dimension}-${options.character}`
     : options.dimension;
-  const work = path.join(STUDIES, options.notes, "work", name);
+  const work = path.join(data.studies, options.notes, "work", name);
   yield* fs.makeDirectory(work, { recursive: true });
   const byCharacter = Object.fromEntries(
     CHARACTERS.map((c) => [
@@ -367,7 +367,7 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
   );
   yield* fs.remove(path.join(work, "skills"), { force: true, recursive: true });
   yield* fs.copy(
-    path.join(RUNS, options.skillsFrom, "skills"),
+    path.join(data.runs, options.skillsFrom, "skills"),
     path.join(work, "skills")
   );
   const answer = yield* claude.ask({
@@ -383,10 +383,10 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
     schema: group({ reference: str }),
   });
   const { reference } = answer.structured as { readonly reference: string };
-  const out = path.join(STUDIES, options.notes, `${name}.md`);
+  const out = path.join(data.studies, options.notes, `${name}.md`);
   yield* writeText(
     out,
     `<!-- From ${notes.length} sites of the library; $${answer.costUsd.toFixed(2)}. -->\n\n${reference.trim()}\n`
   );
-  yield* Effect.log(`reference: ${fromData(out)} (${notes.length} sites)`);
+  yield* Effect.log(`reference: ${data.fromData(out)} (${notes.length} sites)`);
 });

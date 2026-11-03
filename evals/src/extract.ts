@@ -14,22 +14,10 @@ import { Effect, FileSystem, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Browser } from "./browser.ts";
 import { Claude } from "./claude.ts";
-import { LabError } from "./errors.ts";
+import { EvalsConfig } from "./config.ts";
+import { EvalsError } from "./errors.ts";
 import { commitOf, traceOf } from "./generate.ts";
-import {
-  captureDir,
-  DATA,
-  fromData,
-  HOSTS,
-  hostDir,
-  listDir,
-  prompt,
-  REFERENCES,
-  RUNS,
-  readJson,
-  writeJson,
-  writeText,
-} from "./layout.ts";
+import { listDir, prompt, readJson, writeJson, writeText } from "./layout.ts";
 import { familyOf, loadReferences } from "./reference.ts";
 import { slugOf } from "./sections.ts";
 import { launch, rpc, runPrompt, type UltrapaintSession } from "./session.ts";
@@ -92,9 +80,6 @@ const CROP_MARGIN = 12;
 
 /** The host every extraction starts from: a project with a library to restyle. */
 const BASE_HOST = "starter";
-/** Where each family's components, cut from its screens, are kept. */
-export const FAMILIES = path.join(DATA, "families");
-export const familyDir = (family: string) => path.join(FAMILIES, family);
 export const COMPONENTS_FILE = "components.json";
 export const COMPONENTS_DIR = "components";
 
@@ -172,7 +157,9 @@ const copyHost = Effect.fn("copyHost")(function* (from: string, to: string) {
     .pipe(
       Effect.mapError(
         (cause) =>
-          new LabError({ message: `installing the host's packages: ${cause}` })
+          new EvalsError({
+            message: `installing the host's packages: ${cause}`,
+          })
       )
     );
 });
@@ -186,13 +173,14 @@ const MIME: Record<string, string> = {
 
 /** The family's screens, as a user would attach them: each reference's whole picture. */
 const familyPictures = Effect.fn("familyPictures")(function* (family: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const references = (yield* loadReferences([])).filter(
     (r) => familyOf(r) === family
   );
   const pictures: { readonly dataUrl: string; readonly name: string }[] = [];
   for (const reference of references) {
-    const file = path.join(captureDir(reference.id), "desktop-fold.jpg");
+    const file = path.join(data.captureDir(reference.id), "desktop-fold.jpg");
     if (yield* fs.exists(file)) {
       const bytes = yield* fs.readFile(file);
       pictures.push({
@@ -215,8 +203,9 @@ const COMPONENT_SURROUNDINGS = 0.25;
 const componentPictures = Effect.fn("componentPictures")(function* (
   family: string
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const dir = path.join(familyDir(family), COMPONENTS_DIR);
+  const dir = path.join(data.familyDir(family), COMPONENTS_DIR);
   if (!(yield* fs.exists(dir))) {
     return [];
   }
@@ -237,12 +226,13 @@ export const cutFamilyComponents = Effect.fn("cutFamilyComponents")(function* (
   family: string,
   found: typeof FamilyComponents.Type
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
-  const dir = familyDir(family);
+  const dir = data.familyDir(family);
   yield* fs.makeDirectory(path.join(dir, COMPONENTS_DIR), { recursive: true });
   for (const c of found.components) {
-    const picture = path.join(REFERENCES, c.picture);
+    const picture = path.join(data.references, c.picture);
     if (c.missing || !(yield* fs.exists(picture))) {
       continue;
     }
@@ -273,8 +263,9 @@ export const cutFamilyComponents = Effect.fn("cutFamilyComponents")(function* (
 const familyComponentList = Effect.fn("familyComponentList")(function* (
   family: string
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const file = path.join(familyDir(family), COMPONENTS_FILE);
+  const file = path.join(data.familyDir(family), COMPONENTS_FILE);
   const found = (yield* fs.exists(file))
     ? (yield* readJson(FamilyComponents, file)).components
     : [];
@@ -293,9 +284,10 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
   family: string,
   options: { readonly force: boolean; readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const claude = yield* Claude;
-  const dir = familyDir(family);
+  const dir = data.familyDir(family);
   const file = path.join(dir, COMPONENTS_FILE);
   if ((yield* fs.exists(file)) && !options.force) {
     return yield* readJson(FamilyComponents, file);
@@ -303,7 +295,7 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
   const { references } = yield* familyPictures(family);
   const files: string[] = [];
   for (const reference of references) {
-    for (const f of yield* listDir(captureDir(reference.id))) {
+    for (const f of yield* listDir(data.captureDir(reference.id))) {
       if (
         PICTURE.test(f) &&
         (f.startsWith("desktop-fold") || f.startsWith("zoom-"))
@@ -313,7 +305,7 @@ export const familyComponents = Effect.fn("familyComponents")(function* (
     }
   }
   const answer = yield* claude.ask({
-    cwd: REFERENCES,
+    cwd: data.references,
     model: options.model,
     prompt: yield* prompt("components-reference", {
       files: files.map((f) => `- ${f}`).join("\n"),
@@ -442,9 +434,10 @@ const extractOnce = Effect.fn("extractOnce")(function* (
     readonly round: string;
   }
 ) {
-  const dir = path.join(RUNS, options.round, family, `run-${run}`);
+  const { data } = yield* EvalsConfig;
+  const dir = path.join(data.runs, options.round, family, `run-${run}`);
   const host = path.join(dir, "host");
-  yield* copyHost(hostDir(BASE_HOST), host);
+  yield* copyHost(data.hostDir(BASE_HOST), host);
   const { pictures: screens } = yield* familyPictures(family);
   // The family's components as cut from its screens, beside the screens: the closest look at
   // each one an agent gets.
@@ -536,6 +529,7 @@ export const extract = Effect.fn("extract")(function* (
     readonly runs: number;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const all = [...new Set((yield* loadReferences([])).map(familyOf))];
   const chosen = families.length > 0 ? families : all;
@@ -544,7 +538,7 @@ export const extract = Effect.fn("extract")(function* (
       force: false,
       model: options.judgeModel,
     });
-    const info = path.join(RUNS, options.round, "round.json");
+    const info = path.join(data.runs, options.round, "round.json");
     if (!(yield* fs.exists(info))) {
       yield* writeJson(info, {
         agent: options.agent,
@@ -559,7 +553,7 @@ export const extract = Effect.fn("extract")(function* (
     }
     for (let run = 1; run <= options.runs; run += 1) {
       const done = path.join(
-        RUNS,
+        data.runs,
         options.round,
         family,
         `run-${run}`,
@@ -575,7 +569,9 @@ export const extract = Effect.fn("extract")(function* (
       );
     }
   }
-  yield* Effect.log(`extracted: ${fromData(path.join(RUNS, options.round))}`);
+  yield* Effect.log(
+    `extracted: ${data.fromData(path.join(data.runs, options.round))}`
+  );
 });
 
 /**
@@ -587,18 +583,19 @@ export const freeze = Effect.fn("freeze")(function* (
   family: string,
   run: number
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const from = path.join(RUNS, round, family, `run-${run}`, "host");
+  const from = path.join(data.runs, round, family, `run-${run}`, "host");
   if (!(yield* fs.exists(from))) {
-    return yield* Effect.logError(`no host at ${fromData(from)}`);
+    return yield* Effect.logError(`no host at ${data.fromData(from)}`);
   }
-  const to = path.join(HOSTS, family);
+  const to = path.join(data.hosts, family);
   yield* copyHost(from, to);
   yield* writeText(
     path.join(to, "FROZEN.md"),
-    `The library of ${family}, frozen from ${fromData(from)} on ${new Date().toISOString()}.\n`
+    `The library of ${family}, frozen from ${data.fromData(from)} on ${new Date().toISOString()}.\n`
   );
   yield* Effect.log(
-    `${family}: library frozen into ${path.relative(DATA, to)}`
+    `${family}: library frozen into ${path.relative(data.root, to)}`
   );
 });

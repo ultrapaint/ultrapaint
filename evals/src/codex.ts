@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { Effect, FileSystem } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { LabError } from "./errors.ts";
+import { EvalsError } from "./errors.ts";
 
 const TIMEOUT = "25 minutes";
 
@@ -56,7 +56,7 @@ export const askCodex = Effect.fn("askCodex")(function* (options: {
       Effect.timeout(TIMEOUT),
       Effect.mapError(
         (cause) =>
-          new LabError({ message: `codex exec failed: ${String(cause)}` })
+          new EvalsError({ message: `codex exec failed: ${String(cause)}` })
       ),
       Effect.ensuring(Effect.ignore(fs.remove(schemaFile)))
     );
@@ -74,13 +74,13 @@ export const askCodex = Effect.fn("askCodex")(function* (options: {
   const text = events.findLast((e) => e.item?.type === "agent_message")?.item
     ?.text;
   if (text === undefined) {
-    return yield* new LabError({
+    return yield* new EvalsError({
       message: `codex exec gave no answer: ${output.slice(-500)}`,
     });
   }
   const structured = yield* Effect.try({
     catch: () =>
-      new LabError({
+      new EvalsError({
         message: `codex answered something else than JSON: ${text.slice(0, 500)}`,
       }),
     try: () => JSON.parse(text) as unknown,

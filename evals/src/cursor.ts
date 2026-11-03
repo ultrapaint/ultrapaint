@@ -5,7 +5,7 @@
  */
 import { Effect } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { LabError } from "./errors.ts";
+import { EvalsError } from "./errors.ts";
 
 const TIMEOUT = "25 minutes";
 
@@ -124,7 +124,7 @@ ${JSON.stringify(options.schema)}`;
         Effect.timeout(TIMEOUT),
         Effect.mapError(
           (cause) =>
-            new LabError({ message: `cursor-agent failed: ${String(cause)}` })
+            new EvalsError({ message: `cursor-agent failed: ${String(cause)}` })
         )
       );
     const result = parse(output) as
@@ -135,14 +135,14 @@ ${JSON.stringify(options.schema)}`;
         }
       | undefined;
     if (!result?.result || result.is_error) {
-      return yield* new LabError({
+      return yield* new EvalsError({
         message: `cursor-agent gave no answer: ${output.slice(-500)}`,
       });
     }
     const structured = parse(result.result);
     const wrong = misfit(structured, options.schema as JsonSchema, "answer");
     if (wrong) {
-      return yield* new LabError({
+      return yield* new EvalsError({
         message: `cursor-agent's answer: ${wrong}`,
       });
     }

@@ -6,13 +6,8 @@
 import path from "node:path";
 import { Effect, FileSystem } from "effect";
 import { Claude } from "./claude.ts";
-import {
-  briefFile,
-  captureDir,
-  listDir,
-  prompt,
-  referenceDir,
-} from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { listDir, prompt } from "./layout.ts";
 import {
   describeViewports,
   type LoadedReference,
@@ -30,16 +25,17 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
   reference: LoadedReference,
   options: { readonly force: boolean; readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const claude = yield* Claude;
-  const file = briefFile(reference.id);
+  const file = data.briefFile(reference.id);
   if ((yield* fs.exists(file)) && !options.force) {
     yield* Effect.log(
       `${reference.id}: has a brief (--force to write it again)`
     );
     return;
   }
-  const files = (yield* listDir(captureDir(reference.id))).map((name) =>
+  const files = (yield* listDir(data.captureDir(reference.id))).map((name) =>
     path.join("capture", name)
   );
   if (files.length === 0) {
@@ -47,7 +43,7 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
     return;
   }
   const answer = yield* claude.ask({
-    cwd: referenceDir(reference.id),
+    cwd: data.referenceDir(reference.id),
     model: options.model,
     prompt: yield* prompt("brief", {
       files: files.map((f) => `- ${f}`).join("\n"),

@@ -15,6 +15,7 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Claude } from "./claude.ts";
+import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
 import {
   type Judgement,
@@ -23,15 +24,7 @@ import {
   roundRuns,
   roundSkills,
 } from "./judge.ts";
-import {
-  fromData,
-  PROMPTS,
-  prompt,
-  RUNS,
-  readJson,
-  writeJson,
-  writeText,
-} from "./layout.ts";
+import { PROMPTS, prompt, readJson, writeJson, writeText } from "./layout.ts";
 import { readReview, scoreOf, type Verdict } from "./review.ts";
 
 const Gap = Schema.Struct({
@@ -165,8 +158,9 @@ export const report = Effect.fn("report")(function* (
   round: string,
   options: { readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const claude = yield* Claude;
-  const dir = path.join(RUNS, round);
+  const dir = path.join(data.runs, round);
   const info = yield* readJson(RoundInfo, path.join(dir, "round.json"));
   const skills = yield* roundSkills(round);
   const runs = yield* roundRuns(round);
@@ -462,5 +456,5 @@ export const report = Effect.fn("report")(function* (
     "",
   ];
   yield* writeText(path.join(dir, "report.md"), lines.join("\n"));
-  yield* Effect.log(`report: ${fromData(path.join(dir, "report.md"))}`);
+  yield* Effect.log(`report: ${data.fromData(path.join(dir, "report.md"))}`);
 });
