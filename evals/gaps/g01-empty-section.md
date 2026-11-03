@@ -2,7 +2,7 @@
 id: g01
 title: An empty section drawn as an empty page
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/states.md]
@@ -24,3 +24,6 @@ empty panel or page.
 row tall and isn't among the three heaviest things on a squint.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2, P4), not for want of a rule.

@@ -2,7 +2,7 @@
 id: g12
 title: Instructions as the empty state's header
 kind: missed
-status: open
+status: testing
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/restraint.md]
@@ -25,3 +25,6 @@ your own"), the longest text on the screen. The redesign made it longer.
 **Test.** Restyle tasks on screens with legacy copy: count instructional sentences left in.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2, P6).

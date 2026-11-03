@@ -2,7 +2,7 @@
 id: p07
 title: One rule's fix broke another, unchecked
 kind: process
-status: open
+status: testing
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [SKILL.md, references/hierarchy.md]
@@ -21,3 +21,5 @@ section. A fix that removes structure re-weighs what remains.
 **Test.** Restyle tasks: hierarchy findings before and after a second squint pass.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 11/16 (+2 partly), redesign-gaps 15/16 (+1 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)

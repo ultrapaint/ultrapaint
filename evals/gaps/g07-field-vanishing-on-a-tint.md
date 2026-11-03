@@ -2,7 +2,7 @@
 id: g07
 title: A filled field vanishing on a tinted frame
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/components.md]
@@ -25,3 +25,6 @@ translucent fill and a hairline.
 their ground.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule gave only partly (2 of 2); the captured picker has no fill at rest, only on hover, so check the capture against the person's picture first.

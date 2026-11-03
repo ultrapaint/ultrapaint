@@ -2,7 +2,7 @@
 id: g05
 title: Nested surfaces too close in tone
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/elevation.md]
@@ -28,3 +28,6 @@ where it meets its container.
 **Test.** Two-level sidebars, in dark and light. Have a person pick between tone steps.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 0/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no wording caught it: before the fix there is no nested surface for the rule to apply to; the depth the person asked for is a call about the card's structure.

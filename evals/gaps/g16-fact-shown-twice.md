@@ -2,7 +2,7 @@
 id: g16
 title: One fact shown twice on one screen
 kind: missed
-status: open
+status: testing
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/restraint.md]
@@ -24,3 +24,6 @@ not. The control that sets a value is where it is read."
 removed.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2).

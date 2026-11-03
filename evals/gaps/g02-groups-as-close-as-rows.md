@@ -2,7 +2,7 @@
 id: g02
 title: Groups as close as their rows
 kind: missed
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/spacing.md, references/patterns/navigation.md]
@@ -28,3 +28,6 @@ each list. Fail when the gap between groups is less than twice the gap within on
 each catches.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2 (+1 partly), redesign-gaps 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no wording caught it, even from 2× crops: it needs the measured check of the gaps between and within groups.

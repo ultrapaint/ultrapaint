@@ -2,7 +2,7 @@
 id: g06
 title: An inset panel drawing a double edge
 kind: missed
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/spacing.md]
@@ -23,3 +23,6 @@ can't be seen.
 **Test.** The same screens reviewed whole versus as 2× crops. Count the double edges found.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2 (+2 partly), redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate caught it 2/2 through G5's wording (an edge only where it meets its container); the shipped skill only partly.

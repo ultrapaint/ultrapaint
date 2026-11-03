@@ -2,7 +2,7 @@
 id: g03
 title: Every secondary text the same grey
 kind: missing
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/color.md, references/typography.md, references/components.md]
@@ -33,3 +33,6 @@ small grey as a count. In one region, muted text plays at most two roles.
 screenshot.
 
 **Result.**
+
+- `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
+- Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule took it from 0/2 to 2/2 (partly by construction); a held-out instance (Layers' canvas group label) is for the person to rate.
