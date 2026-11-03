@@ -36,7 +36,7 @@ import {
 } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
-import { screenPx, UNZOOM } from "./camera.ts";
+import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
@@ -583,20 +583,30 @@ const ResizeHandle = ({
 const HEADER_HEIGHT = 26;
 const HEADER_GAP = 6;
 
+/** The class of a header's first child, its name: cut short to the frame's width, as Figma does. */
+export const HEADER_NAME =
+  "pointer-events-auto min-w-0 max-w-full truncate leading-[26px] @max-[32px]:invisible";
+
 /**
  * What is said over a frame's top edge, a page's or a board's: its name and beside it what the
- * caller says, the same size and distance from the frame on screen at any zoom.
+ * caller says, the same size and distance from the frame on screen at any zoom, and never wider
+ * than the frame there (as Figma and tldraw have it), so zoomed out the names do not run into
+ * each other. The name (`HEADER_NAME`) is cut short with an ellipsis, and gone on a frame too
+ * narrow for one; what follows it shows only where it fits whole, as it wraps out of the one line.
  */
 export const FrameHeader = ({
   children,
   className,
+  width,
 }: {
   children: ReactNode;
   className?: string;
+  /** The frame's width, on the canvas. */
+  width: number;
 }) => (
   <div
     className={cn(
-      "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+      "@container pointer-events-none absolute left-0 flex flex-wrap items-center gap-x-2 overflow-hidden whitespace-nowrap *:pointer-events-auto",
       className
     )}
     style={{
@@ -604,6 +614,7 @@ export const FrameHeader = ({
       height: HEADER_HEIGHT,
       transform: UNZOOM,
       transformOrigin: "bottom left",
+      width: onScreen(width),
     }}
   >
     {children}
@@ -659,9 +670,11 @@ const FrameChrome = ({
         className={
           lit || holdsSelection ? "text-foreground" : "text-muted-foreground"
         }
+        width={frame.width}
       >
         <button
           className={cn(
+            HEADER_NAME,
             "cursor-pointer select-none font-body font-medium hover:text-foreground",
             lit && "text-brand hover:text-brand"
           )}
@@ -695,7 +708,7 @@ const FrameChrome = ({
           }}
         />
       ) : null}
-      {isNode ? null : <FramePresence pageId={frameId} />}
+      {isNode ? null : <FramePresence pageId={frameId} width={frame.width} />}
     </>
   );
 };

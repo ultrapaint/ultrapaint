@@ -10,7 +10,7 @@ import { useAgentActivityOf } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useProject } from "../state/project.ts";
-import { screenPx, UNZOOM } from "./camera.ts";
+import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 
 const VERBS: Record<AgentActivity["action"], string> = {
   editing: "editing",
@@ -23,7 +23,14 @@ const VERBS: Record<AgentActivity["action"], string> = {
  * The outline and label of an agent working on one page. Drawn inside the frame's own chrome, at
  * a constant size whatever the zoom, the way the page's name is.
  */
-export const FramePresence = ({ pageId }: { pageId: string }) => {
+export const FramePresence = ({
+  pageId,
+  width,
+}: {
+  pageId: string;
+  /** The page's width on the canvas: the label is no wider than the page on screen. */
+  width: number;
+}) => {
   const here = useAgentActivityOf((activity) =>
     activityOnPage(activity, pageId)
   );
@@ -40,19 +47,22 @@ export const FramePresence = ({ pageId }: { pageId: string }) => {
       />
       {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
       <div
-        className="absolute right-0 flex items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 font-body font-medium text-white"
+        className="absolute right-0 flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded px-1.5 py-0.5 font-body font-medium text-white"
         onContextMenu={(e) =>
           openMenuAt(e, { kind: "thread", threadId: here.threadId })
         }
         style={{
           backgroundColor: here.color,
           bottom: `calc(100% + ${screenPx(6)})`,
+          maxWidth: onScreen(width),
           transform: UNZOOM,
           transformOrigin: "bottom right",
         }}
       >
-        <span className="size-1.5 animate-pulse rounded-full bg-white/90" />
-        {name} · {VERBS[here.action]}
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-white/90" />
+        <span className="min-w-0 truncate">
+          {name} · {VERBS[here.action]}
+        </span>
       </div>
     </>
   );

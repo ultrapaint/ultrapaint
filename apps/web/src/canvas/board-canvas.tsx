@@ -67,6 +67,7 @@ import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import {
   commitText,
   FrameHeader,
+  HEADER_NAME,
   isInteractive,
   isSelecting,
   Marquee,
@@ -293,8 +294,10 @@ const BoardFrame = memo(
           width: box.width,
         }}
       >
-        <FrameHeader className="font-body">
-          <span className="font-medium text-foreground">{name}</span>
+        <FrameHeader className="font-body" width={box.width}>
+          <span className={cn(HEADER_NAME, "font-medium text-foreground")}>
+            {name}
+          </span>
           <span className="text-muted-foreground">{board.title}</span>
         </FrameHeader>
         <PreviewSurface

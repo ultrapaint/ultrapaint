@@ -46,6 +46,9 @@ export const screenPx = (n: number) => `calc(${n}px * var(--inv))`;
 /** Scales what is drawn in the zoomed layer back to its size on screen. */
 export const UNZOOM = "scale(var(--inv))";
 
+/** A length of the canvas as it is on screen, in what `UNZOOM` scales back to screen size. */
+export const onScreen = (n: number) => `calc(${n}px / var(--inv))`;
+
 /** How long after the view last moved it counts as resting. */
 const SETTLE_MS = 200;
 
