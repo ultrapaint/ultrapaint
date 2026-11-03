@@ -61,4 +61,3 @@ screen.
 | Outline icons extracted from a product that draws filled ones | The set's filled style |
 | Tinted or coloured badges carried over as variants | The neutral Badge, in their shape |
 | An extracted system never drawn | Build one screen from it and compare |
-| DESIGN.md's Overview without the character and its dials in one line | Write them (`references/character.md`) |

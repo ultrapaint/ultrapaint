@@ -17,7 +17,7 @@ When there is none yet, the product may still say it:
 
 - **A product to read** (its code, its pages, pictures of it, a Figma file): its look is the
   character. Read it off (`references/design-system/extract.md`, `references/design-system/figma.md`),
-  and write it down.
+  and write it down with its dials: the look sets every one.
 - **A picture to remake**: the picture is the brief. Its warmth, radius, density and face are
   the character, over any default here.
 - **A request that already says it**: who it is for and how it should feel ("a calm journaling
@@ -108,6 +108,7 @@ reason it was made.
 | The first node placed with no character settled | Read DESIGN.md; else the product, the picture or the request; else ask once |
 | A questionnaire put to the user | One question: decide from the request, or describe it |
 | A character chosen and not written in DESIGN.md | Its Overview and its tokens, before the next screen |
+| DESIGN.md's Overview without the dials in one line | One choice on each of the seven, read off the product or completed |
 | A character chosen and the user not told | Three lines: the face, the colours, the shape |
 | A default of the references kept over what the user said | The user's word |
 | An admin table with roomy `56px` rows and illustrations | Technical: compact, no imagery |

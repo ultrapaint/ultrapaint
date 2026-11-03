@@ -21,6 +21,10 @@ but not its dials.
   does not ask the user to run it, draws the job with the components the system has (or their
   parts), and says in its last message what Sync will bring in.
 - An extraction's finish check asks for the character and its dials in DESIGN.md's Overview.
+- Both live where every job reads them: the Sync rule in the router, the dials in `character.md`
+  (told with it). In the rounds that followed, extractions on Claude seldom opened `extract.md` or
+  `design-system/components.md`, and with the rules there they still asked for Sync and wrote no
+  dials.
 
 ## Consequences
 
