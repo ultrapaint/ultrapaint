@@ -70,6 +70,8 @@ cpSync(path.join(root, "apps", "web", "dist"), path.join(stage, "web"), {
   recursive: true,
 });
 
+cpSync(path.join(root, "LICENSE"), path.join(stage, "LICENSE"));
+
 writeFileSync(
   path.join(stage, "package.json"),
   `${JSON.stringify(
@@ -78,6 +80,7 @@ writeFileSync(
       description:
         "A design tool for teams that work with coding agents, run in the repository",
       engines: { node: ">=24" },
+      license: "AGPL-3.0-only",
       name: "ultrapaint",
       private: true,
       type: "module",
