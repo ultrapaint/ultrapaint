@@ -114,9 +114,9 @@ export const drawsDesigns = (request: TaskRequest): boolean => {
 };
 
 /**
- * Whether the task makes the design system, beside or before any page (ADR 0048): the
- * repository's imported, a Figma file's brought in, one defined. Its thread is told the design
- * skill's design-system part with the router, not left to find it.
+ * Whether the task makes the design system, beside or before any page (ADR 0048, 0049): the
+ * repository's imported, a Figma file's brought in or its tokens matched, one defined. Its thread
+ * is told the design skill's design-system part with the router, not left to find it.
  */
 export const designsTheSystem = (request: TaskRequest): boolean => {
   switch (request._tag) {
@@ -125,6 +125,8 @@ export const designsTheSystem = (request: TaskRequest): boolean => {
       return true;
     case "SetupStep":
       return request.step === "define";
+    case "Sync":
+      return request.source === "figma";
     default:
       return false;
   }

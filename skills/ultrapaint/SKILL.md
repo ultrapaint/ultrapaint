@@ -1,32 +1,32 @@
 ---
 name: ultrapaint
-description: "Ultrapaint's design rules. Use to design or review an interface: a screen, a page, a component's look, a design system."
+description: "Ultrapaint's design rules. Use to design or review an interface (a screen, a page, a component's look) or to make its design system: create one, extract it from a product's code or pictures, import it from Figma, build its components."
 ---
 
 # Ultrapaint
 
-How to design an interface well, as the people it is made for judge it. Character, hierarchy and
-restraint hold on every screen and are read with this file. Every other part of a design has its
-reference in `references/`.
+How to design an interface well, as the people it is made for judge it. There are two jobs:
+designing a screen or a page with the design system it is given, and making that design system.
+Character, hierarchy and restraint hold on every screen and are read with this file. Every other
+part has its reference in `references/`.
 
 A *screen* is a product's own interface: a dashboard, a form, settings. A *page* is public: a
 landing page, a shop, a portfolio, a magazine. A rule that names one holds for that one.
 
 ## On every screen
 
-- One sans for the interface, the product's own face and actually loaded: a neo-grotesque or
-  geometric (Inter, Geist), or a mono for a technical product. A serif only for a page's display
-  headlines, when the brand asks for one.
-- Neutrals are neutral or warm.
-- Two text colours, plainly apart: titles, names, values and labels in the foreground; hints,
-  descriptions, metadata and placeholders muted. A field's label is semibold.
-- A badge is neutral; only its dot or arrow takes a colour. A chart's series are named on the
-  chart.
+- Text in the design system's face and styles, never a size or a colour of its own. A serif only
+  for a page's display headlines.
+- Two text colours, plainly apart: titles, names, values and field labels in the foreground;
+  hints, descriptions, metadata and placeholders muted. A field label is semibold; control text
+  (navigation, tabs, buttons) medium.
+- A badge is the system's neutral Badge; a status adds a small coloured dot inside it. A chart's
+  series are named on the chart.
 - Groups sit on a quiet surface of their own; a control inside a sentence or a row is its text
   and a chevron.
 - Less is more: what the content already says is cut (restraint, below).
 
-## Steps
+## Designing a screen or page
 
 1. **Name the character**, technical, humanistic or expressive, from the design system and the
    brief (`references/character.md`). It sets the dials the other references leave open.
@@ -42,6 +42,15 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
    says its table holds. A screen with type, colour, spacing or a layout whose reference is not
    in that list is not finished.
 
+## Making the design system
+
+Creating one, reading one off a product's code or pictures, importing one from Figma, making or
+changing its components: read `references/design-system.md` and follow its steps. A screen that
+needs something the system lacks says so, and the system is changed by that job, not by the
+screen. A project with no design system yet (a theme that declares nothing) still gets a loaded
+face, warm or neutral greys and real scales: take the defaults of
+`references/design-system/foundations.md` before the first node, and say so.
+
 ## When the screen has one
 
 | It has | Read |
@@ -53,6 +62,5 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 | Words: headings, labels, buttons, errors, empty states | `references/content.md` |
 | Loading, empty, error and the other states | `references/states.md` |
 | The design system's components | `references/components.md` |
-| The design system itself: tokens, faces, components made or restyled | `references/design-system.md` |
 | An attached picture to make it from | `references/picture.md` |
 | Keyboard, screen reader, contrast, targets | `references/accessibility.md` |

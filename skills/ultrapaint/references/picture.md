@@ -39,7 +39,8 @@ drag handle at the top right, filters below the title or on its line as the pict
 - Icons: the same number, the same glyphs, the same style. Filled stays filled.
 - Fills: every strong fill is kept, a selected item in the brand colour, a dark featured card, a
   coloured button. None becomes a white card with a hairline.
-- Badges: the same kind, solid, tinted, outlined, neutral with a coloured dot, or a bare number.
+- Badges: the system's neutral Badge in the picture's case, radius and border, a coloured dot only
+  where the picture marks a status; a bare number stays a bare number.
 - Colours that tell things apart: each tag's hue, each step of a stepper, each category. None
   flattens to one grey.
 - Images: each one is there and loaded, and keeps the same kind. A photo stays a photo, and a screenshot stays the real interface, never a grey box. Each keeps the same crop, corner and frame, and the same treatment: a duotone, a greyscale logo strip, a scrim under text. An image that overhangs a band or bleeds off a tile still does, and none is boxed in a card of its own.
