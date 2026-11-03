@@ -28,6 +28,24 @@ export const Option = Schema.Struct({
   leads: Schema.optional(Schema.String),
 });
 
+/** A box drawn on a picture, in fractions of its width and height, with what it points at. */
+export const Mark = Schema.Struct({
+  /** Where its label goes: above by default, inside when the box is at the picture's top. */
+  at: Schema.optional(Schema.Literals(["above", "below", "right", "inside"])),
+  height: Schema.Number,
+  label: Schema.optional(Schema.String),
+  width: Schema.Number,
+  x: Schema.Number,
+  y: Schema.Number,
+});
+
+export const Picture = Schema.Struct({
+  caption: Schema.String,
+  marks: Schema.optional(Schema.Array(Mark)),
+  /** Its path from the data directory. */
+  src: Schema.String,
+});
+
 export const Card = Schema.Struct({
   /** What the card is about, in markdown: paragraphs, `- ` lists, **bold**, `code`. */
   body: Schema.optional(Schema.String),
@@ -35,10 +53,11 @@ export const Card = Schema.Struct({
   eyebrow: Schema.optional(Schema.String),
   id: Schema.String,
   options: Schema.Array(Option),
-  /** Pictures from the data directory, each with what it shows. */
-  pictures: Schema.optional(
-    Schema.Array(Schema.Struct({ caption: Schema.String, src: Schema.String }))
-  ),
+  /**
+   * Pictures from the data directory, each with what it shows and boxes around what the card
+   * asks about: a close-up of the item reads faster than a whole screen.
+   */
+  pictures: Schema.optional(Schema.Array(Picture)),
   /** The option the agent recommends, by its key. */
   recommend: Schema.optional(Schema.String),
   title: Schema.String,
