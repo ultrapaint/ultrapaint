@@ -376,6 +376,13 @@ export const judge = Effect.fn("judge")(function* (
   );
 });
 
+/** A run's `judge.json`: the judgement, and what it cost when that was recorded. */
+const JudgeFile = Schema.Struct({
+  ...Judgement.fields,
+  costUsd: Schema.optional(Schema.Number),
+});
+export type JudgeFile = typeof JudgeFile.Type;
+
 /** A run's judgement, when it has one. */
 export const readJudgement = (dir: string) =>
-  readJson(Judgement, path.join(dir, "judge.json"));
+  readJson(JudgeFile, path.join(dir, "judge.json"));
