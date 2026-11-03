@@ -15,6 +15,7 @@
     "dev": "node --experimental-strip-types scripts/dev-runner.ts",
     "dev:server": "pnpm -F @ultrapaint/server dev",
     "dev:web": "pnpm -F @ultrapaint/web dev",
+    "evals": "node evals/src/cli.ts",
     "format": "ultracite fix",
     "install:cli": "mkdir -p \"$HOME/.local/bin\" && ln -sf \"$PWD/scripts/cli.ts\" \"$HOME/.local/bin/ultrapaint\" && echo \"ultrapaint -> $HOME/.local/bin/ultrapaint (make sure that directory is on your PATH)\"",
     "lint": "ultracite check",
