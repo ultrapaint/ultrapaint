@@ -201,7 +201,7 @@ describe("the editor's requests on a project", () => {
           event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
         assert.include(ids, "listed-twice.page.json");
         for (const id of ["listed-once.page.json", "listed-twice.page.json"]) {
-          yield* client["pages.delete"]({ id });
+          yield* client["pages.delete"]({ ids: [id] });
         }
       })
   );
@@ -224,7 +224,7 @@ describe("the editor's requests on a project", () => {
           ? (state.root.children ?? [])
           : [];
       assert.deepInclude(title, { role: "heading", text: "Welcome back" });
-      yield* client["pages.delete"]({ id: page.id });
+      yield* client["pages.delete"]({ ids: [page.id] });
     })
   );
 
@@ -266,7 +266,7 @@ describe("the editor's requests on a project", () => {
           route: null,
         });
         assert.isUndefined(none.route);
-        yield* client["pages.delete"]({ id: page.id });
+        yield* client["pages.delete"]({ ids: [page.id] });
         const layout = yield* client["canvas.get"]({ canvas: "" });
         assert.notProperty(layout.routes ?? {}, page.path);
       }),
@@ -809,7 +809,7 @@ describe("the editor's requests on a project", () => {
         name: "Undo me",
         route: "/undo-me",
       });
-      yield* client["pages.delete"]({ id: page.id });
+      yield* client["pages.delete"]({ ids: [page.id] });
       assert.notInclude(
         (yield* client["pages.list"]()).pages.map((p) => p.id),
         page.id
@@ -825,6 +825,26 @@ describe("the editor's requests on a project", () => {
       );
       assert.strictEqual(gone._tag, "NotFound");
     })
+  );
+
+  inProject(
+    "deletes several pages as one step, which one undo brings back",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const one = yield* client["pages.create"]({ canvas: "", name: "One" });
+        const two = yield* client["pages.create"]({ canvas: "", name: "Two" });
+        yield* client["pages.delete"]({ ids: [one.id, two.id] });
+        const ids = () =>
+          Effect.map(client["pages.list"](), (list) =>
+            list.pages.map((p) => p.id)
+          );
+        assert.notInclude(yield* ids(), one.id);
+        assert.notInclude(yield* ids(), two.id);
+        const undone = yield* client["edit.undo"]();
+        assert.strictEqual(undone?.label, "Delete 2 pages");
+        assert.includeMembers(yield* ids(), [one.id, two.id]);
+      })
   );
 
   inProject(
@@ -1005,7 +1025,7 @@ describe("the editor's requests on a project", () => {
         });
         assert.strictEqual(copy.id, "start-2@bold.page.json");
         assert.strictEqual(copy.variant, "bold");
-        yield* client["pages.delete"]({ id: copy.id });
+        yield* client["pages.delete"]({ ids: [copy.id] });
         yield* client["pages.rename"]({
           id: "start.page.json",
           name: "Home",
@@ -1153,7 +1173,7 @@ describe("the editor's requests on a project", () => {
         yield* client["comments.create"](commentOn("", variant.path, "Bolder"));
         yield* client["comments.create"](commentOn("", HOME, "Stays"));
 
-        yield* client["pages.delete"]({ id: page.id });
+        yield* client["pages.delete"]({ ids: [page.id] });
         const ids = (yield* client["pages.list"]()).pages.map((p) => p.id);
         assert.notInclude(ids, page.id);
         assert.notInclude(ids, variant.id);
@@ -1305,7 +1325,7 @@ describe("the editor's requests on a project", () => {
         });
         const state = yield* client["documents.get"]({ doc: headed.id });
         assert.notInclude(JSON.stringify(state.root), '"link"');
-        yield* client["pages.delete"]({ id: headed.id });
+        yield* client["pages.delete"]({ ids: [headed.id] });
       })
   );
 

@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/native-select";
 import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
 import { cellId, placeOfCell } from "../boards/pick.ts";
-import { confirmDialog } from "../components/dialogs.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
@@ -96,14 +95,8 @@ const partsOf = (name: string) =>
     name: s.name,
   })) ?? [{ label: "The component", name: ROOT_SLOT }];
 
-/** Removes a component's file, once confirmed; true when it went. */
-export const removeComponent = async (
-  name: string,
-  confirm: { confirmLabel: string; description: string; title: string }
-) => {
-  if (!(await confirmDialog(confirm))) {
-    return false;
-  }
+/** Removes a component's file, without asking: one undo step brings it back. True when it went. */
+export const removeComponent = async (name: string) => {
   try {
     await api().request("components.remove", { name });
     return true;
@@ -641,13 +634,7 @@ export const SystemMenu = ({ name }: { name: string }) => {
         </DropdownMenuItem>
         {file ? (
           <DropdownMenuItem
-            onClick={() =>
-              removeComponent(name, {
-                confirmLabel: "Reset",
-                description: `${name} is drawn in its default look again; its behaviour notes go with its file.`,
-                title: `Reset ${name} to its default look?`,
-              })
-            }
+            onClick={() => removeComponent(name)}
             variant="destructive"
           >
             <RotateCcw />

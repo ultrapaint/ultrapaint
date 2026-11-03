@@ -200,7 +200,7 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
         assert.include(clash.message, "variant");
 
         // Deleting the state leaves the page; deleting the page takes the state along.
-        yield* client["pages.delete"]({ id: empty.id });
+        yield* client["pages.delete"]({ ids: [empty.id] });
         const after = (yield* client["pages.list"]()).pages.map((p) => p.id);
         assert.include(after, HOME);
         assert.notInclude(after, empty.id);
@@ -668,7 +668,7 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
             path.join(repo, "designs/_implemented/basket.implemented.json")
           )
         );
-        yield* client["pages.delete"]({ id: renamed.id });
+        yield* client["pages.delete"]({ ids: [renamed.id] });
         const linked = JSON.parse(
           yield* fs.readFileString(
             path.join(repo, "designs/implementation.json")

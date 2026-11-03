@@ -41,7 +41,7 @@ describe("a canvas's home", () => {
         yield* pages((p) => p.setRoute("pricing.page.json", "/plans"));
         assert.strictEqual(yield* homeOf, "/plans");
         // The page goes: the canvas opens on the first URL another page serves.
-        yield* pages((p) => p.delete("pricing.page.json"));
+        yield* pages((p) => p.delete(["pricing.page.json"]));
         assert.strictEqual(yield* homeOf, "/home");
         assert.strictEqual(
           (yield* pages((p) => p.readCanvas(""))).home,

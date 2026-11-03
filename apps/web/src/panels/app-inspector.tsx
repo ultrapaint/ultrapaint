@@ -81,11 +81,7 @@ export const AppMenu = ({ name }: { name: string }) => (
       </DropdownMenuItem>
       <DropdownMenuItem
         onClick={async () => {
-          const removed = await removeComponent(name, {
-            confirmLabel: "Delete",
-            description: `Its tree goes with it; pages that use ${name} show it missing.`,
-            title: `Delete the ${name} component?`,
-          });
+          const removed = await removeComponent(name);
           if (removed) {
             openBoard({ item: OVERVIEW, view: "library" }, "replace");
           }

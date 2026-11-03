@@ -27,6 +27,7 @@ import {
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
+import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import { showLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { surfaceNow } from "../state/surface.ts";
@@ -52,6 +53,7 @@ import {
 } from "./node-actions.ts";
 import {
   deleteCanvasPicks,
+  deletePages,
   goToPage,
   newPage,
   zoomToPage,
@@ -562,10 +564,17 @@ const keyOnlyCommands = (): CommandSpec[] => [
     id: "delete",
     keys: ["backspace"],
     offered: keyOnly,
-    // Frames picked together on the canvas go together, once the user says so.
+    // Frames picked together on the canvas go together, and a page selected by its name goes
+    // with its file: undo brings any of them back, so nothing asks first.
     run: () => {
       if (useCanvasPicks.getState().ids.length > 1) {
         deleteCanvasPicks();
+        return true;
+      }
+      const { selectedPage, selection } = editor();
+      const page = selectedPage ? pageOfRef(frameRefOf(selectedPage)) : null;
+      if (!selection && page) {
+        deletePages([page]);
         return true;
       }
       return toSelection(() => deleteSelection())();

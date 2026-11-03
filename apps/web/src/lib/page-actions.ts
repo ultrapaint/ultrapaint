@@ -15,7 +15,6 @@ import { goTo } from "../state/location.ts";
 import { setPreset } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
-import { linksToPage } from "./links.ts";
 import { deleteNodes } from "./node-actions.ts";
 import { reveal } from "./reveal.ts";
 import { startTask } from "./start-thread.ts";
@@ -138,34 +137,20 @@ export const duplicatePage = (page: Page) => {
   }
 };
 
-/** What deleting a page takes with it: its file, and where the links to it lead. */
-const deleteDescription = (page: Page) => {
-  const links = linksToPage(page);
-  const file = "The page file is removed from the designs directory.";
-  if (links === 0) {
-    return file;
-  }
-  return `${file} ${links === 1 ? "One link leads" : `${links} links lead`} to it, and will lead nowhere.`;
-};
-
-export const deletePage = async (page: Page) => {
-  if (!ensureEditable()) {
+/**
+ * Deletes the pages, their variants and states with a base page, without asking: one undo step
+ * brings them all back, with their comments, frames and URLs.
+ */
+export const deletePages = (ids: readonly string[]) => {
+  if (ids.length === 0 || !ensureEditable()) {
     return;
   }
-  const ok = await confirmDialog({
-    confirmLabel: "Delete",
-    description: deleteDescription(page),
-    destructive: true,
-    title: `Delete ${page.name}?`,
-  });
-  if (ok) {
-    api().request("pages.delete", { id: page.id }).catch(reportError);
-  }
+  api().request("pages.delete", { ids }).catch(reportError);
 };
 
 /**
- * Deletes the frames picked together on the canvas (`canvas-picks.ts`), once the user says so:
- * the pages' files and the nodes placed on the canvas.
+ * Deletes the frames picked together on the canvas (`canvas-picks.ts`): the pages' files, one
+ * undo step, and the nodes placed on the canvas, another.
  */
 export const deleteCanvasPicks = async () => {
   const { ids } = useCanvasPicks.getState();
@@ -177,30 +162,8 @@ export const deleteCanvasPicks = async () => {
     const ref = frameRefOf(id);
     return ref.kind === "node" ? [{ frame: id, nodeId: ref.node }] : [];
   });
-  const counted = (n: number, one: string, many: string) =>
-    `${n} ${n === 1 ? one : many}`;
-  const what = [
-    pages.length > 0 ? counted(pages.length, "page", "pages") : null,
-    nodes.length > 0 ? counted(nodes.length, "layer", "layers") : null,
-  ]
-    .filter(Boolean)
-    .join(" and ");
-  const ok = await confirmDialog({
-    confirmLabel: "Delete",
-    description:
-      pages.length > 0
-        ? "The page files are removed from the designs directory, and links to them will lead nowhere."
-        : "The layers are removed from the canvas.",
-    destructive: true,
-    title: `Delete ${what}?`,
-  });
-  if (!ok) {
-    return;
-  }
   clearCanvasPicks();
-  for (const id of pages) {
-    api().request("pages.delete", { id }).catch(reportError);
-  }
+  deletePages(pages);
   if (nodes.length > 0) {
     await deleteNodes(nodes);
   }

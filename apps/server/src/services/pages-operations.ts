@@ -14,7 +14,7 @@ import {
 } from "@ultrapaint/contracts/canvas-layout";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
-import { emptyCanvasLayout } from "@ultrapaint/contracts/pages";
+import { emptyCanvasLayout, type Page } from "@ultrapaint/contracts/pages";
 import {
   pageTemplates,
   renderTemplate,
@@ -34,6 +34,38 @@ import type { CommentsService } from "./comments.ts";
 import type { NewPage } from "./pages.ts";
 import { makePageMoves } from "./pages-moves.ts";
 import type { PagesReading } from "./pages-reading.ts";
+
+/**
+ * The pages deleting `asked` takes, each once, the first asked for first: a base page's variants
+ * and states are drawings of it, and would be left serving nothing.
+ */
+const goingWith = (pages: readonly Page[], asked: readonly Page[]) => {
+  const going = new Map<string, Page>();
+  for (const page of asked) {
+    const base = page.variant === undefined && page.state === undefined;
+    const family = base
+      ? familyOf(pages, page).filter((p) => p.id !== page.id)
+      : [];
+    for (const p of [page, ...family]) {
+      going.set(p.id, p);
+    }
+  }
+  return [...going.values()];
+};
+
+/** The undo step's name: the page, or how many, and the drawings that went with them. */
+const deleteLabel = (asked: readonly Page[], gone: readonly Page[]) => {
+  const [first] = asked;
+  const what =
+    asked.length === 1 && first ? first.name : `${asked.length} pages`;
+  const drawings = [
+    gone.some((p) => p.variant !== undefined) ? "variants" : null,
+    gone.some((p) => p.state !== undefined) ? "states" : null,
+  ].filter(Boolean);
+  return drawings.length > 0
+    ? `Delete ${what} and ${asked.length === 1 ? "its" : "their"} ${drawings.join(" and ")}`
+    : `Delete ${what}`;
+};
 
 export const makePageOperations = (
   reading: PagesReading,
@@ -415,34 +447,25 @@ export const makePageOperations = (
     return yield* toPage(drawn.page.canvas, drawn.statePath, drawn.target);
   });
 
-  const remove = Effect.fn("PagesService.delete")(function* (id: string) {
+  const remove = Effect.fn("PagesService.delete")(function* (
+    ids: readonly string[]
+  ) {
     const removed = yield* edit.transaction("Delete a page", (tx) =>
       Effect.gen(function* () {
         const all = yield* list;
-        const { page } = yield* byId(id, all);
-        // A base page's variants and states are drawings of it: they would be left serving
-        // nothing.
-        const base = page.variant === undefined && page.state === undefined;
-        const going = base
-          ? [page, ...familyOf(all.pages, page).filter((p) => p.id !== page.id)]
-          : [page];
-        const drawings = [
-          going.some((p) => p.variant !== undefined) ? "variants" : null,
-          going.some((p) => p.state !== undefined) ? "states" : null,
-        ].filter(Boolean);
-        yield* tx.name(
-          drawings.length > 0
-            ? `Delete ${page.name} and its ${drawings.join(" and ")}`
-            : `Delete ${page.name}`
+        const asked = yield* Effect.forEach(ids, (id) =>
+          Effect.map(byId(id, all), (found) => found.page)
         );
-        // Its comments, frame, URL and link to the code go with it, and come back with it on
-        // undo.
+        const gone = goingWith(all.pages, asked);
+        yield* tx.name(deleteLabel(asked, gone));
+        // Their comments, frames, URLs and links to the code go with them, and come back with
+        // them on undo.
         yield* movePages(
           tx,
           all,
-          going.map((p) => ({ page: p, to: null }))
+          gone.map((p) => ({ page: p, to: null }))
         );
-        return going;
+        return gone;
       })
     );
     yield* publishList;

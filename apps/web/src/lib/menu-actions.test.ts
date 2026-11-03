@@ -633,14 +633,14 @@ describe("a page's menu", () => {
       { input: { id: HOME }, method: "pages.duplicate" },
       { input: { id: HOME, route: null }, method: "pages.setRoute" },
       { input: { id: HOME, route: "/start" }, method: "pages.setRoute" },
-      { input: { id: HOME }, method: "pages.delete" },
+      { input: { ids: [HOME] }, method: "pages.delete" },
     ]);
   });
 
-  it("leaves the page when a deletion is not confirmed", async () => {
+  it("deletes the page without asking: undo brings it back", async () => {
     answers.confirm = false;
     await choose(homePage, { kind: "delete" });
-    expect(sent("pages.delete")).toEqual([]);
+    expect(sent("pages.delete")).toEqual([{ ids: [HOME] }]);
   });
 
   it("sets the page's viewport", async () => {

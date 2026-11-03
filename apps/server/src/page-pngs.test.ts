@@ -103,7 +103,9 @@ describe("page PNGs", () => {
         assert.notStrictEqual(yield* keyOf("home.page.png"), key);
 
         // The page goes: its PNG goes with it, and the one we did not write stays.
-        yield* project(Effect.flatMap(PagesService, (p) => p.delete(other.id)));
+        yield* project(
+          Effect.flatMap(PagesService, (p) => p.delete([other.id]))
+        );
         const fourth = yield* refresh;
         assert.deepStrictEqual(fourth.removed, ["designs/other.page.png"]);
         assert.isTrue(yield* fs.exists(path.join(designs, "logo.page.png")));
