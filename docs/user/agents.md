@@ -46,9 +46,10 @@ your design system offers for it — a component's own variants, the text styles
 radius and spacing tokens — and a button that adds it to the chat. Shift-click or draw a marquee to
 select several, and set what they share at once. Paste an image into the chat's box (a screenshot,
 or image files copied) and it goes with your next message as a picture. What you send while an agent works waits in the
-thread and goes when its turn ends. Right-click an element to copy
-a link that opens the editor on it, or its ID (`/orders#c_8x2k1q`), which an agent takes to find
-it.
+thread and goes when its turn ends. Right-click an element or a page's name (or press ⌘K, **Copy
+link to the selection**) to copy a link to it: it opens the editor on it, and an agent takes it to
+find it, in the editor's chat or outside it, where the editor's MCP tools take it too. An
+element's ID (`/orders#c_8x2k1q`) does the same in fewer characters.
 
 It saves the agent from reading the repository to find out what the editor already knows. On four
 tasks with the model pinned, two runs each, that was 32 tool calls on average without any of it,

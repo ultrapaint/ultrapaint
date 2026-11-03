@@ -169,6 +169,19 @@ describe("pageTargetNamed", () => {
     [orders.id, { _tag: "Page", page: orders }],
     ["/orders#c_8", { _tag: "Page", nodeId: "c_8", page: orders }],
     ["canvas#c_1", { _tag: "Loose", nodeId: "c_1" }],
+    // Links the editor copies: to a page, to a node, to a page without a URL by its id.
+    [
+      "http://localhost:4643/?canvas=marketing&route=/pricing",
+      { _tag: "Page", page: marketing },
+    ],
+    [
+      "http://localhost:4643/?route=/orders&node=c_8",
+      { _tag: "Page", nodeId: "c_8", page: orders },
+    ],
+    [
+      "http://localhost:4643/?page=sketch.page.json&node=c_2",
+      { _tag: "Page", nodeId: "c_2", page: sketch },
+    ],
     ["Button", { _tag: "Missing", route: null }],
     ["marketing:/nowhere", { _tag: "Missing", route: "/nowhere" }],
   ] as const)("names %j as %j", (name, expected) => {

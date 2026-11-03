@@ -170,7 +170,11 @@ refactor and the board view left.
   their titles and summaries with where each is read whole (`SkillsTold`); the slash commands are
   MCP prompts too.
 - **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
-  canvas beside the pages, or a node of either, by route, file or node reference (`where`).
+  canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
+  (`where`).
+- **Editor link**: the editor's URL to a page or to a node of it (`…?canvas=redesign&route=/vibe&node=c_1`,
+  `page=` for a page without a URL), which the editor copies (`linkToNode`) and opens on it, and
+  which agents take wherever a node reference is taken (shared's `parseEditorLink`).
 - **Tool kind**: whether an MCP tool reads, edits or takes something away, and whether doing it
   twice is doing it once (`doing`), which sets its hints; the editor is a closed world. A tool
   answered with a picture or a form is a **raw tool** (`rawTool`), decoded and failed the same

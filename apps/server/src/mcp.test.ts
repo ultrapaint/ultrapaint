@@ -1233,6 +1233,15 @@ describe("where a tool works, named by a node reference (ADR 0018)", () => {
     })
   );
 
+  inAProject("reads the node a link copied from the editor names", () =>
+    Effect.gen(function* () {
+      const { document } = yield* tool("read_page", {
+        route: "http://localhost:4643/?route=/home&node=heading",
+      });
+      assert.strictEqual((document as { id: string }).id, "heading");
+    })
+  );
+
   inAProject("shows the nodes a reference names, in focus", () =>
     Effect.gen(function* () {
       const events = yield* EventBus;

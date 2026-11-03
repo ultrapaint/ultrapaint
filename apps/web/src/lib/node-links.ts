@@ -1,11 +1,12 @@
 /**
- * A node's link and its reference, from its menu. The link opens the editor on the node's page
- * with the node selected and in view; the reference (`/orders#c_8x2k1q`) is what an agent, or the
- * editor's MCP tools, take to find it.
+ * A node's or a page's link and a node's reference, from their menus and the commands. The link
+ * opens the editor on the page with the node selected and in view; an agent, or the editor's MCP
+ * tools, take the link as they take the reference (`/orders#c_8x2k1q`) to find it.
  */
+import type { Page } from "@ultrapaint/contracts/pages";
 import { formatNodeRef, type NodeRef } from "@ultrapaint/shared/node-ref";
 import { toast } from "sonner";
-import type { Selection } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { linkToNode } from "../state/url.ts";
 
@@ -16,7 +17,8 @@ import { linkToNode } from "../state/url.ts";
 const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
   const { pages } = useProject.getState();
   const page = pages.find((p) => p.id === target.frame);
-  const canvas = page?.canvas ?? "";
+  // A node beside the pages is on the canvas open.
+  const canvas = page?.canvas ?? useEditor.getState().canvas ?? "";
   return {
     canvas,
     nodeId: target.nodeId,
@@ -28,6 +30,30 @@ const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
 const writeClipboard = async (text: string) => {
   await navigator.clipboard.writeText(text);
 };
+
+/** Copies `link`, and says what it does, with a button that opens it. */
+const copyLink = async (link: string) => {
+  try {
+    await writeClipboard(link);
+    toast.success("Link copied", {
+      action: { label: "Open", onClick: () => window.open(link, "_blank") },
+      description:
+        "It opens the editor on it, and an agent finds it by it, in the editor or outside.",
+    });
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/** Copies the link to a page: the editor opens on it, and an agent's tools take it. */
+export const copyPageLink = (page: Page) =>
+  copyLink(
+    linkToNode({
+      canvas: page.canvas,
+      page: page.route === undefined ? page.id : null,
+      route: page.route ?? null,
+    })
+  );
 
 export const copyNodeRef = async (target: Selection) => {
   const ref = refOfSelection(target);
@@ -47,19 +73,12 @@ export const copyNodeRef = async (target: Selection) => {
 
 export const copyNodeLink = async (target: Selection) => {
   const page = useProject.getState().pages.find((p) => p.id === target.frame);
-  const link = linkToNode({
-    canvas: refOfSelection(target).canvas,
-    nodeId: target.nodeId,
-    page: page?.route === undefined ? (page?.id ?? null) : null,
-    route: page?.route ?? null,
-  });
-  try {
-    await writeClipboard(link);
-    toast.success("Link copied", {
-      action: { label: "Open", onClick: () => window.open(link, "_blank") },
-      description: "It opens the editor with this element selected.",
-    });
-  } catch (error) {
-    reportError(error);
-  }
+  await copyLink(
+    linkToNode({
+      canvas: refOfSelection(target).canvas,
+      nodeId: target.nodeId,
+      page: page?.route === undefined ? (page?.id ?? null) : null,
+      route: page?.route ?? null,
+    })
+  );
 };

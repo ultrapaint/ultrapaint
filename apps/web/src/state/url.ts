@@ -102,12 +102,14 @@ export const clearNodeParam = () =>
   writeQuery((params) => params.delete("node"), false);
 
 /**
- * A link to a node, as the editor's own URL: its canvas, its page's route or the page itself when
- * it has none (neither for a node on the canvas beside the pages), and the node, which the editor
+ * A link to a page or a node of it, as the editor's own URL: its canvas, its page's route (`/`
+ * written too, so a node of the home page is not one beside the pages) or the page itself when it
+ * has none (neither for a node on the canvas beside the pages), and the node, which the editor
  * selects and brings into view. A board view open is no part of it: the link leads to the page.
+ * Agents take it as they take a node reference (`parseEditorLink`), inside the editor or outside.
  */
 export const linkToNode = (target: {
-  nodeId: string;
+  nodeId?: string;
   page?: string | null;
   route: string | null;
   canvas: string;
@@ -118,7 +120,7 @@ export const linkToNode = (target: {
   if (target.canvas) {
     params.set("canvas", target.canvas);
   }
-  if (target.route && target.route !== "/") {
+  if (target.route) {
     params.set("route", target.route);
   } else if (!target.route && target.page) {
     params.set("page", target.page);
@@ -126,7 +128,9 @@ export const linkToNode = (target: {
   if (mode) {
     params.set("mode", mode);
   }
-  params.set("node", target.nodeId);
+  if (target.nodeId) {
+    params.set("node", target.nodeId);
+  }
   return `${url.origin}${url.pathname}?${params.toString()}`;
 };
 

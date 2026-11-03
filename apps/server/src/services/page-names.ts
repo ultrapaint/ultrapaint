@@ -15,7 +15,7 @@
  * answer to (`/` in each) is ambiguous, rather than whichever was listed first.
  */
 import { COMPONENT_TARGET_PREFIX } from "@ultrapaint/contracts/implementation";
-import { parseNodeRef } from "@ultrapaint/shared/node-ref";
+import { parseEditorLink, parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
 /** What a page needs for its name to be read. */
@@ -90,7 +90,7 @@ type PageTargetNamed<P> =
 /**
  * Which page a name means, as an agent writes it: by `pageNamed`'s rule, a canvas written first
  * included (`marketing:/pricing`), and a node reference (`/orders#c_8`) names its page and keeps
- * its node. The canvas given narrows the pages, over one the name says.
+ * its node; a link the editor copies, to a page or to a node, is read as either. The canvas given narrows the pages, over one the name says.
  */
 export const pageTargetNamed = <P extends NamedPage>(
   pages: readonly P[],
@@ -104,9 +104,15 @@ export const pageTargetNamed = <P extends NamedPage>(
       ? { _tag: "Loose", nodeId: ref.nodeId }
       : { _tag: "Loose", canvas: ref.canvas, nodeId: ref.nodeId };
   }
-  const inCanvas = ref ? null : IN_CANVAS_RE.exec(where);
-  const page = ref?.page ?? inCanvas?.[2] ?? where;
-  const found = pageNamed(pages, page, canvas ?? ref?.canvas ?? inCanvas?.[1]);
+  // A link the editor copies to a page names it by its URL or id, in its canvas.
+  const link = ref ? null : parseEditorLink(where);
+  const inCanvas = ref || link ? null : IN_CANVAS_RE.exec(where);
+  const page = ref?.page ?? link?.page ?? inCanvas?.[2] ?? where;
+  const found = pageNamed(
+    pages,
+    page,
+    canvas ?? ref?.canvas ?? link?.canvas ?? inCanvas?.[1]
+  );
   if (found._tag !== "Found") {
     return found;
   }

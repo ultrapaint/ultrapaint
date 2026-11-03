@@ -9,6 +9,9 @@
 - `docs/TESTING.md`: how tests are written. Read it before writing one.
 - `skills/ultrapaint/`: the design skill agents are told. Its `README.md` says how it is built
   into the server.
+- A link the editor copies (`…?canvas=redesign&route=/vibe&node=c_1`, `page=` for a page without
+  a URL) names node `c_1` of that page, in `docs/designs/<canvas>/`; the editor's MCP tools take
+  it as they take `/vibe#c_1`.
 
 A change is done when `pnpm typecheck`, `pnpm test` and `pnpm lint` pass (`pnpm format` fixes
 what lint can). Its commit message is `type: ` and the behaviour as it now is, in one sentence,

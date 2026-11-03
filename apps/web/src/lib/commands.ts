@@ -51,6 +51,7 @@ import {
   setLocked,
   wrapSelection,
 } from "./node-actions.ts";
+import { copyNodeLink, copyPageLink } from "./node-links.ts";
 import {
   deleteCanvasPicks,
   deletePages,
@@ -184,6 +185,24 @@ interface Shortcut {
 }
 
 const editor = () => useEditor.getState();
+
+/** The page selected as a whole, by its name on the canvas; null for a node or nothing. */
+const selectedPageOf = () => {
+  const { selectedPage } = editor();
+  const id = selectedPage ? pageOfRef(frameRefOf(selectedPage)) : null;
+  return useProject.getState().pages.find((p) => p.id === id) ?? null;
+};
+
+/** Copies the link to the node selected, or to the page selected as a whole. */
+const copySelectionLink = () => {
+  const { selection } = editor();
+  const page = selectedPageOf();
+  if (selection) {
+    copyNodeLink(selection);
+  } else if (page) {
+    copyPageLink(page);
+  }
+};
 const onCanvas = () => editor().workspace === "design";
 /** A key that acts on what is selected or pressed in: the palette has nothing to run. */
 const keyOnly = () => false;
@@ -533,6 +552,15 @@ const keyOnlyCommands = (): CommandSpec[] => [
   },
   {
     group: "Selection",
+    id: "copyLink",
+    keywords: "share url reference agent",
+    offered: () =>
+      onCanvas() && (editor().selection !== null || selectedPageOf() !== null),
+    run: copySelectionLink,
+    title: "Copy link to the selection",
+  },
+  {
+    group: "Selection",
     id: "wrap:group",
     keys: ["mod+g"],
     offered: keyOnly,
@@ -571,10 +599,9 @@ const keyOnlyCommands = (): CommandSpec[] => [
         deleteCanvasPicks();
         return true;
       }
-      const { selectedPage, selection } = editor();
-      const page = selectedPage ? pageOfRef(frameRefOf(selectedPage)) : null;
-      if (!selection && page) {
-        deletePages([page]);
+      const page = selectedPageOf();
+      if (!editor().selection && page) {
+        deletePages([page.id]);
         return true;
       }
       return toSelection(() => deleteSelection())();

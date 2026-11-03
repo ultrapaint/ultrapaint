@@ -385,6 +385,7 @@ export type PageAction =
   | { kind: "markImplemented" }
   | { kind: "unlink" }
   | { kind: "comment" }
+  | { kind: "copyLink" }
   | { kind: "delete" };
 
 interface PageFacts {
@@ -535,8 +536,9 @@ export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
     separator,
     ...codeEntries(f),
     f.onCanvas && item({ kind: "comment" }, "Add a comment"),
+    item({ kind: "copyLink" }, "Copy link to page"),
     separator,
-    item({ kind: "delete" }, "Delete page…", { destructive: true }),
+    item({ kind: "delete" }, "Delete page", { destructive: true }),
   ]);
 };
 
