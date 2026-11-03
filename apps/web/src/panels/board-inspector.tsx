@@ -24,6 +24,7 @@ import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
 import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
+import { HideRightPanel } from "../components/title-bar.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { Swatch } from "../lib/token-options.tsx";
 import {
@@ -277,6 +278,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
         </div>
         {chip ? <BoardChatButton chip={chip} /> : null}
         <HeaderMenu kind={kind} open={open} picked={picked} />
+        <HideRightPanel />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <InspectedKey.Provider
