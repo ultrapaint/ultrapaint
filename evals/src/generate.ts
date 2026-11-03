@@ -125,7 +125,7 @@ export interface GenerateOptions {
   readonly prompt?: string | undefined;
   readonly round: string;
   readonly runs: number;
-  /** A directory of skill files, relative to the lab, or none for the shipped skills. */
+  /** A directory of skill files, relative to the data directory, or none for the shipped skills. */
   readonly skills: string | undefined;
 }
 

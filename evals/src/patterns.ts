@@ -285,7 +285,7 @@ const download = Effect.fn("download")(function* (url: string, file: string) {
   if (yield* fs.exists(file)) {
     return;
   }
-  // A picture already on this machine: a file of the lab's own corpus.
+  // A picture already on this machine: a file of the data directory's own corpus.
   if (path.isAbsolute(url)) {
     return yield* fs.copyFile(url, file);
   }

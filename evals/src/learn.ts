@@ -53,7 +53,7 @@ const learnedSchema = {
 export const learnedAnswer = { decode: Learned, schema: learnedSchema };
 
 const LEADING_SLASH = /^\//;
-/** A picture's path from the lab, as the viewer's URL names it. */
+/** A picture's path from the data directory, as the viewer's URL names it. */
 const fromUrl = (src: string) => src.replace(LEADING_SLASH, "");
 
 export const learn = Effect.fn("learn")(function* (
