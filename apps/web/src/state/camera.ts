@@ -83,6 +83,9 @@ const cancelPendingView = () => {
 /** A move of the camera on its way, and where it goes. */
 let flight: { frame: number; to: View } | null = null;
 
+/** A mouse wheel's notches gliding there, and the zoom they go to. */
+let notchGlide: { frame: number; zoom: number } | null = null;
+
 /** Where the camera is moving to, while it moves: what is there loads first. */
 export const viewTarget = (): View | null => flight?.to ?? null;
 
@@ -99,6 +102,61 @@ const land = () => {
     cancelAnimationFrame(flight.frame);
     flight = null;
   }
+  if (notchGlide) {
+    cancelAnimationFrame(notchGlide.frame);
+    notchGlide = null;
+  }
+};
+
+/** How near the canvas can be looked at from, and how far. */
+export const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
+
+/** What a mouse wheel's notch zooms by. */
+const NOTCH = 1.25;
+
+/** How much of what is left of a notch's way each frame goes: quick, then easing in. */
+const NOTCH_EASE = 0.35;
+
+/**
+ * Zooms by a mouse wheel's `notches` (in for more than none, out for fewer), about `anchor` on
+ * screen, which stays where it is. It glides there in a few frames rather than jumping; a notch
+ * while one glides goes on from where that one was going. At once when the system asks for
+ * reduced motion.
+ */
+export const zoomNotches = (
+  notches: number,
+  anchor: { readonly x: number; readonly y: number }
+) => {
+  const going = notchGlide?.zoom ?? nextView().zoom;
+  const target = clampZoom(going * NOTCH ** notches);
+  cancelPendingView();
+  land();
+  const toward = (zoom: number) => {
+    const { x, y, zoom: was } = useEditor.getState().view;
+    const k = zoom / was;
+    show({
+      x: anchor.x - (anchor.x - x) * k,
+      y: anchor.y - (anchor.y - y) * k,
+      zoom,
+    });
+  };
+  if (
+    typeof matchMedia !== "undefined" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    toward(target);
+    return;
+  }
+  const step = () => {
+    const was = useEditor.getState().view.zoom;
+    const left = Math.log(target / was);
+    const done = Math.abs(left) < 0.002;
+    toward(done ? target : was * Math.exp(left * NOTCH_EASE));
+    notchGlide = done
+      ? null
+      : { frame: requestAnimationFrame(step), zoom: target };
+  };
+  notchGlide = { frame: requestAnimationFrame(step), zoom: target };
 };
 
 const FLIGHT_MS = 320;

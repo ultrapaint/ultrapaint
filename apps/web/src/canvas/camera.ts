@@ -15,11 +15,13 @@ import {
 } from "react";
 import { isTyping } from "../lib/keys.ts";
 import {
+  clampZoom,
   measureViewportWith,
   nextView,
   setViewSoon,
   type Viewport,
   viewTarget,
+  zoomNotches,
 } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -47,6 +49,12 @@ export const UNZOOM = "scale(var(--inv))";
 /** How long after the view last moved it counts as resting. */
 const SETTLE_MS = 200;
 
+/** How far past the zoom it was drawn at a moving layer is zoomed in before it is drawn again. */
+const SHARPEN_AT = 1.5;
+
+/** How far the zoom drifts while the view moves before `--inv` follows it (15%, in log scale). */
+const INV_DRIFT = Math.log(1.15);
+
 const GRID_STYLES = [
   "backgroundImage",
   "backgroundPosition",
@@ -55,9 +63,11 @@ const GRID_STYLES = [
 
 /**
  * Keeps the layer of frames at the view, and the grid with it when it is shown, until the answer
- * is called. While the view moves the layer is promoted (`will-change`), so a pan moves what is
- * already drawn; once it rests the promotion goes, and the browser draws the layer sharp at its
- * zoom.
+ * is called. While the view moves the layer is promoted (`will-change`), so a pan or a zoom moves
+ * what is already drawn rather than drawing it again each frame; zoomed in half as far again as it
+ * was drawn at, it is drawn again, so it does not blur, and once the view rests the promotion goes
+ * and the browser draws the layer sharp at its zoom. What keeps its size on screen (`--inv`)
+ * follows the zoom a few times a gesture, and exactly at rest.
  */
 const follow = (
   canvasEl: HTMLElement,
@@ -66,10 +76,18 @@ const follow = (
 ): (() => void) => {
   let settle: ReturnType<typeof setTimeout> | undefined;
   let drawnZoom: number | null = null;
+  let moving = false;
   const draw = (view: View) => {
     const { x, y, zoom } = view;
     layerEl.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
-    if (zoom !== drawnZoom) {
+    // Every element of the layer is styled again when `--inv` changes: while the view moves it
+    // follows the zoom only once it has drifted, a few times a gesture rather than every frame.
+    if (
+      zoom !== drawnZoom &&
+      (!moving ||
+        drawnZoom === null ||
+        Math.abs(Math.log(zoom / drawnZoom)) > INV_DRIFT)
+    ) {
       drawnZoom = zoom;
       layerEl.style.setProperty("--inv", String(1 / zoom));
     }
@@ -81,14 +99,28 @@ const follow = (
     }
   };
   draw(useEditor.getState().view);
+  // The zoom the promoted layer was drawn at: zoomed in far past it, the layer is drawn again.
+  let rasterZoom: number | null = null;
   const off = useEditor.subscribe((s, prev) => {
     if (s.view === prev.view) {
       return;
     }
+    moving = true;
     draw(s.view);
-    layerEl.style.willChange = "transform";
+    if (rasterZoom === null || s.view.zoom > rasterZoom * SHARPEN_AT) {
+      layerEl.style.willChange = "";
+      rasterZoom = s.view.zoom;
+      requestAnimationFrame(() => {
+        if (moving) {
+          layerEl.style.willChange = "transform";
+        }
+      });
+    }
     clearTimeout(settle);
     settle = setTimeout(() => {
+      moving = false;
+      rasterZoom = null;
+      draw(useEditor.getState().view);
       layerEl.style.willChange = "";
     }, SETTLE_MS);
   });
@@ -153,7 +185,19 @@ export const useCamera = (
   }, [canvas, layer, background]);
 };
 
-const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
+/**
+ * Notches of a mouse wheel in `e`, or null for a trackpad's stream: a wheel reports lines or pages,
+ * or a large jump at once, where a trackpad reports pixels a little at a time.
+ */
+const notchesOf = (e: WheelEvent): number | null => {
+  if (e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) {
+    return -Math.sign(e.deltaY);
+  }
+  return Math.abs(e.deltaY) >= NOTCH_DELTA ? -Math.sign(e.deltaY) : null;
+};
+
+/** A wheel event moving this far at once is a notch of a mouse wheel. */
+const NOTCH_DELTA = 40;
 
 /**
  * A wheel over a canvas, the page canvas's or a board view's: a pan, or with ctrl or meta (a
@@ -167,6 +211,12 @@ export const wheelView = (
   if (e.ctrlKey || e.metaKey) {
     const cx = e.clientX - origin.left;
     const cy = e.clientY - origin.top;
+    // A mouse wheel zooms a step a notch, gliding; a pinch or a trackpad follows the fingers.
+    const notches = notchesOf(e);
+    if (notches !== null) {
+      zoomNotches(notches, { x: cx, y: cy });
+      return;
+    }
     const next = clampZoom(
       zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
     );
