@@ -68,12 +68,19 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
       runs over the same connection, and the default folder is asked of the remote.
 - [ ] 6.5 A pinned runtime uploaded to the remote, as T3 Code does, for machines without
       `ultrapaint` (and later without Node). Only if 6.1 to 6.4 show it is needed.
+- [ ] 6.6 Opening at start, never a blank window (found 2026-11-03): the app reopens the last
+      project before it shows anything (`OpenProject.start`), so an SSH project whose machine is
+      off or unreachable leaves the window grey for up to the connection's 40 seconds and the
+      server's 2 minutes, then shows the welcome page. Show the project opening at once (its
+      name, the host, connecting / starting the server), with a way to stop and go to the list;
+      a project that was remote opens to the list when its machine does not answer quickly.
 
 ### Phase 7: releases
 
 - [ ] 7.1 macOS signing and notarisation (needs an Apple Developer account).
-- [ ] 7.2 Updates through GitHub Releases and electron-updater, once the repository is public:
-      download on the user's say, install on quit.
+- [x] 7.2 Updates through GitHub Releases (ADR 0051): an AppImage updates itself through
+      electron-updater, installed on quit; the unsigned macOS app and a deb are told by a notice.
+      electron-updater on macOS waits for 7.1.
 - [ ] 7.3 End-to-end tests of the app in CI (F14): under Xvfb on Linux, once Electron's headless
       mode works or with a virtual display.
 
