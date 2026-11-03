@@ -403,7 +403,14 @@ const layOut = () => {
   if (moved) {
     useBoard.setState({ frames: next });
   }
-  if (boards.ids.length > 0 && boards.ids.every((id) => sizes[id])) {
+  // A board says nothing of its size before it has drawn: 0 by 0 is not its size yet.
+  if (
+    boards.ids.length > 0 &&
+    boards.ids.every((id) => {
+      const size = sizes[id];
+      return size !== undefined && size.width > 0 && size.height > 0;
+    })
+  ) {
     fitFirstView();
   }
 };

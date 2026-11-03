@@ -73,23 +73,32 @@ export const boardRoom = (seen: { readonly width: number }) =>
   seen.width - 2 * BOARD_MARGIN.x;
 
 /**
- * The camera an item's boards are first seen with: from the seen part's corner, every board as
- * wide as the part of the canvas between the panels holds, zoomed out as far as that takes and
- * never in past 100%.
+ * The camera an item's boards are first seen with: every board as wide as the part of the canvas
+ * between the panels holds, zoomed out as far as that takes and never in past 100%, and centred
+ * there; boards taller than it begin at its top, so their start is seen. Before they are
+ * measured, from the seen part's corner.
  */
 export const firstBoardView = (
   boxes: readonly Box[],
-  seen: { readonly width: number; readonly x: number }
+  seen: { readonly height: number; readonly width: number; readonly x: number }
 ): { x: number; y: number; zoom: number } => {
-  const left = Math.min(0, ...boxes.map((b) => b.x));
-  const top = Math.min(0, ...boxes.map((b) => b.y));
-  const right = Math.max(0, ...boxes.map((b) => b.x + b.width));
+  if (boxes.length === 0) {
+    return { x: seen.x + BOARD_MARGIN.x, y: BOARD_MARGIN.y, zoom: 1 };
+  }
+  const left = Math.min(...boxes.map((b) => b.x));
+  const top = Math.min(...boxes.map((b) => b.y));
+  const right = Math.max(...boxes.map((b) => b.x + b.width));
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height));
   const room = boardRoom(seen);
   const wide = right - left;
   const zoom = wide > 0 && room > 0 ? Math.min(1, room / wide) : 1;
+  const high = (bottom - top) * zoom;
   return {
-    x: seen.x + BOARD_MARGIN.x - left * zoom,
-    y: BOARD_MARGIN.y - top * zoom,
+    x: seen.x + (seen.width - wide * zoom) / 2 - left * zoom,
+    y:
+      high <= seen.height - 2 * BOARD_MARGIN.y
+        ? (seen.height - high) / 2 - top * zoom
+        : BOARD_MARGIN.y - top * zoom,
     zoom,
   };
 };

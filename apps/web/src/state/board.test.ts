@@ -86,13 +86,28 @@ describe("openBoard", () => {
     const fitted = useEditor.getState().view;
     // 1824 wide in the 1000 between the panels, the margins kept on both sides.
     expect(fitted.zoom).toBeCloseTo((1000 - 64) / 1824);
-    expect(fitted.x).toBe(332);
+    expect(fitted.x).toBeCloseTo(332);
     // Moved and left, it is found where it was left: no fit the second time.
     setView({ x: 500, zoom: 0.25 });
     openBoard({ item: "color", view: "system" });
     openBoard({ item: "Plan", view: "library" });
     drawn();
     expect(useEditor.getState().view).toMatchObject({ x: 500, zoom: 0.25 });
+  });
+
+  it("centres a small item between the panels once it has its size, not before it has drawn", () => {
+    openBoard({ item: "Badge", view: "library" });
+    showBoards(["board:library/Badge/matrix"], "column");
+    // A board says 0 by 0 before it has drawn: no fit on that.
+    setBoardSize("board:library/Badge/matrix", { height: 0, width: 0 });
+    expect(useEditor.getState().view).toEqual({ x: 332, y: 72, zoom: 1 });
+    setBoardSize("board:library/Badge/matrix", { height: 200, width: 400 });
+    // In the middle of the 1000 by 800 seen past the left panel, at 100%.
+    expect(useEditor.getState().view).toEqual({
+      x: 300 + (1000 - 400) / 2,
+      y: (800 - 200) / 2,
+      zoom: 1,
+    });
   });
 
   it("leaves the camera where the user moved it before the boards were measured", () => {
