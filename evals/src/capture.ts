@@ -9,8 +9,9 @@
 import path from "node:path";
 import { Effect, FileSystem } from "effect";
 import { Browser } from "./browser.ts";
-import { LabError } from "./errors.ts";
-import { captureDir, fromData, listDir, writeText } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { fetchPicture } from "./fetch-picture.ts";
+import { listDir, writeText } from "./layout.ts";
 import { type LoadedReference, viewportsOf } from "./reference.ts";
 
 const DEFAULT_WAIT_MS = 1500;
@@ -30,20 +31,7 @@ const captureImage = Effect.fn("captureImage")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
-  const downloaded = yield* Effect.tryPromise({
-    catch: (cause) =>
-      new LabError({ message: `downloading ${image}: ${String(cause)}` }),
-    try: async () => {
-      const response = await fetch(image);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return {
-        bytes: new Uint8Array(await response.arrayBuffer()),
-        mime: response.headers.get("content-type") ?? "image/png",
-      };
-    },
-  });
+  const downloaded = yield* fetchPicture(image);
   const zoomed = yield* browser.zoom(downloaded.bytes, downloaded.mime);
   yield* fs.writeFile(path.join(dir, foldName("desktop")), zoomed.whole);
   yield* Effect.forEach(zoomed.parts, (part, index) =>
@@ -58,9 +46,10 @@ export const captureReference = Effect.fn("captureReference")(function* (
   reference: LoadedReference,
   force: boolean
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
-  const dir = captureDir(reference.id);
+  const dir = data.captureDir(reference.id);
   const existing = yield* listDir(dir);
   if (existing.length > 0 && !force) {
     yield* Effect.log(`${reference.id}: already captured (--force to redo)`);
@@ -68,7 +57,7 @@ export const captureReference = Effect.fn("captureReference")(function* (
   }
   if (reference.url === undefined && reference.image === undefined) {
     yield* Effect.logWarning(
-      `${reference.id}: no url and no image, so its pictures go in ${fromData(dir)} by hand (${foldName("desktop")}, ${tileName("desktop", 0)}…)`
+      `${reference.id}: no url and no image, so its pictures go in ${data.fromData(dir)} by hand (${foldName("desktop")}, ${tileName("desktop", 0)}…)`
     );
     return;
   }

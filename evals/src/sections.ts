@@ -11,18 +11,12 @@
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
 import { Browser } from "./browser.ts";
-import { Claude } from "./claude.ts";
+
+import { EvalsConfig } from "./config.ts";
 import { ADDED_TEXT_FILE, AddedTextEntry } from "./generate.ts";
 import { roundRuns } from "./judge.ts";
-import {
-  captureDir,
-  fromData,
-  listDir,
-  prompt,
-  readJson,
-  referenceDir,
-  writeJson,
-} from "./layout.ts";
+import { listDir, prompt, readJson, writeJson } from "./layout.ts";
+import { Models } from "./models.ts";
 import { loadReference } from "./reference.ts";
 
 const Box = Schema.Struct({
@@ -99,6 +93,17 @@ const designSchema = (names: readonly string[]) =>
     type: "object",
   });
 
+/** A reference's sections, as the model marks them. */
+export const referenceSectionsAnswer = {
+  decode: ReferenceSections,
+  schema: referenceSchema,
+};
+/** The reference's sections found in a design, as the model marks them. */
+export const designSectionsAnswer = (names: readonly string[]) => ({
+  decode: DesignSections,
+  schema: designSchema(names),
+});
+
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
@@ -149,15 +154,16 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
   id: string,
   options: { readonly force: boolean; readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
-  const file = path.join(referenceDir(id), SECTIONS_FILE);
+  const models = yield* Models;
+  const file = path.join(data.referenceDir(id), SECTIONS_FILE);
   if ((yield* fs.exists(file)) && !options.force) {
     return (yield* readJson(ReferenceSections, file)).sections;
   }
   const reference = yield* loadReference(id);
-  const capture = captureDir(id);
-  const answer = yield* claude.ask({
+  const capture = data.captureDir(id);
+  const answer = yield* models.ask({
     cwd: capture,
     model: options.model,
     prompt: yield* prompt("sections-reference", {
@@ -169,11 +175,9 @@ export const referenceSections = Effect.fn("referenceSections")(function* (
       kind: reference.kind,
       name: reference.name,
     }),
-    schema: referenceSchema,
+    ...referenceSectionsAnswer,
   });
-  const found = yield* Schema.decodeUnknownEffect(ReferenceSections)(
-    answer.structured
-  );
+  const found = answer.value;
   yield* writeJson(file, found);
   yield* cutOut(capture, found.sections);
   yield* Effect.log(
@@ -188,31 +192,30 @@ export const runSections = Effect.fn("runSections")(function* (
   marked: readonly ReferenceSection[],
   model: string
 ) {
-  const claude = yield* Claude;
+  const { data } = yield* EvalsConfig;
+  const models = yield* Models;
   const shots = path.join(dir, "shots");
   const files = (yield* listDir(shots)).filter((f) => f.startsWith("desktop"));
   if (files.length === 0) {
     return;
   }
-  const answer = yield* claude.ask({
+  const answer = yield* models.ask({
     cwd: shots,
     model,
     prompt: yield* prompt("sections-design", {
       files: pictureList(files),
       sections: marked.map((s) => `- ${s.name}: ${s.what}`).join("\n"),
     }),
-    schema: designSchema(marked.map((s) => s.name)),
+    ...designSectionsAnswer(marked.map((s) => s.name)),
   });
-  const found = yield* Schema.decodeUnknownEffect(DesignSections)(
-    answer.structured
-  );
+  const found = answer.value;
   yield* writeJson(path.join(dir, SECTIONS_FILE), found);
   yield* cutOut(
     shots,
     found.sections.filter((s) => !s.missing)
   );
   yield* Effect.log(
-    `${fromData(dir)}: ${found.sections.filter((s) => !s.missing).length} of ${marked.length} sections found ($${answer.costUsd.toFixed(2)})`
+    `${data.fromData(dir)}: ${found.sections.filter((s) => !s.missing).length} of ${marked.length} sections found ($${answer.costUsd.toFixed(2)})`
   );
 });
 
@@ -224,6 +227,7 @@ const NOT_FOUND = 45;
  * so a person sees it in place on the whole screen rather than cut out alone.
  */
 const markAddedText = Effect.fn("markAddedText")(function* (dir: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const browser = yield* Browser;
   const file = path.join(dir, ADDED_TEXT_FILE);
@@ -262,7 +266,7 @@ const markAddedText = Effect.fn("markAddedText")(function* (dir: string) {
     })
   );
   yield* Effect.log(
-    `${fromData(dir)}: ${found.size} of ${new Set(entries.flatMap((e) => e.picture ?? [])).size} added texts found on the page`
+    `${data.fromData(dir)}: ${found.size} of ${new Set(entries.flatMap((e) => e.picture ?? [])).size} added texts found on the page`
   );
 });
 
@@ -274,6 +278,7 @@ export const sections = Effect.fn("sections")(function* (
     readonly model: string;
   }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const runs = (yield* Effect.forEach(rounds, roundRuns)).flat();
   const references = [...new Set(runs.map((r) => r.reference))];
@@ -303,7 +308,7 @@ export const sections = Effect.fn("sections")(function* (
       markAddedText(run.dir).pipe(
         Effect.catch((error) =>
           Effect.logError(
-            `${fromData(run.dir)}: added texts not found: ${String(error)}`
+            `${data.fromData(run.dir)}: added texts not found: ${String(error)}`
           )
         )
       ),
@@ -317,7 +322,7 @@ export const sections = Effect.fn("sections")(function* (
         ? runSections(run.dir, found, options.model).pipe(
             Effect.catch((error) =>
               Effect.logError(
-                `${fromData(run.dir)}: no sections: ${String(error)}`
+                `${data.fromData(run.dir)}: no sections: ${String(error)}`
               )
             )
           )
@@ -350,18 +355,15 @@ export const readRunSections = Effect.fn("readRunSections")(function* (
 /** A reference's sections with their crops; none when they were not marked. */
 export const readReferenceSections = Effect.fn("readReferenceSections")(
   function* (id: string) {
+    const { data } = yield* EvalsConfig;
     const fs = yield* FileSystem.FileSystem;
-    const file = path.join(referenceDir(id), SECTIONS_FILE);
-    if (!(yield* fs.exists(file))) {
-      return [] as {
-        readonly crop: string;
-        readonly section: ReferenceSection;
-      }[];
-    }
-    const found = yield* readJson(ReferenceSections, file);
+    const file = path.join(data.referenceDir(id), SECTIONS_FILE);
+    const found: typeof ReferenceSections.Type = (yield* fs.exists(file))
+      ? yield* readJson(ReferenceSections, file)
+      : { sections: [] };
     return found.sections.map((section) => ({
       crop: path.join(
-        captureDir(id),
+        data.captureDir(id),
         SECTIONS_DIR,
         `${slugOf(section.name)}.jpg`
       ),

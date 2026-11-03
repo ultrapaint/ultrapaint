@@ -1,39 +1,67 @@
 /**
- * Codex in exec mode, for the steps another model does beside Claude: it runs as the user's own
- * `codex` with its own sign-in, read-only, with the pictures attached, and answers in JSON.
+ * Codex in exec mode: the user's own `codex` with its own sign-in, read-only, with the pictures
+ * attached, answering in JSON to the schema it is given.
  */
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Option, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { LabError } from "./errors.ts";
+import { EvalsError } from "./errors.ts";
+import type { Asked, Reply } from "./models.ts";
 
 const TIMEOUT = "25 minutes";
 
-export const askCodex = Effect.fn("askCodex")(function* (options: {
-  readonly cwd: string;
-  readonly effort: string;
-  /** Paths from `cwd`, attached in this order. */
-  readonly images: readonly string[];
-  readonly model: string;
-  readonly prompt: string;
-  readonly schema: object;
-}) {
+/** A line of `codex exec --json`: what it is doing, and at the end what it said and used. */
+const Event = Schema.Struct({
+  item: Schema.optional(
+    Schema.Struct({
+      text: Schema.optional(Schema.String),
+      type: Schema.optional(Schema.String),
+    })
+  ),
+  type: Schema.optional(Schema.String),
+  usage: Schema.optional(
+    Schema.Struct({
+      input_tokens: Schema.optional(Schema.Number),
+      output_tokens: Schema.optional(Schema.Number),
+    })
+  ),
+});
+const decodeEvent = Schema.decodeUnknownOption(Schema.fromJsonString(Event));
+const decodeJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Unknown)
+);
+
+/** The events of a run, in order; a line that is not one is its log, and left out. */
+export const codexEvents = (output: string) =>
+  output
+    .split("\n")
+    .filter((line) => line.startsWith("{"))
+    .flatMap((line) => Option.toArray(decodeEvent(line)));
+
+export const askCodex = Effect.fn("askCodex")(function* (asked: Asked) {
   const fs = yield* FileSystem.FileSystem;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const schemaFile = path.join(
     os.tmpdir(),
     `codex-schema-${randomUUID()}.json`
   );
-  yield* fs.writeFileString(schemaFile, JSON.stringify(options.schema));
+  yield* fs
+    .writeFileString(schemaFile, JSON.stringify(asked.schema))
+    .pipe(
+      Effect.mapError(
+        (cause) =>
+          new EvalsError({ message: `codex's schema file: ${String(cause)}` })
+      )
+    );
   const output = yield* spawner
     .string(
       ChildProcess.make(
         "codex",
         [
           "exec",
-          options.prompt,
+          asked.prompt,
           "--json",
           "--ephemeral",
           "--ignore-user-config",
@@ -42,51 +70,46 @@ export const askCodex = Effect.fn("askCodex")(function* (options: {
           "--sandbox",
           "read-only",
           "--model",
-          options.model,
-          "-c",
-          `model_reasoning_effort="${options.effort}"`,
+          asked.model,
+          ...(asked.effort
+            ? ["-c", `model_reasoning_effort="${asked.effort}"`]
+            : []),
           "--output-schema",
           schemaFile,
-          ...options.images.flatMap((image) => ["-i", image]),
+          ...(asked.images ?? []).flatMap((image) => ["-i", image]),
         ],
-        { cwd: options.cwd, stdin: "ignore" }
+        { cwd: asked.cwd, stdin: "ignore" }
       )
     )
     .pipe(
       Effect.timeout(TIMEOUT),
       Effect.mapError(
         (cause) =>
-          new LabError({ message: `codex exec failed: ${String(cause)}` })
+          new EvalsError({ message: `codex exec failed: ${String(cause)}` })
       ),
       Effect.ensuring(Effect.ignore(fs.remove(schemaFile)))
     );
-  const events = output
-    .split("\n")
-    .filter((line) => line.startsWith("{"))
-    .map(
-      (line) =>
-        JSON.parse(line) as {
-          readonly item?: { readonly text?: string; readonly type?: string };
-          readonly type?: string;
-          readonly usage?: Record<string, number>;
-        }
-    );
+  const events = codexEvents(output);
   const text = events.findLast((e) => e.item?.type === "agent_message")?.item
     ?.text;
   if (text === undefined) {
-    return yield* new LabError({
+    return yield* new EvalsError({
       message: `codex exec gave no answer: ${output.slice(-500)}`,
     });
   }
-  const structured = yield* Effect.try({
-    catch: () =>
-      new LabError({
-        message: `codex answered something else than JSON: ${text.slice(0, 500)}`,
-      }),
-    try: () => JSON.parse(text) as unknown,
-  });
+  const structured = yield* decodeJson(text).pipe(
+    Effect.mapError(
+      () =>
+        new EvalsError({
+          message: `codex answered something else than JSON: ${text.slice(0, 500)}`,
+        })
+    )
+  );
+  const usage = events.findLast((e) => e.type === "turn.completed")?.usage;
   return {
+    costUsd: 0,
     structured,
-    usage: events.findLast((e) => e.type === "turn.completed")?.usage ?? {},
-  };
+    text,
+    tokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
+  } satisfies Reply;
 });

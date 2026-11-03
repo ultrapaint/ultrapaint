@@ -7,18 +7,10 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
-import {
-  captureDir,
-  DATA,
-  fromData,
-  listDir,
-  PROMPTS,
-  prompt,
-  RUNS,
-  readJson,
-  writeJson,
-} from "./layout.ts";
+
+import { EvalsConfig } from "./config.ts";
+import { listDir, PROMPTS, prompt, readJson, writeJson } from "./layout.ts";
+import { Models } from "./models.ts";
 
 const LEVELS = [
   "layout",
@@ -32,7 +24,8 @@ const LEVELS = [
 const SIDES = ["A", "B", "tie"] as const;
 const MARGINS = ["clear", "slight", "none"] as const;
 
-const Verdict = Schema.Struct({
+/** The judge's answer: the designs under the letters they were shown as. */
+export const Verdict = Schema.Struct({
   levels: Schema.Record(Schema.String, Schema.Literals(SIDES)),
   margin: Schema.Literals(MARGINS),
   reasons: Schema.Array(Schema.String),
@@ -58,8 +51,11 @@ const verdictSchema = {
   type: "object",
 };
 
+/** A verdict, as the judge answers it. */
+export const verdictAnswer = { decode: Verdict, schema: verdictSchema };
+
 /** A verdict with its letters turned into the rounds' names. */
-const Judged = Schema.Struct({
+export const Judged = Schema.Struct({
   levels: Schema.Record(Schema.String, Schema.String),
   margin: Schema.String,
   reasons: Schema.Array(Schema.String),
@@ -72,15 +68,44 @@ const Results = Schema.Record(Schema.String, Judged);
 const hash = (s: string) =>
   [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1_000_003, 7);
 
+/**
+ * The rounds a run's designs are shown as, A then B: which comes first follows the run's name, so
+ * neither round is always first, and a run asked again is shown as before.
+ */
+export const shownAs = (
+  a: string,
+  b: string,
+  key: string
+): readonly [string, string] => (hash(key) % 2 === 1 ? [b, a] : [a, b]);
+
+/** A blind verdict with its letters turned into the rounds' names. */
+export const unblind = (
+  verdict: typeof Verdict.Type,
+  [first, second]: readonly [string, string]
+): typeof Judged.Type => {
+  const nameOf = (side: (typeof SIDES)[number]) => {
+    if (side === "tie") {
+      return "tie";
+    }
+    return side === "A" ? first : second;
+  };
+  return {
+    levels: Object.fromEntries(
+      Object.entries(verdict.levels).map(([l, v]) => [l, nameOf(v)])
+    ),
+    margin: verdict.margin,
+    reasons: verdict.reasons,
+    shownFirst: first,
+    winner: nameOf(verdict.winner),
+  };
+};
+
 const RUN_RE = /^run-\d+$/;
 /** A skill file named on a line of the trace that reaches the skills' cache. */
 const SKILL_FILE_RE = /((?:patterns|studies)\/)?([a-z-]+)\.md/g;
 
-/** The skill's files a run opened, from the tool calls of its trace. */
-const readsOf = Effect.fn("readsOf")(function* (dir: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const file = path.join(dir, "trace.md");
-  const trace = (yield* fs.exists(file)) ? yield* fs.readFileString(file) : "";
+/** The skill's files a trace shows opened, from its tool calls, sorted. */
+export const skillReads = (trace: string) => {
   const files = new Set<string>();
   for (const line of trace.split("\n")) {
     if (line.includes(".cache/ultrapaint/skills")) {
@@ -90,24 +115,34 @@ const readsOf = Effect.fn("readsOf")(function* (dir: string) {
     }
   }
   return [...files].sort();
+};
+
+/** The skill's files a run opened, from the tool calls of its trace. */
+const readsOf = Effect.fn("readsOf")(function* (dir: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const file = path.join(dir, "trace.md");
+  return skillReads(
+    (yield* fs.exists(file)) ? yield* fs.readFileString(file) : ""
+  );
 });
 
-const pictures = (dir: string) =>
-  Effect.map(listDir(dir), (files) =>
-    files
-      .filter((f) => f.endsWith(".jpg"))
-      .map((f) => `- \`${fromData(path.join(dir, f))}\``)
-      .join("\n")
-  );
+const pictures = Effect.fnUntraced(function* (dir: string) {
+  const { data } = yield* EvalsConfig;
+  return (yield* listDir(dir))
+    .filter((f) => f.endsWith(".jpg"))
+    .map((f) => `- \`${data.fromData(path.join(dir, f))}\``)
+    .join("\n");
+});
 
 /** The runs both rounds drew, as `<reference>/run-<n>`. */
 const sharedRuns = Effect.fn("sharedRuns")(function* (a: string, b: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const shot = (round: string, key: string) =>
-    fs.exists(path.join(RUNS, round, key, "shots"));
+    fs.exists(path.join(data.runs, round, key, "shots"));
   const keys: string[] = [];
-  for (const reference of yield* listDir(path.join(RUNS, a))) {
-    const dir = path.join(RUNS, a, reference);
+  for (const reference of yield* listDir(path.join(data.runs, a))) {
+    const dir = path.join(data.runs, a, reference);
     // A round's directory holds its findings and report beside the references' runs.
     if ((yield* fs.stat(dir)).type !== "Directory") {
       continue;
@@ -129,43 +164,30 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   key: string,
   options: { readonly model: string; readonly principles: string }
 ) {
-  const claude = yield* Claude;
+  const { data } = yield* EvalsConfig;
+  const models = yield* Models;
   const reference = key.slice(0, key.indexOf("/"));
-  // Which round shows as A follows the run's name, so neither is always first.
-  const flip = hash(key) % 2 === 1;
-  const [first, second] = flip ? [b, a] : [a, b];
-  const nameOf = (side: string) => {
-    if (side === "tie") {
-      return "tie";
-    }
-    return side === "A" ? first : second;
-  };
-  const answer = yield* claude.ask({
-    cwd: DATA,
+  const order = shownAs(a, b, key);
+  const [first, second] = order;
+  const answer = yield* models.ask({
+    cwd: data.root,
     effort: "high",
     model: options.model,
     prompt: yield* prompt("pairwise", {
-      a: yield* pictures(path.join(RUNS, first, key, "shots")),
-      b: yield* pictures(path.join(RUNS, second, key, "shots")),
+      a: yield* pictures(path.join(data.runs, first, key, "shots")),
+      b: yield* pictures(path.join(data.runs, second, key, "shots")),
       principles: options.principles,
-      reference: yield* pictures(captureDir(reference)),
+      reference: yield* pictures(data.captureDir(reference)),
     }),
-    schema: verdictSchema,
+    ...verdictAnswer,
   });
-  const verdict = yield* Schema.decodeUnknownEffect(Verdict)(answer.structured);
-  return {
-    levels: Object.fromEntries(
-      Object.entries(verdict.levels).map(([l, v]) => [l, nameOf(v)])
-    ),
-    margin: verdict.margin,
-    reasons: verdict.reasons,
-    shownFirst: first,
-    winner: nameOf(verdict.winner),
-  };
+  return unblind(answer.value, order);
 });
 
 /** How many runs each round won, overall and level by level. */
-const tallyOf = (results: Readonly<Record<string, typeof Judged.Type>>) => {
+export const tallyOf = (
+  results: Readonly<Record<string, typeof Judged.Type>>
+) => {
   const tally: Record<string, number> = {};
   const count = (k: string) => {
     tally[k] = (tally[k] ?? 0) + 1;
@@ -184,8 +206,9 @@ export const pairwise = Effect.fn("pairwise")(function* (
   b: string,
   options: { readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const out = path.join(RUNS, `${a}-vs-${b}`);
+  const out = path.join(data.runs, `${a}-vs-${b}`);
   const file = path.join(out, "pairwise.json");
   const results: Record<string, typeof Judged.Type> = (yield* fs.exists(file))
     ? { ...(yield* readJson(Results, file)) }
@@ -197,8 +220,8 @@ export const pairwise = Effect.fn("pairwise")(function* (
 
   for (const key of yield* sharedRuns(a, b)) {
     reads[key] = {
-      [a]: yield* readsOf(path.join(RUNS, a, key)),
-      [b]: yield* readsOf(path.join(RUNS, b, key)),
+      [a]: yield* readsOf(path.join(data.runs, a, key)),
+      [b]: yield* readsOf(path.join(data.runs, b, key)),
     };
     if (results[key]) {
       continue;

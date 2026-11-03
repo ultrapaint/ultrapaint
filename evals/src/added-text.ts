@@ -7,6 +7,8 @@
  * Counted in code, from the page file, so a round's number does not depend on a model's eye.
  */
 
+import { Predicate } from "effect";
+
 /** A text the page shows, and the node that holds it. */
 export interface PageText {
   /** The node the text belongs to. */
@@ -26,26 +28,24 @@ const VISIBLE_PROPS = [
   "defaultValue",
 ] as const;
 
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-
-const isObject = (value: Json | undefined): value is { [key: string]: Json } =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** Every text a page file shows, in document order. */
-export const pageTexts = (page: Json): readonly PageText[] => {
+/**
+ * Every text a page file shows, in document order. The page is JSON as read (`readPageFile`): only
+ * the fields that hold text are looked at.
+ */
+export const pageTexts = (page: unknown): readonly PageText[] => {
   const found: PageText[] = [];
-  const visit = (node: Json | undefined, parent: string) => {
-    if (!isObject(node)) {
+  const visit = (node: unknown, parent: string) => {
+    if (!Predicate.isObject(node)) {
       return;
     }
-    const id = typeof node.id === "string" ? node.id : parent;
-    const push = (text: Json | undefined) => {
-      if (typeof text === "string" && text.trim() !== "") {
+    const id = Predicate.isString(node.id) ? node.id : parent;
+    const push = (text: unknown) => {
+      if (Predicate.isString(text) && text.trim() !== "") {
         found.push({ node: id, parent, text: text.trim() });
       }
     };
     push(node.text);
-    if (isObject(node.props)) {
+    if (Predicate.isObject(node.props)) {
       for (const key of VISIBLE_PROPS) {
         push(node.props[key]);
       }
@@ -56,7 +56,7 @@ export const pageTexts = (page: Json): readonly PageText[] => {
       }
     }
   };
-  visit(isObject(page) ? page.root : undefined, "root");
+  visit(Predicate.isObject(page) ? page.root : undefined, "root");
   return found;
 };
 

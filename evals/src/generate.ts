@@ -20,18 +20,13 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { addedTexts, pageTexts } from "./added-text.ts";
 import { Browser } from "./browser.ts";
 import { foldName, tileName } from "./capture.ts";
-import { LabError } from "./errors.ts";
+import { EvalsConfig } from "./config.ts";
+import { EvalsError } from "./errors.ts";
 import {
-  briefFile,
-  CHECKOUT,
-  captureDir,
-  DATA,
-  fromData,
   listDir,
   prompt,
-  RUNS,
   readJson,
-  runDir,
+  readPageFile,
   writeJson,
   writeText,
 } from "./layout.ts";
@@ -130,15 +125,16 @@ export interface GenerateOptions {
   readonly prompt?: string | undefined;
   readonly round: string;
   readonly runs: number;
-  /** A directory of skill files, relative to the lab, or none for the shipped skills. */
+  /** A directory of skill files, relative to the data directory, or none for the shipped skills. */
   readonly skills: string | undefined;
 }
 
 export const commitOf = Effect.gen(function* () {
+  const { checkout } = yield* EvalsConfig;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const head = yield* spawner.string(
     ChildProcess.make("git", ["rev-parse", "--short", "HEAD"], {
-      cwd: CHECKOUT,
+      cwd: checkout,
     })
   );
   const dirty = yield* spawner.string(
@@ -146,7 +142,7 @@ export const commitOf = Effect.gen(function* () {
       "git",
       ["status", "--porcelain", "--", "apps", "packages"],
       {
-        cwd: CHECKOUT,
+        cwd: checkout,
       }
     )
   );
@@ -155,8 +151,9 @@ export const commitOf = Effect.gen(function* () {
 
 /** The reference's picture and its enlarged parts, as a user would attach a screenshot. */
 const referenceImages = Effect.fn("referenceImages")(function* (id: string) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const dir = captureDir(id);
+  const dir = data.captureDir(id);
   const files = (yield* fs.readDirectory(dir))
     .filter((f) => f === "desktop-fold.jpg" || ZOOM.test(f))
     .sort();
@@ -177,14 +174,15 @@ const placeSkills = Effect.fn("placeSkills")(function* (
   designs: string,
   skills: string | undefined
 ) {
+  const { data } = yield* EvalsConfig;
   if (skills === undefined) {
     return;
   }
   const fs = yield* FileSystem.FileSystem;
-  const from = path.resolve(DATA, skills);
+  const from = path.resolve(data.root, skills);
   const files = (yield* listDir(from)).filter((f) => f.endsWith(".md"));
   if (files.length === 0) {
-    return yield* new LabError({ message: `no skill files in ${skills}` });
+    return yield* new EvalsError({ message: `no skill files in ${skills}` });
   }
   yield* fs.makeDirectory(path.join(designs, "skills"), { recursive: true });
   for (const file of files) {
@@ -200,13 +198,14 @@ const recordSkills = Effect.fn("recordSkills")(function* (
   session: UltrapaintSession,
   round: string
 ) {
+  const { data } = yield* EvalsConfig;
   const list = yield* rpc(
     "listing the skills",
     session.client["skills.list"]()
   );
   for (const skill of list.skills.filter((s) => s.enabled)) {
     yield* writeText(
-      path.join(RUNS, round, "skills", `${skill.name}.md`),
+      path.join(data.runs, round, "skills", `${skill.name}.md`),
       `${skill.text.trim()}\n`
     );
   }
@@ -286,12 +285,14 @@ const photograph = Effect.fn("photograph")(function* (
           width: viewport.width,
         });
         if (framed.isError) {
-          return yield* new LabError({ message: `set_frame: ${framed.text}` });
+          return yield* new EvalsError({
+            message: `set_frame: ${framed.text}`,
+          });
         }
         const shot = yield* session.tool("get_screenshot", { route });
         const [png] = shot.images;
         if (shot.isError || !png) {
-          return yield* new LabError({
+          return yield* new EvalsError({
             message: `get_screenshot at ${viewport.width}px: ${shot.text}`,
           });
         }
@@ -334,7 +335,7 @@ const photograph = Effect.fn("photograph")(function* (
           tiles: browser.cut(page, viewport, true),
         })
       ),
-      Effect.catchTag("LabError", (e) =>
+      Effect.catchTag("EvalsError", (e) =>
         Effect.sync(() => {
           problems.push(e.message);
           return { fold: [], tiles: [] };
@@ -366,11 +367,8 @@ const recordAddedText = Effect.fn("recordAddedText")(function* (
   }
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const page = yield* fs.readFileString(path.join(session.root, options.file));
-  const added = addedTexts(
-    pageTexts(yield* Effect.try(() => JSON.parse(page))),
-    options.brief
-  );
+  const page = yield* readPageFile(path.join(session.root, options.file));
+  const added = addedTexts(pageTexts(page), options.brief);
   yield* session.tool("set_frame", {
     height: options.viewport.height,
     route: options.route,
@@ -410,13 +408,14 @@ const runOnce = Effect.fn("runOnce")(function* (
   run: number,
   options: GenerateOptions
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const dir = runDir(options.round, reference.id, run);
+  const dir = data.runDir(options.round, reference.id, run);
   yield* fs.remove(dir, { force: true, recursive: true });
   yield* resetDesigns(session);
   yield* placeSkills(session.designs, options.skills);
 
-  const brief = yield* fs.readFileString(briefFile(reference.id));
+  const brief = yield* fs.readFileString(data.briefFile(reference.id));
   const viewports = viewportsOf(reference);
   const images = options.picture ? yield* referenceImages(reference.id) : [];
   const turn = yield* Effect.scoped(
@@ -512,8 +511,10 @@ const runOnce = Effect.fn("runOnce")(function* (
 });
 
 /** The skills a round is told, and how when it is not the default (`EVAL_SKILLS_BRIEFING`). */
-const skillsOfRound = (options: GenerateOptions) => {
-  const briefing = process.env.EVAL_SKILLS_BRIEFING;
+const skillsOfRound = (
+  options: GenerateOptions,
+  briefing: string | undefined
+) => {
   const skills = options.skills ?? "built-in";
   return briefing === undefined ? skills : `${skills} (${briefing})`;
 };
@@ -526,17 +527,18 @@ const startRound = Effect.fn("startRound")(function* (
   references: readonly LoadedReference[],
   options: GenerateOptions
 ) {
+  const { data, skillsBriefing } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const roundFile = path.join(RUNS, options.round, "round.json");
+  const roundFile = path.join(data.runs, options.round, "round.json");
   if (yield* fs.exists(roundFile)) {
     const before = yield* readJson(RoundInfo, roundFile);
-    const skills = skillsOfRound(options);
+    const skills = skillsOfRound(options, skillsBriefing);
     if (
       before.host !== options.host ||
       before.skills !== skills ||
       (before.picture ?? false) !== options.picture
     ) {
-      return yield* new LabError({
+      return yield* new EvalsError({
         message: `round ${options.round} was started with host ${before.host ?? "none"} and skills ${before.skills}; name a new round for host ${options.host} and skills ${skills}`,
       });
     }
@@ -551,7 +553,7 @@ const startRound = Effect.fn("startRound")(function* (
       ...(options.prompt !== undefined && { prompt: options.prompt }),
       references: references.map((r) => r.id),
       runs: options.runs,
-      skills: skillsOfRound(options),
+      skills: skillsOfRound(options, skillsBriefing),
       startedAt: new Date().toISOString(),
     } satisfies RoundInfo);
   }
@@ -561,10 +563,11 @@ export const generate = Effect.fn("generate")(function* (
   references: readonly LoadedReference[],
   options: GenerateOptions
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   for (const reference of references) {
-    if (!(yield* fs.exists(briefFile(reference.id)))) {
-      return yield* new LabError({
+    if (!(yield* fs.exists(data.briefFile(reference.id)))) {
+      return yield* new EvalsError({
         message: `${reference.id} has no brief: run brief ${reference.id} and read it first`,
       });
     }
@@ -579,7 +582,7 @@ export const generate = Effect.fn("generate")(function* (
   for (const reference of references) {
     for (let run = 1; run <= options.runs; run += 1) {
       const done = yield* fs.exists(
-        path.join(runDir(options.round, reference.id, run), "run.json")
+        path.join(data.runDir(options.round, reference.id, run), "run.json")
       );
       if (!done) {
         pending.push({ reference, run });
@@ -611,5 +614,7 @@ export const generate = Effect.fn("generate")(function* (
       })
     );
   }
-  yield* Effect.log(`generated: ${fromData(path.join(RUNS, options.round))}`);
+  yield* Effect.log(
+    `generated: ${data.fromData(path.join(data.runs, options.round))}`
+  );
 });

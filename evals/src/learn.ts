@@ -6,17 +6,11 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-import { Claude } from "./claude.ts";
+
+import { EvalsConfig } from "./config.ts";
 import { roundSkills } from "./judge.ts";
-import {
-  DATA,
-  fromData,
-  PROMPTS,
-  prompt,
-  RUNS,
-  writeJson,
-  writeText,
-} from "./layout.ts";
+import { PROMPTS, prompt, writeJson, writeText } from "./layout.ts";
+import { Models } from "./models.ts";
 import { buildCards, NONE, readReview } from "./review.ts";
 
 const Pattern = Schema.Struct({
@@ -55,16 +49,20 @@ const learnedSchema = {
   type: "object",
 };
 
+/** What the picks say, as the model answers it. */
+export const learnedAnswer = { decode: Learned, schema: learnedSchema };
+
 const LEADING_SLASH = /^\//;
-/** A picture's path from the lab, as the viewer's URL names it. */
+/** A picture's path from the data directory, as the viewer's URL names it. */
 const fromUrl = (src: string) => src.replace(LEADING_SLASH, "");
 
 export const learn = Effect.fn("learn")(function* (
   round: string,
   options: { readonly against?: string | undefined; readonly model: string }
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const claude = yield* Claude;
+  const models = yield* Models;
   const verdicts = yield* readReview(round);
   // A candidate round reviewed against an earlier one: its cards are built from both.
   const rounds = options.against
@@ -93,18 +91,18 @@ export const learn = Effect.fn("learn")(function* (
   if (choices.length === 0) {
     return yield* Effect.logWarning(`${round}: no picks to learn from yet`);
   }
-  const answer = yield* claude.ask({
-    cwd: DATA,
+  const answer = yield* models.ask({
+    cwd: data.root,
     model: options.model,
     prompt: yield* prompt("learn", {
       choices: choices.join("\n"),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       skills: (yield* roundSkills(round)).join(", ") || "the design skills",
     }),
-    schema: learnedSchema,
+    ...learnedAnswer,
   });
-  const learned = yield* Schema.decodeUnknownEffect(Learned)(answer.structured);
-  const dir = path.join(RUNS, round);
+  const learned = answer.value;
+  const dir = path.join(data.runs, round);
   yield* writeJson(path.join(dir, "learned.json"), learned);
   const rules = learned.patterns.filter((p) => p.strength === "rule");
   const notes = learned.patterns.filter((p) => p.strength === "note");
@@ -133,5 +131,5 @@ export const learn = Effect.fn("learn")(function* (
       "",
     ].join("\n")
   );
-  yield* Effect.log(`learned: ${fromData(path.join(dir, "learned.md"))}`);
+  yield* Effect.log(`learned: ${data.fromData(path.join(dir, "learned.md"))}`);
 });
