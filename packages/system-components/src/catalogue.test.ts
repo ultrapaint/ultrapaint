@@ -4,6 +4,8 @@ import type {
   AppComponentFile,
   ComponentFile,
 } from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { toCode } from "@ultrapaint/design-document/code";
 import { describe, expect, it } from "vitest";
 import { catalogueOf } from "./catalogue.ts";
 
@@ -45,6 +47,45 @@ describe("the catalogue", () => {
         ?.slots.filter((s) => s.holds !== undefined)
         .map((s) => s.name)
     ).toEqual(["trigger", "dialog-header", "dialog-content", "dialog-footer"]);
+  });
+
+  it("gives the Input an icon slot at its start, which the Code tab writes as its InputIcon part", () => {
+    const catalogue = catalogueOf([]);
+    expect(
+      metaOf(catalogue, { component: "Input", from: SYSTEM_FROM })?.slots.find(
+        (s) => s.holds !== undefined
+      )
+    ).toEqual({
+      holds: "nodes",
+      label: "Icon",
+      layout: "row",
+      name: "input-icon",
+    });
+    const email: DesignNode = {
+      children: [
+        {
+          alt: "",
+          id: "mail",
+          slot: "input-icon",
+          src: "assets/icons/mail.svg",
+          type: "image",
+        },
+      ],
+      component: "Input",
+      from: SYSTEM_FROM,
+      id: "email",
+      props: { placeholder: "you@example.com" },
+      type: "instance",
+    };
+    expect(toCode(email, { classes: () => [] }, { catalogue })).toBe(
+      `import { Input, InputIcon } from "@/components/ui/input";
+
+<Input placeholder="you@example.com">
+  <InputIcon>
+    <img alt="" src="assets/icons/mail.svg" />
+  </InputIcon>
+</Input>`
+    );
   });
 
   it("lists the app components after the system ones: properties as props, choices as axes, slots as parts", () => {

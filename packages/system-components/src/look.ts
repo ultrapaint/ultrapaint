@@ -132,6 +132,18 @@ ${DEFAULT_LOOK}
     transition: border-color 0.15s, box-shadow 0.15s; outline: none;
   }
   [data-slot="textarea"] { resize: vertical; min-height: 4rem; }
+  /*
+   * An input's icon sits over the start of the input's box, which keeps its border and states:
+   * 0.75rem in, centred on the box's height, the text 0.5rem after a 1rem icon. The text's start
+   * is the icon's place, so it wins over a look's padding (a look's padding is not readable here).
+   */
+  [data-system="input-box"] { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  [data-slot="input-icon"] {
+    position: absolute; inset-block: 0; inset-inline-start: 0.75rem;
+    display: flex; align-items: center; gap: 0.25rem;
+  }
+  [data-slot="input-icon"] > * { flex: none; }
+  [data-system="input-box"] > [data-slot="input"] { padding-inline-start: 2.25rem !important; }
   :is([data-slot="input"], [data-slot="textarea"])::placeholder { color: var(--color-muted-foreground); }
   :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):disabled,
   [data-slot="select-trigger"][data-disabled] { cursor: not-allowed; }

@@ -237,8 +237,27 @@ function SystemSeparator(props: SystemComponentProps) {
 const Label = ({ text }: { readonly text: string }) =>
   text ? <span data-slot="field-label">{text}</span> : null;
 
+/**
+ * A text field. Its icon (`input-icon`) is drawn over the start of the input's own box, which
+ * keeps its border and its states, the text starting after it.
+ */
 export function Input(props: SystemComponentProps) {
+  const icon = props.slots?.["input-icon"];
+  const disabled = bool(props.disabled);
+  const input = (
+    <input
+      aria-invalid={bool(props.invalid) || undefined}
+      data-size={str(props.size, "md")}
+      data-slot="input"
+      defaultValue={str(props.value)}
+      disabled={disabled}
+      key={str(props.value)}
+      placeholder={str(props.placeholder)}
+      type={str(props.type, "text")}
+    />
+  );
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: the input is inside the label, drawn from a variable
     <label
       {...marksOf(props)}
       data-slot="root"
@@ -247,16 +266,16 @@ export function Input(props: SystemComponentProps) {
       style={props.style}
     >
       <Label text={str(props.label)} />
-      <input
-        aria-invalid={bool(props.invalid) || undefined}
-        data-size={str(props.size, "md")}
-        data-slot="input"
-        defaultValue={str(props.value)}
-        disabled={bool(props.disabled)}
-        key={str(props.value)}
-        placeholder={str(props.placeholder)}
-        type={str(props.type, "text")}
-      />
+      {has(icon) ? (
+        <span data-system="input-box">
+          <span data-disabled={disabled || undefined} data-slot="input-icon">
+            {icon}
+          </span>
+          {input}
+        </span>
+      ) : (
+        input
+      )}
     </label>
   );
 }
