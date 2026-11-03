@@ -69,6 +69,7 @@ export const writeManifest = (dependencies: Record<string, string> = {}) => {
         // The window's WM_CLASS on Linux, so the desktop links it to the launcher's entry.
         desktopName: "ultrapaint.desktop",
         homepage: "https://github.com/ultrapaint/ultrapaint",
+        license: "AGPL-3.0-only",
         main: "main.mjs",
         name: "ultrapaint",
         private: true,

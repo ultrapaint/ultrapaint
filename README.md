@@ -64,3 +64,9 @@ It works with React, Vite and Tailwind v4 today. Other frameworks and styling sy
 - [Using it from another machine](docs/user/remote-access.md)
 - [The desktop app](docs/user/desktop.md)
 - [Development](docs/development.md)
+
+## License
+
+Ultrapaint is free software under the [GNU AGPL v3](LICENSE). Use it, change it, and run it for
+your team as you like; if you distribute a changed version or offer one as a service, publish your
+changes under the same licence. What you design and build with it is yours.
