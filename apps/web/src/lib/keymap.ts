@@ -58,8 +58,8 @@ export const bindingFor = <B extends Chorded>(
   );
 
 /**
- * The window's scopes a key reaches now: none while a dialog, a menu or the settings page is
- * open (the settings page replaces the editor: nothing on it is there to be acted on); in a text
+ * The window's scopes a key reaches now: none while a dialog, a menu or the settings are open
+ * (a dialog over the editor: nothing under it is to be acted on); in a text
  * field, only what nothing is typed with; else the editor's, and the canvas's on the canvas.
  */
 const windowScopes = (e: Event): readonly WindowScope[] => {

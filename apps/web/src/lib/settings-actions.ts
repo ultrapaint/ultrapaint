@@ -1,5 +1,5 @@
 /**
- * What the editor does with the settings, from the settings page, the setup dialog, Sync and a
+ * What the editor does with the settings, from the settings dialog, the setup dialog, Sync and a
  * new application alike: nothing else asks the server to save them. The server puts what it
  * saves in force; a save here then leaves the project store holding what the server has, its
  * settings, its info and the pages of the project it opened.

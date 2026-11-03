@@ -85,7 +85,7 @@ type CommandGroup = (typeof commandGroups)[number];
  * Where the window's keys work: `always` in a text field too, for what nothing is typed with;
  * `editor` outside text fields, in either workspace; `canvas` outside text fields on the canvas,
  * as the prototype shows no selection and leaves the browser its zoom keys. No key works while a
- * dialog, a menu or the settings page is open.
+ * dialog, a menu or the settings are open.
  */
 export type WindowScope = "always" | "editor" | "canvas";
 
