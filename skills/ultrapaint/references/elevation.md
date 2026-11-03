@@ -14,6 +14,12 @@ them: set `fill` to the level's surface and `shadow` to its shadow, always toget
 A card on the page is the default surface with a border, or a change of surface. A shadow says
 the thing moves or floats. A screen where everything floats has no depth at all.
 
+## Nested surfaces step apart
+
+A surface nested in another (a panel inside a floating card) differs from it by at least one tone
+step of the system's surfaces: in dark, about `0.045` oklch lightness. It is flush with its
+container's edges, and draws its edge only where it meets its container. Two surfaces of nearly one tone read as one, with no depth between them.
+
 ## Shadows come from the levels
 
 One shadow per element, a token from its level. A custom `box-shadow` is a level the system
@@ -43,3 +49,4 @@ keep the default surface.
 | A custom `box-shadow` string | The level's shadow token |
 | A popover floating apart from its trigger | Attach it, `4px` off the edge |
 | A whole section on the sunken surface | The default surface |
+| A surface inside another of nearly the same tone, in either theme | One tone step apart, flush, an edge only where they meet |

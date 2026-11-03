@@ -2,7 +2,7 @@
 id: g15
 title: Suggestions placed away from where they act
 kind: missing
-status: testing
+status: done
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/spacing.md, references/usability.md, references/layout.md]
@@ -30,3 +30,4 @@ fill.
 
 - `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule took it from 0/2 to 2/2 (partly by construction).
+- Closed 2026-11-03 by the shipped skill: `layout.md`, "A control sits next to what it changes".

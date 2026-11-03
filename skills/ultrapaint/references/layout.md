@@ -20,6 +20,11 @@ stray edge reads as noise, even when nobody can name it. Each section picks one 
 or centred, and holds it. A centred hero over left-aligned sections is fine. Both alignments
 inside one section are not.
 
+## A control sits next to what it changes
+
+A control sits next to what it changes: suggestions that fill a field sit against the field (a
+chat's starters just above the composer), and filters sit above the list they filter.
+
 ## Width has a ceiling
 
 Keep two widths apart. In a product, the main column takes a `maxWidth` from the container
@@ -102,3 +107,4 @@ settings, onboarding, empty states.
 | A second page drawn for the phone | One page; what differs in `at` |
 | A row of cards ending exactly at the scroller's edge | Size them so the next one peeks |
 | Two nested regions that both scroll | One scroll region |
+| Suggestions or filters away from the field or list they change | Against it: starters above the composer, filters above the list |

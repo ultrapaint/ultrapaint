@@ -2,7 +2,7 @@
 id: g14
 title: An action of another kind in a list, in a group of one
 kind: missing
-status: testing
+status: done
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
 skill: [references/restraint.md, references/components.md]
@@ -28,3 +28,4 @@ its own.
 
 - `recall-redesign-1`: 2026-11-03, caught: shipped 1/2 (+1 partly), redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule took it from 1/2 to 2/2 (partly by construction).
+- Closed 2026-11-03 by the shipped skill: `restraint.md`, "A list holds one kind of item".

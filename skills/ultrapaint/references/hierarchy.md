@@ -18,6 +18,9 @@ actions, the rest go behind a "More" menu.
 Look at the screenshot as if squinting: the content the screen is for and its primary action are
 the two heaviest shapes. When five things compete for first place, demote four.
 
+Rows of equal weight are a menu, not a hierarchy. When one choice is the likely one, it leads;
+when none is, there are few of them.
+
 ## Rank with position, then weight and colour, then size
 
 Importance goes to the top and the leading edge first. Then a heavier weight or the foreground
@@ -51,7 +54,8 @@ Past three containers deep, a heading and a gap say more than another box.
 | Two buttons in the primary variant on one screen | Keep the one the screen is for; the other becomes secondary |
 | The title repeated in the first paragraph or a card heading | Cut the repeat |
 | A small label above a heading ("Features", "School · Desio") | Cut it; what it adds goes below the heading or in the page header |
-| A group of navigation items or settings rows under a bold heading | A small muted label: the group's name, quiet |
+| A group of navigation items or settings rows under a bold heading | A small label: the group's name, quiet beside its rows, a step above their details (`references/typography.md`) |
+| A list of choices all set alike, none leading | The likely one leads; the rest fewer, or behind search |
 | The key figure below its metadata | Move it to the top of its group |
 | A card in a card in a card | Replace the inner containers with a heading and a gap |
 | Delete beside Save in the same style | Destructive variant, moved apart |
