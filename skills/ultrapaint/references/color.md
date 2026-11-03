@@ -21,8 +21,11 @@ overriding them on one screen.
 ## A token only in its role
 
 Pick a token for the job its name says, never for the value it has today. The border token used
-as a text colour fades the day borders get lighter. When a role has no token, tell the user
-rather than borrowing one.
+as a text colour fades the day borders get lighter. When a role has no token (a status, a
+category's hue, a tinted row), add it to the design system rather than borrowing one or dropping
+what it says: [with the editor's tools: with `write_design_system`, | without: in DESIGN.md's tokens,] a line in DESIGN.md saying why,
+and tell the user. A token the system has but gets wrong stays theirs to change: use it, and tell
+them.
 
 ## One accent
 
