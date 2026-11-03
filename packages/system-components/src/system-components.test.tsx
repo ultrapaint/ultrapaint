@@ -130,3 +130,39 @@ describe("an overlay", () => {
     ).toBeNull();
   });
 });
+
+const Input = SYSTEM_COMPONENT_VIEWS.Input as (
+  props: Record<string, unknown>
+) => React.ReactNode;
+
+describe("an input", () => {
+  it("draws its icon inside its box, before the input that keeps its part", () => {
+    const at = frame();
+    draw(
+      at,
+      false,
+      <Input
+        disabled
+        placeholder="you@example.com"
+        slots={{ "input-icon": <svg aria-label="Mail" /> }}
+      />
+    );
+    const box = at.shadow.querySelector('[data-system="input-box"]');
+    expect(
+      [...(box?.children ?? [])].map((c) => c.getAttribute("data-slot"))
+    ).toEqual(["input-icon", "input"]);
+    const icon = box?.querySelector('[data-slot="input-icon"]');
+    expect(icon?.querySelector('[aria-label="Mail"]')).not.toBeNull();
+    // Dimmed with the field: its disabled state is a look's, on the part.
+    expect(icon?.hasAttribute("data-disabled")).toBe(true);
+  });
+
+  it("is drawn as before without an icon: the input straight in its field", () => {
+    const at = frame();
+    draw(at, false, <Input label="Email" />);
+    expect(at.shadow.querySelector('[data-system="input-box"]')).toBeNull();
+    expect(
+      at.shadow.querySelector('[data-system="field"] > [data-slot="input"]')
+    ).not.toBeNull();
+  });
+});
