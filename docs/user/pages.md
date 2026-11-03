@@ -22,4 +22,5 @@ browser's back and forward buttons are the prototype's, and a prototype state ca
 pasted to someone else.
 
 A **canvas** owns one router and its own pages; a page of one canvas cannot navigate to a page of
-another. The canvas's name at the top of the left panel opens the list of canvases.
+another. The canvas's name under the mode toggle, at the top left, opens the list of canvases
+over the left panel.

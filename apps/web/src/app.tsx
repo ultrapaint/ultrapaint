@@ -40,14 +40,14 @@ import { PanelLoading, Splash } from "./components/splash.tsx";
 import {
   EDGE,
   RightPanelBar,
-  TitleCard,
+  TitleRow,
   TopActions,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openNewDesignOnSync } from "./lib/new-design.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
-import { CanvasCard } from "./panels/canvases.tsx";
+import { ModeAndCanvases } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
@@ -503,7 +503,7 @@ export const App = () => {
   const leftCard = leftCardWidth(workspace, leftHidden, leftWidth);
   // How much of the canvas the cards at each side cover: what floats over it keeps to the rest.
   const leftCover = leftCoverOf(workspace, leftCard);
-  // The title and canvas cards span the left card when its panel is out.
+  // The project's card spans the left card when its panel is out.
   const titleWidth = leftHidden ? null : leftCard;
   const rightCover = hasRight ? EDGE + rightWidth + EDGE : 0;
   useKeymap();
@@ -642,8 +642,14 @@ export const App = () => {
             data-canvas-cover="left"
             style={{ bottom: EDGE, left: EDGE, top: EDGE }}
           >
-            <TitleCard width={titleWidth} />
-            <CanvasCard width={titleWidth} />
+            {/* One card: the project in the rail's shade, the mode, the canvas. */}
+            <div
+              className="floating pointer-events-auto flex shrink-0 flex-col overflow-hidden"
+              style={titleWidth === null ? undefined : { width: titleWidth }}
+            >
+              <TitleRow />
+              <ModeAndCanvases />
+            </div>
             <div className="flex min-h-0 flex-1 gap-2">
               <LeftCard
                 defaultWidth={leftPanel.defaultWidth}

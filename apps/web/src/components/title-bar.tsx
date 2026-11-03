@@ -147,11 +147,12 @@ const toggleLeft = () => usePanels.getState().toggleLeft();
 const toggleRight = () => usePanels.getState().toggleRight();
 
 /**
- * The project, at the window's top left over the rail and the left panel: its name and branch,
- * or the desktop app's switcher between its projects, and the left panel's toggle. On a Mac
- * desktop window the window's buttons sit at its start.
+ * The project, the top row of the card at the window's top left, over the rail and the left
+ * panel, in the rail's shade: its name and branch, or the desktop app's switcher between its
+ * projects, and the left panel's toggle. On a Mac desktop window the window's buttons sit at its
+ * start.
  */
-export const TitleCard = ({ width }: { width: number | null }) => {
+export const TitleRow = () => {
   const chrome = useWindowChrome();
   const hidden = usePanels((s) => s.left);
   const PanelIcon = hidden ? PanelLeftOpen : PanelLeftClose;
@@ -159,12 +160,11 @@ export const TitleCard = ({ width }: { width: number | null }) => {
     height: TITLE_HEIGHT,
     // The buttons reach this far from the window's edge; the card begins EDGE from it.
     paddingLeft: chrome.inset > 0 ? chrome.inset - EDGE : undefined,
-    ...(width === null ? {} : { width }),
   };
   return (
     <header
       className={cn(
-        "floating pointer-events-auto flex shrink-0 items-center gap-2 pr-1.5 pl-2",
+        "flex shrink-0 items-center gap-2 not-last:border-b bg-rail pr-1.5 pl-2",
         chrome.drag && "window-drag"
       )}
       style={style}

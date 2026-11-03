@@ -16,6 +16,11 @@ import {
   useState,
 } from "react";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IconButton } from "../components/icon-button.tsx";
 import {
@@ -173,7 +178,7 @@ const CanvasRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here.
     <div
       className={cn(
-        "group relative flex h-7 items-center gap-1.5 rounded-md pr-1 pl-1.5 font-body",
+        "group relative flex h-7 items-center gap-1.5 rounded-md pr-1 pl-1.5 font-body has-focus-visible:bg-muted/50",
         current ? "text-foreground" : "text-muted-foreground hover:bg-muted/50"
       )}
       draggable={!renaming}
@@ -200,7 +205,7 @@ const CanvasRow = ({
       ) : (
         <button
           className={cn(
-            "flex h-full min-w-0 flex-1 items-center truncate text-left",
+            "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
             current && "font-medium"
           )}
           onClick={open}
@@ -231,13 +236,8 @@ const CanvasRow = ({
 };
 
 /**
- * The canvas on screen, in a card of its own between the project and the left panel, in every
- * workspace: canvases hold pages, so the switch between them sits above whatever panel is open.
- * Expanded, the card lists the canvases and grows down, and the panel under it gets shorter.
- */
-/**
- * The two modes under the canvas (ADR 0053): the canvas's pages, or the design system. The rail
- * shows the mode's places.
+ * The two modes (ADR 0053): the canvas's pages, or the design system. The rail shows the mode's
+ * places.
  */
 const ModeToggle = () => {
   const mode = useEditorMode();
@@ -269,95 +269,73 @@ const ModeToggle = () => {
 };
 
 /**
- * The card under the project's: the mode (Canvas or Design System), then in Canvas mode the
- * canvas shown, which opens the list of canvases.
+ * Under the project, in its card: the mode (Canvas or Design System), then in Canvas mode the
+ * canvas shown, whose list opens over the left panel rather than growing the card.
  */
-export const CanvasCard = ({ width }: { width: number | null }) => {
+export const ModeAndCanvases = () => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
   const current = useEditor((s) => s.canvas);
   const mode = useEditorMode();
-  const [open, setOpen] = useState(false);
   if (!configured || canvases.length === 0) {
     return null;
   }
   return (
-    <section
-      aria-label="Mode and canvases"
-      className="floating pointer-events-auto flex max-h-[50%] shrink-0 flex-col"
-      style={width === null ? undefined : { width }}
-    >
+    <section aria-label="Mode and canvases" className="flex flex-col">
       {/* The mode first; the canvases are the Canvas mode's alone. */}
       <ModeToggle />
       {mode === "canvas" ? (
-        <CanvasPicker
-          canvases={canvases}
-          current={current}
-          name={canvases.find((c) => c.id === current)?.name ?? "No canvas"}
-          open={open}
-          setOpen={setOpen}
-        />
+        <CanvasPicker canvases={canvases} current={current} />
       ) : null}
     </section>
   );
 };
 
-/** The canvas shown, and with it open the list of canvases and what makes a new one. */
+const MENU_ROW =
+  "flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground outline-none hover:bg-muted/50 hover:text-foreground focus-visible:bg-muted/50 focus-visible:text-foreground";
+
+/** The canvas shown, which opens the list of canvases and what makes a new one, over the panel. */
 const CanvasPicker = ({
   canvases,
   current,
-  name,
-  open,
-  setOpen,
 }: {
   canvases: readonly Canvas[];
   current: string | null;
-  name: string;
-  open: boolean;
-  setOpen: (open: boolean) => void;
 }) => (
-  <>
-    <button
-      aria-expanded={open}
-      className="flex h-9 shrink-0 items-center gap-2 rounded-b-[inherit] border-t px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
-      onClick={() => setOpen(!open)}
-      title={open ? "Hide the canvases" : "Show the canvases"}
-      type="button"
+  <Popover>
+    <PopoverTrigger
+      className="group flex h-9 shrink-0 items-center gap-2 border-t px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40 data-popup-open:bg-muted/40"
+      title="The canvases"
     >
       <Frame className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
-      <ChevronDown
-        className={cn(
-          "size-3.5 shrink-0 text-muted-foreground transition-transform",
-          open && "rotate-180"
-        )}
-      />
-    </button>
-    {open ? (
-      <div className="flex min-h-0 flex-col gap-1 overflow-auto border-t p-1">
-        <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
-          Canvases
-        </div>
-        <CanvasList canvases={canvases} current={current} />
-        <div className="my-0.5 h-px bg-border" />
-        <button
-          className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-          onClick={newCanvas}
-          type="button"
-        >
-          <Plus className="size-3.5" />
-          New canvas
-        </button>
-        <button
-          className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-          onClick={pickFigmaFile}
-          title="An agent turns the frames of a .fig file into pages of this canvas"
-          type="button"
-        >
-          <FileUp className="size-3.5" />
-          Import a Figma file…
-        </button>
+      <span className="min-w-0 flex-1 truncate font-medium">
+        {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
+      </span>
+      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
+    </PopoverTrigger>
+    <PopoverContent
+      align="start"
+      className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-1 overflow-auto p-1"
+      sideOffset={6}
+    >
+      <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
+        Canvases
       </div>
-    ) : null}
-  </>
+      <CanvasList canvases={canvases} current={current} />
+      <div className="my-0.5 h-px bg-border" />
+      <button className={MENU_ROW} onClick={newCanvas} type="button">
+        <Plus className="size-3.5" />
+        New canvas
+      </button>
+      <button
+        className={MENU_ROW}
+        onClick={pickFigmaFile}
+        title="An agent turns the frames of a .fig file into pages of this canvas"
+        type="button"
+      >
+        <FileUp className="size-3.5" />
+        Import a Figma file…
+      </button>
+    </PopoverContent>
+  </Popover>
 );
