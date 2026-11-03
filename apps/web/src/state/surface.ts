@@ -22,6 +22,7 @@ import {
   railTabsFor,
   useBoard,
 } from "./board.ts";
+import { clearCanvasPicks } from "./canvas-picks.ts";
 import { useComments } from "./comments.ts";
 import {
   canvasRail,
@@ -88,6 +89,7 @@ const pageSurface: Surface = {
     return panel === null || railTabs.includes(panel);
   },
   onGroundPress: () => {
+    clearCanvasPicks();
     selectPage(null);
     useComments.getState().setDraft(null);
     useComments.getState().setOpen(null);

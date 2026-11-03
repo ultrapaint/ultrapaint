@@ -12,6 +12,7 @@ import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
+import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import {
@@ -20,6 +21,7 @@ import {
   hold,
   holdUntil,
   setFrame,
+  setFrames,
   showFrame,
 } from "../state/page-layout.ts";
 import { select, selectPage } from "../state/selection.ts";
@@ -207,6 +209,86 @@ const followFrame = (
   drawingFrame(pageId);
 };
 
+/** Whether the last press on a picked frame's name moved them: its click then picks nothing. */
+let movedPicks = false;
+
+/** Whether the frames picked together were just moved; asked once, by the click after it. */
+export const pickedFramesMoved = () => {
+  const was = movedPicks;
+  movedPicks = false;
+  return was;
+};
+
+/**
+ * Moves the frames picked together (`canvas-picks.ts`) by a press on any one's name: pages by
+ * their frames, saved as one step, nodes on the canvas held where they go until their documents
+ * have them. A locked node stays where it is.
+ */
+const followPicks = (ids: readonly string[], from: PointerAt) => {
+  const s = useEditor.getState();
+  const boxes = allFrames();
+  const pages = ids.flatMap((id) => {
+    const frame = s.frames[id];
+    return frameRefOf(id).kind === "page" && frame ? [{ frame, id }] : [];
+  });
+  const nodes = ids.flatMap((id) => {
+    const ref = frameRefOf(id);
+    const box = boxes[id];
+    return ref.kind === "node" && box && !isFrameLocked(id)
+      ? [{ before: s.held[id] ?? null, box, id, nodeId: ref.node }]
+      : [];
+  });
+  let moved = false;
+  movedPicks = false;
+  follow({
+    cancel: () => {
+      for (const page of pages) {
+        showFrame(page.id, page.frame);
+      }
+      for (const node of nodes) {
+        hold(node.id, node.before);
+      }
+    },
+    move: (e) => {
+      const { dx, dy } = movedBy(from, e);
+      moved = true;
+      for (const page of pages) {
+        showFrame(page.id, {
+          ...page.frame,
+          x: page.frame.x + dx,
+          y: page.frame.y + dy,
+        });
+      }
+      for (const node of nodes) {
+        hold(node.id, { ...node.box, x: node.box.x + dx, y: node.box.y + dy });
+      }
+    },
+    up: () => {
+      if (!moved) {
+        return;
+      }
+      movedPicks = true;
+      const { frames } = useEditor.getState();
+      setFrames(
+        pages.flatMap((page) => {
+          const f = frames[page.id];
+          return f ? [[page.id, { ...f, ...roundBox(f) }] as const] : [];
+        })
+      );
+      const { held } = useEditor.getState();
+      for (const node of nodes) {
+        const to = held[node.id];
+        if (to?.x !== undefined && to.y !== undefined) {
+          const box = { x: Math.round(to.x), y: Math.round(to.y) };
+          holdUntil(node.id, { ...node.box, ...box }, () =>
+            updateNodes([{ frame: node.id, nodeId: node.nodeId }], box, "Move")
+          );
+        }
+      }
+    },
+  });
+};
+
 /**
  * Sizes a node on the canvas, which gives it a fixed size: held at the size it is given while the
  * pointer moves, so its frame draws it so; kept there once let go until its document has it.
@@ -269,6 +351,13 @@ export const beginFrameGesture = (
     (e.currentTarget as Element | null)
       ?.closest?.("[data-canvas]")
       ?.setPointerCapture(e.pointerId);
+  // A picked frame's name moves every frame picked with it.
+  const picks = useCanvasPicks.getState().ids;
+  if (kind === "move" && isPicked(picks, frameId)) {
+    capture();
+    followPicks(picks, e);
+    return;
+  }
   const ref = frameRefOf(frameId);
   if (ref.kind === "node") {
     const nodeId = ref.node;

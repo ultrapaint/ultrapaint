@@ -58,6 +58,7 @@ import {
   useBoard,
 } from "./state/board.ts";
 import { setView } from "./state/camera.ts";
+import { startCanvasPicks } from "./state/canvas-picks.ts";
 import { useComments } from "./state/comments.ts";
 import { useComponents } from "./state/components.ts";
 import { useDesignSystem } from "./state/design-system.ts";
@@ -539,6 +540,7 @@ export const App = () => {
   // component edited in place to another canvas.
   useEffect(() => startBoardView(), []);
   useEffect(() => startRightPanel(), []);
+  useEffect(() => startCanvasPicks(), []);
   useEffect(() => startIsolation(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.

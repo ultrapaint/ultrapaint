@@ -8,6 +8,7 @@
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
+  BoxSelect,
   GitBranch,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -206,6 +208,15 @@ const togglePrototype = () => {
 /** What the right panel is about: the layer selected, its icon and name, or how many there are. */
 const Inspecting = () => {
   const inspected = useInspected();
+  const picked = useCanvasPicks((s) => s.ids.length);
+  if (picked > 1) {
+    return (
+      <span className="flex h-7 min-w-0 items-center gap-1.5 truncate rounded-md bg-muted px-2 font-body">
+        <BoxSelect className="size-3.5 shrink-0" />
+        {picked} frames
+      </span>
+    );
+  }
   if (!inspected) {
     return null;
   }

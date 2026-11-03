@@ -7,13 +7,16 @@ import { slugOf } from "@ultrapaint/shared/path";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 
+import { clearCanvasPicks, useCanvasPicks } from "../state/canvas-picks.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { goTo } from "../state/location.ts";
 import { setPreset } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { linksToPage } from "./links.ts";
+import { deleteNodes } from "./node-actions.ts";
 import { reveal } from "./reveal.ts";
 import { startTask } from "./start-thread.ts";
 
@@ -157,6 +160,49 @@ export const deletePage = async (page: Page) => {
   });
   if (ok) {
     api().request("pages.delete", { id: page.id }).catch(reportError);
+  }
+};
+
+/**
+ * Deletes the frames picked together on the canvas (`canvas-picks.ts`), once the user says so:
+ * the pages' files and the nodes placed on the canvas.
+ */
+export const deleteCanvasPicks = async () => {
+  const { ids } = useCanvasPicks.getState();
+  if (ids.length === 0 || !ensureEditable()) {
+    return;
+  }
+  const pages = ids.filter((id) => frameRefOf(id).kind === "page");
+  const nodes = ids.flatMap((id) => {
+    const ref = frameRefOf(id);
+    return ref.kind === "node" ? [{ frame: id, nodeId: ref.node }] : [];
+  });
+  const counted = (n: number, one: string, many: string) =>
+    `${n} ${n === 1 ? one : many}`;
+  const what = [
+    pages.length > 0 ? counted(pages.length, "page", "pages") : null,
+    nodes.length > 0 ? counted(nodes.length, "layer", "layers") : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  const ok = await confirmDialog({
+    confirmLabel: "Delete",
+    description:
+      pages.length > 0
+        ? "The page files are removed from the designs directory, and links to them will lead nowhere."
+        : "The layers are removed from the canvas.",
+    destructive: true,
+    title: `Delete ${what}?`,
+  });
+  if (!ok) {
+    return;
+  }
+  clearCanvasPicks();
+  for (const id of pages) {
+    api().request("pages.delete", { id }).catch(reportError);
+  }
+  if (nodes.length > 0) {
+    await deleteNodes(nodes);
   }
 };
 

@@ -16,6 +16,7 @@ import { useAgents } from "../state/agents.ts";
 
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
+import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import type { MenuTarget } from "../state/context-menu.ts";
 import {
@@ -49,7 +50,12 @@ import {
   setLocked,
   wrapSelection,
 } from "./node-actions.ts";
-import { goToPage, newPage, zoomToPage } from "./page-actions.ts";
+import {
+  deleteCanvasPicks,
+  goToPage,
+  newPage,
+  zoomToPage,
+} from "./page-actions.ts";
 import {
   editSelectedText,
   openSelectionMenuByKey,
@@ -556,7 +562,14 @@ const keyOnlyCommands = (): CommandSpec[] => [
     id: "delete",
     keys: ["backspace"],
     offered: keyOnly,
-    run: toSelection(() => deleteSelection()),
+    // Frames picked together on the canvas go together, once the user says so.
+    run: () => {
+      if (useCanvasPicks.getState().ids.length > 1) {
+        deleteCanvasPicks();
+        return true;
+      }
+      return toSelection(() => deleteSelection())();
+    },
     scope: "canvas",
     title: "Delete",
   },

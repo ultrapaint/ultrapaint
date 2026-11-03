@@ -254,20 +254,21 @@ const savedFrame = ({ views, ...frame }: FrameLayout): FrameLayout =>
   views && views.length > 0 ? { ...frame, views } : frame;
 
 /**
- * Saves `frame`'s page as it is drawn now, one undo step on the server, with the pages drawn
- * where no frame of theirs is saved: drawn after the saved ones, they would move with it.
+ * Saves the pages of `changedFrames` as they are drawn now, one undo step on the server, with the
+ * pages drawn where no frame of theirs is saved: drawn after the saved ones, they would move with
+ * them.
  */
-const saveFrame = (frame: string) => {
+const saveFrames = (changedFrames: readonly string[]) => {
   const { frames, layout, canvas } = useEditor.getState();
   // A snapshot's frames move on screen and nowhere else.
   if (canvas === null || viewedSnapshot()) {
     return;
   }
-  const changed = viewIn(frame).page;
+  const changed = new Set(changedFrames.map((frame) => viewIn(frame).page));
   const sent: Record<string, FrameLayout> = {};
   for (const page of pagesOfCanvas(canvas)) {
     const drawn = frames[page.id];
-    if (drawn && (page.id === changed || !(page.path in layout.frames))) {
+    if (drawn && (changed.has(page.id) || !(page.path in layout.frames))) {
       sent[page.path] = savedFrame(drawn);
     }
   }
@@ -345,7 +346,17 @@ export const openedCanvas = (
  */
 export const setFrame = (pageId: string, frame: FrameLayout) => {
   showFrame(pageId, frame);
-  saveFrame(pageId);
+  saveFrames([pageId]);
+};
+
+/** Sets several pages' frames at once, saved as one step: frames moved together. */
+export const setFrames = (
+  frames: readonly (readonly [string, FrameLayout])[]
+) => {
+  for (const [pageId, frame] of frames) {
+    showFrame(pageId, frame);
+  }
+  saveFrames(frames.map(([pageId]) => pageId));
 };
 
 /** Sizes a page's frame for a device, saved. */
