@@ -56,8 +56,9 @@ Make what screens reach for, so they never assemble it from rows: a button group
 borders (Previous, Today, Next), a segmented control for the modes of one view, a timeline for
 events in time, a search field with its magnifier, tabs, a switch row with the label left and the
 switch at the right edge. A product with a dropdown menu and no select gets the menu.[with the editor's tools:  A
-component written into the code is placed once Sync takes it in: tell the user so, and go on with
-what the system has rather than waiting for it. | without: ]
+component written into the code is placed once the user runs Sync. Do not ask them to run it, and
+do not wait: draw what the job asks for now, with the components the system has and, where one is
+missing, its parts, and say in your last message what Sync will bring in. | without: ]
 
 ## Components reuse each other
 

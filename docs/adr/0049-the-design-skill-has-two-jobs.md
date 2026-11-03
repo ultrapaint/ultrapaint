@@ -1,7 +1,7 @@
 # ADR 0049: The design skill has two jobs, a screen and its design system
 
 Status: accepted, 2026-11-03. Amends 0048 (the router, the design-system part and the tasks told it). Amended by 0050
-(the character settled with the user).
+(the character settled with the user) and 0054 (a missing role, waiting for Sync).
 
 ## Context
 
