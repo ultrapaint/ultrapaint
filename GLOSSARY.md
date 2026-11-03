@@ -310,6 +310,11 @@ refactor and the board view left.
   right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
   and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
+- **Element toolbar**: the selection's design-system controls and its menu, in a bar docked over
+  the tools at the bottom centre while something is selected (the web's `ElementToolbar`,
+  `GroupToolbar` and `PageToolbar`, drawn through `selection-dock`), the same at every zoom (ADR
+  0055). On the canvas the selection keeps only its **tag**: its name, which walks to its parents
+  and children, and the agent's ✦ button, never wider than the element.
 - **Field**: one of a node's fields that the inspector and the element toolbar both edit (align,
   text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's

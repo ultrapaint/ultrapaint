@@ -1,7 +1,7 @@
 /**
- * The Vibe toolbar over a selected page: the viewports it can be drawn at, the views it is drawn
- * in beside its frame (ADR 0036), then the page's menu. The frame's header keeps only its name
- * and size; Design keeps the inspector's Viewport field.
+ * The bar of a selected page, docked above the tools as an element's is (ADR 0055): the viewports
+ * it can be drawn at, the views it is drawn in beside its frame (ADR 0036), then the page's menu.
+ * The frame's header keeps its name and size; the inspector keeps its Viewport field.
  */
 import { presetSize, type ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
@@ -26,10 +26,10 @@ import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { addView, setPreset } from "../state/page-layout.ts";
 import { selectPage } from "../state/selection.ts";
-import { screenPx, UNZOOM } from "./camera.ts";
 import { useDrag } from "./drag.ts";
-import { Divider, MoreButton } from "./element-toolbar.tsx";
+import { MoreButton } from "./element-toolbar.tsx";
 import { MenuHead, ValueTrigger } from "./element-toolbar-selects.tsx";
+import { Divider, SelectionDock } from "./selection-dock.tsx";
 
 const PRESET_ICON: Record<ViewportPreset, LucideIcon> = {
   custom: Scaling,
@@ -133,37 +133,19 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
   );
 };
 
-/** Centred over the frame, above its header, at the same size on screen whatever the zoom. */
-export const PageToolbar = ({
-  headerHeight,
-  pageId,
-}: {
-  /** The room the frame's header takes above it, on screen, which the toolbar sits over. */
-  headerHeight: number;
-  pageId: string;
-}) => {
+/** In the bar above the tools while the page is selected. */
+export const PageToolbar = ({ pageId }: { pageId: string }) => {
   const preset = useEditor((s) => presetOf(s.frames[pageId]));
   const dragging = useDrag((s) => s.dragged !== null);
   if (dragging) {
     return null;
   }
   return (
-    <div
-      aria-label="Toolbar of the page"
-      className="absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-lg border bg-popover p-0.5 text-popover-foreground shadow-overlay"
-      data-element-toolbar
-      onPointerDown={(e) => e.stopPropagation()}
-      role="toolbar"
-      style={{
-        bottom: `calc(100% + ${screenPx(headerHeight + 8)})`,
-        transform: `${UNZOOM} translateX(-50%)`,
-        transformOrigin: "bottom left",
-      }}
-    >
+    <SelectionDock label="Toolbar of the page">
       <ViewportSelect pageId={pageId} preset={preset} />
       <ViewsMenu pageId={pageId} />
       <Divider />
       <MoreButton menu={{ kind: "page", pageId }} />
-    </div>
+    </SelectionDock>
   );
 };
