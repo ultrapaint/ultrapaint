@@ -95,7 +95,8 @@ export const fakeServers = (recorded: Recorded) =>
 
 /**
  * A remote project's server per start, at `http://127.0.0.1/<host>/<folder name>`, recorded as
- * the local fake's are; a host named `down` cannot be reached.
+ * the local fake's are; a host named `down` cannot be reached, and one named `silent` never
+ * answers: its connection is recorded, and given up when what waits for it is stopped.
  */
 export const fakeRemoteProjects = (recorded: Recorded) =>
   Layer.succeed(
@@ -103,6 +104,14 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
     RemoteProjects.of({
       start: (project) =>
         Effect.gen(function* () {
+          if (project.host === "silent") {
+            const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
+            recorded.events.push(`connect ${name}`);
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => recorded.events.push(`give up ${name}`))
+            );
+            return yield* Effect.never;
+          }
           if (project.host === "down") {
             return yield* new ServerStartError({
               message: "down could not be reached",

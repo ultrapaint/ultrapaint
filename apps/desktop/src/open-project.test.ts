@@ -63,6 +63,15 @@ const asked = Effect.fnUntraced(function* (recorded: Recorded) {
   }
 });
 
+/** Lets the fibers forked run until a project's connection is on its way. */
+const connected = Effect.fnUntraced(function* (recorded: Recorded) {
+  while (!recorded.events.some((event) => event.startsWith("connect "))) {
+    yield* Effect.promise(
+      () => new Promise<void>((resolve) => setImmediate(resolve))
+    );
+  }
+});
+
 describe("OpenProject", () => {
   it.effect("asks for a first project when there is none", () =>
     withApp((recorded) =>
@@ -86,6 +95,7 @@ describe("OpenProject", () => {
         yield* open.start;
         assert.deepStrictEqual(recorded.events, ["start second"]);
         assert.deepStrictEqual(recorded.views, [
+          { _tag: "Opening", detail: "/work/second", name: "second" },
           { _tag: "Editor", url: "http://127.0.0.1/second" },
         ]);
         assert.strictEqual(
@@ -148,6 +158,7 @@ describe("OpenProject", () => {
         const error = yield* Effect.flip(open.open(broken.id));
         assert.strictEqual(error._tag, "ServerStartError");
         assert.deepStrictEqual(recorded.views, [
+          { _tag: "Opening", detail: "/work/broken", name: "broken" },
           { _tag: "Welcome", problem: "it broke" },
         ]);
         assert.isTrue(Option.isNone(yield* open.current));
@@ -344,8 +355,67 @@ describe("OpenProject", () => {
         );
         assert.isFalse(opened);
         assert.deepStrictEqual(recorded.views, [
+          { _tag: "Opening", detail: "down:/srv", name: "srv" },
           { _tag: "Welcome", problem: "down could not be reached" },
         ]);
+      })
+    )
+  );
+
+  it.effect(
+    "shows a project opening at once, and stops it for the list when asked",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          yield* store.opened(off.id);
+          const starting = yield* Effect.forkChild(open.start, {
+            startImmediately: true,
+          });
+          yield* connected(recorded);
+          // The machine has not answered, and the window already says what it is waiting for.
+          assert.deepStrictEqual(recorded.views, [
+            { _tag: "Opening", detail: "silent:/srv", name: "srv" },
+          ]);
+          yield* open.stopOpening;
+          yield* Fiber.join(starting);
+          assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Welcome" });
+          assert.deepStrictEqual(recorded.events, [
+            "connect silent:srv",
+            "give up silent:srv",
+          ]);
+          assert.isTrue(Option.isNone(yield* open.current));
+        })
+      )
+  );
+
+  it.effect("opening another project stops the one still opening", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const store = yield* ProjectStore;
+        const open = yield* OpenProject;
+        const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+        const here = yield* store.add("/work/here");
+        const opening = yield* Effect.forkChild(open.open(off.id), {
+          startImmediately: true,
+        });
+        yield* connected(recorded);
+        // The one already opening, asked again, goes on opening.
+        yield* open.open(off.id);
+        yield* open.open(here.id);
+        yield* Fiber.join(opening);
+        assert.deepStrictEqual(recorded.events, [
+          "connect silent:srv",
+          "give up silent:srv",
+          "start here",
+        ]);
+        assert.deepStrictEqual(recorded.views.at(-1), {
+          _tag: "Editor",
+          url: "http://127.0.0.1/here",
+        });
+        assert.strictEqual(Option.getOrThrow(yield* open.current).id, here.id);
       })
     )
   );

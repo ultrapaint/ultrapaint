@@ -128,4 +128,5 @@ export const bridgeHandlers = (
     ),
   "projects.open": (id) => OpenProject.use((o) => o.open(id)),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
+  "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),
 });

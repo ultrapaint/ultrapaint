@@ -144,7 +144,10 @@ const showView = (view: View) =>
       return;
     }
     const welcome = new URL(`${APP_SCHEME}://app/welcome.html`);
-    if (view.problem) {
+    if (view._tag === "Opening") {
+      welcome.searchParams.set("opening", view.name);
+      welcome.searchParams.set("detail", view.detail);
+    } else if (view.problem) {
       welcome.searchParams.set("problem", view.problem);
     }
     await window.loadURL(welcome.href);

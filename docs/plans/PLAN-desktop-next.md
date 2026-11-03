@@ -68,12 +68,12 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
       runs over the same connection, and the default folder is asked of the remote.
 - [ ] 6.5 A pinned runtime uploaded to the remote, as T3 Code does, for machines without
       `ultrapaint` (and later without Node). Only if 6.1 to 6.4 show it is needed.
-- [ ] 6.6 Opening at start, never a blank window (found 2026-11-03): the app reopens the last
-      project before it shows anything (`OpenProject.start`), so an SSH project whose machine is
-      off or unreachable leaves the window grey for up to the connection's 40 seconds and the
-      server's 2 minutes, then shows the welcome page. Show the project opening at once (its
-      name, the host, connecting / starting the server), with a way to stop and go to the list;
-      a project that was remote opens to the list when its machine does not answer quickly.
+- [x] 6.6 Opening at start, never a blank window (found 2026-11-03): the app reopened the last
+      project before it showed anything, so an SSH project whose machine was off or out of reach
+      left the window grey for up to the connection's 40 seconds and the server's 2 minutes. Now
+      every opening shows the welcome page at once with the project opening (its name and where
+      it is), a Stop that gives the attempt up for the list, and the list, where another project
+      stops the one opening.
 
 ### Phase 7: releases
 

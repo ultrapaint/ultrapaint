@@ -305,6 +305,8 @@ export const SHELL_BRIDGE = {
   "projects.open": invoke([Schema.String], Schema.Void),
   /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
+  /** Stops the project opening (its machine not answering, say) and shows the list instead. */
+  "projects.stopOpening": invoke([], Schema.Void),
   /** What the shell is doing for the open project; null when nothing. */
   shellStatus: state(Schema.NullOr(ShellStatus)),
   /** The window's buttons over the page; not shown where the system draws the frame. */
