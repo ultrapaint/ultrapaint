@@ -12,23 +12,46 @@
  * reviewers found it.
  */
 import path from "node:path";
+import {
+  CATEGORIES,
+  Category,
+  Finding,
+  pageScore,
+  type ReviewerRound,
+  type Score,
+  SEVERITIES,
+  SignOff,
+  sectionScore,
+} from "@ultrapaint/contracts/review";
 import { Clock, Effect, Schema } from "effect";
 import { prompt } from "./layout.ts";
 import { Models } from "./models.ts";
 
-export const SectionFinding = Schema.Struct({
-  fix: Schema.String,
-  problem: Schema.String,
-  title: Schema.String,
-  where: Schema.String,
-});
-export type SectionFinding = typeof SectionFinding.Type;
+/** One problem a reviewer found: its category and severity set what it costs (contracts' `review`). */
+export const SectionFinding = Finding;
+export type SectionFinding = Finding;
 
 const str = { type: "string" };
 const findingSchema = {
   additionalProperties: false,
-  properties: { fix: str, problem: str, title: str, where: str },
-  required: ["title", "where", "problem", "fix"],
+  properties: {
+    category: { enum: [...CATEGORIES], type: "string" },
+    fix: str,
+    problem: str,
+    rule: str,
+    severity: { enum: [...SEVERITIES], type: "string" },
+    title: str,
+    where: str,
+  },
+  required: [
+    "title",
+    "where",
+    "problem",
+    "fix",
+    "category",
+    "severity",
+    "rule",
+  ],
   type: "object",
 };
 
@@ -41,6 +64,9 @@ export type SystemNote = typeof SystemNote.Type;
 
 const ReviewAnswer = Schema.Struct({
   findings: Schema.Array(SectionFinding),
+  /** The categories, beyond the ones every screen has, the section has: what it is scored on. */
+  reached: Schema.Array(Category),
+  signOff: SignOff,
   systemNotes: Schema.Array(SystemNote),
 });
 const reviewAnswer = {
@@ -49,6 +75,16 @@ const reviewAnswer = {
     additionalProperties: false,
     properties: {
       findings: { items: findingSchema, type: "array" },
+      reached: {
+        items: { enum: [...CATEGORIES], type: "string" },
+        type: "array",
+      },
+      signOff: {
+        additionalProperties: false,
+        properties: { done: { type: "boolean" }, left: str },
+        required: ["done", "left"],
+        type: "object",
+      },
       systemNotes: {
         items: {
           additionalProperties: false,
@@ -59,7 +95,7 @@ const reviewAnswer = {
         type: "array",
       },
     },
-    required: ["findings", "systemNotes"],
+    required: ["findings", "reached", "signOff", "systemNotes"],
     type: "object",
   },
 };
@@ -136,10 +172,14 @@ export interface SectionToReview {
 /** What one reviewer found in one section, and what it took. */
 export interface SectionReview {
   readonly costUsd: number;
+  /** Why the reviewer gave no review, when it gave none: it then has no score, and nothing else. */
+  readonly failed?: string;
   readonly findings: readonly SectionFinding[];
+  readonly reached: readonly Category[];
   readonly reviewer: string;
   readonly seconds: number;
   readonly section: string;
+  readonly signOff: SignOff;
   readonly systemNotes: readonly SystemNote[];
   readonly tokens: number;
 }
@@ -204,18 +244,25 @@ export const reviewSection = Effect.fn("reviewSection")(function* (
     }),
     ...reviewAnswer,
   });
-  return {
+  const review: SectionReview = {
     costUsd: answer.costUsd,
     findings: answer.value.findings,
+    reached: answer.value.reached,
     reviewer,
     seconds: ((yield* Clock.currentTimeMillis) - started) / 1000,
     section: section.name,
+    signOff: answer.value.signOff,
     systemNotes: answer.value.systemNotes,
     tokens: answer.tokens,
-  } satisfies SectionReview;
+  };
+  return review;
 });
 
-/** Every reviewer's review of every section, several at once. */
+/**
+ * Every reviewer's review of every section, several at once. A reviewer that fails (it timed out,
+ * its answer didn't decode) gives no review of that section: the others go on, and it has no score
+ * there rather than a made-up one.
+ */
 export const reviewSections = (
   sections: readonly SectionToReview[],
   reviewers: readonly string[],
@@ -225,13 +272,66 @@ export const reviewSections = (
     sections.flatMap((section) =>
       reviewers.map((reviewer) => ({ reviewer, section }))
     ),
-    ({ reviewer, section }) => reviewSection(section, reviewer, settings),
+    ({ reviewer, section }) =>
+      reviewSection(section, reviewer, settings).pipe(
+        Effect.catchTag("EvalsError", (error) =>
+          Effect.as(
+            Effect.logWarning(
+              `${reviewer} gave no review of ${section.name}: ${error.message}`
+            ),
+            {
+              costUsd: 0,
+              failed: error.message,
+              findings: [],
+              reached: [],
+              reviewer,
+              seconds: 0,
+              section: section.name,
+              signOff: { done: false, left: "" },
+              systemNotes: [],
+              tokens: 0,
+            } satisfies SectionReview
+          )
+        )
+      ),
     { concurrency: settings.concurrency }
+  );
+
+/** One reviewer's review of one section as a score: none when it gave no review. */
+export const scoreOfReview = (review: SectionReview): Score =>
+  review.failed === undefined
+    ? sectionScore(review.findings, review.reached)
+    : { kind: "none", reason: review.failed };
+
+/**
+ * Each reviewer's result for a round of reviews: its score of the page from the sections it
+ * reviewed, and whether it signed off every one of them.
+ */
+export const reviewerRounds = (
+  reviewers: readonly string[],
+  reviews: readonly SectionReview[]
+): Record<string, ReviewerRound & { readonly unscored: readonly string[] }> =>
+  Object.fromEntries(
+    reviewers.map((reviewer) => {
+      const own = reviews.filter((r) => r.reviewer === reviewer);
+      const given = own.filter((r) => r.failed === undefined);
+      const { unscored, ...score } = pageScore(
+        own.map((r) => ({ name: r.section, score: scoreOfReview(r) }))
+      );
+      return [
+        reviewer,
+        {
+          score: score as Score,
+          signedOff: given.length > 0 && given.every((r) => r.signOff.done),
+          unscored,
+        },
+      ];
+    })
   );
 
 /** A finding under its label, as the grouping model is shown it. */
 const listed = (label: string, f: SectionFinding) =>
-  `${label}. **${f.title}** (${f.where}): ${f.problem} Fix: ${f.fix}`;
+  `${label}. **${f.title}** (${f.where}; ${f.category}, ${f.severity}): ${f.problem} Fix: ${f.fix}${f.rule === "" ? "" : ` Rule: ${f.rule}`}`;
 
 /**
  * The problems the grouping model made of the labelled findings, each with the reviewers whose
@@ -261,10 +361,13 @@ export const mergedFrom = (
     }
     return [
       {
+        category: p.category,
         fix: p.fix,
         problem: p.problem,
         reviewers: [...new Set(found.map((f) => f.reviewer))].sort(),
+        rule: p.rule,
         section,
+        severity: p.severity,
         title: p.title,
         where: p.where,
       },

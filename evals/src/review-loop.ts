@@ -5,11 +5,17 @@
  * without it:
  *
  * - `end`: when the designer's turn ends, the page is cut into its sections, every reviewer
- *   reviews every section, and the findings go back; again, up to the passes, until a pass finds
- *   nothing.
+ *   reviews every section, and the findings go back; again, until the goal says to stop.
  * - `each-section`: the designer builds one section per turn and names it on its last line
- *   (`Section done: <node> <name>`); that node is reviewed, up to the passes, before the designer
- *   is asked for the next. After `All sections done`, the whole page is reviewed once as in `end`.
+ *   (`Section done: <node> <name>`); that node is reviewed until the goal says to stop, before
+ *   the designer is asked for the next. After `All sections done`, the whole page is reviewed as
+ *   in `end`.
+ *
+ * After each review, every reviewer of the council is scored 0–100 on its own findings, and the
+ * goal decides (`verdictOf` in contracts' `review`): every reviewer reaches its target score, or,
+ * with none asked, every reviewer signs off; a cap on rounds, no gain or the budget ends a loop
+ * that isn't converging. A reviewer that gives no review has no score, and doesn't hold the loop.
+ * A review that finds nothing ends it too: there is nothing left to send.
  *
  * The reviewers review within what the designer was asked (`ReviewRequest`); what only a design
  * system component would fix comes back as a system note, shown to the designer apart and not
@@ -19,14 +25,27 @@
  * in the tests. It writes `review.json` beside the run's `run.json`.
  */
 import path from "node:path";
+import {
+  CATEGORIES,
+  type Goal,
+  type LoggedFinding,
+  MAX_ROUNDS,
+  type ReviewerRound,
+  type Round,
+  type StopReason,
+  type Target,
+  targetOf,
+  verdictOf,
+} from "@ultrapaint/contracts/review";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
-import { Clock, Effect } from "effect";
-import type { EvalsError } from "./errors.ts";
+import { Clock, DateTime, Effect, FileSystem } from "effect";
+import { EvalsError } from "./errors.ts";
 import { prompt, writeJson } from "./layout.ts";
 import {
   type MergedFinding,
   mergeSection,
   type ReviewRequest,
+  reviewerRounds,
   reviewSections,
   type SectionReview,
   type SectionToReview,
@@ -49,19 +68,31 @@ export interface ReviewOptions {
   /** Reviews (and groupings) at once. */
   readonly concurrency: number;
   readonly effort: string;
+  /** When to stop reviewing a section, or the page (contracts' `review`). */
+  readonly goal: Goal;
   /** The model that cuts the page into sections and groups the reviewers' findings. */
   readonly judgeModel: string;
   /** The designer's turns before the page is reviewed as it stands (`MAX_TURNS`). */
   readonly maxTurns?: number;
   readonly mode: ReviewMode;
-  /** Reviews of one section (or of the page) at most, each followed by the designer's answer. */
-  readonly passes: number;
-  /** The models that review, as `recall --models` takes them. */
+  /** The council: the models that review, as `recall --models` takes them. */
   readonly reviewers: readonly string[];
+}
+
+/** Where the findings go when the findings log is on (opt-in), and what they are told with. */
+export interface FindingsLog {
+  /** The JSONL file the findings are appended to. */
+  readonly file: string;
+  readonly page: string;
+  readonly project: string;
+  /** The skill's version the reviewers read. */
+  readonly skill: string;
 }
 
 /** How the loop reaches the designer, the page and the skill. */
 export interface ReviewIO<R = never> {
+  /** Where each pass's findings are logged; nowhere without it. */
+  readonly log?: FindingsLog | undefined;
   /** The page's node, pictured as it is now under `dir`; none when it cannot be drawn. */
   readonly nodeSection: (
     node: string,
@@ -78,6 +109,66 @@ export interface ReviewIO<R = never> {
   /** The skill's tree the reviewers read: the checkout's, as the designer was briefed with it. */
   readonly tree: string;
 }
+
+/** The goal as a round's flags give it: each part optional, the reviewers' and floors' as lists. */
+export interface GoalFlags {
+  readonly budgetUsd?: number | undefined;
+  /** `accessibility=80,contrast=…`: the lowest score a category may have. */
+  readonly floors?: string | undefined;
+  readonly maxRounds?: number | undefined;
+  /** `gpt-6.1-sol=none,cursor:grok-4.7-high=80`: a reviewer's own target, or `none` to advise. */
+  readonly reviewerGoals?: string | undefined;
+  /** The score every reviewer reaches; without it, each signs off. */
+  readonly score?: number | undefined;
+}
+
+const pairsOf = (list: string | undefined) =>
+  (list ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .map((p) => {
+      const at = p.lastIndexOf("=");
+      return at < 0
+        ? { key: p, value: "" }
+        : { key: p.slice(0, at).trim(), value: p.slice(at + 1).trim() };
+    });
+
+const SCORE = /^\d{1,3}$/;
+
+/** The goal of a round's flags; fails on a pair it can't read. */
+export const goalFrom = Effect.fnUntraced(function* (flags: GoalFlags) {
+  const reviewers: Record<string, number | null> = {};
+  for (const { key, value } of pairsOf(flags.reviewerGoals)) {
+    if (value === "none") {
+      reviewers[key] = null;
+    } else if (SCORE.test(value)) {
+      reviewers[key] = Number(value);
+    } else {
+      return yield* new EvalsError({
+        message: `--reviewer-goals: "${key}=${value}" is not <model>=<score> or <model>=none`,
+      });
+    }
+  }
+  const floors: Record<string, number> = {};
+  for (const { key, value } of pairsOf(flags.floors)) {
+    if (
+      !((CATEGORIES as readonly string[]).includes(key) && SCORE.test(value))
+    ) {
+      return yield* new EvalsError({
+        message: `--floors: "${key}=${value}" is not <category>=<score>, the categories being ${CATEGORIES.join(", ")}`,
+      });
+    }
+    floors[key] = Number(value);
+  }
+  return {
+    ...(flags.budgetUsd !== undefined && { budgetUsd: flags.budgetUsd }),
+    ...(Object.keys(floors).length > 0 && { floors }),
+    ...(flags.maxRounds !== undefined && { maxRounds: flags.maxRounds }),
+    ...(Object.keys(reviewers).length > 0 && { reviewers }),
+    ...(flags.score !== undefined && { score: flags.score }),
+  } satisfies Goal;
+});
 
 /** What a turn's last line says it did, in `each-section`. */
 export type Marker =
@@ -158,12 +249,63 @@ export const findingsText = (merged: readonly MergedFinding[]) => {
           .filter((f) => f.section === section)
           .map((f) => {
             n += 1;
-            return `${n}. **${f.title}** (${f.where}): ${f.problem} Fix: ${f.fix}`;
+            return `${n}. **${f.title}** (${f.where}; ${f.category}, ${f.severity}): ${f.problem} Fix: ${f.fix}`;
           }),
       ].join("\n")
     )
     .join("\n\n");
 };
+
+/** A reviewer's result in a round, with the sections it couldn't score. */
+export type ScoredReviewer = ReviewerRound & {
+  readonly unscored: readonly string[];
+};
+
+/** What a reviewer is held to, as the designer is told it after its score. */
+const aimOf = (target: Target, signedOff: boolean) => {
+  if (target.kind === "score") {
+    return ` (goal ${target.score})`;
+  }
+  if (target.kind === "advisory") {
+    return " (advisory)";
+  }
+  return signedOff ? ", signed off" : ", not signed off yet";
+};
+
+/** What the designer did with the finding numbered `n`, as the findings log keeps it. */
+const didWith = (
+  answered: ReturnType<typeof answersOf> | undefined,
+  n: number
+): LoggedFinding["designer"] => {
+  if (answered?.fixed.includes(n)) {
+    return { did: "fixed" };
+  }
+  const declined = answered?.declined.find((d) => d.number === n);
+  return declined
+    ? { did: "declined", reason: declined.reason }
+    : { did: "unanswered" };
+};
+
+/** Where each reviewer stands, as the designer is told it: its score, its target, what's left. */
+export const scoresText = (
+  goal: Goal,
+  scores: Readonly<Record<string, ScoredReviewer>>,
+  reviews: readonly SectionReview[]
+) =>
+  Object.entries(scores)
+    .map(([reviewer, r]) => {
+      if (r.score.kind === "none") {
+        return `- ${reviewer}: no score (${r.score.reason})`;
+      }
+      const aim = aimOf(targetOf(goal, reviewer), r.signedOff);
+      const left = reviews
+        .filter(
+          (v) => v.reviewer === reviewer && !v.signOff.done && v.signOff.left
+        )
+        .map((v) => `${v.section}: ${v.signOff.left}`);
+      return `- ${reviewer}: ${r.score.overall}${aim}${left.length > 0 ? `. Left: ${left.join(" ")}` : ""}`;
+    })
+    .join("\n");
 
 /** A system note, with the section and the reviewer it came from. */
 export interface PlacedNote extends SystemNote {
@@ -228,12 +370,22 @@ export interface ReviewPass {
   /** What the designer said back; absent when nothing was found and nothing sent. */
   readonly reply?: string;
   readonly reviews: readonly SectionReview[];
+  /** Each reviewer's score of what it reviewed, and whether it signed off. */
+  readonly scores: Readonly<Record<string, ScoredReviewer>>;
   readonly sections: readonly {
     readonly name: string;
     /** From the run's directory. */
     readonly picture: string;
   }[];
   readonly spent: Spent;
+  /** Why the loop stopped after this pass, on its last pass. */
+  readonly stopped?: {
+    /** The pass to keep, by its number: the best one, not always the last. */
+    readonly best: number;
+    readonly reason: StopReason | "nothing-found";
+    /** Who was still short of the goal. */
+    readonly unmet: readonly string[];
+  };
   /** What only a design-system component would fix: shown to the designer, not answered. */
   readonly systemNotes: readonly PlacedNote[];
   readonly turn?: TurnSize;
@@ -297,14 +449,66 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
   const maxTurns = options.maxTurns ?? MAX_TURNS;
   const fromRun = (file: string) => path.relative(dir, file);
 
-  /** Reviews these sections, sends what was found, and records the pass; false when it ended. */
+  /** Appends a pass's findings to the findings log, with what the designer did with each. */
+  const logPass = (
+    pass: ReviewPass,
+    answered: ReturnType<typeof answersOf> | undefined
+  ) =>
+    Effect.gen(function* () {
+      const { log } = io;
+      if (log === undefined || pass.merged.length === 0) {
+        return;
+      }
+      const fs = yield* FileSystem.FileSystem;
+      const at = DateTime.formatIso(yield* DateTime.now);
+      const pictures = new Map(pass.sections.map((s) => [s.name, s.picture]));
+      const lines = pass.merged.map((f, i) => {
+        const [reviewer = "", ...agreedBy] = f.reviewers;
+        const picture = pictures.get(f.section);
+        const entry: LoggedFinding = {
+          agreedBy,
+          at,
+          category: f.category,
+          ...(picture !== undefined && { crop: path.join(dir, picture) }),
+          designer: didWith(answered, i + 1),
+          fix: f.fix,
+          page: log.page,
+          problem: f.problem,
+          project: log.project,
+          reviewer,
+          round: pass.pass,
+          rule: f.rule,
+          section: f.section,
+          severity: f.severity,
+          skill: log.skill,
+          title: f.title,
+          where: f.where,
+        };
+        return JSON.stringify(entry);
+      });
+      yield* fs.makeDirectory(path.dirname(log.file), { recursive: true });
+      yield* fs.writeFileString(log.file, `${lines.join("\n")}\n`, {
+        flag: "a",
+      });
+    }).pipe(
+      // The log is for triage later: a write that fails costs the run nothing.
+      Effect.catch((error) =>
+        Effect.logWarning(`findings log not written: ${String(error)}`)
+      )
+    );
+
+  /**
+   * Reviews these sections and scores each reviewer; then, unless the goal says to stop, sends
+   * what was found. Records the pass; false when the loop ends.
+   */
   const reviewPass = (
     sections: readonly SectionToReview[],
     pass: { readonly kind: "page" | "section"; readonly node?: string },
-    number: number,
+    rounds: Round[],
     what: string
   ) =>
     Effect.gen(function* () {
+      const number = rounds.length + 1;
       const started = yield* Clock.currentTimeMillis;
       const reviewed = yield* reviewSections(
         sections,
@@ -321,7 +525,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
             (grouped) => ({ merges: grouped, reviews: found })
           )
         ),
-        // A reviewer that fails ends the loop, not the run: the design is kept as it stands.
+        // Grouping that fails ends the loop, not the run: the design is kept as it stands.
         Effect.catchTag("EvalsError", (error) =>
           Effect.sync(() => {
             problems.push(`reviewing pass ${number}: ${error.message}`);
@@ -338,12 +542,16 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         ...spentOf([...reviews, ...merges.map((m) => m.spent)]),
         seconds: ((yield* Clock.currentTimeMillis) - started) / 1000,
       };
+      const scores = reviewerRounds(options.reviewers, reviews);
+      rounds.push({ costUsd: spent.costUsd, reviewers: scores });
+      const verdict = verdictOf(options.goal, rounds);
       const base = {
         kind: pass.kind,
         merged,
         ...(pass.node !== undefined && { node: pass.node }),
         pass: number,
         reviews,
+        scores,
         sections: sections.map((s) => ({
           name: s.name,
           picture: fromRun(s.picture),
@@ -352,28 +560,50 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         systemNotes,
       };
       yield* Effect.log(
-        `review ${pass.kind === "page" ? "of the page" : `of ${pass.node}`}, pass ${number}: ${merged.length} problems from ${reviews.reduce((n, r) => n + r.findings.length, 0)} findings, ${systemNotes.length} system notes`
+        `review ${pass.kind === "page" ? "of the page" : `of ${pass.node}`}, pass ${number}: ${merged.length} problems from ${reviews.reduce((n, r) => n + r.findings.length, 0)} findings, ${systemNotes.length} system notes; ${Object.entries(
+          scores
+        )
+          .map(
+            ([m, r]) =>
+              `${m} ${r.score.kind === "scored" ? r.score.overall : "no score"}${r.signedOff ? " ✓" : ""}`
+          )
+          .join(", ")}`
       );
-      if (merged.length === 0) {
-        passes.push(base);
+      if (verdict.stop || merged.length === 0) {
+        const last: ReviewPass = {
+          ...base,
+          stopped: verdict.stop
+            ? {
+                best: verdict.best + 1,
+                reason: verdict.reason,
+                unmet: verdict.unmet,
+              }
+            : { best: number, reason: "nothing-found", unmet: verdict.unmet },
+        };
+        passes.push(last);
+        yield* logPass(last, undefined);
         return false;
       }
       const turn = yield* io.thread.send(
         yield* prompt("review-findings", {
           findings: findingsText(merged),
           notes: notesText(systemNotes),
+          scores: scoresText(options.goal, scores, reviews),
           what,
         })
       );
       turns.push(turn);
       answerTurns.push(turn);
       const reply = saidIn(turn.items);
-      passes.push({
+      const answered = answersOf(reply);
+      const done: ReviewPass = {
         ...base,
-        answered: answersOf(reply),
+        answered,
         reply,
         turn: sizeOf(turn),
-      });
+      };
+      passes.push(done);
+      yield* logPass(done, answered);
       if (turn.problem) {
         problems.push(`answering pass ${number}: ${turn.problem}`);
         return false;
@@ -381,37 +611,43 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
       return true;
     });
 
-  /** The whole page, reviewed up to `upTo` passes. */
-  const pagePasses = (upTo: number) =>
-    Effect.gen(function* () {
-      for (let pass = 1; pass <= upTo; pass += 1) {
-        const sections = yield* io.pageSections(
-          path.join(dir, "review", `page-${pass}`)
-        );
-        if (sections.length === 0) {
-          problems.push(`pass ${pass}: the page has no sections to review`);
-          return;
-        }
-        if (
-          !(yield* reviewPass(
-            sections,
-            { kind: "page" },
-            pass,
-            "the sections of your page"
-          ))
-        ) {
-          return;
-        }
-      }
-    });
+  /** The rounds a loop may run before the goal's cap stops it, as a guard on the loop itself. */
+  const cap = options.goal.maxRounds ?? MAX_ROUNDS;
 
-  /** The section the designer just built, reviewed up to the passes. */
+  /** The whole page, reviewed until the goal says to stop. */
+  const pagePasses = Effect.gen(function* () {
+    const rounds: Round[] = [];
+    while (rounds.length < cap) {
+      const sections = yield* io.pageSections(
+        path.join(dir, "review", `page-${rounds.length + 1}`)
+      );
+      if (sections.length === 0) {
+        problems.push(
+          `pass ${rounds.length + 1}: the page has no sections to review`
+        );
+        return;
+      }
+      if (
+        !(yield* reviewPass(
+          sections,
+          { kind: "page" },
+          rounds,
+          "the sections of your page"
+        ))
+      ) {
+        return;
+      }
+    }
+  });
+
+  /** The section the designer just built, reviewed until the goal says to stop. */
   const sectionPasses = (
     marker: { readonly name: string; readonly node: string },
     built: number
   ) =>
     Effect.gen(function* () {
-      for (let pass = 1; pass <= options.passes; pass += 1) {
+      const rounds: Round[] = [];
+      while (rounds.length < cap) {
         const section = yield* io.nodeSection(
           marker.node,
           marker.name,
@@ -419,7 +655,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
             dir,
             "review",
             `section-${built}-${slugOf(marker.name) || "node"}`,
-            `pass-${pass}`
+            `pass-${rounds.length + 1}`
           )
         );
         if (section === undefined) {
@@ -431,7 +667,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         const goOn = yield* reviewPass(
           [section],
           { kind: "section", node: marker.node },
-          pass,
+          rounds,
           `the section you just built, ${marker.name}`
         );
         if (!goOn || turns.length >= maxTurns) {
@@ -473,11 +709,11 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
   if (first.problem) {
     problems.push(`designing: ${first.problem}`);
   } else if (options.mode === "end") {
-    yield* pagePasses(options.passes);
+    yield* pagePasses;
   } else {
     yield* sectionLoop;
     if (!turns.at(-1)?.problem) {
-      yield* pagePasses(1);
+      yield* pagePasses;
     }
   }
 

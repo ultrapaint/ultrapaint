@@ -10,5 +10,7 @@ The findings:
 {{findings}}
 
 Answer with `problems`, each with a `title` (a few words), `where` (the element), `problem` (what
-is wrong, in one or two sentences), `fix` (the best of the findings' fixes) and `findings`: the
-labels it groups. Every label goes in exactly one problem.
+is wrong, in one or two sentences), `fix` (the best of the findings' fixes), `category` and
+`severity` (the ones most of its findings give, the more severe on a tie), `rule` (the rule a
+finding cites, or empty) and `findings`: the labels it groups. Every label goes in exactly one
+problem.

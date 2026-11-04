@@ -11,6 +11,7 @@
  * project's own skills go, so they replace or extend the shipped ones for that round only.
  */
 import path from "node:path";
+import { Goal } from "@ultrapaint/contracts/review";
 import {
   isEditorMcpCall,
   type ThreadItem,
@@ -45,6 +46,7 @@ import {
   viewportsOf,
 } from "./reference.ts";
 import {
+  type FindingsLog,
   type ReviewIO,
   type ReviewOptions,
   reviewLoop,
@@ -90,8 +92,10 @@ export const RoundInfo = Schema.Struct({
   /** How the designs were reviewed in their loop (ADR 0060); absent when they were not. */
   review: Schema.optional(
     Schema.Struct({
+      /** When the loop stopped: absent in rounds from before the goal, which had `passes`. */
+      goal: Schema.optional(Goal),
       mode: Schema.String,
-      passes: Schema.Number,
+      passes: Schema.optional(Schema.Number),
       reviewers: Schema.Array(Schema.String),
     })
   ),
@@ -126,8 +130,13 @@ export interface GenerateOptions {
   readonly picture: boolean;
   /** The prompt under `prompts/` the agent is given; by default the brief's, or the picture's. */
   readonly prompt?: string | undefined;
-  /** Reviewers in the designer's loop (ADR 0060); none by default. */
-  readonly review?: ReviewOptions | undefined;
+  /**
+   * Reviewers in the designer's loop (ADR 0060); none by default. With `logFindings`, every pass's
+   * findings go to the findings log.
+   */
+  readonly review?:
+    | (ReviewOptions & { readonly logFindings: boolean })
+    | undefined;
   readonly round: string;
   readonly runs: number;
   /** A directory of skill files, relative to the data directory, or none for the shipped skills. */
@@ -464,6 +473,7 @@ const reviewIO = (
   thread: DesignThread,
   options: {
     readonly judgeModel: string;
+    readonly log: FindingsLog | undefined;
     readonly marked: readonly ReferenceSection[];
     readonly request: ReviewRequest;
     readonly tree: string;
@@ -474,6 +484,7 @@ const reviewIO = (
   const failed = (what: string) => (error: unknown) =>
     Effect.as(Effect.logWarning(`${what}: ${String(error)}`), undefined);
   return {
+    log: options.log,
     nodeSection: (node, name, dir) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -564,7 +575,7 @@ const designTurns = Effect.fn("designTurns")(function* (
   request: ReviewRequest,
   options: GenerateOptions
 ) {
-  const { data } = yield* EvalsConfig;
+  const { data, findings } = yield* EvalsConfig;
   const thread = yield* openThread(session, {
     agent: options.agent,
     minutes: options.minutes,
@@ -586,6 +597,14 @@ const designTurns = Effect.fn("designTurns")(function* (
   }
   const io = reviewIO(session, thread, {
     judgeModel: review.judgeModel,
+    log: review.logFindings
+      ? {
+          file: path.join(findings, "lab.jsonl"),
+          page: reference.id,
+          project: `lab/${options.round}`,
+          skill: yield* commitOf,
+        }
+      : undefined,
     marked: yield* referenceSections(reference.id, {
       force: false,
       model: review.judgeModel,
@@ -757,8 +776,8 @@ const startRound = Effect.fn("startRound")(function* (
       references: references.map((r) => r.id),
       ...(options.review && {
         review: {
+          goal: options.review.goal,
           mode: options.review.mode,
-          passes: options.review.passes,
           reviewers: options.review.reviewers,
         },
       }),

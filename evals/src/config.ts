@@ -99,6 +99,11 @@ export class EvalsConfig extends Context.Service<
     readonly browser: string | undefined;
     /** The design gaps, one file each: `evals/gaps/`, in git beside the code. */
     readonly gaps: string;
+    /**
+     * The findings log (opt-in, `--log-findings`): reviewers' findings from every project, for
+     * triage. `ULTRAPAINT_FINDINGS`, else `~/.ultrapaint/findings`.
+     */
+    readonly findings: string;
     /** Whether the editor's console errors are printed (`LAB_EDITOR_LOG`): why a picture failed. */
     readonly editorLog: boolean;
     /**
@@ -119,6 +124,10 @@ export class EvalsConfig extends Context.Service<
         )
       ),
       editorLog: Boolean(env.LAB_EDITOR_LOG),
+      findings: path.resolve(
+        env.ULTRAPAINT_FINDINGS ??
+          path.join(os.homedir(), ".ultrapaint", "findings")
+      ),
       gaps: path.join(EVALS, "gaps"),
       skillsBriefing: env.EVAL_SKILLS_BRIEFING,
     });

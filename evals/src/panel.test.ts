@@ -68,10 +68,24 @@ const aRound = (score: (run: number) => number) =>
   });
 
 const finding = (title: string) => ({
+  category: "spacing",
   fix: "Fix it.",
   problem: `${title} is wrong.`,
+  rule: "",
+  severity: "major",
   title,
   where: "there",
+});
+
+/** A panel model's answer: these findings, signed off when there are none. */
+const answer = (
+  findings: readonly ReturnType<typeof finding>[],
+  systemNotes: readonly { component: string; note: string }[] = []
+) => ({
+  findings,
+  reached: [],
+  signOff: { done: findings.length === 0, left: "" },
+  systemNotes,
 });
 const LABEL_RE = /^(F\d+)\./gm;
 
@@ -92,18 +106,15 @@ const script = (asked: Asked[]) => (question: Asked) => {
     };
   }
   if (!question.cwd.includes("run-1")) {
-    return { findings: [], systemNotes: [] };
+    return answer([]);
   }
   if (question.prompt.includes("The section: Header.")) {
-    return {
-      findings: [finding("Low contrast")],
-      systemNotes: [{ component: "Dialog", note: "Its title is too small." }],
-    };
+    return answer(
+      [finding("Low contrast")],
+      [{ component: "Dialog", note: "Its title is too small." }]
+    );
   }
-  return {
-    findings: question.model === "opus" ? [finding("Cramped footer")] : [],
-    systemNotes: [],
-  };
+  return answer(question.model === "opus" ? [finding("Cramped footer")] : []);
 };
 
 const options = {
@@ -167,15 +178,16 @@ describe("the panel", () => {
         );
         assert.include(
           table,
-          "| share/run-1 | **2** | 2 | 1 | 1 | 4 | 100 | – | 2k |"
+          // A major spacing finding takes a section to 98: opus has one in each, GPT in one.
+          "| share/run-1 | **2** | 98 (2) | 99 (1) | 1 | 4 | 100 | – | 2k |"
         );
         assert.include(
           table,
-          "| share/run-2 | **0** | 0 | 0 | 0 | 3 | 200 | – | 4k |"
+          "| share/run-2 | **0** | 100 (0) | 100 (0) | 0 | 3 | 200 | – | 4k |"
         );
         assert.include(
           table,
-          "| **Mean** | **1.0** | 1.0 | 0.5 | 0.5 | 3.5 | 150.0 | – |  |"
+          "| **Mean** | **1.0** | 99.0 | 99.5 | 0.5 | 3.5 | 150.0 | – |  |"
         );
         assert.include(table, "| Section | share/run-1 | share/run-2 | Mean |");
         assert.include(table, "| Header | 1 | 0 | 0.5 |");
