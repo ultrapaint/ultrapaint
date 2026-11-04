@@ -1,7 +1,9 @@
 import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
 import {
+  changedSince,
   commitBlocked,
+  gitSaid,
   groupTicked,
   sharedFolder,
   statusWord,
@@ -33,7 +35,7 @@ describe("a group's select-all", () => {
   });
 });
 
-describe("why Commit can't be pressed", () => {
+describe("what Commit, pressed too soon, says is missing", () => {
   it("asks for ticked files first, then a message, and is nothing once both are there", () => {
     expect(commitBlocked(0, "Header pass")).toBe("Tick the files to commit");
     expect(commitBlocked(2, "  ")).toBe("Write a message to commit 2 files");
@@ -73,5 +75,30 @@ describe("a file's status in a word", () => {
     expect(statusWord("UU")).toBe("Conflict");
     expect(statusWord(" M")).toBeNull();
     expect(statusWord("MM")).toBeNull();
+  });
+});
+
+describe("what a diff since a point says above its files", () => {
+  it("counts the design files changed since the snapshot or checkpoint, or says none did", () => {
+    expect(changedSince(3, "snapshot")).toBe(
+      "3 design files changed since this snapshot."
+    );
+    expect(changedSince(1, "checkpoint")).toBe(
+      "1 design file changed since this checkpoint."
+    );
+    expect(changedSince(0, "snapshot")).toBe(
+      "No design file has changed since this snapshot."
+    );
+  });
+});
+
+describe("what git said when a command failed", () => {
+  it("is git's own words, without the command and its exit code before them", () => {
+    expect(
+      gitSaid(
+        "git commit exited 128: Author identity unknown\n*** Please tell me who you are."
+      )
+    ).toBe("Author identity unknown\n*** Please tell me who you are.");
+    expect(gitSaid("Writing to git is off")).toBe("Writing to git is off");
   });
 });
