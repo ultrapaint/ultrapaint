@@ -33,3 +33,4 @@ isn't the item."
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): no rule: the shipped skill caught it 2/2 with an independent reviewer per section, so what missed it was how the redesign was run (p02, p06). The candidate's rule was dropped.
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 2/2, closing-check 1/2 (+1 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - `held-out-1`: 2026-11-04, caught: shipped 2/2, held-out-themes 2/2, held-out-plain 2/2 (opus, effort high; runs/held-out-1/report.md)
+- `models-1`: 2026-11-04, caught: shipped@opus 2/2, shipped@gpt-6.1-sol 1/2 (+1 partly), shipped@cursor:grok-4.7-high 0/2 (+2 partly), shipped@cursor:composer-2.5 0/2 (+2 partly) (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)

@@ -25,3 +25,4 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
 
 - `held-out-1`: 2026-11-04, caught: shipped 0/2 (+1 partly), held-out-themes 1/2 (+1 partly), held-out-plain 2/2 (opus, effort high; runs/held-out-1/report.md)
 - Decision of 2026-11-04 (made by the agent, as the person asked: ship wording where the candidate catches more with no more noise; `held-out-1`, runs/held-out-1/report.md): the row ships, but caught it only 1/2 (with one partly): it stays `testing` until a design round shows it.
+- `models-1`: 2026-11-04, caught: shipped@opus 0/2 (+1 partly), shipped@gpt-6.1-sol 0/2 (+2 partly), shipped@cursor:grok-4.7-high 0/2, shipped@cursor:composer-2.5 0/2 (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
