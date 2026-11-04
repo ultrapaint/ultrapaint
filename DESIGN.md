@@ -192,7 +192,12 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   panel's foot.
 - A row's actions are in a ⋯ menu shown at rest, Delete apart at its end; a row's click does one
   thing in every list of a panel. An action keeps its place whether its list is empty or not.
-- What can be undone runs at once with Undo in its toast; no confirm.
+- What can be undone runs at once with Undo in its toast; no confirm. A disabled primary says why
+  in a muted line beside it.
+- List rows sit 2px apart, so their fills never touch; a row's keyboard focus is the 2px ring
+  around the whole row. Checkboxes are edged in {colors.muted-foreground}.
+- A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
+  its 10% tint; context muted.
 - A select in a settings row is its value and a chevron, filled only on hover; a field there is
   13rem wide, on the row's right edge.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
