@@ -637,6 +637,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
     options,
     reviewed,
     sectionNames,
+    sections: ids,
     sectionTally,
     tally,
     unmatched,
@@ -675,6 +676,8 @@ interface ReportInput {
   readonly options: RecallOptions;
   readonly reviewed: Readonly<Record<string, readonly Reviewed[]>>;
   readonly sectionNames: ReadonlyMap<string, string>;
+  /** The sections the round reviewed: a gap whose sections are all elsewhere is left out. */
+  readonly sections: readonly string[];
   readonly sectionTally: (
     sections: readonly string[]
   ) => Readonly<Record<string, Tally>>;
@@ -689,12 +692,10 @@ export const reportOf = (input: ReportInput) => {
   const row = (cells: readonly string[]) => `| ${cells.join(" | ")} |`;
   const head = (cells: readonly string[]) =>
     [row(cells), row(cells.map(() => "---"))].join("\n");
-  const findingGaps = input.gaps.filter(
-    (g) => isFinding(g) && g.sections.length > 0
-  );
-  const processGaps = input.gaps.filter(
-    (g) => !isFinding(g) && g.sections.length > 0
-  );
+  const reviewed = (g: LoadedGap) =>
+    g.sections.some((s) => input.sections.includes(s));
+  const findingGaps = input.gaps.filter((g) => isFinding(g) && reviewed(g));
+  const processGaps = input.gaps.filter((g) => !isFinding(g) && reviewed(g));
   const lines = [
     `# Recall: ${options.round}`,
     "",
@@ -734,7 +735,9 @@ export const reportOf = (input: ReportInput) => {
       "",
       head(["Gap", "Sections", ...versions]),
       ...processGaps.map((g) => {
-        const t = input.sectionTally(g.sections);
+        const t = input.sectionTally(
+          g.sections.filter((s) => input.sections.includes(s))
+        );
         return row([
           `${g.id} ${g.title}`,
           g.sections.join(", "),

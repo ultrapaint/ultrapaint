@@ -132,6 +132,10 @@ describe("recall", () => {
           `${gaps}/p01-squint.md`,
           gapFile("p01", "process", "panel")
         );
+        yield* writeText(
+          `${gaps}/g02-elsewhere.md`,
+          gapFile("g02", "missing", "elsewhere")
+        );
         yield* writeData({
           "candidates/fix/SKILL.md": "# The candidate's router\n",
           "candidates/fix/states.md": "# The candidate's states\n",
@@ -155,6 +159,8 @@ describe("recall", () => {
         assert.include(report, "| g01 Gap g01 | missing | panel | 0/2 | 2/2 |");
         assert.include(report, "| p01 Gap p01 | panel | 0/2 | 2/2 |");
         assert.include(report, "### Held (`held`, held out)");
+        // A gap whose section the round didn't review is left out of the report.
+        assert.notInclude(report, "g02");
         assert.include(
           report,
           "| **Stray hairline.** A hairline under the title. | 2/2 | 2/2 |  |"
