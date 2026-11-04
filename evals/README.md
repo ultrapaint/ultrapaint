@@ -115,11 +115,14 @@ pnpm evals review <name> [rounds…]             # swipe through it in the brows
 pnpm evals compare <baseline> <candidate>
 pnpm evals pairwise <a> <b>                    # the two judged blind, run by run
 pnpm evals setup-host <host>                   # import a host's design system with /init
+pnpm evals panel <round> [rounds…]             # what a fixed panel still finds in the designs
 ```
 
 `round` takes `--runs` (3), `--agent` (claude-code), `--agent-model` (the name the agent's model
 picker shows; its default otherwise), `--skills candidates/<fix>`, `--minutes` (30, per run),
-`--judge-model` (opus) and `--concurrency` (3 judgements at once). It resumes: a run with a
+`--judge-model` (opus) and `--concurrency` (3 judgements at once), and the review loop's
+`--review end|each-section` (none by default), `--reviewers` (opus), `--passes` (2) and
+`--effort` (high), below. It resumes: a run with a
 `run.json` and a judged run are kept, so after a failure, run the same command again. Its steps
 are also commands of their own: `generate`, `judge` (`--force` to judge again) and `report`.
 
@@ -140,6 +143,48 @@ Needs Chrome (or `LAB_BROWSER`), the `claude` command signed in, and the agent t
 signed in too. Run rounds one at a time: when the checkout has moved since its editor was last
 built, `ultrapaint` rebuilds it as it starts, and two rounds starting at once collide. Every run costs one full agent session, and every judgement one Claude session over
 a dozen pictures: start with one reference and `--runs 1`.
+
+## Reviews in a round
+
+ADR 0060 has reviewers look at a design inside its loop. Whether they do it section by section or
+once at the end of the designer's turn is measured here first (`docs/plans/PLAN-review-loop.md`):
+
+```sh
+pnpm evals round <name> --host family --review end --reviewers opus,gpt-6.1-sol --passes 2
+pnpm evals panel <name> design-after --models opus,gpt-6.1-sol,cursor:grok-4.7-high
+```
+
+- `--review end`: when the designer's turn ends, its page is cut into the reference's sections,
+  every reviewer (models as `recall --models` takes them) reviews every section from its crop with
+  the skill of the checkout under test (`runs/<round>/review-skill/`), the judge model groups the
+  reviewers' findings per section, and they go back into the same thread as the next prompt
+  (`prompts/review-findings.md`): fix each, or decline it with a reason. Again, up to `--passes`,
+  until a pass finds nothing.
+- A reviewer reviews within what the designer was asked (`prompts/review-request.md`): the
+  brief's text, its content used as written, the round's pictures (with `--picture`) deciding the
+  look and shown to the reviewer, and the components the design system's. It reports only what
+  the designer can change within that; what only a design-system component would fix comes back
+  as `systemNotes`, kept in `review.json` and shown to the designer after the findings as notes,
+  unnumbered and not answered.
+- `--review each-section`: the first prompt also asks for one section per turn, each ending on
+  `Section done: <node> <name>` (`prompts/review-each-section.md`). That node is pictured and
+  reviewed, up to `--passes`, before the designer is asked for the next; after `All sections
+  done`, the page is reviewed once as in `end`. Forty turns at most.
+- Each run keeps `review.json` beside `run.json`: every pass with its sections, each reviewer's
+  findings, the merged list, the designer's reply and which numbers it fixed or declined, and the
+  totals with and without the review work (the designer's own turns, its answers, the reviewers).
+  `run.json` counts all the designer's turns.
+
+`panel` scores finished designs, a review round's or any other (`design-after` is the no-review
+baseline), by what a fixed panel of fresh reviewers still finds: every model of `--models` reviews
+every section of each run's final page with the skill of the checkout the command runs from,
+within the run's request as above (the round's `round.json` says whether it had pictures), the
+judge model groups their findings, and fewer problems is better; system notes are counted apart. Each run gets `panel.json`, kept
+while the panel is the same, and the round `panel.md`: problems per run and per section, by model,
+beside the judge's overall score and the run's seconds and tokens.
+
+A round's `--skills` cannot replace `SKILL.md`, so a candidate that changes it is measured from a
+worktree of its own branch, by `ULTRAPAINT_CHECKOUT`, as above.
 
 ## Gaps and recall
 
@@ -264,6 +309,8 @@ runs/<name>/
     trace.md            its tool calls in order, failures with what they said
     agent.md            what it said at the end
     run.json            calls, tokens, seconds, problems
+    review.json, review/  the review loop's passes and their pictures, with --review
+    panel.json          what the panel found, after `panel`
     added-text.json     texts the page shows that the brief did not have
     parts/              each of them in its place
     judge.json, judge.md
@@ -271,6 +318,7 @@ runs/<name>/
   review.json           your verdicts, card by card
   review-notes.md       your comments
   report.md             scores, less is more, gaps, proposals
+  panel.md              what the panel found, run by run and section by section
   proposals/<skill>.md  proposed replacements of the shipped skills
 ```
 

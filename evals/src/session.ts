@@ -448,27 +448,40 @@ export interface Turn {
   readonly seconds: number;
 }
 
+/** A picture sent with a prompt, as a user attaches a screenshot. */
+export interface PromptImage {
+  readonly dataUrl: string;
+  readonly name: string;
+}
+
+/** A design thread held open: each prompt sent into it is a turn of the same conversation. */
+export interface DesignThread {
+  /**
+   * Sends a prompt into the thread, as a user types the next message, and waits for the turn it
+   * starts to end. The turn's items are its own: those the thread had before are left out.
+   */
+  readonly send: (
+    text: string,
+    images?: readonly PromptImage[]
+  ) => Effect.Effect<Turn, EvalsError>;
+}
+
 /**
- * Sends a prompt to a fresh thread and waits for the turn to end. Nobody is there to click, so
+ * Starts a thread for the agent and holds it until the scope closes. Nobody is there to click, so
  * every tool call the agent asks permission for is allowed, as by a user who trusts it, and each
  * question gets its first option, which `ask_user` tells the agent to make its own choice.
  */
-export const runPrompt = (
+export const openThread = (
   session: UltrapaintSession,
   options: {
     readonly agent: string;
-    /** Pictures sent with the prompt, as a user attaches screenshots. */
-    readonly images?: readonly {
-      readonly dataUrl: string;
-      readonly name: string;
-    }[];
     readonly model: string | undefined;
+    /** How long one turn may take. */
     readonly minutes: number;
     /** `design` writes the designs directory only; `implement` the project's code too. */
     readonly purpose?: "design" | "implement";
-    readonly text: string;
   }
-): Effect.Effect<Turn, EvalsError, Scope.Scope> =>
+): Effect.Effect<DesignThread, EvalsError, Scope.Scope> =>
   Effect.gen(function* () {
     const { client } = session;
     const thread = yield* Effect.acquireRelease(
@@ -488,96 +501,121 @@ export const runPrompt = (
     if (options.model !== undefined) {
       yield* pinModel(client, thread.id, options.model);
     }
-    const started = Date.now();
-    yield* rpc(
-      "sending the prompt",
-      client["threads.prompt"]({
-        attachments: (options.images ?? []).map((image) => ({
-          dataUrl: image.dataUrl,
-          kind: "image" as const,
-          name: image.name,
-        })),
-        text: options.text,
-        threadId: thread.id,
-      })
+    const itemsOf = rpc(
+      "reading the thread",
+      client["threads.items"]({ threadId: thread.id })
     );
-    const read = Effect.gen(function* () {
-      const current = (yield* rpc(
-        "listing threads",
-        client["threads.list"]()
-      )).find((t: Thread) => t.id === thread.id);
-      const items = yield* rpc(
-        "reading the thread",
-        client["threads.items"]({ threadId: thread.id })
+    const send = Effect.fn("DesignThread.send")(function* (
+      text: string,
+      images: readonly PromptImage[] = []
+    ) {
+      const before = (yield* itemsOf).length;
+      const started = Date.now();
+      yield* rpc(
+        "sending the prompt",
+        client["threads.prompt"]({
+          attachments: images.map((image) => ({
+            dataUrl: image.dataUrl,
+            kind: "image" as const,
+            name: image.name,
+          })),
+          text,
+          threadId: thread.id,
+        })
       );
-      const open = openCards(items);
-      for (const card of open) {
-        yield* rpc(
-          "answering a question",
-          client["threads.answer"]({
-            answers: Object.fromEntries(
-              card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
-            ),
-            itemId: card.id,
-            threadId: thread.id,
-          })
-        );
-      }
-      const asking = openPermissions(items);
-      for (const card of asking) {
-        const option = allowing(card);
-        if (option) {
+      const read = Effect.gen(function* () {
+        const current = (yield* rpc(
+          "listing threads",
+          client["threads.list"]()
+        )).find((t: Thread) => t.id === thread.id);
+        const items = yield* itemsOf;
+        const open = openCards(items);
+        for (const card of open) {
           yield* rpc(
-            "allowing a tool call",
-            client["threads.permission"]({
-              optionId: option.optionId,
-              requestId: card.requestId,
+            "answering a question",
+            client["threads.answer"]({
+              answers: Object.fromEntries(
+                card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
+              ),
+              itemId: card.id,
               threadId: thread.id,
             })
           );
         }
+        const asking = openPermissions(items);
+        for (const card of asking) {
+          const option = allowing(card);
+          if (option) {
+            yield* rpc(
+              "allowing a tool call",
+              client["threads.permission"]({
+                optionId: option.optionId,
+                requestId: card.requestId,
+                threadId: thread.id,
+              })
+            );
+          }
+        }
+        return {
+          answered: open.length > 0 || asking.length > 0,
+          current,
+          items,
+        };
+      });
+      // The turn has ended when the thread is idle on a `turn_end` that came after the prompt.
+      const done = yield* read.pipe(
+        Effect.tap(() => Effect.sleep("1 second")),
+        Effect.repeat({
+          until: ({ answered, current, items }) =>
+            !answered &&
+            !!current &&
+            (current.status === "error" ||
+              (current.status === "idle" &&
+                items.length > before &&
+                items.at(-1)?.kind === "turn_end")),
+        }),
+        Effect.timeoutOption(Duration.minutes(options.minutes))
+      );
+      const seconds = (Date.now() - started) / 1000;
+      if (done._tag === "None") {
+        yield* client["threads.cancel"]({ threadId: thread.id }).pipe(
+          Effect.ignore
+        );
+        return {
+          items: (yield* itemsOf).slice(before),
+          problem: `still working after ${options.minutes} minutes`,
+          seconds,
+        } satisfies Turn;
       }
+      const finished = done.value;
       return {
-        answered: open.length > 0 || asking.length > 0,
-        current,
-        items,
-      };
-    });
-    const done = yield* read.pipe(
-      Effect.tap(() => Effect.sleep("1 second")),
-      Effect.repeat({
-        until: ({ answered, current, items }) =>
-          !answered &&
-          !!current &&
-          (current.status === "error" ||
-            (current.status === "idle" && items.at(-1)?.kind === "turn_end")),
-      }),
-      Effect.timeoutOption(Duration.minutes(options.minutes))
-    );
-    const seconds = (Date.now() - started) / 1000;
-    if (done._tag === "None") {
-      yield* client["threads.cancel"]({ threadId: thread.id }).pipe(
-        Effect.ignore
-      );
-      const items = yield* rpc(
-        "reading the thread",
-        client["threads.items"]({ threadId: thread.id })
-      );
-      return {
-        items,
-        problem: `still working after ${options.minutes} minutes`,
+        items: finished.items.slice(before),
         seconds,
-      };
-    }
-    const finished = done.value;
-    return {
-      items: finished.items,
-      seconds,
-      ...(finished.current?.status === "error" && {
-        problem: "the agent's session failed",
-      }),
-    };
+        ...(finished.current?.status === "error" && {
+          problem: "the agent's session failed",
+        }),
+      } satisfies Turn;
+    });
+    return { send };
   });
+
+/** Sends a prompt to a fresh thread and waits for the turn to end (`openThread`). */
+export const runPrompt = (
+  session: UltrapaintSession,
+  options: {
+    readonly agent: string;
+    /** Pictures sent with the prompt, as a user attaches screenshots. */
+    readonly images?: readonly PromptImage[];
+    readonly model: string | undefined;
+    readonly minutes: number;
+    /** `design` writes the designs directory only; `implement` the project's code too. */
+    readonly purpose?: "design" | "implement";
+    readonly text: string;
+  }
+): Effect.Effect<Turn, EvalsError, Scope.Scope> =>
+  Effect.flatMap(openThread(session, options), (thread) =>
+    thread.send(options.text, options.images)
+  );
 
 /** The model is a setting of the agent's session; "auto" would pick its own each time. */
 const pinModel = Effect.fn("pinModel")(function* (

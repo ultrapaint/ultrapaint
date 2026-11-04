@@ -7,7 +7,7 @@
  * Counted in code, from the page file, so a round's number does not depend on a model's eye.
  */
 
-import { Predicate } from "effect";
+import { Predicate, Schema } from "effect";
 
 /** A text the page shows, and the node that holds it. */
 export interface PageText {
@@ -150,3 +150,30 @@ export const addedTexts = (
   }
   return added;
 };
+
+export const AddedTextEntry = Schema.Struct({
+  index: Schema.Number,
+  /**
+   * Where it is on the whole page: the page's picture (`shots/desktop-01.jpg`) and the box of the
+   * node around it there, found by matching its own picture against the page's.
+   */
+  mark: Schema.optional(
+    Schema.Struct({
+      box: Schema.Struct({
+        height: Schema.Number,
+        width: Schema.Number,
+        x: Schema.Number,
+        y: Schema.Number,
+      }),
+      picture: Schema.String,
+    })
+  ),
+  node: Schema.String,
+  parent: Schema.String,
+  /** The picture of the node around it, from the run's directory. */
+  picture: Schema.optional(Schema.String),
+  text: Schema.String,
+  words: Schema.Number,
+});
+export type AddedTextEntry = typeof AddedTextEntry.Type;
+export const ADDED_TEXT_FILE = "added-text.json";

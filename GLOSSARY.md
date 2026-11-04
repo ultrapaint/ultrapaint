@@ -174,6 +174,12 @@ refactor and the board view left.
   by evals' `gap.ts`, its kind (missing, missed, process) and status (open, testing, done,
   wontfix). `pnpm evals recall` measures a candidate against the shipped skill on the gaps'
   sections and writes its result into each gap.
+- **Review loop**: reviewers that look at a design inside its build, look and adjust loop, their
+  findings sent back into the designer's thread to fix or decline (ADR 0060). In the lab, a
+  round's `--review end|each-section` (evals' `review-loop.ts`, one section reviewed and merged by
+  `section-review.ts`); a **panel** (`panel.ts`) is a fixed set of fresh reviewers whose count of
+  what they still find scores a finished design. Both review within the designer's request; what
+  only a design-system component would fix is a **system note**, set apart from the findings.
 - **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
   canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
   (`where`).

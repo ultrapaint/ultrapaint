@@ -423,4 +423,23 @@ export class Browser extends Context.Service<
       });
     })
   );
+
+  /** No browser, for tests whose steps never draw: each call fails, saying so. */
+  static readonly layerTest = Layer.succeed(
+    Browser,
+    Browser.of({
+      capture: () => noBrowser,
+      compare: () => noBrowser,
+      crop: () => noBrowser,
+      cut: () => noBrowser,
+      hold: () => noBrowser,
+      layout: () => noBrowser,
+      locate: () => noBrowser,
+      pad: () => noBrowser,
+      trim: () => noBrowser,
+      zoom: () => noBrowser,
+    })
+  );
 }
+
+const noBrowser = new EvalsError({ message: "no browser in this test" });

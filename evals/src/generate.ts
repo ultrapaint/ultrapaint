@@ -17,7 +17,12 @@ import {
 } from "@ultrapaint/contracts/threads";
 import { Duration, Effect, FileSystem, Schedule, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { addedTexts, pageTexts } from "./added-text.ts";
+import {
+  ADDED_TEXT_FILE,
+  type AddedTextEntry,
+  addedTexts,
+  pageTexts,
+} from "./added-text.ts";
 import { Browser } from "./browser.ts";
 import { foldName, tileName } from "./capture.ts";
 import { EvalsConfig } from "./config.ts";
@@ -30,6 +35,8 @@ import {
   writeJson,
   writeText,
 } from "./layout.ts";
+import type { Models } from "./models.ts";
+import { writeSkillTree } from "./recall.ts";
 import {
   describeViewports,
   familyOf,
@@ -38,10 +45,25 @@ import {
   viewportsOf,
 } from "./reference.ts";
 import {
+  type ReviewIO,
+  type ReviewOptions,
+  reviewLoop,
+} from "./review-loop.ts";
+import type { ReviewRequest, SectionToReview } from "./section-review.ts";
+import {
+  type ReferenceSection,
+  readRunSections,
+  referenceSections,
+  runSections,
+  slugOf,
+} from "./sections.ts";
+import {
+  type DesignThread,
   launch,
+  openThread,
   resetDesigns,
   rpc,
-  runPrompt,
+  type Turn,
   type UltrapaintSession,
 } from "./session.ts";
 
@@ -52,33 +74,6 @@ export const FAMILY_HOST = "family";
 const GROWTH = [2, 4, 9] as const;
 /** Past this many, the added texts of a run are listed without their pictures. */
 const MAX_PARTS = 30;
-
-export const AddedTextEntry = Schema.Struct({
-  index: Schema.Number,
-  /**
-   * Where it is on the whole page: the page's picture (`shots/desktop-01.jpg`) and the box of the
-   * node around it there, found by matching its own picture against the page's.
-   */
-  mark: Schema.optional(
-    Schema.Struct({
-      box: Schema.Struct({
-        height: Schema.Number,
-        width: Schema.Number,
-        x: Schema.Number,
-        y: Schema.Number,
-      }),
-      picture: Schema.String,
-    })
-  ),
-  node: Schema.String,
-  parent: Schema.String,
-  /** The picture of the node around it, from the run's directory. */
-  picture: Schema.optional(Schema.String),
-  text: Schema.String,
-  words: Schema.Number,
-});
-export type AddedTextEntry = typeof AddedTextEntry.Type;
-export const ADDED_TEXT_FILE = "added-text.json";
 
 export const RoundInfo = Schema.Struct({
   agent: Schema.String,
@@ -92,6 +87,14 @@ export const RoundInfo = Schema.Struct({
   /** The prompt the agents were given, when not the default one. */
   prompt: Schema.optional(Schema.String),
   references: Schema.Array(Schema.String),
+  /** How the designs were reviewed in their loop (ADR 0060); absent when they were not. */
+  review: Schema.optional(
+    Schema.Struct({
+      mode: Schema.String,
+      passes: Schema.Number,
+      reviewers: Schema.Array(Schema.String),
+    })
+  ),
   runs: Schema.Number,
   /** `built-in`, or the candidates directory the round tried. */
   skills: Schema.String,
@@ -123,6 +126,8 @@ export interface GenerateOptions {
   readonly picture: boolean;
   /** The prompt under `prompts/` the agent is given; by default the brief's, or the picture's. */
   readonly prompt?: string | undefined;
+  /** Reviewers in the designer's loop (ADR 0060); none by default. */
+  readonly review?: ReviewOptions | undefined;
   readonly round: string;
   readonly runs: number;
   /** A directory of skill files, relative to the data directory, or none for the shipped skills. */
@@ -149,20 +154,30 @@ export const commitOf = Effect.gen(function* () {
   return `${head.trim()}${dirty.trim() ? " (with uncommitted changes)" : ""}`;
 }).pipe(Effect.orElseSucceed(() => "unknown"));
 
-/** The reference's picture and its enlarged parts, as a user would attach a screenshot. */
-const referenceImages = Effect.fn("referenceImages")(function* (id: string) {
+/** The pictures a run is given of its reference: the fold and its enlarged parts, absolute paths. */
+export const referencePictures = Effect.fn("referencePictures")(function* (
+  id: string
+) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const dir = data.captureDir(id);
-  const files = (yield* fs.readDirectory(dir))
+  return (yield* fs.readDirectory(dir))
     .filter((f) => f === "desktop-fold.jpg" || ZOOM.test(f))
-    .sort();
+    .sort()
+    .map((f) => path.join(dir, f));
+});
+
+/** The reference's pictures as a user attaches a screenshot. */
+const referenceImages = Effect.fn("referenceImages")(function* (
+  pictures: readonly string[]
+) {
+  const fs = yield* FileSystem.FileSystem;
   const images: { readonly dataUrl: string; readonly name: string }[] = [];
-  for (const file of files) {
-    const bytes = yield* fs.readFile(path.join(dir, file));
+  for (const file of pictures) {
+    const bytes = yield* fs.readFile(file);
     images.push({
       dataUrl: `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`,
-      name: file,
+      name: path.basename(file),
     });
   }
   return images;
@@ -406,6 +421,186 @@ const recordAddedText = Effect.fn("recordAddedText")(function* (
   return entries;
 });
 
+/** The page a run made: the one at `/`, else the first with a URL, and how each viewport draws it. */
+const homeOf = Effect.fn("homeOf")(function* (session: UltrapaintSession) {
+  const list = yield* rpc("listing pages", session.client["pages.list"]());
+  const routed = list.pages.filter(
+    (p) => p.route !== undefined && !p.variant && !p.state
+  );
+  const main = routed.find((p) => p.route === "/") ?? routed[0];
+  const home = main?.route;
+  // A viewport is drawn from the variant made for it (`sign-in@mobile`) when there is one: that is
+  // how a page's phone design is kept apart in Ultrapaint.
+  const pageFor = (viewport: Viewport) =>
+    list.pages.find((p) => p.route === home && p.variant === viewport.name)
+      ?.file ??
+    home ??
+    "/";
+  return { home, list, main, pageFor };
+});
+
+/** The page's file as it is now, kept in `dir/pages/` for the reviewers to read. */
+const keepPage = Effect.fn("keepPage")(function* (
+  session: UltrapaintSession,
+  file: string,
+  dir: string
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const pages = path.join(dir, "pages");
+  yield* fs.makeDirectory(pages, { recursive: true });
+  yield* fs.copyFile(
+    path.join(session.root, file),
+    path.join(pages, path.basename(file))
+  );
+  return pages;
+});
+
+/**
+ * How the review loop sees the run's page: cut into the reference's sections from its pictures at
+ * the desktop width, or one node of it as the editor draws it.
+ */
+const reviewIO = (
+  session: UltrapaintSession,
+  thread: DesignThread,
+  options: {
+    readonly judgeModel: string;
+    readonly marked: readonly ReferenceSection[];
+    readonly request: ReviewRequest;
+    readonly tree: string;
+    readonly viewport: Viewport;
+  }
+): ReviewIO<Browser | EvalsConfig | FileSystem.FileSystem | Models> => {
+  const { viewport } = options;
+  const failed = (what: string) => (error: unknown) =>
+    Effect.as(Effect.logWarning(`${what}: ${String(error)}`), undefined);
+  return {
+    nodeSection: (node, name, dir) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const at = yield* homeOf(session);
+        if (!at.main) {
+          return;
+        }
+        const route = at.pageFor(viewport);
+        yield* session.tool("set_frame", {
+          height: viewport.height,
+          route,
+          width: viewport.width,
+        });
+        const shot = yield* session.tool("get_screenshot", {
+          node,
+          route,
+          width: viewport.width,
+        });
+        const [png] = shot.images;
+        if (shot.isError || !png) {
+          yield* Effect.logWarning(`node ${node}: ${shot.text}`);
+          return;
+        }
+        const picture = path.join(dir, `${slugOf(name) || "section"}.png`);
+        yield* fs.makeDirectory(dir, { recursive: true });
+        yield* fs.writeFile(picture, png);
+        return {
+          name,
+          node,
+          pages: yield* keepPage(session, at.main.file, dir),
+          picture,
+          where: `The part of the page the designer built as node \`${node}\` and named "${name}".`,
+        } satisfies SectionToReview;
+      }).pipe(Effect.catch(failed(`node ${node} not pictured`))),
+    pageSections: (dir) =>
+      Effect.gen(function* () {
+        const at = yield* homeOf(session);
+        if (!at.main) {
+          return [];
+        }
+        const problems = yield* photograph(
+          session,
+          at.pageFor,
+          [viewport],
+          path.join(dir, "shots")
+        );
+        if (problems.length > 0) {
+          yield* Effect.logWarning(problems.join("; "));
+        }
+        const pages = yield* keepPage(session, at.main.file, dir);
+        yield* runSections(dir, options.marked, options.judgeModel);
+        const crops = yield* readRunSections(dir);
+        return options.marked.flatMap((s) => {
+          const picture = crops.get(s.name);
+          return picture === undefined
+            ? []
+            : [{ name: s.name, pages, picture, where: s.what }];
+        });
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.as(
+            Effect.logWarning(
+              `the page not cut into sections: ${String(error)}`
+            ),
+            []
+          )
+        )
+      ),
+    request: options.request,
+    thread,
+    tree: options.tree,
+  };
+};
+
+/** The designer's turns: one prompt, or the review loop after it when the round reviews. */
+const designTurns = Effect.fn("designTurns")(function* (
+  session: UltrapaintSession,
+  reference: LoadedReference,
+  dir: string,
+  first: {
+    readonly images: readonly {
+      readonly dataUrl: string;
+      readonly name: string;
+    }[];
+    readonly text: string;
+  },
+  /** What the designer was asked, which the reviewers keep to. */
+  request: ReviewRequest,
+  options: GenerateOptions
+) {
+  const { data } = yield* EvalsConfig;
+  const thread = yield* openThread(session, {
+    agent: options.agent,
+    minutes: options.minutes,
+    model: options.model,
+  });
+  const { review } = options;
+  const text =
+    review?.mode === "each-section"
+      ? `${first.text.trim()}\n\n${yield* prompt("review-each-section", {})}`
+      : first.text;
+  const turn = yield* thread.send(text, first.images);
+  if (review === undefined) {
+    return [turn] as readonly Turn[];
+  }
+  const viewports = viewportsOf(reference);
+  const viewport = viewports.find((v) => v.name === "desktop") ?? viewports[0];
+  if (viewport === undefined) {
+    return [turn] as readonly Turn[];
+  }
+  const io = reviewIO(session, thread, {
+    judgeModel: review.judgeModel,
+    marked: yield* referenceSections(reference.id, {
+      force: false,
+      model: review.judgeModel,
+    }),
+    request,
+    // The skill as the designer was briefed with it, read without the editor's tools.
+    tree: yield* writeSkillTree(
+      path.join(data.runs, options.round, "review-skill"),
+      options.skills ?? "built-in"
+    ),
+    viewport,
+  });
+  return (yield* reviewLoop(turn, io, review, dir)).turns;
+});
+
 const runOnce = Effect.fn("runOnce")(function* (
   session: UltrapaintSession,
   reference: LoadedReference,
@@ -421,29 +616,34 @@ const runOnce = Effect.fn("runOnce")(function* (
 
   const brief = yield* fs.readFileString(data.briefFile(reference.id));
   const viewports = viewportsOf(reference);
-  const images = options.picture ? yield* referenceImages(reference.id) : [];
-  const turn = yield* Effect.scoped(
-    runPrompt(session, {
-      agent: options.agent,
-      ...(images.length > 0 && { images }),
-      minutes: options.minutes,
-      model: options.model,
-      text: yield* prompt(
-        options.prompt ?? (options.picture ? "generate-picture" : "generate"),
-        {
-          brief: brief.trim(),
-          viewports: describeViewports(viewports),
-        }
-      ),
-    })
+  const pictures = options.picture
+    ? yield* referencePictures(reference.id)
+    : [];
+  const images = yield* referenceImages(pictures);
+  const turns = yield* Effect.scoped(
+    designTurns(
+      session,
+      reference,
+      dir,
+      {
+        images,
+        text: yield* prompt(
+          options.prompt ?? (options.picture ? "generate-picture" : "generate"),
+          {
+            brief: brief.trim(),
+            viewports: describeViewports(viewports),
+          }
+        ),
+      },
+      { brief, pictures },
+      options
+    )
   );
+  const items = turns.flatMap((t) => t.items);
+  const seconds = turns.reduce((n, t) => n + t.seconds, 0);
 
-  const list = yield* rpc("listing pages", session.client["pages.list"]());
-  const routed = list.pages.filter(
-    (p) => p.route !== undefined && !p.variant && !p.state
-  );
-  const main = routed.find((p) => p.route === "/") ?? routed[0];
-  const problems = turn.problem ? [turn.problem] : [];
+  const { home, list, main, pageFor } = yield* homeOf(session);
+  const problems = turns.flatMap((t) => (t.problem ? [t.problem] : []));
   yield* fs.makeDirectory(path.join(dir, "pages"), { recursive: true });
   for (const page of list.pages) {
     yield* fs.copyFile(
@@ -451,13 +651,7 @@ const runOnce = Effect.fn("runOnce")(function* (
       path.join(dir, "pages", path.basename(page.file))
     );
   }
-  const home = main?.route;
   if (home) {
-    // A viewport is drawn from the variant made for it (`sign-in@mobile`) when there is one:
-    // that is how a page's phone design is kept apart in Ultrapaint.
-    const pageFor = (viewport: Viewport) =>
-      list.pages.find((p) => p.route === home && p.variant === viewport.name)
-        ?.file ?? home;
     problems.push(
       ...(yield* photograph(
         session,
@@ -495,14 +689,14 @@ const runOnce = Effect.fn("runOnce")(function* (
     );
   }
 
-  const said = turn.items
+  const said = items
     .filter((i) => i.kind === "agent")
     .map((i) => (i.kind === "agent" ? i.text : ""))
     .join("\n\n");
   yield* writeText(path.join(dir, "agent.md"), `${said.trim()}\n`);
-  yield* writeText(path.join(dir, "trace.md"), `${traceOf(turn.items)}\n`);
+  yield* writeText(path.join(dir, "trace.md"), `${traceOf(items)}\n`);
   const info: RunInfo = {
-    ...infoOf(options.agent, turn.items, turn.seconds),
+    ...infoOf(options.agent, items, seconds),
     pages: list.pages.map((p) =>
       p.variant || p.state || !p.route ? p.file : p.route
     ),
@@ -546,6 +740,11 @@ const startRound = Effect.fn("startRound")(function* (
         message: `round ${options.round} was started with host ${before.host ?? "none"} and skills ${before.skills}; name a new round for host ${options.host} and skills ${skills}`,
       });
     }
+    if ((before.review?.mode ?? "none") !== (options.review?.mode ?? "none")) {
+      return yield* new EvalsError({
+        message: `round ${options.round} was started with review ${before.review?.mode ?? "none"}; name a new round to review ${options.review?.mode ?? "none"}`,
+      });
+    }
   } else {
     yield* writeJson(roundFile, {
       agent: options.agent,
@@ -556,6 +755,13 @@ const startRound = Effect.fn("startRound")(function* (
       ...(options.picture && { picture: true }),
       ...(options.prompt !== undefined && { prompt: options.prompt }),
       references: references.map((r) => r.id),
+      ...(options.review && {
+        review: {
+          mode: options.review.mode,
+          passes: options.review.passes,
+          reviewers: options.review.reviewers,
+        },
+      }),
       runs: options.runs,
       skills: skillsOfRound(options, skillsBriefing),
       startedAt: new Date().toISOString(),

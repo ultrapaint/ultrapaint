@@ -10,10 +10,9 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
+import { ADDED_TEXT_FILE, AddedTextEntry } from "./added-text.ts";
 import { Browser } from "./browser.ts";
-
 import { EvalsConfig } from "./config.ts";
-import { ADDED_TEXT_FILE, AddedTextEntry } from "./generate.ts";
 import { roundRuns } from "./judge.ts";
 import { listDir, prompt, readJson, writeJson } from "./layout.ts";
 import { Models } from "./models.ts";
