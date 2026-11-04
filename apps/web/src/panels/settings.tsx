@@ -15,7 +15,6 @@ import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { cn } from "cn";
 import {
   Bot,
-  CircleAlert,
   FolderGit2,
   FolderSearch,
   type LucideIcon,
@@ -28,7 +27,7 @@ import {
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -50,7 +49,7 @@ import {
   SendKeyRow,
   SkillsGroup,
 } from "./settings-agents.tsx";
-import { Group, Row } from "./settings-group.tsx";
+import { Group, Row, RowMessage } from "./settings-group.tsx";
 import { ProfileRow } from "./settings-profile.tsx";
 import { ThemeRow } from "./settings-theme.tsx";
 
@@ -72,11 +71,14 @@ const list = (v: string) =>
  */
 const ListField = ({
   id,
+  invalid,
   onChange,
   placeholder,
   value,
 }: {
   id: string;
+  /** Its ties to the reasons a refused save gave under its row. */
+  invalid?: React.AriaAttributes;
   onChange: (value: string[]) => void;
   placeholder: string;
   value: readonly string[];
@@ -99,6 +101,7 @@ const ListField = ({
       placeholder={placeholder}
       spellCheck={false}
       value={text}
+      {...invalid}
     />
   );
 };
@@ -118,7 +121,8 @@ const sections: readonly {
 }[] = [
   { icon: FolderGit2, id: "repository", label: "Repository" },
   { icon: SwatchBook, id: "designSystem", label: "Design system" },
-  { icon: SlidersHorizontal, id: "editor", label: "Editor" },
+  // The person's own, in every project: not one more part of the project.
+  { icon: SlidersHorizontal, id: "editor", label: "Preferences" },
   { icon: Bot, id: "agents", label: "Agents", needsSaved: true },
 ];
 
@@ -223,7 +227,8 @@ const shortPath = (configPath: string, repoPath: string) => {
 
 /**
  * Where a save goes, in the words of the storage mode the server runs in: the file a save writes
- * to (in mono, the full path on hover), or why nothing is written.
+ * to (in mono, from the repository when it lies inside it, else in full), or why nothing is
+ * written.
  */
 const StorageLine = ({
   detected,
@@ -253,10 +258,7 @@ const StorageLine = ({
     );
   }
   return (
-    <p
-      className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground"
-      title={storage.configPath}
-    >
+    <p className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground">
       {warning ? (
         <TriangleAlert className="size-3.5 shrink-0 text-warning" />
       ) : null}
@@ -291,68 +293,102 @@ const renameConfig = () =>
     .then((path) => toast.success(`Renamed to ${path}`))
     .catch(reportError);
 
-/** Why the last save was refused, with the way out when the designs directory is missing. */
-const SaveProblems = ({
-  busy,
-  designsDir,
-  onCreateDesigns,
-  problems,
-}: {
-  busy: boolean;
-  designsDir: string;
-  onCreateDesigns: () => void;
-  problems: readonly string[];
-}) => {
-  if (problems.length === 0) {
-    return null;
+/** The Repository rows a refused save can name; the rest of its reasons go in the footer. */
+type ProblemRow = "application" | "components" | "designs" | "path";
+
+/** The row a refused save's reason is about (the server's words, SettingsService.validate). */
+export const problemRow = (problem: string): ProblemRow | null => {
+  if (problem.startsWith("Repository path")) {
+    return "path";
   }
-  const missingDesigns = problems.some((p) =>
-    p.startsWith(MISSING_DESIGNS_PREFIX)
-  );
-  return (
-    <Alert variant="destructive">
-      <CircleAlert />
-      <AlertTitle>Couldn’t save the settings</AlertTitle>
-      <AlertDescription>
-        {problems.length === 1 ? (
-          <p>{problems[0]}</p>
-        ) : (
-          <ul className="list-disc pl-4">
-            {problems.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        )}
-        {missingDesigns ? (
-          <Button
-            className="mt-2"
-            disabled={busy}
-            onClick={onCreateDesigns}
-            size="sm"
-            variant="outline"
-          >
-            Create {designsDir}
-          </Button>
-        ) : null}
-      </AlertDescription>
-    </Alert>
-  );
+  if (problem.startsWith(MISSING_DESIGNS_PREFIX)) {
+    return "designs";
+  }
+  if (problem.includes("package.json")) {
+    return "application";
+  }
+  if (problem.startsWith("Library directory")) {
+    return "components";
+  }
+  return null;
+};
+
+/** The reasons a refused save gives for one row, under it; nothing when it gave none. */
+const rowProblems = (problems: readonly string[], row: ProblemRow) => {
+  const mine = problems.filter((p) => problemRow(p) === row);
+  return mine.length > 0 ? mine : null;
 };
 
 /**
- * Stylesheets no style system the tool has reads are said before anything is saved, in the
- * style system's words.
+ * Stylesheets no style system the tool has reads, said under them before anything is saved, in
+ * the style system's words: a notice, as nothing is wrong with the settings.
  */
-const StylesAlert = ({ found }: { found: SetupSuggestions }) =>
-  found.styleSystem === undefined ? (
-    <Alert variant="destructive">
-      <TriangleAlert />
-      <AlertDescription>
-        {found.stylesNote ??
-          "Ultrapaint can’t read these stylesheets’ style system."}
-      </AlertDescription>
-    </Alert>
+const StylesNotice = ({ found }: { found: SetupSuggestions | null }) =>
+  found && found.styleSystem === undefined ? (
+    <RowMessage kind="notice">
+      {found.stylesNote ??
+        "Ultrapaint can’t read these stylesheets’ style system."}
+    </RowMessage>
   ) : null;
+
+/**
+ * The repository's folder. Set by where the configuration file lies, it is read, not typed: all
+ * of it as text, the folder's own name at the end included.
+ */
+const PathField = ({
+  invalid,
+  onChange,
+  onChoose,
+  readOnly,
+  value,
+}: {
+  invalid: React.AriaAttributes;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** The shell's folder picker, where it has one (Platform). */
+  onChoose: (() => void) | undefined;
+  readOnly: boolean;
+  value: string;
+}) =>
+  readOnly ? (
+    <p className="break-all py-1 font-code">{value}</p>
+  ) : (
+    <div className="flex gap-1">
+      <Input
+        className="font-code"
+        id="settings-repo"
+        onChange={onChange}
+        placeholder="/Users/you/code/shop"
+        spellCheck={false}
+        value={value}
+        {...invalid}
+      />
+      {onChoose ? (
+        <Button onClick={onChoose} variant="outline">
+          Choose…
+        </Button>
+      ) : null}
+    </div>
+  );
+
+/** Why a save was refused, in the footer: the reasons no row holds. */
+const SaveProblems = ({ problems }: { problems: readonly string[] }) => {
+  const general = problems.filter((p) => problemRow(p) === null);
+  return general.length > 0 ? (
+    <RowMessage kind="error">
+      <p>Couldn’t save the settings.</p>
+      <Reasons reasons={general} />
+    </RowMessage>
+  ) : null;
+};
+
+/** Reasons, one per line. */
+const Reasons = ({ reasons }: { reasons: readonly string[] }) => (
+  <>
+    {reasons.map((r) => (
+      <p key={r}>{r}</p>
+    ))}
+  </>
+);
 
 /**
  * Whether a section is there before anything is saved: not one that needs a project, except the
@@ -362,7 +398,10 @@ const shown = (id: SectionId) =>
   !sections.find((s) => s.id === id)?.needsSaved ||
   (id === "agents" && platform().agents !== undefined);
 
-/** The sections down the dialog's side, under its title. The first run hides what needs a project. */
+/**
+ * The sections down the dialog's side, under its title. The first run hides what needs a
+ * project. Tab reaches the section shown alone; the arrows move between them, showing each.
+ */
 const Sidebar = ({
   onSelect,
   section,
@@ -371,27 +410,48 @@ const Sidebar = ({
   onSelect: (id: SectionId) => void;
   section: SectionId;
   showAll: boolean;
-}) => (
-  <aside className="flex w-52 shrink-0 flex-col border-r">
-    <h2 className="shrink-0 px-5 pt-5 pb-3 font-heading-small">Settings</h2>
-    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 px-3">
-      {sections
-        .filter((s) => showAll || shown(s.id))
-        .map(({ icon: Icon, id, label }) => {
+}) => {
+  const listed = sections.filter((s) => showAll || shown(s.id));
+  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (step === undefined) {
+      return;
+    }
+    e.preventDefault();
+    const at = listed.findIndex((s) => s.id === section);
+    const next = listed[(at + step + listed.length) % listed.length];
+    if (next) {
+      onSelect(next.id);
+      e.currentTarget.parentElement
+        ?.querySelector<HTMLElement>(`[data-section=${next.id}]`)
+        ?.focus();
+    }
+  };
+  return (
+    <aside className="flex w-52 shrink-0 flex-col border-r">
+      <h2 className="shrink-0 px-5 pt-5 pb-3 font-heading-small">Settings</h2>
+      <nav
+        aria-label="Settings sections"
+        className="flex flex-col gap-0.5 px-3"
+      >
+        {listed.map(({ icon: Icon, id, label }) => {
           const active = id === section;
           return (
             <button
               aria-current={active ? "page" : undefined}
+              // The section shown is raised as the groups are, as the left card's rail raises
+              // its place; the focus is the ring alone.
               className={cn(
                 "flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
                 active
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  ? "bg-card text-foreground shadow-xs not-focus-visible:ring-1 not-focus-visible:ring-border"
+                  : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               )}
-              // The dialog opens with the focus on the section shown (app.tsx).
-              data-settings-section={active ? "current" : undefined}
+              data-section={id}
               key={id}
               onClick={() => onSelect(id)}
+              onKeyDown={onKeyDown}
+              tabIndex={active ? 0 : -1}
               type="button"
             >
               <Icon className="size-4 shrink-0" />
@@ -399,9 +459,10 @@ const Sidebar = ({
             </button>
           );
         })}
-    </nav>
-  </aside>
-);
+      </nav>
+    </aside>
+  );
+};
 
 /** The agents: before anything is saved, only those on this computer, which need no project. */
 const AgentsSection = ({
@@ -424,6 +485,106 @@ const AgentsSection = ({
     <MachineAgentsGroup />
   );
 
+const labelOf = (id: SectionId) =>
+  sections.find((s) => s.id === id)?.label ?? id;
+
+/** Names in a sentence: "A", "A and B", "A, B and C". */
+const listOf = (names: readonly string[]) =>
+  names.length < 2
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
+const same = (a: unknown, b: unknown) =>
+  JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/**
+ * The sections holding edits a save has not kept, in the sidebar's order. Settings detected or
+ * never saved wait as a whole, under the Repository.
+ */
+export const waitingSections = ({
+  detected,
+  draft,
+  saved,
+}: {
+  detected: boolean;
+  draft: Settings;
+  saved: Settings | null;
+}): SectionId[] => {
+  if (draft === saved && !detected) {
+    return [];
+  }
+  const repository =
+    detected ||
+    saved === null ||
+    !same(
+      [
+        draft.repoPath,
+        draft.designsDir,
+        draft.resolveFrom,
+        draft.libraryDirs,
+        draft.pagePngs,
+        draft.git,
+      ],
+      [
+        saved.repoPath,
+        saved.designsDir,
+        saved.resolveFrom,
+        saved.libraryDirs,
+        saved.pagePngs,
+        saved.git,
+      ]
+    );
+  const designSystem =
+    saved !== null &&
+    !same(
+      [draft.hostCss, draft.styleSystem],
+      [saved.hostCss, saved.styleSystem]
+    );
+  const agents = saved !== null && !same(draft.skills, saved.skills);
+  return (
+    [
+      ["repository", repository],
+      ["designSystem", designSystem],
+      ["agents", agents],
+    ] as const
+  )
+    .filter(([, waits]) => waits)
+    .map(([id]) => id);
+};
+
+/**
+ * The footer of a section that applies at once: it says so, with Done. Edits other sections
+ * hold are not undone by it, so it names them, with the way to the first.
+ */
+const InstantFooter = ({
+  onDone,
+  onShow,
+  waiting,
+}: {
+  onDone: () => void;
+  onShow: (id: SectionId) => void;
+  waiting: readonly SectionId[];
+}) => {
+  const [first] = waiting;
+  return (
+    <div className="flex items-center gap-4">
+      <p className="min-w-0 flex-1 font-small text-muted-foreground">
+        {first
+          ? `Applied at once. Your edits in ${listOf(waiting.map(labelOf))} aren’t saved yet.`
+          : "Applied at once, in every project."}
+      </p>
+      <div className="flex shrink-0 gap-2">
+        {first ? (
+          <Button onClick={() => onShow(first)} variant="outline">
+            Show {labelOf(first)}
+          </Button>
+        ) : null}
+        <Button onClick={onDone}>Done</Button>
+      </div>
+    </div>
+  );
+};
+
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const detected = useProject((s) => s.info.setup === "detected");
@@ -444,16 +605,25 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const [busy, setBusy] = useState(false);
   const saveLabel = saveLabelOf({ busy, saved: saved !== null, unsaved });
 
+  /**
+   * What a save answered: nothing refused closes the dialog; reasons about rows show the
+   * Repository, whose rows they are, with each under its row.
+   */
+  const refuse = (refused: readonly string[]) => {
+    setProblems(refused);
+    if (refused.length === 0) {
+      useProject.getState().openSettings(false);
+    } else if (refused.some((p) => problemRow(p) !== null)) {
+      setSection("repository");
+    }
+  };
   const apply = async (): Promise<boolean> => {
     setBusy(true);
     let ok = false;
     try {
       const refused = await save(draft);
-      setProblems(refused);
+      refuse(refused);
       ok = refused.length === 0;
-      if (ok) {
-        useProject.getState().openSettings(false);
-      }
     } catch (error) {
       setProblems([(error as Error).message]);
     }
@@ -502,11 +672,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const createDesigns = async () => {
     setBusy(true);
     try {
-      const refused = await setUpDesigns(draft);
-      setProblems(refused);
-      if (refused.length === 0) {
-        useProject.getState().openSettings(false);
-      }
+      refuse(await setUpDesigns(draft));
     } catch (error) {
       setProblems([(error as Error).message]);
     }
@@ -549,6 +715,24 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const onSkills = (skills: SkillsConfig | undefined) =>
     setDraft((d) => ({ ...d, skills }));
 
+  const errorFor = (row: ProblemRow, extra?: React.ReactNode) => {
+    const reasons = rowProblems(problems, row);
+    return reasons ? (
+      <RowMessage id={`settings-problem-${row}`} kind="error">
+        <Reasons reasons={reasons} />
+        {extra}
+      </RowMessage>
+    ) : null;
+  };
+  /** A field's ties to the reasons under its row, when a save gave some. */
+  const invalid = (row: ProblemRow) =>
+    rowProblems(problems, row)
+      ? {
+          "aria-describedby": `settings-problem-${row}`,
+          "aria-invalid": true,
+        }
+      : {};
+
   const repository = (
     <>
       {found ? (
@@ -557,39 +741,54 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <AlertDescription>{describeSuggestions(found)}</AlertDescription>
         </Alert>
       ) : null}
-      {found ? <StylesAlert found={found} /> : null}
       <Group>
         <Row
           description={
             repoFromFile
-              ? "Where the configuration file is."
-              : "An absolute path. Git and a package.json are optional."
+              ? "The repository’s folder: the one the configuration file is in."
+              : "The repository’s folder, as an absolute path. Git and a package.json are optional."
           }
-          htmlFor="settings-repo"
+          htmlFor={repoFromFile ? undefined : "settings-repo"}
           layout="field"
+          message={errorFor("path")}
           title="Path"
         >
-          <div className="flex gap-1">
-            <Input
-              className="font-code"
-              id="settings-repo"
-              onChange={onRepoPath}
-              placeholder="/Users/you/code/shop"
-              readOnly={repoFromFile}
-              spellCheck={false}
-              value={draft.repoPath}
-            />
-            {pickFolder && !repoFromFile ? (
-              <Button onClick={chooseFolder} variant="outline">
-                Choose…
-              </Button>
-            ) : null}
-          </div>
+          <PathField
+            invalid={invalid("path")}
+            onChange={onRepoPath}
+            onChoose={pickFolder ? chooseFolder : undefined}
+            readOnly={repoFromFile}
+            value={draft.repoPath}
+          />
+        </Row>
+        <Row
+          description="Fills in the fields below and the stylesheets from what it finds in this folder, replacing what you typed."
+          title="Detect from the repository"
+        >
+          <Button
+            disabled={!draft.repoPath}
+            onClick={detectNow}
+            variant="outline"
+          >
+            <FolderSearch />
+            Detect
+          </Button>
         </Row>
         <Row
           description="Where pages are saved, relative to the repository. Pages already written stay put."
           htmlFor="settings-designs"
           layout="field"
+          message={errorFor(
+            "designs",
+            <Button
+              disabled={busy}
+              onClick={createDesigns}
+              size="sm"
+              variant="outline"
+            >
+              Create {draft.designsDir}
+            </Button>
+          )}
           title="Designs directory"
         >
           <Input
@@ -599,6 +798,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             placeholder="docs/designs"
             spellCheck={false}
             value={draft.designsDir}
+            {...invalid("designs")}
           />
         </Row>
       </Group>
@@ -607,9 +807,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         title="Your code"
       >
         <Row
-          description="The package designs are built in. Empty when the designs directory is one."
+          description="The package designs are built in. Leave it empty when the designs directory is that package."
           htmlFor="settings-resolve"
           layout="field"
+          message={errorFor("application")}
           title="Application"
         >
           <Input
@@ -619,16 +820,19 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             placeholder="apps/web"
             spellCheck={false}
             value={draft.resolveFrom ?? ""}
+            {...invalid("application")}
           />
         </Row>
         <Row
           description="Your own components, one path per line."
           htmlFor="settings-libs"
           layout="field"
+          message={errorFor("components")}
           title="Component directories"
         >
           <ListField
             id="settings-libs"
+            invalid={invalid("components")}
             onChange={onLibraryDirs}
             placeholder="src/components"
             value={draft.libraryDirs}
@@ -658,19 +862,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             onCheckedChange={onGit}
           />
         </Row>
-        <Row
-          description="Fills the folders and stylesheets in from what it finds, replacing what you typed."
-          title="Detect from the repository"
-        >
-          <Button
-            disabled={!draft.repoPath}
-            onClick={detectNow}
-            variant="outline"
-          >
-            <FolderSearch />
-            Detect
-          </Button>
-        </Row>
       </Group>
     </>
   );
@@ -682,6 +873,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         description="The Tailwind v4 entry and its fonts, one per line, relative to the designs directory’s .ultrapaint folder. Sync reads tokens from them and writes them back."
         htmlFor="settings-css"
         layout="field"
+        message={<StylesNotice found={found} />}
         title="Stylesheets"
       >
         <ListField
@@ -717,10 +909,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     editor,
     repository,
   }[section];
-  // The Editor's settings apply as they are picked, into the user's own directory: with no other
-  // section's edit waiting, its footer has nothing to save and says so.
-  const instant =
-    section === "editor" && saved !== null && draft === saved && !detected;
+  // The preferences apply as they are picked, into the user's own directory: their footer has
+  // nothing to save and says so, naming the sections whose edits still wait for a save.
+  const instant = section === "editor";
 
   // The left card's two levels: the sections and the page on its frame ({rail}), each group
   // raised on {card}.
@@ -744,19 +935,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <div className="flex max-w-3xl flex-col gap-12 px-5 pb-5">{body}</div>
         </div>
         <footer className="flex shrink-0 flex-col gap-3 border-t px-5 py-3">
-          <SaveProblems
-            busy={busy}
-            designsDir={draft.designsDir}
-            onCreateDesigns={createDesigns}
-            problems={problems}
-          />
+          {instant ? null : <SaveProblems problems={problems} />}
           {instant ? (
-            <div className="flex items-center gap-4">
-              <p className="min-w-0 flex-1 truncate font-small text-muted-foreground">
-                Applied at once, in every project.
-              </p>
-              <Button onClick={cancel}>Done</Button>
-            </div>
+            <InstantFooter
+              onDone={cancel}
+              onShow={setSection}
+              waiting={waitingSections({ detected, draft, saved })}
+            />
           ) : (
             <div className="flex items-center gap-4">
               <StorageLine
@@ -766,11 +951,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               />
               <div className="flex shrink-0 gap-2">
                 {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
-                  <Button
-                    onClick={renameConfig}
-                    title={`${LEGACY_CONFIG_FILE_NAME} is the file’s old name`}
-                    variant="ghost"
-                  >
+                  <Button onClick={renameConfig} variant="ghost">
                     Rename to {CONFIG_FILE_NAME}
                   </Button>
                 ) : null}

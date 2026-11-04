@@ -1,4 +1,4 @@
-/** The editor's theme, in Settings › Editor: the person's, kept in the browser. */
+/** The editor's theme, in Settings › Preferences: the person's, kept in the browser. */
 import { OptionSelect } from "../components/option-select.tsx";
 import { type ThemePreference, useTheme } from "../state/theme.ts";
 import { Row, rowSelect } from "./settings-group.tsx";

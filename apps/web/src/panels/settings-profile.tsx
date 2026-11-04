@@ -1,11 +1,13 @@
-import { cn } from "cn";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
-import { Row, rowField } from "./settings-group.tsx";
+import { Row, RowMessage, rowField } from "./settings-group.tsx";
 
-/** Where the name is between the field and the user's own directory, said under the field. */
+/**
+ * Where the name is between the field and the user's own directory: saving and saved under the
+ * field, a failure under the row.
+ */
 type Status =
   | { kind: "loading" }
   | { kind: "ready" }
@@ -19,20 +21,27 @@ const statusLine = (status: Status) => {
       return "Saving…";
     case "saved":
       return "Saved";
-    case "failed":
-      return status.message;
     default:
       return null;
   }
 };
 
 /**
+ * What the name does, and what stands in for it when the field is left empty: git's name, said
+ * here once. The field has no placeholder, so an empty field never reads as a name set.
+ */
+const describe = (gitName: string | undefined) =>
+  gitName
+    ? `Signs your comments. Left empty, they’re signed ${gitName}, from git.`
+    : "Signs your comments and draws your avatar.";
+
+/**
  * Who the user is to the tool. The name is the user's, not the project's: it is saved as soon as
  * the field is left, into the user's own directory, and is the same in every project. Under the
- * field, what became of it: saving, saved, or why it could not be read or saved.
+ * field, what became of it: saving or saved; under the row, why it could not be read or saved.
  */
 export const ProfileRow = () => {
-  const hasGitName = useProject((s) => Boolean(s.info.gitUser?.name));
+  const gitName = useProject((s) => s.info.gitUser?.name);
   const [name, setName] = useState("");
   const [savedName, setSavedName] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "loading" });
@@ -79,34 +88,37 @@ export const ProfileRow = () => {
   const line = statusLine(status);
   return (
     <Row
-      description={
-        hasGitName
-          ? "Signs your comments. Empty, your git name does."
-          : "Signs your comments and draws your avatar."
-      }
+      description={describe(gitName)}
       htmlFor="settings-display-name"
+      message={
+        status.kind === "failed" ? (
+          <RowMessage id="settings-display-name-status" kind="error">
+            {status.message}
+          </RowMessage>
+        ) : null
+      }
       title="Display name"
     >
       <Input
-        aria-describedby={line ? "settings-display-name-status" : undefined}
+        aria-describedby={
+          line || status.kind === "failed"
+            ? "settings-display-name-status"
+            : undefined
+        }
+        aria-invalid={status.kind === "failed" || undefined}
         className={rowField}
         disabled={status.kind === "loading"}
         id="settings-display-name"
         onBlur={save}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder={status.kind === "loading" ? "Loading…" : "Your name"}
+        placeholder={status.kind === "loading" ? "Loading…" : undefined}
         value={name}
       />
       {line ? (
         <p
           aria-live="polite"
-          className={cn(
-            "@xl:w-52 font-small",
-            status.kind === "failed"
-              ? "text-destructive"
-              : "text-muted-foreground"
-          )}
+          className="@xl:w-52 font-small text-muted-foreground"
           id="settings-display-name-status"
         >
           {line}

@@ -71,12 +71,14 @@ afterEach(() => {
 });
 
 describe("the display name", () => {
-  it("is a prompt when none is set, never git's name standing in as a value", async () => {
+  it("is empty when none is set, and says once that git's name stands in", async () => {
     fakeApi.respond("profile.get", () => ({}));
     await render();
     expect(field()?.value).toBe("");
-    expect(field()?.placeholder).toBe("Your name");
-    expect(container.textContent).not.toContain("Ada Lovelace");
+    expect(field()?.placeholder).toBe("");
+    expect(container.textContent).toContain(
+      "Left empty, they’re signed Ada Lovelace, from git."
+    );
   });
 
   it("says under the field that it was saved", async () => {
@@ -90,21 +92,23 @@ describe("the display name", () => {
     expect(container.textContent).toContain("Saved");
   });
 
-  it("stays usable when it could not be read, and says why under the field", async () => {
+  it("stays usable when it could not be read, and says why under the row", async () => {
     fakeApi.respond("profile.get", () => Promise.reject(new Error("offline")));
     await render();
     expect(field()?.disabled).toBe(false);
-    expect(container.textContent).toContain("Couldn’t read your name");
+    expect(container.querySelector("[role=alert]")?.textContent).toContain(
+      "Couldn’t read your name"
+    );
   });
 
-  it("says under the field why it could not be saved", async () => {
+  it("says under the row why it could not be saved", async () => {
     fakeApi.respond("profile.get", () => ({}));
     fakeApi.respond("profile.set", () =>
       Promise.reject(new Error("disk full"))
     );
     await render();
     await typeAndLeave("Ada");
-    expect(container.textContent).toContain(
+    expect(container.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn’t save your name (disk full)"
     );
   });
