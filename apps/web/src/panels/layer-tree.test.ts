@@ -14,7 +14,7 @@ import {
   layerScope,
   looseItem,
   NO_FOLDS,
-  openLayers,
+  openRows,
   openUnless,
   pageItem,
   pageKey,
@@ -200,15 +200,18 @@ describe("the rows that can be seen", () => {
 });
 
 describe("collapse all", () => {
-  it("folds every open layer and leaves the pages open", () => {
+  it("has the open pages to fold as the panel starts out", () => {
+    const start = visibleRows(items, isOpenIn(NO_FOLDS));
+    expect(openRows(start)).toContain(pageKey("home"));
+  });
+
+  it("folds every open row, the pages among them, back to the top level", () => {
     const all = visibleRows(items, openUnless(new Set()));
-    const open = openLayers(all);
-    expect(open).not.toContain(pageKey("home"));
-    expect(open).toEqual(
-      all.filter((r) => r.expanded && !r.item.page).map((r) => r.key)
-    );
+    const open = openRows(all);
+    expect(open).toContain(pageKey("home"));
     const folded = visibleRows(items, openUnless(new Set(open)));
-    expect(openLayers(folded)).toEqual([]);
+    expect(openRows(folded)).toEqual([]);
+    expect(folded.every((r) => r.parent === null)).toBe(true);
   });
 });
 
@@ -240,6 +243,25 @@ describe("page groups", () => {
       false,
       true,
       false,
+      false,
+    ]);
+  });
+
+  it("sets a page apart from a page above it that draws its message under its row", () => {
+    const rows = visibleRows(pages, openUnless(new Set([pageKey("a")])));
+    const invalid = (row: VisibleRow) => row.key === pageKey("a");
+    expect(rows.map((r) => r.key)).toEqual([
+      pageKey("a"),
+      pageKey("b"),
+      "b#b1",
+      pageKey("c"),
+      "c#c1",
+    ]);
+    expect(rows.map((_, i) => startsPageGroup(rows, i, invalid))).toEqual([
+      false,
+      true,
+      false,
+      true,
       false,
     ]);
   });

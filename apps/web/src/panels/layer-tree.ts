@@ -414,23 +414,29 @@ export const treeMove = (
 };
 
 /**
- * The rows Collapse all folds: every open layer seen, the pages left as they are, so the panel
- * comes back to each page and its top layers.
+ * The rows Collapse all folds: every open row seen, the pages among them, so the panel comes back
+ * to the list of its pages. The pages start out open, so there is something to fold from the start.
  */
-export const openLayers = (rows: readonly VisibleRow[]): string[] =>
-  rows.filter((r) => r.expanded && !r.item.page).map((r) => r.key);
+export const openRows = (rows: readonly VisibleRow[]): string[] =>
+  rows.filter((r) => r.expanded).map((r) => r.key);
 
 /**
  * Whether the row at `index` starts a group of its own: a page's row under the rows of the page
- * before it, so each open page and its layers read as one group.
+ * before it, or under a page that draws something beneath its row (`hasBody`: an invalid page's
+ * message), so each page and what is under it read as one group.
  */
 export const startsPageGroup = (
   rows: readonly VisibleRow[],
-  index: number
-): boolean =>
-  rows[index]?.item.page !== undefined &&
-  index > 0 &&
-  rows[index - 1]?.item.page === undefined;
+  index: number,
+  hasBody: (row: VisibleRow) => boolean = () => false
+): boolean => {
+  const before = rows[index - 1];
+  return (
+    rows[index]?.item.page !== undefined &&
+    before !== undefined &&
+    (before.item.page === undefined || hasBody(before))
+  );
+};
 
 /** Where a row dragged over another lands: just above it, inside it at the top, or just below. */
 export type DropPosition = "before" | "inside" | "after";
