@@ -64,3 +64,4 @@ Icons share one style, one corner radius and one way of drawing a dot or a badge
 | An icon on every label, a box around one element, a divider between separated groups | Remove the decoration |
 | Navigation or borders heavier than the content | Lighter chrome |
 | An item under a group starting at another column | One column for the group's items |
+| A value the window already shows elsewhere (a size on its frame, a count on its group, a title its nav item names) | Once, where it is read or set |

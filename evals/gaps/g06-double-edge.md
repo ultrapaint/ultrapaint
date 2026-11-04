@@ -28,3 +28,4 @@ can't be seen.
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate caught it 2/2 through G5's wording (an edge only where it meets its container); the shipped skill only partly.
 - Closed 2026-11-03 by the shipped skill: `elevation.md`, "Nested surfaces step apart" (an edge only where a nested surface meets its container), written for g05.
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 1/2 (+1 partly), closing-check 2/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
+- `held-out-1`: 2026-11-04, caught: shipped 2/2, held-out-themes 2/2, held-out-plain 2/2 (opus, effort high; runs/held-out-1/report.md)

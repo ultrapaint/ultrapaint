@@ -94,3 +94,4 @@ flashes more than three times a second.
 | An intro or preloader holding the content back | Show the content at once |
 | A loop still running under reduced motion | Stop it |
 | A designed transition with no note on the canvas | Write the line beside the page |
+| A selection fill that fades in as the keyboard moves it | Instant; a fade only on hover |

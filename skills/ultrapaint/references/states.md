@@ -65,3 +65,8 @@ dismissed.
 | A disabled submit with no reason given | Enabled; say what is missing on submit |
 | A name that only ever fits | One that wraps or truncates, drawn |
 | More than four suggestions in an empty state | Three or four for the moment; the rest in search or a command |
+| A loading state that only success ends | The error in its place, with a retry |
+| A field that saves on blur with nothing shown | Saving and saved beside it, its error under it |
+| An empty state that doesn't say it is empty | "None yet" and the action that fills it |
+| A destructive action beside safe ones, in their style | Apart: the row's menu or the destructive variant, with its undo |
+| A confirm for what can be undone | Act, and offer the undo; a confirm's title names what is lost |

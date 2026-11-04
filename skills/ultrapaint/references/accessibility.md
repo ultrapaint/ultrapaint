@@ -61,3 +61,4 @@ content. Text containers grow with `hug` and `minHeight` rather than a fixed hei
 | Heading levels jumping from 1 to 3 | Levels in order |
 | An informative image with no `alt` | Describe its meaning |
 | A fixed `height` on a box of text | `hug` or `minHeight` |
+| A checkbox or chevron whose target is its `16px` box | `24×24` by padding |

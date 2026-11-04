@@ -27,3 +27,4 @@ apply to inherited copy as much as to new copy.
 - `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 11/16 (+2 partly), redesign-gaps 15/16 (+1 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - `recall-closing-check-1`: 2026-11-04, its sections' gaps caught: shipped 15/16 (+1 partly), closing-check 14/16 (+2 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - Decision of 2026-11-04 (made by the agent, as the person asked): not shipped: in `recall-closing-check-1`, reading every text against every state in step 6 gave 14/16 against 15/16 without it.
+- `held-out-1`: 2026-11-04, its sections' gaps caught: shipped 15/16 (+1 partly), held-out-themes 14/16 (+2 partly), held-out-plain 15/16 (opus, effort high; runs/held-out-1/report.md)
