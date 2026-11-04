@@ -338,7 +338,7 @@ export const ThreadList = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-3">
+      <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
         <h2 className="flex-1 font-heading-xsmall">Agents</h2>
         <IconButton onClick={() => createThread()} tooltip="New chat">
           <SquarePen />
