@@ -33,6 +33,7 @@ import {
   type MouseEvent,
   type ReactNode,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -100,7 +101,7 @@ import {
   layerKey,
   layerScope,
   NO_FOLDS,
-  openLayers,
+  openRows,
   pageKey,
   revealed,
   startsPageGroup,
@@ -110,6 +111,7 @@ import {
   withQuery,
 } from "./layer-tree.ts";
 import { offsetsOf, useListWindow, windowOf } from "./list-window.ts";
+import { problemParts } from "./page-problem.ts";
 
 /**
  * A row's own indent, and where its chevron sits inside it. A level is the chevron and the gap
@@ -118,6 +120,11 @@ import { offsetsOf, useListWindow, windowOf } from "./list-window.ts";
 const ROW_PAD = 4;
 const INDENT = 16;
 const CHEVRON_CENTER = 8;
+/**
+ * Where a page's name starts, the rows' text edge: the row's 8px inset, its pad, its chevron's
+ * 16px and the 4px after it. The panel's title and the heading over the canvas start there too.
+ */
+const NAME_EDGE = 8 + ROW_PAD + 16 + 4;
 
 /** A node's row: the node, and the frame it is shown in. */
 interface Row {
@@ -258,15 +265,18 @@ const LayerFilter = ({
 };
 
 /**
- * The panel's title, and Collapse all while a layer is open: with nothing to fold, the button is
- * not drawn.
+ * The panel's title, on the rows' text edge, and Collapse all while a row is open: with nothing to
+ * fold, the button is not drawn.
  */
 const LayersHeading = ({
   onCollapse,
 }: {
   onCollapse?: (() => void) | undefined;
 }) => (
-  <div className="flex h-11 shrink-0 items-center pr-2 pl-3">
+  <div
+    className="flex h-11 shrink-0 items-center pr-2"
+    style={{ paddingLeft: NAME_EDGE }}
+  >
     <h2 className="flex-1 font-heading-xsmall">Layers</h2>
     {onCollapse ? (
       <IconButton
@@ -283,11 +293,11 @@ const LayersHeading = ({
 
 /** The heights of the panel's lines, which the window of drawn rows is worked out from. */
 const PAGE_ROW = 28;
-/** The room an invalid page's message takes until it is measured: two lines and its padding. */
-const PROBLEM_GUESS = 60;
+/** The room an invalid page's message takes until it is measured: three lines and its padding. */
+const PROBLEM_GUESS = 84;
 /**
- * The room above a page whose row follows the layers of the page before: the pages' groups stand
- * three times as far apart as their rows' text (8px).
+ * The room above a page whose row follows the layers of the page before, or the message of an
+ * invalid page: the pages' groups stand three times as far apart as their rows' text (8px).
  */
 const PAGE_GAP = 16;
 const NODE_ROW = 28;
@@ -441,7 +451,13 @@ export const Layers = () => {
       lines.push({ kind: "heading", text: heading });
       heights.push(HEADING);
     }
-    const spaced = startsPageGroup(rows, index);
+    const spaced = startsPageGroup(
+      rows,
+      index,
+      (above) =>
+        above.item.page !== undefined &&
+        docs[above.item.frame]?.problem !== undefined
+    );
     lines.push({ kind: "row", row, spaced });
     if (row.item.page) {
       const problem = docs[row.item.frame]?.problem
@@ -510,7 +526,7 @@ export const Layers = () => {
 
   const flipRows = (keys: readonly string[]) => setFolds((f) => flip(f, keys));
   const toggle = (key: string) => flipRows([key]);
-  const toFold = openLayers(rows);
+  const toFold = openRows(rows);
 
   const focusRow = (key: string) => {
     setFocusKey(key);
@@ -658,10 +674,10 @@ export const Layers = () => {
             if (line.kind === "heading") {
               return (
                 <div
-                  className="flex items-end truncate px-3 pb-1.5 font-heading-xsmall"
+                  className="flex items-end truncate pr-3 pb-2 font-heading-xsmall"
                   key="heading"
                   role="presentation"
-                  style={{ height: HEADING }}
+                  style={{ height: HEADING, paddingLeft: NAME_EDGE }}
                 >
                   {line.text}
                 </div>
@@ -797,6 +813,7 @@ const RowName = ({
  */
 const TreeItem = ({
   children,
+  describedBy,
   item,
   label,
   onContextMenu,
@@ -806,6 +823,8 @@ const TreeItem = ({
   spaced = false,
 }: {
   children: ReactNode;
+  /** The element that says more about the row than its name: an invalid page's message. */
+  describedBy?: string | undefined;
   item: LayerItem;
   label: string;
   onContextMenu: (e: MouseEvent) => void;
@@ -815,6 +834,7 @@ const TreeItem = ({
   spaced?: boolean;
 }) => (
   <div
+    aria-describedby={describedBy}
     aria-expanded={row.expandable ? row.expanded : undefined}
     aria-label={label}
     aria-level={row.level}
@@ -858,15 +878,18 @@ const rowTone = (selected: boolean, hovered: boolean) => {
 };
 
 /**
- * Why a page cannot be drawn, under its row and in full: what is wrong with its file, and what to
- * do about it. It is as high as its words take; the list hears how high, to place what is under it.
+ * Why a page cannot be drawn, under its row and in full: what is wrong with its file, in plain
+ * words (`problemParts`), and where to fix it. It is as high as its words take; the list hears how
+ * high, to place what is under it. Its row is described by it, so a screen reader says it too.
  */
 const PageProblem = ({
   file,
+  id,
   onHeight,
   problem,
 }: {
   file: string;
+  id: string;
   onHeight: (height: number) => void;
   problem: string;
 }) => {
@@ -885,11 +908,25 @@ const PageProblem = ({
   // Its words start under the page's name: the row's inset, its chevron and the gap after it.
   return (
     <div className="py-1 pr-2 pl-6" ref={ref}>
-      <div className="wrap-anywhere rounded-md bg-destructive/10 px-2 py-1.5 font-small">
-        <p className="text-destructive">Not a valid page: {problem}</p>
-        <p className="mt-1 text-muted-foreground">
-          Fix it in <span className="text-foreground">{file}</span> and the page
-          is drawn again.
+      <div
+        className="wrap-anywhere rounded-md bg-destructive/10 p-2 font-body"
+        id={id}
+      >
+        <p className="text-destructive">Not a valid page.</p>
+        {problemParts(problem).map((part, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one message, in its order.
+          <p key={i}>
+            {part.at === null ? null : (
+              <>
+                <code className="font-code">{part.at}</code>{" "}
+              </>
+            )}
+            {part.says}
+          </p>
+        ))}
+        <p className="text-muted-foreground">
+          Fix it in <code className="font-code text-foreground">{file}</code>{" "}
+          and the page is drawn again.
         </p>
       </div>
     </div>
@@ -914,6 +951,7 @@ const PageRow = ({
   const problem = useDocuments((s) => s.docs[page.id]?.problem);
   const { key } = item;
   const selected = useEditor((s) => s.selectedPage === page.id);
+  const problemId = useId();
   const dropHere = useDropHere(key);
   const dropHandlers = rowDrop(item, shared);
   const selectThePage = () => {
@@ -964,6 +1002,7 @@ const PageRow = ({
   );
   return (
     <TreeItem
+      describedBy={problem ? problemId : undefined}
       item={item}
       label={page.name}
       onContextMenu={onContextMenu}
@@ -976,6 +1015,7 @@ const PageRow = ({
       {problem ? (
         <PageProblem
           file={page.file}
+          id={problemId}
           onHeight={(height) => shared.onProblemHeight(page.id, height)}
           problem={problem}
         />
@@ -1047,7 +1087,7 @@ const menuKey = (target: MenuTarget) => {
 
 /**
  * The row's context menu, for a pointer that does not right-click, on a page's row as on a
- * layer's. Opening it selects the row, so the canvas shows what the actions — and the shortcuts
+ * layer's, shown at rest so every row shows it has actions. Opening it selects the row, so the canvas shows what the actions — and the shortcuts
  * they name — are about to touch.
  */
 const RowMenu = ({
@@ -1072,7 +1112,7 @@ const RowMenu = ({
     <IconButton
       aria-expanded={open}
       aria-haspopup="menu"
-      className="hidden shrink-0 text-muted-foreground group-focus-within:flex group-hover:flex aria-expanded:flex"
+      className="shrink-0 text-muted-foreground"
       label={`Actions for ${label}`}
       onClick={onClick}
       size="icon-sm"
@@ -1203,7 +1243,7 @@ const LayerRow = ({
     <div
       className={cn(
         ROW,
-        "font-body text-foreground",
+        "font-label text-foreground",
         rowTone(selected, hovered),
         dropHere === "inside" && "ring-2 ring-primary ring-inset",
         dropHere === "before" &&
@@ -1228,7 +1268,7 @@ const LayerRow = ({
       />
       <span
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-1.5",
+          "flex min-w-0 flex-1 items-center gap-2",
           (drawn.hidden || hiddenAbove) && "opacity-50"
         )}
       >
@@ -1243,7 +1283,7 @@ const LayerRow = ({
           node={node}
         />
         <RowName
-          className="font-body"
+          className="font-label"
           item={item}
           label={label}
           onRename={(name) => renameNodeTo(name, target)}
