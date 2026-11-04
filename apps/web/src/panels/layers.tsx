@@ -273,10 +273,7 @@ const LayersHeading = ({
 }: {
   onCollapse?: (() => void) | undefined;
 }) => (
-  <div
-    className="flex h-11 shrink-0 items-center pr-2"
-    style={{ paddingLeft: NAME_EDGE }}
-  >
+  <div className="flex h-11 shrink-0 items-center pr-2 pl-4">
     <h2 className="flex-1 font-heading-xsmall">Layers</h2>
     {onCollapse ? (
       <IconButton

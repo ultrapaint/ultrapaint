@@ -338,7 +338,7 @@ const newAppComponent = async () => {
 
 /** The panel's title, as the rail names it, and New. */
 const Title = () => (
-  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-3">
+  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-4">
     <h2 className="flex-1 font-heading-xsmall">Components</h2>
     <IconButton
       className="text-muted-foreground"

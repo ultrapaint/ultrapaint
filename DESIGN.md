@@ -91,7 +91,7 @@ Dials: warm temperature, compact density, soft shape (6px controls, 12px cards),
 geometric type voice, no imagery, terse tone.
 
 The editor has two themes on one set of roles, light (warm paper) and dark (warm graphite), and
-follows the system's unless the person picks one in Settings › Editor.
+follows the system's unless the person picks one in Settings › Preferences.
 
 ## Navigation
 
@@ -146,7 +146,7 @@ in the foreground. A description sits in muted, never in the foreground.
 ## Layout
 
 A 4px scale. Controls 28px (24 small, 32 large), list rows 28px, menu rows 28px, panel headers 44px.
-Panel padding 8px around rows, 12px for text. Rows of a group sit together; the next group stands
+Panel padding 8px around rows, 16px for text: a panel's title starts on its rows' text edge. Rows of a group sit together; the next group stands
 at least three times as far from it as the rows' text is from each other (24px more above a
 section's title), measured with `pnpm evals measure`. A divider in a bar is a short rule centred on
 the bar's line, checked the same way. The
@@ -192,21 +192,31 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   panel's foot.
 - A row's actions are in a ⋯ menu shown at rest, Delete apart at its end; a row's click does one
   thing in every list of a panel. An action keeps its place whether its list is empty or not.
-- What can be undone runs at once with Undo in its toast; no confirm. A disabled primary says why
-  in a muted line beside it.
+- What can be undone runs at once with Undo in its toast; no confirm. A primary stays pressable:
+  pressed before it can act, it says what is missing under it. Busy, it shows a spinner and its
+  verb ("Committing…").
 - List rows sit 2px apart, so their fills never touch; a row's keyboard focus is the 2px ring
-  around the whole row. Checkboxes are edged in {colors.muted-foreground}.
+  around the whole row. Checkboxes and off switches are edged in {colors.muted-foreground}; a
+  checkbox's focus is a 2px ring 2px off it. A name cut short has its full text in the row's
+  tooltip.
 - A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
   its 10% tint; context muted.
 - A select in a settings row is its value and a chevron, filled only on hover; a field there is
   13rem wide, on the row's right edge.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
 - A field opened in place of text (a rename) keeps the text's place and weight.
-- An error tied to a row sits under it in full, on a 10% red box, saying how to fix it. A state
-  shown by colour also has an icon or a word.
-- Loading keeps the panel's layout with skeleton rows; a read that fails says so in place, with
-  Try again.
-- A section that applies at once has a footer that says so, with Done in place of Cancel and Save.
+- An error tied to a row sits under it in full, across the row, on a 10% red box, saying how to
+  fix it; a file's schema error names the place in the file (in mono), what it holds and what to
+  make it, never the validator's text. A notice takes the same place, muted, with a warning icon.
+  A state shown by colour also has an icon or a word; a status that blocks the action (a conflict)
+  is in the foreground with a warning dot.
+- Loading keeps the panel's layout with skeleton rows of every column, at foreground 10%; a read
+  that fails says so once, in place, with Try again.
+- A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
+  28rem wide.
+- A section that applies at once has a footer that says so, with Done in place of Cancel and Save,
+  naming any other section's unsaved edits. The settings dialog opens with focus on the dialog;
+  the section shown is raised like the rail's current place.
 
 ## Motion
 
