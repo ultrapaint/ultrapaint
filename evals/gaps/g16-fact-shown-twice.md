@@ -28,3 +28,4 @@ removed.
 - `recall-redesign-1`: 2026-11-03, caught: shipped 2/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the shipped skill caught it 2/2 with an independent reviewer per section: missed through how the redesign was run (P2).
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): no new wording: the shipped skill caught it 2/2 with an independent reviewer per section, so what missed it was how the redesign was run (p02). The candidate's wider wording was dropped.
+- `recall-closing-check-1`: 2026-11-04, caught: shipped 2/2, closing-check 2/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)

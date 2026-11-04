@@ -18,3 +18,4 @@ evidence (a measured value or a crop). A claim can't then be made without the ru
 **Test.** Audit the reports for claims that have no matching row.
 
 **Result.**
+- Decision of 2026-11-04 (made by the agent, as the person asked): stays open: what an agent claims in its last message shows only in a design round, not in recall.

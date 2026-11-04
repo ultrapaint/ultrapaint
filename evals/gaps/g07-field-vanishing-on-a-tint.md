@@ -2,7 +2,7 @@
 id: g07
 title: A filled field vanishing on a tinted frame
 kind: missing
-status: testing
+status: wontfix
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/components.md]
@@ -29,3 +29,5 @@ their ground.
 - `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule gave only partly (2 of 2); the captured picker has no fill at rest, only on hover, so check the capture against the person's picture first.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): the person doesn't remember whether the picker was filled at rest; the capture shows it filled on hover only. It stays `testing`.
+- `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2 (+1 partly), closing-check 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
+- Decision of 2026-11-04 (made by the agent, as the person asked): no rule: a field vanishing into its ground is caught by the shipped skill wherever it shows at rest (Settings' fields, 2/2 in every round). The picker was hover-only in the captures, and the person doesn't remember. The editor fixed it in 4601056.
