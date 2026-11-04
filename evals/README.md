@@ -189,7 +189,8 @@ measuring.
 
 When an agent needs several decisions from the person, it writes them as a deck and the person
 answers in the browser, one card at a time: a number key answers and moves on, and the answers
-are saved as they are given.
+are saved as they are given. The page follows the system's light or dark theme; its header's
+switch (or T) sets one, kept in that browser.
 
 ```sh
 pnpm evals decide <deck> [--host <tailscale address>]   # decisions/<deck>.json in the data directory
