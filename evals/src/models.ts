@@ -1,7 +1,7 @@
 /**
  * The models the evals ask to look at pictures and answer: the brief's writer, the judges, the
  * studies. Each runs as the user's own command with its own sign-in: Claude Code by default, a
- * `gpt-` model in Codex, a `cursor-` one in Cursor's agent. A step asks them all the same way, and
+ * `gpt-` model in Codex, a `cursor:` one (or a `cursor-` alias) in Cursor's agent. A step asks them all the same way, and
  * gets the answer decoded with its own schema.
  */
 import { Context, Effect, type FileSystem, Layer, Schema } from "effect";
@@ -22,7 +22,10 @@ export interface Question {
    * the files the prompt names.
    */
   readonly images?: readonly string[];
-  /** An alias (`opus`, `sonnet`), a full model name, a `gpt-` model or a `cursor-` one. */
+  /**
+   * An alias (`opus`, `sonnet`), a full model name, a `gpt-` model, or one of Cursor's by its exact
+   * name there (`cursor:grok-4.7-high`, `cursor:composer-2.5`).
+   */
   readonly model: string;
   readonly prompt: string;
 }
@@ -58,15 +61,26 @@ const CURSOR_MODELS: Readonly<Record<string, string>> = {
   "cursor-opus-5.5-rerun": "claude-opus-5-5",
 };
 
+/** Any of Cursor's models after this, by the name `cursor-agent --list-models` gives it. */
+const CURSOR = "cursor:";
+
 export type Backend = "claude" | "codex" | "cursor";
 
 /** Where a model runs, by its name, and the name it has there. */
 const backendOf = (
   model: string
-): { readonly kind: Backend; readonly model: string } => {
+): {
+  readonly kind: Backend;
+  readonly model: string;
+  /** Whether the question's effort is added to the name, as Cursor names Opus's efforts. */
+  readonly withEffort?: boolean;
+} => {
+  if (model.startsWith(CURSOR)) {
+    return { kind: "cursor", model: model.slice(CURSOR.length) };
+  }
   const cursorModel = CURSOR_MODELS[model];
   if (cursorModel !== undefined) {
-    return { kind: "cursor", model: cursorModel };
+    return { kind: "cursor", model: cursorModel, withEffort: true };
   }
   return { kind: model.startsWith("gpt-") ? "codex" : "claude", model };
 };
@@ -139,7 +153,7 @@ export class Models extends Context.Service<
           // asked for.
           return askCursor({
             ...asked,
-            model: `${backend.model}${question.effort ? `-${question.effort}` : ""}`,
+            model: `${backend.model}${backend.withEffort && question.effort ? `-${question.effort}` : ""}`,
           }).pipe(
             Effect.flatMap((reply) => decode(reply, true)),
             Effect.retry({ times: 1 }),

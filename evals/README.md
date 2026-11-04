@@ -155,8 +155,24 @@ pnpm evals gaps
 pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sections…]
 ```
 
-It takes `--model` (opus) and `--effort` (high) for the reviewers and judges, and resumes like a
-round. It writes `runs/<round>/report.md` and each measured gap's line under **Result.**
+It takes `--effort` (high) and resumes like a round. It writes `runs/<round>/report.md` and each
+measured gap's line under **Result.**
+
+To compare models as reviewers, give several to `--models` (opus by default): each reviews with
+every version of the skill, as a version of its own (`shipped@gpt-6.1-sol`), and one model judges
+them all, blind to who reviewed (`--judge-model`, opus). A `gpt-` model runs in Codex, and any of
+Cursor's in `cursor-agent` by its exact name after `cursor:` (`cursor-agent --list-models`):
+
+```sh
+pnpm evals recall <round> --models opus,gpt-6.1-sol,cursor:grok-4.7-high --runs 2
+```
+
+Cursor bills its named models (Opus, Gemini) from one pool and Composer and Grok from another;
+each run on it is guarded by `.work/probe/cursor-guard.mjs <pgid> 98 auto|api`, which stops it
+before the pool runs out or anything is billed on demand.
+
+A round's designing agent is chosen the same way: `round --agent codex --agent-model
+gpt-6.1-sol`, compared with `compare` or `pairwise`.
 
 What no wording made a reviewer see can be measured instead, on a rendered page:
 
