@@ -29,3 +29,4 @@ vertical centre is its bar's.
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2, closing-check 0/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - Closed 2026-11-04 by the measured check, `pnpm evals measure`, which catches it where no wording did (0/2 in every recall round). The editor's `DESIGN.md` asks for dividers centred on their bar's line, checked with it.
 - `held-out-1`: 2026-11-04, caught: shipped 0/2, held-out-themes 0/2, held-out-plain 0/2 (opus, effort high; runs/held-out-1/report.md)
+- `models-1`: 2026-11-04, caught: shipped@opus 0/2, shipped@gpt-6.1-sol 2/2, shipped@cursor:grok-4.7-high 0/2, shipped@cursor:composer-2.5 0/2 (+2 partly) (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
