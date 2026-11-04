@@ -278,7 +278,9 @@ const LayersHeading = ({
 const PAGE_ROW = 28;
 const PAGE_PROBLEM = 20;
 const NODE_ROW = 28;
-const HEADING = 36;
+/** The heading over the nodes on the canvas: a section's title, its group set apart three times
+ * as far as the rows inside it are from each other. */
+const HEADING = 56;
 /** The room above the first line and below the last. */
 const LIST_PAD = 4;
 /** Drawn beyond what is seen, either side, so a scroll shows rows already there. */
@@ -579,9 +581,10 @@ export const Layers = () => {
             if (line.kind === "heading") {
               return (
                 <div
-                  className="flex h-9 items-end truncate px-3 pb-1.5 font-small text-muted-foreground"
+                  className="flex items-end truncate px-3 pb-1.5 font-heading-xsmall"
                   key="heading"
                   role="presentation"
+                  style={{ height: HEADING }}
                 >
                   {line.text}
                 </div>

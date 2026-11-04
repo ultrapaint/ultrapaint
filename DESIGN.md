@@ -139,14 +139,17 @@ code. Roles are `font-<role>` utilities; the editor never uses a stock size.
 - `font-caption` 12/16 medium: keys, counts, badges, avatars' initials only.
 - `font-code` 13/20 mono.
 
-A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
-label in `font-small` muted and their value in the foreground. A description sits in muted, never
-in the foreground.
+A panel's section title is `font-heading-xsmall` in the foreground, never the small muted of a
+count or a description; the rows under it carry their label in `font-small` muted and their value
+in the foreground. A description sits in muted, never in the foreground.
 
 ## Layout
 
 A 4px scale. Controls 28px (24 small, 32 large), list rows 28px, menu rows 28px, panel headers 44px.
-Panel padding 8px around rows, 12px for text; 4px between rows of a group, 16px between groups. The
+Panel padding 8px around rows, 12px for text. Rows of a group sit together; the next group stands
+at least three times as far from it as the rows' text is from each other (24px more above a
+section's title), measured with `pnpm evals measure`. A divider in a bar is a short rule centred on
+the bar's line, checked the same way. The
 editor fills the window: the canvas with three floating cards over it, 8px from the window's edge
 and from each other. Dialogs are 28rem wide by default, 20px padding.
 
@@ -178,7 +181,10 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - Menu for actions on a thing; Popover for a few fields edited in place, reusing the inspector's
   fields; Dialog for a task that needs the whole attention; Toast for a result elsewhere or an undo.
 - Tooltips: a short name and the keys, nothing more. No arrows.
-- Empty states: a muted icon, a one-line title, one muted sentence, one action.
+- Empty states: an empty panel takes a muted icon, a one-line title, one muted sentence, one
+  action. An empty section among full ones is one row: "None yet" in muted, its action at the end.
+- A hint about the selection ("Inserts into …") shows only while something is selected, at the
+  panel's foot.
 
 ## Motion
 
