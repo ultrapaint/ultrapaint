@@ -17,6 +17,9 @@
       --soft: #f4f4f5;
       --accent: #2563eb;
       --mark: #e11d48;
+      --line-strong: #a1a1aa;
+      --error: #dc2626;
+      --shadow: rgb(0 0 0 / 0.06);
       --radius: 14px;
       font:
         15px / 1.5 ui-sans-serif,
@@ -25,7 +28,39 @@
         "Segoe UI",
         sans-serif;
       color: var(--ink);
+      color-scheme: light;
       background: var(--bg);
+    }
+    /* Dark follows the system unless the page is set to a theme (the header's switch). */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #121214;
+        --card: #1c1c1f;
+        --ink: #ececee;
+        --muted: #9f9fa9;
+        --line: #2f2f35;
+        --soft: #27272b;
+        --accent: #7aa5ff;
+        --mark: #f43f5e;
+        --line-strong: #5b5b66;
+        --error: #f87171;
+        --shadow: rgb(0 0 0 / 0.4);
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #121214;
+      --card: #1c1c1f;
+      --ink: #ececee;
+      --muted: #9f9fa9;
+      --line: #2f2f35;
+      --soft: #27272b;
+      --accent: #7aa5ff;
+      --mark: #f43f5e;
+      --line-strong: #5b5b66;
+      --error: #f87171;
+      --shadow: rgb(0 0 0 / 0.4);
+      color-scheme: dark;
     }
     * {
       box-sizing: border-box;
@@ -110,8 +145,8 @@
       background: var(--card);
       border-radius: var(--radius);
       box-shadow:
-        0 1px 2px rgb(0 0 0 / 0.06),
-        0 8px 30px rgb(0 0 0 / 0.06);
+        0 1px 2px var(--shadow),
+        0 8px 30px var(--shadow);
     }
     .eyebrow {
       font-size: 13px;
@@ -230,7 +265,7 @@
       border-radius: 10px;
     }
     .option:hover {
-      border-color: #a1a1aa;
+      border-color: var(--line-strong);
     }
     .option[aria-pressed="true"] {
       border-color: var(--ink);
@@ -248,7 +283,7 @@
       border-radius: 6px;
     }
     .option[aria-pressed="true"] .key {
-      color: #fff;
+      color: var(--card);
       background: var(--ink);
     }
     .label {
@@ -301,7 +336,7 @@
       color: var(--muted);
     }
     .row .answer.none {
-      color: #dc2626;
+      color: var(--error);
     }
     .row .said {
       grid-column: 1 / -1;
@@ -370,6 +405,14 @@
         </button>
         <button class="ghost" id="all" title="Every answer (A)" type="button">
           All
+        </button>
+        <button
+          class="ghost"
+          id="theme"
+          title="Light or dark (T)"
+          type="button"
+        >
+          Dark
         </button>
       </span>
     </header>
@@ -527,6 +570,39 @@
       show(at + 1);
     }
 
+    // The theme the page is set to, kept in this browser only; without one it follows the system.
+    const THEME_KEY = "decide-theme";
+    const systemDark = () =>
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = () =>
+      document.documentElement.dataset.theme === "dark" ||
+      (document.documentElement.dataset.theme !== "light" && systemDark());
+    const showTheme = () => {
+      $("theme").textContent = isDark() ? "Light" : "Dark";
+    };
+    const setTheme = (theme) => {
+      document.documentElement.dataset.theme = theme;
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // Storage can be off (a private window); the switch still works for this visit.
+      }
+      showTheme();
+    };
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === "light" || saved === "dark") {
+        document.documentElement.dataset.theme = saved;
+      }
+    } catch {
+      // No storage: follow the system.
+    }
+    showTheme();
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", showTheme);
+    $("theme").onclick = () => setTheme(isDark() ? "light" : "dark");
+
     document.addEventListener("keydown", (event) => {
       if ($("lightbox").classList.contains("open")) {
         $("lightbox").classList.remove("open");
@@ -545,6 +621,8 @@
         show(at + 1);
       } else if (event.key === "Enter" && at === -1) {
         show(firstOpen());
+      } else if (event.key.toLowerCase() === "t") {
+        setTheme(isDark() ? "light" : "dark");
       } else if (event.key.toLowerCase() === "a") {
         show(deck.cards.length);
       } else if (event.key.toLowerCase() === "c" && $("comment")) {
