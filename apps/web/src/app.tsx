@@ -468,6 +468,11 @@ const RightColumn = ({
   </div>
 );
 
+/** The settings' section shown, where the focus starts; the default until it is drawn. */
+const settingsInitialFocus = () =>
+  document.querySelector<HTMLElement>("[data-settings-section=current]") ??
+  true;
+
 /**
  * The settings, a dialog over the editor with their sections down its side (as T3 Code has
  * them): the editor stays as it was under it. Escape, the close button or Cancel close it.
@@ -485,6 +490,8 @@ const SettingsDialog = () => {
     >
       <DialogContent
         className="flex h-[min(100%-4rem,46rem)] w-[min(100%-4rem,60rem)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
+        // The focus starts on the section shown, not the first one listed.
+        initialFocus={settingsInitialFocus}
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>

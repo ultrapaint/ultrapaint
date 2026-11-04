@@ -4,8 +4,9 @@ import type * as React from "react";
 import { Label } from "@/components/ui/label";
 
 /**
- * Rows on one quiet surface, split by hairlines. The group's name, when the rows do not say it
- * themselves, is a small muted label above; a note that holds for every row sits under it.
+ * Rows on one quiet surface a step above the dialog's ground, split by hairlines: the fill is
+ * its only edge. The group's name, when the rows do not say it themselves, is a small muted label
+ * above; a note that holds for every row sits under it. Both start where the rows' words do.
  */
 export const Group = ({
   children,
@@ -19,16 +20,32 @@ export const Group = ({
 }) => (
   <section className="flex flex-col gap-2">
     {title ? (
-      <h3 className="px-1 font-small text-muted-foreground">{title}</h3>
+      <h3 className="px-4 font-small text-muted-foreground">{title}</h3>
     ) : null}
-    <div className="divide-y rounded-lg border bg-card">{children}</div>
+    {/* A raised surface: its fields fill a step above it in dark (Input, Select). */}
+    <div className="divide-y rounded-lg bg-card" data-surface="raised">
+      {children}
+    </div>
     {note ? (
-      <p className="text-pretty px-1 font-small text-muted-foreground">
+      <p className="text-pretty px-4 pb-4 font-small text-muted-foreground">
         {note}
       </p>
     ) : null}
   </section>
 );
+
+/**
+ * A select in a row: its value and a chevron, filled only under the pointer, at the row's right
+ * edge (OptionSelect's `className`).
+ */
+export const rowSelect = [
+  "@xl:-mr-2 w-fit max-w-full *:data-[slot=select-value]:flex-none",
+  "bg-transparent hover:border-transparent hover:bg-accent",
+  "dark:in-data-[surface=raised]:bg-transparent dark:in-data-[surface=raised]:hover:bg-accent",
+].join(" ");
+
+/** A field in an `end` row: as wide as the column the selects end on. */
+export const rowField = "@xl:w-52";
 
 /**
  * How a row's control sits. `end`: a switch, a select or a button at the row's right edge, the

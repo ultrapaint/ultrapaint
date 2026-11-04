@@ -56,6 +56,8 @@ import { ThemeRow } from "./settings-theme.tsx";
 
 const LIST_SEPARATOR_RE = /[\n,]/;
 
+const TRAILING_SLASH_RE = /\/+$/;
+
 const MISSING_DESIGNS_PREFIX = "Designs directory does not exist";
 
 const list = (v: string) =>
@@ -211,17 +213,56 @@ export const SettingsPage = () => {
   return loaded ? <SettingsForm saved={saved} /> : null;
 };
 
-/** Where a save goes, in the words of the storage mode the server runs in. */
-const storageLine = (storage: StorageInfo, detected: boolean) => {
+/** The configuration file as the footer names it: from the repository when it lies inside it. */
+const shortPath = (configPath: string, repoPath: string) => {
+  const root = `${repoPath.replace(TRAILING_SLASH_RE, "")}/`;
+  return repoPath && configPath.startsWith(root)
+    ? configPath.slice(root.length)
+    : configPath;
+};
+
+/**
+ * Where a save goes, in the words of the storage mode the server runs in: the file a save writes
+ * to (in mono, the full path on hover), or why nothing is written.
+ */
+const StorageLine = ({
+  detected,
+  repoPath,
+  storage,
+}: {
+  detected: boolean;
+  repoPath: string;
+  storage: StorageInfo;
+}) => {
+  const warning = storage.mode === "ephemeral" || detected;
+  let words: React.ReactNode;
   if (detected) {
-    return "Detected, not saved. Apply keeps them until the editor stops.";
-  }
-  if (storage.mode === "ephemeral") {
-    return storage.session
+    words = "Detected, not saved. Apply keeps them until the editor stops.";
+  } else if (storage.mode === "ephemeral") {
+    words = storage.session
       ? "No configuration file: kept until the command stops."
       : "No configuration file: these settings are not kept.";
+  } else if (storage.configPath) {
+    words = (
+      <>
+        Saves to{" "}
+        <code className="font-code">
+          {shortPath(storage.configPath, repoPath)}
+        </code>
+      </>
+    );
   }
-  return `Saved to ${storage.configPath}`;
+  return (
+    <p
+      className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground"
+      title={storage.configPath}
+    >
+      {warning ? (
+        <TriangleAlert className="size-3.5 shrink-0 text-warning" />
+      ) : null}
+      <span className="truncate">{words}</span>
+    </p>
+  );
 };
 
 /** The primary button's words: Apply where nothing is kept, Save and open on the first run. */
@@ -331,11 +372,9 @@ const Sidebar = ({
   section: SectionId;
   showAll: boolean;
 }) => (
-  <aside className="flex w-52 shrink-0 flex-col border-r bg-sidebar">
-    <h2 className="flex h-14 shrink-0 items-center px-4 font-heading-small">
-      Settings
-    </h2>
-    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 px-2">
+  <aside className="flex w-52 shrink-0 flex-col border-r">
+    <h2 className="shrink-0 px-5 pt-5 pb-3 font-heading-small">Settings</h2>
+    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 px-3">
       {sections
         .filter((s) => showAll || shown(s.id))
         .map(({ icon: Icon, id, label }) => {
@@ -344,11 +383,13 @@ const Sidebar = ({
             <button
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25",
+                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
                 active
                   ? "bg-accent text-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
+              // The dialog opens with the focus on the section shown (app.tsx).
+              data-settings-section={active ? "current" : undefined}
               key={id}
               onClick={() => onSelect(id)}
               type="button"
@@ -508,8 +549,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const onSkills = (skills: SkillsConfig | undefined) =>
     setDraft((d) => ({ ...d, skills }));
 
-  const label = sections.find((s) => s.id === section)?.label ?? "";
-
   const repository = (
     <>
       {found ? (
@@ -655,8 +694,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     </Group>
   );
 
+  // Applied at once, in every project: the footer says so in place of a save.
   const editor = (
-    <Group note="Applied at once, in every project.">
+    <Group>
       <ThemeRow />
       <ProfileRow />
       <SendKeyRow />
@@ -677,70 +717,82 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     editor,
     repository,
   }[section];
-  const where = storageLine(storage, detected);
+  // The Editor's settings apply as they are picked, into the user's own directory: with no other
+  // section's edit waiting, its footer has nothing to save and says so.
+  const instant =
+    section === "editor" && saved !== null && draft === saved && !detected;
 
+  // The left card's two levels: the sections and the page on its frame ({rail}), each group
+  // raised on {card}.
   return (
-    <div className="flex h-full min-w-0 flex-1 bg-background">
+    <div className="flex h-full min-w-0 flex-1 bg-rail">
       <Sidebar
         onSelect={setSection}
         section={section}
         showAll={saved !== null}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 pr-3 pl-6">
-          <h3 className="min-w-0 flex-1 truncate font-heading-small">
-            {label}
-          </h3>
+        {/* The page is named by its section, selected beside it: the header holds the close
+            button alone, centred on the dialog's title, and the page starts level with the
+            sections. */}
+        <header className="flex h-14 shrink-0 items-start justify-end pt-4.5 pr-4">
           <IconButton onClick={cancel} tooltip="Close">
             <X />
           </IconButton>
         </header>
         <div className="@container min-h-0 flex-1 overflow-y-auto">
-          <div className="flex max-w-3xl flex-col gap-6 px-6 pt-1 pb-8">
-            {body}
-          </div>
+          <div className="flex max-w-3xl flex-col gap-12 px-5 pb-5">{body}</div>
         </div>
-        <footer className="flex shrink-0 flex-col gap-3 border-t px-6 py-3">
+        <footer className="flex shrink-0 flex-col gap-3 border-t px-5 py-3">
           <SaveProblems
             busy={busy}
             designsDir={draft.designsDir}
             onCreateDesigns={createDesigns}
             problems={problems}
           />
-          <div className="flex items-center gap-4">
-            <p
-              className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground"
-              title={where}
-            >
-              {unsaved || detected ? (
-                <TriangleAlert className="size-3.5 shrink-0 text-warning" />
-              ) : null}
-              <span className="truncate">{where}</span>
-            </p>
-            <div className="flex shrink-0 gap-2">
-              {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
-                <Button
-                  onClick={renameConfig}
-                  title={`${LEGACY_CONFIG_FILE_NAME} is the file’s old name`}
-                  variant="ghost"
-                >
-                  Rename to {CONFIG_FILE_NAME}
-                </Button>
-              ) : null}
-              <Button onClick={cancel} variant="outline">
-                Cancel
-              </Button>
-              {unsaved ? (
-                <Button disabled={busy} onClick={saveToFile} variant="outline">
-                  Save to file…
-                </Button>
-              ) : null}
-              <Button disabled={busy} onClick={saveAndOpen}>
-                {busy ? <Spinner /> : null}
-                {saveLabel}
-              </Button>
+          {instant ? (
+            <div className="flex items-center gap-4">
+              <p className="min-w-0 flex-1 truncate font-small text-muted-foreground">
+                Applied at once, in every project.
+              </p>
+              <Button onClick={cancel}>Done</Button>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <StorageLine
+                detected={detected}
+                repoPath={draft.repoPath}
+                storage={storage}
+              />
+              <div className="flex shrink-0 gap-2">
+                {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
+                  <Button
+                    onClick={renameConfig}
+                    title={`${LEGACY_CONFIG_FILE_NAME} is the file’s old name`}
+                    variant="ghost"
+                  >
+                    Rename to {CONFIG_FILE_NAME}
+                  </Button>
+                ) : null}
+                <Button onClick={cancel} variant="outline">
+                  Cancel
+                </Button>
+                {unsaved ? (
+                  <Button
+                    disabled={busy}
+                    onClick={saveToFile}
+                    variant="outline"
+                  >
+                    Save to file…
+                  </Button>
+                ) : null}
+                <Button disabled={busy} onClick={saveAndOpen}>
+                  {busy ? <Spinner /> : null}
+                  {saveLabel}
+                </Button>
+              </div>
+            </div>
+          )}
         </footer>
       </div>
     </div>
