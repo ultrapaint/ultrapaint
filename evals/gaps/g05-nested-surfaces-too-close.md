@@ -33,3 +33,4 @@ where it meets its container.
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no wording caught it: before the fix there is no nested surface for the rule to apply to; the depth the person asked for is a call about the card's structure.
 - 2026-11-03: the rule ships in `elevation.md` for g06, which it caught; g05 itself stays `testing` (0/2 in both versions).
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): a rule worth trying, about what a card holding navigation and a panel separates by tone; to write and test with recall.
+- `recall-g05-1`: 2026-11-04, caught: shipped 0/2, g05-card-depth 2/2 (claude-opus-5-5, effort high; runs/recall-g05-1/report.md)
