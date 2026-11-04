@@ -127,7 +127,7 @@
       border-radius: 8px;
     }
     .ghost:disabled {
-      color: #a1a1aa;
+      color: var(--line-strong);
       cursor: default;
     }
     main {
@@ -362,6 +362,13 @@
     .lightbox .frame img {
       max-height: calc(100dvh - 40px);
     }
+    .under {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
     .saved {
       min-height: 18px;
       font-size: 13px;
@@ -420,6 +427,8 @@
     <div class="lightbox" id="lightbox"></div>
     <script>
     "use strict";
+    /** The key that sends a comment as the answer, with Enter: ⌘ on a Mac, Ctrl elsewhere. */
+    const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
     const $ = (id) => document.getElementById(id);
     let deck;
     let answers = {};
@@ -533,11 +542,13 @@
               </button>`
             )
             .join("")}</div>
-          <div><textarea id="comment" placeholder="A comment, if there is something to say (optional)">${esc(given?.comment ?? "")}</textarea>
-          <div class="saved" id="saved">${given ? "Saved." : `Press 1–${card.options.length} to answer and go on; ← and → to move.`}</div></div>`;
+          <div><textarea id="comment" placeholder="Your own answer, if none of these fits; or a comment that goes with the option you pick">${esc(given?.comment ?? "")}</textarea>
+          <div class="under"><span class="saved" id="saved">${savedLine(card, given)}</span>
+          <button type="button" class="ghost" id="own">Send as my answer</button></div></div>`;
       for (const button of el.querySelectorAll(".option")) {
         button.onclick = () => choose(button.dataset.key);
       }
+      $("own").onclick = () => choose(undefined);
       for (const picture of el.querySelectorAll("figure .frame")) {
         picture.onclick = () => {
           $("lightbox").replaceChildren(picture.cloneNode(true));
@@ -547,9 +558,28 @@
       window.scrollTo(0, 0);
     }
 
+    /** What the line under the comment says: how to answer, or what was saved. */
+    function savedLine(card, given) {
+      if (given && given.choice === undefined) {
+        return "Saved as your own answer.";
+      }
+      return given
+        ? "Saved."
+        : `Press 1–${card.options.length} to answer, or write your own and press ${MOD}↵; ← and → to move.`;
+    }
+
+    /**
+     * Saves an answer and moves on: an option, with the comment if there is one, or with no option
+     * (`key` undefined) the comment alone, as the person's own answer.
+     */
     async function choose(key) {
       const card = deck.cards[at];
       const comment = $("comment").value;
+      if (key === undefined && !comment.trim()) {
+        $("saved").textContent = "Write your answer first, or press a number.";
+        $("comment").focus();
+        return;
+      }
       const response = await fetch("/api/answer", {
         body: JSON.stringify({ choice: key, comment, id: card.id }),
         headers: { "content-type": "application/json" },
@@ -560,11 +590,13 @@
           `Not saved: ${(await response.json()).message}`;
         return;
       }
-      const { label } = card.options.find((o) => o.key === key);
       answers[card.id] = {
         choice: key,
         comment: comment.trim() || undefined,
-        label,
+        label:
+          key === undefined
+            ? "Own answer"
+            : card.options.find((o) => o.key === key).label,
         title: card.title,
       };
       show(at + 1);
@@ -603,16 +635,23 @@
       .addEventListener("change", showTheme);
     $("theme").onclick = () => setTheme(isDark() ? "light" : "dark");
 
+    /** Keys in the comment: Escape leaves it, ⌘/Ctrl+Enter sends it as the answer. */
+    function whileTyping(event) {
+      if (event.key === "Escape") {
+        event.target.blur();
+      } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        choose(undefined);
+      }
+    }
+
     document.addEventListener("keydown", (event) => {
       if ($("lightbox").classList.contains("open")) {
         $("lightbox").classList.remove("open");
         return;
       }
-      const typing = event.target.tagName === "TEXTAREA";
-      if (typing) {
-        if (event.key === "Escape") {
-          event.target.blur();
-        }
+      if (event.target.tagName === "TEXTAREA") {
+        whileTyping(event);
         return;
       }
       if (event.key === "ArrowLeft") {

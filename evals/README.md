@@ -189,7 +189,8 @@ measuring.
 
 When an agent needs several decisions from the person, it writes them as a deck and the person
 answers in the browser, one card at a time: a number key answers and moves on, and the answers
-are saved as they are given. The page follows the system's light or dark theme; its header's
+are saved as they are given. When no option fits, the person writes their own answer and sends it
+(⌘/Ctrl+Enter); words written before a number key go with that option as a comment. The page follows the system's light or dark theme; its header's
 switch (or T) sets one, kept in that browser.
 
 ```sh
@@ -206,7 +207,8 @@ A deck is `{ title, intro?, cards }`. Each card has:
 - `recommend?`: an option's key.
 
 The answers land in `decisions/<deck>.answers.json`, each with its label, the card's title and
-any comment, for the agent to read back and act on. Ask the decision itself, with what each
+any comment, for the agent to read back and act on. An answer in the person's own words has no
+`choice`, the label "Own answer", and the words as its comment: read it as the decision. Ask the decision itself, with what each
 answer leads to and the evidence beside it, and put the quickest cards first. Show each item as
 a close-up with a box around it, never a whole screen to search. An item that no picture shows
 says so on its card.
