@@ -19,6 +19,7 @@ import {
   EyeOff,
   Layers as LayersIcon,
   ListChevronsDownUp,
+  ListChevronsUpDown,
   Lock,
   LockOpen,
   MoreHorizontal,
@@ -101,7 +102,8 @@ import {
   layerKey,
   layerScope,
   NO_FOLDS,
-  openRows,
+  oneLevelFolded,
+  oneLevelOpen,
   pageKey,
   revealed,
   startsPageGroup,
@@ -265,28 +267,48 @@ const LayerFilter = ({
 };
 
 /**
- * The panel's title, on the rows' text edge, and Collapse all while a row is open: with nothing to
- * fold, the button is not drawn.
+ * The panel's title, on the rows' text edge, and the buttons that fold every branch one level or
+ * open it one level more: each drawn only while there is a level to fold or to open.
  */
 const LayersHeading = ({
-  onCollapse,
+  onFlip,
+  rows = [],
 }: {
-  onCollapse?: (() => void) | undefined;
-}) => (
-  <div className="flex h-11 shrink-0 items-center pr-2 pl-4">
-    <h2 className="flex-1 font-heading-xsmall">Layers</h2>
-    {onCollapse ? (
-      <IconButton
-        className="text-muted-foreground"
-        onClick={onCollapse}
-        size="icon"
-        tooltip="Collapse all"
-      >
-        <ListChevronsDownUp />
-      </IconButton>
-    ) : null}
-  </div>
-);
+  onFlip?: (keys: readonly string[]) => void;
+  rows?: readonly VisibleRow[];
+}) => {
+  const toOpen = onFlip ? oneLevelOpen(rows) : [];
+  const toFold = onFlip ? oneLevelFolded(rows) : [];
+  const onCollapse =
+    onFlip && toFold.length > 0 ? () => onFlip(toFold) : undefined;
+  const onExpand =
+    onFlip && toOpen.length > 0 ? () => onFlip(toOpen) : undefined;
+  return (
+    <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
+      <h2 className="flex-1 font-heading-xsmall">Layers</h2>
+      {onCollapse ? (
+        <IconButton
+          className="text-muted-foreground"
+          onClick={onCollapse}
+          size="icon"
+          tooltip="Collapse one level"
+        >
+          <ListChevronsDownUp />
+        </IconButton>
+      ) : null}
+      {onExpand ? (
+        <IconButton
+          className="text-muted-foreground"
+          onClick={onExpand}
+          size="icon"
+          tooltip="Expand one level"
+        >
+          <ListChevronsUpDown />
+        </IconButton>
+      ) : null}
+    </div>
+  );
+};
 
 /** The heights of the panel's lines, which the window of drawn rows is worked out from. */
 const PAGE_ROW = 28;
@@ -523,7 +545,6 @@ export const Layers = () => {
 
   const flipRows = (keys: readonly string[]) => setFolds((f) => flip(f, keys));
   const toggle = (key: string) => flipRows([key]);
-  const toFold = openRows(rows);
 
   const focusRow = (key: string) => {
     setFocusKey(key);
@@ -636,9 +657,7 @@ export const Layers = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <LayersHeading
-        onCollapse={toFold.length > 0 ? () => flipRows(toFold) : undefined}
-      />
+      <LayersHeading onFlip={flipRows} rows={rows} />
       <LayerFilter onDown={onFilterDown} onQuery={onQuery} query={query} />
       {shown.length === 0 ? (
         <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-2">

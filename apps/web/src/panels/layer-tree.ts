@@ -413,12 +413,19 @@ export const treeMove = (
   }
 };
 
+/** The rows that open for every folded branch to show one level more. */
+export const oneLevelOpen = (rows: readonly VisibleRow[]): string[] =>
+  rows.filter((r) => r.expandable && !r.expanded).map((r) => r.key);
+
 /**
- * The rows Collapse all folds: every open row seen, the pages among them, so the panel comes back
- * to the list of its pages. The pages start out open, so there is something to fold from the start.
+ * The rows that fold for every branch to show one level less: the open ones with none open under
+ * them, so pressed again and again it comes back to the list of pages.
  */
-export const openRows = (rows: readonly VisibleRow[]): string[] =>
-  rows.filter((r) => r.expanded).map((r) => r.key);
+export const oneLevelFolded = (rows: readonly VisibleRow[]): string[] => {
+  const open = rows.filter((r) => r.expanded);
+  const outer = new Set(open.map((r) => r.parent));
+  return open.filter((r) => !outer.has(r.key)).map((r) => r.key);
+};
 
 /**
  * Whether the row at `index` starts a group of its own: a page's row under the rows of the page
