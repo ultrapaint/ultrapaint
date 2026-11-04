@@ -1,16 +1,6 @@
-import {
-  isModelOption,
-  type Thread,
-  type ThreadItem,
-} from "@ultrapaint/contracts/threads";
+import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
-import {
-  ChevronLeft,
-  CircleAlert,
-  Ellipsis,
-  Eye,
-  LocateFixed,
-} from "lucide-react";
+import { ChevronLeft, CircleAlert, Ellipsis, LocateFixed } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +33,6 @@ import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
 import { Composer } from "./thread-composer.tsx";
-import { currentName } from "./thread-pickers.tsx";
 import { Entry, keyOfEntry } from "./thread-transcript.tsx";
 import { WorkingIndicator } from "./thread-work.tsx";
 
@@ -71,7 +60,7 @@ export const Threads = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 flex-col border-b">
-        <ThreadHeader thread={thread} />
+        <ThreadHeader thread={thread} worked={(items?.length ?? 0) > 0} />
         <ScopeBar thread={thread} />
       </div>
       <SetupStepBar threadId={thread.id} />
@@ -80,12 +69,20 @@ export const Threads = () => {
   );
 };
 
-/** Back to the list, the thread's name and who works on it. */
-const ThreadHeader = ({ thread }: { thread: Thread }) => {
+/**
+ * Back to the list, the thread's name and who works on it (its model is the composer's picker's),
+ * and, once the agent has done something, following it on the canvas.
+ */
+const ThreadHeader = ({
+  thread,
+  worked,
+}: {
+  thread: Thread;
+  worked: boolean;
+}) => {
   const agentName = useAgents(
     (s) => s.agents.find((a) => a.id === thread.agentId)?.name
   );
-  const model = currentName(thread.configOptions?.find(isModelOption));
   const following = useAgents((s) => s.following === thread.id);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the header's menu is the thread's; its buttons raise it from the keyboard.
@@ -107,9 +104,7 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
         </h2>
         <span className="flex min-w-0 items-center gap-1.5 font-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
-          <span className="truncate">
-            {[agentName ?? thread.agentId, model].filter(Boolean).join(" · ")}
-          </span>
+          <span className="truncate">{agentName ?? thread.agentId}</span>
           {/* A design thread is the rule; one that may write the code says so (ADR 0030). */}
           {thread.purpose === "implement" ? (
             <Tooltip>
@@ -121,14 +116,25 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
           ) : null}
         </span>
       </div>
-      <IconButton
-        aria-pressed={following}
-        className={cn(following && "bg-accent text-foreground")}
-        onClick={() => toggleFollowing(thread.id)}
-        tooltip={following ? "Stop following" : "Follow on the canvas"}
-      >
-        <Eye />
-      </IconButton>
+      {worked ? (
+        <Button
+          aria-pressed={following}
+          className={cn(
+            "text-muted-foreground",
+            following && "bg-accent text-foreground"
+          )}
+          onClick={() => toggleFollowing(thread.id)}
+          size="sm"
+          title={
+            following
+              ? "Stop following the agent on the canvas"
+              : "Follow the agent on the canvas"
+          }
+          variant="ghost"
+        >
+          Follow
+        </Button>
+      ) : null}
       <IconButton
         onClick={(e) => openMenuAt(e, { kind: "thread", threadId: thread.id })}
         tooltip="More"

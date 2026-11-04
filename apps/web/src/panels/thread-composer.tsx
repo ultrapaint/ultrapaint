@@ -16,6 +16,7 @@ import {
   BookText,
   Camera,
   Component,
+  FileInput,
   ListPlus,
   Palette,
   Pencil,
@@ -31,6 +32,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
@@ -53,6 +56,7 @@ import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
+import { importFigma } from "../lib/import-figma.ts";
 import { chordLabel } from "../lib/keys.ts";
 import { attachImages, pastedImages } from "../lib/pasted-images.ts";
 import { threadView } from "../lib/thread-view.ts";
@@ -161,6 +165,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   /** Implicit context the user took out of this prompt, by chip key. */
   const [dismissed, setDismissed] = useState<readonly string[]>([]);
   const [attachShot, setAttachShot] = useState(false);
+  const figma = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const selection = useEditor((s) => s.selection);
   const activePage = useEditor((s) => s.activePage);
@@ -438,8 +443,26 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                   Screenshot of the page
                 </DropdownMenuCheckboxItem>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => figma.current?.click()}>
+                <FileInput />
+                Import a .fig file…
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <input
+            accept=".fig"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                importFigma(file);
+              }
+              e.target.value = "";
+            }}
+            ref={figma}
+            type="file"
+          />
           <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
           <div className="min-w-1 flex-1" />

@@ -10,14 +10,7 @@ import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import {
-  ArrowUpRight,
-  Component,
-  LayoutGrid,
-  List,
-  Plus,
-  Search,
-} from "lucide-react";
+import { ArrowUpRight, LayoutGrid, List, Plus, Search } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -299,12 +292,18 @@ const librarySections = (
   ] as const;
 };
 
-/** A group's name over its rows: small and muted, as the rows say what it holds. */
+/**
+ * A group's name over its rows, a section's title: above the details of its rows, and with a group
+ * after another set three times as far from it as its rows are from each other.
+ */
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="flex h-9 items-end px-4 pb-1.5 font-small text-muted-foreground">
+  <h3 className="flex h-9 items-end px-4 pb-1.5 font-heading-xsmall">
     {children}
   </h3>
 );
+
+/** The Library's groups, each after the first set apart by space. */
+const SECTION = "[&+&]:pt-6";
 
 /**
  * A new app component, named in a prompt: an empty column placed nowhere (`components.create`),
@@ -429,31 +428,23 @@ const NoMatch = ({
 );
 
 /**
- * No app component yet: what they are, and one way to make one, from the selection on a page
- * when there is one, else an empty one.
+ * No app component yet: one row in the list's shape. With part of a page selected it offers to
+ * make one of it; with nothing selected the title's + makes an empty one.
  */
 const NoAppComponents = () => {
   const selection = useEditor((s) => s.selection);
   const fromSelection =
     selection !== null && pageOfRef(frameRefOf(selection.frame)) !== null;
   return (
-    <div className="flex flex-col items-start gap-1 px-4 pt-1 pb-3">
-      <Component className="mb-1 size-5 text-muted-foreground" />
-      <span className="font-label">No app components yet</span>
-      <span className="font-small text-muted-foreground">
-        Your own components, made from part of a page: select it, then make it
-        one.
+    <div className="mx-2 flex h-7 items-center justify-between gap-2 pl-2">
+      <span className="truncate font-small text-muted-foreground">
+        None yet
       </span>
-      <Button
-        className="mt-2"
-        onClick={() =>
-          fromSelection ? makeAppOf(selection) : newAppComponent()
-        }
-        size="sm"
-        variant="secondary"
-      >
-        {fromSelection ? "Make from selection" : "New app component"}
-      </Button>
+      {fromSelection ? (
+        <Button onClick={() => makeAppOf(selection)} size="sm" variant="ghost">
+          Make from selection
+        </Button>
+      ) : null}
     </div>
   );
 };
@@ -506,7 +497,7 @@ const LibraryNav = ({ open }: { open: string }) => {
         ) : null}
         {sections.map((section) =>
           section.items.length === 0 ? null : (
-            <section key={section.title}>
+            <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
               {section.items.map((c) => (
                 <NavRow
@@ -537,7 +528,10 @@ export const Library = () => {
   return open === null ? <InsertList /> : <LibraryNav open={open} />;
 };
 
-/** Where a click inserts: the page or the node selected, in the foreground. */
+/**
+ * Where a click inserts, at the panel's foot while something is selected: the node or the page
+ * picked. With nothing selected it would only name the default, so it is not shown.
+ */
 const InsertHint = () => {
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
@@ -552,15 +546,12 @@ const InsertHint = () => {
     selectedPage,
     selection,
   });
+  if (!(target && (selection || selectedPage))) {
+    return null;
+  }
   return (
-    <p className="shrink-0 truncate px-4 pb-1 font-small text-muted-foreground">
-      {target ? (
-        <>
-          Inserts into <span className="text-foreground">{target.name}</span>
-        </>
-      ) : (
-        "Drag onto a page or the canvas"
-      )}
+    <p className="shrink-0 truncate border-t px-4 py-2 font-small text-muted-foreground">
+      Inserts into <span className="text-foreground">{target.name}</span>
     </p>
   );
 };
@@ -587,7 +578,6 @@ const InsertList = () => {
     <div className="flex h-full flex-col">
       <Title />
       <SearchBar onQuery={setQuery} onView={onView} query={query} view={view} />
-      <InsertHint />
       <div className="min-h-0 flex-1 overflow-auto pb-2">
         {none && searching ? (
           <NoMatch onClear={() => setQuery("")} query={query} />
@@ -599,7 +589,7 @@ const InsertList = () => {
             return null;
           }
           return (
-            <section key={section.title}>
+            <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
               {empty ? <NoAppComponents /> : null}
               {view === "list" ? (
@@ -621,6 +611,7 @@ const InsertList = () => {
           );
         })}
       </div>
+      <InsertHint />
     </div>
   );
 };

@@ -12,7 +12,6 @@ import {
   GitBranch,
   GitCompareArrows,
   Plus,
-  RefreshCw,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -24,7 +23,6 @@ import {
   type SetStateAction,
   useEffect,
   useEffectEvent,
-  useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +44,7 @@ import { api } from "../state/connection.ts";
 import { useKept } from "../state/kept.ts";
 import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { type Followed, follow } from "../state/server-data.ts";
+import { follow } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
 const DIFF_MARKER_RE = /^[+\-@]/;
@@ -92,7 +90,6 @@ export const Changes = () => {
   const snapshots = useKept((s) => s.snapshots);
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
-  const statusData = useRef<Followed<GitStatus, undefined> | null>(null);
 
   /** Git's status, with the files no longer changed unticked. */
   const takeStatus = useEffectEvent((s: GitStatus) => {
@@ -136,19 +133,12 @@ export const Changes = () => {
       read: () => api().request("git.status", undefined),
       whole: ["git"],
     });
-    statusData.current = gitStatus;
     gitStatus.read().catch(reportError);
     return () => {
       clearTimeout(timer);
       gitStatus.stop();
-      statusData.current = null;
     };
   }, [configured, repository]);
-
-  const refresh = () => {
-    statusData.current?.read().catch(reportError);
-    useKept.getState().load();
-  };
 
   const showDiff = async (path: string) => {
     try {
@@ -212,7 +202,7 @@ export const Changes = () => {
   if (snapshots === null || checkpoints === null || (repository && !shown)) {
     return (
       <div className="flex h-full flex-col">
-        <ChangesHeading onRefresh={refresh} />
+        <ChangesHeading />
         <PanelEmpty>Reading the history…</PanelEmpty>
       </div>
     );
@@ -229,7 +219,7 @@ export const Changes = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <ChangesHeading onRefresh={refresh} />
+      <ChangesHeading />
       <RepoStatus
         busy={busy}
         files={files.length}
@@ -238,7 +228,7 @@ export const Changes = () => {
       />
       {shown && files.length > 0 ? (
         <>
-          <div className="max-h-[45%] min-h-0 shrink-0 overflow-auto px-2">
+          <div className="max-h-[45%] min-h-0 shrink-0 overflow-auto px-2 pb-2">
             <FileGroup
               current={diff?.path}
               files={design}
@@ -397,21 +387,14 @@ const DiffPane = ({
   </>
 );
 
-/** The panel's title, and the read of git's status and the history again. */
-const ChangesHeading = ({ onRefresh }: { onRefresh: () => void }) => (
-  <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-3">
+/** The panel's title. Git's status and the history follow on their own, so nothing refreshes them. */
+const ChangesHeading = () => (
+  <div className="flex h-11 shrink-0 items-center pr-2 pl-3">
     <h2 className="flex-1 font-heading-xsmall">Changes</h2>
-    <IconButton
-      className="text-muted-foreground"
-      onClick={onRefresh}
-      tooltip="Refresh"
-    >
-      <RefreshCw />
-    </IconButton>
   </div>
 );
 
-/** A quiet label over a group of rows, with what can be done to the group at its end. */
+/** A section's title over its rows, with what can be done to the section at its end. */
 const GroupLabel = ({
   action,
   children,
@@ -419,7 +402,7 @@ const GroupLabel = ({
   action?: ReactNode;
   children: ReactNode;
 }) => (
-  <div className="flex h-9 shrink-0 items-center gap-1 pr-1 pl-2 font-small text-muted-foreground">
+  <div className="flex h-9 shrink-0 items-center gap-1 pr-1 pl-2 font-heading-xsmall">
     <span className="min-w-0 flex-1 truncate">{children}</span>
     {action}
   </div>
@@ -442,7 +425,7 @@ const Snapshots = ({
 }) => {
   const save = () => saveSnapshot();
   return (
-    <div className="flex flex-col px-2 pt-1 pb-2">
+    <div className="flex flex-col px-2 pt-2 pb-2">
       <GroupLabel
         action={
           snapshots.length > 0 ? (
@@ -460,12 +443,11 @@ const Snapshots = ({
         Snapshots
       </GroupLabel>
       {snapshots.length === 0 ? (
-        <div className="flex flex-col items-start gap-2 px-2 pb-1">
-          <p className="font-small text-muted-foreground">
-            Keep the designs as they are under a name, to look at again or come
-            back to.
-          </p>
-          <Button onClick={save} size="sm" variant="secondary">
+        <div className="flex h-7 items-center justify-between gap-2 pl-2">
+          <span className="truncate font-small text-muted-foreground">
+            None yet
+          </span>
+          <Button onClick={save} size="sm" variant="ghost">
             Save snapshot
           </Button>
         </div>
@@ -564,11 +546,11 @@ const Checkpoints = ({
   checkpoints: readonly Checkpoint[];
   onShowDiff: (diff: CheckpointDiff) => void;
 }) => (
-  <div className="flex flex-col px-2 pb-3">
+  <div className="flex flex-col px-2 pt-4 pb-3">
     <GroupLabel>Agent checkpoints</GroupLabel>
     {checkpoints.length === 0 ? (
-      <p className="px-2 font-small text-muted-foreground">
-        The designs are kept before each agent turn, to compare or go back to.
+      <p className="flex h-7 items-center px-2 font-small text-muted-foreground">
+        None yet
       </p>
     ) : (
       checkpoints.map((c) => (
@@ -674,10 +656,12 @@ const FileGroup = ({
   }
   return (
     <div className="flex flex-col">
-      <Label className="flex h-8 items-center gap-2 px-2 font-normal font-small text-muted-foreground">
+      <Label className="flex h-8 items-center gap-2 px-2 font-heading-xsmall">
         <Checkbox checked={all} onCheckedChange={toggleAll} />
         <span className="flex-1">{title}</span>
-        <span className="font-caption tabular-nums">{files.length}</span>
+        <span className="font-caption text-muted-foreground tabular-nums">
+          {files.length}
+        </span>
       </Label>
       {files.map((f) => (
         <FileRow

@@ -2,7 +2,7 @@
 id: g08
 title: Dividers off-centre in a bar
 kind: process
-status: testing
+status: done
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: []
@@ -27,3 +27,4 @@ vertical centre is its bar's.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): build the measured check (each divider's vertical centre against its bar's), since no wording caught it.
 - `measure-1`: 2026-11-04, `pnpm evals measure` flags the three dividers 6px off the tools' line before the fix (2cf4e8e) and none after it; no false alarm on five other pages (runs/measure-1/summary.md).
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2, closing-check 0/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
+- Closed 2026-11-04 by the measured check, `pnpm evals measure`, which catches it where no wording did (0/2 in every recall round). The editor's `DESIGN.md` asks for dividers centred on their bar's line, checked with it.
