@@ -37,7 +37,7 @@ import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
-import { Group, Row } from "./settings-group.tsx";
+import { Group, Row, rowSelect } from "./settings-group.tsx";
 
 const skillsBriefings = [
   { label: "Router", value: "router" },
@@ -266,7 +266,7 @@ export const SkillsGroup = ({
     >
       <Row description={briefingDescriptions[briefing]} title="Told as">
         <OptionSelect
-          className="@xl:w-52"
+          className={rowSelect}
           onChange={(value) =>
             onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
           }
@@ -297,10 +297,10 @@ export const SendKeyRow = () => {
           ? "Shift+Enter starts a new line."
           : "Enter starts a new line."
       }
-      title="Send messages with"
+      title="Send key"
     >
       <OptionSelect
-        className="@xl:w-52"
+        className={rowSelect}
         onChange={(v) => setSendKey(v as SendKey)}
         options={sendKeys}
         value={sendKey}
@@ -390,7 +390,7 @@ export const ChatDefaultsGroup = () => {
     >
       <Row title="Agent">
         <OptionSelect
-          className="@xl:w-52"
+          className={rowSelect}
           onChange={onAgent}
           options={agents.map((a) => {
             const word = readiness(machine[a.id]);
@@ -405,7 +405,7 @@ export const ChatDefaultsGroup = () => {
       </Row>
       <Row description={modelDescription} title="Model">
         <OptionSelect
-          className="@xl:w-52"
+          className={rowSelect}
           disabled={models.length === 0}
           onChange={onModel}
           options={models.map((m) => ({
