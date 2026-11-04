@@ -4,7 +4,13 @@ import { EvalsConfig } from "./config.ts";
 import { writeText } from "./layout.ts";
 import type { Asked } from "./models.ts";
 import { Models } from "./models.ts";
-import { placeOf, recall, unmatchedOf, withoutTools } from "./recall.ts";
+import {
+  placeOf,
+  recall,
+  unmatchedOf,
+  versionsOf,
+  withoutTools,
+} from "./recall.ts";
 import { readData, TestData, writeData } from "./test-data.ts";
 
 const gapFile = (id: string, kind: string, sections: string) => `---
@@ -148,7 +154,8 @@ describe("recall", () => {
         yield* recall({
           concurrency: 2,
           effort: "high",
-          model: "opus",
+          judgeModel: "opus",
+          models: ["opus"],
           round: "r",
           runs: 2,
           sections: [],
@@ -189,5 +196,79 @@ describe("recall", () => {
           "its sections' gaps caught: shipped 0/2, fix 2/2"
         );
       }).pipe(Effect.provide(world))
+  );
+
+  it("names a version by its skill alone with one reviewing model, and by its skill and model with several", () => {
+    assert.deepStrictEqual(
+      versionsOf(["built-in"], ["opus"]).map((v) => v.name),
+      ["shipped"]
+    );
+    assert.deepStrictEqual(
+      versionsOf(["built-in", "candidates/fix"], ["opus", "gpt-6.1-sol"]).map(
+        (v) => v.name
+      ),
+      ["shipped@opus", "shipped@gpt-6.1-sol", "fix@opus", "fix@gpt-6.1-sol"]
+    );
+  });
+
+  it.effect(
+    "compares the models that review, with every review judged by one model",
+    () => {
+      const judgedBy = new Set<string>();
+      // GPT finds the empty group, Opus doesn't; whoever reviewed, the judge is asked the same.
+      const byModel = (asked: Asked) => {
+        if (asked.prompt.startsWith("You review")) {
+          return {
+            findings: [
+              ...(asked.model === "gpt-6.1-sol"
+                ? [finding("Empty group too heavy")]
+                : []),
+              finding("A stray hairline"),
+            ],
+            read: ["SKILL.md"],
+          };
+        }
+        judgedBy.add(asked.model);
+        return scripted(asked);
+      };
+      return Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/pictures/panel-dark@2x.png": "png",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        yield* recall({
+          concurrency: 2,
+          effort: "high",
+          judgeModel: "opus",
+          models: ["opus", "gpt-6.1-sol"],
+          round: "m",
+          runs: 1,
+          sections: [],
+          skills: ["built-in"],
+        });
+        const report = yield* readData("runs/m/report.md");
+        assert.include(
+          report,
+          "| Gap | Kind | Section | shipped@opus | shipped@gpt-6.1-sol |"
+        );
+        assert.include(report, "| g01 Gap g01 | missing | panel | 0/1 | 1/1 |");
+        assert.include(
+          report,
+          "Reviewers: `opus`, `gpt-6.1-sol`; every judge and grouping: `opus`"
+        );
+        assert.deepStrictEqual([...judgedBy], ["opus"]);
+        const fs = yield* FileSystem.FileSystem;
+        assert.include(
+          yield* fs.readFileString(`${gaps}/g01-empty.md`),
+          "reviewed by opus, gpt-6.1-sol, judged by opus, effort high"
+        );
+      }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(byModel))));
+    }
   );
 });

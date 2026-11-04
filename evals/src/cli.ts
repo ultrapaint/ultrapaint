@@ -758,10 +758,16 @@ const recallCommand = Command.make(
       Flag.withDescription("How hard the reviewers and judges think"),
       Flag.withDefault("high")
     ),
-    model: model("opus", "that reviews and judges"),
+    judgeModel: judgeFlags.judgeModel,
+    models: Flag.String("models").pipe(
+      Flag.withDescription(
+        "The models that review, comma-separated, each with every version of the skill: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
+      ),
+      Flag.withDefault("opus")
+    ),
     name,
     runs: Flag.Int("runs").pipe(
-      Flag.withDescription("Reviews per section and version"),
+      Flag.withDescription("Reviews per section, version and model"),
       Flag.withDefault(2)
     ),
     // Positional arguments are read in the order of their keys, sorted: `name`, then `sections`.
@@ -782,7 +788,8 @@ const recallCommand = Command.make(
     yield* recall({
       concurrency: input.concurrency,
       effort: input.effort,
-      model: input.model,
+      judgeModel: input.judgeModel,
+      models: input.models.split(",").map((m) => m.trim()),
       round: input.name,
       runs: input.runs,
       sections: input.sections,

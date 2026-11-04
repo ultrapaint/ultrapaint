@@ -173,6 +173,27 @@ const Saved = <S extends Schema.Top>(schema: S) =>
 export const versionName = (skills: string) =>
   skills === "built-in" ? "shipped" : path.basename(skills);
 
+/** What reviews a section: a version of the skill read by one model. */
+export interface Version {
+  readonly model: string;
+  /** `shipped@gpt-6.1-sol`; the skill's name alone when one model reviews. */
+  readonly name: string;
+  readonly skills: string;
+}
+
+/** Every version of the skill read by every reviewing model, the skill's versions first. */
+export const versionsOf = (
+  skills: readonly string[],
+  models: readonly string[]
+): readonly Version[] =>
+  skills.flatMap((s) =>
+    models.map((model) => ({
+      model,
+      name: models.length > 1 ? `${versionName(s)}@${model}` : versionName(s),
+      skills: s,
+    }))
+  );
+
 /**
  * Where a candidate's file goes in the skill's tree: `SKILL.md` is the router, every other file
  * a reference (`states.md`, `patterns/canvas-tools.md`).
@@ -278,7 +299,10 @@ const sum = (tallies: readonly (Tally | undefined)[]): Tally =>
 export interface RecallOptions {
   readonly concurrency: number;
   readonly effort: string;
-  readonly model: string;
+  /** The model that judges every review and groups what no gap matched, whoever reviewed. */
+  readonly judgeModel: string;
+  /** The models that review, each with every version of the skill, to be compared. */
+  readonly models: readonly string[];
   readonly round: string;
   readonly runs: number;
   /** The sections to review; every one there is when empty. */
@@ -355,6 +379,7 @@ const picturesOf = (section: Section) =>
 const reviewOne = Effect.fn("reviewOne")(function* (
   copy: { readonly dir: string; readonly section: Section },
   tree: string,
+  model: string,
   options: RecallOptions
 ) {
   const models = yield* Models;
@@ -363,7 +388,8 @@ const reviewOne = Effect.fn("reviewOne")(function* (
     cwd: copy.dir,
     dirs: [tree],
     effort: options.effort,
-    model: options.model,
+    images: section.pictures.map((p) => p.file),
+    model,
     prompt: yield* prompt("recall-review", {
       code: section.code.map((f) => `- \`${f}\``).join("\n"),
       name: section.name,
@@ -394,7 +420,7 @@ const judgeOne = Effect.fn("judgeOne")(function* (
   const answer = yield* models.ask({
     cwd: copy.dir,
     effort: options.effort,
-    model: options.model,
+    model: options.judgeModel,
     prompt: yield* prompt("recall-judge", {
       findings:
         review.findings.length === 0
@@ -446,7 +472,7 @@ const groupUnmatched = Effect.fn("groupUnmatched")(function* (
   const answer = yield* models.ask({
     cwd: copy.dir,
     effort: options.effort,
-    model: options.model,
+    model: options.judgeModel,
     prompt: yield* prompt("recall-group", {
       findings: listFindings(
         shown.flatMap(([, f], i) =>
@@ -524,14 +550,16 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
       ids.push(id);
     }
   }
-  const versions = options.skills.map(versionName);
+  const reviewers = versionsOf(options.skills, options.models);
+  const versions = reviewers.map((v) => v.name);
   const trees = new Map<string, string>();
   for (const skills of options.skills) {
-    trees.set(versionName(skills), yield* skillTree(options.round, skills));
+    trees.set(skills, yield* skillTree(options.round, skills));
   }
   yield* writeJson(path.join(out, "recall.json"), {
     effort: options.effort,
-    model: options.model,
+    judgeModel: options.judgeModel,
+    models: options.models,
     runs: options.runs,
     sections: ids,
     skills: options.skills,
@@ -550,7 +578,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
     (id) =>
       Effect.gen(function* () {
         const copy = yield* sectionCopy(options.round, id);
-        const jobs = versions.flatMap((version) =>
+        const jobs = reviewers.flatMap((version) =>
           Array.from({ length: options.runs }, (_, i) => ({
             run: i + 1,
             version,
@@ -560,14 +588,14 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
           jobs,
           ({ run, version }) =>
             orLater(
-              `${id} ${version} run ${run}`,
+              `${id} ${version.name} run ${run}`,
               Effect.gen(function* () {
-                const dir = path.join(out, id, version, `run-${run}`);
-                const tree = trees.get(version) ?? "";
+                const dir = path.join(out, id, version.name, `run-${run}`);
+                const tree = trees.get(version.skills) ?? "";
                 const review = yield* kept(
                   path.join(dir, "review.json"),
                   Review,
-                  reviewOne(copy, tree, options)
+                  reviewOne(copy, tree, version.model, options)
                 );
                 cost += review.costUsd;
                 const judged =
@@ -580,13 +608,13 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
                       );
                 cost += judged?.costUsd ?? 0;
                 yield* Effect.log(
-                  `${id} ${version} run ${run}: ${review.value.findings.length} findings`
+                  `${id} ${version.name} run ${run}: ${review.value.findings.length} findings`
                 );
                 return {
                   judgement: judged?.value,
                   review: review.value,
                   run,
-                  version,
+                  version: version.name,
                 } satisfies Reviewed;
               })
             ),
@@ -662,7 +690,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
       yield* recordResult(
         gap,
         options.round,
-        `${today}, ${what}: ${counts} (${options.model}, effort ${options.effort}; runs/${options.round}/report.md)`
+        `${today}, ${what}: ${counts} (${whoOf(options)}; runs/${options.round}/report.md)`
       );
     }
   }
@@ -686,6 +714,14 @@ interface ReportInput {
   readonly versions: readonly string[];
 }
 
+/** Who reviewed and who judged, for the report and the gaps' result lines. */
+const whoOf = (options: RecallOptions) => {
+  const [only] = options.models;
+  return options.models.length === 1 && only === options.judgeModel
+    ? `${only}, effort ${options.effort}`
+    : `reviewed by ${options.models.join(", ")}, judged by ${options.judgeModel}, effort ${options.effort}`;
+};
+
 /** The round's report: recall per gap and version, then what no gap matched, to be rated. */
 export const reportOf = (input: ReportInput) => {
   const { options, versions } = input;
@@ -699,8 +735,12 @@ export const reportOf = (input: ReportInput) => {
   const lines = [
     `# Recall: ${options.round}`,
     "",
-    `Every reviewer, judge and grouping: \`${options.model}\`, effort ${options.effort}. ` +
-      `${options.runs} run(s) per section and version. Versions: ${options.skills
+    `${
+      options.models.length === 1 && options.models[0] === options.judgeModel
+        ? `Every reviewer, judge and grouping: \`${options.judgeModel}\``
+        : `Reviewers: ${options.models.map((m) => `\`${m}\``).join(", ")}; every judge and grouping: \`${options.judgeModel}\`, blind to who reviewed`
+    }, effort ${options.effort}. ` +
+      `${options.runs} run(s) per section and version. Skills: ${options.skills
         .map((s) => `${versionName(s)} (\`${s}\`)`)
         .join(", ")}. Cost: $${input.cost.toFixed(2)}.`,
     "",

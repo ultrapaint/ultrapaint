@@ -56,7 +56,10 @@ ${JSON.stringify(asked.schema)}`;
           "json",
         ],
         { cwd: asked.cwd, stdin: "ignore" }
-      )
+      ),
+      // Its errors (a model the plan lacks, a sign-in gone) are printed on stderr, with nothing on
+      // stdout: kept, so a failure says why.
+      { includeStderr: true }
     )
     .pipe(
       Effect.timeout(TIMEOUT),
