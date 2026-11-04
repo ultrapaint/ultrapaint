@@ -74,31 +74,46 @@ export type Deck = typeof Deck.Type;
 
 export const Answer = Schema.Struct({
   at: Schema.String,
-  choice: Schema.String,
+  /** The option chosen; none when the person answered in their own words, the comment. */
+  choice: Schema.optional(Schema.String),
   comment: Schema.optional(Schema.String),
-  /** The option's label, so the file reads without the deck. */
+  /** The option's label, or `OWN_ANSWER`, so the file reads without the deck. */
   label: Schema.String,
   title: Schema.String,
 });
+
+/** The label of an answer given in the person's own words, with no option chosen. */
+export const OWN_ANSWER = "Own answer";
 const Answers = Schema.Record(Schema.String, Answer);
 
 const AnswerInput = Schema.Struct({
-  choice: Schema.String,
+  choice: Schema.optional(Schema.String),
   comment: Schema.optional(Schema.String),
   id: Schema.String,
 });
 
-/** An answer to a card, or why it isn't one: the choice must be one of the card's options. */
+/**
+ * An answer to a card, or why it isn't one: one of the card's options, with a comment or not, or
+ * the person's own words alone, as an agent's question takes an answer none of its options gave.
+ */
 export const answerTo = (
   card: Card,
-  input: { readonly choice: string; readonly comment?: string | undefined },
+  input: {
+    readonly choice?: string | undefined;
+    readonly comment?: string | undefined;
+  },
   at: string
 ): typeof Answer.Type | string => {
+  const comment = input.comment?.trim();
+  if (input.choice === undefined) {
+    return comment
+      ? { at, comment, label: OWN_ANSWER, title: card.title }
+      : `${card.id}: an answer needs an option or words of its own`;
+  }
   const option = card.options.find((o) => o.key === input.choice);
   if (option === undefined) {
     return `${card.id} has no option ${input.choice}`;
   }
-  const comment = input.comment?.trim();
   return {
     at,
     choice: option.key,

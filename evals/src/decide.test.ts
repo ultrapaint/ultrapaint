@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { answerTo } from "./decide.ts";
+import { answerTo, OWN_ANSWER } from "./decide.ts";
 
 const card = {
   id: "g05",
@@ -36,6 +36,22 @@ describe("decide", () => {
     assert.strictEqual(
       answerTo(card, { choice: "maybe" }, "t"),
       "g05 has no option maybe"
+    );
+  });
+
+  it("takes the person's own words as the answer when no option is chosen, and nothing as none", () => {
+    assert.deepStrictEqual(
+      answerTo(card, { comment: " Neither: ask me again next week " }, "t"),
+      {
+        at: "t",
+        comment: "Neither: ask me again next week",
+        label: OWN_ANSWER,
+        title: "Is more depth a rule or your taste?",
+      }
+    );
+    assert.strictEqual(
+      answerTo(card, { comment: "  " }, "t"),
+      "g05: an answer needs an option or words of its own"
     );
   });
 });
