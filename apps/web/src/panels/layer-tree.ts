@@ -414,21 +414,23 @@ export const treeMove = (
 };
 
 /**
- * The rows that open for every branch to show one level more: each folded one seen with rows
- * under it.
+ * The rows Collapse all folds: every open layer seen, the pages left as they are, so the panel
+ * comes back to each page and its top layers.
  */
-export const oneLevelOpen = (rows: readonly VisibleRow[]): string[] =>
-  rows.filter((r) => r.expandable && !r.expanded).map((r) => r.key);
+export const openLayers = (rows: readonly VisibleRow[]): string[] =>
+  rows.filter((r) => r.expanded && !r.item.page).map((r) => r.key);
 
 /**
- * The rows that fold for every branch to show one level less: the open ones with none open under
- * them.
+ * Whether the row at `index` starts a group of its own: a page's row under the rows of the page
+ * before it, so each open page and its layers read as one group.
  */
-export const oneLevelFolded = (rows: readonly VisibleRow[]): string[] => {
-  const open = rows.filter((r) => r.expanded);
-  const outer = new Set(open.map((r) => r.parent));
-  return open.filter((r) => !outer.has(r.key)).map((r) => r.key);
-};
+export const startsPageGroup = (
+  rows: readonly VisibleRow[],
+  index: number
+): boolean =>
+  rows[index]?.item.page !== undefined &&
+  index > 0 &&
+  rows[index - 1]?.item.page === undefined;
 
 /** Where a row dragged over another lands: just above it, inside it at the top, or just below. */
 export type DropPosition = "before" | "inside" | "after";
