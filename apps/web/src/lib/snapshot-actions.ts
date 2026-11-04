@@ -13,6 +13,7 @@ import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { viewSnapshot } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
+import { undoOrRedo } from "./shortcuts.ts";
 
 /** Asks for a name and keeps the designs as they are now, or as a checkpoint kept them. */
 export const saveSnapshot = async (
@@ -25,7 +26,7 @@ export const saveSnapshot = async (
       ? "The designs as they were before that agent turn, kept under a name until you delete it."
       : "The designs as they are now, kept under a name until you delete it: to look at again, or to come back to.",
     placeholder: "Shown to the client",
-    title: checkpoint ? "Keep this checkpoint" : "Save a snapshot",
+    title: checkpoint ? "Save as snapshot" : "Save snapshot",
   });
   if (name === null) {
     return null;
@@ -92,23 +93,16 @@ export const closeSnapshot = async () => {
   });
 };
 
+/** Back to the snapshot at once: it is one step, so the toast's Undo takes it back. */
 export const restoreSnapshot = async (snapshot: Snapshot) => {
-  const ok = await confirmDialog({
-    confirmLabel: "Restore",
-    description:
-      "Every design file goes back to how the snapshot kept it, and files made since are removed. It is one step: undo takes it back. Comments stay as they are.",
-    destructive: true,
-    title: `Restore ${snapshot.name}?`,
-  });
-  if (!ok) {
-    return;
-  }
   try {
     if (useSnapshotView.getState().view) {
       await closeSnapshot();
     }
     await api().request("snapshots.restore", { id: snapshot.id });
-    toast.success(`Restored ${snapshot.name}`);
+    toast.success(`Restored ${snapshot.name}`, {
+      action: { label: "Undo", onClick: () => undoOrRedo(false) },
+    });
   } catch (error) {
     reportError(error);
   }

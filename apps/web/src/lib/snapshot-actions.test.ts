@@ -1,10 +1,27 @@
 import "../testing/fake-browser.ts";
 import type { Snapshot } from "@ultrapaint/contracts/snapshots";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { confirmDialog } from "../components/dialogs.tsx";
 import { useKept } from "../state/kept.ts";
 import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
-import { deleteSnapshot, saveSnapshot } from "./snapshot-actions.ts";
+import {
+  deleteSnapshot,
+  restoreSnapshot,
+  saveSnapshot,
+} from "./snapshot-actions.ts";
+
+const toasts = vi.hoisted(
+  () => [] as { action?: { onClick: () => unknown }; message: string }[]
+);
+vi.mock("sonner", () => ({
+  toast: {
+    success: (
+      message: string,
+      options?: { action?: { onClick: () => unknown } }
+    ) => toasts.push({ message, ...options }),
+  },
+}));
 
 vi.mock(
   "../state/connection.ts",
@@ -13,7 +30,7 @@ vi.mock(
 
 vi.mock("../components/dialogs.tsx", async (original) => ({
   ...(await original<typeof import("../components/dialogs.tsx")>()),
-  confirmDialog: () => Promise.resolve(true),
+  confirmDialog: vi.fn(() => Promise.resolve(true)),
   promptDialog: () => Promise.resolve("Shown to the client"),
 }));
 
@@ -38,6 +55,8 @@ beforeEach(() => {
   fakeApi.respond("checkpoints.list", () => []);
   fakeApi.respond("snapshots.list", () => []);
   reported.length = 0;
+  toasts.length = 0;
+  vi.mocked(confirmDialog).mockClear();
   stop = followServer({ report: (error) => reported.push(error) });
 });
 
@@ -64,6 +83,26 @@ describe("saving and deleting a snapshot", () => {
       "snapshots.create",
       "snapshots.delete",
     ]);
+    expect(reported).toEqual([]);
+  });
+});
+
+describe("restoring a snapshot", () => {
+  it("restores at once, as one step the toast's Undo takes back", async () => {
+    fakeApi.respond("snapshots.restore", () => undefined);
+    fakeApi.respond("edit.undo", () => null);
+
+    await restoreSnapshot(made);
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(fakeApi.calls.map((c) => c.method)).toContain("snapshots.restore");
+    expect(toasts.map((t) => t.message)).toEqual([
+      "Restored Shown to the client",
+    ]);
+
+    fakeApi.calls.length = 0;
+    // The toast's Undo is the editor's undo, files and canvas alike.
+    await toasts[0]?.action?.onClick();
+    expect(fakeApi.calls.map((c) => c.method)).toContain("edit.undo");
     expect(reported).toEqual([]);
   });
 });

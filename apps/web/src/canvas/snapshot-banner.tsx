@@ -36,7 +36,7 @@ export const SnapshotBanner = () => {
           size="sm"
           variant="ghost"
         >
-          Restore…
+          Restore
         </Button>
         <Button onClick={closeSnapshot} size="sm">
           Back to now
