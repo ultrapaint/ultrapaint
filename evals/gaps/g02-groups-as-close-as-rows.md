@@ -32,3 +32,4 @@ each catches.
 - `recall-redesign-1`: 2026-11-03, caught: shipped 0/2 (+1 partly), redesign-gaps 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no wording caught it, even from 2× crops: it needs the measured check of the gaps between and within groups.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): build the measured check (the gap between groups against the gap within one), since no wording caught it.
+- `measure-1`: 2026-11-04, `pnpm evals measure` flags it at ratio 3 (27px between the App and System groups, 10px between rows) and not at spacing.md's 2 (it measures 2.7); at 3 it also flags the same pattern in Changes, and nothing in Layers or Settings (runs/measure-1/summary.md). The threshold is the person's call.

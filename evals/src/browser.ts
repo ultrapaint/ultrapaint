@@ -19,6 +19,9 @@ import {
   compareInBrowser,
   cropInBrowser,
   cutInBrowser,
+  type LaidBlock,
+  type LaidRule,
+  layoutInBrowser,
   locateInBrowser,
   outlineInBrowser,
   padInBrowser,
@@ -121,6 +124,24 @@ export class Browser extends Context.Service<
       viewport: Viewport,
       whole: boolean
     ) => Effect.Effect<readonly Uint8Array[], EvalsError>;
+    /**
+     * The layout under a selector at the URL, after the steps run on the page (1600×1000): what
+     * `measure` checks.
+     */
+    readonly layout: (
+      url: string,
+      options: {
+        readonly root: string;
+        readonly steps: readonly ((page: Page) => Promise<unknown>)[];
+        readonly theme: "dark" | "light";
+      }
+    ) => Effect.Effect<
+      {
+        readonly block: LaidBlock | null;
+        readonly rules: readonly LaidRule[];
+      },
+      EvalsError
+    >;
     /** Keeps a page open at the URL until the scope closes: the editor, for get_screenshot. */
     readonly hold: (
       url: string
@@ -358,12 +379,43 @@ export class Browser extends Context.Service<
           "trimming a picture"
         );
 
+      const layout = (
+        url: string,
+        options: {
+          readonly root: string;
+          readonly steps: readonly ((page: Page) => Promise<unknown>)[];
+          readonly theme: "dark" | "light";
+        }
+      ) =>
+        withPage(
+          {
+            colorScheme: options.theme,
+            viewport: { height: 1000, width: 1600 },
+          },
+          async (page) => {
+            await page.goto(url, { waitUntil: "load" });
+            // An app draws after load: its first screen settles in a few seconds.
+            await page.waitForTimeout(4000);
+            // One step after another, each given time to draw.
+            await options.steps.reduce<Promise<unknown>>(
+              (done, step) =>
+                done
+                  .then(() => step(page))
+                  .then(() => page.waitForTimeout(800)),
+              Promise.resolve()
+            );
+            return page.evaluate(layoutInBrowser, options.root);
+          },
+          `measuring ${url}`
+        );
+
       return Browser.of({
         capture,
         compare,
         crop,
         cut,
         hold,
+        layout,
         locate,
         pad,
         trim,

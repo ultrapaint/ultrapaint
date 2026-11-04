@@ -16,6 +16,7 @@
  *   pnpm evals compare <baseline> <candidate>      two rounds' scores
  *   pnpm evals gaps                                the design gaps, with kind and status
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
+ *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *
  * `generate`, `judge` and `report` run one step of a round each, to resume or redo one.
@@ -38,6 +39,7 @@ import { generate } from "./generate.ts";
 import { setupHost } from "./host.ts";
 import { judge } from "./judge.ts";
 import { learn } from "./learn.ts";
+import { measure } from "./measure.ts";
 import { Models } from "./models.ts";
 import { pairwise } from "./pairwise.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
@@ -692,6 +694,56 @@ const decideCommand = Command.make(
   )
 );
 
+const measureCommand = Command.make(
+  "measure",
+  {
+    out: Flag.String("out").pipe(
+      Flag.withDescription("A JSON file the findings are written to"),
+      Flag.optional
+    ),
+    ratio: Flag.Finite("ratio").pipe(
+      Flag.withDescription(
+        "How many times the gap inside a group the gap between groups must be"
+      ),
+      Flag.withDefault(2)
+    ),
+    root: Flag.String("root").pipe(
+      Flag.withDescription("A CSS selector: the part of the page to measure"),
+      Flag.withDefault("body")
+    ),
+    steps: Flag.String("steps").pipe(
+      Flag.withDescription(
+        "A module of steps run on the page first: export default [async (page) => {}]"
+      ),
+      Flag.optional
+    ),
+    theme: Flag.ChoiceWithValue("theme", [
+      ["dark", "dark"],
+      ["light", "light"],
+    ] as const).pipe(
+      Flag.withDescription("The colour scheme the page is opened in"),
+      Flag.withDefault("dark" as const)
+    ),
+    url: Argument.String("url").pipe(
+      Argument.withDescription("The page to measure, rendered in Chrome")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* measure(input.url, {
+      out: Option.getOrUndefined(input.out),
+      ratio: input.ratio,
+      root: input.root,
+      steps: Option.getOrUndefined(input.steps),
+      theme: input.theme,
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Measure a rendered page: groups at least twice as far apart as the lines inside them, dividers on their bar's line"
+  ),
+  Command.provide(Browser.layer)
+);
+
 const gapsCommand = Command.make("gaps", {}, listGaps).pipe(
   Command.withDescription(
     "The design gaps of evals/gaps/: id, kind, status, title and the sections recall reviews"
@@ -769,6 +821,7 @@ Command.make("design-evals").pipe(
     gapsCommand,
     recallCommand,
     decideCommand,
+    measureCommand,
   ]),
   Command.run({ version: "0.0.0" }),
   Effect.provide(

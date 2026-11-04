@@ -707,3 +707,133 @@ export const padInBrowser = async (input: {
   context.drawImage(image, m, m);
   return canvas.toDataURL("image/png").split(",")[1] ?? "";
 };
+
+/** A line of text, top to bottom, in CSS pixels of the window. */
+export interface InkLine {
+  readonly bottom: number;
+  readonly top: number;
+}
+
+/**
+ * An element as `measure` reads it: the lines of text it shows (its own and its children's,
+ * merged where they share a line), its box, and the children that show text. A wrapper with one
+ * such child and no text of its own is that child.
+ */
+export interface LaidBlock {
+  readonly bottom: number;
+  readonly children: readonly LaidBlock[];
+  /** Its first words, to name it in a finding. */
+  readonly label: string;
+  readonly lines: readonly InkLine[];
+  readonly top: number;
+}
+
+/** A thin vertical rule (a divider) and the vertical centre of what sits beside it in its bar. */
+export interface LaidRule {
+  readonly bar: string;
+  readonly centre: number;
+  readonly sideCentre: number;
+}
+
+/** The layout under `root`: its blocks of text, and its vertical rules beside their neighbours. */
+export const layoutInBrowser = (root: string) => {
+  const rootEl = document.querySelector(root) ?? document.body;
+  const shown = (el: Element) => {
+    const style = getComputedStyle(el);
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      Number(style.opacity) > 0
+    );
+  };
+  /** Rects on one line (more than half the smaller one overlapping) are one line. */
+  const merge = (rects: readonly InkLine[]) => {
+    const lines: InkLine[] = [];
+    for (const r of [...rects].sort((a, b) => a.top - b.top)) {
+      const last = lines.at(-1);
+      const overlap = last
+        ? Math.min(last.bottom, r.bottom) - Math.max(last.top, r.top)
+        : 0;
+      if (
+        last &&
+        overlap > Math.min(last.bottom - last.top, r.bottom - r.top) / 2
+      ) {
+        lines[lines.length - 1] = {
+          bottom: Math.max(last.bottom, r.bottom),
+          top: Math.min(last.top, r.top),
+        };
+      } else {
+        lines.push({ bottom: r.bottom, top: r.top });
+      }
+    }
+    return lines;
+  };
+  const textLines = (node: Node): InkLine[] => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    return [...range.getClientRects()]
+      .filter((r) => r.width > 0 && r.height > 0)
+      .map((r) => ({ bottom: r.bottom, top: r.top }));
+  };
+  const walk = (el: Element): LaidBlock | null => {
+    if (!shown(el)) {
+      return null;
+    }
+    const nodes = [...el.childNodes];
+    const own = nodes
+      .filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())
+      .flatMap(textLines);
+    const children = nodes.flatMap((n) => {
+      const block = n instanceof Element ? walk(n) : null;
+      return block ? [block] : [];
+    });
+    const lines = merge([...own, ...children.flatMap((c) => c.lines)]);
+    if (lines.length === 0) {
+      return null;
+    }
+    const [only] = children;
+    if (children.length === 1 && own.length === 0 && only) {
+      return only;
+    }
+    const box = el.getBoundingClientRect();
+    return {
+      bottom: box.bottom,
+      children,
+      label: ((el as HTMLElement).innerText ?? el.textContent ?? "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 40),
+      lines,
+      top: box.top,
+    };
+  };
+  /** A thin vertical rule, with the median centre of what sits beside it in its bar. */
+  const ruleOf = (el: Element): LaidRule | null => {
+    const r = el.getBoundingClientRect();
+    const bar = el.parentElement;
+    if (!(bar && r.width > 0 && r.width <= 2 && r.height >= 6 && shown(el))) {
+      return null;
+    }
+    const centres = [...bar.children]
+      .filter((c) => c !== el && shown(c))
+      .map((c) => c.getBoundingClientRect())
+      .filter((b) => b.width > 4 && b.height > 4)
+      .map((b) => (b.top + b.bottom) / 2)
+      .sort((a, b) => a - b);
+    const middle = centres[Math.floor(centres.length / 2)];
+    return middle === undefined
+      ? null
+      : {
+          bar:
+            bar.getAttribute("aria-label") ??
+            (bar.textContent ?? "").trim().slice(0, 40),
+          centre: (r.top + r.bottom) / 2,
+          sideCentre: middle,
+        };
+  };
+  const rules = [...rootEl.querySelectorAll("*")].flatMap((el) => {
+    const rule = ruleOf(el);
+    return rule ? [rule] : [];
+  });
+  return { block: walk(rootEl), rules };
+};
