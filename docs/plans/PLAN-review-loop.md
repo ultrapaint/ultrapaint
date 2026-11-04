@@ -15,35 +15,35 @@ different problems), and every finding kept so the skill learns from them.
 
 | # | Decision | Choice |
 |---|---|---|
-| D1 | What starts a review | The designer asks with a review tool when a section is done; if a turn ends with sections edited since their last review, the editor reviews them and sends the findings back into the chat |
-| D2 | Who reviews | The person says, the first time a design would be reviewed: which agents, how many passes, on or off by default. Kept as their setting, changed in Settings › Agents |
-| D3 | A finding the designer disagrees with | It fixes or declines each one, a decline with its reason |
-| D4 | The findings | Every finding, its reviewer and model, the skill version and what the designer did, in a log in the project's state; in this repository a triage skill turns recurring ones into gaps in `evals/gaps/` |
-| D5 | When in the loop | Measured first: a review after each section against one at the end of the turn, against none. The editor is built for the one that wins |
+| D1 | What starts a review | The end of a turn with sections edited since their last review. Section by section, the designer ends its turn after each one; no review tool |
+| D2 | Who reviews | The council the person names, per user, project or run (the run's wins); when none is named, the strongest model of each provider that can be reached |
+| D3 | A finding the designer disagrees with | It fixes or declines each one, a decline with its reason. Reviewers only look |
+| D4 | The findings | Opt-in log in `~/.ultrapaint/findings/<project>.jsonl`, outside every repository: category, rule cited or none, skill version, what the designer did. Triage (issue #8) turns recurring ones into gaps |
+| D5 | When in the loop | End of the turn by default; section by section measured against it in the lab |
 | D6 | One skill | The reviewer is the design skill in its review role: the skill gains a short section on reviewing a section, which the lab's recall reviewers read too |
+| D7 | The score | Each reviewer 0–100, overall and per category (the skill's references), computed from its own findings by contracts' `review`; no council score; "no score" for a reviewer that gave no review |
+| D8 | When to stop | A score asked holds every reviewer to it (own targets, advisory reviewers and category floors optional); none asked, every reviewer signs off. Caps: 6 rounds, 2 rounds under 2 points of gain, budget; the best round is kept |
 
 ## Phases
 
-1. **The lab experiment (D5).** No product code.
-   - A candidate skill: the review role, and steps that expect reviews and answer each finding.
-   - `pnpm evals round` gains a review loop: after a turn, it cuts the page into sections, has
-     the chosen reviewers review them (the runner recall uses: Claude, Codex, Cursor), sends the
-     findings into the thread as the next prompt, and repeats up to the passes. Two timings: at
-     the end of the turn, and section by section (the designer ends its turn after each section).
-   - What a design is scored by: what a fixed panel of fresh reviewers still finds in the
-     finished sections, the fidelity judge beside it, and the time and tokens it took.
-   - Three arms on the same three references, two runs each; none is `design-after` (2026-11-04).
-2. **The editor.** A `review` MCP tool; a server service that runs reviewers headless and in
-   parallel on 2× crops in each theme; the turn-end backstop; the setting and the first-use
-   question; the review log. ADR 0060 accepted with the timing measured.
-3. **Triage.** A skill in this repository that reads the review logs, groups recurring findings,
-   matches them to `evals/gaps/` and drafts new gap files for the person to keep or drop.
-4. **The benchmark** (issue #7): every designing agent × skill version, with and without reviews,
-   scored as in phase 1.
+1. **The lab** (2026-11-04, on main): `pnpm evals round --review end|each-section --reviewers …`
+   with `--goal`, `--reviewer-goals`, `--floors`, `--max-rounds`, `--budget` and
+   `--log-findings`; `panel` scores each model 0–100. Smoke on one screen, one run each: no review
+   left 27–32 problems, one review at the end 20, section by section 12, at 2× and 5× the time.
+2. **The experiment, after the 7-day quota resets (2026-11-09).** The council loop (Opus, GPT-6.1-Sol,
+   Grok 4.7) until sign-off, at the end of the turn against section by section, Claude and Codex
+   designing, three references; scored by the panel and `measure`. Before it, with no new runs:
+   whether a council finds more than one model twice, from `recall --models`' runs.
+3. **The skill.** Its review role (categories, severity, rule, sign-off, read-only) and the
+   step that answers reviews, shipped when phase 2 shows the loop helps.
+4. **Harnesses.** Where the designer runs, the council is started: the editor (a server service,
+   headless reviewers on 2× crops in each theme, the turn-end backstop, the setting, the log), T3
+   Code's delegation, Claude Code's subagents and CLIs, a `scripts/council` fallback in the skill;
+   a stop hook where the harness has one, so the loop isn't skipped (gap p08).
+5. **Triage** (issue #8), **trim** (issue #9) and **the benchmark** (issue #7), scored the same way.
 
 ## Open
 
 - Screenshots of a node are 2× only up to 800px wide and in the canvas's theme; the editor's review
   needs a scale and a theme in the request (`contracts/screenshots.ts`).
-- The MCP tool budget has about 800 characters left; a `review` tool costs 350–550.
 - Cursor has no agent in the editor; its reviewers run through `cursor-agent`, as in the lab.

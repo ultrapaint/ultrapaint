@@ -1,4 +1,8 @@
-Reviewers looked at {{what}} and found these problems:
+Reviewers looked at {{what}}. Where they stand, out of 100:
+
+{{scores}}
+
+They found these problems:
 
 {{findings}}
 {{notes}}

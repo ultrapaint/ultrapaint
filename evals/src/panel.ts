@@ -12,6 +12,7 @@
  * does it when they were not).
  */
 import path from "node:path";
+import { Category, pageScore, SignOff } from "@ultrapaint/contracts/review";
 import { Effect, FileSystem, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { commitOf, RoundInfo, RunInfo, referencePictures } from "./generate.ts";
@@ -26,6 +27,7 @@ import {
   SectionFinding,
   type SectionToReview,
   SystemNote,
+  scoreOfReview,
   spentOf,
 } from "./section-review.ts";
 import {
@@ -57,8 +59,12 @@ export const PanelResult = Schema.Struct({
       problems: Schema.Array(Problem),
       reviews: Schema.Array(
         Schema.Struct({
+          /** Why it gave no review of the section; it then has no score there. */
+          failed: Schema.optional(Schema.String),
           findings: Schema.Array(SectionFinding),
+          reached: Schema.Array(Category),
           reviewer: Schema.String,
+          signOff: SignOff,
         })
       ),
       /** What only a design-system component would fix, each once. */
@@ -150,7 +156,13 @@ export const panelRun = Effect.fn("panelRun")(function* (
       problems: merges[i]?.merged ?? [],
       reviews: reviews
         .filter((r) => r.section === section.name)
-        .map((r) => ({ findings: r.findings, reviewer: r.reviewer })),
+        .map((r) => ({
+          ...(r.failed !== undefined && { failed: r.failed }),
+          findings: r.findings,
+          reached: r.reached,
+          reviewer: r.reviewer,
+          signOff: r.signOff,
+        })),
       systemNotes: notesOf(
         reviews.filter((r) => r.section === section.name)
       ).map(({ section: _, ...note }) => note),
@@ -193,6 +205,45 @@ const foundBy = (result: PanelResult, model: string) =>
     0
   );
 
+/**
+ * A panel model's score of a run's page, out of 100, from its own findings (contracts' `review`):
+ * `no score` where it gave no review.
+ */
+export const scoreBy = (result: PanelResult, model: string) =>
+  pageScore(
+    result.sections.flatMap((s) =>
+      s.reviews
+        .filter((r) => r.reviewer === model)
+        .map((r) => ({
+          name: s.name,
+          score: scoreOfReview({
+            costUsd: 0,
+            ...(r.failed !== undefined && { failed: r.failed }),
+            findings: r.findings,
+            reached: r.reached,
+            reviewer: r.reviewer,
+            seconds: 0,
+            section: s.name,
+            signOff: r.signOff,
+            systemNotes: [],
+            tokens: 0,
+          }),
+        }))
+    )
+  );
+
+const scoreCell = (result: PanelResult, model: string) => {
+  const score = scoreBy(result, model);
+  return score.kind === "none"
+    ? "no score"
+    : `${score.overall} (${foundBy(result, model)})`;
+};
+
+const scoreValue = (result: PanelResult, model: string) => {
+  const score = scoreBy(result, model);
+  return score.kind === "none" ? [] : [score.overall];
+};
+
 const problemsOf = (result: PanelResult) =>
   result.sections.reduce((n, s) => n + s.problems.length, 0);
 
@@ -213,7 +264,7 @@ export const panelTable = (
   const lines = [
     `# Panel: ${round}`,
     "",
-    `What a fixed panel of fresh reviewers still finds in each run's final page, section by section: ${models.map((m) => `\`${m}\``).join(", ")}, grouped by \`${options.judgeModel}\`, effort ${options.effort}. Fewer problems is better. A problem is one thing wrong, whichever reviewers found it; a model's column counts its own findings. Notes counts what only a design-system component would fix, kept out of the problems. Fidelity is the judge's overall score (1–5).`,
+    `What a fixed panel of fresh reviewers still finds in each run's final page, section by section: ${models.map((m) => `\`${m}\``).join(", ")}, grouped by \`${options.judgeModel}\`, effort ${options.effort}. Fewer problems is better. A problem is one thing wrong, whichever reviewers found it. A model's column is its score out of 100 from its own findings, higher being better, with how many it made in brackets; "no score" where it gave no review. Notes counts what only a design-system component would fix, kept out of the problems. Fidelity is the judge's overall score (1–5).`,
     "",
     "## Per run",
     "",
@@ -231,7 +282,7 @@ export const panelTable = (
       row([
         runName(r),
         `**${problemsOf(r.panel)}**`,
-        ...models.map((m) => foundBy(r.panel, m)),
+        ...models.map((m) => scoreCell(r.panel, m)),
         notesCount(r.panel),
         r.fidelity ?? "–",
         r.seconds ?? "–",
@@ -242,7 +293,7 @@ export const panelTable = (
     row([
       "**Mean**",
       `**${mean(rows.map((r) => problemsOf(r.panel)))}**`,
-      ...models.map((m) => mean(rows.map((r) => foundBy(r.panel, m)))),
+      ...models.map((m) => mean(rows.flatMap((r) => scoreValue(r.panel, m)))),
       mean(rows.map((r) => notesCount(r.panel))),
       mean(rows.flatMap((r) => (r.fidelity === undefined ? [] : [r.fidelity]))),
       mean(rows.flatMap((r) => (r.seconds === undefined ? [] : [r.seconds]))),

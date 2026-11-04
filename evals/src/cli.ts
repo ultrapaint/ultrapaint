@@ -49,7 +49,7 @@ import { recall } from "./recall.ts";
 import { loadReferences } from "./reference.ts";
 import { report } from "./report.ts";
 import { review } from "./review.ts";
-import { REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
+import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
 
@@ -133,15 +133,38 @@ const judgeFlags = {
 
 /** The review loop of a round (ADR 0060): none unless `--review` says when. */
 const reviewFlags = {
+  budget: Flag.Int("budget").pipe(
+    Flag.withDescription(
+      "Dollars of review (where the models say what they cost) past which a loop stops"
+    ),
+    Flag.optional
+  ),
   effort: Flag.String("effort").pipe(
     Flag.withDescription("How hard the reviewers think"),
     Flag.withDefault("high")
   ),
-  passes: Flag.Int("passes").pipe(
+  floors: Flag.String("floors").pipe(
     Flag.withDescription(
-      "Reviews of a section, or of the page, at most: each one's findings go back to the designer"
+      "The lowest score a category may have, for every reviewer: accessibility=80,states=70"
     ),
-    Flag.withDefault(2)
+    Flag.optional
+  ),
+  goal: Flag.Int("goal").pipe(
+    Flag.withDescription(
+      "The score out of 100 every reviewer reaches before the loop stops; without it, every reviewer signs off"
+    ),
+    Flag.optional
+  ),
+  logFindings: Flag.Boolean("log-findings").pipe(
+    Flag.withDescription(
+      "Append every pass's findings to the findings log (~/.ultrapaint/findings/lab.jsonl, or ULTRAPAINT_FINDINGS)"
+    )
+  ),
+  maxRounds: Flag.Int("max-rounds").pipe(
+    Flag.withDescription(
+      "Reviews of a section, or of the page, at most, whatever the goal: the safety cap"
+    ),
+    Flag.withDefault(6)
   ),
   review: Flag.ChoiceWithValue(
     "review",
@@ -152,9 +175,15 @@ const reviewFlags = {
     ),
     Flag.optional
   ),
+  reviewerGoals: Flag.String("reviewer-goals").pipe(
+    Flag.withDescription(
+      "A reviewer's own target, or none to only advise: gpt-6.1-sol=none,cursor:grok-4.7-high=80"
+    ),
+    Flag.optional
+  ),
   reviewers: Flag.String("reviewers").pipe(
     Flag.withDescription(
-      "The models that review, comma-separated: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
+      "The council: the models that review, comma-separated: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
     ),
     Flag.withDefault("opus")
   ),
@@ -202,23 +231,35 @@ const briefCommand = Command.make(
 interface GenerateInput {
   readonly agent: string;
   readonly agentModel: Option.Option<string>;
+  readonly budget: Option.Option<number>;
   readonly concurrency: number;
   readonly effort: string;
+  readonly floors: Option.Option<string>;
+  readonly goal: Option.Option<number>;
   readonly host: string;
   readonly judgeModel: string;
+  readonly logFindings: boolean;
+  readonly maxRounds: number;
   readonly minutes: number;
   readonly name: string;
-  readonly passes: number;
   readonly picture: boolean;
   readonly prompt: Option.Option<string>;
   readonly refs: readonly string[];
   readonly review: Option.Option<ReviewMode>;
+  readonly reviewerGoals: Option.Option<string>;
   readonly reviewers: string;
   readonly runs: number;
   readonly skills: Option.Option<string>;
 }
 
 const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
+  const goal = yield* goalFrom({
+    budgetUsd: Option.getOrUndefined(input.budget),
+    floors: Option.getOrUndefined(input.floors),
+    maxRounds: input.maxRounds,
+    reviewerGoals: Option.getOrUndefined(input.reviewerGoals),
+    score: Option.getOrUndefined(input.goal),
+  });
   yield* generate(yield* loadReferences(input.refs), {
     agent: input.agent,
     host: input.host,
@@ -230,9 +271,10 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
       Option.map(input.review, (mode) => ({
         concurrency: input.concurrency,
         effort: input.effort,
+        goal,
         judgeModel: input.judgeModel,
+        logFindings: input.logFindings,
         mode,
-        passes: input.passes,
         reviewers: modelList(input.reviewers),
       }))
     ),

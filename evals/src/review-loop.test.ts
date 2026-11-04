@@ -5,6 +5,7 @@ import { EvalsConfig } from "./config.ts";
 import { type Asked, Models } from "./models.ts";
 import {
   answersOf,
+  goalFrom,
   markerOf,
   type ReviewIO,
   type ReviewOptions,
@@ -37,11 +38,31 @@ const DIALOG_NOTE = {
   note: "Its close button sits 4px off the header's baseline.",
 };
 
-const finding = (title: string) => ({
+const finding = (
+  title: string,
+  severity: "blocker" | "major" | "minor" | "nit" = "major"
+) => ({
+  category: "spacing",
   fix: `Fix ${title}.`,
   problem: `${title} breaks a rule.`,
+  rule: "references/spacing.md › groups sit apart",
+  severity,
   title,
   where: "the element",
+});
+
+/** A reviewer's answer: these findings, no other category, signed off only when it found none. */
+const answer = (
+  findings: readonly ReturnType<typeof finding>[],
+  systemNotes: readonly (typeof DIALOG_NOTE)[] = []
+) => ({
+  findings,
+  reached: [],
+  signOff:
+    findings.length === 0
+      ? { done: true, left: "" }
+      : { done: false, left: "The spacing first." },
+  systemNotes,
 });
 
 /**
@@ -108,9 +129,9 @@ const groupedAsOne = (asked: Asked) => ({
 const options = (more: Partial<ReviewOptions>): ReviewOptions => ({
   concurrency: 2,
   effort: "high",
+  goal: { maxRounds: 2 },
   judgeModel: "opus",
   mode: "end",
-  passes: 2,
   reviewers: ["opus"],
   ...more,
 });
@@ -125,8 +146,8 @@ const readRecord = Effect.map(
   (text) => JSON.parse(text) as ReviewRecord
 );
 
-const withModels = (answer: (asked: Asked) => unknown) =>
-  Effect.provide(Layer.merge(TestData, Models.layerTest(answer)));
+const withModels = (script: (asked: Asked) => unknown) =>
+  Effect.provide(Layer.merge(TestData, Models.layerTest(script)));
 
 describe("the review loop", () => {
   it("reads which section a turn built from its last line, past the markdown around it", () => {
@@ -228,6 +249,13 @@ describe("the review loop", () => {
         });
         assert.deepStrictEqual(second?.merged, []);
         assert.strictEqual(second?.reply, undefined);
+        assert.strictEqual(second?.stopped?.reason, "signed-off");
+        // Each reviewer is told with its score and what it has left.
+        assert.include(sent[0], "- opus: ");
+        assert.include(
+          sent[0],
+          "not signed off yet. Left: Header: The spacing first."
+        );
         assert.deepStrictEqual(yield* readRecord, record);
         assert.deepStrictEqual(record.totals.design, {
           seconds: 10,
@@ -251,48 +279,215 @@ describe("the review loop", () => {
             return groupedAsOne(question);
           }
           if (seen.pages > 1) {
-            return { findings: [], systemNotes: [] };
+            return answer([]);
           }
           const section = sectionOf(question);
           if (section === "Header") {
-            return { findings: [finding("Low contrast")], systemNotes: [] };
+            return answer([finding("Low contrast")]);
           }
-          return {
-            findings: question.model === "opus" ? [finding("Cramped")] : [],
+          return answer(
+            question.model === "opus" ? [finding("Cramped")] : [],
             // Both reviewers note the same thing of the system's dialog: it is told once.
-            systemNotes: [DIALOG_NOTE],
-          };
+            [DIALOG_NOTE]
+          );
         })
       );
     }
   );
 
-  it.effect("reviews the page no more times than its passes", () => {
-    const { io, seen, sent } = scriptedIO(["Fixed: 1, 2", "Fixed: 1, 2"]);
-    return Effect.gen(function* () {
-      const { record } = yield* reviewLoop(
-        turnSaying("Made the page."),
-        io,
-        options({ passes: 2 }),
-        yield* run
+  it.effect(
+    "stops at the round cap when the reviewers never sign off, keeping its findings unsent",
+    () => {
+      const { io, seen, sent } = scriptedIO(["Fixed: 1, 2"]);
+      return Effect.gen(function* () {
+        const { record } = yield* reviewLoop(
+          turnSaying("Made the page."),
+          io,
+          options({ goal: { maxRounds: 2 } }),
+          yield* run
+        );
+        assert.strictEqual(seen.pages, 2);
+        assert.strictEqual(sent.length, 1);
+        assert.deepStrictEqual(
+          record.passes.map((p) => [p.kind, p.pass, p.merged.length]),
+          [
+            ["page", 1, 2],
+            ["page", 2, 2],
+          ]
+        );
+        assert.deepStrictEqual(record.passes[1]?.stopped, {
+          best: 2,
+          reason: "max-rounds",
+          unmet: ["opus hasn't signed off"],
+        });
+      }).pipe(
+        withModels((question) =>
+          isReview(question)
+            ? answer([finding("Still wrong")])
+            : groupedAsOne(question)
+        )
       );
-      assert.strictEqual(seen.pages, 2);
-      assert.strictEqual(sent.length, 2);
-      assert.deepStrictEqual(
-        record.passes.map((p) => [p.kind, p.pass, p.merged.length]),
-        [
-          ["page", 1, 2],
-          ["page", 2, 2],
-        ]
+    }
+  );
+
+  it.effect(
+    "stops once every reviewer reaches the goal's score, without sending what is left",
+    () => {
+      const { io, seen, sent } = scriptedIO(["Fixed: 1, 2"]);
+      return Effect.gen(function* () {
+        const { record } = yield* reviewLoop(
+          turnSaying("Made the page."),
+          io,
+          options({ goal: { score: 90 } }),
+          yield* run
+        );
+        assert.strictEqual(seen.pages, 2);
+        assert.strictEqual(sent.length, 1);
+        assert.include(sent[0], "- opus: 60 (goal 90)");
+        const [first, second] = record.passes;
+        assert.deepStrictEqual(first?.scores.opus?.score, {
+          categories: {
+            color: 100,
+            hierarchy: 100,
+            layout: 100,
+            restraint: 100,
+            spacing: 60,
+            typography: 100,
+          },
+          kind: "scored",
+          overall: 60,
+        });
+        assert.strictEqual(second?.merged.length, 2);
+        assert.strictEqual(second?.stopped?.reason, "goal");
+      }).pipe(
+        withModels((question) => {
+          if (!isReview(question)) {
+            return groupedAsOne(question);
+          }
+          // A blocker first, caps each section at 60; a nit after, which the goal lets stand.
+          return answer([
+            finding("Overlap", seen.pages === 1 ? "blocker" : "nit"),
+          ]);
+        })
       );
-    }).pipe(
-      withModels((question) =>
-        isReview(question)
-          ? { findings: [finding("Still wrong")], systemNotes: [] }
-          : groupedAsOne(question)
-      )
-    );
-  });
+    }
+  );
+
+  it.effect(
+    "gives a reviewer that fails no score, and goes on with the others",
+    () => {
+      const { io, sent } = scriptedIO(["Fixed: 1, 2"]);
+      return Effect.gen(function* () {
+        const { record } = yield* reviewLoop(
+          turnSaying("Made the page."),
+          io,
+          options({ reviewers: ["opus", "gpt-6.1-sol"] }),
+          yield* run
+        );
+        assert.strictEqual(sent.length, 1);
+        assert.include(sent[0], "- gpt-6.1-sol: no score (");
+        const gpt = record.passes[0]?.scores["gpt-6.1-sol"];
+        assert.strictEqual(gpt?.score.kind, "none");
+        assert.deepStrictEqual(gpt?.unscored, ["Header", "Footer"]);
+        assert.strictEqual(record.passes[0]?.scores.opus?.score.kind, "scored");
+        assert.deepStrictEqual(record.problems, []);
+      }).pipe(
+        withModels((question) => {
+          if (!isReview(question)) {
+            return groupedAsOne(question);
+          }
+          // GPT's answer never fits, as when it times out or writes no JSON.
+          return question.model === "opus"
+            ? answer([finding("Cramped")])
+            : { nothing: true };
+        })
+      );
+    }
+  );
+
+  it.effect(
+    "with the findings log on, appends each finding with what the designer did with it",
+    () => {
+      const { io, sent } = scriptedIO([
+        "Fixed: 1\nDeclined 2: the brief says so",
+      ]);
+      return Effect.gen(function* () {
+        const { data } = yield* EvalsConfig;
+        const file = path.join(data.root, "findings", "lab.jsonl");
+        yield* reviewLoop(
+          turnSaying("Made the page."),
+          {
+            ...io,
+            log: {
+              file,
+              page: "share-modal",
+              project: "lab/smoke",
+              skill: "abc1234",
+            },
+          },
+          options({}),
+          yield* run
+        );
+        assert.strictEqual(sent.length, 1);
+        const logged = (yield* readData("findings/lab.jsonl"))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line));
+        assert.deepStrictEqual(
+          logged.map((f) => [f.round, f.section, f.designer, f.reviewer]),
+          [
+            [1, "Header", { did: "fixed" }, "opus"],
+            [
+              1,
+              "Footer",
+              { did: "declined", reason: "the brief says so" },
+              "opus",
+            ],
+            [2, "Header", { did: "unanswered" }, "opus"],
+            [2, "Footer", { did: "unanswered" }, "opus"],
+          ]
+        );
+        assert.deepStrictEqual(
+          [
+            logged[0]?.project,
+            logged[0]?.page,
+            logged[0]?.skill,
+            logged[0]?.category,
+          ],
+          ["lab/smoke", "share-modal", "abc1234", "spacing"]
+        );
+      }).pipe(
+        withModels((question) =>
+          isReview(question)
+            ? answer([finding("Cramped")])
+            : groupedAsOne(question)
+        )
+      );
+    }
+  );
+
+  it.effect(
+    "reads a goal from a round's flags, and refuses one it can't read",
+    () =>
+      Effect.gen(function* () {
+        assert.deepStrictEqual(
+          yield* goalFrom({
+            floors: "accessibility=80",
+            maxRounds: 6,
+            reviewerGoals: "gpt-6.1-sol=none, cursor:grok-4.7-high=80",
+            score: 90,
+          }),
+          {
+            floors: { accessibility: 80 },
+            maxRounds: 6,
+            reviewers: { "cursor:grok-4.7-high": 80, "gpt-6.1-sol": null },
+            score: 90,
+          }
+        );
+        const wrong = yield* Effect.flip(goalFrom({ floors: "contrast=80" }));
+        assert.include(wrong.message, "not <category>=<score>");
+      })
+  );
 
   it.effect(
     "section by section: reviews each node the designer names, asks for the next, then reviews the page once",
@@ -306,7 +501,7 @@ describe("the review loop", () => {
         const { record, turns } = yield* reviewLoop(
           turnSaying("Built it.\nSection done: c_1 Header"),
           io,
-          options({ mode: "each-section", passes: 2 }),
+          options({ goal: { maxRounds: 2 }, mode: "each-section" }),
           yield* run
         );
         assert.deepStrictEqual(seen.nodes, ["c_1", "c_1", "c_2"]);
@@ -331,14 +526,14 @@ describe("the review loop", () => {
         );
         assert.deepStrictEqual(record.problems, []);
       }).pipe(
-        withModels(() => ({
+        withModels(() =>
           // The first look at the first section finds something, no later one does.
-          findings:
+          answer(
             seen.nodes.length === 1 && seen.pages === 0
               ? [finding("Tight header")]
-              : [],
-          systemNotes: [],
-        }))
+              : []
+          )
+        )
       );
     }
   );
@@ -362,7 +557,7 @@ describe("the review loop", () => {
         assert.strictEqual(sent.length, 2);
         assert.strictEqual(seen.pages, 1);
         assert.match(record.problems[0] ?? "", TURN_CAP);
-      }).pipe(withModels(() => ({ findings: [], systemNotes: [] })));
+      }).pipe(withModels(() => answer([])));
     }
   );
 });
