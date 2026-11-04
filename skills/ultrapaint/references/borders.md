@@ -50,3 +50,4 @@ grey reads as dirt on the edge. In code it is an `outline` with `-1px` offset.
 | A border colour as hex | The border token for its role |
 | Buttons and fields with different radii | The default radius for both |
 | Rounded corners on a full-bleed image or a bare table | Square |
+| A guide or rule drawn across a selected row's fill | It stops at the fill |

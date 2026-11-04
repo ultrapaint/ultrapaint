@@ -1,0 +1,27 @@
+---
+id: g33
+title: One fact formatted two ways in two lists
+kind: missing
+status: done
+found: 2026-11-04
+source: the Changes panel, editor redesign at f608871 (held-out finding changes-12, rated real)
+skill: [references/content.md]
+sections: [changes]
+---
+
+**What happened.** Snapshot rows show only the day (`dateFormat`, e.g. "3 Nov"), but checkpoint rows show the time for today with tabular figures, so the two lists format the same fact differently.
+
+**How it was found.** A fresh reviewer per section, in `recall-redesign-1`, on a section no gap
+named: shipped skill 1/2, redesign-gaps 2/2. The person rated it real
+(`decisions/held-out-rest`, changes-12). Theme: forms.
+
+**The skill now.** `content.md`'s table: "Two names for one thing → the one the product already uses". Nothing says items of one list share a form (g13's proposal, dropped when the skill caught it 2/2 on the new chat), or that one fact is written one way in every list.
+
+**Proposed.** In `content.md`'s table: "Labels of one list in different forms (nouns and a sentence fragment) → one form"; "One fact formatted two ways in two lists (a day here, a time there) → one format". Related: g13.
+
+**Test.** Recall on `changes`, shipped against the candidate `held-out-themes`, 2 runs.
+
+**Result.**
+
+- `held-out-1`: 2026-11-04, caught: shipped 0/2, held-out-themes 2/2, held-out-plain 2/2 (opus, effort high; runs/held-out-1/report.md)
+- Decision of 2026-11-04 (made by the agent, as the person asked: ship wording where the candidate catches more with no more noise; `held-out-1`, runs/held-out-1/report.md): closed by the row the candidate `held-out-themes` added to the check table, shipped with the gap's number in its commit. The same row in general words (`held-out-plain`) caught it less often or not at all; the example in the row is what the reviewer recognises.

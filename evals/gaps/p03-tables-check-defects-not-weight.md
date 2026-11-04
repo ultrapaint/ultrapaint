@@ -23,3 +23,4 @@ must be what the section is for.
 - `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 13/24 (+5 partly), redesign-gaps 21/24 (+3 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - `recall-closing-check-1`: 2026-11-04, its sections' gaps caught: shipped 21/24 (+3 partly), closing-check 20/24 (+4 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - Decision of 2026-11-04 (made by the agent, as the person asked): not shipped: in `recall-closing-check-1`, a squint per section in step 6 gave 20/24 of its sections' gaps against 21/24 without it. The shipped rules already cover what it would catch.
+- `held-out-1`: 2026-11-04, its sections' gaps caught: shipped 19/21 (+1 partly), held-out-themes 20/24 (+3 partly), held-out-plain 20/24 (+3 partly) (opus, effort high; runs/held-out-1/report.md)

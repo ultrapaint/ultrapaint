@@ -101,3 +101,5 @@ struck-through original.
 | "Click here", "Learn more" alone | Name the destination, or make the card the link |
 | Two names for one thing | The one the product already uses |
 | A date as `2026-10-02` | "2 Oct 2026" |
+| Labels of one list in different forms (nouns beside a sentence fragment) | One form |
+| One fact formatted two ways in two lists (a day here, a time there) | One format |

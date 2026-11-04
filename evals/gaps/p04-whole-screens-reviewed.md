@@ -24,3 +24,4 @@ It applied to the new chat's starters too.
 - `recall-redesign-1`: 2026-11-03, its sections' gaps caught: shipped 0/6 (+2 partly), redesign-gaps 2/6 (+3 partly) (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - `recall-closing-check-1`: 2026-11-04, its sections' gaps caught: shipped 1/6 (+2 partly), closing-check 2/6 (+2 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - Decision of 2026-11-04 (made by the agent, as the person asked): shipped in step 7 of `SKILL.md`: each section is reviewed from a crop at 2×, dark and light. Same evidence as p02, since every recall reviewer worked from 2× crops.
+- `held-out-1`: 2026-11-04, its sections' gaps caught: shipped 2/6 (+2 partly), held-out-themes 2/6 (+1 partly), held-out-plain 2/6 (+1 partly) (opus, effort high; runs/held-out-1/report.md)

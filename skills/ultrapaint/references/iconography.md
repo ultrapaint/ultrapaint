@@ -86,3 +86,5 @@ for what a visitor must find: cart, search, close, sound, pause.
 | A folder before every item of a file tree | The chevron alone |
 | Icons on some rows of a menu and not others | All or none |
 | Icons on several buttons of a page header | Text only; an icon stays on at most one |
+| An icon the window uses elsewhere for another action (undo, for a restore) | One icon per meaning across the window |
+| An icon and its tooltip that say different things (a back arrow named Close) | One meaning: change the icon or the name |

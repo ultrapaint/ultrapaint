@@ -35,3 +35,4 @@ each catches.
 - `measure-1`: 2026-11-04, `pnpm evals measure` flags it at ratio 3 (27px between the App and System groups, 10px between rows) and not at spacing.md's 2 (it measures 2.7); at 3 it also flags the same pattern in Changes, and nothing in Layers or Settings (runs/measure-1/summary.md). The threshold is the person's call.
 - Closed 2026-11-04 by the shipped skill and the measured check: `spacing.md` now asks for at least three times the gap within a group between groups, measured between the text, and `pnpm evals measure` flags under 3× by default (the person's choice of ratio).
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2 (+2 partly), closing-check 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
+- `held-out-1`: 2026-11-04, caught: shipped 0/1, held-out-themes 0/2 (+1 partly), held-out-plain 0/2 (+2 partly) (opus, effort high; runs/held-out-1/report.md)

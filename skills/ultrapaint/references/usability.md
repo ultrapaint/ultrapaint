@@ -66,3 +66,6 @@ Help and documentation. A field or setting that needs explaining gets one line o
 | A daily tool's frequent action with no shortcut | Give it one, shown in its menu item |
 | A help icon on every label | Helper text where a rule needs it; nothing elsewhere |
 | A heuristic held elsewhere left unchecked | Run that part's table |
+| Rows that look alike and do different things on click | One click, one meaning; what differs gets its own control |
+| A row's actions shown only under the pointer | The one it is for in view at rest; the rest in its menu |
+| An action that moves or changes form once used (a button when empty, a + once not) | One place and one form, empty or not |

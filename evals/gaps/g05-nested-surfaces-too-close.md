@@ -35,3 +35,4 @@ where it meets its container.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): a rule worth trying, about what a card holding navigation and a panel separates by tone; to write and test with recall.
 - `recall-g05-1`: 2026-11-04, caught: shipped 0/2, g05-card-depth 2/2 (claude-opus-5-5, effort high; runs/recall-g05-1/report.md)
 - Closed 2026-11-04 by the shipped skill: `elevation.md`, "A card's chrome and content sit on two tones" and its row (the person's decision, after `recall-g05-1`).
+- `held-out-1`: 2026-11-04, caught: shipped 2/2, held-out-themes 2/2, held-out-plain 2/2 (opus, effort high; runs/held-out-1/report.md)

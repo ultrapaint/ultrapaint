@@ -31,3 +31,4 @@ their ground.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): the person doesn't remember whether the picker was filled at rest; the capture shows it filled on hover only. It stays `testing`.
 - `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2 (+1 partly), closing-check 0/2 (+2 partly) (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
 - Decision of 2026-11-04 (made by the agent, as the person asked): no rule: a field vanishing into its ground is caught by the shipped skill wherever it shows at rest (Settings' fields, 2/2 in every round). The picker was hover-only in the captures, and the person doesn't remember. The editor fixed it in 4601056.
+- `held-out-1`: 2026-11-04, caught: shipped 0/2 (+2 partly), held-out-themes 0/2 (+1 partly), held-out-plain 0/2 (+1 partly) (opus, effort high; runs/held-out-1/report.md)

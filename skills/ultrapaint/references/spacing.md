@@ -75,3 +75,4 @@ distance apart all the way down the page.
 | A card padded `16` on a public page | `24–32` |
 | Siblings spaced by their own margins | The parent's `gap` |
 | A card padded `24` on top and `16` on the sides | One value on every side |
+| One relationship at two distances (the gap after a chevron, a dialog's padding against DESIGN.md) | One step |

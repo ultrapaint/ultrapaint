@@ -128,3 +128,7 @@ character (…) and `×` for dimensions. Store copy in sentence case; capitals c
 | Group labels in the same small muted style as the counts or descriptions under them | Weight or space above the label; muted plays at most two roles in a region |
 | `...` or straight quotes in prose | `…` and curly quotes |
 | Capitals typed into the text | Sentence case, uppercase from the style |
+| Names in a list in the body weight, as light as their metadata | The label style |
+| Tabular figures on a number read alone (a size, a date) in a face whose 1 is narrow | Proportional; tabular only in columns compared down |
+| An inline edit that moves the text or changes its weight | The field takes the text's style and place |
+| A placeholder showing a real value (a default, a fallback) | An example, or the value itself set |
