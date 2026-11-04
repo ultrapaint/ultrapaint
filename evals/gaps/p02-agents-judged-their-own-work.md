@@ -2,7 +2,7 @@
 id: p02
 title: Each agent judged its own work
 kind: process
-status: open
+status: done
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md]
@@ -20,3 +20,4 @@ agreement with the person).
 It applied to the new chat's starters too.
 
 **Result.**
+- Decision of 2026-11-04 (made by the agent, as the person asked): shipped as step 7 of `SKILL.md`: a fresh agent reviews each section. The evidence is `recall-redesign-1`: an independent reviewer per section caught g01, g09, g10, g12, g13 and g16 2/2 with the skill the redesign's own review used.

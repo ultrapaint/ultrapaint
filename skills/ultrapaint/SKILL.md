@@ -45,6 +45,9 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
    against every screen, and fix what fails. Your last message names each reference you read and
    says its table holds. A screen with type, colour, spacing or a layout whose reference is not
    in that list is not finished.
+7. **Have each section reviewed.** When you can start another agent, have a fresh one review each
+   section from a crop at 2× (dark and light where the product has both) with this skill, and fix
+   what it finds. It sees what the agent that made the section stopped seeing.
 
 ## Making the design system
 

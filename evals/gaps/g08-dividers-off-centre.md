@@ -26,3 +26,4 @@ vertical centre is its bar's.
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): no wording caught it, even from a 2× crop of the bar: it needs a measured check of each divider's centre against its bar's.
 - Decision of 2026-11-03 (`decisions/recall-redesign-1`): build the measured check (each divider's vertical centre against its bar's), since no wording caught it.
 - `measure-1`: 2026-11-04, `pnpm evals measure` flags the three dividers 6px off the tools' line before the fix (2cf4e8e) and none after it; no false alarm on five other pages (runs/measure-1/summary.md).
+- `recall-closing-check-1`: 2026-11-04, caught: shipped 0/2, closing-check 0/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)

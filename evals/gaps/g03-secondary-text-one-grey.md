@@ -37,3 +37,4 @@ screenshot.
 - `recall-redesign-1`: 2026-11-03, caught: shipped 0/2, redesign-gaps 2/2 (claude-opus-5-5, effort high; runs/recall-redesign-1/report.md)
 - Reading of `recall-redesign-1` (runs/recall-redesign-1/summary.md): the candidate's rule took it from 0/2 to 2/2 (partly by construction); a held-out instance (Layers' canvas group label) is for the person to rate.
 - Closed 2026-11-03 by the shipped skill: `typography.md` (a group label outranks its details; muted plays at most two roles) and its row in `hierarchy.md`.
+- `recall-closing-check-1`: 2026-11-04, caught: shipped 2/2, closing-check 2/2 (claude-opus-5-5, effort high; runs/recall-closing-check-1/report.md)
