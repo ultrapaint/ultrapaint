@@ -20,6 +20,13 @@ A surface nested in another (a panel inside a floating card) differs from it by 
 step of the system's surfaces: in dark, about `0.045` oklch lightness. It is flush with its
 container's edges, and draws its edge only where it meets its container. Two surfaces of nearly one tone read as one, with no depth between them.
 
+## A card's chrome and content sit on two tones
+
+A floating card that holds both chrome (its header, navigation, a rail) and a content panel sets
+them a tone step apart: the chrome a step toward the canvas, the panel a step toward the user,
+raised inside it. One tone split by a hairline reads as one sheet, with no depth between the
+frame and what it holds.
+
 ## Shadows come from the levels
 
 One shadow per element, a token from its level. A custom `box-shadow` is a level the system
@@ -50,3 +57,4 @@ keep the default surface.
 | A popover floating apart from its trigger | Attach it, `4px` off the edge |
 | A whole section on the sunken surface | The default surface |
 | A surface inside another of nearly the same tone, in either theme | One tone step apart, flush, an edge only where they meet |
+| A card's chrome and its content panel on one tone, split by a hairline | The chrome a step down, the panel a step up inside it |
