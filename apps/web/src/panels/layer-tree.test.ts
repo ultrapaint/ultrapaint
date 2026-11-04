@@ -14,12 +14,12 @@ import {
   layerScope,
   looseItem,
   NO_FOLDS,
-  oneLevelFolded,
-  oneLevelOpen,
+  openLayers,
   openUnless,
   pageItem,
   pageKey,
   revealed,
+  startsPageGroup,
   treeMove,
   type VisibleRow,
   visibleRows,
@@ -199,23 +199,49 @@ describe("the rows that can be seen", () => {
   });
 });
 
-describe("one level at a time", () => {
-  it("opens every folded branch one level", () => {
-    const rows = visibleRows(
-      items,
-      openUnless(new Set(["home#hero", "home#footer"]))
-    );
-    expect(oneLevelOpen(rows)).toEqual(["home#hero", "home#footer"]);
-  });
-
-  it("folds the innermost open rows of each branch, then the ones above", () => {
+describe("collapse all", () => {
+  it("folds every open layer and leaves the pages open", () => {
     const all = visibleRows(items, openUnless(new Set()));
-    expect(oneLevelFolded(all)).toEqual(["home#hero", "home#footer"]);
-    const less = visibleRows(
-      items,
-      openUnless(new Set(["home#hero", "home#footer"]))
+    const open = openLayers(all);
+    expect(open).not.toContain(pageKey("home"));
+    expect(open).toEqual(
+      all.filter((r) => r.expanded && !r.item.page).map((r) => r.key)
     );
-    expect(oneLevelFolded(less)).toEqual(["home#page"]);
+    const folded = visibleRows(items, openUnless(new Set(open)));
+    expect(openLayers(folded)).toEqual([]);
+  });
+});
+
+describe("page groups", () => {
+  const pageNamed = (id: string): Page => ({
+    canvas: "",
+    file: `designs/${id}.page.json`,
+    id,
+    name: id,
+    path: `${id}.page.json`,
+  });
+  const pages = [
+    pageItem(pageNamed("a"), column("page", [text("a1", "One")])),
+    pageItem(pageNamed("b"), column("page", [text("b1", "Two")])),
+    pageItem(pageNamed("c"), column("page", [text("c1", "Three")])),
+  ];
+
+  it("sets a page apart from the layers of the page above it", () => {
+    const rows = visibleRows(pages, openUnless(new Set([pageKey("b")])));
+    expect(rows.map((r) => r.key)).toEqual([
+      pageKey("a"),
+      "a#a1",
+      pageKey("b"),
+      pageKey("c"),
+      "c#c1",
+    ]);
+    expect(rows.map((_, i) => startsPageGroup(rows, i))).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
   });
 });
 

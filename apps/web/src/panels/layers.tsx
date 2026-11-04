@@ -10,28 +10,30 @@
 import { componentDocOf } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   ChevronDown,
   ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
   Eye,
   EyeOff,
   Layers as LayersIcon,
+  ListChevronsDownUp,
   Lock,
   LockOpen,
   MoreHorizontal,
   Search,
+  Unlink,
   X,
 } from "lucide-react";
 import {
   type FocusEvent,
+  type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -43,9 +45,15 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { newCanvas } from "../lib/canvas-actions.ts";
 import { scopeKeyDown } from "../lib/keymap.ts";
 import { describeLink } from "../lib/links.ts";
@@ -57,7 +65,12 @@ import {
 } from "../lib/node-actions.ts";
 import { newPage, renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
-import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
+import {
+  type MenuTarget,
+  openMenuAt,
+  showMenu,
+  useContextMenu,
+} from "../state/context-menu.ts";
 import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { nodeFrameOf, ownFrameOf } from "../state/frame-ref.ts";
@@ -87,10 +100,10 @@ import {
   layerKey,
   layerScope,
   NO_FOLDS,
-  oneLevelFolded,
-  oneLevelOpen,
+  openLayers,
   pageKey,
   revealed,
+  startsPageGroup,
   treeMove,
   type VisibleRow,
   visibleRows,
@@ -193,10 +206,13 @@ const useRevealSelection = (
 
 /** The field above the tree that narrows it to the layers whose name holds what is typed. */
 const LayerFilter = ({
+  disabled = false,
   onDown,
   onQuery,
   query,
 }: {
+  /** While the layers are read, the field is drawn where it will be, not yet typed into. */
+  disabled?: boolean;
   /** Down from the filter goes into what it found. */
   onDown: () => void;
   onQuery: (query: string) => void;
@@ -219,6 +235,7 @@ const LayerFilter = ({
         </InputGroupAddon>
         <InputGroupInput
           aria-label="Search layers"
+          disabled={disabled}
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Search layers"
@@ -241,42 +258,38 @@ const LayerFilter = ({
 };
 
 /**
- * The panel's title, with the buttons that open every branch one level more or fold it one level
- * less. Without the tree they do nothing.
+ * The panel's title, and Collapse all while a layer is open: with nothing to fold, the button is
+ * not drawn.
  */
 const LayersHeading = ({
   onCollapse,
-  onExpand,
 }: {
   onCollapse?: (() => void) | undefined;
-  onExpand?: (() => void) | undefined;
 }) => (
-  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-3">
+  <div className="flex h-11 shrink-0 items-center pr-2 pl-3">
     <h2 className="flex-1 font-heading-xsmall">Layers</h2>
-    <IconButton
-      className="text-muted-foreground"
-      disabled={!onExpand}
-      onClick={onExpand}
-      size="icon"
-      tooltip="Expand one level"
-    >
-      <ChevronsUpDown />
-    </IconButton>
-    <IconButton
-      className="text-muted-foreground"
-      disabled={!onCollapse}
-      onClick={onCollapse}
-      size="icon"
-      tooltip="Collapse one level"
-    >
-      <ChevronsDownUp />
-    </IconButton>
+    {onCollapse ? (
+      <IconButton
+        className="text-muted-foreground"
+        onClick={onCollapse}
+        size="icon"
+        tooltip="Collapse all"
+      >
+        <ListChevronsDownUp />
+      </IconButton>
+    ) : null}
   </div>
 );
 
 /** The heights of the panel's lines, which the window of drawn rows is worked out from. */
 const PAGE_ROW = 28;
-const PAGE_PROBLEM = 20;
+/** The room an invalid page's message takes until it is measured: two lines and its padding. */
+const PROBLEM_GUESS = 60;
+/**
+ * The room above a page whose row follows the layers of the page before: the pages' groups stand
+ * three times as far apart as their rows' text (8px).
+ */
+const PAGE_GAP = 16;
 const NODE_ROW = 28;
 /** The heading over the nodes on the canvas: a section's title, its group set apart three times
  * as far as the rows inside it are from each other. */
@@ -287,7 +300,7 @@ const LIST_PAD = 4;
 const OVERSCAN = 300;
 
 /** What the panel shows instead of the tree, or null when there is one to show. */
-const emptyOf = (canvas: string | null, loaded: boolean, count: number) => {
+const emptyOf = (canvas: string | null, count: number) => {
   if (canvas === null) {
     return (
       <PanelEmpty
@@ -302,9 +315,6 @@ const emptyOf = (canvas: string | null, loaded: boolean, count: number) => {
         Pick a canvas from the menu above to see its pages and their layers.
       </PanelEmpty>
     );
-  }
-  if (!loaded) {
-    return <PanelEmpty>Reading the designs…</PanelEmpty>;
   }
   return count === 0 ? (
     <PanelEmpty
@@ -321,13 +331,48 @@ const emptyOf = (canvas: string | null, loaded: boolean, count: number) => {
   ) : null;
 };
 
+/** The rows drawn while the layers are read: two pages and their layers, in their places. */
+const SKELETON = [
+  { level: 0, width: 72 },
+  { level: 1, width: 56 },
+  { level: 1, width: 88 },
+  { level: 0, width: 64 },
+  { level: 1, width: 48 },
+  { level: 1, width: 80 },
+] as const;
+
+const LayersLoading = () => (
+  <div
+    aria-busy="true"
+    aria-label="Loading layers"
+    className="flex flex-col"
+    role="status"
+    style={{ paddingTop: LIST_PAD }}
+  >
+    {SKELETON.map((row, i) => (
+      <div
+        className="mx-2 flex h-7 items-center gap-1"
+        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list that never changes.
+        key={i}
+        style={{ paddingLeft: ROW_PAD + row.level * INDENT }}
+      >
+        <span className="size-4 shrink-0" />
+        <span
+          className="h-3 rounded-sm bg-muted motion-safe:animate-pulse"
+          style={{ width: row.width }}
+        />
+      </div>
+    ))}
+  </div>
+);
+
 /**
  * A line of the list: a row, or the heading over the nodes placed on the canvas, or over the app
  * component edited in place.
  */
 type Line =
   | { kind: "heading"; text: string }
-  | { kind: "row"; row: VisibleRow };
+  | { kind: "row"; row: VisibleRow; spaced: boolean };
 
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
@@ -343,6 +388,10 @@ export const Layers = () => {
   const [folds, setFolds] = useState<Folds>(NO_FOLDS);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  /** How high each invalid page's message is drawn, by page, once it is measured. */
+  const [problemHeights, setProblemHeights] = useState<
+    Readonly<Record<string, number>>
+  >({});
   const listRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<LayerItem | null>(null);
   /** A row to scroll to once it is drawn, and whether it takes the focus. */
@@ -386,17 +435,19 @@ export const Layers = () => {
   const lines: Line[] = [];
   const heights: number[] = [];
   let headed = false;
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     if (!headed && row.level === 1 && !row.item.page) {
       headed = true;
       lines.push({ kind: "heading", text: heading });
       heights.push(HEADING);
     }
-    lines.push({ kind: "row", row });
+    const spaced = startsPageGroup(rows, index);
+    lines.push({ kind: "row", row, spaced });
     if (row.item.page) {
-      heights.push(
-        PAGE_ROW + (docs[row.item.frame]?.problem ? PAGE_PROBLEM : 0)
-      );
+      const problem = docs[row.item.frame]?.problem
+        ? (problemHeights[row.item.frame] ?? PROBLEM_GUESS)
+        : 0;
+      heights.push(PAGE_ROW + problem + (spaced ? PAGE_GAP : 0));
     } else {
       heights.push(NODE_ROW);
     }
@@ -459,8 +510,7 @@ export const Layers = () => {
 
   const flipRows = (keys: readonly string[]) => setFolds((f) => flip(f, keys));
   const toggle = (key: string) => flipRows([key]);
-  const toOpen = oneLevelOpen(rows);
-  const toFold = oneLevelFolded(rows);
+  const toFold = openLayers(rows);
 
   const focusRow = (key: string) => {
     setFocusKey(key);
@@ -532,7 +582,21 @@ export const Layers = () => {
     }
   };
 
-  const empty = emptyOf(canvas, loaded, pages.length + nodes.length);
+  if (canvas !== null && !loaded) {
+    return (
+      <div className="flex h-full flex-col">
+        <LayersHeading />
+        <LayerFilter
+          disabled
+          onDown={onFilterDown}
+          onQuery={onQuery}
+          query=""
+        />
+        <LayersLoading />
+      </div>
+    );
+  }
+  const empty = emptyOf(canvas, pages.length + nodes.length);
   if (empty) {
     return (
       <div className="flex h-full flex-col">
@@ -546,6 +610,10 @@ export const Layers = () => {
     drag,
     endRename,
     onDrop,
+    onProblemHeight: (page, height) =>
+      setProblemHeights((all) =>
+        all[page] === height ? all : { ...all, [page]: height }
+      ),
     renaming,
     setDrag,
     setRenaming,
@@ -557,9 +625,18 @@ export const Layers = () => {
     <div className="flex h-full flex-col">
       <LayersHeading
         onCollapse={toFold.length > 0 ? () => flipRows(toFold) : undefined}
-        onExpand={toOpen.length > 0 ? () => flipRows(toOpen) : undefined}
       />
       <LayerFilter onDown={onFilterDown} onQuery={onQuery} query={query} />
+      {shown.length === 0 ? (
+        <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-2">
+          <p className="font-small text-muted-foreground">
+            No layers match “{query.trim()}”.
+          </p>
+          <Button onClick={() => onQuery("")} size="sm" variant="secondary">
+            Clear search
+          </Button>
+        </div>
+      ) : null}
       <div
         aria-label="Layers"
         aria-multiselectable="true"
@@ -598,6 +675,7 @@ export const Layers = () => {
                 key={row.key}
                 row={row}
                 shared={shared}
+                spaced={line.spaced}
               />
             ) : (
               <LayerRow
@@ -610,11 +688,6 @@ export const Layers = () => {
             );
           })}
         </div>
-        {shown.length === 0 ? (
-          <p className="px-3 py-2 font-small text-muted-foreground">
-            No layers match “{query.trim()}”.
-          </p>
-        ) : null}
       </div>
     </div>
   );
@@ -622,6 +695,8 @@ export const Layers = () => {
 
 interface Shared extends Dragging {
   endRename: (key: string) => void;
+  /** An invalid page's message was drawn this high, by its page. */
+  onProblemHeight: (page: string, height: number) => void;
   /** The row whose name is being typed. */
   renaming: string | null;
   setRenaming: (key: string | null) => void;
@@ -631,8 +706,35 @@ interface Shared extends Dragging {
 }
 
 /**
+ * Text that shows its whole self in a tooltip when it is cut short, and only then: whether it is
+ * cut is read as the pointer comes onto it.
+ */
+const CutText = ({
+  tip,
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & { tip: ReactNode }) => {
+  const [cut, setCut] = useState(false);
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            {...props}
+            onPointerEnter={(e) =>
+              setCut(e.currentTarget.scrollWidth > e.currentTarget.clientWidth)
+            }
+          />
+        }
+      />
+      {cut ? <TooltipContent>{tip}</TooltipContent> : null}
+    </Tooltip>
+  );
+};
+
+/**
  * A row's name, or the field its new name is typed into. The field opens with the name selected,
- * as a rename does in Figma; Enter keeps what is typed, Escape or a click elsewhere drops it.
+ * as a rename does in Figma, its text where the name was and in the name's weight; Enter keeps
+ * what is typed, Escape or a click elsewhere drops it.
  */
 const RowName = ({
   className,
@@ -641,7 +743,8 @@ const RowName = ({
   onRename,
   shared,
 }: {
-  className?: string;
+  /** The name's text role, which the field keeps. */
+  className: string;
   item: LayerItem;
   label: string;
   onRename: (name: string) => void;
@@ -654,8 +757,13 @@ const RowName = ({
         className="min-w-0 flex-1"
         onFocus={(e) => (e.target as HTMLInputElement).select()}
       >
+        {/* The field reaches 4px left, into the gap before the name: its border and padding
+            (1px and 3px) set its text where the name was. */}
         <InlineInput
-          className="h-6 px-1.5 font-body"
+          className={cn(
+            "-ml-1 h-6 w-[calc(100%+4px)] pr-1 pl-[3px]",
+            className
+          )}
           onCancel={() => shared.endRename(item.key)}
           onSubmit={(name) => {
             shared.endRename(item.key);
@@ -667,16 +775,17 @@ const RowName = ({
     );
   }
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: F2 renames from the keyboard.
-    <span
-      className={cn("truncate", className)}
+    // F2 renames from the keyboard.
+    <CutText
+      className={cn("min-w-0 truncate", className)}
       onDoubleClick={(e) => {
         e.stopPropagation();
         shared.setRenaming(item.key);
       }}
+      tip={label}
     >
       {label}
-    </span>
+    </CutText>
   );
 };
 
@@ -684,6 +793,7 @@ const RowName = ({
  * The element of a row that is its treeitem: what the keyboard focuses. The tree is flat, each
  * row saying its level and its place among its siblings, so only the rows on screen are drawn.
  * What the row shows is its child, so that the focus ring and the selection colour are its alone.
+ * A page's row that starts a group of its own has the group's room above it (`PAGE_GAP`).
  */
 const TreeItem = ({
   children,
@@ -693,6 +803,7 @@ const TreeItem = ({
   row,
   selected,
   shared,
+  spaced = false,
 }: {
   children: ReactNode;
   item: LayerItem;
@@ -701,6 +812,7 @@ const TreeItem = ({
   row: VisibleRow;
   selected: boolean;
   shared: Shared;
+  spaced?: boolean;
 }) => (
   <div
     aria-expanded={row.expandable ? row.expanded : undefined}
@@ -720,6 +832,7 @@ const TreeItem = ({
       }
     }}
     role="treeitem"
+    style={spaced ? { paddingTop: PAGE_GAP } : undefined}
     tabIndex={shared.tabStop === item.key ? 0 : -1}
   >
     {children}
@@ -732,10 +845,11 @@ const FOCUS_RING =
 
 /**
  * A row's shape: inset from the panel's edges and rounded, filled while it is selected and,
- * lighter, while the pointer is over it or over what it names on the canvas.
+ * lighter, while the pointer is over it or over what it names on the canvas. Only the pointer's
+ * hover fades in; a selection the keyboard moves is filled at once.
  */
 const ROW =
-  "group relative mx-2 flex h-7 cursor-default items-center gap-1 rounded-md pr-1 transition-colors duration-100";
+  "group relative mx-2 flex h-7 cursor-default items-center gap-1 rounded-md pr-1 hover:transition-colors hover:duration-100";
 const rowTone = (selected: boolean, hovered: boolean) => {
   if (selected) {
     return "bg-accent";
@@ -743,27 +857,58 @@ const rowTone = (selected: boolean, hovered: boolean) => {
   return hovered ? "bg-accent/50" : "hover:bg-accent/50";
 };
 
-/** The page's size on the canvas, as its frame's header says it. */
-const PageSize = ({ id }: { id: string }) => {
-  const frame = useEditor((s) => s.frames[id]);
-  return frame ? (
-    <span className="shrink-0 font-small text-muted-foreground tabular-nums">
-      {Math.round(frame.width)} × {Math.round(frame.height)}
-    </span>
-  ) : null;
+/**
+ * Why a page cannot be drawn, under its row and in full: what is wrong with its file, and what to
+ * do about it. It is as high as its words take; the list hears how high, to place what is under it.
+ */
+const PageProblem = ({
+  file,
+  onHeight,
+  problem,
+}: {
+  file: string;
+  onHeight: (height: number) => void;
+  problem: string;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    const report = () => onHeight(el.offsetHeight);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onHeight]);
+  // Its words start under the page's name: the row's inset, its chevron and the gap after it.
+  return (
+    <div className="py-1 pr-2 pl-6" ref={ref}>
+      <div className="wrap-anywhere rounded-md bg-destructive/10 px-2 py-1.5 font-small">
+        <p className="text-destructive">Not a valid page: {problem}</p>
+        <p className="mt-1 text-muted-foreground">
+          Fix it in <span className="text-foreground">{file}</span> and the page
+          is drawn again.
+        </p>
+      </div>
+    </div>
+  );
 };
 
-/** A page's own row, and its tree under it. */
+/** A page's own row, with its menu, and why it cannot be drawn when its file is not a page. */
 const PageRow = ({
   expanded,
   item,
   row: line,
   shared,
+  spaced,
 }: {
   expanded: boolean;
   item: LayerItem;
   row: VisibleRow;
   shared: Shared;
+  spaced: boolean;
 }) => {
   const page = item.page as Page;
   const problem = useDocuments((s) => s.docs[page.id]?.problem);
@@ -774,17 +919,17 @@ const PageRow = ({
   const selectThePage = () => {
     selectPage(page.id);
   };
-  const route = [page.route, page.variant].filter(Boolean).join(" · ");
+  const target: MenuTarget = { kind: "page", pageId: page.id };
   const onContextMenu = (e: MouseEvent) => {
     selectThePage();
-    openMenuAt(e, { kind: "page", pageId: page.id });
+    openMenuAt(e, target);
   };
   const row = (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
     <div
       className={cn(
         ROW,
-        "gap-1.5 pr-2 text-foreground",
+        "text-foreground",
         rowTone(selected, false),
         dropHere !== null && "ring-2 ring-primary ring-inset",
         FOCUS_RING
@@ -800,7 +945,7 @@ const PageRow = ({
         onToggle={() => shared.toggle(key)}
       />
       <RowName
-        className="min-w-0 font-label"
+        className="font-label"
         item={item}
         label={page.name}
         onRename={(name) => renamePageTo(page, name)}
@@ -808,13 +953,11 @@ const PageRow = ({
       />
       {shared.renaming === key ? null : (
         <>
-          <span
-            className="min-w-0 flex-1 basis-0 truncate font-code text-muted-foreground"
-            title={route || undefined}
-          >
-            {route}
+          {/* The variant a page is drawn for tells it from its base page, named the same. */}
+          <span className="ml-1 min-w-0 flex-1 truncate font-small text-muted-foreground">
+            {page.variant}
           </span>
-          <PageSize id={page.id} />
+          <RowMenu label={page.name} onOpen={selectThePage} target={target} />
         </>
       )}
     </div>
@@ -827,21 +970,24 @@ const PageRow = ({
       row={line}
       selected={selected}
       shared={shared}
+      spaced={spaced}
     >
       {row}
       {problem ? (
-        <div
-          className="mx-2 flex h-5 items-center truncate font-small text-destructive"
-          style={{ paddingLeft: ROW_PAD + INDENT + 4 }}
-          title={problem}
-        >
-          Not a valid page: {problem}
-        </div>
+        <PageProblem
+          file={page.file}
+          onHeight={(height) => shared.onProblemHeight(page.id, height)}
+          problem={problem}
+        />
       ) : null}
     </TreeItem>
   );
 };
 
+/**
+ * A row's fold button: 24px to point at, laid out in the 16px its level gives it, so it reaches
+ * 4px into the room either side, and its chevron sits where the guides under it run.
+ */
 const Chevron = ({
   collapsed,
   hidden,
@@ -854,14 +1000,14 @@ const Chevron = ({
   <Button
     aria-label={collapsed ? "Expand" : "Collapse"}
     className={cn(
-      "size-4 shrink-0 text-muted-foreground",
+      "-mx-1 shrink-0 text-muted-foreground",
       hidden && "invisible"
     )}
     onClick={(e: MouseEvent) => {
       e.stopPropagation();
       onToggle();
     }}
-    size="icon-xs"
+    size="icon-sm"
     tabIndex={-1}
     variant="ghost"
   >
@@ -875,14 +1021,15 @@ const Chevron = ({
 
 /**
  * One line per level the row is nested under, drawn where that level's chevron sits. The rows sit
- * flush against each other, so a line runs unbroken down the whole of a subtree.
+ * flush against each other, so a line runs unbroken down the whole of a subtree, under the fill
+ * of a row that has one: a selected row draws none, and a row the pointer is over hides its own.
  */
 const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
   <>
     {ancestors.map((id, level) => (
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 w-px bg-border group-hover/tree:bg-foreground/12"
+        className="pointer-events-none absolute inset-y-0 w-px bg-border group-hover:invisible"
         key={id}
         style={{ left: ROW_PAD + level * INDENT + CHEVRON_CENTER }}
       />
@@ -890,75 +1037,93 @@ const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
   </>
 );
 
+/** The menu a target opens, to tell whether the menu open is this row's. */
+const menuKey = (target: MenuTarget) => {
+  if (target.kind === "node") {
+    return layerKey(target.frame, target.nodeId);
+  }
+  return target.kind === "page" ? pageKey(target.pageId) : null;
+};
+
 /**
- * The row's context menu, for a pointer that does not right-click. Opening it selects the row, so
- * the canvas shows what the actions — and the shortcuts they name — are about to touch.
+ * The row's context menu, for a pointer that does not right-click, on a page's row as on a
+ * layer's. Opening it selects the row, so the canvas shows what the actions — and the shortcuts
+ * they name — are about to touch.
  */
-const RowMenu = ({ row }: { row: Row }) => {
-  const { frame, node } = row;
+const RowMenu = ({
+  label,
+  onOpen,
+  target,
+}: {
+  label: string;
+  onOpen: () => void;
+  target: MenuTarget;
+}) => {
+  const key = menuKey(target);
   const open = useContextMenu(
-    (s) =>
-      s.open &&
-      s.request?.target.kind === "node" &&
-      s.request.target.frame === frame &&
-      s.request.target.nodeId === node.id
+    (s) => s.open && s.request !== null && menuKey(s.request.target) === key
   );
   const onClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    select({ frame, nodeId: node.id });
-    showMenu({ frame, kind: "node", nodeId: node.id }, e.currentTarget);
+    onOpen();
+    showMenu(target, e.currentTarget);
   };
   return (
-    <Button
+    <IconButton
       aria-expanded={open}
       aria-haspopup="menu"
-      aria-label={`Actions for ${nodeLabel(node)}`}
       className="hidden shrink-0 text-muted-foreground group-focus-within:flex group-hover:flex aria-expanded:flex"
+      label={`Actions for ${label}`}
       onClick={onClick}
       size="icon-sm"
       tabIndex={-1}
-      title="More"
-      variant="ghost"
+      tooltip="Actions"
     >
       <MoreHorizontal />
-    </Button>
+    </IconButton>
   );
 };
 
 /**
  * The eye or the lock of a row, as in Figma: shown while the pointer is over the row, and for
  * good while it is on, so that a hidden or a locked layer is seen to be one at a glance. Until
- * then they take no room from the name.
+ * then they take no room from the name. Their tooltips name the keys that do the same.
  */
 const RowToggle = ({
   children,
+  command,
   label,
   on,
   onToggle,
 }: {
   children: ReactNode;
+  /** The command whose keys do it from the keyboard. */
+  command: string;
   label: string;
   on: boolean;
   onToggle: () => void;
 }) => (
-  <Button
-    aria-label={label}
+  <IconButton
     aria-pressed={on}
     className={cn(
       "shrink-0 text-muted-foreground",
       !on && "hidden group-focus-within:flex group-hover:flex"
     )}
+    label={label}
     onClick={(e: MouseEvent) => {
       e.stopPropagation();
       onToggle();
     }}
     size="icon-sm"
     tabIndex={-1}
-    title={label}
-    variant="ghost"
+    tooltip={
+      <>
+        {label} <CommandKeys id={command} />
+      </>
+    }
   >
     {children}
-  </Button>
+  </IconButton>
 );
 
 /** The lock, the eye and the menu at the end of a node's row. */
@@ -970,6 +1135,7 @@ const RowControls = ({ row }: { row: Row }) => {
   return (
     <>
       <RowToggle
+        command="layers:lock"
         label={node.locked ? "Unlock" : "Lock"}
         on={node.locked === true}
         onToggle={() => setLocked(!node.locked, target)}
@@ -977,13 +1143,18 @@ const RowControls = ({ row }: { row: Row }) => {
         {node.locked ? <Lock /> : <LockOpen />}
       </RowToggle>
       <RowToggle
+        command="layers:hide"
         label={node.hidden ? "Show" : "Hide"}
         on={node.hidden === true}
         onToggle={() => setHidden(!node.hidden, target)}
       >
         {node.hidden ? <EyeOff /> : <Eye />}
       </RowToggle>
-      <RowMenu row={row} />
+      <RowMenu
+        label={nodeLabel(row.node)}
+        onOpen={() => select(target)}
+        target={{ ...target, kind: "node" }}
+      />
     </>
   );
 };
@@ -1048,9 +1219,8 @@ const LayerRow = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={clearHover}
       style={{ paddingLeft: ROW_PAD + guides.length * INDENT }}
-      title={nodeKind(node)}
     >
-      <DepthGuides ancestors={guides} />
+      {selected || hovered ? null : <DepthGuides ancestors={guides} />}
       <Chevron
         collapsed={!expanded}
         hidden={!hasChildren}
@@ -1073,18 +1243,23 @@ const LayerRow = ({
           node={node}
         />
         <RowName
+          className="font-body"
           item={item}
           label={label}
           onRename={(name) => renameNodeTo(name, target)}
           shared={shared}
         />
         {node.slot && !renaming ? (
-          <span
-            className="shrink-0 truncate font-small text-muted-foreground"
-            title={`Fills the ${node.slot} slot of its system component`}
-          >
-            {node.slot}
-          </span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="shrink-0 truncate font-small text-muted-foreground">
+                  {node.slot}
+                </span>
+              }
+            />
+            <TooltipContent>Fills the {node.slot} slot</TooltipContent>
+          </Tooltip>
         ) : null}
         {node.link && !renaming ? <LinkTag link={node.link} /> : null}
       </span>
@@ -1106,7 +1281,11 @@ const LayerRow = ({
   );
 };
 
-/** Where a layer leads in the prototype, after its name; in red when it leads to no page. */
+/**
+ * Where a layer leads in the prototype, after its name: an arrow and the page it leads to, or a
+ * broken link's icon and "No page" when it leads to none, told apart by more than their colour.
+ * The tooltip says the link itself.
+ */
 const LinkTag = ({ link }: { link: string }) => {
   const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
@@ -1114,15 +1293,28 @@ const LinkTag = ({ link }: { link: string }) => {
     pages.filter((p) => p.canvas === canvas),
     link
   );
+  const shown = broken ? "No page" : label;
+  const tip = broken ? `No page at ${link}` : link;
   return (
-    <span
-      className={cn(
-        "min-w-0 shrink truncate font-small",
-        broken ? "text-destructive" : "text-muted-foreground"
-      )}
-      title={broken ? `${link} leads to a page that is not there` : link}
-    >
-      → {label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn(
+              "flex min-w-0 shrink items-center gap-1 font-small",
+              broken ? "text-destructive" : "text-muted-foreground"
+            )}
+          >
+            {broken ? (
+              <Unlink className="size-3 shrink-0" />
+            ) : (
+              <span aria-hidden="true">→</span>
+            )}
+            <span className="truncate">{shown}</span>
+          </span>
+        }
+      />
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
   );
 };
