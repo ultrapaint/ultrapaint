@@ -24,3 +24,4 @@ references and `DESIGN.md`, and never restates a rule as a recipe without its co
 
 **Result.**
 - Decision of 2026-11-04 (made by the agent, as the person asked): stays open: recall's reviewer is briefed by the lab, not by another agent, so only a design round, a task briefed both ways, can measure it.
+- `design-after-codex` (2026-11-04): Codex briefed a reviewer subagent in every run, but the trace keeps the call, not the brief, so how it briefed is not measured. The round's traces need the brief to test this.
