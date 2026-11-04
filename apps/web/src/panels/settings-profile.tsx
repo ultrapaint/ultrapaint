@@ -27,12 +27,12 @@ const statusLine = (status: Status) => {
 };
 
 /**
- * What the name does, and what stands in for it when the field is left empty: git's name, said
- * here once. The field has no placeholder, so an empty field never reads as a name set.
+ * What the name does, and what stands in for it when the field is left empty: git's name, which
+ * the field shows as its placeholder (the person's choice), so the words only say where it is from.
  */
 const describe = (gitName: string | undefined) =>
   gitName
-    ? `Signs your comments. Left empty, they’re signed ${gitName}, from git.`
+    ? "Signs your comments. Left empty, your name from git is used."
     : "Signs your comments and draws your avatar.";
 
 /**
@@ -112,7 +112,7 @@ export const ProfileRow = () => {
         onBlur={save}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder={status.kind === "loading" ? "Loading…" : undefined}
+        placeholder={status.kind === "loading" ? "Loading…" : gitName}
         value={name}
       />
       {line ? (

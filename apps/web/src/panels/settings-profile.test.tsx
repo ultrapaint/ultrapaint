@@ -71,13 +71,13 @@ afterEach(() => {
 });
 
 describe("the display name", () => {
-  it("is empty when none is set, and says once that git's name stands in", async () => {
+  it("is empty when none is set, showing git's name as its placeholder and saying where it is from", async () => {
     fakeApi.respond("profile.get", () => ({}));
     await render();
     expect(field()?.value).toBe("");
-    expect(field()?.placeholder).toBe("");
+    expect(field()?.placeholder).toBe("Ada Lovelace");
     expect(container.textContent).toContain(
-      "Left empty, they’re signed Ada Lovelace, from git."
+      "Left empty, your name from git is used."
     );
   });
 

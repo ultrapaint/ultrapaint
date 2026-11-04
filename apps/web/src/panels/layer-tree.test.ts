@@ -14,7 +14,8 @@ import {
   layerScope,
   looseItem,
   NO_FOLDS,
-  openRows,
+  oneLevelFolded,
+  oneLevelOpen,
   openUnless,
   pageItem,
   pageKey,
@@ -199,19 +200,23 @@ describe("the rows that can be seen", () => {
   });
 });
 
-describe("collapse all", () => {
-  it("has the open pages to fold as the panel starts out", () => {
-    const start = visibleRows(items, isOpenIn(NO_FOLDS));
-    expect(openRows(start)).toContain(pageKey("home"));
+describe("one level at a time", () => {
+  it("opens every folded branch one level", () => {
+    const rows = visibleRows(
+      items,
+      openUnless(new Set(["home#hero", "home#footer"]))
+    );
+    expect(oneLevelOpen(rows)).toEqual(["home#hero", "home#footer"]);
   });
 
-  it("folds every open row, the pages among them, back to the top level", () => {
+  it("folds the innermost open rows of each branch, then the ones above, down to the pages", () => {
     const all = visibleRows(items, openUnless(new Set()));
-    const open = openRows(all);
-    expect(open).toContain(pageKey("home"));
-    const folded = visibleRows(items, openUnless(new Set(open)));
-    expect(openRows(folded)).toEqual([]);
-    expect(folded.every((r) => r.parent === null)).toBe(true);
+    expect(oneLevelFolded(all)).toEqual(["home#hero", "home#footer"]);
+    const less = visibleRows(
+      items,
+      openUnless(new Set(["home#hero", "home#footer"]))
+    );
+    expect(oneLevelFolded(less)).toEqual(["home#page"]);
   });
 });
 
