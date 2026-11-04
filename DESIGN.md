@@ -151,7 +151,9 @@ at least three times as far from it as the rows' text is from each other (24px m
 section's title), measured with `pnpm evals measure`. A divider in a bar is a short rule centred on
 the bar's line, checked the same way. The
 editor fills the window: the canvas with three floating cards over it, 8px from the window's edge
-and from each other. Dialogs are 28rem wide by default, 20px padding.
+and from each other. Dialogs are 28rem wide by default, 20px padding. A panel scrolls as one; a
+list's last row keeps the panel's padding under it. A target is at least 24px, a fold chevron or a
+checkbox included, by padding past its glyph.
 
 ## Elevation & Depth
 
@@ -163,6 +165,9 @@ it meets the frame. The
 rail's current place is raised the same way, so it reads as the panel it opens. Menus, popovers and tooltips sit above
 with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a 30% (light) or 60%
 (dark) black backdrop, no blur. Inside a card, depth is a filled field or a hairline, never a shadow.
+The settings dialog has the left card's frame: its sections and page on {colors.rail}, each group
+raised on {colors.card} with its fill as its only edge. On a raised surface in dark, a field fills
+with {colors.input} at 50%.
 
 ## Shapes
 
@@ -185,6 +190,18 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   action. An empty section among full ones is one row: "None yet" in muted, its action at the end.
 - A hint about the selection ("Inserts into …") shows only while something is selected, at the
   panel's foot.
+- A row's actions are in a ⋯ menu shown at rest, Delete apart at its end; a row's click does one
+  thing in every list of a panel. An action keeps its place whether its list is empty or not.
+- What can be undone runs at once with Undo in its toast; no confirm.
+- A select in a settings row is its value and a chevron, filled only on hover; a field there is
+  13rem wide, on the row's right edge.
+- A panel action with nothing to act on is not drawn, rather than drawn disabled.
+- A field opened in place of text (a rename) keeps the text's place and weight.
+- An error tied to a row sits under it in full, on a 10% red box, saying how to fix it. A state
+  shown by colour also has an icon or a word.
+- Loading keeps the panel's layout with skeleton rows; a read that fails says so in place, with
+  Try again.
+- A section that applies at once has a footer that says so, with Done in place of Cancel and Save.
 
 ## Motion
 
@@ -207,4 +224,6 @@ and offer one action. Errors say what happened and what to do. No exclamation ma
 - Don't put a shadow on anything inside a card.
 - Don't use the canvas's selection, component or agent colours on the chrome.
 - Don't add icons to every row or label, or a description that repeats its heading.
+- Don't draw a tree's guide lines across a row's fill.
+- Don't use the browser's `title` for a tooltip: the system Tooltip, with a short name.
 - Don't use a second primary button in one view.
