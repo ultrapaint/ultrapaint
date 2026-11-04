@@ -705,7 +705,7 @@ const measureCommand = Command.make(
       Flag.withDescription(
         "How many times the gap inside a group the gap between groups must be"
       ),
-      Flag.withDefault(2)
+      Flag.withDefault(3)
     ),
     root: Flag.String("root").pipe(
       Flag.withDescription("A CSS selector: the part of the page to measure"),

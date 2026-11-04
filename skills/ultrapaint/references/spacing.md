@@ -16,7 +16,8 @@ On a public page, the section step is about `120px`. News fronts and shop grids 
 ## Proximity shows the grouping
 
 Related things sit closer to each other than to anything else. The gap between groups is at
-least twice the gap within one: `8px` inside, `16px` or more between. A label sits nearer its
+least three times the gap within one, measured between the text: `8px` inside, `24px` or more
+between. A label sits nearer its
 field than the field above it, a heading nearer what it introduces than what came before.
 
 ## Space, a surface, a line, by what is grouped
@@ -33,8 +34,8 @@ Between page sections, a change of band colour or a shared `1px` rule may stand 
 
 ## Tight inside, loose between
 
-A title and its one-line description sit `2–4px` apart. Groups of navigation items sit about twice
-as far apart as the items inside them.
+A title and its one-line description sit `2–4px` apart. Groups of navigation items sit at least three
+times as far apart as the items inside them.
 
 ## Gap on the parent
 
@@ -63,7 +64,7 @@ distance apart all the way down the page.
 | You see | Fix |
 | --- | --- |
 | A pixel number in `gap` or `padding` where a spacing token exists | The nearest step of the scale |
-| The same gap within groups and between them | Double the gap between groups |
+| A gap between groups under three times the gap within them | Widen it to three times or more |
 | A divider between the groups of a form | Drop it; space separates them |
 | A card around each row of a settings list | One surface, rows split by hairlines |
 | Two jobs split only by a bold heading and a divider | A quiet surface for each |

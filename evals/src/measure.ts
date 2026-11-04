@@ -2,9 +2,9 @@
  * `measure`: the checks no wording made a reviewer see (g02, g08), measured on a rendered page
  * instead of looked for in a picture. Two, from the layout `layoutInBrowser` reads:
  *
- * - **Groups apart:** the gap between two blocks stacked one above the other is at least twice the
+ * - **Groups apart:** the gap between two blocks stacked one above the other is at least three times the
  *   gap between the lines of the block below (spacing.md: "The gap between groups is at least
- *   twice the gap within one"). Gaps are measured between lines of text, not boxes: a row's
+ *   three times the gap within one"). Gaps are measured between lines of text, not boxes: a row's
  *   padding is space within it.
  * - **Dividers centred:** a thin vertical rule's centre is its neighbours' (the tools' line).
  */
@@ -71,7 +71,7 @@ const gapBetween = (above: LaidBlock | undefined, below: LaidBlock) => {
  */
 export const spacingFindings = (
   block: LaidBlock,
-  ratio = 2
+  ratio = 3
 ): readonly SpacingFinding[] => {
   const found: SpacingFinding[] = [];
   const children = [...block.children].sort((a, b) => a.top - b.top);
@@ -121,7 +121,7 @@ export const dividerFindings = (
 export interface MeasureOptions {
   /** Where the findings go as JSON, besides the terminal. */
   readonly out: string | undefined;
-  /** How many times the gap inside a group the gap between groups must be: spacing.md's 2. */
+  /** How many times the gap inside a group the gap between groups must be: spacing.md's 3. */
   readonly ratio: number;
   /** What to measure: a CSS selector, the whole page by default. */
   readonly root: string;
