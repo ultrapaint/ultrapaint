@@ -158,6 +158,17 @@ pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sectionsâ
 It takes `--model` (opus) and `--effort` (high) for the reviewers and judges, and resumes like a
 round. It writes `runs/<round>/report.md` and each measured gap's line under **Result.**
 
+What no wording made a reviewer see can be measured instead, on a rendered page:
+
+```sh
+pnpm evals measure <url> [--steps steps.mjs] [--root <selector>] [--ratio 2] [--out findings.json]
+```
+
+It flags stacked groups set less than `--ratio` times the gap between the lines of the group
+below apart (a single line closer to what follows is its heading), and dividers off their bar's
+line by more than 1.5px. The steps file is `export default [async (page) => {}]`, run before
+measuring.
+
 ## Decisions
 
 When an agent needs several decisions from the person, it writes them as a deck and the person
