@@ -14,9 +14,9 @@
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
-
+import { ADDED_TEXT_FILE, AddedTextEntry } from "./added-text.ts";
 import { EvalsConfig } from "./config.ts";
-import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
+import { RoundInfo } from "./generate.ts";
 import {
   isLevel,
   type JudgeFile,

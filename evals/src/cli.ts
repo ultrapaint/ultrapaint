@@ -18,6 +18,7 @@
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
+ *   pnpm evals panel <round> [rounds…]             what a fixed panel still finds in finished designs
  *
  * `generate`, `judge` and `report` run one step of a round each, to resume or redo one.
  * See evals/README.md.
@@ -42,11 +43,13 @@ import { learn } from "./learn.ts";
 import { measure } from "./measure.ts";
 import { Models } from "./models.ts";
 import { pairwise } from "./pairwise.ts";
+import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
 import { recall } from "./recall.ts";
 import { loadReferences } from "./reference.ts";
 import { report } from "./report.ts";
 import { review } from "./review.ts";
+import { REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
 
@@ -128,6 +131,45 @@ const judgeFlags = {
   ),
 };
 
+/** The review loop of a round (ADR 0060): none unless `--review` says when. */
+const reviewFlags = {
+  effort: Flag.String("effort").pipe(
+    Flag.withDescription("How hard the reviewers think"),
+    Flag.withDefault("high")
+  ),
+  passes: Flag.Int("passes").pipe(
+    Flag.withDescription(
+      "Reviews of a section, or of the page, at most: each one's findings go back to the designer"
+    ),
+    Flag.withDefault(2)
+  ),
+  review: Flag.ChoiceWithValue(
+    "review",
+    REVIEW_MODES.map((m) => [m, m] as const)
+  ).pipe(
+    Flag.withDescription(
+      "Review the design in its loop: `end` reviews the page when the designer's turn ends, `each-section` each section as it is built; none without it"
+    ),
+    Flag.optional
+  ),
+  reviewers: Flag.String("reviewers").pipe(
+    Flag.withDescription(
+      "The models that review, comma-separated: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
+    ),
+    Flag.withDefault("opus")
+  ),
+};
+
+/** `opus, gpt-6.1-sol` → the models, each once. */
+const modelList = (list: string) => [
+  ...new Set(
+    list
+      .split(",")
+      .map((m) => m.trim())
+      .filter((m) => m.length > 0)
+  ),
+];
+
 const captureCommand = Command.make(
   "capture",
   { force, refs },
@@ -160,12 +202,18 @@ const briefCommand = Command.make(
 interface GenerateInput {
   readonly agent: string;
   readonly agentModel: Option.Option<string>;
+  readonly concurrency: number;
+  readonly effort: string;
   readonly host: string;
+  readonly judgeModel: string;
   readonly minutes: number;
   readonly name: string;
+  readonly passes: number;
   readonly picture: boolean;
   readonly prompt: Option.Option<string>;
   readonly refs: readonly string[];
+  readonly review: Option.Option<ReviewMode>;
+  readonly reviewers: string;
   readonly runs: number;
   readonly skills: Option.Option<string>;
 }
@@ -178,6 +226,16 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
     model: Option.getOrUndefined(input.agentModel),
     picture: input.picture,
     prompt: Option.getOrUndefined(input.prompt),
+    review: Option.getOrUndefined(
+      Option.map(input.review, (mode) => ({
+        concurrency: input.concurrency,
+        effort: input.effort,
+        judgeModel: input.judgeModel,
+        mode,
+        passes: input.passes,
+        reviewers: modelList(input.reviewers),
+      }))
+    ),
     round: input.name,
     runs: input.runs,
     skills: Option.getOrUndefined(input.skills),
@@ -186,7 +244,7 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
 
 const generateCommand = Command.make(
   "generate",
-  { name, refs, ...generateFlags },
+  { name, refs, ...generateFlags, ...reviewFlags, ...judgeFlags },
   runGenerate
 ).pipe(
   Command.withDescription(
@@ -223,7 +281,7 @@ const reportCommand = Command.make(
 
 const roundCommand = Command.make(
   "round",
-  { name, refs, ...generateFlags, ...judgeFlags },
+  { name, refs, ...generateFlags, ...reviewFlags, ...judgeFlags },
   Effect.fn(function* (input) {
     yield* runGenerate(input);
     yield* judge(input.name, {
@@ -789,7 +847,7 @@ const recallCommand = Command.make(
       concurrency: input.concurrency,
       effort: input.effort,
       judgeModel: input.judgeModel,
-      models: input.models.split(",").map((m) => m.trim()),
+      models: modelList(input.models),
       round: input.name,
       runs: input.runs,
       sections: input.sections,
@@ -800,6 +858,40 @@ const recallCommand = Command.make(
   Command.withDescription(
     "Have reviewers with each version of the skill review the gaps' sections, and count what they found of the person's findings"
   )
+);
+
+const panelCommand = Command.make(
+  "panel",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: reviewFlags.effort,
+    judgeModel: judgeFlags.judgeModel,
+    models: Flag.String("models").pipe(
+      Flag.withDescription(
+        "The panel: the models that review every section of every run, comma-separated (opus, gpt-6.1-sol, cursor:grok-4.7-high)"
+      ),
+      Flag.withDefault("opus")
+    ),
+    rounds: Argument.String("rounds").pipe(
+      Argument.withDescription(
+        "Rounds whose finished designs the panel reviews"
+      ),
+      Argument.atLeast(1)
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* panel(input.rounds, {
+      concurrency: input.concurrency,
+      effort: input.effort,
+      judgeModel: input.judgeModel,
+      models: modelList(input.models),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Score finished designs by what a fixed panel of fresh reviewers still finds in each section"
+  ),
+  Command.provide(Browser.layer)
 );
 
 Command.make("design-evals").pipe(
@@ -827,6 +919,7 @@ Command.make("design-evals").pipe(
     pairwiseCommand,
     gapsCommand,
     recallCommand,
+    panelCommand,
     decideCommand,
     measureCommand,
   ]),

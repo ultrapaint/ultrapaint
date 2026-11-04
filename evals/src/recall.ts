@@ -316,9 +316,23 @@ const skillTree = Effect.fn("skillTree")(function* (
   round: string,
   skills: string
 ) {
+  const { data } = yield* EvalsConfig;
+  return yield* writeSkillTree(
+    path.join(data.runs, round, "skills", versionName(skills)),
+    skills
+  );
+});
+
+/**
+ * The skill as a version gives it, as an agent without the editor's tools reads it, written once
+ * at `tree`: the checkout's `skills/ultrapaint/`, with a candidate's files laid over it.
+ */
+export const writeSkillTree = Effect.fn("writeSkillTree")(function* (
+  tree: string,
+  skills: string
+) {
   const { checkout, data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  const tree = path.join(data.runs, round, "skills", versionName(skills));
   if (yield* fs.exists(tree)) {
     return tree;
   }

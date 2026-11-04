@@ -25,9 +25,10 @@ import {
   HttpServerResponse,
   HttpStaticServer,
 } from "effect/http";
+import { ADDED_TEXT_FILE, AddedTextEntry } from "./added-text.ts";
 import { foldName } from "./capture.ts";
 import { type DataDir, EvalsConfig } from "./config.ts";
-import { ADDED_TEXT_FILE, AddedTextEntry, RoundInfo } from "./generate.ts";
+import { RoundInfo } from "./generate.ts";
 import { type Judgement, readJudgement, roundRuns } from "./judge.ts";
 import { listDir, readJson, viewerSrc, writeJson } from "./layout.ts";
 import {
