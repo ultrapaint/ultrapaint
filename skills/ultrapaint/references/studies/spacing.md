@@ -20,7 +20,7 @@ The median gap between sections is **120 px**, measured on 4,093 sites. Most sam
 
 The median padding inside a card, panel or band is **28 px**, measured on 2,506 sites. That is roughly a quarter of the section gap.
 
-The ratio matters more than the values. Space between sections is about four times the space inside a surface. This is the skill's rule that groups sit at least twice as far apart as their items, applied at page scale.
+The ratio matters more than the values. Space between sections is about four times the space inside a surface. This is the skill's rule that groups sit at least three times as far apart as their items, applied at page scale.
 
 ### Many pages have no padded surface at all
 

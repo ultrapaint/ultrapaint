@@ -161,7 +161,7 @@ round. It writes `runs/<round>/report.md` and each measured gap's line under **R
 What no wording made a reviewer see can be measured instead, on a rendered page:
 
 ```sh
-pnpm evals measure <url> [--steps steps.mjs] [--root <selector>] [--ratio 2] [--out findings.json]
+pnpm evals measure <url> [--steps steps.mjs] [--root <selector>] [--ratio 3] [--out findings.json]
 ```
 
 It flags stacked groups set less than `--ratio` times the gap between the lines of the group
