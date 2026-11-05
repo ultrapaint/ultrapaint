@@ -941,6 +941,7 @@ export class ThreadSessions extends Context.Service<
           createdAt: now,
           id: yield* makeId("thread"),
           ...(purpose === "implement" && { purpose }),
+          ...(title !== undefined && { named: true }),
           status: "idle",
           title: title ?? UNTITLED,
           updatedAt: now,

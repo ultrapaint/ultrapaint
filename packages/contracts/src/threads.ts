@@ -291,6 +291,11 @@ export const Thread = Schema.Struct({
   id: Schema.String,
   /** Advertised session modes, generic. */
   modes: Schema.optional(Schema.Array(SessionMode)),
+  /**
+   * The title was given when the thread was made (the setup chat's, ADR 0062): the titles the
+   * agent's session suggests leave it as it is.
+   */
+  named: Schema.optional(Schema.Boolean),
   /** `design` when absent. */
   purpose: Schema.optional(ThreadPurpose),
   /**

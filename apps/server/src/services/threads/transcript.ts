@@ -454,7 +454,14 @@ export const projectUpdate = (
     case "session_info_update":
       return unmoved(
         u.title
-          ? [{ patch: () => ({ title: u.title ?? "" }), type: "thread" }]
+          ? [
+              {
+                // A title given when the thread was made stays.
+                patch: (thread) =>
+                  thread.named ? {} : { title: u.title ?? "" },
+                type: "thread",
+              },
+            ]
           : [],
         ctx
       );

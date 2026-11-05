@@ -51,13 +51,18 @@ export const startSetup = async ({ show = true } = {}) => {
   }
 };
 
+/** Whether this page asked already: an effect run twice must not start two chats. */
+let asked = false;
+
 /**
- * A folder whose settings were detected and never saved is set up as it opens. Behind a first
- * prompt from the start screen, which takes the chat.
+ * A folder whose settings were detected and never saved is set up as it opens, once per page.
+ * Behind a first prompt from the start screen, which takes the chat.
  */
 export const setUpOnOpen = async ({ behind = false } = {}) => {
   const { info } = useProject.getState();
-  if (info.configured && info.setup === "detected") {
-    await startSetup({ show: !behind });
+  if (asked || !(info.configured && info.setup === "detected")) {
+    return;
   }
+  asked = true;
+  await startSetup({ show: !behind });
 };
