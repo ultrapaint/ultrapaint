@@ -19,6 +19,13 @@ refactor and the board view left.
   whoever wrote it. Its **themes** (contracts' `themes`): which is the default, what a token holds
   in a theme (the default's when it says nothing, references followed), how a frame is put in one
   and whether one is dark.
+- **Default look**: what a project with no design system of its own is drawn in (ADR 0062), shown
+  in the Design system place like any system until the person makes the project's own.
+  _Avoid_: neutral look, no design system.
+- **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
+  **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
+  property and meaning (`text.subtle`, `background.success.subtle`, Atlassian's).
+  _Avoid_: semantic layer, token style.
 - **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
   Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the
   design system has data for it, each opened as its boards. The **Guidelines** are DESIGN.md's

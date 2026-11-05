@@ -1,0 +1,137 @@
+{
+  "defaults": {
+    "font": "'Onest Variable', sans-serif"
+  },
+  "name": "Onboarding",
+  "routes": {},
+  "frames": {
+    "1a-start.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 720
+    },
+    "1b-first-screen.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 720
+    },
+    "1c-a-folder-that-is-already-a-project.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 3200,
+      "y": 720
+    },
+    "2a-start-pick-the-look.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 2720
+    },
+    "2b-choose-a-look.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 2720
+    },
+    "2c-look-from-a-site.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 3200,
+      "y": 2720
+    },
+    "2d-first-screen-in-the-chosen-look.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 4800,
+      "y": 2720
+    },
+    "3a-start-open-a-project.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 4720
+    },
+    "3b-setting-up-the-project.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 4720
+    },
+    "3c-the-app-in-the-editor.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 3200,
+      "y": 4720
+    },
+    "3d-design-system-not-made-yet.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 4800,
+      "y": 4720
+    },
+    "3e-setting-up-in-the-background.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 6400,
+      "y": 4720
+    },
+    "3f-design-system-ready.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 8000,
+      "y": 4720
+    },
+    "4a-a-request-in-the-opened-project.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 6720
+    },
+    "4b-redesigning-a-page.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 6720
+    }
+  },
+  "nodes": [
+    {"type": "column", "id": "c_39vpai", "name": "Flow 1", "gap": 20, "width": 3000, "x": 0, "y": 0, "children": [
+      {"type": "text", "id": "t_0hdajx", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 40, "text": "Flow 1", "weight": 500},
+      {"type": "text", "id": "t_lqfve5", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.15, "role": "paragraph", "size": 96, "text": "A new idea, the agent picks the look", "tracking": "-0.02em", "weight": 600},
+      {"type": "text", "id": "t_04pmpc", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.45, "maxWidth": 2600, "role": "paragraph", "size": 40, "text": "Nothing open. The start screen is for a new project: the prompt, where it goes (a new folder in ~/Ultrapaint, or any folder the person picks, even one with an app), the look left on “Agent picks the look”, and the model. A folder that is already an Ultrapaint project is opened instead (1c). The agent settles the look, writes the design system and draws the first screen."}
+    ]},
+    {"type": "column", "id": "c_hnn5o6", "name": "Flow 2", "gap": 20, "width": 3000, "x": 0, "y": 2000, "children": [
+      {"type": "text", "id": "t_wc9k2l", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 40, "text": "Flow 2", "weight": 500},
+      {"type": "text", "id": "t_ddbw0c", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.15, "role": "paragraph", "size": 96, "text": "A new idea, the person picks the look", "tracking": "-0.02em", "weight": 600},
+      {"type": "text", "id": "t_0j6ady", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.45, "maxWidth": 2600, "role": "paragraph", "size": 40, "text": "Same start with “I’ll pick”. Before the canvas, a look page like shadcn’s create: the dials on the left, sample screens on a canvas to move around, and an agent box for a site or a picture. “Let the agent decide” falls back to flow 1. The same page opens from “Change the look” and from flow 3’s “Start a new look”."}
+    ]},
+    {"type": "column", "id": "c_b8fet5", "name": "Flow 3", "gap": 20, "width": 3000, "x": 0, "y": 4000, "children": [
+      {"type": "text", "id": "t_48clii", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 40, "text": "Flow 3", "weight": 500},
+      {"type": "text", "id": "t_polodh", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.15, "role": "paragraph", "size": 96, "text": "A folder that has never been opened in Ultrapaint", "tracking": "-0.02em", "weight": 600},
+      {"type": "text", "id": "t_8c9yvp", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.45, "maxWidth": 2600, "role": "paragraph", "size": 40, "text": "Open project opens a folder (here or over SSH) straight into the editor; the setup runs as an agent chat that stays in the list. The canvas suggests the app’s routes; nothing nags about the design system, and pages use the default look until one is made. Making it from the code runs in its own chat; a running chat shows as a dot on the Agents icon."}
+    ]},
+    {"type": "column", "id": "c_jdfz1i", "name": "Flow 4", "gap": 20, "width": 3000, "x": 0, "y": 6000, "children": [
+      {"type": "text", "id": "t_kt5ism", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 40, "text": "Flow 4", "weight": 500},
+      {"type": "text", "id": "t_zlmmof", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.15, "role": "paragraph", "size": 96, "text": "A request in an opened project", "tracking": "-0.02em", "weight": 600},
+      {"type": "text", "id": "t_d8ux3u", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.45, "maxWidth": 2600, "role": "paragraph", "size": 40, "text": "After Open project, the request is typed in the canvas’s prompt box and starts its own chat. With no design system yet, the agent draws in Ultrapaint’s default look and says so once; the page names tokens, so it follows bike-shop’s system once it is made."}
+    ]}
+  ],
+  "version": 1
+}
