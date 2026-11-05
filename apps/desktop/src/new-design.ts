@@ -6,11 +6,13 @@
  * is written, the folder joins the project list and opens in place of the open project.
  */
 import { NewDesignProgressLine } from "@ultrapaint/contracts/new-design";
-import type {
-  NewDesignInput,
-  NewDesignOutcome,
-  NewDesignStepId,
-  NewDesignUpdate,
+import {
+  type FirstPrompt,
+  firstPromptQuery,
+  type NewDesignInput,
+  type NewDesignOutcome,
+  type NewDesignStepId,
+  type NewDesignUpdate,
 } from "@ultrapaint/contracts/shell-bridge";
 import {
   Context,
@@ -207,17 +209,21 @@ export class NewDesigns extends Context.Service<
 
         /**
          * Adds it to the list and opens it, reporting the app's own last step. The editor is
-         * told it is a new design, and opens on Sync's define step (ADR 0025's scratch case).
+         * told it is a new design, and given the start screen's prompt to send (ADR 0062).
          */
         const open = Effect.fn("NewDesigns.open")(function* (
           folder: string,
           name: string,
           template: NewDesignInput["template"],
-          report: (update: NewDesignUpdate) => Effect.Effect<void>
+          report: (update: NewDesignUpdate) => Effect.Effect<void>,
+          start?: FirstPrompt
         ) {
           yield* report({ state: "active", step: "open" });
           return yield* projects
-            .openFolder(folder, name, { [NEW_DESIGN_PARAM]: template })
+            .openFolder(folder, name, {
+              [NEW_DESIGN_PARAM]: template,
+              ...firstPromptQuery(start),
+            })
             .pipe(
               Effect.flatMap(({ opened }) =>
                 Effect.as(
@@ -270,7 +276,8 @@ export class NewDesigns extends Context.Service<
                     request.folder,
                     request.name,
                     request.template,
-                    report
+                    report,
+                    request.start
                   );
             }),
           folderFor,

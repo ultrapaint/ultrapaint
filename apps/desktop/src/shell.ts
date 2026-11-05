@@ -25,7 +25,12 @@ export type View =
       readonly detail: string;
       readonly name: string;
     }
-  | { readonly _tag: "Welcome"; readonly problem?: string | undefined };
+  | {
+      readonly _tag: "Welcome";
+      /** The project left open behind the start screen, to go back to (ADR 0062). */
+      readonly back?: string | undefined;
+      readonly problem?: string | undefined;
+    };
 
 export class Shell extends Context.Service<
   Shell,

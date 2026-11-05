@@ -335,6 +335,17 @@ export const ChatDefaults = Schema.Struct({
 export type ChatDefaults = typeof ChatDefaults.Type;
 
 /**
+ * What the chat remembers across projects (`~/.ultrapaint/chat/preferences.json`): the options
+ * each agent's sessions offered last, and what a new thread starts with. The desktop app's start
+ * screen reads it to offer a model before any server runs (ADR 0062).
+ */
+export const ChatPreferencesFile = Schema.Struct({
+  agents: Schema.Array(AgentOptions),
+  defaults: ChatDefaults,
+});
+export type ChatPreferencesFile = typeof ChatPreferencesFile.Type;
+
+/**
  * What a tool call produced. The agent sends text, a diff of a file it is changing, or the id of
  * a terminal whose output arrives on its own; the editor shows each of them differently, so none
  * of it is flattened into a string.

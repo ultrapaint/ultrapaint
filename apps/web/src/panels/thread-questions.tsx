@@ -30,6 +30,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { composerText } from "../components/composer-style.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   type AnswerDraft,
@@ -564,7 +565,3 @@ export const StopButton = ({ onStop }: { onStop: () => void }) => (
     <Square className="size-2.5 fill-current" />
   </IconButton>
 );
-
-/** The composer's text: the prompt, or an answer of one's own. */
-export const composerText =
-  "field-sizing-content max-h-60 min-h-16 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 font-body outline-none placeholder:text-muted-foreground";

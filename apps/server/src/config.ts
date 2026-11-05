@@ -1,4 +1,6 @@
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AgentRuntime } from "@ultrapaint/acp/runtime";
 import { Context, Layer } from "effect";
 
@@ -183,7 +185,8 @@ export class ServerConfig extends Context.Service<
         readyJson: false,
         storage: { mode: "ephemeral" },
         token: "test",
-        userDir: tmpdir(),
+        // Its own, so that what one test keeps there (the chat's preferences) no other reads.
+        userDir: mkdtempSync(join(tmpdir(), "ultrapaint-user-")),
         version: "test",
         webDist: undefined,
         ...rest,

@@ -6,8 +6,17 @@
  * services' test layers.
  */
 import { BUILT_IN_AGENTS } from "@ultrapaint/acp/built-in";
-import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
-import { Effect, type FileSystem, Option, type Path } from "effect";
+import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
+import {
+  type FirstPrompt,
+  type FolderKind,
+  firstPromptQuery,
+} from "@ultrapaint/contracts/shell-bridge";
+import {
+  type BuiltInAgentId,
+  ChatPreferencesFile,
+} from "@ultrapaint/contracts/threads";
+import { Effect, FileSystem, Option, Path, Schema } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
 import type { BridgeHandlers } from "./bridge-server.ts";
@@ -37,6 +46,48 @@ export type HandlerServices =
   | Path.Path
   | ProjectStore
   | Shell;
+
+const decodePreferences = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ChatPreferencesFile)
+);
+
+/**
+ * What the chat remembers, from the user's directory (`~/.ultrapaint/chat/preferences.json`,
+ * the server's `ChatPreferences`): nothing when no chat has run on this machine yet, or the file
+ * cannot be read.
+ */
+const chatPreferences = (home: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const text = yield* fs.readFileString(
+      path.join(home, ".ultrapaint", "chat", "preferences.json")
+    );
+    return yield* decodePreferences(text);
+  }).pipe(
+    Effect.orElseSucceed(
+      (): ChatPreferencesFile => ({ agents: [], defaults: {} })
+    )
+  );
+
+/** What a folder may hold and still count as empty: what a system or `git init` leaves. */
+const LEFT_BY_OTHERS = new Set([".DS_Store", "Thumbs.db", ".git"]);
+
+/** What a folder holds, for the start screen: a folder that cannot be read counts as one. */
+const inspectFolder = (folder: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const name = path.basename(folder);
+    const there = yield* fs
+      .readDirectory(folder)
+      .pipe(Effect.orElseSucceed((): string[] => []));
+    if (CONFIG_FILE_NAMES.some((file) => there.includes(file))) {
+      return { kind: "project", name } satisfies FolderKind;
+    }
+    const empty = there.every((entry) => LEFT_BY_OTHERS.has(entry));
+    return { kind: empty ? "empty" : "folder", name } satisfies FolderKind;
+  });
 
 /** Whether the open project's server runs on another machine: it hides this machine's own. */
 export const remoteOpen = Effect.map(
@@ -75,6 +126,7 @@ export const bridgeHandlers = (
   "agents.clearPath": (id) => setAgentPath(id, undefined),
   "agents.download": (id) => thenRestart(Agents.use((a) => a.download(id))),
   "agents.list": () => Agents.use((a) => a.status),
+  "agents.preferences": () => chatPreferences(options.home),
   "agents.setApiKey": (id, key) =>
     thenRestart(
       Agents.use((a) => a.setApiKey(id, key?.trim() ? key : undefined))
@@ -116,6 +168,7 @@ export const bridgeHandlers = (
       OpenProject.use((o) => o.current),
       (current) => Option.getOrNull(current)?.id ?? null
     ),
+  "projects.inspect": (folder) => inspectFolder(folder),
   "projects.list": () =>
     Effect.map(
       ProjectStore.use((store) => store.list),
@@ -127,6 +180,13 @@ export const bridgeHandlers = (
         }))
     ),
   "projects.open": (id) => OpenProject.use((o) => o.open(id)),
+  "projects.openFolder": (folder, start?: FirstPrompt) =>
+    Effect.asVoid(
+      OpenProject.use((o) =>
+        o.openFolder(folder, undefined, firstPromptQuery(start))
+      )
+    ),
+  "projects.showStart": () => OpenProject.use((o) => o.showStart),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
   "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),
 });

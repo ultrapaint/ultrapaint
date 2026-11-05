@@ -151,6 +151,9 @@ const showView = (view: View) =>
     } else if (view.problem) {
       welcome.searchParams.set("problem", view.problem);
     }
+    if (view._tag === "Welcome" && view.back) {
+      welcome.searchParams.set("back", view.back);
+    }
     await window.loadURL(welcome.href);
   }).pipe(
     // A page that did not finish loading (the user switched again meanwhile) is not an error.

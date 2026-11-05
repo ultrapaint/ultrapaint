@@ -26,7 +26,6 @@ import { CommandPalette } from "./components/command-palette.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { preloadMarkdown } from "./components/markdown.tsx";
-import { NewDesignDialog } from "./components/new-design-dialog.tsx";
 import { PlaceSwitch } from "./components/place-switch.tsx";
 import { Rail, railItems } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
@@ -42,8 +41,8 @@ import {
   TitleRow,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
+import { sendFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
-import { openNewDesignOnSync } from "./lib/new-design.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { ModeAndCanvases } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
@@ -506,6 +505,7 @@ export const App = () => {
   const theme = useTheme((s) => s.resolved);
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
+  const loaded = useProject((s) => s.loaded);
   const projectName = useProject((s) => s.info.name);
   const pages = useProject((s) => s.pages);
   const canvases = useProject((s) => s.canvases);
@@ -550,10 +550,16 @@ export const App = () => {
       provideCanvasDefaults(canvasDefaults);
       // The rail's Design system button says when the sync has something waiting.
       useSync.getState().load();
-      // A design the desktop app has just written opens on Sync's define step.
-      openNewDesignOnSync();
     }
   }, [configured]);
+
+  // The start screen's prompt, once the project's info is read: a folder not set up yet takes
+  // it too (ADR 0062).
+  useEffect(() => {
+    if (loaded) {
+      sendFirstPrompt();
+    }
+  }, [loaded]);
 
   // The design's look, set once on the preview whenever it changes (ADR 0042).
   useEffect(
@@ -689,7 +695,6 @@ export const App = () => {
         <SettingsDialog />
         <SaveConfigDialog />
         <SetupDialog />
-        <NewDesignDialog />
         <RemoteProjectDialog />
         <DialogHost />
         <ShortcutSheet />

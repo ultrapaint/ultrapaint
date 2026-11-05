@@ -1,6 +1,7 @@
 import {
-  AgentOptions,
-  ChatDefaults,
+  type AgentOptions,
+  type ChatDefaults,
+  ChatPreferencesFile,
   isModelOption,
   startingMode,
   type Thread,
@@ -9,16 +10,20 @@ import {
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
+import { ServerConfig } from "../../config.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { Storage } from "../storage.ts";
 
-const Stored = Schema.Struct({
-  agents: Schema.Array(AgentOptions),
-  defaults: ChatDefaults,
-});
-type Stored = typeof Stored.Type;
-const decodeStored = Schema.decodeUnknownEffect(Schema.fromJsonString(Stored));
-const encodeStored = Schema.encodeEffect(Schema.fromJsonString(Stored));
+type Stored = typeof ChatPreferencesFile.Type;
+const decodeStored = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ChatPreferencesFile)
+);
+const encodeStored = Schema.encodeEffect(
+  Schema.fromJsonString(ChatPreferencesFile)
+);
+
+/** Where they are kept, in the user's directory: `~/.ultrapaint/chat/preferences.json`. */
+export const CHAT_PREFERENCES_FILE = ["chat", "preferences.json"] as const;
 
 /** The options a thread starts with, before its session says otherwise. */
 type ThreadOptions = Pick<Thread, "configOptions" | "currentModeId" | "modes">;
@@ -27,6 +32,11 @@ type ThreadOptions = Pick<Thread, "configOptions" | "currentModeId" | "modes">;
  * What the chat knows about agents across threads: the agent and model a new thread starts
  * with, and the options each agent's sessions offer. The options are only known once a session
  * has started; remembering them is what lets a thread offer its models before it has one.
+ *
+ * They are the user's, not a project's (ADR 0062): kept in the user's directory, so a new
+ * project offers the models the last one learnt, and the desktop app's start screen, which has
+ * no server, reads them there. A project's state directory held them before; that file is read
+ * when the user's directory has none yet.
  */
 export class ChatPreferences extends Context.Service<
   ChatPreferences,
@@ -43,22 +53,25 @@ export class ChatPreferences extends Context.Service<
     ChatPreferences,
     Effect.gen(function* () {
       const storage = yield* Storage;
+      const { userDir } = yield* ServerConfig;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
-      // Asked for on every write: saving an unsaved session moves the state directory.
-      const file = Effect.map(storage.stateDir, (dir) =>
-        path.join(dir, "chat", "preferences.json")
-      );
+      const file = path.join(userDir, ...CHAT_PREFERENCES_FILE);
 
       const empty: Stored = { agents: [], defaults: {} };
       const read = Effect.gen(function* () {
-        const f = yield* file;
-        if (!(yield* fs.exists(f))) {
-          return empty;
+        const before = path.join(
+          yield* storage.stateDir,
+          ...CHAT_PREFERENCES_FILE
+        );
+        for (const from of [file, before]) {
+          if (yield* fs.exists(from)) {
+            return yield* decodeStored(yield* fs.readFileString(from));
+          }
         }
-        return yield* decodeStored(yield* fs.readFileString(f));
+        return empty;
       });
       let state = yield* read.pipe(
         // A file that cannot be read costs the preferences, not the chat.
@@ -79,9 +92,7 @@ export class ChatPreferences extends Context.Service<
       const save = writes.withLock(
         "preferences",
         Effect.suspend(() => encodeStored(state)).pipe(
-          Effect.flatMap((json) =>
-            Effect.flatMap(file, (f) => writeAtomic(f, json))
-          ),
+          Effect.flatMap((json) => writeAtomic(file, json)),
           // What is in memory stays right; the next change writes it again.
           Effect.ignore({ log: true })
         )
