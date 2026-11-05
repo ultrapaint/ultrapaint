@@ -27,6 +27,7 @@ import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
+import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { OpenProject } from "../../project.ts";
@@ -64,6 +65,17 @@ const dotGitNote = (
 The repository's .git is read-only to you: git status, diff and log work, but commits, branches
 and stashes are the user's${writes ? ", made from the editor" : ""}.`
     : "";
+
+/**
+ * What an agent is told of a project with no design system of its own (ADR 0062, amending 0050):
+ * it draws in the default look and says so once; it writes a design system only when asked, or
+ * in a new project, whose theme declares nothing.
+ */
+export const DEFAULT_LOOK_NOTE = `This project has no design system of its own: its designs are drawn in Ultrapaint's default
+look, whose tokens are below. Draw with them, and say once in your reply that the design uses the
+default look until the user makes the project's own in the Design system tab (from the code, a
+new look or Figma). Do not write a design system unless the user asks for one, or the project is
+new and its theme declares nothing.`;
 
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
@@ -279,7 +291,8 @@ ${
 `
     : ""
 }`
-    : `The design system has not been imported yet: the user can run /init.
+    : `${DEFAULT_LOOK_NOTE}
+Design tokens of the default look: ${tokensOf(DEFAULT_LOOK)}
 `
 }${craft}${conventions}
 ${

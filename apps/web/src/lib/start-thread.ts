@@ -54,3 +54,36 @@ export const startTask = (request: TaskRequest) =>
 
 /** Opens a thread with `/init` in its composer, for the user to send. */
 export const startInit = () => startTask({ _tag: "Init" });
+
+/**
+ * Runs a task at once in a new chat named `title`, opened in the left panel: what the editor
+ * starts for the person rather than drafts for them, as making the design system from the code
+ * (ADR 0062). The chat stays in the Agents list to read back and continue.
+ */
+export const runTask = async (request: TaskRequest, title: string) => {
+  try {
+    const purpose = taskPurpose(request);
+    const thread = await api().request("threads.create", {
+      ...(purpose === "implement" && { purpose }),
+      title,
+    });
+    await showLeftPanel({ chat: thread, draft: "" });
+    await api().request("threads.prompt", {
+      attachments: [],
+      text: commandOf(request),
+      threadId: thread.id,
+    });
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/** The design system made from the application's code, in a chat of its own. */
+export const makeSystemFromCode = () =>
+  runTask({ _tag: "Init" }, "Design system from the code");
+
+/** A new look for the project, described to an agent in a chat the person finishes and sends. */
+export const startNewLook = () =>
+  startPrompt(
+    "Make a new look for this project: ask me how it should feel, then write its design system."
+  );

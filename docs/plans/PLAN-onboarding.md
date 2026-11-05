@@ -26,7 +26,10 @@ Each one ships alone, in this order.
    system tab shows it like any system, marked as the default, with one bar to make the
    project's own: from the code (in a chat), a new look, or Figma. The canvas's starters and the
    "Plain wireframes" line go. Agents no longer write a design system unasked: the server's task
-   prompts change here, the skill's part starts as a gap in `evals/gaps/`.
+   prompts change here, the skill's part starts as a gap in `evals/gaps/`. *Done:* the default
+   look is a design system in `system-components/default-look`; the briefing tells agents to draw
+   in it and say so once (`DEFAULT_LOOK_NOTE`); the skill's part is gap `p09`. *A new look* drafts
+   a chat until slice 4.
 4. **The look page.** *I'll pick the look* opens it before the first screen: a preset and the
    dials on a sidebar, sample screens on a canvas, an agent box for a description, a site or a
    picture. *Use this look* writes the design system and sends the prompt.

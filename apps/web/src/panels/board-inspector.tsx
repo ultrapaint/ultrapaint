@@ -151,8 +151,8 @@ const SystemBody = ({
   }
   if (!ds) {
     return (
-      <PanelEmpty icon={<Palette />} title="The neutral colours">
-        Every design draws with them until it has a design system of its own.
+      <PanelEmpty icon={<Palette />} title="The default look is fixed">
+        Make the project’s own design system to change its values.
       </PanelEmpty>
     );
   }

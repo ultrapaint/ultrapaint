@@ -5,10 +5,9 @@
  * the usual pairs of a foreground on its background with their WCAG contrast ratio and grade. A swatch is named for its token and a
  * group's title for the group, so a click picks one. Pure.
  */
-import {
-  type DesignSystem,
-  emptyDesignSystem,
-  type TokenGroup,
+import type {
+  DesignSystem,
+  TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { themesOf, valueInTheme } from "@ultrapaint/contracts/themes";
@@ -20,7 +19,6 @@ import {
 } from "@ultrapaint/contracts/token-value";
 import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
 import {
   code,
   label,
@@ -33,25 +31,6 @@ import {
 } from "./board-nodes.ts";
 import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
-
-/**
- * The neutral palette every design draws with until it has a design system, as one: light and
- * dark, the way `system-components/look` writes it.
- */
-const neutralDesignSystem = (): DesignSystem => ({
-  ...emptyDesignSystem(),
-  colors: [
-    {
-      name: "neutral",
-      tokens: NEUTRAL_COLORS.map((c) => ({
-        name: c.name,
-        value: c.light,
-        values: { dark: c.dark },
-      })),
-    },
-  ],
-  themes: ["light", "dark"],
-});
 
 /** Whether a group is a palette's ramp: three shades or more, every one of them a step. */
 export const isRamp = (group: Pick<TokenGroup, "tokens">): boolean =>
@@ -353,12 +332,10 @@ const themeBoard = (
 };
 
 /**
- * Color's boards: one per theme of the design system, side by side, each drawn in its theme;
- * without a design system, the neutral palette's light and dark. A search keeps the colours whose
- * name or value has it.
+ * Color's boards: one per theme of the design system, side by side, each drawn in its theme. A
+ * search keeps the colours whose name or value has it.
  */
-export const colorBoards = (given: DesignSystem | null, q: string): Boards => {
-  const ds = given ?? neutralDesignSystem();
+export const colorBoards = (ds: DesignSystem, q: string): Boards => {
   const themes = themesOf(ds);
   const boards = themes.map((theme): Board => {
     // The palettes first, as ramps, then the colours named for what they do.
