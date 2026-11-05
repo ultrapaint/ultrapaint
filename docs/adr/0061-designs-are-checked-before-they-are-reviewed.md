@@ -80,8 +80,7 @@ Every recurring finding of the findings log is turned, in this order of preferen
   the whole council looks once at the end. `all` every round costs about three times as much per
   round, and is what step 4 compares `rotate` with.
 - The checks are code to keep: each with its threshold, its tests and its record on the gaps.
-- Surfaces nearly one tone are flagged under 0.008 oklch lightness apart, from the fix of g05 the
-  person accepted (0.011); `elevation.md` asks for about 0.045. The two disagree, and the skill's
-  number is to be measured again.
+- Nested surfaces are flagged under 0.045 oklch lightness apart, `elevation.md`'s step. The
+  editor's own left card, fixed for g05 at 0.011 apart, falls short of it and is to be fixed.
 - A reviewer's result varies between rounds (GPT-6.1-Sol caught 45 of 100 in one round and 73 in
   another on the same sections and skill): only results within one round are compared.
