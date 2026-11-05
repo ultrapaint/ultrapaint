@@ -1,0 +1,102 @@
+{
+  "root": {"type": "page", "id": "root", "fill": "oklch(0.99 0.001 80)", "gap": 0, "children": [
+    {"type": "column", "id": "c_2qrypz", "name": "Start", "crossAlign": "center", "fill": "oklch(0.99 0.001 80)", "gap": 0, "height": 900, "width": "fill", "children": [
+      {"type": "row", "id": "r_9l1h47", "crossAlign": "center", "gap": 8, "height": 44, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
+        {"type": "row", "id": "r_mh6uom", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 20, "radius": 5, "width": 20, "children": [
+          {"type": "text", "id": "t_vqc4wd", "color": "oklch(0.99 0 0)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
+        ]},
+        {"type": "text", "id": "t_jevvbw", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 600}
+      ]},
+      {"type": "column", "id": "c_7zab9k", "gap": 0, "padding": {"top": 96}, "width": 680, "children": [
+        {"type": "text", "id": "t_a33k42", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 24, "text": "Start a new project", "tracking": "-0.02em", "weight": 600},
+        {"type": "text", "id": "t_lqhklq", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "padding": {"top": 4}, "role": "paragraph", "size": 14, "text": "Describe what you want to make, and an agent designs it from scratch. To work on an app you already have, open it below."},
+        {"type": "column", "id": "c_grvy9w", "height": 20, "children": []},
+        {"type": "column", "id": "c_0mvz1q", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
+          {"type": "column", "id": "c_bj45gk", "minHeight": 52, "width": "fill", "children": [
+            {"type": "text", "id": "t_tkoss9", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
+          ]},
+          {"type": "row", "id": "r_kyprqs", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+            {"type": "row", "id": "r_pmbwq7", "name": "Button · paperclip", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+              {"type": "image", "id": "img_3es7fy", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+            ]},
+            {"type": "row", "id": "r_b3ut9q", "name": "Picker · ~/Ultrapaint", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+              {"type": "image", "id": "img_4obtt1", "name": "folder", "height": 14, "src": "assets/icons/folder.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_b4oohw", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint", "weight": 500},
+              {"type": "image", "id": "img_j3ogtt", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            ]},
+            {"type": "row", "id": "r_14o5pz", "name": "Picker · I’ll pick the look", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+              {"type": "image", "id": "img_7bm3by", "name": "palette", "height": 14, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_ctu7gf", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "I’ll pick the look", "weight": 500},
+              {"type": "image", "id": "img_h1fhm5", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            ]},
+            {"type": "row", "id": "r_9robfo", "width": "fill", "children": []},
+            {"type": "row", "id": "r_md6v0o", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+              {"type": "text", "id": "t_9i1b0p", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+              {"type": "text", "id": "t_2ayyc1", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+              {"type": "image", "id": "img_tmtagm", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            ]},
+            {"type": "row", "id": "r_8a025w", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
+              {"type": "image", "id": "img_ir9hpt", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+            ]}
+          ]}
+        ]},
+        {"type": "row", "id": "r_e9xc8a", "gap": 8, "padding": {"top": 12}, "wrap": true, "children": [
+          {"type": "row", "id": "r_t0w5sg", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+            {"type": "text", "id": "t_n7p4bz", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A booking page for a hair salon"}
+          ]},
+          {"type": "row", "id": "r_zfdsp1", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+            {"type": "text", "id": "t_n8t8vb", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "An admin for a bike shop"}
+          ]},
+          {"type": "row", "id": "r_hdquik", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+            {"type": "text", "id": "t_rb40c6", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A portfolio for a photographer"}
+          ]}
+        ]},
+        {"type": "column", "id": "c_jftf5a", "gap": 8, "padding": {"top": 48}, "width": "fill", "children": [
+          {"type": "row", "id": "r_qv9125", "crossAlign": "center", "padding": {"left": 4}, "width": "fill", "children": [
+            {"type": "text", "id": "t_u67gme", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Your projects", "weight": 500},
+            {"type": "row", "id": "r_6pbm80", "width": "fill", "children": []},
+            {"type": "row", "id": "r_dl7brn", "name": "Button · Open project", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+              {"type": "image", "id": "img_dls2ge", "name": "folder-open", "height": 16, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
+              {"type": "text", "id": "t_hnciwq", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open project", "weight": 500},
+              {"type": "image", "id": "img_8kwe1n", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            ]}
+          ]},
+          {"type": "column", "id": "c_78l3cj", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 0, "radius": 10, "width": "fill", "children": [
+            {"type": "row", "id": "r_e6nw7q", "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
+              {"type": "column", "id": "c_logdp6", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f6efe4", "height": 32, "radius": 6, "width": 48, "children": []},
+              {"type": "column", "id": "c_ps7tdo", "gap": 0, "children": [
+                {"type": "text", "id": "t_vusqoa", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "salon-booking", "weight": 500},
+                {"type": "text", "id": "t_3snlmq", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint/salon-booking · edited 3 days ago"}
+              ]}
+            ]},
+            {"type": "row", "id": "r_fvavvr", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
+              {"type": "column", "id": "c_9wplca", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f4f4f5", "height": 32, "radius": 6, "width": 48, "children": []},
+              {"type": "column", "id": "c_fos6r7", "gap": 0, "children": [
+                {"type": "text", "id": "t_nq8elf", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500},
+                {"type": "text", "id": "t_t2u23f", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Code/bike-shop · edited last week"}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "row", "id": "r_gducnn", "margin": {"top": -241}, "padding": {"left": 160}, "children": [
+          {"type": "column", "id": "c_5saz18", "name": "Menu", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 0, "padding": 4, "radius": 12, "shadow": "0 2px 4px oklch(0.3 0.02 60 / 8%), 0 12px 32px -6px oklch(0.3 0.02 60 / 22%)", "width": 300, "children": [
+            {"type": "row", "id": "r_ayggcl", "crossAlign": "start", "gap": 8, "padding": {"bottom": 7, "left": 8, "right": 8, "top": 7}, "radius": 6, "width": "fill", "children": [
+              {"type": "column", "id": "c_9esjxb", "gap": 0, "width": "fill", "children": [
+                {"type": "text", "id": "t_8gw7u5", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Agent picks the look", "weight": 500},
+                {"type": "text", "id": "t_a2owoc", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "From what you write; change it any time"}
+              ]}
+            ]},
+            {"type": "row", "id": "r_24s3gs", "crossAlign": "start", "fill": "oklch(0.935 0.004 80)", "gap": 8, "padding": {"bottom": 7, "left": 8, "right": 8, "top": 7}, "radius": 6, "width": "fill", "children": [
+              {"type": "column", "id": "c_ydq6gb", "gap": 0, "width": "fill", "children": [
+                {"type": "text", "id": "t_8r1w35", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "I’ll pick the look", "weight": 500},
+                {"type": "text", "id": "t_dqcuyk", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Choose colours, type and corners first"}
+              ]},
+              {"type": "image", "id": "img_xqyagg", "name": "check", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check.svg", "tint": "oklch(0.21 0.006 60)", "width": 14}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}
