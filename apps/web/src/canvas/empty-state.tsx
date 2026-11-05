@@ -1,7 +1,7 @@
 import { cn } from "cn";
 import {
   FileUp,
-  FolderGit2,
+  FolderOpen,
   Frame,
   type LucideIcon,
   PanelsTopLeft,
@@ -15,10 +15,10 @@ import {
   useMemo,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { openSetup } from "../components/setup-dialog.tsx";
 import { newCanvas } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { newPage } from "../lib/page-actions.ts";
+import { chooseFolder } from "../lib/project-setup.ts";
 import { startInit, startPrompt } from "../lib/start-thread.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -256,11 +256,11 @@ export const EmptyState = () => {
   const canvas = useEditor((s) => s.canvas);
   let content = (
     <Lead
-      description="Pick the repository whose app you’ll design, and where its designs are kept."
-      icon={FolderGit2}
-      title="No repository set up"
+      description="Choose the folder of the app you’ll design."
+      icon={FolderOpen}
+      title="No folder open"
     >
-      <Button onClick={openSetup}>Set up…</Button>
+      <Button onClick={chooseFolder}>Choose a folder…</Button>
     </Lead>
   );
   if (configured && canvas !== null) {

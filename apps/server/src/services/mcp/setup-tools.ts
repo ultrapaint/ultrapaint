@@ -12,6 +12,7 @@ import {
 } from "@ultrapaint/contracts/design-system-setup";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
+import { ProjectManager } from "../../project.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { CallingThread } from "./access.ts";
@@ -69,7 +70,27 @@ const NextBatch = Tool.make("next_batch", {
   }),
 }).annotateMerge(doing("destructive"));
 
-export const SetupTools = Toolkit.make(FinishSetupStep, MapValues, NextBatch);
+/** A folder opened for the first time saved as set up (ADR 0062), what detection found changed. */
+const SaveSetup = Tool.make("save_setup", {
+  description:
+    'Save this folder\'s setup to ultrapaint.config.json; pass designsDir or stylesheet (repo-relative, "" none) only to change what was detected.',
+  failure: ToolFailure,
+  parameters: Schema.Struct({
+    designsDir: opt(Schema.String),
+    stylesheet: opt(Schema.String),
+  }),
+  success: Schema.Struct({
+    configPath: Schema.optionalKey(Schema.String),
+    problems: Schema.Array(Schema.String),
+  }),
+}).annotateMerge(doing("edit", { idempotent: true }));
+
+export const SetupTools = Toolkit.make(
+  FinishSetupStep,
+  MapValues,
+  NextBatch,
+  SaveSetup
+);
 
 const undecidedIn = (entries: readonly MappingEntry[]) =>
   entries.filter((e) => e.target === undefined && !e.keep).length;
@@ -78,6 +99,7 @@ export const SetupToolsLive = SetupTools.toLayer(
   Effect.gen(function* () {
     const setup = yield* DesignSystemSetupService;
     const sync = yield* DesignSystemSyncService;
+    const manager = yield* ProjectManager;
 
     /** The thread calling, which a step's tools need. */
     const caller = Effect.gen(function* () {
@@ -150,6 +172,10 @@ export const SetupToolsLive = SetupTools.toLayer(
         return next
           ? { batch: next.batch, files: next.files, remaining: next.remaining }
           : { batch: null, files: [], remaining: 0 };
+      }),
+
+      save_setup: Effect.fn("SetupTools.save_setup")(function* (change) {
+        return yield* manager.saveSetup(change);
       }),
     };
   })

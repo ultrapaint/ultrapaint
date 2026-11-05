@@ -22,6 +22,10 @@ refactor and the board view left.
 - **Default look**: what a project with no design system of its own is drawn in (ADR 0062), shown
   in the Design system place like any system until the person makes the project's own.
   _Avoid_: neutral look, no design system.
+- **Setup chat**: the chat that sets up a folder opened for the first time (ADR 0062), started by
+  the editor with `/setup` and titled *Set up <name>*: an agent checks what detection found and
+  saves it with `save_setup` (the designs directory and `ultrapaint.config.json`, no code).
+  _Avoid_: setup dialog, first-run setup.
 - **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
   **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
   property and meaning (`text.subtle`, `background.success.subtle`, Atlassian's).

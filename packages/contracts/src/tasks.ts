@@ -18,6 +18,12 @@ const Extra = Schema.optional(Schema.String);
 const InitTask = Schema.TaggedStruct("Init", { extra: Extra });
 
 /**
+ * `/setup`: a folder opened for the first time set up to design in (ADR 0062): where its designs
+ * go and the application's stylesheet, checked against the code and saved to its configuration.
+ */
+const SetupTask = Schema.TaggedStruct("Setup", { extra: Extra });
+
+/**
  * `/implement`: a page or a component turned into the application's code (ADR 0030). The
  * target is a page's URL, file or id, `component:<Name>` or a component's name; empty names the
  * only page there is. A canvas narrows a URL that pages of several canvases serve.
@@ -77,6 +83,7 @@ export const SyncTask = Schema.TaggedStruct("Sync", {
 export type SyncTask = typeof SyncTask.Type;
 
 export const TaskRequest = Schema.Union([
+  SetupTask,
   InitTask,
   ImplementTask,
   AdoptTask,
@@ -212,6 +219,14 @@ const command = <T extends RequestTag>(
 
 /** Every slash command, in the order the composer offers them. */
 const COMMANDS: readonly Command[] = [
+  command({
+    description:
+      "Set this folder up to design in: where the designs go and the app's stylesheet, saved to ultrapaint.config.json",
+    name: "setup",
+    parse: (argument) => ({ _tag: "Setup", ...given("extra", argument) }),
+    print: (request) => [request.extra],
+    requests: ["Setup"],
+  }),
   command({
     description:
       "Import the repository's design system: tokens, text styles and conventions",

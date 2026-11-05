@@ -21,6 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { chooseFolder } from "../lib/project-setup.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
@@ -28,20 +29,19 @@ import { openCommandPalette } from "./command-palette.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Logo } from "./logo.tsx";
 import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
-import { openSetup } from "./setup-dialog.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
 
 /** Where the cards sit: this far from the window's edges, and this tall. */
 export const EDGE = 8;
 const TITLE_HEIGHT = 48;
 
-// Saving needs settings to save; before the first ones exist the setup dialog is the way in.
+// Saving needs settings to save; before the first ones exist a folder is chosen first.
 const openSaveConfig = () => {
   const { openSaveConfig: open, settings } = useProject.getState();
   if (settings) {
     open(true);
   } else {
-    openSetup();
+    chooseFolder();
   }
 };
 
@@ -52,10 +52,10 @@ const ProjectName = () => {
     return (
       <button
         className="window-no-drag min-w-0 truncate text-left font-label text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
-        onClick={openSetup}
+        onClick={chooseFolder}
         type="button"
       >
-        Set up a repository
+        Choose a folder
       </button>
     );
   }

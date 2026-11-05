@@ -255,6 +255,7 @@ eachTest(Opened, {
         assert.deepStrictEqual(
           commands.map((c) => c.name),
           [
+            "setup",
             "init",
             "implement",
             "import-figma",

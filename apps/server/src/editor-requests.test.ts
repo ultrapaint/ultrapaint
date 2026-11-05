@@ -733,6 +733,7 @@ describe("the editor's requests on a project", () => {
         assert.deepStrictEqual(
           offered.map((c) => c.name),
           [
+            "setup",
             "init",
             "implement",
             "import-figma",

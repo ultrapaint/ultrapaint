@@ -30,22 +30,20 @@ const defaultsOf = (userDir: string, stateDir: string) =>
   );
 
 describe("the chat's preferences", () => {
-  it.effect(
-    "follow the user from one project to the next (ADR 0062)",
-    () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const user = yield* fs.makeTempDirectoryScoped();
-        const one = yield* fs.makeTempDirectoryScoped();
-        const two = yield* fs.makeTempDirectoryScoped();
-        yield* Effect.scoped(
-          ChatPreferences.use((p) =>
-            p.setDefaults({ agentId: "codex", model: "gpt" })
-          ).pipe(Effect.provide(preferencesOf(user, one)))
-        );
-        const defaults = yield* defaultsOf(user, two);
-        assert.deepStrictEqual(defaults, { agentId: "codex", model: "gpt" });
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  it.effect("follow the user from one project to the next (ADR 0062)", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const user = yield* fs.makeTempDirectoryScoped();
+      const one = yield* fs.makeTempDirectoryScoped();
+      const two = yield* fs.makeTempDirectoryScoped();
+      yield* Effect.scoped(
+        ChatPreferences.use((p) =>
+          p.setDefaults({ agentId: "codex", model: "gpt" })
+        ).pipe(Effect.provide(preferencesOf(user, one)))
+      );
+      const defaults = yield* defaultsOf(user, two);
+      assert.deepStrictEqual(defaults, { agentId: "codex", model: "gpt" });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
   it.effect(

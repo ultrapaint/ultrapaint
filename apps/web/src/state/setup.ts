@@ -1,29 +1,19 @@
 /**
- * What stands between the user and an edit: a repository nobody has set up yet. The editor opens
- * either way; the first edit is where it asks. A missing design system asks nothing: Sync's
- * badge and the Design system panel offer it.
+ * What stands between the user and an edit: a snapshot being looked at, or no folder open. A
+ * folder opened is set up in a chat (ADR 0062) and can be edited meanwhile; with none open, the
+ * settings are where one is chosen. A missing design system asks nothing: the default look draws.
  */
 import { toast } from "sonner";
-import { create } from "zustand";
 import { onNotConfigured, useProject } from "./project.ts";
 import { setupNeedOf } from "./setup-need.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
 
-interface SetupStore {
-  close: () => void;
-  open: () => void;
-  shown: boolean;
-}
-
-export const useSetup = create<SetupStore>((set) => ({
-  close: () => set({ shown: false }),
-  open: () => set({ shown: true }),
-  shown: false,
-}));
+const chooseFolder = () =>
+  useProject.getState().openSettings(true, "repository");
 
 /**
- * Called before an edit. `true` lets it go ahead; `false` means the setup dialog opened
- * instead, and the edit is dropped.
+ * Called before an edit. `true` lets it go ahead; `false` means it is dropped, and what stands
+ * in its way was shown instead.
  */
 export const ensureEditable = (): boolean => {
   const snapshot = viewedSnapshot();
@@ -35,11 +25,11 @@ export const ensureEditable = (): boolean => {
     return false;
   }
   if (setupNeedOf({ configured: useProject.getState().info.configured })) {
-    useSetup.getState().open();
+    chooseFolder();
     return false;
   }
   return true;
 };
 
-/** An edit the server turned away because nothing is open asks for the setup too. */
-onNotConfigured(() => useSetup.getState().open());
+/** An edit the server turned away because nothing is open asks for a folder too. */
+onNotConfigured(chooseFolder);

@@ -593,6 +593,7 @@ describe("the editor's MCP server, over the wire", () => {
             "map_figma_component",
             "map_values",
             "resolve_comment",
+            "save_setup",
             "set_frame",
             "set_home",
             "set_page_url",

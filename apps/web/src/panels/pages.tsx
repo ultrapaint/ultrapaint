@@ -2,8 +2,8 @@ import type { Page } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import { Files, TriangleAlert } from "lucide-react";
+import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { NO_URL_HINT } from "../lib/page-actions.ts";
 import { useEditor } from "../state/editor.ts";
 import {
@@ -80,7 +80,7 @@ export const Pages = () => {
   const info = canvases.find((c) => c.id === canvas);
 
   if (!configured) {
-    return <SetupEmpty />;
+    return <NoFolder />;
   }
 
   const inCanvas = pages.filter((p) => p.canvas === canvas);

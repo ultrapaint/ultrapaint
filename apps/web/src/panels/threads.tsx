@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { NoFolder } from "../components/no-folder.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
 import { toggleFollowing } from "../lib/thread-actions.ts";
 import { threadView } from "../lib/thread-view.ts";
@@ -52,7 +52,7 @@ export const Threads = () => {
   }, [configured]);
 
   if (!configured) {
-    return <SetupEmpty />;
+    return <NoFolder />;
   }
   if (view === "list" || !thread) {
     return <ThreadList />;

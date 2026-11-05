@@ -38,7 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { NoFolder } from "../components/no-folder.tsx";
 import { undoOrRedo } from "../lib/shortcuts.ts";
 import {
   deleteSnapshot,
@@ -328,7 +328,7 @@ export const Changes = () => {
   };
 
   if (!configured) {
-    return <SetupEmpty />;
+    return <NoFolder />;
   }
 
   if (open) {

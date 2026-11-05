@@ -8,7 +8,7 @@ each slice is designed again with the design skill as it is built, not copied fr
 
 Each one ships alone, in this order.
 
-1. **The start screen** (the desktop app's welcome page). "Start a new project": a prompt with
+1. **The start screen** (the desktop app's welcome page). *Done.* "Start a new project": a prompt with
    three quiet selects, as the chat composer has: *where* (a new folder in `~/Ultrapaint`, or
    one chosen), *the look* (*Agent picks the look*, *I'll pick the look*) and *the model* (the
    agent's model and effort, the agent's name only when no model is known). Sending writes the
@@ -18,7 +18,10 @@ Each one ships alone, in this order.
    the recent projects under it. The new-design dialog goes.
 2. **Setup is a chat.** A folder opened for the first time is set up by an agent in an ordinary
    chat (what detection found, the designs directory, the stylesheet), not the setup dialog; a
-   running chat is a dot on the Agents icon.
+   running chat is a dot on the Agents icon. *Done:* the editor starts *Set up <name>* with
+   `/setup` when the settings in force were detected and never saved; the agent saves them with
+   `save_setup`, which writes `ultrapaint.config.json` and the designs directory. With no folder
+   open at all, the panels say so and the settings choose one.
 3. **The default look.** A project with no design system draws in the default look; the Design
    system tab shows it like any system, marked as the default, with one bar to make the
    project's own: from the code (in a chat), a new look, or Figma. The canvas's starters and the
@@ -36,6 +39,6 @@ Each one ships alone, in this order.
 ## Notes
 
 - The start screen has no server behind it, so it cannot ask an agent for its models. It shows
-  what the chat remembers (`chat/preferences.json` of the last project opened on this machine);
-  with nothing remembered, the agent's name, as the composer does.
+  what the chat remembers (`~/.ultrapaint/chat/preferences.json`, the user's); with nothing
+  remembered, the agent's name, as the composer does.
 - A new project still gets the blank application until slice 6.
