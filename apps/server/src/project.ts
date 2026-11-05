@@ -22,7 +22,7 @@ import {
   Effect,
   Exit,
   Fiber,
-  type FileSystem,
+  FileSystem,
   Layer,
   Path,
   Schema,
@@ -211,6 +211,7 @@ export class ProjectManager extends Context.Service<
       Effect.gen(function* () {
         const requirements = yield* Effect.context<ProjectRequirements>();
         const path = yield* Path.Path;
+        const fs = yield* FileSystem.FileSystem;
         const events = yield* EventBus;
         const log = yield* AppLog;
         const storage = yield* Storage;
@@ -388,6 +389,32 @@ export class ProjectManager extends Context.Service<
           );
         });
 
+        /** Settings saved where they are kept, or to a new configuration file beside the code. */
+        const saveSettings = Effect.fnUntraced(function* (next: Settings) {
+          const target = yield* storage.target;
+          if (target.mode !== "ephemeral") {
+            const validation = yield* set(next);
+            return {
+              ...(target.mode === "file" && { configPath: target.configPath }),
+              problems: validation.problems,
+            };
+          }
+          return yield* persist({
+            configPath: path.join(next.repoPath, CONFIG_FILE_NAME),
+            settings: next,
+          }).pipe(
+            Effect.map((result) => ({
+              ...(result.configPath !== undefined && {
+                configPath: result.configPath,
+              }),
+              problems: result.validation.problems,
+            })),
+            Effect.catch((error) =>
+              Effect.succeed({ problems: [error.message] })
+            )
+          );
+        });
+
         const saveSetup = Effect.fn("ProjectManager.saveSetup")(function* (
           change: SetupChange
         ) {
@@ -414,28 +441,24 @@ export class ProjectManager extends Context.Service<
           if (made.length > 0) {
             return { problems: made };
           }
-          const target = yield* storage.target;
-          if (target.mode !== "ephemeral") {
-            const validation = yield* set(next);
-            return {
-              ...(target.mode === "file" && { configPath: target.configPath }),
-              problems: validation.problems,
-            };
+          const saved = yield* saveSettings(next);
+          // The directory detection made, left empty, goes once the setup chose another and
+          // the project opened there; one that cannot be removed is only left behind.
+          if (
+            saved.problems.length === 0 &&
+            designsDir !== settings.designsDir
+          ) {
+            const before = path.join(settings.repoPath, settings.designsDir);
+            yield* fs.readDirectory(before).pipe(
+              Effect.flatMap((entries) =>
+                entries.length === 0
+                  ? fs.remove(before, { recursive: true })
+                  : Effect.void
+              ),
+              Effect.ignore
+            );
           }
-          return yield* persist({
-            configPath: path.join(settings.repoPath, CONFIG_FILE_NAME),
-            settings: next,
-          }).pipe(
-            Effect.map((result) => ({
-              ...(result.configPath !== undefined && {
-                configPath: result.configPath,
-              }),
-              problems: result.validation.problems,
-            })),
-            Effect.catch((error) =>
-              Effect.succeed({ problems: [error.message] })
-            )
-          );
+          return saved;
         });
 
         const renameConfig = inForce
@@ -461,6 +484,25 @@ export class ProjectManager extends Context.Service<
               return;
             }
             const candidate = applySuggestions(defaultSettings(repo), found);
+            // An application opened for the first time has nowhere for its designs yet: the
+            // directory is made empty, so the project opens and its setup chat can run (ADR
+            // 0062), which keeps it or chooses another. A folder holding no app is left as it is.
+            if (found.anchors.length > 0 && found.designsDirs.length === 0) {
+              yield* setup
+                .createDesigns({
+                  designsDir: candidate.designsDir,
+                  repoPath: repo,
+                })
+                .pipe(
+                  Effect.catch((error) =>
+                    log.log(
+                      "server",
+                      "warn",
+                      `could not make ${candidate.designsDir}: ${error.message}`
+                    )
+                  )
+                );
+            }
             yield* inForce.withPermits(1)(
               Effect.gen(function* () {
                 // Settings someone set while the repository was read are in force already.

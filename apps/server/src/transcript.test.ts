@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { Thread } from "@ultrapaint/contracts/threads";
 import { migrateStored } from "./services/threads/thread-store.ts";
 import {
   emptyCursor,
@@ -111,6 +112,35 @@ describe("projectUpdate", () => {
     );
     expect(titleOf("cd /tmp && ls")).toBe("cd /tmp && ls");
     expect(titleOf("cd /repo")).toBe("cd /repo");
+  });
+});
+
+describe("a session's title", () => {
+  const titled = (named: boolean) => {
+    const {
+      actions: [action],
+    } = projectUpdate(
+      {
+        sessionUpdate: "session_info_update",
+        title: "Bike shop Ultrapaint setup",
+      } as Parameters<typeof projectUpdate>[0],
+      ctx
+    );
+    const thread: Thread = {
+      agentId: "claude-code",
+      createdAt: 0,
+      id: "t1",
+      ...(named && { named }),
+      status: "idle",
+      title: "Set up bike-shop",
+      updatedAt: 0,
+    };
+    return action?.type === "thread" ? action.patch(thread).title : undefined;
+  };
+
+  it("names the thread, unless it was given its title when it was made", () => {
+    expect(titled(false)).toBe("Bike shop Ultrapaint setup");
+    expect(titled(true)).toBeUndefined();
   });
 });
 

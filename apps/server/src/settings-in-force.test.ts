@@ -220,6 +220,44 @@ describe("the settings in force", () => {
     );
   });
 
+  eachTest(
+    ProjectTest({
+      files: {
+        "app/package.json": `${JSON.stringify({
+          dependencies: { react: "^19.0.0" },
+          name: "bike-shop",
+        })}\n`,
+      },
+      storage: "ephemeral",
+    })
+  )((it) => {
+    it.effect(
+      "opens an app never set up, its designs directory made empty, and takes it away when the setup moves it",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const fs = yield* FileSystem.FileSystem;
+          const { repo } = yield* ProjectFixture;
+          // Only the app: the fixture's designs are not there yet.
+          yield* fs.remove(`${repo}/designs`, { recursive: true });
+          yield* project.adoptDetected(repo);
+          const info = yield* project.info;
+          assert.strictEqual(info.setup, "detected");
+          assert.strictEqual(info.designsDir, "docs/designs");
+          console.log(
+            "DIR",
+            yield* fs.readDirectory(`${repo}/docs/designs`, { recursive: true })
+          );
+          const made = `${repo}/${info.designsDir}`;
+          assert.isTrue(yield* fs.exists(made));
+
+          yield* project.saveSetup({ designsDir: "app/designs" });
+          assert.isTrue(yield* fs.exists(`${repo}/app/designs`));
+          assert.isFalse(yield* fs.exists(made));
+        })
+    );
+  });
+
   eachTest(ProjectTest({ storage: "ephemeral" }), {
     realClock:
       "the configuration file written by hand is heard by a real watch of its directory",
