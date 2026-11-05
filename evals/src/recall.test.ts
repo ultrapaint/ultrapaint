@@ -7,6 +7,7 @@ import { Models } from "./models.ts";
 import {
   placeOf,
   recall,
+  spentLines,
   unmatchedOf,
   versionsOf,
   withoutTools,
@@ -209,6 +210,47 @@ describe("recall", () => {
       ),
       ["shipped@opus", "shipped@gpt-6.1-sol", "fix@opus", "fix@gpt-6.1-sol"]
     );
+  });
+
+  it("reports what a version's reviews took on average, and – where nothing was kept", () => {
+    const review = (findings: number) => ({
+      findings: Array.from({ length: findings }, (_, i) => ({
+        fix: "f",
+        problem: "p",
+        title: `t${i}`,
+        where: "w",
+      })),
+      read: [],
+    });
+    const lines = spentLines(
+      {
+        a: [
+          {
+            judgement: undefined,
+            review: review(4),
+            run: 1,
+            spent: { seconds: 100, tokens: 2000 },
+            version: "shipped",
+          },
+          {
+            judgement: undefined,
+            review: review(2),
+            run: 2,
+            spent: { seconds: 60, tokens: 1000 },
+            version: "shipped",
+          },
+          {
+            judgement: undefined,
+            review: review(1),
+            run: 1,
+            version: "shipped+outline",
+          },
+        ],
+      },
+      ["shipped", "shipped+outline"]
+    );
+    assert.include(lines, "| shipped | 2 | 3 | 80 | 1500 |");
+    assert.include(lines, "| shipped+outline | 1 | 1 | – | – |");
   });
 
   it("names a reviewer shown the outline with `+outline` after its version", () => {

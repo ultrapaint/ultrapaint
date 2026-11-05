@@ -1,6 +1,6 @@
-import { assert, describe, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 import type { InkLine, LaidBlock } from "./in-page.ts";
-import { dividerFindings, spacingFindings } from "./measure.ts";
+import { dividerFindings, hoverFindings, spacingFindings } from "./measure.ts";
 
 /** Lines of 18px from `top`, `gap` apart. */
 const lines = (top: number, count: number, gap: number): InkLine[] =>
@@ -91,5 +91,37 @@ describe("measure", () => {
       ]),
       [{ bar: "Tools", off: -6 }]
     );
+  });
+});
+
+describe("the hover pass", () => {
+  const finding = (check: "control-fill" | "touching-rows", label: string) => ({
+    check,
+    detail: "d",
+    label,
+    value: 1,
+  });
+
+  it("adds what shows only on hover: findings not seen at rest, and controls not shown at rest", () => {
+    expect(
+      hoverFindings({
+        hover: {
+          controls: ["Rename", "Delete", "Show"],
+          findings: [
+            finding("touching-rows", "Files"),
+            finding("control-fill", "Picker"),
+          ],
+        },
+        rest: {
+          controls: ["Show"],
+          findings: [finding("control-fill", "Picker")],
+        },
+      }).map((f) => [f.check, f.label, f.on])
+    ).toEqual([
+      ["control-fill", "Picker", "rest"],
+      ["touching-rows", "Files", "hover"],
+      ["hover-only", "Rename", "hover"],
+      ["hover-only", "Delete", "hover"],
+    ]);
   });
 });

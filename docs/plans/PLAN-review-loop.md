@@ -1,6 +1,7 @@
 # Plan: designs reviewed inside their loop, by reviewers the person picks
 
-Status: proposed, 2026-11-04. Decision in ADR 0060. Builds on 0059 (gaps measured by recall).
+Status: proposed, 2026-11-04; amended 2026-11-05. Decisions in ADR 0060 (the council) and ADR
+0061 (checks before reviews). Builds on 0059 (gaps measured by recall).
 
 ## Why
 
@@ -22,6 +23,7 @@ different problems), and every finding kept so the skill learns from them.
 | D5 | When in the loop | End of the turn by default; section by section measured against it in the lab |
 | D6 | One skill | The reviewer is the design skill in its review role: the skill gains a short section on reviewing a section, which the lab's recall reviewers read too |
 | D7 | The score | Each reviewer 0–100, overall and per category (the skill's references), computed from its own findings by contracts' `review`; no council score; "no score" for a reviewer that gave no review |
+| D9 | What comes before a review | An outline run against a checklist before the first node; general checks at each edit (values off the design system in the document, the rendered checks shown precise); then one judgement review per round, and the council on demand (ADR 0061) |
 | D8 | When to stop | A score asked holds every reviewer to it (own targets, advisory reviewers and category floors optional); none asked, every reviewer signs off. Caps: 6 rounds, 2 rounds under 2 points of gain, budget; the best round is kept |
 
 ## Phases
@@ -30,17 +32,23 @@ different problems), and every finding kept so the skill learns from them.
    with `--goal`, `--reviewer-goals`, `--floors`, `--max-rounds`, `--budget` and
    `--log-findings`; `panel` scores each model 0–100. Smoke on one screen, one run each: no review
    left 27–32 problems, one review at the end 20, section by section 12, at 2× and 5× the time.
-2. **The experiment, after the 7-day quota resets (2026-11-09).** The council loop (Opus, GPT-6.1-Sol,
-   Grok 4.7) until sign-off, at the end of the turn against section by section, Claude and Codex
-   designing, three references; scored by the panel and `measure`. Before it, with no new runs:
-   whether a council finds more than one model twice, from `recall --models`' runs.
-3. **The skill.** Its review role (categories, severity, rule, sign-off, read-only) and the
+2. **The shift-left tests** (2026-11-05, `runs/shift-left-1/summary.md`): `catchable` sorts every
+   finding by how it could be caught, `measure --checks --hover --stress` runs the general checks
+   on a rendered page, `recall --inputs outline` reviews from an outline alone, `off-system`
+   counts the values a round's pages leave off their design system. Recall records seconds and
+   tokens per review.
+3. **The experiment, after the 7-day quota resets (2026-11-09).** One design round, Claude and
+   Codex designing three references: the council every round (ADR 0060) against the layers of
+   ADR 0061 (outline, checks, one judgement review). Scored by the person's blind picks, the gaps
+   and `measure`, not by reviewers alone; with each arm's tokens and time.
+4. **The skill.** Its outline step and checklist, its review role (categories, severity, rule, sign-off, read-only) and the
    step that answers reviews, shipped when phase 2 shows the loop helps.
-4. **Harnesses.** Where the designer runs, the council is started: the editor (a server service,
+5. **Harnesses.** The checks at each edit in the editor's write tools (their results in the tool's
+   answer, no new tool), a script of them in the skill for other harnesses. Where the designer runs, the council is started: the editor (a server service,
    headless reviewers on 2× crops in each theme, the turn-end backstop, the setting, the log), T3
    Code's delegation, Claude Code's subagents and CLIs, a `scripts/council` fallback in the skill;
    a stop hook where the harness has one, so the loop isn't skipped (gap p08).
-5. **Triage** (issue #8), **trim** (issue #9) and **the benchmark** (issue #7), scored the same way.
+6. **Triage** (issue #8), **trim** (issue #9) and **the benchmark** (issue #7), scored the same way.
 
 ## Open
 

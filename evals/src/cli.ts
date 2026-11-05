@@ -18,6 +18,7 @@
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
  *   pnpm evals catchable <name> [--decks …] [--panels …] sort the findings: code, outline or eye
+ *   pnpm evals off-system <rounds…>                values a round's pages set where a token was due
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *   pnpm evals panel <round> [rounds…]             what a fixed panel still finds in finished designs
  *
@@ -45,6 +46,7 @@ import { judge } from "./judge.ts";
 import { learn } from "./learn.ts";
 import { measure } from "./measure.ts";
 import { Models } from "./models.ts";
+import { offSystem } from "./off-system.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
@@ -811,8 +813,15 @@ const measureCommand = Command.make(
       )
     ),
     grid: Flag.Int("grid").pipe(
-      Flag.withDescription("The spacing scale's step in px, for --checks"),
-      Flag.withDefault(4)
+      Flag.withDescription(
+        "With --checks: the spacing scale's step in px to check computed spacing against; 0 (the default) leaves it out, as a page's half steps look like values off the scale"
+      ),
+      Flag.withDefault(0)
+    ),
+    hover: Flag.Boolean("hover").pipe(
+      Flag.withDescription(
+        "With --checks: check again with every control drawn as hovered, for fills that touch and controls shown only on hover"
+      )
     ),
     out: Flag.String("out").pipe(
       Flag.withDescription("A JSON file the findings are written to"),
@@ -853,7 +862,12 @@ const measureCommand = Command.make(
   Effect.fn(function* (input) {
     yield* measure(input.url, {
       checks: input.checks
-        ? { grid: input.grid, stress: input.stress, toneStep: 0.045 }
+        ? {
+            grid: input.grid,
+            hover: input.hover,
+            nearTone: 0.008,
+            stress: input.stress,
+          }
         : undefined,
       out: Option.getOrUndefined(input.out),
       ratio: input.ratio,
@@ -1017,6 +1031,23 @@ const catchableCommand = Command.make(
   )
 );
 
+const offSystemCommand = Command.make(
+  "off-system",
+  {
+    rounds: Argument.String("rounds").pipe(
+      Argument.withDescription("Rounds whose runs' pages are checked"),
+      Argument.atLeast(1)
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* offSystem(input.rounds);
+  })
+).pipe(
+  Command.withDescription(
+    "Count the values each run's pages set for themselves where the design system has a token"
+  )
+);
+
 const panelCommand = Command.make(
   "panel",
   {
@@ -1080,6 +1111,7 @@ Command.make("design-evals").pipe(
     decideCommand,
     measureCommand,
     catchableCommand,
+    offSystemCommand,
     outlineCommand,
   ]),
   Command.run({ version: "0.0.0" }),

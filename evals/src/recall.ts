@@ -19,7 +19,7 @@
  * `testing`.
  */
 import path from "node:path";
-import { DateTime, Effect, FileSystem, Predicate, Schema } from "effect";
+import { Clock, DateTime, Effect, FileSystem, Predicate, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
@@ -172,7 +172,14 @@ const Unmatched = Schema.Struct({
 type Unmatched = typeof Unmatched.Type;
 
 const Saved = <S extends Schema.Top>(schema: S) =>
-  Schema.Struct({ costUsd: Schema.Number, value: schema });
+  Schema.Struct({
+    costUsd: Schema.Number,
+    /** How long it took; absent in steps saved before it was kept. */
+    seconds: Schema.optional(Schema.Number),
+    /** Tokens in and out, where the model counts them (Codex, Cursor); absent otherwise. */
+    tokens: Schema.optional(Schema.Number),
+    value: schema,
+  });
 
 /** A version of the skill by the name the report gives it: `shipped`, or the candidate's. */
 export const versionName = (skills: string) =>
@@ -251,6 +258,8 @@ export interface Reviewed {
   readonly judgement: Judgement | undefined;
   readonly review: Review;
   readonly run: number;
+  /** What the review took, where it was kept. */
+  readonly spent?: { readonly seconds?: number; readonly tokens?: number };
   readonly version: string;
 }
 
@@ -479,7 +488,23 @@ export const writeOutlines = Effect.fn("writeOutlines")(function* (options: {
 const picturesOf = (section: Section) =>
   section.pictures.map((p) => `- \`${p.file}\`: ${p.shows}`).join("\n");
 
-const reviewOne = Effect.fn("reviewOne")(function* (
+/** One review, with what it took: its cost, its seconds and, where counted, its tokens. */
+const reviewOne = (
+  copy: { readonly dir: string; readonly section: Section },
+  tree: string,
+  version: Version,
+  options: RecallOptions
+) =>
+  Effect.gen(function* () {
+    const started = yield* Clock.currentTimeMillis;
+    const answer = yield* askReview(copy, tree, version, options);
+    return {
+      ...answer,
+      seconds: Math.round(((yield* Clock.currentTimeMillis) - started) / 1000),
+    };
+  });
+
+const askReview = Effect.fn("askReview")(function* (
   copy: { readonly dir: string; readonly section: Section },
   tree: string,
   version: Version,
@@ -509,7 +534,11 @@ const reviewOne = Effect.fn("reviewOne")(function* (
       }),
       ...reviewAnswer,
     });
-    return { costUsd: answer.costUsd, value: answer.value };
+    return {
+      costUsd: answer.costUsd,
+      tokens: answer.tokens,
+      value: answer.value,
+    };
   }
   const answer = yield* models.ask({
     cwd: copy.dir,
@@ -526,7 +555,11 @@ const reviewOne = Effect.fn("reviewOne")(function* (
     }),
     ...reviewAnswer,
   });
-  return { costUsd: answer.costUsd, value: answer.value };
+  return {
+    costUsd: answer.costUsd,
+    tokens: answer.tokens,
+    value: answer.value,
+  };
 });
 
 const listFindings = (findings: readonly (readonly [string, Finding])[]) =>
@@ -643,7 +676,12 @@ const kept = <S extends Schema.Top, E, R>(
   file: string,
   schema: S,
   make: Effect.Effect<
-    { readonly costUsd: number; readonly value: S["Type"] },
+    {
+      readonly costUsd: number;
+      readonly seconds?: number;
+      readonly tokens?: number;
+      readonly value: S["Type"];
+    },
     E,
     R
   >
@@ -742,6 +780,14 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
                   judgement: judged?.value,
                   review: review.value,
                   run,
+                  spent: {
+                    ...(review.seconds !== undefined && {
+                      seconds: review.seconds,
+                    }),
+                    ...(review.tokens !== undefined && {
+                      tokens: review.tokens,
+                    }),
+                  },
                   version: version.name,
                 } satisfies Reviewed;
               })
@@ -851,6 +897,31 @@ const whoOf = (options: RecallOptions) => {
 };
 
 /** The round's report: recall per gap and version, then what no gap matched, to be rated. */
+/** What a version's reviews took on average: seconds and, where counted, tokens. */
+export const spentLines = (
+  reviewed: Readonly<Record<string, readonly Reviewed[]>>,
+  versions: readonly string[]
+): string[] => {
+  const all = Object.values(reviewed).flat();
+  const mean = (values: readonly number[]) =>
+    values.length === 0
+      ? "–"
+      : String(Math.round(values.reduce((a, b) => a + b, 0) / values.length));
+  return [
+    "## What a review took",
+    "",
+    "| Version | Reviews | Findings | Seconds | Tokens |",
+    "| --- | --- | --- | --- | --- |",
+    ...versions.map((v) => {
+      const these = all.filter((r) => r.version === v);
+      return `| ${v} | ${these.length} | ${mean(these.map((r) => r.review.findings.length))} | ${mean(these.flatMap((r) => (r.spent?.seconds === undefined ? [] : [r.spent.seconds])))} | ${mean(these.flatMap((r) => (r.spent?.tokens ? [r.spent.tokens] : [])))} |`;
+    }),
+    "",
+    "Means per review; – where it wasn't kept (reviews saved before) or counted (Claude reports dollars, not tokens).",
+    "",
+  ];
+};
+
 export const reportOf = (input: ReportInput) => {
   const { options, versions } = input;
   const row = (cells: readonly string[]) => `| ${cells.join(" | ")} |`;
@@ -954,5 +1025,6 @@ export const reportOf = (input: ReportInput) => {
       ""
     );
   }
+  lines.push(...spentLines(input.reviewed, versions));
   return `${lines.join("\n")}\n`;
 };

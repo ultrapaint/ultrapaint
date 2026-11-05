@@ -272,6 +272,9 @@ importers:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../packages/contracts
+      '@ultrapaint/design-document':
+        specifier: workspace:*
+        version: link:../packages/design-document
       effect:
         specifier: 4.0.0
         version: 4.0.0

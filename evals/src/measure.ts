@@ -13,7 +13,13 @@ import { pathToFileURL } from "node:url";
 import { Console, Effect } from "effect";
 import { Browser } from "./browser.ts";
 import { EvalsError } from "./errors.ts";
-import type { InkLine, LaidBlock, LaidRule } from "./in-page.ts";
+import type {
+  Audited,
+  AuditFinding,
+  InkLine,
+  LaidBlock,
+  LaidRule,
+} from "./in-page.ts";
 import { writeJson } from "./layout.ts";
 
 export interface SpacingFinding {
@@ -118,17 +124,60 @@ export const dividerFindings = (
     }))
     .filter((r) => Math.abs(r.off) > DIVIDER_TOLERANCE);
 
+/** A check's finding, and whether it shows at rest or only on hover. */
+export type CheckFinding = AuditFinding & { readonly on: "hover" | "rest" };
+
+/**
+ * The findings at rest, then what only the hover pass found: its own findings not seen at rest,
+ * and every control a person sees only on hover (hover-only actions, usability.md).
+ */
+export const hoverFindings = (audited: {
+  readonly hover?: Audited;
+  readonly rest: Audited;
+}): readonly CheckFinding[] => {
+  const rest = audited.rest.findings.map((f) => ({
+    ...f,
+    on: "rest" as const,
+  }));
+  const { hover } = audited;
+  if (hover === undefined) {
+    return rest;
+  }
+  const atRest = new Set(
+    audited.rest.findings.map((f) => `${f.check}|${f.label}`)
+  );
+  const seen = new Set(audited.rest.controls);
+  return [
+    ...rest,
+    ...hover.findings
+      .filter((f) => !atRest.has(`${f.check}|${f.label}`))
+      .map((f) => ({ ...f, on: "hover" as const })),
+    ...hover.controls
+      .filter((c) => !seen.has(c))
+      .map((label) => ({
+        check: "hover-only" as const,
+        detail: "a control shown only under the pointer",
+        label,
+        on: "hover" as const,
+        value: 1,
+      })),
+  ];
+};
+
 export interface MeasureOptions {
   /**
-   * The general design checks too (contrast, control edges, surface tones, the spacing scale,
-   * touching rows, clipped text, names that can't truncate, targets), with the scale's step and a
-   * tone step; none without it.
+   * The general design checks too (contrast, control edges and fills, surface tones, touching
+   * rows, clipped text, names that can't truncate, targets, controls shown only on hover); none
+   * without it.
    */
   readonly checks?:
     | {
+        /** The spacing scale's step for the computed-spacing check; 0 leaves it out. */
         readonly grid: number;
+        /** Whether the page is checked again with every control drawn as hovered. */
+        readonly hover: boolean;
+        readonly nearTone: number;
         readonly stress: boolean;
-        readonly toneStep: number;
       }
     | undefined;
   /** Where the findings go as JSON, besides the terminal. */
@@ -176,16 +225,20 @@ export const measure = Effect.fn("measure")(function* (
   for (const f of dividers) {
     yield* Console.log(`divider: ${f.off}px off its bar's line, in “${f.bar}”`);
   }
-  const checked = options.checks
+  const audited = options.checks
     ? yield* browser.audit(url, {
         ...options.checks,
+        hoverChecks: ["touching-rows", "control-fill"],
         root: options.root,
         steps: Array.isArray(steps) ? steps : [],
         theme: options.theme,
       })
-    : [];
+    : undefined;
+  const checked = audited ? hoverFindings(audited) : [];
   for (const f of checked) {
-    yield* Console.log(`${f.check}: ${f.detail}, “${f.label}”`);
+    yield* Console.log(
+      `${f.check}${f.on === "hover" ? " (on hover)" : ""}: ${f.detail}, “${f.label}”`
+    );
   }
   yield* Console.log(
     `${spacing.length} spacing and ${dividers.length} divider findings; ${layout.rules.length} dividers measured${options.checks ? `; ${checked.length} from the checks` : ""}`
