@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/tooltip";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
+import { composerBox, composerText } from "../components/composer-style.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
@@ -87,7 +88,6 @@ import { ModelPicker, ModePicker } from "./thread-pickers.tsx";
 import {
   AnswerButtons,
   AnswerField,
-  composerText,
   OpenQuestion,
   onAnswerKey,
   StopButton,
@@ -314,7 +314,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         thread={thread}
       />
       <OpenQuestion answering={answering} threadId={thread.id} />
-      <div className="flex flex-col rounded-lg border border-transparent bg-muted transition-colors duration-100 hover:border-input has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/25">
+      <div className={composerBox}>
         {images.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {images.map((chip) => (

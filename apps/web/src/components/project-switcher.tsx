@@ -5,7 +5,6 @@ import {
   type ProjectSwitcher as Switcher,
 } from "../platform.ts";
 import { reportError } from "../state/project.ts";
-import { canMakeNewDesigns, openNewDesign } from "./new-design-dialog.tsx";
 import { OptionSelect } from "./option-select.tsx";
 import {
   canAddRemoteProjects,
@@ -14,7 +13,7 @@ import {
 
 /** The option that asks the shell for another project rather than naming one. */
 const ADD = "\u0000add";
-/** The option that opens the New design dialog. */
+/** The option that shows the start screen, the open project kept behind it. */
 const NEW = "\u0000new";
 /** The option that opens the dialog for a folder on another machine. */
 const REMOTE = "\u0000remote";
@@ -37,7 +36,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
   }, [switcher]);
   const choose = (id: string) => {
     if (id === NEW) {
-      openNewDesign();
+      switcher.showStart().catch(reportError);
       return;
     }
     if (id === REMOTE) {
@@ -57,7 +56,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
           label: p.name,
           value: p.id,
         })),
-        ...(canMakeNewDesigns() ? [{ label: "New design…", value: NEW }] : []),
+        { label: "New project…", value: NEW },
         { label: "Open folder…", value: ADD },
         ...(canAddRemoteProjects()
           ? [{ label: "Open over SSH…", value: REMOTE }]

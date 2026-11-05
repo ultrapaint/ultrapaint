@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AgentIcon } from "../components/agent-icon.tsx";
+import { quietTrigger } from "../components/quiet-select.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
@@ -322,8 +323,7 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
  * The composer's pickers, quiet selects: their value and a chevron in muted text, filled only
  * under the pointer or while open. They give up width before the send button does.
  */
-const pickerTrigger =
-  "min-w-0 shrink gap-1 px-1.5 text-muted-foreground has-data-[icon=inline-end]:pr-1";
+const pickerTrigger = quietTrigger;
 
 /** What each agent's modes let it do, drawn small enough to stand for the mode alone. */
 const MODE_ICONS: Record<string, LucideIcon> = {

@@ -23,6 +23,7 @@ describe("the shell bridge's table", () => {
       "agents.clearPath",
       "agents.download",
       "agents.list",
+      "agents.preferences",
       "agents.setApiKey",
       "agents.signIn",
       "notices",

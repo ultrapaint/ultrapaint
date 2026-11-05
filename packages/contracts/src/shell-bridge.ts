@@ -22,7 +22,7 @@
 import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
 import { ScaffoldTemplate } from "./setup.ts";
-import { BuiltInAgentId } from "./threads.ts";
+import { BuiltInAgentId, ChatPreferencesFile } from "./threads.ts";
 
 /**
  * What the shell is doing for the open project that the editor cannot see: reconnecting to the
@@ -113,6 +113,42 @@ const RemoteProjectRequest = Schema.Struct({
   path: Schema.String,
 });
 
+/**
+ * What the start screen asks for besides the folder (ADR 0062): the prompt, sent in the
+ * project's first chat once it opens, who picks the look, and the agent and model to send it
+ * with. The editor takes it off its address (`apps/web/src/lib/first-prompt.ts`).
+ */
+export const FirstPrompt = Schema.Struct({
+  agentId: Schema.optional(Schema.String),
+  /** `agent`: the agent settles it from the prompt; `pick`: the person picks it first. */
+  look: Schema.Literals(["agent", "pick"]),
+  /** A value of the agent's model option, as the chat remembers it. */
+  model: Schema.optional(Schema.String),
+  prompt: Schema.String,
+});
+export type FirstPrompt = typeof FirstPrompt.Type;
+
+/** The editor's address carries it as JSON in this parameter, taken off once read. */
+export const FIRST_PROMPT_PARAM = "first-prompt";
+
+/** The parameters a project opens with to send `start`: none without one. */
+export const firstPromptQuery = (
+  start: FirstPrompt | undefined
+): Readonly<Record<string, string>> =>
+  start ? { [FIRST_PROMPT_PARAM]: JSON.stringify(start) } : {};
+
+/** What a folder the person chose holds, before anything is written in it. */
+export const FolderKind = Schema.Struct({
+  /**
+   * `project`: it has an Ultrapaint configuration; `empty`: nothing but what a system leaves;
+   * `folder`: anything else, an app or not.
+   */
+  kind: Schema.Literals(["project", "empty", "folder"]),
+  /** Its name, as the list would show it. */
+  name: Schema.String,
+});
+export type FolderKind = typeof FolderKind.Type;
+
 /** A design from nothing (PLAN-desktop D11), as the dialog asks for it. */
 export const NewDesignInput = Schema.Struct({
   /** Where the application's code goes: `app/` beside the designs, or the folder's root. */
@@ -122,6 +158,8 @@ export const NewDesignInput = Schema.Struct({
   /** A first commit, and the git integration on; off, nothing is written to git. */
   git: Schema.Boolean,
   name: Schema.String,
+  /** The start screen's prompt, sent once the project opens. */
+  start: Schema.optional(FirstPrompt),
   /** `blank`: no components; `starter`: ten to design with. */
   template: ScaffoldTemplate,
 });
@@ -242,6 +280,11 @@ export const SHELL_BRIDGE = {
   "agents.download": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /** How each agent stands on this machine. */
   "agents.list": invoke([], Schema.Array(PlatformAgent), LOCAL),
+  /**
+   * What the chat remembers of each agent's models and the one a new thread starts with, from
+   * the user's directory: the start screen offers them before any server runs.
+   */
+  "agents.preferences": invoke([], ChatPreferencesFile, LOCAL),
   /** Keeps the key the agent signs in with; `null` forgets it. The server starts again. */
   "agents.setApiKey": invoke(
     [BuiltInAgentId, Schema.NullOr(Schema.String)],
@@ -297,12 +340,27 @@ export const SHELL_BRIDGE = {
   ),
   /** The open project's id. */
   "projects.current": invoke([], Schema.NullOr(Schema.String)),
+  /** What a folder holds: an Ultrapaint project, nothing, or anything else. */
+  "projects.inspect": invoke([Schema.String], FolderKind),
   "projects.list": invoke([], Schema.Array(PlatformProject)),
   /**
    * Opens another project. The shell stops the open project's server, asking first when an agent
    * is working, starts the next one's and loads its editor in place of this one.
    */
   "projects.open": invoke([Schema.String], Schema.Void),
+  /**
+   * Adds a folder to the list, when it is not there yet, and opens it as `open` does, sending
+   * the start screen's prompt in its first chat when one is given.
+   */
+  "projects.openFolder": invoke(
+    [Schema.String, Schema.optional(FirstPrompt)],
+    Schema.Void
+  ),
+  /**
+   * Shows the start screen in place of the open project's editor, which stays open behind it:
+   * `open` with its id goes back to it.
+   */
+  "projects.showStart": invoke([], Schema.Void),
   /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
   /** Stops the project opening (its machine not answering, say) and shows the list instead. */

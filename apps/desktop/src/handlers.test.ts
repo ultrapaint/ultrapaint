@@ -53,7 +53,8 @@ const withHandlers = <A, E>(
     recorded: Recorded,
     asked: string[]
   ) => Effect.Effect<A, E, HandlerServices>,
-  sshConfig = "/nowhere/config"
+  sshConfig = "/nowhere/config",
+  home = "/home/u"
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -90,10 +91,7 @@ const withHandlers = <A, E>(
       Layer.provideMerge(fakeRemoteProjects(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );
-    const handlers = bridgeHandlers({
-      home: "/home/u",
-      sshConfig,
-    });
+    const handlers = bridgeHandlers({ home, sshConfig });
     return yield* body(handlers, recorded, asked).pipe(Effect.provide(app));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
@@ -274,5 +272,121 @@ describe("the bridge's handlers", () => {
         config
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "say what a folder holds: a project, nothing but what a system leaves, or anything else",
+    () =>
+      withHandlers((handlers) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const at = (name: string, files: readonly string[]) =>
+            Effect.gen(function* () {
+              const dir = path.join(root, name);
+              yield* fs.makeDirectory(dir);
+              for (const file of files) {
+                yield* fs.writeFileString(path.join(dir, file), "");
+              }
+              return dir;
+            });
+          const kinds = [
+            yield* handlers["projects.inspect"](
+              yield* at("shop", ["ultrapaint.config.json", "package.json"])
+            ),
+            yield* handlers["projects.inspect"](
+              yield* at("blank", [".DS_Store"])
+            ),
+            yield* handlers["projects.inspect"](
+              yield* at("app", ["package.json"])
+            ),
+          ];
+          assert.deepStrictEqual(kinds, [
+            { kind: "project", name: "shop" },
+            { kind: "empty", name: "blank" },
+            { kind: "folder", name: "app" },
+          ]);
+        }).pipe(Effect.scoped)
+      )
+  );
+
+  it.effect(
+    "read what the chat remembers from the user's directory, nothing when no chat has run",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const remembered = {
+          agents: [{ agentId: "codex", configOptions: [] }],
+          defaults: { agentId: "codex" },
+        };
+        yield* withHandlers(
+          (handlers) =>
+            Effect.gen(function* () {
+              assert.deepStrictEqual(yield* handlers["agents.preferences"](), {
+                agents: [],
+                defaults: {},
+              });
+              const dir = path.join(home, ".ultrapaint", "chat");
+              yield* fs.makeDirectory(dir, { recursive: true });
+              yield* fs.writeFileString(
+                path.join(dir, "preferences.json"),
+                JSON.stringify(remembered)
+              );
+              assert.deepStrictEqual(
+                yield* handlers["agents.preferences"](),
+                remembered
+              );
+            }),
+          "/nowhere/config",
+          home
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "open a folder with the start screen's prompt on the editor's address",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          yield* handlers["projects.openFolder"]("/work/shop", {
+            look: "agent",
+            prompt: "A bike shop",
+          });
+          const editor = recorded.views.at(-1);
+          assert.strictEqual(editor?._tag, "Editor");
+          const url = new URL(editor?._tag === "Editor" ? editor.url : "");
+          assert.deepStrictEqual(
+            JSON.parse(url.searchParams.get("first-prompt") ?? "null"),
+            { look: "agent", prompt: "A bike shop" }
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "show the start screen with the open project kept behind it, and go back to it",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const shop = yield* store.add("/work/shop");
+          yield* handlers["projects.open"](shop.id);
+          yield* handlers["projects.showStart"]();
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Welcome",
+            back: "shop",
+          });
+          yield* handlers["projects.open"](shop.id);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+          // Its server ran on behind the start screen.
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+        })
+      )
   );
 });

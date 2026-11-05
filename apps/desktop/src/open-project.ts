@@ -101,7 +101,8 @@ export class OpenProject extends Context.Service<
     >;
     /**
      * Opens a project in place of the one open; nothing changes when the user would rather let
-     * an agent at work in the open one finish.
+     * an agent at work in the open one finish. The open one shows its editor again, from the
+     * start screen.
      */
     readonly open: (
       id: string
@@ -114,6 +115,11 @@ export class OpenProject extends Context.Service<
     readonly restart: Effect.Effect<void, StoreError | ServerStartError>;
     /** At start: the project opened last, or the page that asks for one. */
     readonly start: Effect.Effect<void, StoreError>;
+    /**
+     * Shows the start screen (ADR 0062) in place of the open project's editor, which stays open
+     * behind it until another project opens, the start screen offering the way back.
+     */
+    readonly showStart: Effect.Effect<void>;
     /** Stops the project opening, if one is, and shows the list in its place. */
     readonly stopOpening: Effect.Effect<void>;
     /**
@@ -374,12 +380,15 @@ export class OpenProject extends Context.Service<
           addRemote,
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
           open: (id) =>
-            Effect.flatMap(store.get(id), (project) =>
-              // The one open, or the one opening already, goes on as it is.
-              open?.project.id === id || opening?.id === id
+            Effect.flatMap(store.get(id), (project) => {
+              // The one open shows its editor again; the one opening goes on as it is.
+              if (open?.project.id === id) {
+                return shell.show({ _tag: "Editor", url: open.server.url });
+              }
+              return opening?.id === id
                 ? Effect.void
-                : Effect.asVoid(openProject(project))
-            ),
+                : Effect.asVoid(openProject(project));
+            }),
           openFolder,
           restart: switching.withPermits(1)(
             Effect.gen(function* () {
@@ -390,6 +399,12 @@ export class OpenProject extends Context.Service<
               if (yield* release("restart", true)) {
                 yield* showFailure(launch(was.project, { keepLocation: true }));
               }
+            })
+          ),
+          showStart: Effect.suspend(() =>
+            shell.show({
+              _tag: "Welcome",
+              ...(open ? { back: open.project.name } : {}),
             })
           ),
           start: Effect.gen(function* () {
