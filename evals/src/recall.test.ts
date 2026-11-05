@@ -211,6 +211,18 @@ describe("recall", () => {
     );
   });
 
+  it("names a reviewer shown the outline with `+outline` after its version", () => {
+    assert.deepStrictEqual(
+      versionsOf(["built-in"], ["gpt-6.1-sol"], ["pictures", "outline"]).map(
+        (v) => [v.name, v.input]
+      ),
+      [
+        ["shipped", "pictures"],
+        ["shipped+outline", "outline"],
+      ]
+    );
+  });
+
   it.effect(
     "compares the models that review, with every review judged by one model",
     () => {

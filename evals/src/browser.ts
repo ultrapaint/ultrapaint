@@ -15,6 +15,9 @@ import {
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
+  type AuditFinding,
+  type AuditOptions,
+  auditInBrowser,
   type Box,
   compareInBrowser,
   cropInBrowser,
@@ -142,6 +145,17 @@ export class Browser extends Context.Service<
       },
       EvalsError
     >;
+    /**
+     * The general design checks (`auditInBrowser`) under a selector at the URL, after the steps
+     * run on the page (1600×1000): what `measure --checks` adds.
+     */
+    readonly audit: (
+      url: string,
+      options: AuditOptions & {
+        readonly steps: readonly ((page: Page) => Promise<unknown>)[];
+        readonly theme: "dark" | "light";
+      }
+    ) => Effect.Effect<readonly AuditFinding[], EvalsError>;
     /** Keeps a page open at the URL until the scope closes: the editor, for get_screenshot. */
     readonly hold: (
       url: string
@@ -409,7 +423,37 @@ export class Browser extends Context.Service<
           `measuring ${url}`
         );
 
+      const audit = (
+        url: string,
+        options: AuditOptions & {
+          readonly steps: readonly ((page: Page) => Promise<unknown>)[];
+          readonly theme: "dark" | "light";
+        }
+      ) =>
+        withPage(
+          {
+            colorScheme: options.theme,
+            viewport: { height: 1000, width: 1600 },
+          },
+          async (page) => {
+            await page.goto(url, { waitUntil: "load" });
+            // An app draws after load: its first screen settles in a few seconds.
+            await page.waitForTimeout(4000);
+            await options.steps.reduce<Promise<unknown>>(
+              (done, step) =>
+                done
+                  .then(() => step(page))
+                  .then(() => page.waitForTimeout(800)),
+              Promise.resolve()
+            );
+            const { steps: _, theme: __, ...checks } = options;
+            return page.evaluate(auditInBrowser, checks);
+          },
+          `checking ${url}`
+        );
+
       return Browser.of({
+        audit,
         capture,
         compare,
         crop,
@@ -428,6 +472,7 @@ export class Browser extends Context.Service<
   static readonly layerTest = Layer.succeed(
     Browser,
     Browser.of({
+      audit: () => noBrowser,
       capture: () => noBrowser,
       compare: () => noBrowser,
       crop: () => noBrowser,

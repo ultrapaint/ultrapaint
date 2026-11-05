@@ -837,3 +837,515 @@ export const layoutInBrowser = (root: string) => {
   });
   return { block: walk(rootEl), rules };
 };
+
+/** What a design check of `auditInBrowser` found, and the measured value it fails on. */
+export interface AuditFinding {
+  readonly check:
+    | "contrast"
+    | "control-edge"
+    | "surface-tone"
+    | "overlay-tone"
+    | "off-scale"
+    | "touching-rows"
+    | "clipped-text"
+    | "cant-truncate"
+    | "target-size";
+  /** What it says, with the threshold. */
+  readonly detail: string;
+  /** The element's first words, or its tag and role: to find it. */
+  readonly label: string;
+  readonly value: number;
+}
+
+export interface AuditOptions {
+  /** Steps of the spacing scale, in CSS pixels: a value not a multiple of it is off the scale. */
+  readonly grid: number;
+  readonly root: string;
+  /** Whether the names in lists are lengthened to see if they truncate (it changes the page). */
+  readonly stress: boolean;
+  /** One tone step between nested surfaces, in oklch lightness. */
+  readonly toneStep: number;
+}
+
+/**
+ * The general design checks, on the rendered page under `root`, each with a threshold from the
+ * skill or the design system: text contrast (4.5:1, large 3:1), a control's edge against what it
+ * sits on (3:1), nested surfaces a tone step apart and a dialog not below the page it covers,
+ * spacing on the scale, rounded or filled rows not touching, text not clipped, names that
+ * truncate, targets at least 24px. Plain DOM code, since Playwright sends its source to the page.
+ */
+export const auditInBrowser = (options: AuditOptions) => {
+  const rootEl = document.querySelector(options.root) ?? document.body;
+  const findings: AuditFinding[] = [];
+  const seen = new Set<string>();
+  const add = (f: AuditFinding) => {
+    const key = `${f.check}|${f.label}|${f.detail}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      findings.push(f);
+    }
+  };
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  /** Any CSS colour as sRGB 0–1 and alpha, through the canvas, which knows every syntax. */
+  const rgba = (css: string): [number, number, number, number] => {
+    if (!ctx || css === "" || css === "transparent") {
+      return [0, 0, 0, 0];
+    }
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = "#000";
+    ctx.fillStyle = css;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
+    return [r / 255, g / 255, b / 255, a / 255];
+  };
+  const over = (
+    top: [number, number, number, number],
+    under: [number, number, number]
+  ): [number, number, number] => [
+    top[0] * top[3] + under[0] * (1 - top[3]),
+    top[1] * top[3] + under[1] * (1 - top[3]),
+    top[2] * top[3] + under[2] * (1 - top[3]),
+  ];
+  const linear = (c: number) =>
+    c <= 0.040_45 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const luminance = (c: [number, number, number]) =>
+    0.2126 * linear(c[0]) + 0.7152 * linear(c[1]) + 0.0722 * linear(c[2]);
+  const ratio = (a: [number, number, number], b: [number, number, number]) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+  };
+  /** Oklab lightness, the scale the skill's tone steps are given in. */
+  const lightness = (c: [number, number, number]) => {
+    const [r, g, b] = c.map(linear) as [number, number, number];
+    const l = Math.cbrt(
+      0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b
+    );
+    const m = Math.cbrt(
+      0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b
+    );
+    const s = Math.cbrt(
+      0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b
+    );
+    return 0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s;
+  };
+  const shown = (el: Element) => {
+    const style = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      Number(style.opacity) > 0 &&
+      box.width > 0 &&
+      box.height > 0 &&
+      box.bottom > 0 &&
+      box.right > 0 &&
+      box.top < innerHeight &&
+      box.left < innerWidth
+    );
+  };
+  const labelOf = (el: Element) => {
+    const text = (el.textContent ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 40);
+    const name = el.getAttribute("aria-label") ?? el.getAttribute("title");
+    const role = el.getAttribute("role");
+    return (
+      text || name || `${el.tagName.toLowerCase()}${role ? `[${role}]` : ""}`
+    );
+  };
+  /** The colour behind an element: its ancestors' fills composited; none past a picture. */
+  const backdrop = (
+    el: Element | null
+  ): [number, number, number] | undefined => {
+    const layers: [number, number, number, number][] = [];
+    for (let at = el; at; at = at.parentElement) {
+      const style = getComputedStyle(at);
+      if (style.backgroundImage !== "none") {
+        return;
+      }
+      const fill = rgba(style.backgroundColor);
+      if (fill[3] > 0) {
+        layers.push(fill);
+        if (fill[3] >= 1) {
+          break;
+        }
+      }
+    }
+    let colour: [number, number, number] = [1, 1, 1];
+    for (const layer of layers.reverse()) {
+      colour = over(layer, colour);
+    }
+    return colour;
+  };
+  const disabled = (el: Element) =>
+    el.closest("[disabled], [aria-disabled='true'], [inert]") !== null;
+  const opacityOf = (el: Element) => {
+    let o = 1;
+    for (let at: Element | null = el; at; at = at.parentElement) {
+      o *= Number(getComputedStyle(at).opacity);
+    }
+    return o;
+  };
+  const px = (v: string) => Number.parseFloat(v) || 0;
+  const all = [rootEl, ...rootEl.querySelectorAll("*")].filter(
+    (el) => !el.closest("svg") && shown(el)
+  );
+
+  // Text contrast, placeholders included.
+  const hasOwnText = (el: Element) =>
+    [...el.childNodes].some(
+      (n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== ""
+    );
+  /** An empty field showing its placeholder: the placeholder's contrast is checked. */
+  const showsPlaceholder = (el: Element) =>
+    (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) &&
+    el.value === "" &&
+    el.placeholder !== "";
+  /** The contrast text needs: 3:1 when large (24px, or 18.66px bold), else 4.5:1. */
+  const neededFor = (style: CSSStyleDeclaration) => {
+    const size = px(style.fontSize);
+    return size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700)
+      ? 3
+      : 4.5;
+  };
+  const contrastOf = (el: Element) => {
+    const field = showsPlaceholder(el);
+    if (!(hasOwnText(el) || field) || disabled(el)) {
+      return;
+    }
+    const bg = backdrop(el);
+    if (!bg) {
+      return;
+    }
+    const style = getComputedStyle(el, field ? "::placeholder" : null);
+    const fg = rgba(style.color);
+    const text = over([fg[0], fg[1], fg[2], fg[3] * opacityOf(el)], bg);
+    const need = neededFor(style);
+    const got = ratio(text, bg);
+    if (got < need) {
+      add({
+        check: "contrast",
+        detail: `${field ? "placeholder" : "text"} ${got.toFixed(2)}:1, under ${need}:1`,
+        label: `${labelOf(el)}${field ? " (placeholder)" : ""}`,
+        value: Number(got.toFixed(2)),
+      });
+    }
+  };
+  const textContrast = () => {
+    for (const el of all) {
+      contrastOf(el);
+    }
+  };
+
+  // A control's edge against what it sits on: its fill or its border, 3:1.
+  const controlEdges = () => {
+    const controls = all.filter((el) =>
+      el.matches(
+        "input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, select, [role=combobox], [role=textbox], [role=switch], [role=checkbox], [role=radio]"
+      )
+    );
+    for (const el of controls) {
+      if (disabled(el)) {
+        continue;
+      }
+      const under = backdrop(el.parentElement);
+      if (!under) {
+        continue;
+      }
+      const style = getComputedStyle(el);
+      const fill = over(rgba(style.backgroundColor), under);
+      const border =
+        px(style.borderTopWidth) >= 1
+          ? ratio(over(rgba(style.borderTopColor), fill), under)
+          : 1;
+      const got = Math.max(ratio(fill, under), border);
+      if (got < 3) {
+        add({
+          check: "control-edge",
+          detail: `edge ${got.toFixed(2)}:1 against what it sits on, under 3:1`,
+          label: labelOf(el),
+          value: Number(got.toFixed(2)),
+        });
+      }
+    }
+  };
+
+  // Nested surfaces a tone step apart; a dialog not below the page it covers.
+  const isControl = (el: Element) =>
+    el.matches(
+      "button, a, input, select, textarea, [role=button], [role=option], [role=menuitem], [role=treeitem], [role=tab], li"
+    );
+  const toneOf = (el: Element) => {
+    const fill = rgba(getComputedStyle(el).backgroundColor);
+    const box = el.getBoundingClientRect();
+    if (fill[3] < 0.5 || box.width < 120 || box.height < 64 || isControl(el)) {
+      return;
+    }
+    const under = backdrop(el.parentElement);
+    if (!under) {
+      return;
+    }
+    const delta = Math.abs(lightness(over(fill, under)) - lightness(under));
+    if (delta > 0.002 && delta < options.toneStep * 0.75) {
+      add({
+        check: "surface-tone",
+        detail: `${delta.toFixed(3)} lightness from its container, under a tone step (${options.toneStep})`,
+        label: labelOf(el),
+        value: Number(delta.toFixed(3)),
+      });
+    }
+  };
+  const surfaceTones = () => {
+    for (const el of all) {
+      toneOf(el);
+    }
+  };
+  const overlayTones = () => {
+    for (const dialog of all.filter((el) =>
+      el.matches("[role=dialog], [role=alertdialog], dialog")
+    )) {
+      const box = dialog.getBoundingClientRect();
+      const behind = document
+        .elementsFromPoint(Math.max(2, box.left - 8), Math.max(2, box.top + 8))
+        .find(
+          (el) =>
+            !dialog.contains(el) && getComputedStyle(el).position !== "fixed"
+        );
+      const page = behind ? backdrop(behind) : undefined;
+      if (!page) {
+        continue;
+      }
+      const surfaces = [dialog, ...dialog.querySelectorAll("*")].filter(
+        (el) => {
+          const b = el.getBoundingClientRect();
+          return (
+            rgba(getComputedStyle(el).backgroundColor)[3] >= 0.5 &&
+            b.width * b.height >= (box.width * box.height) / 4
+          );
+        }
+      );
+      for (const s of surfaces) {
+        const tone = backdrop(s);
+        if (tone && lightness(tone) < lightness(page) - 0.005) {
+          add({
+            check: "overlay-tone",
+            detail: `${(lightness(page) - lightness(tone)).toFixed(3)} lightness below the page it covers`,
+            label: labelOf(s).slice(0, 30),
+            value: Number((lightness(page) - lightness(tone)).toFixed(3)),
+          });
+        }
+      }
+    }
+  };
+
+  // Spacing on the scale: paddings, gaps and margins.
+  const spacingScale = () => {
+    const props = [
+      "paddingTop",
+      "paddingRight",
+      "paddingBottom",
+      "paddingLeft",
+      "rowGap",
+      "columnGap",
+      "marginTop",
+      "marginBottom",
+    ] as const;
+    for (const el of all) {
+      const style = getComputedStyle(el);
+      const flexOrGrid =
+        style.display.includes("flex") || style.display.includes("grid");
+      for (const prop of props) {
+        if ((prop === "rowGap" || prop === "columnGap") && !flexOrGrid) {
+          continue;
+        }
+        const value = px(style[prop]);
+        if (
+          value > 1 &&
+          Math.abs(value / options.grid - Math.round(value / options.grid)) >
+            0.01
+        ) {
+          add({
+            check: "off-scale",
+            detail: `${prop} ${Math.round(value * 100) / 100}px, not on the ${options.grid}px scale`,
+            label: labelOf(el),
+            value,
+          });
+        }
+      }
+    }
+  };
+
+  // Rows of a list, rounded or filled, touching their neighbours.
+  /** Whether two neighbouring rows of the typical height, either rounded or filled, touch. */
+  const touch = (
+    a: Element | undefined,
+    b: Element | undefined,
+    typical: number
+  ) => {
+    const boxA = a?.getBoundingClientRect();
+    const boxB = b?.getBoundingClientRect();
+    if (
+      !(a && b && boxA && boxB) ||
+      Math.abs(boxA.height - typical) > 2 ||
+      Math.abs(boxB.height - typical) > 2
+    ) {
+      return false;
+    }
+    const rounded = [a, b].some(
+      (r) =>
+        px(getComputedStyle(r).borderTopLeftRadius) >= 2 ||
+        rgba(getComputedStyle(r).backgroundColor)[3] > 0.05
+    );
+    return Math.abs(boxB.top - boxA.bottom) < 0.5 && rounded;
+  };
+  const touchingIn = (el: Element) => {
+    const rows = [...el.children].filter((c) => shown(c));
+    if (rows.length < 3) {
+      return;
+    }
+    const heights = rows.map((c) =>
+      Math.round(c.getBoundingClientRect().height)
+    );
+    const typical =
+      heights.sort((x, y) => x - y)[Math.floor(heights.length / 2)] ?? 0;
+    if (
+      typical >= 20 &&
+      typical <= 48 &&
+      rows.some((row, i) => i > 0 && touch(rows[i - 1], row, typical))
+    ) {
+      add({
+        check: "touching-rows",
+        detail: `rows of ${typical}px, rounded or filled, with no gap between them`,
+        label: labelOf(el).slice(0, 40),
+        value: 0,
+      });
+    }
+  };
+  const touchingRows = () => {
+    for (const el of all) {
+      touchingIn(el);
+    }
+  };
+  // Text clipped with no ellipsis.
+  const clippedText = () => {
+    for (const el of all) {
+      const style = getComputedStyle(el);
+      const own = [...el.childNodes].some(
+        (n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== ""
+      );
+      if (
+        own &&
+        (style.overflowX === "hidden" || style.overflowX === "clip") &&
+        el.scrollWidth > el.clientWidth + 1 &&
+        style.textOverflow !== "ellipsis"
+      ) {
+        add({
+          check: "clipped-text",
+          detail: `${el.scrollWidth - el.clientWidth}px of its text cut off, no ellipsis`,
+          label: labelOf(el),
+          value: el.scrollWidth - el.clientWidth,
+        });
+      }
+    }
+  };
+
+  // Targets at least 24px: a control's box, its label's when it has one around it.
+  const targetSizes = () => {
+    for (const el of all.filter((e) =>
+      e.matches(
+        "button, a[href], [role=button], [role=checkbox], [role=switch], [role=radio], [role=tab], input[type=checkbox], input[type=radio]"
+      )
+    )) {
+      if (disabled(el)) {
+        continue;
+      }
+      const target = el.closest("label") ?? el;
+      const b = target.getBoundingClientRect();
+      if (b.width < 24 || b.height < 24) {
+        add({
+          check: "target-size",
+          detail: `${Math.round(b.width)}×${Math.round(b.height)}, under 24×24`,
+          label: labelOf(el),
+          value: Math.round(Math.min(b.width, b.height)),
+        });
+      }
+    }
+  };
+
+  // Names that can't truncate: one lengthened per list, then put back.
+  const namesTruncate = () => {
+    if (options.stress) {
+      const lists = all.filter(
+        (el) =>
+          el.children.length >= 3 &&
+          el.matches(
+            "ul, ol, [role=list], [role=tree], [role=listbox], [role=group], [role=rowgroup], [role=grid]"
+          )
+      );
+      for (const list of lists) {
+        const row = [...list.children].find((c) => shown(c));
+        if (!row) {
+          continue;
+        }
+        const textNode = [...row.querySelectorAll("*")]
+          .flatMap((e) => [...e.childNodes])
+          .find(
+            (n) => n.nodeType === 3 && (n.textContent ?? "").trim().length >= 2
+          );
+        const holder = textNode?.parentElement;
+        if (!(textNode && holder)) {
+          continue;
+        }
+        const before = textNode.textContent ?? "";
+        const rowBox = row.getBoundingClientRect();
+        textNode.textContent = `${before.trim()}-${"verylongname".repeat(10)}`;
+        const box = holder.getBoundingClientRect();
+        const overruns =
+          box.right > rowBox.right + 1 ||
+          row.scrollWidth > row.clientWidth + 1 ||
+          [...row.querySelectorAll("*")].some((other) => {
+            if (
+              other === holder ||
+              other.contains(holder) ||
+              holder.contains(other) ||
+              !shown(other)
+            ) {
+              return false;
+            }
+            const o = other.getBoundingClientRect();
+            return (
+              o.width > 0 &&
+              o.left < box.right - 1 &&
+              o.right > box.left + 1 &&
+              o.top < box.bottom - 1 &&
+              o.bottom > box.top + 1
+            );
+          });
+        textNode.textContent = before;
+        if (overruns) {
+          add({
+            check: "cant-truncate",
+            detail: "a long name overruns its row or what sits beside it",
+            label: before.trim().slice(0, 40),
+            value: 1,
+          });
+        }
+      }
+    }
+  };
+
+  textContrast();
+  controlEdges();
+  surfaceTones();
+  overlayTones();
+  spacingScale();
+  touchingRows();
+  clippedText();
+  targetSizes();
+  namesTruncate();
+  return findings;
+};

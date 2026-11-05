@@ -119,6 +119,18 @@ export const dividerFindings = (
     .filter((r) => Math.abs(r.off) > DIVIDER_TOLERANCE);
 
 export interface MeasureOptions {
+  /**
+   * The general design checks too (contrast, control edges, surface tones, the spacing scale,
+   * touching rows, clipped text, names that can't truncate, targets), with the scale's step and a
+   * tone step; none without it.
+   */
+  readonly checks?:
+    | {
+        readonly grid: number;
+        readonly stress: boolean;
+        readonly toneStep: number;
+      }
+    | undefined;
   /** Where the findings go as JSON, besides the terminal. */
   readonly out: string | undefined;
   /** How many times the gap inside a group the gap between groups must be: spacing.md's 3. */
@@ -164,10 +176,27 @@ export const measure = Effect.fn("measure")(function* (
   for (const f of dividers) {
     yield* Console.log(`divider: ${f.off}px off its bar's line, in “${f.bar}”`);
   }
+  const checked = options.checks
+    ? yield* browser.audit(url, {
+        ...options.checks,
+        root: options.root,
+        steps: Array.isArray(steps) ? steps : [],
+        theme: options.theme,
+      })
+    : [];
+  for (const f of checked) {
+    yield* Console.log(`${f.check}: ${f.detail}, “${f.label}”`);
+  }
   yield* Console.log(
-    `${spacing.length} spacing and ${dividers.length} divider findings; ${layout.rules.length} dividers measured`
+    `${spacing.length} spacing and ${dividers.length} divider findings; ${layout.rules.length} dividers measured${options.checks ? `; ${checked.length} from the checks` : ""}`
   );
   if (options.out) {
-    yield* writeJson(options.out, { dividers, spacing, url });
+    yield* writeJson(options.out, {
+      checks: checked,
+      dividers,
+      spacing,
+      theme: options.theme,
+      url,
+    });
   }
 });

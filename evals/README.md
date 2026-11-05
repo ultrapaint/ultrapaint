@@ -254,6 +254,30 @@ below apart (a single line closer to what follows is its heading), and dividers 
 line by more than 1.5px. The steps file is `export default [async (page) => {}]`, run before
 measuring.
 
+`--checks` adds the general design checks, each with a threshold from the skill or the design
+system: text and placeholder contrast (4.5:1, large 3:1), a field's edge against what it sits on
+(3:1), nested surfaces less than a tone step apart and a dialog darker than the page it covers,
+paddings, gaps and margins off the `--grid` (4px) scale, rounded or filled rows touching, text
+clipped with no ellipsis, and targets under 24×24; `--stress` lengthens a name in each list to see
+whether it truncates. They feed the shift-left proposal: what code can catch at each edit instead
+of a reviewer (`runs/checks-1/`).
+
+### How a finding could have been caught
+
+```sh
+pnpm evals catchable <name> --decks held-out-rest --panels design-after   # gpt-6.1-sol, medium
+pnpm evals outline [sections…]                                            # each section's outline.md
+pnpm evals recall <round> --models gpt-6.1-sol --inputs pictures,outline
+```
+
+`catchable` sorts every finding held (the gaps, a deck's findings answered real, a round's panel
+findings) by the cheapest way it could have been caught: `code` (a general check, written once for
+every screen), `outline` (a text outline of the sections, words, actions and states, written
+before drawing) or `eye`. Its report counts them per source and names the checks by how much
+each would catch. `outline` writes each gap section's outline from its code, with no look and no
+judgement, and `recall --inputs outline` shows a reviewer that outline instead of the pictures and
+code (`shipped+outline`), to see which gaps the outline alone shows.
+
 ## Decisions
 
 When an agent needs several decisions from the person, it writes them as a deck and the person
