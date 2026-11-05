@@ -15,19 +15,22 @@ import {
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
-  type AuditFinding,
+  type Audited,
   type AuditOptions,
   auditInBrowser,
   type Box,
   compareInBrowser,
   cropInBrowser,
   cutInBrowser,
+  HOVER_MARK,
   type LaidBlock,
   type LaidRule,
   layoutInBrowser,
   locateInBrowser,
+  markHoverableInBrowser,
   outlineInBrowser,
   padInBrowser,
+  rowPointsInBrowser,
   scrollThroughInBrowser,
   type TileOptions,
   trimInBrowser,
@@ -152,10 +155,19 @@ export class Browser extends Context.Service<
     readonly audit: (
       url: string,
       options: AuditOptions & {
+        /**
+         * Whether the page is checked again with `:hover` forced on whatever the pointer acts on,
+         * for what shows only then (fills, actions); only `hoverChecks` run then.
+         */
+        readonly hover: boolean;
+        readonly hoverChecks: AuditOptions["only"];
         readonly steps: readonly ((page: Page) => Promise<unknown>)[];
         readonly theme: "dark" | "light";
       }
-    ) => Effect.Effect<readonly AuditFinding[], EvalsError>;
+    ) => Effect.Effect<
+      { readonly hover?: Audited; readonly rest: Audited },
+      EvalsError
+    >;
     /** Keeps a page open at the URL until the scope closes: the editor, for get_screenshot. */
     readonly hold: (
       url: string
@@ -426,6 +438,8 @@ export class Browser extends Context.Service<
       const audit = (
         url: string,
         options: AuditOptions & {
+          readonly hover: boolean;
+          readonly hoverChecks: AuditOptions["only"];
           readonly steps: readonly ((page: Page) => Promise<unknown>)[];
           readonly theme: "dark" | "light";
         }
@@ -446,8 +460,55 @@ export class Browser extends Context.Service<
                   .then(() => page.waitForTimeout(800)),
               Promise.resolve()
             );
-            const { steps: _, theme: __, ...checks } = options;
-            return page.evaluate(auditInBrowser, checks);
+            const {
+              hover,
+              hoverChecks,
+              steps: _,
+              theme: __,
+              ...checks
+            } = options;
+            const rest = await page.evaluate(auditInBrowser, checks);
+            if (!hover) {
+              return { rest };
+            }
+            // Chrome's own forced state: every element the pointer acts on drawn as hovered at once.
+            await page.evaluate(markHoverableInBrowser, HOVER_MARK);
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send("DOM.enable");
+            await cdp.send("CSS.enable");
+            const { root } = await cdp.send("DOM.getDocument", { depth: -1 });
+            const { nodeIds } = await cdp.send("DOM.querySelectorAll", {
+              nodeId: root.nodeId,
+              selector: `[${HOVER_MARK}]`,
+            });
+            await Promise.all(
+              nodeIds.map((nodeId) =>
+                cdp.send("CSS.forcePseudoState", {
+                  forcedPseudoClasses: ["hover"],
+                  nodeId,
+                })
+              )
+            );
+            await page.waitForTimeout(400);
+            const hoverOptions = {
+              ...checks,
+              only: hoverChecks,
+              stress: false,
+            };
+            const found = [await page.evaluate(auditInBrowser, hoverOptions)];
+            // An app's own hover state needs a real pointer: one row after another.
+            for (const point of await page.evaluate(rowPointsInBrowser, 40)) {
+              // biome-ignore lint/performance/noAwaitInLoops: one pointer, resting on one row at a time
+              await page.mouse.move(point.x, point.y);
+              await page.waitForTimeout(150);
+              found.push(await page.evaluate(auditInBrowser, hoverOptions));
+            }
+            await page.mouse.move(1, 1);
+            const hovered = {
+              controls: [...new Set(found.flatMap((f) => f.controls))],
+              findings: found.flatMap((f) => f.findings),
+            };
+            return { hover: hovered, rest };
           },
           `checking ${url}`
         );

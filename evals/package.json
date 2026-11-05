@@ -10,6 +10,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@ultrapaint/contracts": "workspace:*",
+    "@ultrapaint/design-document": "workspace:*",
     "effect": "catalog:",
     "playwright-core": "^1.64.1"
   },

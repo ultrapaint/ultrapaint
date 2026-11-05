@@ -254,13 +254,23 @@ below apart (a single line closer to what follows is its heading), and dividers 
 line by more than 1.5px. The steps file is `export default [async (page) => {}]`, run before
 measuring.
 
-`--checks` adds the general design checks, each with a threshold from the skill or the design
-system: text and placeholder contrast (4.5:1, large 3:1), a field's edge against what it sits on
-(3:1), nested surfaces less than a tone step apart and a dialog darker than the page it covers,
-paddings, gaps and margins off the `--grid` (4px) scale, rounded or filled rows touching, text
-clipped with no ellipsis, and targets under 24×24; `--stress` lengthens a name in each list to see
-whether it truncates. They feed the shift-left proposal: what code can catch at each edit instead
-of a reviewer (`runs/checks-1/`).
+`--checks` adds the general design checks (ADR 0061), each with a threshold from the skill or the
+design system: text and placeholder contrast (4.5:1, large 3:1), a field's edge against what it
+sits on (3:1), a filled control whose fill doesn't separate (under 1.1:1), surfaces nearly one
+tone (under 0.008 oklch lightness apart, or on a floating card's own tone), a dialog darker than
+the page it covers, rounded or filled rows touching, text clipped with no ellipsis, and targets
+under 24×24. `--hover` checks again with every control drawn as hovered (Chrome's forced
+`:hover`), for fills that touch and controls shown only on hover; `--stress` lengthens a name in
+each list (three or more rows of one height) to see whether it truncates; `--grid 4` checks
+computed spacing against a scale, off by default since a page's half steps look like values off
+it. `runs/checks-1/` and `checks-2/` hold them run on the editor before and after its fixes.
+
+```sh
+pnpm evals off-system <rounds…>
+```
+
+`off-system` counts, per run, the values a round's pages set for themselves where the design
+system has a token (design-document's `offSystemValues`), into `runs/<round>/off-system.md`.
 
 ### How a finding could have been caught
 
@@ -276,7 +286,8 @@ every screen), `outline` (a text outline of the sections, words, actions and sta
 before drawing) or `eye`. Its report counts them per source and names the checks by how much
 each would catch. `outline` writes each gap section's outline from its code, with no look and no
 judgement, and `recall --inputs outline` shows a reviewer that outline instead of the pictures and
-code (`shipped+outline`), to see which gaps the outline alone shows.
+code (`shipped+outline`), to see which gaps the outline alone shows. Its report ends with what a review took on
+average, per version: findings, seconds and, where the model counts them, tokens.
 
 ## Decisions
 

@@ -843,12 +843,14 @@ export interface AuditFinding {
   readonly check:
     | "contrast"
     | "control-edge"
+    | "control-fill"
     | "surface-tone"
     | "overlay-tone"
     | "off-scale"
     | "touching-rows"
     | "clipped-text"
     | "cant-truncate"
+    | "hover-only"
     | "target-size";
   /** What it says, with the threshold. */
   readonly detail: string;
@@ -858,14 +860,99 @@ export interface AuditFinding {
 }
 
 export interface AuditOptions {
-  /** Steps of the spacing scale, in CSS pixels: a value not a multiple of it is off the scale. */
+  /**
+   * Steps of the spacing scale, in CSS pixels: a computed padding, gap or margin not a multiple of
+   * it is off the scale. 0 leaves spacing unchecked: on a rendered page the scale's half steps
+   * look the same as values off it, so spacing is better checked in the document.
+   */
   readonly grid: number;
+  /**
+   * Under this oklch lightness apart, two surfaces read as one tone: calibrated on the person's
+   * accepted fix of g05 (0.011 apart), not on the skill's step of about 0.045.
+   */
+  readonly nearTone: number;
+  /** The checks to run, by name; all without it. */
+  readonly only?: readonly AuditFinding["check"][] | undefined;
   readonly root: string;
   /** Whether the names in lists are lengthened to see if they truncate (it changes the page). */
   readonly stress: boolean;
-  /** One tone step between nested surfaces, in oklch lightness. */
-  readonly toneStep: number;
 }
+
+/** What `auditInBrowser` gives back: its findings, and the controls a person can see. */
+export interface Audited {
+  /** The visible controls by their names: compared at rest and on hover, it finds hover-only ones. */
+  readonly controls: readonly string[];
+  readonly findings: readonly AuditFinding[];
+}
+
+/**
+ * Runs in the page: the centres of the first rows of each list (three or more rows of one
+ * height, stacked), at most `limit`, for a pointer to rest on one after another: what a page
+ * shows only when a real pointer enters a row (an app's own hover state) shows then.
+ */
+export const rowPointsInBrowser = (limit: number) => {
+  const shown = (el: Element) => {
+    const b = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      b.width > 0 &&
+      b.height > 0 &&
+      b.top < innerHeight &&
+      b.bottom > 0
+    );
+  };
+  const points: { x: number; y: number }[] = [];
+  for (const el of document.querySelectorAll("*")) {
+    const children = [...el.children].filter(shown);
+    const heights = children.map((c) =>
+      Math.round(c.getBoundingClientRect().height)
+    );
+    const counts = new Map<number, number>();
+    for (const h of heights) {
+      counts.set(h, (counts.get(h) ?? 0) + 1);
+    }
+    const [common = 0, n = 0] =
+      [...counts.entries()].sort((x, y) => y[1] - x[1])[0] ?? [];
+    if (n < 3 || common < 16 || common > 64) {
+      continue;
+    }
+    const rows = children.filter(
+      (_, k) => Math.abs((heights[k] ?? 0) - common) <= 2
+    );
+    for (const row of rows.slice(0, 2)) {
+      const b = row.getBoundingClientRect();
+      if (points.length < limit) {
+        points.push({ x: b.left + b.width / 2, y: b.top + b.height / 2 });
+      }
+    }
+  }
+  return points;
+};
+
+/** What a hover pass forces `:hover` on: whatever a pointer acts on. */
+export const HOVER_MARK = "data-audit-hover";
+
+/**
+ * Runs in the page: marks every element the pointer acts on (a control's role, or a pointer
+ * cursor), for a hover pass to force `:hover` on; returns how many.
+ */
+export const markHoverableInBrowser = (mark: string) => {
+  let n = 0;
+  for (const el of document.querySelectorAll("*")) {
+    if (
+      el.matches(
+        "button, a[href], [role=button], [role=option], [role=treeitem], [role=row], [role=menuitem], [role=tab], li"
+      ) ||
+      getComputedStyle(el).cursor === "pointer"
+    ) {
+      el.setAttribute(mark, "");
+      n += 1;
+    }
+  }
+  return n;
+};
 
 /**
  * The general design checks, on the rendered page under `root`, each with a threshold from the
@@ -874,7 +961,7 @@ export interface AuditOptions {
  * spacing on the scale, rounded or filled rows not touching, text not clipped, names that
  * truncate, targets at least 24px. Plain DOM code, since Playwright sends its source to the page.
  */
-export const auditInBrowser = (options: AuditOptions) => {
+export const auditInBrowser = (options: AuditOptions): Audited => {
   const rootEl = document.querySelector(options.root) ?? document.body;
   const findings: AuditFinding[] = [];
   const seen = new Set<string>();
@@ -1074,6 +1161,34 @@ export const auditInBrowser = (options: AuditOptions) => {
     }
   };
 
+  // A filled control whose fill doesn't separate it from what it sits on.
+  const controlFills = () => {
+    for (const el of all.filter((e) =>
+      e.matches("button, [role=button], [role=combobox], [aria-haspopup]")
+    )) {
+      const style = getComputedStyle(el);
+      const fill = rgba(style.backgroundColor);
+      const under = backdrop(el.parentElement);
+      if (fill[3] < 0.3 || disabled(el) || !under) {
+        continue;
+      }
+      const filled = over(fill, under);
+      const edge =
+        px(style.borderTopWidth) >= 1
+          ? ratio(over(rgba(style.borderTopColor), filled), under)
+          : 1;
+      const got = ratio(filled, under);
+      if (got > 1.001 && got < 1.1 && edge < 1.5) {
+        add({
+          check: "control-fill",
+          detail: `its fill ${got.toFixed(2)}:1 against what it sits on, under 1.1:1: it doesn't separate`,
+          label: labelOf(el),
+          value: Number(got.toFixed(3)),
+        });
+      }
+    }
+  };
+
   // Nested surfaces a tone step apart; a dialog not below the page it covers.
   const isControl = (el: Element) =>
     el.matches(
@@ -1090,18 +1205,65 @@ export const auditInBrowser = (options: AuditOptions) => {
       return;
     }
     const delta = Math.abs(lightness(over(fill, under)) - lightness(under));
-    if (delta > 0.002 && delta < options.toneStep * 0.75) {
+    if (delta > 0.002 && delta < options.nearTone) {
       add({
         check: "surface-tone",
-        detail: `${delta.toFixed(3)} lightness from its container, under a tone step (${options.toneStep})`,
+        detail: `${delta.toFixed(3)} lightness from its container: nearly one tone (under ${options.nearTone})`,
         label: labelOf(el),
         value: Number(delta.toFixed(3)),
       });
     }
   };
+  /**
+   * Inside a floating card (one with a shadow), a surface covering part of it on the card's own
+   * tone, the same tone included: chrome and content read as one sheet (elevation.md).
+   */
+  const floatingTonesOf = (card: Element) => {
+    const style = getComputedStyle(card);
+    const fill = rgba(style.backgroundColor);
+    const box = card.getBoundingClientRect();
+    if (
+      style.boxShadow === "none" ||
+      fill[3] < 0.5 ||
+      box.width < 200 ||
+      box.height < 150
+    ) {
+      return;
+    }
+    const tone = backdrop(card);
+    if (!tone) {
+      return;
+    }
+    const area = box.width * box.height;
+    for (const inner of card.querySelectorAll("*")) {
+      const b = inner.getBoundingClientRect();
+      const share = (b.width * b.height) / area;
+      const own = rgba(getComputedStyle(inner).backgroundColor);
+      if (
+        own[3] < 0.5 ||
+        share < 0.15 ||
+        share > 0.9 ||
+        isControl(inner) ||
+        !shown(inner)
+      ) {
+        continue;
+      }
+      const inside = backdrop(inner);
+      const delta = inside ? Math.abs(lightness(inside) - lightness(tone)) : 1;
+      if (delta < options.nearTone) {
+        add({
+          check: "surface-tone",
+          detail: `${delta.toFixed(3)} lightness from the floating card it sits in: one sheet (under ${options.nearTone})`,
+          label: labelOf(inner).slice(0, 40),
+          value: Number(delta.toFixed(3)),
+        });
+      }
+    }
+  };
   const surfaceTones = () => {
     for (const el of all) {
       toneOf(el);
+      floatingTonesOf(el);
     }
   };
   const overlayTones = () => {
@@ -1144,6 +1306,9 @@ export const auditInBrowser = (options: AuditOptions) => {
 
   // Spacing on the scale: paddings, gaps and margins.
   const spacingScale = () => {
+    if (options.grid <= 0) {
+      return;
+    }
     const props = [
       "paddingTop",
       "paddingRight",
@@ -1276,76 +1441,120 @@ export const auditInBrowser = (options: AuditOptions) => {
     }
   };
 
-  // Names that can't truncate: one lengthened per list, then put back.
-  const namesTruncate = () => {
-    if (options.stress) {
-      const lists = all.filter(
-        (el) =>
-          el.children.length >= 3 &&
-          el.matches(
-            "ul, ol, [role=list], [role=tree], [role=listbox], [role=group], [role=rowgroup], [role=grid]"
-          )
+  /** A list by its layout, whatever its markup: three or more rows of one height, stacked. */
+  /**
+   * A list's rows by their layout, whatever the markup: three or more children of the most common
+   * height (16–64px), stacked; a heading row of another height above them is left out. None when
+   * the element isn't a list.
+   */
+  const listRows = (el: Element): readonly Element[] => {
+    const children = [...el.children].filter((c) => shown(c));
+    const heights = children.map((c) =>
+      Math.round(c.getBoundingClientRect().height)
+    );
+    const counts = new Map<number, number>();
+    for (const h of heights) {
+      counts.set(h, (counts.get(h) ?? 0) + 1);
+    }
+    const [common = 0] =
+      [...counts.entries()].sort((x, y) => y[1] - x[1])[0] ?? [];
+    const rows = children.filter(
+      (_, i) => Math.abs((heights[i] ?? 0) - common) <= 2
+    );
+    const boxes = rows.map((r) => r.getBoundingClientRect());
+    const stacked = boxes.every(
+      (box, i) => i === 0 || box.top >= (boxes[i - 1]?.bottom ?? 0) - 1
+    );
+    return rows.length >= 3 && common >= 16 && common <= 64 && stacked
+      ? rows
+      : [];
+  };
+
+  /** Whether a text node, lengthened, overruns its row or what sits beside it in the row. */
+  const overrunsWhenLong = (row: Element, textNode: ChildNode) => {
+    const holder = textNode.parentElement;
+    if (!holder) {
+      return false;
+    }
+    const before = textNode.textContent ?? "";
+    const rowBox = row.getBoundingClientRect();
+    textNode.textContent = `${before.trim()}-${"verylongname".repeat(10)}`;
+    const box = holder.getBoundingClientRect();
+    const overlaps = (other: Element) => {
+      if (
+        other === holder ||
+        other.contains(holder) ||
+        holder.contains(other) ||
+        !shown(other)
+      ) {
+        return false;
+      }
+      const o = other.getBoundingClientRect();
+      return (
+        o.width > 0 &&
+        o.left < box.right - 1 &&
+        o.right > box.left + 1 &&
+        o.top < box.bottom - 1 &&
+        o.bottom > box.top + 1
       );
-      for (const list of lists) {
-        const row = [...list.children].find((c) => shown(c));
-        if (!row) {
-          continue;
-        }
-        const textNode = [...row.querySelectorAll("*")]
-          .flatMap((e) => [...e.childNodes])
-          .find(
-            (n) => n.nodeType === 3 && (n.textContent ?? "").trim().length >= 2
-          );
-        const holder = textNode?.parentElement;
-        if (!(textNode && holder)) {
-          continue;
-        }
-        const before = textNode.textContent ?? "";
-        const rowBox = row.getBoundingClientRect();
-        textNode.textContent = `${before.trim()}-${"verylongname".repeat(10)}`;
-        const box = holder.getBoundingClientRect();
-        const overruns =
-          box.right > rowBox.right + 1 ||
-          row.scrollWidth > row.clientWidth + 1 ||
-          [...row.querySelectorAll("*")].some((other) => {
-            if (
-              other === holder ||
-              other.contains(holder) ||
-              holder.contains(other) ||
-              !shown(other)
-            ) {
-              return false;
-            }
-            const o = other.getBoundingClientRect();
-            return (
-              o.width > 0 &&
-              o.left < box.right - 1 &&
-              o.right > box.left + 1 &&
-              o.top < box.bottom - 1 &&
-              o.bottom > box.top + 1
-            );
-          });
-        textNode.textContent = before;
-        if (overruns) {
-          add({
-            check: "cant-truncate",
-            detail: "a long name overruns its row or what sits beside it",
-            label: before.trim().slice(0, 40),
-            value: 1,
-          });
-        }
+    };
+    const overruns =
+      box.right > rowBox.right + 1 ||
+      row.scrollWidth > row.clientWidth + 1 ||
+      [...row.querySelectorAll("*")].some(overlaps);
+    textNode.textContent = before;
+    return overruns;
+  };
+
+  // Names that can't truncate: each text of a list's first row lengthened in turn, then put back.
+  const namesTruncate = () => {
+    if (!options.stress) {
+      return;
+    }
+    for (const list of all) {
+      const [row] = listRows(list);
+      if (!row) {
+        continue;
+      }
+      const texts = [...row.querySelectorAll("*")]
+        .flatMap((e) => [...e.childNodes])
+        .filter(
+          (n) => n.nodeType === 3 && (n.textContent ?? "").trim().length >= 2
+        )
+        .slice(0, 4);
+      const long = texts.find((t) => overrunsWhenLong(row, t));
+      if (long) {
+        add({
+          check: "cant-truncate",
+          detail: "a long text overruns its row or what sits beside it",
+          label: (long.textContent ?? "").trim().slice(0, 40),
+          value: 1,
+        });
       }
     }
   };
 
-  textContrast();
-  controlEdges();
-  surfaceTones();
-  overlayTones();
-  spacingScale();
-  touchingRows();
-  clippedText();
-  targetSizes();
-  namesTruncate();
-  return findings;
+  const checks: readonly (readonly [AuditFinding["check"], () => void])[] = [
+    ["contrast", textContrast],
+    ["control-edge", controlEdges],
+    ["control-fill", controlFills],
+    ["surface-tone", surfaceTones],
+    ["overlay-tone", overlayTones],
+    ["off-scale", spacingScale],
+    ["touching-rows", touchingRows],
+    ["clipped-text", clippedText],
+    ["target-size", targetSizes],
+    ["cant-truncate", namesTruncate],
+  ];
+  for (const [name, run] of checks) {
+    if (!options.only || options.only.includes(name)) {
+      run();
+    }
+  }
+  const controls = all
+    .filter((el) =>
+      el.matches("button, a[href], [role=button], [role=menuitem]")
+    )
+    .map(labelOf);
+  return { controls: [...new Set(controls)], findings };
 };
