@@ -22,8 +22,8 @@ import {
   type SystemItem,
 } from "../boards/system-boards.ts";
 import { IconButton } from "../components/icon-button.tsx";
+import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { startInit } from "../lib/start-thread.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -169,7 +169,7 @@ export const DesignSystemList = () => {
   }, [configured, loaded]);
 
   if (!configured) {
-    return <SetupEmpty />;
+    return <NoFolder />;
   }
   if (setupShown) {
     return <SyncView onBack={designSystem ? hideSetup : undefined} />;

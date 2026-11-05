@@ -184,6 +184,42 @@ describe("the settings in force", () => {
     );
   });
 
+  eachTest(
+    ProjectTest({
+      files: { "designs/package.json": DETECTED_PACKAGE },
+      storage: "ephemeral",
+    })
+  )((it) => {
+    it.effect(
+      "saves a folder's setup beside its code, the designs directory made, as the agent changed it",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const fs = yield* FileSystem.FileSystem;
+          const { repo } = yield* ProjectFixture;
+          yield* project.adoptDetected(repo);
+          const { result, told } = yield* toldOf(
+            (info) => info.setup === "saved",
+            project.saveSetup({ designsDir: "ui-designs", stylesheet: "" })
+          );
+          assert.deepStrictEqual(result, {
+            configPath: `${repo}/ultrapaint.config.json`,
+            problems: [],
+          });
+          assert.strictEqual(told?.storage.mode, "file");
+          assert.isTrue(yield* fs.exists(`${repo}/ui-designs`));
+          const saved = yield* running;
+          assert.strictEqual(saved.designsDir, "ui-designs");
+          assert.deepStrictEqual(saved.hostCss, []);
+
+          // Saved again, it goes where the settings are kept now.
+          const again = yield* project.saveSetup({});
+          assert.deepStrictEqual(again.problems, []);
+          assert.strictEqual((yield* running).designsDir, "ui-designs");
+        })
+    );
+  });
+
   eachTest(ProjectTest({ storage: "ephemeral" }), {
     realClock:
       "the configuration file written by hand is heard by a real watch of its directory",

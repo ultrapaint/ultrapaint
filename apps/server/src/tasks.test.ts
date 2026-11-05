@@ -348,6 +348,7 @@ describe("the editor's tools in what an agent is told", () => {
     ImportFigma: [{ _tag: "ImportFigma" }],
     Init: [{ _tag: "Init" }],
     Redraw: [{ _tag: "Redraw", canvas: "" }],
+    Setup: [{ _tag: "Setup" }],
     SetupStep: [
       { _tag: "SetupStep", mode: "adopt", step: "define" },
       { _tag: "SetupStep", mode: "propose", step: "define" },
@@ -555,6 +556,7 @@ describe("the editor's tools in what an agent is told", () => {
         // What only the tools can do is refused, and said so.
         assert.deepStrictEqual(refused(after), [
           "/import-figma",
+          "/setup",
           "/design-system inventory",
           "/design-system map",
           "/design-system migrate",

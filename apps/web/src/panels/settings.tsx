@@ -630,7 +630,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setBusy(false);
     return ok;
   };
-  // The design system is offered at the first edit, by the setup dialog.
+  // A folder opened is set up in its chat (ADR 0062); the design system waits until it is made.
   const saveAndOpen = async () => {
     await apply();
   };

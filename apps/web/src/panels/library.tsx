@@ -29,9 +29,9 @@ import {
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { makeAppOf } from "../lib/menu-actions.ts";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
 import { openBoard, useBoard } from "../state/board.ts";
@@ -523,7 +523,7 @@ export const Library = () => {
     s.open?.view === "library" ? s.open.item : null
   );
   if (!configured) {
-    return <SetupEmpty />;
+    return <NoFolder />;
   }
   return open === null ? <InsertList /> : <LibraryNav open={open} />;
 };

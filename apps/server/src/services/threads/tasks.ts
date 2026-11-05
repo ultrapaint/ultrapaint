@@ -4,8 +4,8 @@
  * request cannot be one. A slash command is one way in (`commands.ts`, which reads what the user
  * typed); the handoff tool asks for a design's task directly, and the setup's steps name theirs
  * (`setup-steps.ts`). The texts are written in `page-tasks.ts`, `setup-tasks.ts` and
- * `sync-tasks.ts`, with what an agent does with and without the editor's tools in
- * `agent-ways.ts`, and `/init`'s here.
+ * `sync-tasks.ts` and `folder-setup.ts`, with what an agent does with and without the editor's
+ * tools in `agent-ways.ts`, and `/init`'s here.
  */
 import {
   commandNameOf,
@@ -19,10 +19,16 @@ import { OpenProject } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
+import { makeFolderSetup } from "./folder-setup.ts";
 import { makePageTasks } from "./page-tasks.ts";
 import { makeSetupTasks } from "./setup-tasks.ts";
 import { makeSyncTasks } from "./sync-tasks.ts";
-import { DESIGN_MD_GUIDE, TaskFailure, userAdds } from "./task-text.ts";
+import {
+  DESIGN_MD_GUIDE,
+  needsTools,
+  TaskFailure,
+  userAdds,
+} from "./task-text.ts";
 
 /** A task: what the agent is told, and what the thread that runs it is for. */
 export interface AgentTask {
@@ -123,12 +129,17 @@ ${steps}
 ${userAdds(extra)}</ultrapaint-task>`
           );
 
+        const folderSetup = yield* makeFolderSetup;
         const pageTasks = yield* makePageTasks({ ways });
         const { setupStep } = yield* makeSetupTasks({ importSteps, ways });
         const { sync } = yield* makeSyncTasks({ ways });
 
         return Effect.fnUntraced(function* (request: TaskRequest) {
           switch (request._tag) {
+            case "Setup":
+              return ways.tools === null
+                ? yield* needsTools("setup", "Saving the setup")
+                : yield* folderSetup(request.extra);
             case "Init":
               return yield* init(request.extra);
             case "Implement":

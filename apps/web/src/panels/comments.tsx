@@ -17,8 +17,8 @@ import {
   repliesLabel,
 } from "../canvas/comments.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import {
   revealComment,
@@ -53,7 +53,7 @@ export const Comments = () => {
     return (
       <div className="flex h-full flex-col">
         <CommentsHeading />
-        <SetupEmpty />
+        <NoFolder />
       </div>
     );
   }

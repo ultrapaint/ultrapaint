@@ -5,13 +5,18 @@ import {
 } from "@ultrapaint/contracts/errors";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import {
+  CONFIG_FILE_NAME,
   defaultSettings,
   type PersistInput,
   type PersistResult,
   Settings,
   type SettingsValidation,
 } from "@ultrapaint/contracts/settings";
-import { applySuggestions } from "@ultrapaint/contracts/setup";
+import {
+  applySuggestions,
+  hostCssFor,
+  stylesheetOf,
+} from "@ultrapaint/contracts/setup";
 import {
   Context,
   Effect,
@@ -143,6 +148,18 @@ export class OpenProject extends Context.Service<
   }
 >()("ultrapaint/server/OpenProject") {}
 
+/** What the setup changes of the detected settings, each repository-relative. */
+export interface SetupChange {
+  readonly designsDir?: string | undefined;
+  readonly stylesheet?: string | undefined;
+}
+
+/** Where a setup was saved, and why it was not when `problems` says so. */
+export interface SetupSaved {
+  readonly configPath?: string;
+  readonly problems: readonly string[];
+}
+
 /**
  * Owns the one open project and the settings in force. The project is a layer built into its
  * own scope: the preview host, the file watcher and every agent session live there, so changing
@@ -176,6 +193,14 @@ export class ProjectManager extends Context.Service<
     ) => Effect.Effect<PersistResult, BadRequest | Conflict>;
     /** Renames a configuration file still under its old name; returns the new path. */
     readonly renameConfig: Effect.Effect<string, BadRequest | Conflict>;
+    /**
+     * Saves the setup of a folder opened for the first time (ADR 0062): the settings in force
+     * with the designs directory and the stylesheet changed when given (a stylesheet `""` is
+     * none), the designs directory made, and the settings written where they are kept, or to an
+     * `ultrapaint.config.json` beside the code when they were detected and kept nowhere. Answers
+     * with where they went and what is wrong with them.
+     */
+    readonly saveSetup: (change: SetupChange) => Effect.Effect<SetupSaved>;
     /** Validates and, when valid, saves the settings and puts them in force. */
     readonly set: (settings: Settings) => Effect.Effect<SettingsValidation>;
   }
@@ -363,6 +388,56 @@ export class ProjectManager extends Context.Service<
           );
         });
 
+        const saveSetup = Effect.fn("ProjectManager.saveSetup")(function* (
+          change: SetupChange
+        ) {
+          const settings = yield* settingsService.get;
+          if (!settings) {
+            return { problems: ["no folder is open to set up"] };
+          }
+          const designsDir = change.designsDir?.trim() || settings.designsDir;
+          const [css] = settings.hostCss;
+          const stylesheet =
+            change.stylesheet?.trim() ??
+            (css === undefined ? "" : stylesheetOf(settings.designsDir, css));
+          const next: Settings = {
+            ...settings,
+            designsDir,
+            hostCss: stylesheet ? [hostCssFor(designsDir, stylesheet)] : [],
+          };
+          const made = yield* setup
+            .createDesigns({ designsDir, repoPath: settings.repoPath })
+            .pipe(
+              Effect.as([] as readonly string[]),
+              Effect.catch((error) => Effect.succeed([error.message]))
+            );
+          if (made.length > 0) {
+            return { problems: made };
+          }
+          const target = yield* storage.target;
+          if (target.mode !== "ephemeral") {
+            const validation = yield* set(next);
+            return {
+              ...(target.mode === "file" && { configPath: target.configPath }),
+              problems: validation.problems,
+            };
+          }
+          return yield* persist({
+            configPath: path.join(settings.repoPath, CONFIG_FILE_NAME),
+            settings: next,
+          }).pipe(
+            Effect.map((result) => ({
+              ...(result.configPath !== undefined && {
+                configPath: result.configPath,
+              }),
+              problems: result.validation.problems,
+            })),
+            Effect.catch((error) =>
+              Effect.succeed({ problems: [error.message] })
+            )
+          );
+        });
+
         const renameConfig = inForce
           .withPermits(1)(Effect.tap(settingsService.renameConfig, publishInfo))
           .pipe(Effect.withSpan("ProjectManager.renameConfig"));
@@ -435,6 +510,7 @@ export class ProjectManager extends Context.Service<
             info,
             persist,
             renameConfig,
+            saveSetup,
             set,
           })
         ).pipe(

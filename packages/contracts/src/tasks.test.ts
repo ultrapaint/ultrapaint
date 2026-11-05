@@ -134,6 +134,7 @@ describe("the slash commands", () => {
       { _tag: "Redraw", canvas: "", change: "to wireframes" },
       { _tag: "Redraw", canvas: "copy" },
     ],
+    Setup: [{ _tag: "Setup" }, { _tag: "Setup", extra: "the admin app" }],
     SetupStep: [
       { _tag: "SetupStep", step: "define" },
       { _tag: "SetupStep", mode: "adopt", step: "define" },
@@ -161,6 +162,7 @@ describe("the slash commands", () => {
       [...offered].sort()
     );
     expect(offered).toEqual([
+      "setup",
       "init",
       "implement",
       "import-figma",

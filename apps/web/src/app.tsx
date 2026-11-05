@@ -30,7 +30,6 @@ import { PlaceSwitch } from "./components/place-switch.tsx";
 import { Rail, railItems } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
-import { SetupDialog } from "./components/setup-dialog.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { PanelLoading, Splash } from "./components/splash.tsx";
@@ -41,9 +40,10 @@ import {
   TitleRow,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
-import { sendFirstPrompt } from "./lib/first-prompt.ts";
+import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
+import { setUpOnOpen } from "./lib/project-setup.ts";
 import { ModeAndCanvases } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
@@ -553,11 +553,13 @@ export const App = () => {
     }
   }, [configured]);
 
-  // The start screen's prompt, once the project's info is read: a folder not set up yet takes
-  // it too (ADR 0062).
+  // Once the project's info is read (ADR 0062): the start screen's prompt in a chat, and a folder
+  // opened for the first time set up in another, behind it when there is one.
   useEffect(() => {
     if (loaded) {
-      sendFirstPrompt();
+      const start = takeFirstPrompt();
+      setUpOnOpen({ behind: start !== null });
+      sendFirstPrompt(start);
     }
   }, [loaded]);
 
@@ -694,7 +696,6 @@ export const App = () => {
         </div>
         <SettingsDialog />
         <SaveConfigDialog />
-        <SetupDialog />
         <RemoteProjectDialog />
         <DialogHost />
         <ShortcutSheet />

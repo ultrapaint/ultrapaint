@@ -45,8 +45,7 @@ export const promptText = (start: FirstPrompt) =>
  * Sends the start screen's prompt, if the editor was opened with one: a new chat with the agent
  * and model it names (the agent's own when it has no such model), opened in the left panel.
  */
-export const sendFirstPrompt = async () => {
-  const start = takeFirstPrompt();
+export const sendFirstPrompt = async (start = takeFirstPrompt()) => {
   if (!start) {
     return;
   }
