@@ -894,7 +894,7 @@ const measureCommand = Command.make(
         ? {
             grid: input.grid,
             hover: input.hover,
-            nearTone: 0.008,
+            nearTone: 0.045,
             stress: input.stress,
           }
         : undefined,

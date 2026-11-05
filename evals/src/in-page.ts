@@ -867,8 +867,8 @@ export interface AuditOptions {
    */
   readonly grid: number;
   /**
-   * Under this oklch lightness apart, two surfaces read as one tone: calibrated on the person's
-   * accepted fix of g05 (0.011 apart), not on the skill's step of about 0.045.
+   * Under this oklch lightness apart, nested surfaces are less than one tone step apart:
+   * `elevation.md`'s step, about 0.045.
    */
   readonly nearTone: number;
   /** The checks to run, by name; all without it. */
@@ -1208,7 +1208,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     if (delta > 0.002 && delta < options.nearTone) {
       add({
         check: "surface-tone",
-        detail: `${delta.toFixed(3)} lightness from its container: nearly one tone (under ${options.nearTone})`,
+        detail: `${delta.toFixed(3)} lightness from its container, under a tone step (${options.nearTone})`,
         label: labelOf(el),
         value: Number(delta.toFixed(3)),
       });
