@@ -9,6 +9,11 @@
  * section, for a person to rate as real or noise. A section no gap names is held out: all that is
  * found there is for the person.
  *
+ * A reviewer sees the section's pictures and code (`pictures`), or only a text outline of it
+ * (`outline`, `outline.md` beside `section.json`, written by `pnpm evals outline`): its parts,
+ * words, actions and states, as a designer could write them before drawing. Which problems the
+ * outline alone shows is what the shift-left proposal turns on.
+ *
  * It resumes: a review, a judgement or a grouping already made is kept. It ends on
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status
  * `testing`.
@@ -173,25 +178,41 @@ const Saved = <S extends Schema.Top>(schema: S) =>
 export const versionName = (skills: string) =>
   skills === "built-in" ? "shipped" : path.basename(skills);
 
-/** What reviews a section: a version of the skill read by one model. */
+export const RECALL_INPUTS = ["pictures", "outline"] as const;
+/** What a reviewer is shown of a section: its pictures and code, or a text outline of it. */
+export type RecallInput = (typeof RECALL_INPUTS)[number];
+
+/** What reviews a section: a version of the skill read by one model, shown one input. */
 export interface Version {
+  readonly input: RecallInput;
   readonly model: string;
-  /** `shipped@gpt-6.1-sol`; the skill's name alone when one model reviews. */
+  /**
+   * `shipped@gpt-6.1-sol`; the skill's name alone when one model reviews; `+outline` after it
+   * when the reviewer is shown the outline.
+   */
   readonly name: string;
   readonly skills: string;
 }
 
-/** Every version of the skill read by every reviewing model, the skill's versions first. */
+/** Every version of the skill read by every reviewing model with every input, the skill's first. */
 export const versionsOf = (
   skills: readonly string[],
-  models: readonly string[]
+  models: readonly string[],
+  inputs: readonly RecallInput[] = ["pictures"]
 ): readonly Version[] =>
   skills.flatMap((s) =>
-    models.map((model) => ({
-      model,
-      name: models.length > 1 ? `${versionName(s)}@${model}` : versionName(s),
-      skills: s,
-    }))
+    models.flatMap((model) =>
+      inputs.map((input) => {
+        const base =
+          models.length > 1 ? `${versionName(s)}@${model}` : versionName(s);
+        return {
+          input,
+          model,
+          name: input === "outline" ? `${base}+outline` : base,
+          skills: s,
+        };
+      })
+    )
   );
 
 /**
@@ -299,6 +320,8 @@ const sum = (tallies: readonly (Tally | undefined)[]): Tally =>
 export interface RecallOptions {
   readonly concurrency: number;
   readonly effort: string;
+  /** What the reviewers are shown; `pictures` alone by default. */
+  readonly inputs?: readonly RecallInput[];
   /** The model that judges every review and groups what no gap matched, whoever reviewed. */
   readonly judgeModel: string;
   /** The models that review, each with every version of the skill, to be compared. */
@@ -384,7 +407,73 @@ const sectionCopy = Effect.fn("sectionCopy")(function* (
       }
     }
   }
+  // The outline may come after the round's first run, so it is copied whenever it is newer.
+  if (yield* fs.exists(path.join(from, OUTLINE_FILE))) {
+    yield* fs.copyFile(
+      path.join(from, OUTLINE_FILE),
+      path.join(dir, OUTLINE_FILE)
+    );
+  }
   return { dir, section };
+});
+
+/** A section's outline beside its `section.json`: what `recall --inputs outline` is shown. */
+export const OUTLINE_FILE = "outline.md";
+
+const OutlineAnswer = Schema.Struct({ outline: Schema.String });
+const outlineAnswer = {
+  decode: OutlineAnswer,
+  schema: {
+    additionalProperties: false,
+    properties: { outline: { type: "string" } },
+    required: ["outline"],
+    type: "object",
+  },
+};
+
+/**
+ * Writes each section's outline from its code, not its pictures: the parts, words, actions and
+ * states a designer could write down before drawing, with no look and no judgement. Kept unless
+ * `force`.
+ */
+export const writeOutlines = Effect.fn("writeOutlines")(function* (options: {
+  readonly effort: string;
+  readonly force: boolean;
+  readonly model: string;
+  readonly sections: readonly string[];
+}) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  const models = yield* Models;
+  const ids =
+    options.sections.length > 0
+      ? options.sections
+      : yield* listDir(data.sections);
+  for (const id of ids) {
+    const dir = path.join(data.sections, id);
+    const sectionFile = path.join(dir, "section.json");
+    const file = path.join(dir, OUTLINE_FILE);
+    if (
+      !(yield* fs.exists(sectionFile)) ||
+      ((yield* fs.exists(file)) && !options.force)
+    ) {
+      continue;
+    }
+    const section = yield* readJson(Section, sectionFile);
+    const answer = yield* models.ask({
+      cwd: dir,
+      effort: options.effort,
+      model: options.model,
+      prompt: yield* prompt("outline-section", {
+        code: section.code.map((f) => `- \`${f}\``).join("\n"),
+        name: section.name,
+        where: section.where,
+      }),
+      ...outlineAnswer,
+    });
+    yield* writeText(file, `${answer.value.outline.trim()}\n`);
+    yield* Effect.log(`${id}: outline written`);
+  }
 });
 
 const picturesOf = (section: Section) =>
@@ -393,11 +482,35 @@ const picturesOf = (section: Section) =>
 const reviewOne = Effect.fn("reviewOne")(function* (
   copy: { readonly dir: string; readonly section: Section },
   tree: string,
-  model: string,
+  version: Version,
   options: RecallOptions
 ) {
   const models = yield* Models;
   const { section } = copy;
+  const { model } = version;
+  if (version.input === "outline") {
+    const fs = yield* FileSystem.FileSystem;
+    const file = path.join(copy.dir, OUTLINE_FILE);
+    if (!(yield* fs.exists(file))) {
+      return yield* new EvalsError({
+        message: `${section.name} has no ${OUTLINE_FILE}: run \`pnpm evals outline\` first`,
+      });
+    }
+    const answer = yield* models.ask({
+      cwd: copy.dir,
+      dirs: [tree],
+      effort: options.effort,
+      model,
+      prompt: yield* prompt("recall-review-outline", {
+        name: section.name,
+        outline: (yield* fs.readFileString(file)).trim(),
+        skill: tree,
+        where: section.where,
+      }),
+      ...reviewAnswer,
+    });
+    return { costUsd: answer.costUsd, value: answer.value };
+  }
   const answer = yield* models.ask({
     cwd: copy.dir,
     dirs: [tree],
@@ -564,7 +677,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
       ids.push(id);
     }
   }
-  const reviewers = versionsOf(options.skills, options.models);
+  const reviewers = versionsOf(options.skills, options.models, options.inputs);
   const versions = reviewers.map((v) => v.name);
   const trees = new Map<string, string>();
   for (const skills of options.skills) {
@@ -572,6 +685,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   }
   yield* writeJson(path.join(out, "recall.json"), {
     effort: options.effort,
+    inputs: options.inputs ?? ["pictures"],
     judgeModel: options.judgeModel,
     models: options.models,
     runs: options.runs,
@@ -609,7 +723,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
                 const review = yield* kept(
                   path.join(dir, "review.json"),
                   Review,
-                  reviewOne(copy, tree, version.model, options)
+                  reviewOne(copy, tree, version, options)
                 );
                 cost += review.costUsd;
                 const judged =

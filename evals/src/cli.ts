@@ -17,6 +17,7 @@
  *   pnpm evals gaps                                the design gaps, with kind and status
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
+ *   pnpm evals catchable <name> [--decks …] [--panels …] sort the findings: code, outline or eye
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *   pnpm evals panel <round> [rounds…]             what a fixed panel still finds in finished designs
  *
@@ -29,10 +30,12 @@ import { Argument, Command, Flag } from "effect/cli";
 import { writeBrief } from "./brief.ts";
 import { Browser } from "./browser.ts";
 import { captureReference } from "./capture.ts";
+import { catchable } from "./catchable.ts";
 import { compare } from "./compare.ts";
 import { judgeComponents } from "./component-judge.ts";
 import { EvalsConfig } from "./config.ts";
 import { decide } from "./decide.ts";
+import { EvalsError } from "./errors.ts";
 import { extract, freeze } from "./extract.ts";
 import { GALLERY_SETS, gallery } from "./gallery.ts";
 import { listGaps } from "./gap.ts";
@@ -45,7 +48,12 @@ import { Models } from "./models.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
-import { recall } from "./recall.ts";
+import {
+  RECALL_INPUTS,
+  type RecallInput,
+  recall,
+  writeOutlines,
+} from "./recall.ts";
 import { loadReferences } from "./reference.ts";
 import { report } from "./report.ts";
 import { review } from "./review.ts";
@@ -797,6 +805,15 @@ const decideCommand = Command.make(
 const measureCommand = Command.make(
   "measure",
   {
+    checks: Flag.Boolean("checks").pipe(
+      Flag.withDescription(
+        "Run the general design checks too: contrast, control edges, surface tones, the spacing scale, touching rows, clipped text, names that can't truncate, targets"
+      )
+    ),
+    grid: Flag.Int("grid").pipe(
+      Flag.withDescription("The spacing scale's step in px, for --checks"),
+      Flag.withDefault(4)
+    ),
     out: Flag.String("out").pipe(
       Flag.withDescription("A JSON file the findings are written to"),
       Flag.optional
@@ -817,6 +834,11 @@ const measureCommand = Command.make(
       ),
       Flag.optional
     ),
+    stress: Flag.Boolean("stress").pipe(
+      Flag.withDescription(
+        "With --checks: lengthen a name in each list to see whether it truncates"
+      )
+    ),
     theme: Flag.ChoiceWithValue("theme", [
       ["dark", "dark"],
       ["light", "light"],
@@ -830,6 +852,9 @@ const measureCommand = Command.make(
   },
   Effect.fn(function* (input) {
     yield* measure(input.url, {
+      checks: input.checks
+        ? { grid: input.grid, stress: input.stress, toneStep: 0.045 }
+        : undefined,
       out: Option.getOrUndefined(input.out),
       ratio: input.ratio,
       root: input.root,
@@ -842,6 +867,36 @@ const measureCommand = Command.make(
     "Measure a rendered page: groups at least twice as far apart as the lines inside them, dividers on their bar's line"
   ),
   Command.provide(Browser.layer)
+);
+
+const outlineCommand = Command.make(
+  "outline",
+  {
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the model thinks"),
+      Flag.withDefault("medium")
+    ),
+    force,
+    model: model("gpt-6.1-sol", "that writes the outlines"),
+    sections: Argument.String("sections").pipe(
+      Argument.withDescription(
+        "Sections of the data directory's gaps/sections/; all when none"
+      ),
+      Argument.variadic()
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* writeOutlines({
+      effort: input.effort,
+      force: input.force,
+      model: input.model,
+      sections: input.sections,
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Write each gap section's outline from its code (parts, words, actions, states), for `recall --inputs outline`"
+  )
 );
 
 const gapsCommand = Command.make("gaps", {}, listGaps).pipe(
@@ -857,6 +912,12 @@ const recallCommand = Command.make(
     effort: Flag.String("effort").pipe(
       Flag.withDescription("How hard the reviewers and judges think"),
       Flag.withDefault("high")
+    ),
+    inputs: Flag.String("inputs").pipe(
+      Flag.withDescription(
+        "What the reviewers are shown, comma-separated: pictures (and code), outline (a text outline, from `outline`)"
+      ),
+      Flag.withDefault("pictures")
     ),
     judgeModel: judgeFlags.judgeModel,
     models: Flag.String("models").pipe(
@@ -885,9 +946,19 @@ const recallCommand = Command.make(
     ),
   },
   Effect.fn(function* (input) {
+    const inputs = modelList(input.inputs);
+    const unknown = inputs.filter(
+      (i) => !(RECALL_INPUTS as readonly string[]).includes(i)
+    );
+    if (unknown.length > 0) {
+      return yield* new EvalsError({
+        message: `--inputs: ${unknown.join(", ")} is not one of ${RECALL_INPUTS.join(", ")}`,
+      });
+    }
     yield* recall({
       concurrency: input.concurrency,
       effort: input.effort,
+      inputs: inputs as readonly RecallInput[],
       judgeModel: input.judgeModel,
       models: modelList(input.models),
       round: input.name,
@@ -899,6 +970,50 @@ const recallCommand = Command.make(
 ).pipe(
   Command.withDescription(
     "Have reviewers with each version of the skill review the gaps' sections, and count what they found of the person's findings"
+  )
+);
+
+const catchableCommand = Command.make(
+  "catchable",
+  {
+    batch: Flag.Int("batch").pipe(
+      Flag.withDescription("Findings sorted per question"),
+      Flag.withDefault(20)
+    ),
+    concurrency: judgeFlags.concurrency,
+    decks: Flag.String("decks").pipe(
+      Flag.withDescription(
+        "Decision decks whose findings answered real are sorted too, comma-separated"
+      ),
+      Flag.withDefault("")
+    ),
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the model thinks"),
+      Flag.withDefault("medium")
+    ),
+    model: model("gpt-6.1-sol", "that sorts the findings"),
+    name,
+    panels: Flag.String("panels").pipe(
+      Flag.withDescription(
+        "Rounds whose panel findings (panel.json) are sorted too, comma-separated"
+      ),
+      Flag.withDefault("")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* catchable({
+      batch: input.batch,
+      concurrency: input.concurrency,
+      decks: modelList(input.decks),
+      effort: input.effort,
+      model: input.model,
+      name: input.name,
+      panels: modelList(input.panels),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Sort every design finding by how it could have been caught: by code, by a text outline, or only by eye"
   )
 );
 
@@ -964,6 +1079,8 @@ Command.make("design-evals").pipe(
     panelCommand,
     decideCommand,
     measureCommand,
+    catchableCommand,
+    outlineCommand,
   ]),
   Command.run({ version: "0.0.0" }),
   Effect.provide(
