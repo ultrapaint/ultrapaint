@@ -26,6 +26,13 @@
  * See evals/README.md.
  */
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import {
+  DEFAULT_REVIEW,
+  EACH_ROUND,
+  type EachRound,
+  SIGN_OFF,
+  type SignOffBy,
+} from "@ultrapaint/contracts/review";
 import { Effect, Layer, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { writeBrief } from "./brief.ts";
@@ -149,6 +156,15 @@ const reviewFlags = {
     ),
     Flag.optional
   ),
+  eachRound: Flag.ChoiceWithValue(
+    "each-round",
+    EACH_ROUND.map((m) => [m, m] as const)
+  ).pipe(
+    Flag.withDescription(
+      "Who of the council reviews each round: one (the first), rotate (in turn), all"
+    ),
+    Flag.withDefault(DEFAULT_REVIEW.eachRound)
+  ),
   effort: Flag.String("effort").pipe(
     Flag.withDescription("How hard the reviewers think"),
     Flag.withDefault("high")
@@ -197,6 +213,15 @@ const reviewFlags = {
     ),
     Flag.withDefault("opus")
   ),
+  signOff: Flag.ChoiceWithValue(
+    "sign-off",
+    SIGN_OFF.map((m) => [m, m] as const)
+  ).pipe(
+    Flag.withDescription(
+      "Who must reach the goal at the end: all (the whole council reviews once more) or one (the round's own reviewer)"
+    ),
+    Flag.withDefault(DEFAULT_REVIEW.signOff)
+  ),
 };
 
 /** `opus, gpt-6.1-sol` → the models, each once. */
@@ -243,6 +268,7 @@ interface GenerateInput {
   readonly agentModel: Option.Option<string>;
   readonly budget: Option.Option<number>;
   readonly concurrency: number;
+  readonly eachRound: EachRound;
   readonly effort: string;
   readonly floors: Option.Option<string>;
   readonly goal: Option.Option<number>;
@@ -259,6 +285,7 @@ interface GenerateInput {
   readonly reviewerGoals: Option.Option<string>;
   readonly reviewers: string;
   readonly runs: number;
+  readonly signOff: SignOffBy;
   readonly skills: Option.Option<string>;
 }
 
@@ -280,12 +307,14 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
     review: Option.getOrUndefined(
       Option.map(input.review, (mode) => ({
         concurrency: input.concurrency,
+        eachRound: input.eachRound,
         effort: input.effort,
         goal,
         judgeModel: input.judgeModel,
         logFindings: input.logFindings,
         mode,
         reviewers: modelList(input.reviewers),
+        signOff: input.signOff,
       }))
     ),
     round: input.name,

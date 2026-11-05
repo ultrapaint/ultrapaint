@@ -13,6 +13,8 @@
  *   sections'. A reviewer that gave no review has **no score**: nothing is guessed for it.
  * - A **goal** says when to stop: every reviewer reaches its target score, or, with no score
  *   asked, every reviewer signs off; a safety cap ends a loop that isn't converging.
+ * - **Who reviews each round** (ADR 0061): one member of the council, the members in turn, or all
+ *   of them; and **who signs off** at the end: all of them, or the round's own reviewer.
  */
 import { Schema } from "effect";
 
@@ -349,10 +351,12 @@ export const verdictOf = (goal: Goal, rounds: readonly Round[]): Verdict => {
   if (rounds.length >= (goal.maxRounds ?? MAX_ROUNDS)) {
     return { best, reason: "max-rounds", stop: true, unmet: short };
   }
+  // A reviewer is compared with itself: with members in turn, rounds of other reviewers are left out.
+  const same = sameReviewers(rounds, last);
   const span = goal.plateauRounds ?? PLATEAU.rounds;
-  if (rounds.length > span) {
+  if (same.length > span) {
     const now = progressOf(last);
-    const then = progressOf(rounds.at(-1 - span) as Round);
+    const then = progressOf(same.at(-1 - span) as Round);
     if (
       now !== undefined &&
       then !== undefined &&
@@ -389,3 +393,79 @@ export const LoggedFinding = Schema.Struct({
   skill: Schema.String,
 });
 export type LoggedFinding = typeof LoggedFinding.Type;
+
+/** The rounds reviewed by the same reviewers as `last`, in order, `last` among them. */
+const sameReviewers = (rounds: readonly Round[], last: Round) => {
+  const key = Object.keys(last.reviewers).sort().join(",");
+  return rounds.filter(
+    (r) => Object.keys(r.reviewers).sort().join(",") === key
+  );
+};
+
+/** Who reviews each round while the designer works: the first member, the members in turn, all. */
+export const EACH_ROUND = ["one", "rotate", "all"] as const;
+export type EachRound = (typeof EACH_ROUND)[number];
+
+/** Who must reach the goal at the end: every member of the council, or the last round's reviewer. */
+export const SIGN_OFF = ["all", "one"] as const;
+export type SignOffBy = (typeof SIGN_OFF)[number];
+
+/**
+ * How a design is reviewed (ADR 0060, 0061): the council, who of it looks each round, who signs
+ * off, the goal, when in the loop, and whether findings are logged. Kept per user and per project,
+ * chosen again when a design starts and in its request; the narrower wins (run, project, user).
+ */
+export const ReviewSettings = Schema.Struct({
+  /** The council: the reviewers, by model (`opus`, `gpt-6.1-sol`, `cursor:grok-4.7-high`). */
+  council: Schema.optional(Schema.Array(Schema.String)),
+  eachRound: Schema.optional(Schema.Literals(EACH_ROUND)),
+  /** Whether each round's findings go to the findings log (`~/.ultrapaint/findings/`). */
+  findingsLog: Schema.optional(Schema.Boolean),
+  goal: Schema.optional(Goal),
+  /** Whether reviews run at all. On when absent. */
+  on: Schema.optional(Schema.Boolean),
+  signOff: Schema.optional(Schema.Literals(SIGN_OFF)),
+  /** After the designer's turn, or after each section it builds. */
+  when: Schema.optional(Schema.Literals(["end", "each-section"])),
+});
+export type ReviewSettings = typeof ReviewSettings.Type;
+
+/** What a review runs with when nothing says otherwise. */
+export const DEFAULT_REVIEW = {
+  eachRound: "rotate",
+  findingsLog: false,
+  on: true,
+  signOff: "all",
+  when: "end",
+} as const satisfies ReviewSettings;
+
+/** The settings of the narrowest layer that sets each field: the run's over the project's over the user's. */
+export const reviewSettingsOf = (
+  ...layers: readonly (ReviewSettings | undefined)[]
+): ReviewSettings => {
+  const merged: Record<string, unknown> = { ...DEFAULT_REVIEW };
+  for (const layer of layers) {
+    for (const [field, value] of Object.entries(layer ?? {})) {
+      if (value !== undefined) {
+        merged[field] = value;
+      }
+    }
+  }
+  return merged as ReviewSettings;
+};
+
+/** The members of the council who review round `index` (from 0) while the designer works. */
+export const reviewersOfRound = (
+  council: readonly string[],
+  eachRound: EachRound,
+  index: number
+): readonly string[] => {
+  if (council.length === 0 || eachRound === "all") {
+    return council;
+  }
+  if (eachRound === "one") {
+    return council.slice(0, 1);
+  }
+  const member = council[index % council.length];
+  return member === undefined ? [] : [member];
+};

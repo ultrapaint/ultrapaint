@@ -185,7 +185,10 @@ refactor and the board view left.
   of the design skill's references), from its own findings, each with a **severity**; a reviewer
   that gave no review has **no score**. A **goal** says when the loop stops: every reviewer
   reaches its target score, or, with none asked, every reviewer gives its **sign-off**; a cap ends
-  a loop that isn't converging. Contracts' `review` (`sectionScore`, `pageScore`, `verdictOf`).
+  a loop that isn't converging. **Each round** says who of the council reviews while the designer
+  works (one, in turn, all), **sign-off** who must be satisfied at the end (all, or the round's
+  own) (ADR 0061). Contracts' `review` (`sectionScore`, `pageScore`, `verdictOf`,
+  `ReviewSettings`, `reviewersOfRound`).
 - **General check**: a rule written once for every screen that code decides on the document or
   the rendered page, with a threshold (ADR 0061): values **off the system** (design-document's
   `offSystemValues`: spacing off the base's steps, a raw radius, colour or type size where a

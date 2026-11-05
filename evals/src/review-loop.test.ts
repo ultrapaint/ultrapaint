@@ -128,11 +128,13 @@ const groupedAsOne = (asked: Asked) => ({
 
 const options = (more: Partial<ReviewOptions>): ReviewOptions => ({
   concurrency: 2,
+  eachRound: "all",
   effort: "high",
   goal: { maxRounds: 2 },
   judgeModel: "opus",
   mode: "end",
   reviewers: ["opus"],
+  signOff: "all",
   ...more,
 });
 
@@ -369,6 +371,80 @@ describe("the review loop", () => {
             finding("Overlap", seen.pages === 1 ? "blocker" : "nit"),
           ]);
         })
+      );
+    }
+  );
+
+  it.effect(
+    "with the members in turn, the whole council signs off once a round's reviewer is satisfied",
+    () => {
+      const { io, seen, sent } = scriptedIO(["Fixed: 1, 2"]);
+      return Effect.gen(function* () {
+        const { record } = yield* reviewLoop(
+          turnSaying("Made the page."),
+          io,
+          options({
+            eachRound: "rotate",
+            goal: {},
+            reviewers: ["opus", "gpt-6.1-sol"],
+          }),
+          yield* run
+        );
+        assert.deepStrictEqual(
+          record.passes.map((p) => [p.reviewers, p.signOff ?? false]),
+          [
+            [["opus"], false],
+            [["gpt-6.1-sol"], false],
+            [["opus", "gpt-6.1-sol"], true],
+          ]
+        );
+        assert.strictEqual(sent.length, 1);
+        // The council looks at the page the satisfied reviewer saw: it isn't pictured again.
+        assert.strictEqual(seen.pages, 2);
+        assert.strictEqual(record.passes[2]?.stopped?.reason, "signed-off");
+      }).pipe(
+        withModels((question) => {
+          if (!isReview(question)) {
+            return groupedAsOne(question);
+          }
+          // Only the first look finds something.
+          return answer(
+            seen.pages === 1 && question.model === "opus"
+              ? [finding("Cramped")]
+              : []
+          );
+        })
+      );
+    }
+  );
+
+  it.effect(
+    "with sign-off by one, the round's own reviewer closes the loop",
+    () => {
+      const { io, sent } = scriptedIO(["Fixed: 1, 2"]);
+      return Effect.gen(function* () {
+        const { record } = yield* reviewLoop(
+          turnSaying("Made the page."),
+          io,
+          options({
+            eachRound: "rotate",
+            goal: {},
+            reviewers: ["opus", "gpt-6.1-sol"],
+            signOff: "one",
+          }),
+          yield* run
+        );
+        assert.deepStrictEqual(
+          record.passes.map((p) => p.reviewers),
+          [["opus"], ["gpt-6.1-sol"]]
+        );
+        assert.strictEqual(sent.length, 1);
+      }).pipe(
+        withModels((question) =>
+          isReview(question)
+            ? answer(question.model === "opus" ? [finding("Cramped")] : [])
+            : groupedAsOne(question)
+        )
       );
     }
   );

@@ -93,10 +93,12 @@ export const RoundInfo = Schema.Struct({
   review: Schema.optional(
     Schema.Struct({
       /** When the loop stopped: absent in rounds from before the goal, which had `passes`. */
+      eachRound: Schema.optional(Schema.String),
       goal: Schema.optional(Goal),
       mode: Schema.String,
       passes: Schema.optional(Schema.Number),
       reviewers: Schema.Array(Schema.String),
+      signOff: Schema.optional(Schema.String),
     })
   ),
   runs: Schema.Number,
@@ -776,9 +778,11 @@ const startRound = Effect.fn("startRound")(function* (
       references: references.map((r) => r.id),
       ...(options.review && {
         review: {
+          eachRound: options.review.eachRound,
           goal: options.review.goal,
           mode: options.review.mode,
           reviewers: options.review.reviewers,
+          signOff: options.review.signOff,
         },
       }),
       runs: options.runs,

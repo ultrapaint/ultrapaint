@@ -23,7 +23,8 @@ different problems), and every finding kept so the skill learns from them.
 | D5 | When in the loop | End of the turn by default; section by section measured against it in the lab |
 | D6 | One skill | The reviewer is the design skill in its review role: the skill gains a short section on reviewing a section, which the lab's recall reviewers read too |
 | D7 | The score | Each reviewer 0–100, overall and per category (the skill's references), computed from its own findings by contracts' `review`; no council score; "no score" for a reviewer that gave no review |
-| D9 | What comes before a review | An outline run against a checklist before the first node; general checks at each edit (values off the design system in the document, the rendered checks shown precise); then one judgement review per round, and the council on demand (ADR 0061) |
+| D10 | How much of the council looks | Each round: one member, the members in turn (default) or all; sign-off: the whole council (default) or the round's own reviewer. Chosen in the editor's settings, per project, when a design starts, or in the request (ADR 0061) |
+| D9 | What comes before a review | An outline run against a checklist before the first node; general checks at each edit (values off the design system in the document, the rendered checks shown precise); then the review by the council, as D10 says (ADR 0061) |
 | D8 | When to stop | A score asked holds every reviewer to it (own targets, advisory reviewers and category floors optional); none asked, every reviewer signs off. Caps: 6 rounds, 2 rounds under 2 points of gain, budget; the best round is kept |
 
 ## Phases
@@ -39,12 +40,22 @@ different problems), and every finding kept so the skill learns from them.
    tokens per review.
 3. **The experiment, after the 7-day quota resets (2026-11-09).** One design round, Claude and
    Codex designing three references: the council every round (ADR 0060) against the layers of
-   ADR 0061 (outline, checks, one judgement review). Scored by the person's blind picks, the gaps
+   ADR 0061 (outline, checks, then the council in turn: `--each-round rotate --sign-off all`). Scored by the person's blind picks, the gaps
    and `measure`, not by reviewers alone; with each arm's tokens and time.
 4. **The skill.** Its outline step and checklist, its review role (categories, severity, rule, sign-off, read-only) and the
    step that answers reviews, shipped when phase 2 shows the loop helps.
 5. **Harnesses.** The checks at each edit in the editor's write tools (their results in the tool's
-   answer, no new tool), a script of them in the skill for other harnesses. Where the designer runs, the council is started: the editor (a server service,
+   answer, no new tool), a script of them in the skill for other harnesses. The review's
+   settings (contracts' `ReviewSettings`) in the editor:
+   - **Settings › Agents › Review:** on or off; the council (the agents and models this machine
+     has, in order); each round (One · In turn · All); sign-off (Everyone · The round's
+     reviewer); the goal (Until they sign off, or a score, with a reviewer's own target or
+     advisory); when (End of turn · Each section); the findings log. Kept in the user's settings,
+     and in `ultrapaint.config.json` under `review` for a project.
+   - **When a design starts:** the new chat's composer has a Review popover with the same fields,
+     filled from the settings, for this design only; a plain popover, as the toolbar's are.
+   - **In the request:** what the person says ("Opus and Grok, every round, until 90") is read
+     into the same fields, and the popover shows what was understood. Where the designer runs, the council is started: the editor (a server service,
    headless reviewers on 2× crops in each theme, the turn-end backstop, the setting, the log), T3
    Code's delegation, Claude Code's subagents and CLIs, a `scripts/council` fallback in the skill;
    a stop hook where the harness has one, so the loop isn't skipped (gap p08).

@@ -27,14 +27,18 @@
 import path from "node:path";
 import {
   CATEGORIES,
+  type EachRound,
   type Goal,
   type LoggedFinding,
   MAX_ROUNDS,
   type ReviewerRound,
   type Round,
+  reviewersOfRound,
+  type SignOffBy,
   type StopReason,
   type Target,
   targetOf,
+  type Verdict,
   verdictOf,
 } from "@ultrapaint/contracts/review";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
@@ -67,6 +71,8 @@ export const MAX_TURNS = 40;
 export interface ReviewOptions {
   /** Reviews (and groupings) at once. */
   readonly concurrency: number;
+  /** Who of the council reviews each round while the designer works (contracts' `review`). */
+  readonly eachRound: EachRound;
   readonly effort: string;
   /** When to stop reviewing a section, or the page (contracts' `review`). */
   readonly goal: Goal;
@@ -77,6 +83,8 @@ export interface ReviewOptions {
   readonly mode: ReviewMode;
   /** The council: the models that review, as `recall --models` takes them. */
   readonly reviewers: readonly string[];
+  /** Who must reach the goal at the end: the whole council, or the round's own reviewers. */
+  readonly signOff: SignOffBy;
 }
 
 /** Where the findings go when the findings log is on (opt-in), and what they are told with. */
@@ -307,6 +315,30 @@ export const scoresText = (
     })
     .join("\n");
 
+/** Why a loop stopped after its last pass, and which pass to keep. */
+const stoppedOf = (verdict: Verdict, number: number) =>
+  verdict.stop
+    ? { best: verdict.best + 1, reason: verdict.reason, unmet: verdict.unmet }
+    : { best: number, reason: "nothing-found" as const, unmet: verdict.unmet };
+
+/** A pass in one line for the log: what it found and where each reviewer stands. */
+const passLine = (
+  pass: { readonly kind: "page" | "section"; readonly node?: string },
+  number: number,
+  merged: readonly MergedFinding[],
+  reviews: readonly SectionReview[],
+  notes: readonly unknown[],
+  scores: Readonly<Record<string, ScoredReviewer>>
+) =>
+  `review ${pass.kind === "page" ? "of the page" : `of ${pass.node}`}, pass ${number}: ${merged.length} problems from ${reviews.reduce((n, r) => n + r.findings.length, 0)} findings, ${notes.length} system notes; ${Object.entries(
+    scores
+  )
+    .map(
+      ([m, r]) =>
+        `${m} ${r.score.kind === "scored" ? r.score.overall : "no score"}${r.signedOff ? " ✓" : ""}`
+    )
+    .join(", ")}`;
+
 /** A system note, with the section and the reviewer it came from. */
 export interface PlacedNote extends SystemNote {
   readonly reviewer: string;
@@ -369,6 +401,8 @@ export interface ReviewPass {
   readonly pass: number;
   /** What the designer said back; absent when nothing was found and nothing sent. */
   readonly reply?: string;
+  /** Who of the council reviewed this pass. */
+  readonly reviewers: readonly string[];
   readonly reviews: readonly SectionReview[];
   /** Each reviewer's score of what it reviewed, and whether it signed off. */
   readonly scores: Readonly<Record<string, ScoredReviewer>>;
@@ -377,6 +411,8 @@ export interface ReviewPass {
     /** From the run's directory. */
     readonly picture: string;
   }[];
+  /** Whether this was the whole council signing off, after a round's own reviewers were satisfied. */
+  readonly signOff?: boolean;
   readonly spent: Spent;
   /** Why the loop stopped after this pass, on its last pass. */
   readonly stopped?: {
@@ -498,23 +534,43 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
     );
 
   /**
-   * Reviews these sections and scores each reviewer; then, unless the goal says to stop, sends
-   * what was found. Records the pass; false when the loop ends.
+   * Whether a round's own reviewers are satisfied (the goal met, or nothing left to find) while the
+   * whole council is to sign off and hasn't yet.
+   */
+  const handsToCouncil = (
+    verdict: Verdict,
+    found: number,
+    closing: boolean,
+    who: readonly string[]
+  ) => {
+    const satisfied = verdict.stop
+      ? verdict.reason === "goal" || verdict.reason === "signed-off"
+      : found === 0;
+    return (
+      satisfied &&
+      !closing &&
+      options.signOff === "all" &&
+      who.length < options.reviewers.length
+    );
+  };
+
+  /**
+   * Reviews these sections by `who` and scores each reviewer; then, unless the goal says to stop,
+   * sends what was found. Records the pass. `go-on` when the designer answered; `satisfied` when
+   * part of the council is and the whole council is to sign off; `ended` otherwise.
    */
   const reviewPass = (
     sections: readonly SectionToReview[],
     pass: { readonly kind: "page" | "section"; readonly node?: string },
     rounds: Round[],
-    what: string
+    what: string,
+    who: readonly string[],
+    closing: boolean
   ) =>
     Effect.gen(function* () {
       const number = rounds.length + 1;
       const started = yield* Clock.currentTimeMillis;
-      const reviewed = yield* reviewSections(
-        sections,
-        options.reviewers,
-        settings
-      ).pipe(
+      const reviewed = yield* reviewSections(sections, who, settings).pipe(
         Effect.flatMap((found) =>
           Effect.map(
             Effect.forEach(
@@ -533,7 +589,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         )
       );
       if (reviewed === undefined) {
-        return false;
+        return "ended" as const;
       }
       const { merges, reviews } = reviewed;
       const merged = merges.flatMap((m) => m.merged);
@@ -542,7 +598,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         ...spentOf([...reviews, ...merges.map((m) => m.spent)]),
         seconds: ((yield* Clock.currentTimeMillis) - started) / 1000,
       };
-      const scores = reviewerRounds(options.reviewers, reviews);
+      const scores = reviewerRounds(who, reviews);
       rounds.push({ costUsd: spent.costUsd, reviewers: scores });
       const verdict = verdictOf(options.goal, rounds);
       const base = {
@@ -550,8 +606,10 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         merged,
         ...(pass.node !== undefined && { node: pass.node }),
         pass: number,
+        reviewers: who,
         reviews,
         scores,
+        ...(closing && { signOff: true }),
         sections: sections.map((s) => ({
           name: s.name,
           picture: fromRun(s.picture),
@@ -560,29 +618,22 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         systemNotes,
       };
       yield* Effect.log(
-        `review ${pass.kind === "page" ? "of the page" : `of ${pass.node}`}, pass ${number}: ${merged.length} problems from ${reviews.reduce((n, r) => n + r.findings.length, 0)} findings, ${systemNotes.length} system notes; ${Object.entries(
-          scores
-        )
-          .map(
-            ([m, r]) =>
-              `${m} ${r.score.kind === "scored" ? r.score.overall : "no score"}${r.signedOff ? " ✓" : ""}`
-          )
-          .join(", ")}`
+        passLine(pass, number, merged, reviews, systemNotes, scores)
       );
+      if (handsToCouncil(verdict, merged.length, closing, who)) {
+        // The round's own reviewers are satisfied: the whole council signs off before it ends.
+        passes.push(base);
+        yield* logPass(base, undefined);
+        return "satisfied" as const;
+      }
       if (verdict.stop || merged.length === 0) {
         const last: ReviewPass = {
           ...base,
-          stopped: verdict.stop
-            ? {
-                best: verdict.best + 1,
-                reason: verdict.reason,
-                unmet: verdict.unmet,
-              }
-            : { best: number, reason: "nothing-found", unmet: verdict.unmet },
+          stopped: stoppedOf(verdict, number),
         };
         passes.push(last);
         yield* logPass(last, undefined);
-        return false;
+        return "ended" as const;
       }
       const turn = yield* io.thread.send(
         yield* prompt("review-findings", {
@@ -606,9 +657,9 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
       yield* logPass(done, answered);
       if (turn.problem) {
         problems.push(`answering pass ${number}: ${turn.problem}`);
-        return false;
+        return "ended" as const;
       }
-      return true;
+      return "go-on" as const;
     });
 
   /** The rounds a loop may run before the goal's cap stops it, as a guard on the loop itself. */
@@ -617,6 +668,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
   /** The whole page, reviewed until the goal says to stop. */
   const pagePasses = Effect.gen(function* () {
     const rounds: Round[] = [];
+    let index = 0;
     while (rounds.length < cap) {
       const sections = yield* io.pageSections(
         path.join(dir, "review", `page-${rounds.length + 1}`)
@@ -627,14 +679,30 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
         );
         return;
       }
-      if (
-        !(yield* reviewPass(
-          sections,
-          { kind: "page" },
-          rounds,
-          "the sections of your page"
-        ))
-      ) {
+      const who = reviewersOfRound(options.reviewers, options.eachRound, index);
+      index += 1;
+      const what = "the sections of your page";
+      const outcome = yield* reviewPass(
+        sections,
+        { kind: "page" },
+        rounds,
+        what,
+        who,
+        false
+      );
+      // Satisfied, the round's reviewers hand the same page, unchanged, to the whole council.
+      const closed =
+        outcome === "satisfied"
+          ? yield* reviewPass(
+              sections,
+              { kind: "page" },
+              rounds,
+              what,
+              options.reviewers,
+              true
+            )
+          : outcome;
+      if (closed !== "go-on") {
         return;
       }
     }
@@ -664,13 +732,16 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
           );
           return;
         }
-        const goOn = yield* reviewPass(
+        // A section is signed off by the page's review at the end, not on its own.
+        const outcome = yield* reviewPass(
           [section],
           { kind: "section", node: marker.node },
           rounds,
-          `the section you just built, ${marker.name}`
+          `the section you just built, ${marker.name}`,
+          reviewersOfRound(options.reviewers, options.eachRound, rounds.length),
+          true
         );
-        if (!goOn || turns.length >= maxTurns) {
+        if (outcome !== "go-on" || turns.length >= maxTurns) {
           return;
         }
       }
