@@ -32,7 +32,7 @@ Most of what the person found isn't something only eyes can catch. Measured on 2
 
 ## Decision
 
-A design goes through four layers, the cheap ones first:
+A design goes through three layers, the cheap ones first:
 
 1. **An outline first.** Before the first node, the designer writes the outline: its sections,
    their words, their actions and the states each shows. A short checklist from the skill is run
@@ -47,12 +47,28 @@ A design goes through four layers, the cheap ones first:
 
    A check joins this list when it catches its gaps on their "before" states with no alarm on the
    fixed ones (`measure --checks`).
-3. **One judgement review.** One fresh, read-only reviewer per round looks at the page, given the
-   pictures, the code, the request and the checks' results as facts; it reviews what takes
-   judgement (hierarchy, restraint, character, what an icon suggests) and scores as ADR 0060
-   says. Usually one round; another when it leaves a blocker or a major.
-4. **The council on demand.** The person's council (ADR 0060) reviews for sign-off: on a screen
-   that matters, or when the person asks.
+3. **The review.** The council of ADR 0060 reviews in rounds. A reviewer is the same whichever
+   round it reviews: fresh, read-only, given the request, the pictures, the code and the checks'
+   results as facts, it reviews what takes judgement (hierarchy, restraint, character, what an
+   icon suggests), and answers with findings, its score and its sign-off. Two settings say how
+   much of the council looks:
+   - **Each round** (`eachRound`): `one`, the council's first member; `rotate`, the members in
+     turn; `all`, the whole council.
+   - **Sign-off** (`signOff`): `all`, once a round's reviewers are satisfied the whole council
+     reviews the page as it stands, and the loop ends only when every member reaches the goal or
+     signs off (or a cap is reached), its findings going back to the designer otherwise; `one`,
+     the round's own reviewers close the loop.
+
+   The defaults are `rotate` and `all` (contracts' `DEFAULT_REVIEW`): every round costs one
+   reviewer, every member sees the design, and the whole council signs it off. With one member,
+   every setting is the same.
+
+The person sets these with the rest of the review (the council, the goal, when in the loop,
+whether reviews run, the findings log; contracts' `ReviewSettings`): as their default in the
+editor's settings, for a project in its configuration, when a design starts, or in the request in
+their own words ("review with Opus and Grok, all of them every round, until 90"). The narrower
+wins: the request's, then the design's start, then the project's, then theirs, then the
+defaults (`reviewSettingsOf`).
 
 Every recurring finding of the findings log is turned, in this order of preference, into a check
 (when code can decide it), an outline item (when the outline shows it), or a rule of the skill
@@ -60,8 +76,9 @@ Every recurring finding of the findings log is turned, in this order of preferen
 
 ## Consequences
 
-- The designer's turns stay near a design without review; the review is one more turn, not one
-  per section.
+- With `rotate`, a round costs one reviewer and one designer turn, not one per council member;
+  the whole council looks once at the end. `all` every round costs about three times as much per
+  round, and is what step 4 compares `rotate` with.
 - The checks are code to keep: each with its threshold, its tests and its record on the gaps.
 - Surfaces nearly one tone are flagged under 0.008 oklch lightness apart, from the fix of g05 the
   person accepted (0.011); `elevation.md` asks for about 0.045. The two disagree, and the skill's

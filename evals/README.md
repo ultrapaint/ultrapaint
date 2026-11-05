@@ -165,6 +165,10 @@ pnpm evals panel <name> design-after --models opus,gpt-6.1-sol,cursor:grok-4.7-h
   15, minor 5, nit 1), a section the mean of its categories (60 at most with a blocker), the page
   the mean of its sections. Each reviewer is scored on its own findings; the council has no score
   of its own. A reviewer that fails has no score that round, and the loop goes on with the others.
+- **Who looks** (ADR 0061): `--each-round` (`rotate` by default: the members in turn; `one`, the
+  first; `all`, the whole council) and `--sign-off` (`all` by default: once a round's reviewers
+  are satisfied, the whole council reviews the page as it stands and decides; `one`, the round's
+  own reviewers close the loop). Each pass records who reviewed it, and whether it signed off.
 - **The goal**: with `--goal <score>`, the loop stops when every reviewer reaches it;
   `--reviewer-goals gpt-6.1-sol=none,cursor:grok-4.7-high=80` gives one its own target or makes it
   only advise; `--floors accessibility=80` holds every reviewer to a category's floor. Without

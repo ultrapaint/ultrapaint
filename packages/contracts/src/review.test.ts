@@ -4,6 +4,8 @@ import {
   type Goal,
   pageScore,
   type Round,
+  reviewersOfRound,
+  reviewSettingsOf,
   type Score,
   sectionScore,
   verdictOf,
@@ -210,5 +212,48 @@ describe("verdictOf", () => {
         round({ opus: scored(80) }, [], 9),
       ])
     ).toMatchObject({ reason: "budget", stop: true });
+  });
+});
+
+describe("who reviews", () => {
+  const council = ["opus", "gpt-6.1-sol", "cursor:grok-4.7-high"];
+
+  it("gives each round the first member, the members in turn, or all of them", () => {
+    expect(reviewersOfRound(council, "one", 2)).toEqual(["opus"]);
+    expect(
+      [0, 1, 2, 3].map((i) => reviewersOfRound(council, "rotate", i))
+    ).toEqual([["opus"], ["gpt-6.1-sol"], ["cursor:grok-4.7-high"], ["opus"]]);
+    expect(reviewersOfRound(council, "all", 5)).toEqual(council);
+  });
+
+  it("takes each setting from the narrowest layer that sets it, the defaults under all", () => {
+    expect(
+      reviewSettingsOf(
+        { council: ["opus"], eachRound: "one" },
+        { eachRound: "all", goal: { score: 90 } },
+        { eachRound: undefined, findingsLog: true }
+      )
+    ).toEqual({
+      council: ["opus"],
+      eachRound: "all",
+      findingsLog: true,
+      goal: { score: 90 },
+      on: true,
+      signOff: "all",
+      when: "end",
+    });
+  });
+
+  it("compares a reviewer with itself for the plateau when the members take turns", () => {
+    // Opus gains on Opus; GPT's lower scores in between don't make it a plateau.
+    expect(
+      verdictOf({ score: 99 }, [
+        round({ opus: scored(70) }),
+        round({ gpt: scored(60) }),
+        round({ opus: scored(80) }),
+        round({ gpt: scored(61) }),
+        round({ opus: scored(90) }),
+      ])
+    ).toMatchObject({ stop: false });
   });
 });
