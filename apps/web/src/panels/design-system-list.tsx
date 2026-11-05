@@ -3,14 +3,26 @@
  * system has data for, then the Guidelines, DESIGN.md's sections, with a search over the tokens;
  * the item open is lit, a click opens another, and what DESIGN.md's linter finds is under them.
  * The Sync and `/init` are in its title, a step the sync waits on is a row over the list, and the
- * Sync's view takes its place while the set-up is shown. A project with no design system yet sees
- * the neutral palette its designs draw with, and a Set up.
+ * Sync's view takes its place while the set-up is shown. A project with no design system of its
+ * own sees the default look's foundations, and the ways to make its own (ADR 0062).
  */
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
 import { cn } from "cn";
-import { AlertTriangle, Palette, RefreshCw, Search, Wand2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  RefreshCw,
+  Search,
+  Wand2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   InputGroup,
   InputGroupAddon,
@@ -24,7 +36,12 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { startInit } from "../lib/start-thread.ts";
+import { pickFigmaFile } from "../lib/import-figma.ts";
+import {
+  makeSystemFromCode,
+  startInit,
+  startNewLook,
+} from "../lib/start-thread.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
@@ -136,20 +153,45 @@ const SyncWaiting = () => {
   );
 };
 
-/** No design system yet: what the boards show meanwhile, and the one way to make one. */
-const NoDesignSystem = () => (
-  <div className="mt-6 flex flex-col items-start gap-1 px-4">
-    <Palette className="mb-1 size-5 text-muted-foreground" />
-    <span className="font-label">No design system yet</span>
-    <span className="font-small text-muted-foreground">
-      Your designs use the neutral look until you set one up from your code,
-      DESIGN.md or Figma.
-    </span>
-    <Button className="mt-2" onClick={showSetup} size="sm">
-      Set up design system
-    </Button>
-  </div>
-);
+/**
+ * No design system of its own (ADR 0062): the foundations listed are the default look's, and
+ * this says so, with the ways to make the project's own. Nothing else asks for one.
+ */
+const DefaultLook = () => {
+  const name = useProject((s) => s.info.name);
+  return (
+    <section
+      aria-label="Default look"
+      className="mx-2 mb-2 flex flex-col gap-3 rounded-lg bg-card px-2 py-3 ring-1 ring-border"
+    >
+      <div className="flex flex-col gap-0.5">
+        <h3 className="font-heading-xsmall">Ultrapaint’s default look</h3>
+        <p className="font-small text-muted-foreground">
+          Designs use it until {name ?? "the project"} has its own.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={makeSystemFromCode} size="sm">
+          Make it from the code
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant="ghost" />}>
+            Other ways
+            <ChevronDown data-icon="inline-end" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={startNewLook}>
+              A new look…
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={pickFigmaFile}>
+              Import from Figma…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </section>
+  );
+};
 
 export const DesignSystemList = () => {
   const configured = useProject((s) => s.info.configured);
@@ -190,13 +232,15 @@ export const DesignSystemList = () => {
         >
           <RefreshCw />
         </IconButton>
-        <IconButton
-          className="text-muted-foreground"
-          onClick={startInit}
-          tooltip="Run /init with an agent"
-        >
-          <Wand2 />
-        </IconButton>
+        {designSystem || !loaded ? (
+          <IconButton
+            className="text-muted-foreground"
+            onClick={startInit}
+            tooltip="Run /init with an agent"
+          >
+            <Wand2 />
+          </IconButton>
+        ) : null}
       </div>
       <div className="shrink-0 px-2 pb-2">
         <InputGroup>
@@ -218,6 +262,7 @@ export const DesignSystemList = () => {
         </InputGroup>
       </div>
       <div className="min-h-0 flex-1 overflow-auto pb-2">
+        {loaded && !designSystem && !searching ? <DefaultLook /> : null}
         {loaded ? <SyncWaiting /> : <LoadingRows />}
         {foundations.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
@@ -244,7 +289,6 @@ export const DesignSystemList = () => {
           </PanelEmpty>
         ) : null}
         {document ? <Findings findings={document.findings} /> : null}
-        {designSystem || !loaded || searching ? null : <NoDesignSystem />}
       </div>
     </div>
   );

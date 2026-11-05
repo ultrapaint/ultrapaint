@@ -15,8 +15,8 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
-import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
-import { found, sheet, tokensFound, UI_FONT } from "./board-nodes.ts";
+import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
+import { sheet, tokensFound, UI_FONT } from "./board-nodes.ts";
 import { colorBoards } from "./color-boards.ts";
 import { foundationBoards } from "./foundation-boards.ts";
 
@@ -98,16 +98,12 @@ const extrasOf = (ds: DesignSystem, id: string, q: string) => {
  * the neutral palette every design draws with until it has one.
  */
 export const foundationsOf = (
-  ds: DesignSystem | null,
+  given: DesignSystem | null,
   query = ""
 ): SystemItem[] => {
   const q = query.trim().toLowerCase();
-  if (!ds) {
-    const count = NEUTRAL_COLORS.filter((c) =>
-      found({ name: c.name, value: "" }, q)
-    ).length;
-    return count > 0 || !q ? [{ count, id: "color", name: "Color" }] : [];
-  }
+  // A project with no design system of its own shows the default look's (ADR 0062).
+  const ds = given ?? DEFAULT_LOOK;
   return FOUNDATIONS.flatMap((f) => {
     const count = tokensFound(ds, f.kinds, q).length + extrasOf(ds, f.id, q);
     // The spacing base is always there: a design system always has spacing.
@@ -274,18 +270,18 @@ const guidelineBoards = (
 /** The boards of an item of Design system; none for an item it does not have. */
 export const systemBoards = (
   item: string,
-  ds: DesignSystem | null,
+  given: DesignSystem | null,
   document: DesignDocument | null,
   query = ""
 ): Boards => {
   const q = query.trim().toLowerCase();
+  // A project with no design system of its own is drawn in the default look (ADR 0062).
+  const ds = given ?? DEFAULT_LOOK;
   if (item === "color") {
     return colorBoards(ds, q);
   }
   if (isGuideline(item)) {
     return guidelineBoards(document, item);
   }
-  return ds
-    ? foundationBoards(item, ds, q)
-    : { boards: [], direction: "column" };
+  return foundationBoards(item, ds, q);
 };

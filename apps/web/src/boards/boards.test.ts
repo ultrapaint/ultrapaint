@@ -8,8 +8,8 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
+import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import { NEUTRAL_COLORS } from "@ultrapaint/system-components/look";
 import { describe, expect, it } from "vitest";
 import { contrastPairs, gradeOf, isRamp } from "./color-boards.ts";
 import {
@@ -96,9 +96,14 @@ describe("Design system's list", () => {
     ]);
   });
 
-  it("has Color alone, the neutral palette, without a design system", () => {
-    expect(foundationsOf(null)).toEqual([
-      { count: NEUTRAL_COLORS.length, id: "color", name: "Color" },
+  it("has the default look's foundations without a design system of its own", () => {
+    expect(foundationsOf(null)).toEqual(foundationsOf(DEFAULT_LOOK));
+    expect(foundationsOf(null).map((f) => f.id)).toEqual([
+      "color",
+      "typography",
+      "spacing",
+      "radius",
+      "elevation",
     ]);
     expect(foundationsOf(null, "nothing like it")).toEqual([]);
   });
@@ -221,7 +226,7 @@ describe("Design system's boards", () => {
     ).toEqual([["color-foreground", "color-background"]]);
   });
 
-  it("draws the neutral palette, light and dark, without a design system", () => {
+  it("draws the default look's palette, light and dark, without a design system", () => {
     const { boards } = systemBoards("color", null, null);
     expect(boards.map((b) => b.theme)).toEqual(["light", "dark"]);
     expect(ids((boards[0] as Board).root)).toContain("token:color-primary");
@@ -287,7 +292,10 @@ describe("Design system's boards", () => {
 
   it("draws nothing for an item it does not have", () => {
     expect(systemBoards("everything", ds, document).boards).toEqual([]);
-    expect(systemBoards("radius", null, null).boards).toEqual([]);
+    // Without a design system of its own, the default look has one.
+    expect(systemBoards("radius", null, null).boards).toEqual(
+      systemBoards("radius", DEFAULT_LOOK, null).boards
+    );
   });
 });
 

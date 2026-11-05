@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   FileUp,
   FolderOpen,
@@ -8,31 +7,15 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type ReactNode,
-  type PointerEvent as ReactPointerEvent,
-  useMemo,
-} from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { newCanvas } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { newPage } from "../lib/page-actions.ts";
 import { chooseFolder } from "../lib/project-setup.ts";
-import { startInit, startPrompt } from "../lib/start-thread.ts";
-import { useComponents } from "../state/components.ts";
-import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { StarterThumb, thumbStyle } from "./starter-thumbs.tsx";
-import {
-  offeredStarters,
-  type StarterId,
-  type StarterTheme,
-  starterPrompt,
-  starterTheme,
-} from "./starters.ts";
 
 // What is pressed on the canvas is the button's, not the start of a pan or a marquee.
 const keepFromCanvas = (e: ReactPointerEvent) => e.stopPropagation();
@@ -69,165 +52,30 @@ const Lead = ({
   </div>
 );
 
-/** A starter an agent draws: its drawing in the design's look, its name under it. */
-const Tile = ({
-  hint,
-  label,
-  onClick,
-  plain,
-  style,
-  thumb,
-}: {
-  hint: string;
-  label: string;
-  onClick: () => unknown;
-  plain: boolean;
-  style?: CSSProperties;
-  thumb: StarterId;
-}) => (
-  <button
-    className="group pointer-events-auto flex w-36 flex-col items-center gap-2 outline-none"
-    onClick={() => onClick()}
-    onPointerDown={keepFromCanvas}
-    title={hint}
-    type="button"
-  >
-    <div
-      className={cn(
-        "relative flex h-24 w-36 flex-col gap-1 overflow-hidden rounded-lg bg-(--s-surface) p-2 transition-[border-color,box-shadow]",
-        "group-hover:border-foreground/30 group-focus-visible:ring-2 group-focus-visible:ring-ring/50",
-        plain ? "border border-foreground/15 border-dashed" : "border"
-      )}
-      style={style}
-    >
-      <StarterThumb id={thumb} plain={plain} />
-    </div>
-    <span className="font-small text-muted-foreground transition-colors group-hover:text-foreground group-focus-visible:text-foreground">
-      {label}
-    </span>
-  </button>
-);
-
-/** What the starters are drawn with: the design system's colours, heading font and library. */
-const SystemLine = ({
-  components,
-  theme,
-}: {
-  components: number;
-  theme: StarterTheme;
-}) => {
-  const swatches = Object.entries({
-    accent: theme.accent,
-    border: theme.border,
-    foreground: theme.foreground,
-    surface: theme.surface,
-  }).flatMap(([role, colour]) => (colour ? [{ colour, role }] : []));
-  const parts = [
-    theme.font?.name,
-    components > 0 ? `${components} components` : undefined,
-  ].filter((p) => p !== undefined);
-  return (
-    <span className="flex items-center gap-2 font-small text-muted-foreground">
-      <span className="flex -space-x-0.5">
-        {swatches.map(({ colour, role }) => (
-          <span
-            className="size-3 rounded-full ring-1 ring-foreground/15"
-            key={role}
-            style={{ background: colour }}
-          />
-        ))}
-      </span>
-      In your design system
-      {parts.map((part) => (
-        <span key={part}>· {part}</span>
-      ))}
-    </span>
-  );
-};
-
-/** Without a design system the starters are plain, and this is how they stop being. */
-const SetupLine = () => (
-  <span
-    className="pointer-events-auto flex flex-wrap items-center justify-center gap-x-1 font-small text-muted-foreground"
-    onPointerDown={keepFromCanvas}
-  >
-    Plain wireframes until the design system is set up.
-    <Button
-      className="h-auto px-1 font-small"
-      onClick={startInit}
-      variant="link"
-    >
-      Set it up
-    </Button>
-    or
-    <Button
-      className="h-auto px-1 font-small"
-      onClick={pickFigmaFile}
-      variant="link"
-    >
-      import it from Figma
-    </Button>
-  </span>
-);
-
 /**
- * A canvas with no pages: what it will hold, a first page, an agent asked to draw one, and the
- * starters an agent draws. Choosing a starter writes its prompt into a new chat, unsent, for the
- * user to finish. With a design system the starters follow its library and are drawn in its look.
+ * A canvas with no pages: what it will hold, a first page, and an agent asked to draw one. A
+ * project with no design system of its own draws in the default look (ADR 0062): nothing here
+ * says so, the Design system place does.
  */
 const NoPages = ({ canvas }: { canvas: string }) => {
-  const designSystem = useDesignSystem((s) => s.designSystem);
-  const loaded = useDesignSystem((s) => s.loaded);
-  const catalogue = useComponents((s) => s.catalogue);
   const name = useProject(
     (s) => s.canvases.find((c) => c.id === canvas)?.name ?? canvas
   );
-  const theme = useMemo(
-    () => (designSystem ? starterTheme(designSystem) : null),
-    [designSystem]
-  );
-  const withSystem = theme !== null;
-  const style = thumbStyle(theme);
   return (
-    // Between both side panels the canvas is narrower than the starters: they are drawn smaller.
-    <div className="flex max-w-full flex-col items-center gap-12 px-6 @max-[48rem]:[zoom:0.85]">
-      <Lead
-        description="Pages are drawn here side by side, one for each screen of this part of the app."
-        icon={PanelsTopLeft}
-        title={`${name} has no pages yet`}
-      >
-        <Button onClick={newPage}>
-          <Plus />
-          New page
-        </Button>
-        <Button onClick={askAgent} variant="outline">
-          <Sparkles />
-          Ask an agent
-        </Button>
-      </Lead>
-      <div className="flex flex-col items-center gap-4">
-        <span className="font-small text-muted-foreground">
-          Or have an agent draw a starter
-        </span>
-        <div className="flex flex-wrap items-start justify-center gap-4">
-          {offeredStarters(withSystem).map((o) => (
-            <Tile
-              hint={withSystem ? o.uses.join(" · ") : "Plain wireframe"}
-              key={o.starter.id}
-              label={o.starter.label}
-              onClick={() => startPrompt(starterPrompt(o, name, withSystem))}
-              plain={!withSystem}
-              style={style}
-              thumb={o.starter.id}
-            />
-          ))}
-        </div>
-        {theme ? (
-          <SystemLine components={catalogue.length} theme={theme} />
-        ) : null}
-        {loaded && !theme ? <SetupLine /> : null}
-      </div>
-    </div>
+    <Lead
+      description="Pages are drawn here side by side, one for each screen of this part of the app."
+      icon={PanelsTopLeft}
+      title={`${name} has no pages yet`}
+    >
+      <Button onClick={newPage}>
+        <Plus />
+        New page
+      </Button>
+      <Button onClick={askAgent} variant="outline">
+        <Sparkles />
+        Ask an agent
+      </Button>
+    </Lead>
   );
 };
 
