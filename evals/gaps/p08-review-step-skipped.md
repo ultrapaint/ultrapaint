@@ -2,7 +2,7 @@
 id: p08
 title: The review step skipped when an agent could be started
 kind: process
-status: open
+status: done
 found: 2026-11-04
 source: design round `design-after` (three product screens remade from a picture, skill at 1d8977c)
 skill: [SKILL.md]
@@ -26,3 +26,4 @@ when a design thread ends.
 the sections' findings compared.
 
 **Result.**
+- Decision of 2026-11-06 (`decisions/skill-gaps-nov6`): closed, the skill unchanged: the editor's review loop (ADR 0063) starts the review models itself at the end of every design turn.

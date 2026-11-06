@@ -2,7 +2,7 @@
 id: p10
 title: DESIGN.md restates the skill's rules, without their conditions
 kind: process
-status: open
+status: done
 found: 2026-11-06
 source: this repository's DESIGN.md (commits 3104112, eb7dde4); the onboarding review (c2d3380)
 skill: [references/design-system.md]
@@ -36,3 +36,4 @@ lines of the DESIGN.md written that restate a rule of the skill, before and afte
 - 2026-11-06: the server's DESIGN.md guide (`DESIGN_MD_GUIDE`), the briefing's precedence and
   AGENTS.md now say it (ADR 0065), and this repository's DESIGN.md was pruned to the product's
   own choices. The skill's own text waits on the lab.
+- Decision of 2026-11-06 (`decisions/skill-gaps-nov6`): accepted into the skill without a round, as the person chose: `references/design-system.md` step 5 says what DESIGN.md holds, and its table cuts a line that holds for any product.

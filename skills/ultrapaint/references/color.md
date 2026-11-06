@@ -10,9 +10,18 @@ Read `references/studies/color.md` when you colour a public page (a landing page
 
 ## Tokens by role
 
-Surfaces, text and borders come from semantic tokens: background, foreground, muted, border,
-primary, destructive and their pairs. A palette colour (`"$color-blue-500"`) on a screen is a
-decision the design system did not make; use one only where DESIGN.md's Colors section does.
+Surfaces, text and borders come from semantic tokens. A design system names them by one **token
+preset**, its `tokenPreset`:
+
+- **simple** (the default): roles, shadcn's names: background, foreground, muted, border, primary,
+  destructive and their pairs.
+- **detailed**: tokens by property and meaning, Atlassian's way, in Tailwind v4's namespaces:
+  text takes a `text-color-*` (`text-color-subtle`), a fill a `background-color-*`
+  (`background-color-danger-subtle`), an edge a `border-color-*` (`border-color-focus`). Each
+  property takes its own namespace, the meaning that fits.
+
+A palette colour (`"$color-blue-500"`) on a screen is a decision the design system did not make;
+use one only where DESIGN.md's Colors section does.
 
 The neutrals are the design system's, neutral or warm (`references/design-system/foundations.md`).
 When the system's are blue-grey and its character is not cool, tell the user rather than
@@ -104,7 +113,8 @@ values in each theme the design system has.
 
 | You see | Fix |
 | --- | --- |
-| A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
+| A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role, in the system's preset |
+| In a detailed system, one property's token on another (a `background-color-*` on text) | The token of that property, the same meaning |
 | A palette token in a component's colours | The semantic token it stands for |
 | A blue-grey neutral the character does not ask for | A neutral or warm one; if the system's own is blue-grey, tell the user |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
