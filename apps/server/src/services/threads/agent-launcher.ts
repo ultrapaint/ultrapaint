@@ -9,7 +9,9 @@
  */
 import {
   type AcpAgent,
+  type AcpHandlers,
   refusingHandlers,
+  type SessionNotification,
   spawnAcpAgent,
 } from "@ultrapaint/acp/acp-agent";
 import type { AcpSpawnError } from "@ultrapaint/acp/errors";
@@ -28,6 +30,13 @@ export interface AgentLaunchOptions {
    * sessions offer), and whatever it asks of the editor is refused.
    */
   readonly host: AgentHost | null;
+  /**
+   * Without a host, for an agent that only looks (a review model, ADR 0063): where its session
+   * updates go, what it says among them. Whatever else it asks of the editor is still refused.
+   */
+  readonly listen?:
+    | ((notification: SessionNotification) => Effect.Effect<void>)
+    | undefined;
   /** The agent's working directory, and the repository its sandbox confines it to. */
   readonly root: string;
   /**
@@ -44,6 +53,15 @@ export interface AgentLaunchOptions {
 
 /** What an agent without a thread is refused, whatever it asks. */
 export const LISTING_ONLY = "the editor is only listing models";
+
+/** What a review model is refused, whatever it asks: it changes nothing (ADR 0063). */
+export const ONLY_LOOKS = "a review model only looks and changes nothing";
+
+/** The editor's side of an agent without a thread: everything refused, its updates heard if asked. */
+export const hostless = (options: AgentLaunchOptions): AcpHandlers =>
+  options.listen
+    ? { ...refusingHandlers(ONLY_LOOKS), onUpdate: options.listen }
+    : refusingHandlers(LISTING_ONLY);
 
 export class AgentLauncher extends Context.Service<
   AgentLauncher,
@@ -85,7 +103,7 @@ export class AgentLauncher extends Context.Service<
                 confine: confined.confine,
                 writable,
               })
-            : refusingHandlers(LISTING_ONLY);
+            : hostless(options);
           return yield* spawnAcpAgent(confined.launch, {
             clientVersion: version,
             cwd: root,

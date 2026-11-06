@@ -199,15 +199,23 @@ refactor and the board view left.
   `section-review.ts`); a **panel** (`panel.ts`) is a fixed set of fresh reviewers whose count of
   what they still find scores a finished design. Both review within the designer's request; what
   only a design-system component would fix is a **system note**, set apart from the findings.
-- **Council**: the reviewers a design is reviewed by, the person's choice (ADR 0060). It has no
-  score of its own: each reviewer scores the design out of 100, overall and per **category** (one
-  of the design skill's references), from its own findings, each with a **severity**; a reviewer
-  that gave no review has **no score**. A **goal** says when the loop stops: every reviewer
-  reaches its target score, or, with none asked, every reviewer gives its **sign-off**; a cap ends
-  a loop that isn't converging. **Each round** says who of the council reviews while the designer
-  works (one, in turn, all), **sign-off** who must be satisfied at the end (all, or the round's
-  own) (ADR 0061). Contracts' `review` (`sectionScore`, `pageScore`, `verdictOf`,
-  `ReviewSettings`, `reviewersOfRound`).
+- **Review models**: the models a design is reviewed by, the person's choice, in the order they
+  take turns (ADR 0060, 0063; called the **council** before): each a **review model**, an agent,
+  one of its models and its effort (contracts' `ReviewModel`). They have no score of their own:
+  each scores the design out of 100, overall and per **category** (one of the design skill's
+  references), from its own findings, each with a **severity**; one that gave no review has **no
+  score**. A **goal** says when the loop stops: every review model reaches its target score, or,
+  with none asked, every one **approves** (its sign-off); a cap ends a loop that isn't
+  converging. **Each round** says who of them reviews while the designer works (one, in turn,
+  all), **approval** who must approve at the end (all, or the round's own) (ADR 0061). Contracts'
+  `review` (`sectionScore`, `pageScore`, `verdictOf`, `ReviewSettings`, `reviewersOfRound`).
+- **Review level**: a name for the usual review (ADR 0063): Off, Quick (the first model, which
+  approves alone), Standard (in turn, all approve), Thorough (all every round), or Custom for
+  any other settings or a goal (contracts' `levelOf`, `withLevel`). Set per project in Settings ›
+  Agents › Review and per design by the composer's **Review chip**.
+- **Design run**: a design thread's work from the person's prompt to the design approved: its
+  plan as **Outline** and **Build** steps and the **review rounds** (`review` items) the editor's
+  review loop adds, shown together as the **run card** (web's `design-run.ts`).
 - **General check**: a rule written once for every screen that code decides on the document or
   the rendered page, with a threshold (ADR 0061): values **off the system** (design-document's
   `offSystemValues`: spacing off the base's steps, a raw radius, colour or type size where a
@@ -215,7 +223,7 @@ refactor and the board view left.
 - **Outline**: a design's sections, words, actions and states in text, written before the first
   node (ADR 0061); in the lab, a gap section's `outline.md`, which `recall --inputs outline`
   reviews instead of its pictures.
-- **Findings log**: the council's findings from every project, appended to
+- **Findings log**: the review models' findings from every project, appended to
   `~/.ultrapaint/findings/<project>.jsonl` when it is turned on (contracts' `LoggedFinding`), each
   with its category, the rule it cites or none, and what the designer did, for triage into design
   gaps.

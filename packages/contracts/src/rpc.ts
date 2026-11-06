@@ -62,6 +62,7 @@ import {
   UploadAssetInput,
 } from "./pages.ts";
 import { LogLine, ProjectInfo } from "./project.ts";
+import { ReviewSettings } from "./review.ts";
 import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
   PersistInput,
@@ -665,6 +666,11 @@ const requestRpcs = [
   Rpc.make("threads.setMode", {
     error: ThreadError,
     payload: { ...ThreadRef, modeId: Schema.String },
+  }),
+  /** The design's own review settings from the composer's Review chip; null goes back to the project's. */
+  Rpc.make("threads.setReview", {
+    error: ThreadError,
+    payload: { ...ThreadRef, review: Schema.NullOr(ReviewSettings) },
   }),
   Rpc.make("threads.setConfigOption", {
     error: ThreadError,

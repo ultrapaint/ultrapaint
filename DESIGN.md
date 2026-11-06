@@ -214,8 +214,8 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   that fails says so once, in place, with Try again.
 - A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
   28rem wide.
-- A section that applies at once has a footer that says so, with Done in place of Cancel and Save,
-  naming any other section's unsaved edits. The settings dialog opens with focus on the dialog;
+- A section that applies at once has Done in its footer in place of Cancel and Save, and says
+  nothing of applying; the footer names only any other section's unsaved edits. The settings dialog opens with focus on the dialog;
   the section shown is raised like the rail's current place.
 
 ## Motion

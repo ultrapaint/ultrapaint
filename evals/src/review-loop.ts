@@ -26,6 +26,7 @@
  */
 import path from "node:path";
 import {
+  type Approval,
   CATEGORIES,
   type EachRound,
   type Goal,
@@ -34,7 +35,6 @@ import {
   type ReviewerRound,
   type Round,
   reviewersOfRound,
-  type SignOffBy,
   type StopReason,
   type Target,
   targetOf,
@@ -84,7 +84,7 @@ export interface ReviewOptions {
   /** The council: the models that review, as `recall --models` takes them. */
   readonly reviewers: readonly string[];
   /** Who must reach the goal at the end: the whole council, or the round's own reviewers. */
-  readonly signOff: SignOffBy;
+  readonly signOff: Approval;
 }
 
 /** Where the findings go when the findings log is on (opt-in), and what they are told with. */

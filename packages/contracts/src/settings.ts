@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { RepoRelativePath } from "./base.ts";
+import { ReviewSettings } from "./review.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
@@ -34,6 +35,11 @@ const common = {
    * is itself a package.
    */
   resolveFrom: Schema.optional(RepoRelativePath),
+  /**
+   * How designs are reviewed (ADR 0063): the level's settings and the review models, shared with
+   * the team. The defaults (Standard, the strongest model of each agent) when absent.
+   */
+  review: Schema.optional(ReviewSettings),
   /**
    * Which design skills agents are not told (all of them apply when absent), and whether a design
    * thread is told them whole or by their summaries.

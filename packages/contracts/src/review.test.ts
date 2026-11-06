@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   type Finding,
+  formatReviewModel,
   type Goal,
+  levelOf,
   pageScore,
+  parseReviewModel,
   type Round,
   reviewersOfRound,
   reviewSettingsOf,
   type Score,
   sectionScore,
   verdictOf,
+  withLevel,
 } from "./review.ts";
 
 const finding = (
@@ -215,6 +219,8 @@ describe("verdictOf", () => {
   });
 });
 
+const opus = { agentId: "claude-code", model: "opus" };
+
 describe("who reviews", () => {
   const council = ["opus", "gpt-6.1-sol", "cursor:grok-4.7-high"];
 
@@ -229,17 +235,17 @@ describe("who reviews", () => {
   it("takes each setting from the narrowest layer that sets it, the defaults under all", () => {
     expect(
       reviewSettingsOf(
-        { council: ["opus"], eachRound: "one" },
+        { eachRound: "one", reviewModels: [opus] },
         { eachRound: "all", goal: { score: 90 } },
         { eachRound: undefined, findingsLog: true }
       )
     ).toEqual({
-      council: ["opus"],
+      approval: "all",
       eachRound: "all",
       findingsLog: true,
       goal: { score: 90 },
       on: true,
-      signOff: "all",
+      reviewModels: [opus],
       when: "end",
     });
   });
@@ -255,5 +261,57 @@ describe("who reviews", () => {
         round({ opus: scored(90) }),
       ])
     ).toMatchObject({ stop: false });
+  });
+});
+
+describe("review levels", () => {
+  it("names the defaults Standard, and each level's combination by its name", () => {
+    expect(levelOf(undefined)).toBe("standard");
+    expect(levelOf({ approval: "one", eachRound: "one" })).toBe("quick");
+    expect(levelOf({ eachRound: "all" })).toBe("thorough");
+    expect(levelOf({ eachRound: "all", on: false })).toBe("off");
+  });
+
+  it("is custom for a combination no level names, or with a goal", () => {
+    expect(levelOf({ approval: "one", eachRound: "all" })).toBe("custom");
+    expect(levelOf({ goal: { score: 90 } })).toBe("custom");
+    expect(levelOf({ goal: {} })).toBe("standard");
+  });
+
+  it("sets a level keeping the review models and the log, and drops the goal", () => {
+    const custom = {
+      approval: "one",
+      eachRound: "all",
+      findingsLog: true,
+      goal: { score: 90 },
+      reviewModels: [opus],
+    } as const;
+    const quick = withLevel(custom, "quick");
+    expect(quick).toEqual({
+      approval: "one",
+      eachRound: "one",
+      findingsLog: true,
+      on: true,
+      reviewModels: [opus],
+    });
+    expect(levelOf(quick)).toBe("quick");
+    expect(levelOf(withLevel(quick, "off"))).toBe("off");
+    expect(levelOf(withLevel(withLevel(quick, "off"), "standard"))).toBe(
+      "standard"
+    );
+  });
+});
+
+describe("a review model's lab name", () => {
+  it("reads the agent from the name, and writes it back the same", () => {
+    for (const name of ["opus", "gpt-6.1-sol", "cursor:grok-4.7-high"]) {
+      expect(formatReviewModel(parseReviewModel(name))).toBe(name);
+    }
+    expect(parseReviewModel("gpt-6.1-sol")).toEqual({
+      agentId: "codex",
+      model: "gpt-6.1-sol",
+    });
+    expect(parseReviewModel("cursor:grok-4.7-high").agentId).toBe("cursor");
+    expect(parseReviewModel("opus").agentId).toBe("claude-code");
   });
 });

@@ -11,7 +11,7 @@ export interface ThreadView {
   /** The agent stopped on an error, which the thread's `error` says. */
   readonly failed: boolean;
   /** What a list says of it, null when there is nothing to say: idle, nothing asked. */
-  readonly label: "Working" | "Your turn" | "Stopped" | null;
+  readonly label: "Working" | "Reviewing" | "Your turn" | "Stopped" | null;
   /** The colour the label is in. */
   readonly tone: "working" | "attention" | "failed" | null;
   /** The agent's turn ended on something the user is asked (its summary says so). */
@@ -41,7 +41,9 @@ export const threadView = (
   const waiting = thread.summary?.waiting === true;
   const failed = thread.status === "error";
   if (busy) {
-    return { busy, failed, label: "Working", tone: "working", waiting };
+    // Its review models look at what it made (ADR 0063): still working, in other words.
+    const label = thread.status === "reviewing" ? "Reviewing" : "Working";
+    return { busy, failed, label, tone: "working", waiting };
   }
   if (waiting) {
     return { busy, failed, label: "Your turn", tone: "attention", waiting };

@@ -58,7 +58,10 @@ export const groupWork = (
     flush();
     if (item.kind === "user") {
       since = item.at;
-      entries.push({ item, kind: "item" });
+      // A round's findings sent to the designer are the review's: its round shows them.
+      if (item.review === undefined) {
+        entries.push({ item, kind: "item" });
+      }
     } else if (item.kind === "turn_end") {
       entries.push({ item, kind: "turn", since });
       since = undefined;

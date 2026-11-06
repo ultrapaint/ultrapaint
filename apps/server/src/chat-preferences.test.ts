@@ -64,3 +64,112 @@ describe("the chat's preferences", () => {
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 });
+
+/** An agent as its last session offered it: a model, an effort and two modes. */
+const OFFERED = {
+  agentId: "claude-code",
+  configOptions: [
+    {
+      currentValue: "sonnet",
+      id: "model",
+      name: "Model",
+      options: [
+        { name: "Opus", value: "opus" },
+        { name: "Sonnet", value: "sonnet" },
+      ],
+      type: "select" as const,
+    },
+    {
+      category: "thought_level",
+      currentValue: "medium",
+      id: "effort",
+      name: "Effort",
+      options: [
+        { name: "Medium", value: "medium" },
+        { name: "High", value: "high" },
+      ],
+      type: "select" as const,
+    },
+  ],
+  currentModeId: "default",
+  modes: [
+    { id: "default", name: "Default" },
+    { id: "plan", name: "Plan" },
+    { id: "acceptEdits", name: "Accept edits" },
+  ],
+};
+
+/** What a new thread of `agentId` starts with, the defaults set to `defaults`. */
+const startsWith = (
+  defaults: Parameters<ChatPreferences["Service"]["setDefaults"]>[0],
+  agentId = "claude-code"
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const user = yield* fs.makeTempDirectoryScoped();
+    const project = yield* fs.makeTempDirectoryScoped();
+    return yield* Effect.scoped(
+      ChatPreferences.use((p) =>
+        Effect.gen(function* () {
+          yield* p.remember(OFFERED);
+          yield* p.remember({ ...OFFERED, agentId: "other" });
+          yield* p.setDefaults(defaults);
+          const options = yield* p.optionsFor(agentId);
+          const current = (id: string) =>
+            options.configOptions?.find((o) => o.id === id)?.currentValue;
+          return {
+            effort: current("effort"),
+            mode: options.currentModeId,
+            model: current("model"),
+          };
+        })
+      ).pipe(Effect.provide(preferencesOf(user, project)))
+    );
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+describe("a new thread of the default agent (ADR 0063)", () => {
+  it.effect("starts with the default model, effort and mode", () =>
+    Effect.gen(function* () {
+      const started = yield* startsWith({
+        agentId: "claude-code",
+        effort: "high",
+        modeId: "plan",
+        model: "opus",
+      });
+      assert.deepStrictEqual(started, {
+        effort: "high",
+        mode: "plan",
+        model: "opus",
+      });
+    })
+  );
+
+  it.effect("keeps the agent's own where it doesn't offer the default", () =>
+    Effect.gen(function* () {
+      const started = yield* startsWith({
+        agentId: "claude-code",
+        effort: "max",
+        modeId: "yolo",
+      });
+      assert.deepStrictEqual(started, {
+        effort: "medium",
+        mode: "default",
+        model: "sonnet",
+      });
+    })
+  );
+
+  it.effect("leaves another agent as it last offered", () =>
+    Effect.gen(function* () {
+      const started = yield* startsWith(
+        { agentId: "claude-code", effort: "high", modeId: "plan" },
+        "other"
+      );
+      assert.deepStrictEqual(started, {
+        effort: "medium",
+        mode: "default",
+        model: "sonnet",
+      });
+    })
+  );
+});

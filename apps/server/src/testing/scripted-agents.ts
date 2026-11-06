@@ -6,7 +6,6 @@
  * run is run as asked.
  */
 
-import { refusingHandlers } from "@ultrapaint/acp/acp-agent";
 import {
   type AgentScript,
   makeScriptedAgent,
@@ -19,13 +18,15 @@ import { makeAgentClient } from "../services/threads/agent-client.ts";
 import {
   AgentLauncher,
   type AgentLaunchOptions,
-  LISTING_ONLY,
+  hostless,
 } from "../services/threads/agent-launcher.ts";
 
 /** An agent the launcher started, with what it was started for. */
 export interface LaunchedAgent extends ScriptedAgent {
   readonly config: AgentConfig;
   readonly root: string;
+  /** The only temporary directory it may write to, when it was given one. */
+  readonly tmpDir: string | undefined;
   readonly writable: string | undefined;
 }
 
@@ -64,7 +65,7 @@ export class ScriptedAgents extends Context.Service<
               confine: (command) => command,
               writable: options.writable,
             })
-          : refusingHandlers(LISTING_ONLY);
+          : hostless(options);
         const { agent, control } = yield* makeScriptedAgent({
           clientVersion: version,
           handlers,
@@ -75,6 +76,7 @@ export class ScriptedAgents extends Context.Service<
           ...control,
           config: options.config,
           root: options.root,
+          tmpDir: options.tmpDir,
           writable: options.writable,
         });
         return agent;

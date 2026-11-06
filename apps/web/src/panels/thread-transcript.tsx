@@ -13,7 +13,7 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useContext, useEffect, useMemo, useRef } from "react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import {
   Collapsible,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Markdown } from "../components/markdown.tsx";
 import { isOpenQuestion } from "../lib/answers.ts";
+import { isRunPlan } from "../lib/design-run.ts";
 import {
   type DiffRow,
   diffCounts,
@@ -46,6 +47,22 @@ import {
 import { terminalKey, useAgents } from "../state/agents.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { Permission, QuestionRecord } from "./thread-questions.tsx";
+import {
+  inRunCard,
+  ReviewRound,
+  RunCard,
+  RunContextValue,
+} from "./thread-review.tsx";
+
+/** A review round: inside its run's card when it has one, else a card of its own. */
+const RoundItem = ({
+  item,
+}: {
+  item: Extract<ThreadItem, { kind: "review" }>;
+}) =>
+  inRunCard(useContext(RunContextValue), item) ? null : (
+    <ReviewRound item={item} />
+  );
 
 export const keyOfEntry = (entry: ThreadEntry) =>
   entry.kind === "work" ? entry.id : entry.item.id;
@@ -470,6 +487,10 @@ const Item = ({
 }) => {
   switch (item.kind) {
     case "user":
+      // A round's findings sent to the designer: the round shows them.
+      if (item.review !== undefined) {
+        return null;
+      }
       // The person's own words: filled and set in from the left, the agent's run the full width.
       return (
         <Message align="end" className="pl-8">
@@ -517,7 +538,9 @@ const Item = ({
     case "tool":
       return <ToolCall item={item} threadId={threadId} />;
     case "plan":
-      return <Plan item={item} />;
+      return isRunPlan(item) ? <RunCard plan={item} /> : <Plan item={item} />;
+    case "review":
+      return <RoundItem item={item} />;
     case "permission":
       return <Permission item={item} threadId={threadId} />;
     // A question still waiting sits over the composer; the thread keeps what came of it.

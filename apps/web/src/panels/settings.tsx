@@ -1,4 +1,5 @@
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
+import type { ReviewSettings } from "@ultrapaint/contracts/review";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import {
   CONFIG_FILE_NAME,
@@ -51,6 +52,7 @@ import {
 } from "./settings-agents.tsx";
 import { Group, Row, RowMessage } from "./settings-group.tsx";
 import { ProfileRow } from "./settings-profile.tsx";
+import { ReviewGroup } from "./settings-review.tsx";
 import { ThemeRow } from "./settings-theme.tsx";
 
 const LIST_SEPARATOR_RE = /[\n,]/;
@@ -466,11 +468,15 @@ const Sidebar = ({
 
 /** The agents: before anything is saved, only those on this computer, which need no project. */
 const AgentsSection = ({
+  onReview,
   onSkills,
+  review,
   saved,
   skills,
 }: {
+  onReview: (review: ReviewSettings | undefined) => void;
   onSkills: (skills: SkillsConfig | undefined) => void;
+  review: ReviewSettings | undefined;
   saved: boolean;
   skills: SkillsConfig | undefined;
 }) =>
@@ -478,6 +484,7 @@ const AgentsSection = ({
     <>
       <MachineAgentsGroup />
       <ChatDefaultsGroup />
+      <ReviewGroup onChange={onReview} review={review} />
       <SkillsGroup config={skills} onChange={onSkills} />
       <McpConnectionGroup />
     </>
@@ -540,7 +547,9 @@ export const waitingSections = ({
       [draft.hostCss, draft.styleSystem],
       [saved.hostCss, saved.styleSystem]
     );
-  const agents = saved !== null && !same(draft.skills, saved.skills);
+  const agents =
+    saved !== null &&
+    !same([draft.skills, draft.review], [saved.skills, saved.review]);
   return (
     [
       ["repository", repository],
@@ -553,8 +562,8 @@ export const waitingSections = ({
 };
 
 /**
- * The footer of a section that applies at once: it says so, with Done. Edits other sections
- * hold are not undone by it, so it names them, with the way to the first.
+ * The footer of a section that applies at once: Done, with nothing said of applying (ADR 0063).
+ * Edits other sections hold are not undone by it, so it names them, with the way to the first.
  */
 const InstantFooter = ({
   onDone,
@@ -570,8 +579,8 @@ const InstantFooter = ({
     <div className="flex items-center gap-4">
       <p className="min-w-0 flex-1 font-small text-muted-foreground">
         {first
-          ? `Applied at once. Your edits in ${listOf(waiting.map(labelOf))} aren’t saved yet.`
-          : "Applied at once, in every project."}
+          ? `Your edits in ${listOf(waiting.map(labelOf))} aren’t saved yet.`
+          : null}
       </p>
       <div className="flex shrink-0 gap-2">
         {first ? (
@@ -584,6 +593,15 @@ const InstantFooter = ({
     </div>
   );
 };
+
+/** Whether a section's footer is Done alone: nothing in it waits for a save. */
+const appliesAtOnce = (
+  section: SectionId,
+  saved: boolean,
+  waiting: readonly SectionId[]
+) =>
+  section === "editor" ||
+  (section === "agents" && saved && !waiting.includes("agents"));
 
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
@@ -714,6 +732,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
   const onSkills = (skills: SkillsConfig | undefined) =>
     setDraft((d) => ({ ...d, skills }));
+  const onReview = (review: ReviewSettings | undefined) =>
+    setDraft((d) => ({ ...d, review }));
 
   const errorFor = (row: ProblemRow, extra?: React.ReactNode) => {
     const reasons = rowProblems(problems, row);
@@ -886,7 +906,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     </Group>
   );
 
-  // Applied at once, in every project: the footer says so in place of a save.
+  // Applied at once, in every project: the footer has Done in place of a save.
   const editor = (
     <Group>
       <ThemeRow />
@@ -897,7 +917,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const agents = (
     <AgentsSection
+      onReview={onReview}
       onSkills={onSkills}
+      review={draft.review}
       saved={saved !== null}
       skills={draft.skills}
     />
@@ -910,8 +932,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     repository,
   }[section];
   // The preferences apply as they are picked, into the user's own directory: their footer has
-  // nothing to save and says so, naming the sections whose edits still wait for a save.
-  const instant = section === "editor";
+  // nothing to save, and names the sections whose edits still wait for a save.
+  const waiting = waitingSections({ detected, draft, saved });
+  // Agents too, while its shared settings (review, design skills) hold no edit: its New chats
+  // apply as they are picked.
+  const instant = appliesAtOnce(section, saved !== null, waiting);
 
   // The left card's two levels: the sections and the page on its frame ({rail}), each group
   // raised on {card}.
@@ -940,7 +965,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             <InstantFooter
               onDone={cancel}
               onShow={setSection}
-              waiting={waitingSections({ detected, draft, saved })}
+              waiting={waiting}
             />
           ) : (
             <div className="flex items-center gap-4">

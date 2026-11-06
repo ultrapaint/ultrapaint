@@ -38,6 +38,7 @@ import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
+import { ReviewLoop } from "./services/review/review-loop.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
@@ -152,10 +153,12 @@ export const Foundation = ProfileService.layer.pipe(
 
 /**
  * The agent threads, on what they are given: the briefing, the slash commands, the launcher
- * and its sandbox, and the project. The server gives them its own; a test of threads may give
+ * and its sandbox, the pictures the editor draws, and the project. The server gives them its own; a test of threads may give
  * stand-ins.
  */
 export const ThreadsLayer = ThreadSessions.layer.pipe(
+  // A design turn's review runs the review models through the same launcher (ADR 0063).
+  Layer.provideMerge(ReviewLoop.layer),
   Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(AgentDiscovery.layer),
   Layer.provideMerge(

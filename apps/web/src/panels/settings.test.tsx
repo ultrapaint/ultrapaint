@@ -47,6 +47,13 @@ describe("the sections whose edits wait for a save", () => {
     ]);
   });
 
+  it("are the Agents when the review changed", () => {
+    const draft = { ...saved, review: { eachRound: "all" as const } };
+    expect(waitingSections({ detected: false, draft, saved })).toEqual([
+      "agents",
+    ]);
+  });
+
   it("are the Repository when the settings were detected or never saved", () => {
     expect(waitingSections({ detected: true, draft: saved, saved })).toEqual([
       "repository",

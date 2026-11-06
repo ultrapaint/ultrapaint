@@ -1,3 +1,4 @@
+import { NotFound } from "@ultrapaint/contracts/errors";
 import {
   type EventName,
   type EventPayload,
@@ -279,6 +280,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         thread(threadId, (s) => s.setConfigOption(optionId, value)),
       "threads.setMode": ({ threadId, modeId }) =>
         thread(threadId, (s) => s.setMode(modeId)),
+      // The design's own review settings: kept on the thread, read when its next review starts.
+      "threads.setReview": Effect.fnUntraced(function* ({ review, threadId }) {
+        if (!(yield* store.get(threadId))) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        yield* store.update(threadId, { review: review ?? undefined });
+      }),
       "threads.unqueue": ({ id, threadId }) =>
         thread(threadId, (s) => s.unqueue(id)),
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),

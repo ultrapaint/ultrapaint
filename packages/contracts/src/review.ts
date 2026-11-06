@@ -1,9 +1,9 @@
 /**
- * The review council (ADR 0060): the reviewers a design is reviewed by, and how what they find
+ * The review models (ADR 0060, 0063; "the council" before): the reviewers a design is reviewed by, and how what they find
  * becomes a score and a decision to go round again. Pure, so the lab (`evals`) and the editor
  * score a design the same way.
  *
- * - The **council** is the set of reviewers. It has no score of its own: each reviewer is scored
+ * - The **review models** are the set of reviewers. They have no score of their own: each reviewer is scored
  *   on its own findings.
  * - A reviewer only looks. It finds problems; the designer fixes them.
  * - A finding names its **category**, one of the design skill's references, so a score, a
@@ -13,8 +13,9 @@
  *   sections'. A reviewer that gave no review has **no score**: nothing is guessed for it.
  * - A **goal** says when to stop: every reviewer reaches its target score, or, with no score
  *   asked, every reviewer signs off; a safety cap ends a loop that isn't converging.
- * - **Who reviews each round** (ADR 0061): one member of the council, the members in turn, or all
- *   of them; and **who signs off** at the end: all of them, or the round's own reviewer.
+ * - **Who reviews each round** (ADR 0061): one review model, the models in turn, or all of
+ *   them; and **who approves** at the end: all of them, or the round's own reviewer.
+ * - A **level** (ADR 0063) names the usual combinations: Off, Quick, Standard, Thorough.
  */
 import { Schema } from "effect";
 
@@ -402,29 +403,44 @@ const sameReviewers = (rounds: readonly Round[], last: Round) => {
   );
 };
 
-/** Who reviews each round while the designer works: the first member, the members in turn, all. */
+/** Who reviews each round while the designer works: the first model, the models in turn, all. */
 export const EACH_ROUND = ["one", "rotate", "all"] as const;
 export type EachRound = (typeof EACH_ROUND)[number];
 
-/** Who must reach the goal at the end: every member of the council, or the last round's reviewer. */
-export const SIGN_OFF = ["all", "one"] as const;
-export type SignOffBy = (typeof SIGN_OFF)[number];
+/** Who must approve at the end: every review model, or the last round's reviewer. */
+export const APPROVAL = ["all", "one"] as const;
+export type Approval = (typeof APPROVAL)[number];
 
 /**
- * How a design is reviewed (ADR 0060, 0061): the council, who of it looks each round, who signs
- * off, the goal, when in the loop, and whether findings are logged. Kept per user and per project,
- * chosen again when a design starts and in its request; the narrower wins (run, project, user).
+ * A model that reviews (ADR 0063): the agent it runs in, the agent's model, and how hard it
+ * thinks, a value of the agent's effort option (its own default when absent).
+ */
+export const ReviewModel = Schema.Struct({
+  agentId: Schema.String,
+  effort: Schema.optional(Schema.String),
+  model: Schema.String,
+});
+export type ReviewModel = typeof ReviewModel.Type;
+
+/**
+ * How a design is reviewed (ADR 0060, 0061, 0063): the review models, who of them looks each
+ * round, who approves, the goal, when in the loop, and whether findings are logged. Kept per
+ * project, chosen again when a design starts; the narrower wins.
  */
 export const ReviewSettings = Schema.Struct({
-  /** The council: the reviewers, by model (`opus`, `gpt-6.1-sol`, `cursor:grok-4.7-high`). */
-  council: Schema.optional(Schema.Array(Schema.String)),
+  /** Who approves at the end. */
+  approval: Schema.optional(Schema.Literals(APPROVAL)),
   eachRound: Schema.optional(Schema.Literals(EACH_ROUND)),
   /** Whether each round's findings go to the findings log (`~/.ultrapaint/findings/`). */
   findingsLog: Schema.optional(Schema.Boolean),
   goal: Schema.optional(Goal),
   /** Whether reviews run at all. On when absent. */
   on: Schema.optional(Schema.Boolean),
-  signOff: Schema.optional(Schema.Literals(SIGN_OFF)),
+  /**
+   * The review models, in the order they take turns. None: the strongest model of each agent
+   * signed in.
+   */
+  reviewModels: Schema.optional(Schema.Array(ReviewModel)),
   /** After the designer's turn, or after each section it builds. */
   when: Schema.optional(Schema.Literals(["end", "each-section"])),
 });
@@ -432,14 +448,14 @@ export type ReviewSettings = typeof ReviewSettings.Type;
 
 /** What a review runs with when nothing says otherwise. */
 export const DEFAULT_REVIEW = {
+  approval: "all",
   eachRound: "rotate",
   findingsLog: false,
   on: true,
-  signOff: "all",
   when: "end",
 } as const satisfies ReviewSettings;
 
-/** The settings of the narrowest layer that sets each field: the run's over the project's over the user's. */
+/** The settings of the narrowest layer that sets each field: the design's over the project's. */
 export const reviewSettingsOf = (
   ...layers: readonly (ReviewSettings | undefined)[]
 ): ReviewSettings => {
@@ -454,18 +470,101 @@ export const reviewSettingsOf = (
   return merged as ReviewSettings;
 };
 
-/** The members of the council who review round `index` (from 0) while the designer works. */
-export const reviewersOfRound = (
-  council: readonly string[],
+/** The review models that review round `index` (from 0) while the designer works. */
+export const reviewersOfRound = <T>(
+  models: readonly T[],
   eachRound: EachRound,
   index: number
-): readonly string[] => {
-  if (council.length === 0 || eachRound === "all") {
-    return council;
+): readonly T[] => {
+  if (models.length === 0 || eachRound === "all") {
+    return models;
   }
   if (eachRound === "one") {
-    return council.slice(0, 1);
+    return models.slice(0, 1);
   }
-  const member = council[index % council.length];
-  return member === undefined ? [] : [member];
+  const model = models[index % models.length];
+  return model === undefined ? [] : [model];
 };
+
+/**
+ * The named levels of review (ADR 0063), each a name for whether reviews run, who looks each
+ * round and who approves. Any other combination, or a goal, is `custom`.
+ */
+export const REVIEW_LEVELS = ["off", "quick", "standard", "thorough"] as const;
+export type ReviewLevel = (typeof REVIEW_LEVELS)[number];
+
+export const LEVELS: Readonly<
+  Record<
+    Exclude<ReviewLevel, "off">,
+    { readonly approval: Approval; readonly eachRound: EachRound }
+  >
+> = {
+  quick: { approval: "one", eachRound: "one" },
+  standard: { approval: "all", eachRound: "rotate" },
+  thorough: { approval: "all", eachRound: "all" },
+};
+
+/** Whether a goal asks for anything: a score, a reviewer's own target, a floor or a cap. */
+const goalSet = (goal: Goal | undefined) =>
+  goal !== undefined &&
+  Object.values(goal).some(
+    (v) =>
+      v !== undefined &&
+      !(typeof v === "object" && v !== null && Object.keys(v).length === 0)
+  );
+
+/** The level settings stand for, the defaults under them; `custom` when none names them. */
+export const levelOf = (
+  settings: ReviewSettings | undefined
+): ReviewLevel | "custom" => {
+  const s = reviewSettingsOf(settings);
+  if (s.on === false) {
+    return "off";
+  }
+  if (goalSet(s.goal)) {
+    return "custom";
+  }
+  const named = (Object.keys(LEVELS) as (keyof typeof LEVELS)[]).find(
+    (level) =>
+      LEVELS[level].eachRound === s.eachRound &&
+      LEVELS[level].approval === s.approval
+  );
+  return named ?? "custom";
+};
+
+/**
+ * Settings at a level: the review models, when and the log kept, the goal dropped (a goal is
+ * Custom's).
+ */
+export const withLevel = (
+  settings: ReviewSettings | undefined,
+  level: ReviewLevel
+): ReviewSettings => {
+  const { goal: _goal, on: _on, ...kept } = settings ?? {};
+  return level === "off"
+    ? { ...kept, on: false }
+    : { ...kept, ...LEVELS[level], on: true };
+};
+
+/** Agents a lab name is known by: `gpt-…` is Codex's, `cursor:…` Cursor's, the rest Claude Code's. */
+const LAB_AGENTS: readonly (readonly [RegExp, string])[] = [
+  [/^gpt-/, "codex"],
+  [/^o\d/, "codex"],
+];
+
+/** A model as the lab names it (`opus`, `gpt-6.1-sol`, `cursor:grok-4.7-high`). */
+export const parseReviewModel = (name: string): ReviewModel => {
+  const colon = name.indexOf(":");
+  if (colon > 0) {
+    return { agentId: name.slice(0, colon), model: name.slice(colon + 1) };
+  }
+  const agentId =
+    LAB_AGENTS.find(([pattern]) => pattern.test(name))?.[1] ?? "claude-code";
+  return { agentId, model: name };
+};
+
+/** The lab's name for a model, the inverse of `parseReviewModel`. */
+export const formatReviewModel = (model: ReviewModel): string =>
+  parseReviewModel(model.model).agentId === model.agentId
+    ? model.model
+    : `${model.agentId}:${model.model}`;

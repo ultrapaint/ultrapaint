@@ -9,7 +9,7 @@
  */
 import { NodeServices } from "@effect/platform-node";
 import { NotConfigured } from "@ultrapaint/contracts/errors";
-import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { defaultSettings, type Settings } from "@ultrapaint/contracts/settings";
 import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
 import type {
   PromptInput,
@@ -75,14 +75,18 @@ export class FixtureProject extends Context.Service<
  * designs (only what the threads tell, no watcher), open from the start;
  * `FixtureProject` closes and reopens it. A project service threads do not use is not there.
  */
-const projectOf = (repo: string) =>
+const projectOf = (repo: string, settings: Partial<Settings>) =>
   Layer.effectContext(
     Effect.gen(function* () {
       const managerScope = yield* Effect.scope;
       const services = yield* Layer.build(
         Layer.mergeAll(WorkingTree.layer, DesignFiles.layerTest).pipe(
           Layer.provideMerge(
-            RepoPaths.layer({ ...defaultSettings(repo), designsDir: "designs" })
+            RepoPaths.layer({
+              ...defaultSettings(repo),
+              designsDir: "designs",
+              ...settings,
+            })
           )
         )
       );
@@ -205,10 +209,15 @@ export const SCRIPTED_SANDBOX_META = { scripted: { sandbox: false } };
  * Thread services on a fresh fixture, with the agents the test plays. Build one per test.
  * `sandboxed` says the machine confines its agents: nothing is wrapped, but the agents are told
  * what their configuration says to a confined one. `mcp` gives them the editor's MCP server, at
- * the address of a server that says it listens on `TEST_PORT`, where nothing does.
+ * the address of a server that says it listens on `TEST_PORT`, where nothing does. `settings`
+ * are the project's, over the fixture's.
  */
 export const threadTest = (
-  options: { readonly mcp?: boolean; readonly sandboxed?: boolean } = {}
+  options: {
+    readonly mcp?: boolean;
+    readonly sandboxed?: boolean;
+    readonly settings?: Partial<Settings>;
+  } = {}
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -248,7 +257,7 @@ export const threadTest = (
               : AgentSandbox.layerTest
           )
         ),
-        Layer.provideMerge(projectOf(repo)),
+        Layer.provideMerge(projectOf(repo, options.settings ?? {})),
         Layer.provideMerge(Foundation),
         Layer.provideMerge(
           ServerConfig.layerTest({
