@@ -162,5 +162,11 @@ export type PersistResult = typeof PersistResult.Type;
 export const UserProfile = Schema.Struct({
   /** Signs comments and draws the avatar when git gives no name. */
   displayName: Schema.optional(Schema.String),
+  /**
+   * Whether every review's findings go to the findings log in the user's own directory
+   * (`~/.ultrapaint/findings/`), in every project, for triage into the design skill's gaps (ADR
+   * 0060, 0066). The person's choice, since the log is theirs.
+   */
+  keepFindings: Schema.optional(Schema.Boolean),
 });
 export type UserProfile = typeof UserProfile.Type;

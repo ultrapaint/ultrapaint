@@ -24,8 +24,9 @@ redesign in four rounds of mocks and chose the names and controls below.
    the review-loop plan.
 3. **A review model** is an agent, one of its models and its effort (`ReviewModel`), in the order
    they take turns. None chosen, the strongest model of each agent signed in reviews.
-4. **Where they are set.** Settings › Agents › Review holds the level, the review models and the
-   findings log, kept in the project's `ultrapaint.config.json` under `review` and shared;
+4. **Where they are set.** Settings › Agents › Review holds the level and the review models,
+   kept in the project's `ultrapaint.config.json` under `review` and shared (the findings log
+   moved to the person's profile, ADR 0066);
    Custom adds Each round, Approval and Goal. The composer's **Review chip** sets this design's
    own level (`Thread.review`, over the project's field by field), a stepped slider in a popover.
    The user layer of ADR 0061 waits.

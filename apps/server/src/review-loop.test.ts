@@ -12,6 +12,7 @@ import type { Settings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestClock } from "effect/testing";
+import { ProfileService } from "./services/profile.ts";
 import { STOPPED } from "./services/review/review-loop.ts";
 import { REVIEWER_ROLE } from "./services/review/review-prompts.ts";
 import { TIMED_OUT, UNREADABLE } from "./services/review/review-rounds.ts";
@@ -339,6 +340,24 @@ describe("a design's review", () => {
         round: 1,
         title: "Uneven gap",
       });
+    }));
+
+  test("keeps the findings when the person keeps them, whatever the project says", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const { home, repo } = yield* ThreadFixture;
+      yield* (yield* ProfileService).set({ keepFindings: true });
+      const logFile = path.join(
+        home,
+        "findings",
+        `${path.basename(repo)}.jsonl`
+      );
+      const kept = yield* designed();
+      const reviewer = yield* nextReviewer;
+      yield* reviewer.turn.say(answer([finding("Uneven gap")], true));
+      yield* reviewer.turn.end();
+      yield* threadWhen(kept.threadId, reviewEnded);
+      assert.isTrue(yield* fs.exists(logFile));
     }));
 });
 
