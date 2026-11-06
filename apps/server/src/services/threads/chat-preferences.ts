@@ -2,6 +2,8 @@ import {
   type AgentOptions,
   type ChatDefaults,
   ChatPreferencesFile,
+  type ConfigOption,
+  isEffortOption,
   isModelOption,
   startingMode,
   type Thread,
@@ -43,7 +45,10 @@ export class ChatPreferences extends Context.Service<
   {
     readonly defaults: Effect.Effect<ChatDefaults>;
     readonly options: Effect.Effect<readonly AgentOptions[]>;
-    /** The agent's remembered options, the default model chosen when it is the default agent. */
+    /**
+     * The agent's remembered options; when it is the default agent, with the default model, effort
+     * and mode chosen where it offers them.
+     */
     readonly optionsFor: (agentId: string) => Effect.Effect<ThreadOptions>;
     readonly remember: (options: AgentOptions) => Effect.Effect<void>;
     readonly setDefaults: (defaults: ChatDefaults) => Effect.Effect<void>;
@@ -98,24 +103,41 @@ export class ChatPreferences extends Context.Service<
         )
       );
 
+      /** The option `is` picks set to `value`, where the option offers it. */
+      const choose = (
+        options: readonly ConfigOption[],
+        is: (option: ConfigOption) => boolean,
+        value: string | undefined
+      ) =>
+        value === undefined
+          ? options
+          : options.map((o) =>
+              is(o) && o.options.some((x) => x.value === value)
+                ? { ...o, currentValue: value }
+                : o
+            );
+
       const optionsFor = (agentId: string) =>
         Effect.sync((): ThreadOptions => {
           const known = state.agents.find((a) => a.agentId === agentId);
           if (!known) {
             return {};
           }
-          const { agentId: defaultAgent, model } = state.defaults;
-          const configOptions =
-            defaultAgent === agentId && model !== undefined
-              ? known.configOptions.map((o) =>
-                  isModelOption(o) && o.options.some((x) => x.value === model)
-                    ? { ...o, currentValue: model }
-                    : o
-                )
-              : known.configOptions;
+          // The defaults are the default agent's: another agent starts as it last offered.
+          const { effort, model, modeId } =
+            state.defaults.agentId === agentId ? state.defaults : {};
+          const configOptions = choose(
+            choose(known.configOptions, isModelOption, model),
+            isEffortOption,
+            effort
+          );
+          const mode =
+            modeId !== undefined && known.modes?.some((m) => m.id === modeId)
+              ? modeId
+              : startingMode(known.modes, known.currentModeId);
           return {
             configOptions: withNamedChoices(configOptions),
-            currentModeId: startingMode(known.modes, known.currentModeId),
+            currentModeId: mode,
             modes: known.modes,
           };
         });

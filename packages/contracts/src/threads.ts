@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
 import { LookPlace } from "./components.ts";
+import { Category, ReviewSettings, Severity } from "./review.ts";
 
 /**
  * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
@@ -46,6 +47,8 @@ export type AgentConfig = typeof AgentConfig.Type;
 export const ThreadStatus = Schema.Literals([
   "idle",
   "running",
+  /** The design's review models look at what the turn made (ADR 0063); the designer waits. */
+  "reviewing",
   "cancelling",
   "error",
 ]);
@@ -56,7 +59,7 @@ export type ThreadStatus = typeof ThreadStatus.Type;
  * agent cannot be switched, and stopping the server would cut it off.
  */
 export const isBusy = (status: ThreadStatus | undefined): boolean =>
-  status === "running" || status === "cancelling";
+  status === "running" || status === "reviewing" || status === "cancelling";
 
 /**
  * A setting the agent's session offers: its model, reasoning effort, and the like. A `boolean`
@@ -303,6 +306,11 @@ export const Thread = Schema.Struct({
    * waits after a turn that was stopped or failed until the user sends it.
    */
   queued: Schema.optional(Schema.Array(QueuedPrompt)),
+  /**
+   * This design's own review settings (ADR 0063), from the composer's Review chip: over the
+   * project's, field by field. Absent, the project's hold.
+   */
+  review: Schema.optional(ReviewSettings),
   /** Whether the agent process is confined to the repository by the operating system. */
   sandboxed: Schema.optional(Schema.Boolean),
   /** Why it is not, when this machine has a sandbox that refused to start. */
@@ -334,6 +342,10 @@ export type AgentOptions = typeof AgentOptions.Type;
 /** What a new thread starts with. Each is optional: absent is the first agent, its own model. */
 export const ChatDefaults = Schema.Struct({
   agentId: Schema.optional(Schema.String),
+  /** A value of the default agent's effort option. */
+  effort: Schema.optional(Schema.String),
+  /** One of the default agent's session modes: what it may do without asking. */
+  modeId: Schema.optional(Schema.String),
   /** A value of the default agent's model option. */
   model: Schema.optional(Schema.String),
 });
@@ -473,12 +485,67 @@ const ToolCallStatus = Schema.Literals([
   "failed",
 ]);
 
+/** How a review model's look at a round went. */
+export const ReviewerStatus = Schema.Literals(["looking", "done", "no-score"]);
+export type ReviewerStatus = typeof ReviewerStatus.Type;
+
+/** One review model in one round of a design's review (ADR 0063). */
+export const RoundReviewer = Schema.Struct({
+  /** Whether it approved the design as it is. */
+  approved: Schema.optional(Schema.Boolean),
+  /** How many findings it gave. */
+  findings: Schema.Number,
+  /** Its lab name (`opus`, `gpt-6.1-sol`): the goal's and the log's key for it. */
+  key: Schema.String,
+  /** The model as the agent names it, for the round's line. */
+  name: Schema.String,
+  /** Why it has no score, when it has none: "It didn't answer in 5 minutes." */
+  reason: Schema.optional(Schema.String),
+  /** Its overall out of 100, once it has one. */
+  score: Schema.optional(Schema.Number),
+  status: ReviewerStatus,
+});
+export type RoundReviewer = typeof RoundReviewer.Type;
+
+/** A finding as the transcript shows it, with the designer's answer once it has one. */
+export const RoundFinding = Schema.Struct({
+  category: Category,
+  /** The designer's reason when it declined it. */
+  declined: Schema.optional(Schema.String),
+  fix: Schema.String,
+  problem: Schema.String,
+  /** Who found it, by `RoundReviewer.key`. */
+  reviewer: Schema.String,
+  severity: Severity,
+  title: Schema.String,
+  where: Schema.String,
+});
+export type RoundFinding = typeof RoundFinding.Type;
+
+/** Why a design's review stopped (contracts' `review` `StopReason`), or that it couldn't start. */
+export const ReviewEnd = Schema.Literals([
+  "approved",
+  "goal",
+  "max-rounds",
+  "plateau",
+  "budget",
+  "no-scores",
+  "stopped",
+  "failed",
+]);
+export type ReviewEnd = typeof ReviewEnd.Type;
+
 export const ThreadItem = Schema.Union([
   Schema.Struct({
     at: Schema.Number,
     attachments: Schema.Array(Schema.String),
     id: Schema.String,
     kind: Schema.Literal("user"),
+    /**
+     * The prompt carries a review round's findings to the designer, sent by the editor (ADR 0063):
+     * the id of that round's item, which shows them, so the transcript doesn't.
+     */
+    review: Schema.optional(Schema.String),
     text: Schema.String,
   }),
   Schema.Struct({
@@ -581,6 +648,36 @@ export const ThreadItem = Schema.Union([
     stopReason: StopReason,
     /** What the turn spent, as the agent accounts for it, split by model. */
     usage: Schema.optional(TurnUsage),
+  }),
+  /**
+   * One round of a design's review (ADR 0063): who looked, what they scored and found, and what
+   * the designer did with it. Updated in place as reviewers answer and the designer replies; the
+   * round that ends the review carries why.
+   */
+  Schema.Struct({
+    at: Schema.Number,
+    /** The whole set of review models looking at the page as it stands, before the end. */
+    closing: Schema.optional(Schema.Boolean),
+    /** Why the review ended after this round, and who was still short. */
+    end: Schema.optional(
+      Schema.Struct({
+        /** The round kept, from 1: not always the last. */
+        best: Schema.optional(Schema.Number),
+        /** What went wrong, when it failed: "Codex isn't signed in." */
+        problem: Schema.optional(Schema.String),
+        reason: ReviewEnd,
+        unmet: Schema.Array(Schema.String),
+      })
+    ),
+    findings: Schema.Array(RoundFinding),
+    /** How many findings the designer fixed, once it answered the round. */
+    fixed: Schema.optional(Schema.Number),
+    id: Schema.String,
+    kind: Schema.Literal("review"),
+    maxRounds: Schema.Number,
+    reviewers: Schema.Array(RoundReviewer),
+    /** From 1. */
+    round: Schema.Number,
   }),
 ]);
 export type ThreadItem = typeof ThreadItem.Type;

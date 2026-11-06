@@ -59,6 +59,7 @@ import { OpenProject } from "../../project.ts";
 import { DesignFiles } from "../design-files.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { ReviewLoop, type ToDesigner } from "../review/review-loop.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentDiscovery } from "./agent-discovery.ts";
@@ -113,7 +114,11 @@ type StatusEvent =
   /** The session's scope closed, whoever closed it. */
   | { readonly _tag: "SessionClosed" }
   /** The thread's agent changed: the next prompt starts a session of the new one. */
-  | { readonly _tag: "AgentSwitched" };
+  | { readonly _tag: "AgentSwitched" }
+  /** The review models look at what the turn made (ADR 0063); the designer waits. */
+  | { readonly _tag: "ReviewStarted" }
+  /** The review's round is over, or was stopped. */
+  | { readonly _tag: "ReviewEnded" };
 
 type StatusPatch = Pick<Thread, "status"> & Partial<Pick<Thread, "error">>;
 
@@ -146,6 +151,14 @@ export const statusAfter = (
       return status === "error" ? null : { status: "idle" };
     case "AgentSwitched":
       return { error: undefined, status: "idle" };
+    case "ReviewStarted":
+      return status === "running" || status === "idle"
+        ? { status: "reviewing" }
+        : null;
+    case "ReviewEnded":
+      return status === "reviewing" || status === "cancelling"
+        ? { status: "idle" }
+        : null;
     default:
       return null;
   }
@@ -245,6 +258,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const launcher = yield* AgentLauncher;
   const access = yield* McpAccess;
   const checkpoints = yield* Checkpoints;
+  const reviews = yield* ReviewLoop;
   const { mcp: mcpEnabled } = yield* ServerConfig;
   const project = yield* OpenProject;
   const events = yield* EventBus;
@@ -261,6 +275,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     let live: Live | null = null;
     /** The session's start under way: deleting the thread stops its agent mid-boot. */
     let booting: Fiber.Fiber<unknown, unknown> | null = null;
+    /** The review's round under way: Stop interrupts it (ADR 0063). */
+    let reviewing: Fiber.Fiber<unknown> | null = null;
     // One session start, however many calls ask for it at once.
     const starting = Semaphore.makeUnsafe(1);
     // One prompt at a time, so two cannot both find the thread idle.
@@ -285,7 +301,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       newItemId,
       project,
       store,
-      transition: (event) => transition(event),
+      // A turn's end may start its review instead of leaving the thread idle.
+      transition: (event) =>
+        event._tag === "TurnEnded" ? turnOver : transition(event),
     });
 
     // ---- the live session ----
@@ -477,7 +495,73 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
 
     // ---- turns ----
 
-    /** The agent's answer ends the turn; a turn that ended by itself sends what was queued. */
+    /**
+     * After a review's round: the findings go to the designer as its next prompt unless the
+     * review ended, when what was queued is sent; a review the user stopped leaves the queue for
+     * them to send or drop.
+     */
+    const afterReview = (fiber: Fiber.Fiber<ToDesigner | null>) =>
+      Effect.gen(function* () {
+        const exit = yield* Fiber.await(fiber);
+        if (reviewing === fiber) {
+          reviewing = null;
+        }
+        const ended = yield* prompting.withPermit(
+          Effect.gen(function* () {
+            yield* transition({ _tag: "ReviewEnded" });
+            const findings = Exit.isSuccess(exit) ? exit.value : undefined;
+            if (findings) {
+              yield* promptNow(
+                { attachments: [], text: findings.text, threadId },
+                findings.review
+              );
+            }
+            return findings === null;
+          })
+        );
+        if (ended) {
+          yield* sendQueued;
+        }
+      });
+
+    /**
+     * A turn is over (`turn.ts` wrote its end): its pages wait for review and a round's answer is
+     * read; then, unless it was stopped or a prompt waits, a design's review round when one is
+     * due (ADR 0063). The thread goes from running to reviewing, never idle between, so that no
+     * prompt starts a turn under the review.
+     */
+    const turnOver = Effect.gen(function* () {
+      const end = (yield* store.items(threadId)).findLast(
+        (i) => i.kind === "turn_end"
+      );
+      const cancelled =
+        end?.kind === "turn_end" && end.stopReason === "cancelled";
+      yield* reviews.turnEnded(threadId, { cancelled });
+      const thread = yield* store.get(threadId);
+      const due =
+        !cancelled && thread !== undefined && (thread.queued ?? []).length === 0
+          ? yield* reviews.due(threadId)
+          : null;
+      if (due === null) {
+        return yield* transition({ _tag: "TurnEnded" });
+      }
+      const projectScope = yield* project.scope;
+      yield* transition({ _tag: "ReviewStarted" });
+      const fiber = yield* Effect.forkIn(
+        reviews.run(threadId, due),
+        projectScope
+      );
+      reviewing = fiber;
+      yield* Effect.forkIn(
+        Effect.ignore(afterReview(fiber), { log: true }),
+        serviceScope
+      );
+    }).pipe(
+      // A project closed meanwhile has nothing to review.
+      Effect.catchTag("NotConfigured", () => transition({ _tag: "TurnEnded" }))
+    );
+
+    /** The agent's answer ends the turn; what follows it runs on its own. */
     const runTurn = (
       session: Live,
       sessionId: string,
@@ -489,8 +573,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           onSuccess: (response) =>
             Effect.gen(function* () {
               yield* turn.end(response);
-              // A turn the user stopped leaves the queue for them to send or drop.
-              if (response.stopReason !== "cancelled") {
+              // A turn the user stopped leaves the queue for them to send or drop; one under
+              // review sends it when the review is over.
+              if (response.stopReason !== "cancelled" && reviewing === null) {
                 yield* Effect.forkIn(
                   Effect.ignore(
                     Effect.suspend(() => sendQueued),
@@ -581,9 +666,10 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       });
     });
 
-    /** A prompt, under `prompting`. */
+    /** A prompt, under `prompting`; `review` when it carries a review round's findings. */
     const promptNow = Effect.fn("ThreadService.prompt")(function* (
-      input: PromptInput
+      input: PromptInput,
+      review?: string
     ) {
       const thread = yield* store.get(threadId);
       if (!thread) {
@@ -605,6 +691,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         attachments: labels,
         id: yield* newItemId,
         kind: "user",
+        ...(review !== undefined && { review }),
         text: input.text,
       });
       yield* transition(
@@ -666,6 +753,12 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
 
     const cancel = Effect.gen(function* () {
       if (yield* turn.stopOpening) {
+        return;
+      }
+      // A review under way ends there: its round says it was stopped.
+      const round = reviewing;
+      if (round !== null) {
+        yield* Fiber.interrupt(round);
         return;
       }
       const now = yield* current;
@@ -832,6 +925,9 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         // An agent still booting is stopped there, with what its start opened.
         if (booting) {
           yield* Fiber.interrupt(booting);
+        }
+        if (reviewing) {
+          yield* Fiber.interrupt(reviewing);
         }
         yield* stopLive;
       }),

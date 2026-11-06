@@ -27,11 +27,11 @@
  */
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import {
+  APPROVAL,
+  type Approval,
   DEFAULT_REVIEW,
   EACH_ROUND,
   type EachRound,
-  SIGN_OFF,
-  type SignOffBy,
 } from "@ultrapaint/contracts/review";
 import { Effect, Layer, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -215,12 +215,12 @@ const reviewFlags = {
   ),
   signOff: Flag.ChoiceWithValue(
     "sign-off",
-    SIGN_OFF.map((m) => [m, m] as const)
+    APPROVAL.map((m) => [m, m] as const)
   ).pipe(
     Flag.withDescription(
       "Who must reach the goal at the end: all (the whole council reviews once more) or one (the round's own reviewer)"
     ),
-    Flag.withDefault(DEFAULT_REVIEW.signOff)
+    Flag.withDefault(DEFAULT_REVIEW.approval)
   ),
 };
 
@@ -285,7 +285,7 @@ interface GenerateInput {
   readonly reviewerGoals: Option.Option<string>;
   readonly reviewers: string;
   readonly runs: number;
-  readonly signOff: SignOffBy;
+  readonly signOff: Approval;
   readonly skills: Option.Option<string>;
 }
 

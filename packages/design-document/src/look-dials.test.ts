@@ -90,7 +90,7 @@ describe("a look made from the dials", () => {
 
   it("keeps its type above the floors at every density: captions 13px, interface text 14px", () => {
     for (const density of ["compact", "regular", "open"] as const) {
-      const sizes = lookSystem({ ...calm, density }).typography.sizes;
+      const { sizes } = lookSystem({ ...calm, density }).typography;
       const px = (name: string) =>
         Number.parseFloat(sizes.find((t) => t.name === name)?.value ?? "0") *
         16;

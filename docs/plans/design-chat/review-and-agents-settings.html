@@ -1,0 +1,247 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Review and agent settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; font-family: var(--font-sans); color: var(--foreground); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 24px 16px; }
+  .cap { font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px; }
+  .cap b { color: var(--foreground); font-weight: 600; }
+
+  /* The editor's dark tokens (DESIGN.md) */
+  .ed {
+    --bg: oklch(0.175 0.004 70); --fg: oklch(0.965 0.003 80); --mfg: oklch(0.67 0.008 75);
+    --primary: oklch(0.56 0.2 263); --pfg: oklch(0.99 0 0);
+    --sidebar: oklch(0.222 0.004 70); --rail: oklch(0.176 0.004 70);
+    --card: oklch(0.235 0.004 70); --popover: oklch(0.245 0.005 70);
+    --muted: oklch(0.255 0.004 70); --accent: oklch(0.285 0.004 70);
+    --border: oklch(1 0 0 / 8%); --input: oklch(1 0 0 / 13%);
+    --success: oklch(0.74 0.15 155); --ring: oklch(0.66 0.17 263);
+    font-family: "Onest", system-ui, sans-serif; color: var(--fg);
+    background: var(--sidebar); border: 1px solid var(--border); border-radius: 12px;
+    height: 720px; display: flex; flex-direction: column; overflow: hidden; position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ed svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  /* type roles */
+  .h-xs { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .body { font-size: 14px; line-height: 20px; }
+  .label { font-size: 14px; line-height: 20px; font-weight: 500; }
+  .small { font-size: 13px; line-height: 18px; }
+  .caption { font-size: 12px; line-height: 16px; font-weight: 500; }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 13px; line-height: 20px; }
+  .m { color: var(--mfg); }
+
+  /* header: 44px, then the agent */
+  .hd { display: flex; align-items: center; gap: 4px; padding: 0 8px; height: 44px; box-sizing: border-box; flex: none; }
+  .hd .t { flex: 1; min-width: 0; padding-left: 4px; }
+  .hd .t .h-xs, .hd .t .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ib { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; color: var(--mfg); }
+  .gb { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; color: var(--fg); font-size: 14px; font-weight: 500; }
+
+  .scroll { flex: 1; overflow: hidden; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .you { align-self: flex-end; max-width: 85%; background: var(--muted); border-radius: 10px; padding: 8px 12px; }
+
+  /* the run card */
+  .run { background: var(--card); border-radius: 10px; padding: 4px; }
+  .step { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; }
+  .step .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step .v { color: var(--mfg); font-size: 13px; }
+  .step.cur .n { color: var(--fg); }
+  .ico-done { color: var(--mfg); }
+  .ico-wait { width: 16px; height: 16px; display: grid; place-items: center; }
+  .ico-wait i { width: 6px; height: 6px; border-radius: 50%; background: var(--mfg); opacity: .5; }
+  .spin { animation: spin 1s linear infinite; color: var(--fg); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .sub { padding: 0 8px 6px 32px; display: flex; flex-direction: column; gap: 2px; }
+  .round { display: flex; align-items: baseline; gap: 8px; min-height: 24px; }
+  .round .who { flex: 1; min-width: 0; }
+  .score { font-weight: 600; font-variant-numeric: normal; }
+  .fr { display: flex; align-items: baseline; gap: 8px; min-height: 20px; }
+  .fr .what { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+  .sk { height: 10px; border-radius: 4px; background: oklch(1 0 0 / 10%); }
+
+  /* assistant message */
+  .msg { display: flex; flex-direction: column; gap: 8px; }
+  .msg ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .msg li::marker { color: var(--mfg); }
+  .show { color: var(--mfg); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 25%); white-space: nowrap; }
+  .foot { display: flex; align-items: center; gap: 6px; }
+
+  /* question card */
+  .q { background: var(--card); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .opt { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; background: var(--muted); }
+  .opt .k { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--mfg); width: 16px; }
+  .opt .rec { margin-left: auto; color: var(--mfg); font-size: 13px; }
+
+  /* composer */
+  .starters { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 8px; }
+  .starter { height: 28px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; color: var(--fg); font-size: 14px; }
+  .starter:first-child { background: var(--accent); }
+  .comp { margin: 0 8px 8px; background: var(--muted); border-radius: 10px; padding: 10px 8px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .comp .ph { padding: 0 4px; color: var(--mfg); font-size: 14px; line-height: 20px; }
+  .bar { display: flex; align-items: center; gap: 2px; }
+  .pick { height: 28px; padding: 0 6px; display: inline-flex; align-items: center; gap: 2px; border-radius: 6px; color: var(--mfg); font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .pick.on { background: var(--accent); color: var(--fg); }
+  .send { margin-left: auto; width: 28px; height: 28px; border-radius: 999px; background: var(--primary); color: var(--pfg); display: grid; place-items: center; }
+  .stop { margin-left: auto; width: 28px; height: 28px; border-radius: 999px; background: var(--accent); color: var(--fg); display: grid; place-items: center; }
+  .stop svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+
+  /* review popover */
+  .pop { position: absolute; left: 8px; right: 8px; bottom: 96px; background: var(--popover); border-radius: 10px;
+         box-shadow: 0 0 0 1px var(--border), 0 12px 32px oklch(0 0 0 / 45%); padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .row .small.m { white-space: nowrap; }
+  .seg { display: inline-flex; background: var(--input); border-radius: 6px; padding: 2px; }
+  .seg span { height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--mfg); }
+  .seg span.on { background: var(--accent); color: var(--fg); box-shadow: 0 1px 1px oklch(0 0 0 / 30%); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { height: 24px; padding: 0 8px; border-radius: 999px; background: var(--muted); display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .sel { height: 28px; padding: 0 4px 0 8px; display: inline-flex; align-items: center; gap: 2px; border-radius: 6px; font-size: 13px; color: var(--fg); }
+  .link { color: var(--mfg); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 25%); }
+  .rlabel { font-size: 14px; line-height: 20px; font-weight: 500; }
+  .rgroup { display: flex; flex-direction: column; gap: 2px; }
+  .lk { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 30%); }
+  .err { color: oklch(0.68 0.18 25); }
+  .errbox { background: oklch(0.68 0.18 25 / 12%); border-radius: 6px; padding: 8px; }
+  .wide { grid-column: 1 / -1; }
+
+  .menu { position: absolute; background: var(--popover); border-radius: 10px; padding: 4px;
+          box-shadow: 0 0 0 1px var(--border), 0 12px 32px oklch(0 0 0 / 45%); display: flex; flex-direction: column; }
+  .mi { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 4px; border-radius: 6px; }
+  .mi.tall { height: auto; min-height: 44px; padding-top: 4px; padding-bottom: 4px; align-items: flex-start; }
+  .mi.tall .tk { margin-top: 2px; }
+  .mi.hl { background: var(--accent); }
+  .mi .tk { width: 16px; display: grid; place-items: center; color: var(--fg); flex: none; }
+  .mi-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .mg { padding: 4px 8px 2px 28px; }
+  .msep { height: 1px; background: var(--border); margin: 4px -4px; }
+  .rline { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 8px; }
+  .rline .m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .dlg { background: var(--rail); }
+  .nav { width: 180px; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; flex: none; }
+  .nv { height: 28px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; }
+  .nv.cur { background: var(--card); color: var(--fg); }
+  .h-s { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+  .page { flex: 1; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .grpc { background: var(--card); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; }
+  .srow { display: flex; align-items: center; gap: 16px; min-height: 44px; padding: 6px 0; border-top: 1px solid var(--border); }
+  .grpc .srow:nth-child(2) { border-top: none; }
+  .sl { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .sl .h-xs { font-weight: 500; }
+  .sc { flex: none; display: flex; justify-content: flex-end; }
+  .sw { width: 32px; height: 18px; border-radius: 999px; box-shadow: inset 0 0 0 1.5px var(--mfg); position: relative; }
+  .sw i { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--mfg); }
+  .sw.on { background: var(--primary); box-shadow: none; }
+  .sw.on i { left: 17px; background: var(--pfg); }
+  .dfoot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
+  .btn { height: 28px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; background: var(--accent); font-size: 14px; font-weight: 500; }
+  .ptitle { grid-column: 1 / -1; font-size: 15px; font-weight: 600; margin: 8px 0 -12px; color: var(--foreground); }
+  .ptitle span { font-weight: 400; color: var(--muted-foreground); font-size: 13px; }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg); display: inline-block; margin-left: 4px; }
+  .strip { display: flex; flex-direction: column; gap: 6px; }
+  .sn { padding: 0 4px; }
+  .sl-pop { padding: 12px; gap: 12px; }
+  .track { position: relative; height: 4px; border-radius: 999px; background: var(--input); margin: 10px 8px 0; }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--primary); }
+  .tk2 { position: absolute; top: 50%; width: 6px; height: 6px; border-radius: 50%; background: var(--mfg); transform: translate(-50%, -50%); }
+  .tk2.on { background: var(--pfg); }
+  .knob { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: var(--fg); transform: translate(-50%, -50%); box-shadow: 0 1px 3px oklch(0 0 0 / 50%); }
+  .labels { position: relative; height: 18px; margin: 0 8px; }
+  .stop-l { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .stop-l:first-child { transform: none; left: -8px !important; }
+  .stop-l:last-child { transform: translateX(-100%); left: calc(100% + 8px) !important; }
+  .stop-l.cur { color: var(--fg); font-weight: 500; }
+  .desc { display: flex; flex-direction: column; gap: 2px; background: var(--muted); border-radius: 6px; padding: 8px; }
+  .warnline .label::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: oklch(0.82 0.14 78); margin-right: 6px; vertical-align: 2px; }
+  .srow .seg span { font-size: 13px; }
+
+  .tag { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--mfg); background: var(--accent); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .desc .label { display: block; }
+  .flabel { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .gt { font-size: 14px; line-height: 20px; font-weight: 600; padding: 0 0 4px; }
+  .grpc .srow:nth-child(2) { border-top: none; }
+  .srow .seg span { font-size: 13px; }
+  .stack { display: inline-flex; margin-right: 6px; }
+  .stack i { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--card); font-style: normal; font-size: 10px; font-weight: 600; display: grid; place-items: center; margin-left: -4px; color: var(--fg); }
+  .stack i:first-child { margin-left: 0; }
+  .mpop { padding: 4px; }
+  .psec { padding: 8px 8px 2px; }
+  .pr { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 4px 0 8px; border-radius: 6px; }
+  .pr .pn { flex: 1; min-width: 0; }
+  .pr.off { opacity: .9; }
+  .grip { width: 14px; display: grid; place-items: center; }
+  .sel.sm { height: 24px; font-size: 13px; color: var(--mfg); }
+  .ib.sm { width: 24px; height: 24px; }
+  .cb { width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--mfg); flex: none; }
+  .cb.dis { opacity: .4; }
+  .srch { display: flex; align-items: center; gap: 8px; height: 28px; margin: 4px; padding: 0 8px; border-radius: 6px; background: var(--muted); }
+  .srow.col { flex-direction: column; align-items: stretch; gap: 2px; }
+  .rowtop { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; }
+</style></head><body><div class="grid"><div><p class="cap"><b>1 · The chat, at the project’s level.</b></p><div class="ed" style="height:400px"><div class="scroll"></div><div class="menu sl-pop" style="left:8px;right:8px;bottom:84px">
+    <div class="row"><span class="h-xs">Review</span><span class="link">Project settings</span></div>
+    <div class="track"><div class="fill" style="width:66.666%"></div><i class="tk2 on" style="left:0%"></i><i class="tk2 on" style="left:33.333%"></i><i class="tk2 on" style="left:66.666%"></i><i class="tk2" style="left:100%"></i><div class="knob" style="left:66.666%"></div></div>
+    <div class="labels"><span class="stop-l small m" style="left:0%">Off</span><span class="stop-l small m" style="left:33.333%">Quick</span><span class="stop-l small cur" style="left:66.666%">Standard</span><span class="stop-l small m" style="left:100%">Thorough</span></div>
+    <div class="desc"><span class="label">Standard <span class="tag">Project default</span></span><span class="small m">Your review models take turns, and all of them approve the result.</span></div></div><div class="comp"><div class="ph">Ask Claude Code, or type / for commands…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick on">Standard<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div></div></div><div><p class="cap"><b>2 · Changed for this chat.</b> The chip takes a dot; one click goes back.</p><div class="ed" style="height:400px"><div class="scroll"></div><div class="menu sl-pop" style="left:8px;right:8px;bottom:84px">
+    <div class="row"><span class="h-xs">Review</span><span class="link">Use project default</span></div>
+    <div class="track"><div class="fill" style="width:100%"></div><i class="tk2 on" style="left:0%"></i><i class="tk2 on" style="left:33.333%"></i><i class="tk2 on" style="left:66.666%"></i><i class="tk2 on" style="left:100%"></i><div class="knob" style="left:100%"></div></div>
+    <div class="labels"><span class="stop-l small m" style="left:0%">Off</span><span class="stop-l small m" style="left:33.333%">Quick</span><span class="stop-l small m" style="left:66.666%">Standard</span><span class="stop-l small cur" style="left:100%">Thorough</span></div>
+    <div class="desc"><span class="label">Thorough</span><span class="small m">All your review models review every round. Slower, and the most thorough.</span></div></div><div class="comp"><div class="ph">Ask Claude Code, or type / for commands…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick on">Thorough<i class=dot></i><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div></div></div><div><p class="cap"><b>3 · Off.</b> Still one stop, saying what you give up.</p><div class="ed" style="height:400px"><div class="scroll"></div><div class="menu sl-pop" style="left:8px;right:8px;bottom:84px">
+    <div class="row"><span class="h-xs">Review</span><span class="link">Use project default</span></div>
+    <div class="track"><div class="fill" style="width:0%"></div><i class="tk2 on" style="left:0%"></i><i class="tk2" style="left:33.333%"></i><i class="tk2" style="left:66.666%"></i><i class="tk2" style="left:100%"></i><div class="knob" style="left:0%"></div></div>
+    <div class="labels"><span class="stop-l small cur" style="left:0%">Off</span><span class="stop-l small m" style="left:33.333%">Quick</span><span class="stop-l small m" style="left:66.666%">Standard</span><span class="stop-l small m" style="left:100%">Thorough</span></div>
+    <div class="desc warnline"><span class="label">Off</span><span class="small m">Not recommended. Nothing checks the design before it’s done.</span></div></div><div class="comp"><div class="ph">Ask Claude Code, or type / for commands…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick on">Off<i class=dot></i><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div></div></div><div><p class="cap"><b>4 · Quick.</b></p><div class="ed" style="height:400px"><div class="scroll"></div><div class="menu sl-pop" style="left:8px;right:8px;bottom:84px">
+    <div class="row"><span class="h-xs">Review</span><span class="link">Use project default</span></div>
+    <div class="track"><div class="fill" style="width:33.333%"></div><i class="tk2 on" style="left:0%"></i><i class="tk2 on" style="left:33.333%"></i><i class="tk2" style="left:66.666%"></i><i class="tk2" style="left:100%"></i><div class="knob" style="left:33.333%"></div></div>
+    <div class="labels"><span class="stop-l small m" style="left:0%">Off</span><span class="stop-l small cur" style="left:33.333%">Quick</span><span class="stop-l small m" style="left:66.666%">Standard</span><span class="stop-l small m" style="left:100%">Thorough</span></div>
+    <div class="desc"><span class="label">Quick</span><span class="small m">Your first review model reviews until it approves.</span></div></div><div class="comp"><div class="ph">Ask Claude Code, or type / for commands…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick on">Quick<i class=dot></i><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div></div></div><div class="wide"><p class="cap"><b>5 · Settings › Agents.</b> New chats start with the agent, model, effort and permissions set here. Review keeps the same levels; Custom alone shows Each round, Approval and Goal.</p><div class="ed dlg" style="height:600px;flex-direction:row;border-radius:16px">
+  <div class="nav"><div class="h-s" style="padding:0 8px 12px">Settings</div>
+    <div class="nv label m">Preferences</div><div class="nv label cur">Agents</div><div class="nv label m">Repository</div><div class="nv label m">Design system</div></div>
+  <div class="page"><div class="h-s">Agents</div>
+    <div class="grpc">
+      <div class="gt">New chats</div>
+      <div class="srow"><div class="sl"><span class="flabel">Agent</span></div><div class="sc"><span class="sel">Claude Code<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Model</span></div><div class="sc"><span class="sel">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Effort</span></div><div class="sc"><span class="seg"><span class="">Low</span><span class="">Medium</span><span class="on">High</span><span class="">Max</span></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Permissions</span><span class="small m">Edits files and runs safe commands without asking.</span></div><div class="sc"><span class="sel">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+    </div>
+    <div class="grpc">
+      <div class="gt">Review</div>
+      <div class="srow col"><div class="rowtop"><span class="flabel">Level</span><span class="seg"><span class="">Off</span><span class="">Quick</span><span class="on">Standard</span><span class="">Thorough</span><span class="">Custom</span></span></div><span class="small m">Your review models take turns; all of them approve the result.</span></div>
+      <div class="srow"><div class="sl"><span class="flabel">Review models</span></div><div class="sc"><span class="sel">Opus 5.5, GPT-6.1-Sol, Grok 4.7<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+    </div>
+    <div class="dfoot" style="justify-content:flex-end"><span class="btn">Done</span></div>
+  </div></div></div><div class="wide"><p class="cap"><b>6 · Choosing the review models.</b> The chosen ones in the order they take turns, each with its effort; the rest by provider, a provider that isn’t signed in saying so.</p><div class="ed dlg" style="height:700px;flex-direction:row;border-radius:16px">
+  <div class="nav"><div class="h-s" style="padding:0 8px 12px">Settings</div>
+    <div class="nv label m">Preferences</div><div class="nv label cur">Agents</div><div class="nv label m">Repository</div><div class="nv label m">Design system</div></div>
+  <div class="page"><div class="h-s">Agents</div>
+    <div class="grpc">
+      <div class="gt">New chats</div>
+      <div class="srow"><div class="sl"><span class="flabel">Agent</span></div><div class="sc"><span class="sel">Claude Code<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Model</span></div><div class="sc"><span class="sel">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Effort</span></div><div class="sc"><span class="seg"><span class="">Low</span><span class="">Medium</span><span class="on">High</span><span class="">Max</span></span></div></div>
+      <div class="srow"><div class="sl"><span class="flabel">Permissions</span><span class="small m">Edits files and runs safe commands without asking.</span></div><div class="sc"><span class="sel">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+    </div>
+    <div class="grpc">
+      <div class="gt">Review</div>
+      <div class="srow col"><div class="rowtop"><span class="flabel">Level</span><span class="seg"><span class="">Off</span><span class="">Quick</span><span class="on">Standard</span><span class="">Thorough</span><span class="">Custom</span></span></div><span class="small m">Your review models take turns; all of them approve the result.</span></div>
+      <div class="srow"><div class="sl"><span class="flabel">Review models</span></div><div class="sc"><span class="sel">Opus 5.5, GPT-6.1-Sol, Grok 4.7<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+    </div>
+    <div class="dfoot" style="justify-content:flex-end"><span class="btn">Done</span></div>
+  </div><div class="menu mpop" style="right:28px;bottom:76px;width:330px">
+  <div class="psec small m">In turn order</div>
+  <div class="pr"><span class="grip"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></span><span class="pn label">Opus 5.5</span><span class="small m">Claude Code</span><span class="sel sm">High<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span><span class="ib sm"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div>
+  <div class="pr"><span class="grip"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></span><span class="pn label">GPT-6.1-Sol</span><span class="small m">Codex</span><span class="sel sm">High<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span><span class="ib sm"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div>
+  <div class="pr"><span class="grip"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></span><span class="pn label">Grok 4.7</span><span class="small m">Cursor</span><span class="sel sm">High<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="m6 9 6 6 6-6"/></svg></span><span class="ib sm"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></div>
+  <div class="msep"></div>
+  <div class="srch"><svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--mfg)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="m small" style="font-size:14px">Add a model</span></div>
+  <div class="psec small m">Claude Code</div>
+  <div class="pr"><span class="cb"></span><span class="pn label">Sonnet 5.5</span></div>
+  <div class="pr"><span class="cb"></span><span class="pn label">Haiku 5.5</span></div>
+  <div class="psec small m">Codex</div>
+  <div class="pr"><span class="cb"></span><span class="pn label">GPT-6.1</span></div>
+  <div class="psec small m">Cursor</div>
+  <div class="pr"><span class="cb"></span><span class="pn label">Composer 2.5</span></div>
+  <div class="psec small m row" style="padding-right:8px"><span>Gemini</span><span class="link">Sign in</span></div>
+  <div class="pr off"><span class="cb dis"></span><span class="pn label m">Gemini 3 Pro</span><span class="small m">Not signed in</span></div>
+</div></div></div></div></body></html>

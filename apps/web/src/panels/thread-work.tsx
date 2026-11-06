@@ -48,9 +48,12 @@ const useElapsed = (since: number | undefined) => {
 
 /** The bottom of a running thread: the agent is working, and has been for this long. */
 export const WorkingIndicator = ({
+  label = "Working…",
   since,
 }: {
-  /** When the prompt that started the turn was sent. */
+  /** What the thread is doing: "Working…", or "Reviewing…" while its review models look. */
+  label?: string;
+  /** When the prompt that started the turn was sent, or the round began. */
   since: number | undefined;
 }) => {
   const elapsed = useElapsed(since);
@@ -61,7 +64,7 @@ export const WorkingIndicator = ({
       role="status"
     >
       <WorkingMark />
-      <span className="min-w-0 truncate text-shimmer">Working…</span>
+      <span className="min-w-0 truncate text-shimmer">{label}</span>
       {elapsed ? (
         <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
           {elapsed}

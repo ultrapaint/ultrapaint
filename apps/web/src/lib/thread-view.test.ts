@@ -23,6 +23,7 @@ describe("threadView", () => {
     ["running", undefined, true, false, false, "Working", "working"],
     ["running", true, true, true, false, "Working", "working"],
     ["cancelling", undefined, true, false, false, "Working", "working"],
+    ["reviewing", undefined, true, false, false, "Reviewing", "working"],
     ["error", undefined, false, false, true, "Stopped", "failed"],
     ["error", true, false, true, true, "Your turn", "attention"],
   ] as const)(

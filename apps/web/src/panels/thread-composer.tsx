@@ -84,7 +84,8 @@ import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
-import { ModelPicker, ModePicker } from "./thread-pickers.tsx";
+import { ReviewChip } from "./review-level.tsx";
+import { ModelPicker } from "./thread-pickers.tsx";
 import {
   AnswerButtons,
   AnswerField,
@@ -314,7 +315,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         thread={thread}
       />
       <OpenQuestion answering={answering} threadId={thread.id} />
-      <div className={composerBox}>
+      <div className={composerBox} data-composer>
         {images.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {images.map((chip) => (
@@ -463,8 +464,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             ref={figma}
             type="file"
           />
-          <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
+          <ReviewChip thread={thread} />
           <div className="min-w-1 flex-1" />
           <div className="flex shrink-0 items-center gap-1.5">
             {answering ? (

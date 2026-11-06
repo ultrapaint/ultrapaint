@@ -1,6 +1,6 @@
 /**
- * The composer's pickers: the agent, its model and options, and its mode, as the agent offers
- * them.
+ * The composer's model menu: the agent, its model, effort and options, and what it may do without
+ * asking (its session mode, "Permissions"), as the agent offers them (ADR 0063).
  */
 import {
   type ConfigOption,
@@ -18,13 +18,14 @@ import {
   Eye,
   FilePen,
   FolderPen,
-  Hand,
   type LucideIcon,
   NotebookPen,
   Shield,
+  ShieldCheck,
   ShieldOff,
-  Sparkles,
+  ShieldQuestion,
 } from "lucide-react";
+import type * as React from "react";
 import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,17 +107,18 @@ const SwitchOptionItem = ({
       onCheckedChange={onCheckedChange}
     >
       {option.name}
+      {/* The system Switch's look: off, edged and its knob muted (DESIGN.md). */}
       <span
         aria-hidden
         className={cn(
           "ml-auto flex h-4 w-7 items-center rounded-full p-0.5 transition-colors",
-          checked ? "bg-brand" : "bg-input"
+          checked ? "bg-brand" : "ring-1 ring-muted-foreground ring-inset"
         )}
       >
         <span
           className={cn(
-            "size-3 rounded-full bg-white transition-transform",
-            checked && "translate-x-3"
+            "size-3 rounded-full transition-transform",
+            checked ? "translate-x-3 bg-white" : "bg-muted-foreground"
           )}
         />
       </span>
@@ -231,19 +233,73 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
 };
 
 /**
- * Agent, model and session options in one menu below the prompt: the provider first, then the
- * model, the effort and the agent's other choices; its switches below a divider. Before the
+ * What the agent may do without asking: its session modes, each with its icon and what it lets
+ * the agent do. Changed on the live session when there is one, else for the next.
+ */
+const PermissionsSub = ({ thread }: { thread: Thread }) => {
+  const modes = thread.modes ?? [];
+  const current = modes.find((m) => m.id === thread.currentModeId);
+  const onValueChange = (modeId: unknown) =>
+    api()
+      .request("threads.setMode", {
+        modeId: modeId as string,
+        threadId: thread.id,
+      })
+      .catch(reportError);
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <span className="shrink-0">Permissions</span>
+        <span className="min-w-0 flex-1 truncate text-right font-small text-muted-foreground">
+          {current?.name}
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-72">
+        <DropdownMenuRadioGroup
+          onValueChange={onValueChange}
+          value={thread.currentModeId ?? null}
+        >
+          {modes.map((m) => (
+            <DropdownMenuRadioItem
+              className="items-start"
+              key={m.id}
+              value={m.id}
+            >
+              <span className="flex h-5 items-center">
+                <ModeIcon modeId={m.id} />
+              </span>
+              <span className="flex min-w-0 flex-col py-0.5">
+                <span>{m.name}</span>
+                {m.description ? (
+                  <span className="whitespace-normal text-pretty font-small text-muted-foreground">
+                    {m.description}
+                  </span>
+                ) : null}
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+};
+
+/**
+ * Agent, model, effort, permissions and the agent's other options in one menu below the prompt;
+ * its switches below a divider. The trigger names the model and effort, led by the permission
+ * mode's icon, which stays in view in every mode so full access is never out of sight. Before the
  * thread's session exists the options are the ones the agent offered last time, applied when it
  * starts.
  */
 export const ModelPicker = ({ thread }: { thread: Thread }) => {
   const agents = useAgents((s) => s.agents);
   const agent = agents.find((a) => a.id === thread.agentId);
-  // Session modes have their own picker next to this one.
-  const hasModePicker = (thread.modes?.length ?? 0) > 0;
+  const modes = thread.modes ?? [];
+  const hasModes = modes.length > 0;
   // The agent's unnamed default is never shown: the thread starts on the first model it names.
+  // A mode offered as an option too is Permissions' to show.
   const options = withNamedChoices(thread.configOptions ?? []).filter(
-    (o) => !(hasModePicker && o.category === "mode")
+    (o) => !(hasModes && o.category === "mode")
   );
   const model = options.find(isModelOption);
   const effort = options.find(isEffortOption);
@@ -258,28 +314,39 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
     effort && !switchOnValue(effort) ? currentName(effort) : null;
   const agentName = agent?.name ?? thread.agentId;
   const modelName = model ? currentName(model) : undefined;
+  const mode = modes.find((m) => m.id === thread.currentModeId);
+  const label = [
+    modelName ? `${agentName}, ${modelName}` : agentName,
+    effortName,
+    mode ? `permissions: ${mode.name}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  // The permission mode's icon leads; without modes, the agent's mark when no model names it
+  // (the agent is named in the thread's header).
+  let lead: React.ReactNode = null;
+  if (mode) {
+    lead = <ModeIcon className="size-3.5" modeId={mode.id} />;
+  } else if (!modelName) {
+    lead = <AgentIcon agentId={thread.agentId} className="size-3.5" />;
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={
-              modelName
-                ? `Agent and model: ${agentName}, ${modelName}`
-                : `Agent: ${agentName}`
-            }
+            aria-label={`Agent and model: ${label}`}
             className={pickerTrigger}
             variant="ghost"
           />
         }
       >
-        {/* The agent is named in the thread's header; here its mark only when there is no model. */}
-        {modelName ? null : (
-          <AgentIcon agentId={thread.agentId} className="size-3.5" />
-        )}
+        {lead}
         <span className="truncate">{modelName ?? agentName}</span>
         {effortName ? (
+          // The menu names it; a narrow composer keeps the model and the review legible.
           <span className="@max-sm:hidden shrink-0 opacity-70">
             {effortName}
           </span>
@@ -295,6 +362,7 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
           {effort && !switchOnValue(effort) ? (
             <SelectOptionSub option={effort} threadId={thread.id} />
           ) : null}
+          {hasModes ? <PermissionsSub thread={thread} /> : null}
           {selects.map((o) => (
             <SelectOptionSub key={o.id} option={o} threadId={thread.id} />
           ))}
@@ -328,74 +396,28 @@ const pickerTrigger = quietTrigger;
 /** What each agent's modes let it do, drawn small enough to stand for the mode alone. */
 const MODE_ICONS: Record<string, LucideIcon> = {
   acceptEdits: FilePen,
-  agent: Sparkles,
+  agent: ShieldCheck,
   "agent-full-access": ShieldOff,
-  auto: Sparkles,
+  auto: ShieldCheck,
   bypassPermissions: ShieldOff,
-  default: Hand,
+  default: ShieldQuestion,
   plan: NotebookPen,
   "read-only": Eye,
   "workspace-write": FolderPen,
 };
 
-const ModeIcon = ({ modeId }: { modeId: string | undefined }) => {
+export const ModeIcon = ({
+  className,
+  modeId,
+}: {
+  className?: string;
+  modeId: string | undefined;
+}) => {
   const Icon = (modeId && MODE_ICONS[modeId]) || Shield;
-  return <Icon className="size-4 text-muted-foreground" />;
-};
-
-export const ModePicker = ({ thread }: { thread: Thread }) => {
-  const modes = thread.modes ?? [];
-  if (modes.length === 0) {
-    return null;
-  }
-  const current = modes.find((m) => m.id === thread.currentModeId);
-  const onValueChange = (modeId: unknown) =>
-    api()
-      .request("threads.setMode", {
-        modeId: modeId as string,
-        threadId: thread.id,
-      })
-      .catch(reportError);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Mode: ${current?.name ?? "none"}`}
-            className={pickerTrigger}
-            variant="ghost"
-          />
-        }
-      >
-        <span className="truncate">{current?.name ?? "Mode"}</span>
-        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64" side="top">
-        <DropdownMenuRadioGroup
-          onValueChange={onValueChange}
-          value={thread.currentModeId ?? null}
-        >
-          {modes.map((m) => (
-            <DropdownMenuRadioItem
-              className="items-start"
-              key={m.id}
-              value={m.id}
-            >
-              <span className="flex h-5 items-center">
-                <ModeIcon modeId={m.id} />
-              </span>
-              <span className="flex min-w-0 flex-col py-0.5">
-                <span>{m.name}</span>
-                {m.description ? (
-                  <span className="whitespace-normal font-small text-muted-foreground">
-                    {m.description}
-                  </span>
-                ) : null}
-              </span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Icon
+      aria-hidden
+      className={cn("size-4 shrink-0 text-muted-foreground", className)}
+    />
   );
 };

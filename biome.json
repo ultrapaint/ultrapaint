@@ -14,6 +14,18 @@
   },
   "overrides": [
     {
+      "includes": ["docs/plans/**/*.html"],
+      "assist": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["docs/designs/assets/**"],
       "linter": {
         "enabled": false

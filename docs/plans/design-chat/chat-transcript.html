@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; font-family: var(--font-sans); color: var(--foreground); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 24px 16px; }
+  .cap { font-size: 13px; color: var(--muted-foreground); margin: 0 0 8px; }
+  .cap b { color: var(--foreground); font-weight: 600; }
+
+  /* The editor's dark tokens (DESIGN.md) */
+  .ed {
+    --bg: oklch(0.175 0.004 70); --fg: oklch(0.965 0.003 80); --mfg: oklch(0.67 0.008 75);
+    --primary: oklch(0.56 0.2 263); --pfg: oklch(0.99 0 0);
+    --sidebar: oklch(0.222 0.004 70); --rail: oklch(0.176 0.004 70);
+    --card: oklch(0.235 0.004 70); --popover: oklch(0.245 0.005 70);
+    --muted: oklch(0.255 0.004 70); --accent: oklch(0.285 0.004 70);
+    --border: oklch(1 0 0 / 8%); --input: oklch(1 0 0 / 13%);
+    --success: oklch(0.74 0.15 155); --ring: oklch(0.66 0.17 263);
+    font-family: "Onest", system-ui, sans-serif; color: var(--fg);
+    background: var(--sidebar); border: 1px solid var(--border); border-radius: 12px;
+    height: 720px; display: flex; flex-direction: column; overflow: hidden; position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ed svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  /* type roles */
+  .h-xs { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .body { font-size: 14px; line-height: 20px; }
+  .label { font-size: 14px; line-height: 20px; font-weight: 500; }
+  .small { font-size: 13px; line-height: 18px; }
+  .caption { font-size: 12px; line-height: 16px; font-weight: 500; }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 13px; line-height: 20px; }
+  .m { color: var(--mfg); }
+
+  /* header: 44px, then the agent */
+  .hd { display: flex; align-items: center; gap: 4px; padding: 0 8px; height: 44px; box-sizing: border-box; flex: none; }
+  .hd .t { flex: 1; min-width: 0; padding-left: 4px; }
+  .hd .t .h-xs, .hd .t .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ib { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; color: var(--mfg); }
+  .gb { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; color: var(--fg); font-size: 14px; font-weight: 500; }
+
+  .scroll { flex: 1; overflow: hidden; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .you { align-self: flex-end; max-width: 85%; background: var(--muted); border-radius: 10px; padding: 8px 12px; }
+
+  /* the run card */
+  .run { background: var(--card); border-radius: 10px; padding: 4px; }
+  .step { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; }
+  .step .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step .v { color: var(--mfg); font-size: 13px; }
+  .step.cur .n { color: var(--fg); }
+  .ico-done { color: var(--mfg); }
+  .ico-wait { width: 16px; height: 16px; display: grid; place-items: center; }
+  .ico-wait i { width: 6px; height: 6px; border-radius: 50%; background: var(--mfg); opacity: .5; }
+  .spin { animation: spin 1s linear infinite; color: var(--fg); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .sub { padding: 0 8px 6px 32px; display: flex; flex-direction: column; gap: 2px; }
+  .round { display: flex; align-items: baseline; gap: 8px; min-height: 24px; }
+  .round .who { flex: 1; min-width: 0; }
+  .score { font-weight: 600; font-variant-numeric: normal; }
+  .fr { display: flex; align-items: baseline; gap: 8px; min-height: 20px; }
+  .fr .what { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+  .sk { height: 10px; border-radius: 4px; background: oklch(1 0 0 / 10%); }
+
+  /* assistant message */
+  .msg { display: flex; flex-direction: column; gap: 8px; }
+  .msg ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .msg li::marker { color: var(--mfg); }
+  .show { color: var(--mfg); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 25%); white-space: nowrap; }
+  .foot { display: flex; align-items: center; gap: 6px; }
+
+  /* question card */
+  .q { background: var(--card); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .opt { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; background: var(--muted); }
+  .opt .k { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--mfg); width: 16px; }
+  .opt .rec { margin-left: auto; color: var(--mfg); font-size: 13px; }
+
+  /* composer */
+  .starters { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 8px; }
+  .starter { height: 28px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; color: var(--fg); font-size: 14px; }
+  .starter:first-child { background: var(--accent); }
+  .comp { margin: 0 8px 8px; background: var(--muted); border-radius: 10px; padding: 10px 8px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .comp .ph { padding: 0 4px; color: var(--mfg); font-size: 14px; line-height: 20px; }
+  .bar { display: flex; align-items: center; gap: 2px; }
+  .pick { height: 28px; padding: 0 6px; display: inline-flex; align-items: center; gap: 2px; border-radius: 6px; color: var(--mfg); font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .pick.on { background: var(--accent); color: var(--fg); }
+  .send { margin-left: auto; width: 28px; height: 28px; border-radius: 999px; background: var(--primary); color: var(--pfg); display: grid; place-items: center; }
+  .stop { margin-left: auto; width: 28px; height: 28px; border-radius: 999px; background: var(--accent); color: var(--fg); display: grid; place-items: center; }
+  .stop svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+
+  /* review popover */
+  .pop { position: absolute; left: 8px; right: 8px; bottom: 96px; background: var(--popover); border-radius: 10px;
+         box-shadow: 0 0 0 1px var(--border), 0 12px 32px oklch(0 0 0 / 45%); padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .row .small.m { white-space: nowrap; }
+  .seg { display: inline-flex; background: var(--input); border-radius: 6px; padding: 2px; }
+  .seg span { height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--mfg); }
+  .seg span.on { background: var(--accent); color: var(--fg); box-shadow: 0 1px 1px oklch(0 0 0 / 30%); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { height: 24px; padding: 0 8px; border-radius: 999px; background: var(--muted); display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .sel { height: 28px; padding: 0 4px 0 8px; display: inline-flex; align-items: center; gap: 2px; border-radius: 6px; font-size: 13px; color: var(--fg); }
+  .link { color: var(--mfg); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 25%); }
+  .rlabel { font-size: 14px; line-height: 20px; font-weight: 500; }
+  .rgroup { display: flex; flex-direction: column; gap: 2px; }
+  .lk { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: oklch(1 0 0 / 30%); }
+  .err { color: oklch(0.68 0.18 25); }
+  .errbox { background: oklch(0.68 0.18 25 / 12%); border-radius: 6px; padding: 8px; }
+  .wide { grid-column: 1 / -1; }
+</style></head>
+<body>
+<div class="grid">
+<div>
+  <p class="cap"><b>A · A new chat, Review open.</b> Filled from your default; what you set here holds for this design. Closed, three starters sit against the composer.</p>
+  <div class="ed"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">New chat</div></div><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll"></div>
+    <div class="pop">
+      <div class="row"><span class="h-xs">Review</span><span class="link">Edit default</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span class="small m">Council</span>
+        <div class="chips"><span class="chip">Opus 5.5</span><span class="chip">GPT-6.1-Sol</span><span class="chip">Grok 4.7</span><span class="chip m" style="background:none;padding:0 4px">Add</span></div></div>
+      <div class="row"><span class="small m">Each round</span><span class="seg"><span>One</span><span class="on">In turn</span><span>All</span></span></div>
+      <div class="row"><span class="small m">Sign-off</span><span class="seg"><span class="on">Everyone</span><span>Last reviewer</span></span></div>
+      <div class="row"><span class="small m">Goal</span><span class="sel">Until they sign off<svg viewBox="0 0 24 24" style="color:var(--mfg);width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span></div>
+    </div>
+    <div class="starters"><span class="starter">Design a new page</span><span class="starter">Review “Billing settings”</span><span class="starter">Make “Billing settings” fit a phone</span></div>
+    <div class="comp"><div class="ph">Ask Claude Code, or type / for commands…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick on">Review<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div>
+  </div></div><div>
+  <p class="cap"><b>B · Working.</b> The plan said once, as a message; then one quiet progress card. Checks run at each edit, so their count sits on Build.</p>
+  <div class="ed"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">Billing settings</div></div><span class="gb">Follow</span><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll"><div class="you body">Design a billing settings page: the plan, the payment method, past invoices, and who gets them by email.</div><div class="msg body"><div>I’ll make it one page in four sections: <b style="font-weight:500">Plan</b>, <b style="font-weight:500">Payment method</b>, <b style="font-weight:500">Invoices</b> and <b style="font-weight:500">Invoice emails</b>. Each gets its empty and loading states, and a failed charge where money moves.</div></div>
+      <div class="run">
+        <div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Outline</span><span class="v">4 sections</span></div>
+        <div class="step cur"><svg class="spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span class="n label">Build</span><span class="v">3 of 4 · 2 fixed by checks</span></div>
+        <div class="sub"><span class="small m">Invoices: the last 12, newest first, each with its PDF</span></div>
+        <div class="step"><span class="ico-wait"><i></i></span><span class="n label m">Review</span><span class="v">In turn · 3 reviewers</span></div>
+      </div></div>
+    <div class="comp"><div class="ph">Ask, or tell it what to change…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Review<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="stop"><svg viewBox="0 0 24 24"><rect width="12" height="12" x="6" y="6" rx="1"/></svg></span></div></div>
+  </div></div><div>
+  <p class="cap"><b>C · Reviewing.</b> A round is its reviewer and score; what was fixed is a count, what was declined is shown with its reason.</p>
+  <div class="ed"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">Billing settings</div></div><span class="gb">Follow</span><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll"><div class="you body">Design a billing settings page: the plan, the payment method, past invoices, and who gets them by email.</div>
+      <div class="run">
+        <div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Outline</span><span class="v">4 sections</span></div>
+        <div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Build</span><span class="v">4 of 4 · 5 fixed by checks</span></div>
+        <div class="step cur"><svg class="spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span class="n label">Review</span><span class="v">Round 2 of up to 6</span></div>
+        <div class="sub" style="gap:16px;padding-top:4px">
+          <div class="rgroup">
+            <div class="round"><span class="who rlabel">Opus 5.5</span><span class="small m">Round 1</span><span class="score small">84</span></div>
+            <div class="small m">5 fixed</div>
+            <div class="fr small"><span class="what">Card brand shown twice</span><span class="m">Declined</span></div>
+            <div class="small m">The brief asks for the logo beside the number.</div>
+          </div>
+          <div class="rgroup">
+            <div class="round"><span class="who rlabel">GPT-6.1-Sol</span><span class="small m">Round 2</span><span class="small m">Looking</span></div>
+            <div class="sk" style="width:70%;margin-top:4px"></div><div class="sk" style="width:48%;margin-top:6px"></div>
+          </div>
+        </div>
+      </div></div>
+    <div class="comp"><div class="ph">Ask, or tell it what to change…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Review<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="stop"><svg viewBox="0 0 24 24"><rect width="12" height="12" x="6" y="6" rx="1"/></svg></span></div></div>
+  </div></div><div>
+  <p class="cap"><b>D · Done.</b> What’s new, each change named by its link, what wasn’t checked, and the one decision as a question.</p>
+  <div class="ed"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">Billing settings</div></div><span class="gb">Follow</span><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll"><div class="you body">Design a billing settings page: the plan, the payment method, past invoices, and who gets them by email.</div>
+      <div class="run"><div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Signed off by all 3</span><span class="v">90–94 · 3 rounds</span><svg viewBox="0 0 24 24" style="color:var(--mfg)"><path d="m9 18 6-6-6-6"/></svg></div></div>
+      <div class="msg body">
+        <div>It’s on the Redesign canvas. Three things you might not expect:</div>
+        <ul>
+          <li><span class="lk">Invoices</span> show the last 12, each with its PDF; older ones are one link away.</li>
+          <li><span class="lk">Payment method</span> is the card on file with Replace; no form until it’s needed.</li>
+          <li><span class="lk">A failed charge</span> says why, with Update card, above the plan.</li>
+        </ul>
+        <div class="m">Not checked: the page on a phone.</div>
+      </div>
+      <div class="q"><div class="h-xs">Who gets invoice emails?</div>
+        <div class="opt"><span class="k">1</span><span class="label">One billing address</span><span class="rec">Suggested</span></div>
+        <div class="opt"><span class="k">2</span><span class="label">Each admin</span></div></div>
+      <div class="foot small m"><span>Done in 6m 12s</span><span>·</span><span class="show">1 page changed</span></div>
+    </div>
+    <div class="comp"><div class="ph">Answer, or ask for a change…</div><div class="bar"><span class="ib"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span><span class="pick">Auto<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Opus 5.5<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="pick">Review<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg></span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div></div>
+  </div></div><div class="wide">
+  <p class="cap"><b>E · When it doesn’t go to plan.</b> A reviewer with no score is said once and the round goes on; a stopped run says where it stopped and offers to go on; a failed one says what happened and what to do.</p>
+  <div class="grid">
+  <div class="ed" style="height:330px"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">Billing settings</div></div><span class="gb">Follow</span><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll">
+      <div class="run">
+        <div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Build</span><span class="v">4 of 4 · 5 fixed by checks</span></div>
+        <div class="step cur"><svg class="spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span class="n label">Review</span><span class="v">Round 3 of up to 6</span></div>
+        <div class="sub" style="gap:8px;padding-top:4px">
+          <div class="rgroup"><div class="round"><span class="who rlabel">Grok 4.7</span><span class="small m">Round 3</span><span class="small m">No score</span></div>
+          <div class="small m">It didn’t answer in 5 minutes. Opus 5.5 reviews this round instead.</div></div>
+        </div>
+      </div></div></div>
+  <div class="ed" style="height:330px"><div class="hd"><span class="ib"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></span><div class="t"><div class="h-xs">Billing settings</div></div><span class="gb">Follow</span><span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span></div><div class="scroll">
+      <div class="run">
+        <div class="step"><svg class="ico-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="n label">Outline</span><span class="v">4 sections</span></div>
+        <div class="step"><span class="ico-wait"><i></i></span><span class="n label">Build</span><span class="v">Stopped at 3 of 4</span></div>
+      </div>
+      <div class="msg body"><div>Stopped before Invoice emails. The three sections built are on the canvas.</div></div>
+      <div style="display:flex;gap:8px"><span class="opt label" style="background:var(--accent)">Go on</span></div>
+      <div class="errbox small"><span class="err">Review couldn’t start: Codex isn’t signed in.</span> <span class="m">Sign in with <span class="mono">codex login</span>, or take GPT-6.1-Sol out of the council.</span></div>
+    </div></div>
+  </div></div>
+</div>
+</body></html>

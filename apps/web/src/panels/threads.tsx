@@ -1,4 +1,9 @@
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import { levelOf, reviewSettingsOf } from "@ultrapaint/contracts/review";
+import {
+  isBusy,
+  type Thread,
+  type ThreadItem,
+} from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import { ChevronLeft, CircleAlert, Ellipsis, LocateFixed } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -22,6 +27,7 @@ import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
+import { roundsByPlan, stoppedRuns } from "../lib/design-run.ts";
 import { toggleFollowing } from "../lib/thread-actions.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { groupWork } from "../lib/thread-work.ts";
@@ -32,7 +38,13 @@ import { useProject } from "../state/project.ts";
 import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
+import { LEVEL_NAMES } from "./review-level.tsx";
 import { Composer } from "./thread-composer.tsx";
+import {
+  inRunCard,
+  type RunContext,
+  RunContextValue,
+} from "./thread-review.tsx";
 import { Entry, keyOfEntry } from "./thread-transcript.tsx";
 import { WorkingIndicator } from "./thread-work.tsx";
 
@@ -183,6 +195,35 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
   );
 };
 
+/** The review a design thread runs with, in a few words, and its runs' rounds (ADR 0063). */
+const useRunContext = (
+  thread: Thread,
+  items: readonly ThreadItem[]
+): RunContext => {
+  const project = useProject((s) => s.settings?.review);
+  return useMemo(() => {
+    const settings = reviewSettingsOf(project, thread.review);
+    const level = levelOf(settings);
+    const count = settings.reviewModels?.length ?? 0;
+    const planned =
+      level === "off"
+        ? "Off"
+        : [
+            LEVEL_NAMES[level],
+            count > 0 ? `${count} review model${count === 1 ? "" : "s"}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+    return {
+      busy: isBusy(thread.status),
+      planned,
+      rounds: roundsByPlan(items),
+      stopped: stoppedRuns(items),
+      threadId: thread.id,
+    };
+  }, [items, project, thread.id, thread.review, thread.status]);
+};
+
 const ThreadView = ({
   thread,
   items,
@@ -191,6 +232,20 @@ const ThreadView = ({
   items: readonly ThreadItem[];
 }) => {
   const entries = useMemo(() => groupWork(items), [items]);
+  const run = useRunContext(thread, items);
+  // A round inside its run's card isn't an entry of its own: no gap is left where it was.
+  const shown = useMemo(
+    () =>
+      entries.filter(
+        (e) =>
+          !(
+            e.kind === "item" &&
+            e.item.kind === "review" &&
+            inRunCard(run, e.item)
+          )
+      ),
+    [entries, run]
+  );
   const { busy, failed } = threadView(thread);
   const last = items.at(-1);
   const since = items.findLast((i) => i.kind === "user")?.at;
@@ -212,37 +267,52 @@ const ThreadView = ({
           defaultScrollPosition="end"
           key={`scroller:${thread.id}`}
         >
-          <MessageScroller className="flex-1">
-            <MessageScrollerViewport>
-              <MessageScrollerContent className="gap-3 px-3 pt-3 pb-4">
-                {entries.map((entry) => (
-                  <MessageScrollerItem
-                    key={keyOfEntry(entry)}
-                    messageId={keyOfEntry(entry)}
-                  >
-                    <Entry
-                      entry={entry}
-                      last={last}
-                      running={busy}
-                      threadId={thread.id}
+          <RunContextValue.Provider value={run}>
+            <MessageScroller className="flex-1">
+              <MessageScrollerViewport>
+                <MessageScrollerContent className="gap-3 px-3 pt-3 pb-4">
+                  {shown.map((entry) => (
+                    <MessageScrollerItem
+                      key={keyOfEntry(entry)}
+                      messageId={keyOfEntry(entry)}
+                    >
+                      <Entry
+                        entry={entry}
+                        last={last}
+                        running={busy}
+                        threadId={thread.id}
+                      />
+                    </MessageScrollerItem>
+                  ))}
+                  {/* While a turn runs, the agent's start included, or is being stopped. */}
+                  {busy ? (
+                    <WorkingIndicator
+                      label={
+                        thread.status === "reviewing"
+                          ? "Reviewing…"
+                          : "Working…"
+                      }
+                      since={
+                        thread.status === "reviewing"
+                          ? items.findLast((i) => i.kind === "review")?.at
+                          : since
+                      }
                     />
-                  </MessageScrollerItem>
-                ))}
-                {/* While a turn runs, the agent's start included, or is being stopped. */}
-                {busy ? <WorkingIndicator since={since} /> : null}
-                {failed ? (
-                  <Alert variant="destructive">
-                    <CircleAlert />
-                    <AlertTitle>The agent stopped</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap">
-                      {thread.error}
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-              </MessageScrollerContent>
-            </MessageScrollerViewport>
-            <MessageScrollerButton />
-          </MessageScroller>
+                  ) : null}
+                  {failed ? (
+                    <Alert variant="destructive">
+                      <CircleAlert />
+                      <AlertTitle>The agent stopped</AlertTitle>
+                      <AlertDescription className="whitespace-pre-wrap">
+                        {thread.error}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </MessageScrollerContent>
+              </MessageScrollerViewport>
+              <MessageScrollerButton />
+            </MessageScroller>
+          </RunContextValue.Provider>
         </MessageScrollerProvider>
       )}
       <Composer key={`composer:${thread.id}`} thread={thread} />

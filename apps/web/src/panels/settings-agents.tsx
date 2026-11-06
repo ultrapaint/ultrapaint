@@ -11,9 +11,12 @@ import type {
 import {
   type AgentOptions,
   type ChatDefaults,
+  isEffortOption,
   isModelOption,
   type McpConnection,
   namedChoices,
+  startingMode,
+  withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { Check, Copy, Ellipsis, FilePen, FilePlus2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { Segmented } from "../components/segmented.tsx";
 import { type AgentSetup, type PlatformAgent, platform } from "../platform.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
@@ -310,8 +314,9 @@ export const SendKeyRow = () => {
 };
 
 /**
- * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
- * user's, not the project's, and a thread can still switch both in its composer.
+ * The agent, model, effort and permissions a new chat starts with (ADR 0063), for this project on
+ * this computer: the agents and their sign-ins are the machine's. Saved as soon as it is picked;
+ * a chat can still change each in its model menu. Another agent starts from its own defaults.
  */
 export const ChatDefaultsGroup = () => {
   const agents = useAgents((s) => s.agents);
@@ -368,10 +373,17 @@ export const ChatDefaultsGroup = () => {
   const listed = known.find((k) => k.agentId === agentId);
   const modelOption = listed?.configOptions.find(isModelOption);
   const models = modelOption ? namedChoices(modelOption) : [];
+  // The agent's unnamed default stands for the value it names, as the composer shows it.
+  const effortOption = withNamedChoices(listed?.configOptions ?? []).find(
+    isEffortOption
+  );
+  const efforts = effortOption ? namedChoices(effortOption) : [];
+  const modes = listed?.modes ?? [];
   const save = (next: ChatDefaults) => {
     setDefaults(next);
     api().request("chat.setDefaults", next).catch(reportError);
   };
+  // Another agent's models, efforts and modes are its own: they start from its defaults.
   const onAgent = (id: string) => save({ agentId: id });
   const problem = unlisted[agentId];
   let modelDescription: string | undefined;
@@ -382,12 +394,13 @@ export const ChatDefaultsGroup = () => {
   } else if (models.length === 0) {
     modelDescription = "This agent has one model.";
   }
-  const onModel = (model: string) => save({ agentId, model });
+  const kept = { ...defaults, agentId };
+  const effort = defaults.effort ?? effortOption?.currentValue ?? null;
+  const modeId =
+    defaults.modeId ?? startingMode(modes, listed?.currentModeId) ?? null;
+  const mode = modes.find((m) => m.id === modeId);
   return (
-    <Group
-      note="Applied at once. A chat can switch both in its composer."
-      title="New chats"
-    >
+    <Group title="New chats">
       <Row title="Agent">
         <OptionSelect
           className={rowSelect}
@@ -407,7 +420,7 @@ export const ChatDefaultsGroup = () => {
         <OptionSelect
           className={rowSelect}
           disabled={models.length === 0}
-          onChange={onModel}
+          onChange={(model) => save({ ...kept, model })}
           options={models.map((m) => ({
             description: m.description,
             label: m.name,
@@ -417,6 +430,26 @@ export const ChatDefaultsGroup = () => {
           value={defaults.model ?? models[0]?.value ?? null}
         />
       </Row>
+      {efforts.length > 0 ? (
+        <Row title="Effort">
+          <Segmented
+            className="@xl:w-auto"
+            onChange={(value) => save({ ...kept, effort: value })}
+            options={efforts.map((e) => ({ label: e.name, value: e.value }))}
+            value={effort}
+          />
+        </Row>
+      ) : null}
+      {modes.length > 0 ? (
+        <Row description={mode?.description} title="Permissions">
+          <OptionSelect
+            className={rowSelect}
+            onChange={(value) => save({ ...kept, modeId: value })}
+            options={modes.map((m) => ({ label: m.name, value: m.id }))}
+            value={modeId}
+          />
+        </Row>
+      ) : null}
     </Group>
   );
 };
