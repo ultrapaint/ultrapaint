@@ -10,7 +10,11 @@ export const FORMAT_VERSION = "alpha";
 /** The file's name, at the root of the repository. */
 export const DESIGN_MD_FILE = "DESIGN.md";
 
-/** The body's sections in the order the format gives them, with the headings that also name them. */
+/**
+ * The body's sections in the order the format gives them, with the headings that also name them,
+ * and Content, the product's choices for its words, added before Do's and Don'ts (ADR 0067): the
+ * format keeps a section it does not know.
+ */
 export const SECTIONS = [
   { aliases: ["Brand & Style"], name: "Overview" },
   { aliases: [], name: "Colors" },
@@ -19,6 +23,7 @@ export const SECTIONS = [
   { aliases: ["Elevation"], name: "Elevation & Depth" },
   { aliases: [], name: "Shapes" },
   { aliases: [], name: "Components" },
+  { aliases: ["Voice", "Content & Voice"], name: "Content" },
   { aliases: [], name: "Do's and Don'ts" },
 ] as const;
 

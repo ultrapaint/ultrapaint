@@ -13,6 +13,7 @@ import {
   withTokenChanges,
 } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
+import { SECTIONS } from "@ultrapaint/design-md/format";
 import { describe, expect, it } from "vitest";
 import {
   changesOf,
@@ -216,7 +217,7 @@ describe("the plan", () => {
           held: 0,
           legacy: true,
           path: "docs/designs/DESIGN.md",
-          unwritten: 8,
+          unwritten: SECTIONS.length,
         },
         designSystem: true,
       },
@@ -245,7 +246,12 @@ describe("the plan", () => {
       drift: emptyDrift,
       facts: {
         ...facts,
-        designMd: { held: 0, legacy: false, path: "DESIGN.md", unwritten: 8 },
+        designMd: {
+          held: 0,
+          legacy: false,
+          path: "DESIGN.md",
+          unwritten: SECTIONS.length,
+        },
         designSystem: true,
       },
       figmaSynced: false,

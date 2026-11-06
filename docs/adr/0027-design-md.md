@@ -3,6 +3,9 @@
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/plans/PLAN-design-md.md`.
 
+> Amended by [0067](0067-the-words-are-a-part-of-their-own.md), 2026-11-06: a Content section, the
+> product's choices for its words, is added before Do's and Don'ts.
+
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the lint is a pure `lintDocument`; DESIGN.md's baseline moves outside undo.
 
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the front matter mirrors

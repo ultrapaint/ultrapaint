@@ -188,6 +188,7 @@ describe("create", () => {
       "Elevation & Depth",
       "Shapes",
       "Components",
+      "Content",
       "Do's and Don'ts",
     ]);
     expect(withMirror(text, groups)).toEqual({ changed: false, text });
@@ -230,5 +231,15 @@ describe("withSection", () => {
     expect(parse(withSection(text, "Iconography", "Lucide.")).problems).toEqual(
       []
     );
+  });
+
+  it("adds Content, the product's words, before Do's and Don'ts, and reads a Voice heading as it", () => {
+    const rules = `${text}\n## Do's and Don'ts\n\n- Don't glow.\n`;
+    expect(withSection(rules, "Content", "Terse.")).toBe(
+      `${text}\n## Content\n\nTerse.\n\n## Do's and Don'ts\n\n- Don't glow.\n`
+    );
+    expect(
+      parse("## Voice\n\nPlain.\n").sections.map((s) => s.section)
+    ).toEqual(["Content"]);
   });
 });

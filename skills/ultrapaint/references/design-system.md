@@ -20,9 +20,9 @@ with it is the other job, in the router.
    widths. Every role a screen needs has a token.
 4. **Make the components** (`references/design-system/components.md`): the product's anatomy, its
    variants, sizes and states, props a page can fill.
-5. **Write down what is not a value** in DESIGN.md: the character in its Overview, the voice,
-   what each colour is for and what it is never for, the reason for each choice the user did not
-   make. DESIGN.md holds what this product chose (its values, which variant, which of two allowed
+5. **Write down what is not a value** in DESIGN.md: the character in its Overview, the words the
+   product chose in its Content section (`references/content/voice.md`), what each colour is for
+   and what it is never for, the reason for each choice the user did not make. DESIGN.md holds what this product chose (its values, which variant, which of two allowed
    ways, and why); a rule that holds for any product stays in this skill, with its condition.
 6. **Finish with the check.** Run the "Before you finish" table of this file and of each one you
    read, and fix what fails. Your last message names each file you read and says its table holds.

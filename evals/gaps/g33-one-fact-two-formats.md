@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-12, rated real)
-skill: [references/content.md]
+skill: [references/content/interface.md]
 sections: [changes]
 ---
 

@@ -5,7 +5,7 @@ kind: missing
 status: testing
 found: 2026-11-04
 source: the Settings dialog, editor redesign at f608871 (held-out finding settings-14, rated real)
-skill: [references/content.md]
+skill: [references/content/interface.md]
 sections: [settings]
 ---
 

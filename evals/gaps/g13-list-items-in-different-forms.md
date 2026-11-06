@@ -5,7 +5,7 @@ kind: missing
 status: wontfix
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
-skill: [references/usability.md, references/content.md]
+skill: [references/usability.md, references/content/interface.md]
 sections: [chat-starters]
 ---
 

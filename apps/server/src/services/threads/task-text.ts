@@ -75,14 +75,14 @@ export const userAdds = (extra: string | undefined) =>
   extra ? `\nThe user adds:\n${extra}\n` : "";
 
 /**
- * How an agent writes DESIGN.md (ADR 0027): the open format's sections in its order, and what goes
- * in each. Every task that has an agent write the document says this, in these words.
+ * How an agent writes DESIGN.md (ADR 0027): the open format's sections in its order, with Content
+ * added (ADR 0067), and what goes in each. Every task that has an agent write the document says this, in these words.
  */
 export const DESIGN_MD_GUIDE = `DESIGN.md is the design system in the open format (github.com/google-labs-code/design.md), at the
 root of the repository, where every agent and person reads it, in the editor or not. Its front
 matter's token groups (colors, typography, rounded, spacing) are filled in from the design system:
-what you write is the prose. The body is these \`##\` sections, in this order; leave one out only when there
-is nothing to say:
+what you write is the prose. The body is these \`##\` sections, in this order (Content is this tool's,
+added to the format's eight); leave one out only when there is nothing to say:
    - Overview: what the product is and for whom, its voice and tone, and its look as a specific
      reference rather than adjectives ("a printed lecture handout", not "clean and modern"): its
      character, in the user's words where they gave them, and its dials in one line (temperature,
@@ -94,6 +94,9 @@ is nothing to say:
    - Elevation & Depth: how layers are told apart: surfaces, shadows, borders.
    - Shapes: the radii ({rounded.md}) and where each goes.
    - Components: which component to use for what, and what each variant is for.
+   - Content: what the product chose for its words, taken from the copy it already has: how they
+     sound beyond the tone in Overview, the one name of each thing and the words never used for
+     it, its formats (dates, numbers, money).
    - Do's and Don'ts: the rules, short and specific, what to avoid among them.
    Short and specific: a named reference carries more than a list of adjectives. It holds what this
    product chose (its values, which variant, which of two allowed ways, and why), never a rule that

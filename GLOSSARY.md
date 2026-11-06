@@ -192,6 +192,13 @@ refactor and the board view left.
   (`skill://ultrapaint/<name>`): whole, or, with the setting `skills.briefing: "summaries"`, by
   their titles and summaries with where each is read whole (`SkillsTold`); the slash commands are
   MCP prompts too.
+- **Content**: the words of a design, and the design skill's part for them (ADR 0067):
+  `references/content.md`, a router to `references/content/` (`voice.md`, `interface.md`,
+  `pages.md`), followed with a design or alone when a task writes only the words. What a product
+  chose for its words (how they sound, the one name of each thing and the words never used for it,
+  its formats) is DESIGN.md's Content section, which this tool adds to the format's eight
+  (design-md's `SECTIONS`); a rule for any product stays in the skill (ADR 0065).
+  _Avoid_: copy skill, voice file.
 - **Design gap**: what a person found wrong in a design made with the design skill, kept until
   the lab shows a change to the skill catches it (ADR 0059): one file each in `evals/gaps/`, read
   by evals' `gap.ts`, its kind (missing, missed, process) and status (open, testing, done,
