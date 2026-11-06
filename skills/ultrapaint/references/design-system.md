@@ -22,7 +22,8 @@ with it is the other job, in the router.
    variants, sizes and states, props a page can fill.
 5. **Write down what is not a value** in DESIGN.md: the character in its Overview, the voice,
    what each colour is for and what it is never for, the reason for each choice the user did not
-   make.
+   make. DESIGN.md holds what this product chose (its values, which variant, which of two allowed
+   ways, and why); a rule that holds for any product stays in this skill, with its condition.
 6. **Finish with the check.** Run the "Before you finish" table of this file and of each one you
    read, and fix what fails. Your last message names each file you read and says its table holds.
 
@@ -48,6 +49,7 @@ with it is the other job, in the router.
 | A rule here chosen over what the product already does | The product's choice; say where it breaks the rule |
 | A rule here chosen over what the user said of the feel | The user's word |
 | No character in DESIGN.md's Overview | Write it |
+| A line of DESIGN.md that would hold for any product | Cut it: this skill says it, with its condition |
 | A role a screen needs with no token (muted text, a field's border, focus) | Add the token |
 | A token named by its value where screens use it | Name it by its role |
 | Badge variants in green, red or amber | One neutral Badge; the dot is the screen's |

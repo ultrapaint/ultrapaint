@@ -2,7 +2,7 @@
 id: g51
 title: Colours named one way, whatever the system's preset
 kind: missing
-status: open
+status: done
 found: 2026-11-06
 source: ADR 0062, the token preset chosen on the look page
 skill: [references/color.md, references/design-system/foundations.md]
@@ -32,3 +32,4 @@ Background and Border for the detailed one, with the subtle and bold steps of ea
 another property or a role name the system does not have, before and after.
 
 **Result.**
+- Decision of 2026-11-06 (`decisions/skill-gaps-nov6`): accepted into the skill without a round, as the person chose: `references/color.md` names both token presets and checks a property's token on another, and `design-system/foundations.md` writes the roles in the preset chosen.

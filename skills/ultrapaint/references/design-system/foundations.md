@@ -26,6 +26,12 @@ card, popover, muted and muted-foreground, border, input, ring, primary and prim
 secondary, destructive and destructive-foreground, and the chart colours. A palette (`blue-50`
 to `blue-950`) sits beneath them; a role points at a step of it, and screens never name the steps.
 
+The roles are written in the token preset the user chose (`tokenPreset`): **simple**, the roles
+themselves, or **detailed**, tokens by property and meaning grouped Text, Background and Border
+(`text-color-default`, `text-color-subtle`, `background-color-raised`,
+`background-color-brand-bold`, `background-color-danger-subtle`, `border-color-input`,
+`border-color-focus`), each meaning with its subtle and bold steps where screens need them.
+
 - **Neutrals** follow the temperature: warm (a warm off-white, stone), neutral (white, a true
   grey), or cool (slate, zinc) only when the user asked for a cool, clinical feel. Unasked, a
   blue-grey scale makes every screen cold and generic.

@@ -54,9 +54,12 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 Creating one, reading one off a product's code or pictures, importing one from Figma, making or
 changing its components: read `references/design-system.md` and follow its steps. A screen that
 needs something the system lacks says so, and the system is changed by that job, not by the
-screen. A project with no design system yet (a theme that declares nothing) gets one before the
-first node: the character settled, then `references/design-system/foundations.md` in that
-character, a loaded face and real scales, written down with it in DESIGN.md.[with the editor's tools:  A
+screen. A new project with no design system yet (a theme that declares nothing, no screens in its
+code) gets one before the first node: the character settled, then
+`references/design-system/foundations.md` in that character, a loaded face and real scales,
+written down with it in DESIGN.md. An app that has screens and no design system keeps its look:
+[with the editor's tools: it is drawn in the editor's default look, and your reply says so once | without: draw with the values its code already uses, and say in your reply it has no design system yet];
+its own system is made when the user asks for one.[with the editor's tools:  A
 component written into the code is placed once the user runs Sync, in either job. Do not ask them
 to run it, and do not wait: draw what the job asks for now, with the components the system has
 and, where one is missing, its parts, and say in your last message what Sync will bring in. | without: ]

@@ -2,7 +2,7 @@
 id: p09
 title: A design system written unasked in an opened app
 kind: process
-status: open
+status: done
 found: 2026-11-05
 source: ADR 0062, the onboarding flows (Onboarding canvas, 3c and 3d)
 skill: [SKILL.md, references/character.md]
@@ -34,3 +34,4 @@ one for a new project from a prompt: the first writes no `design-system.json` an
 default look is used, the second writes one before its first node.
 
 **Result.**
+- Decision of 2026-11-06 (`decisions/skill-gaps-nov6`): accepted into the skill without a round, as the person chose: `SKILL.md` gives a new project a design system before its first node and draws an app with screens and none in its look, the system made when the user asks.
