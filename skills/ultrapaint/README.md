@@ -11,7 +11,11 @@ screen's references say how to use the tokens and components, not how to choose 
 design system is `references/design-system.md`, a router of its own to
 `references/design-system/`: `foundations.md` (the face, colour by role, the type scale, spacing,
 radius, elevation, motion, icons, widths), `components.md` (making them), `extract.md` (from a
-product's code or pictures) and `figma.md` (from a Figma file). `character.md` serves both: it
+product's code or pictures) and `figma.md` (from a Figma file). The words are a router too:
+`references/content.md` leads to `references/content/`: `voice.md` (what the product chose in
+DESIGN.md's Content section, a tone for the moment, one name per thing), `interface.md` (a
+screen's labels, actions, errors and empty states) and `pages.md` (a public page's, with
+`studies/content.md`). A task that writes only the words follows its steps. `character.md` serves both: it
 settles how the product should feel, from DESIGN.md, the product or the user (asked once when
 nothing says it), and writes it in DESIGN.md before the first node.
 

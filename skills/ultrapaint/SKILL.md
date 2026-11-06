@@ -7,8 +7,8 @@ description: "Ultrapaint's design rules. Use to design or review an interface (a
 
 How to design an interface well, as the people it is made for judge it. There are two jobs:
 designing a screen or a page with the design system it is given, and making that design system.
-Character, hierarchy and restraint hold on every screen and are read with this file. Every other
-part has its reference in `references/`.
+Writing only the words follows the content part's steps. Character, hierarchy and restraint hold
+on every screen and are read with this file. Every other part has its reference in `references/`.
 
 A *screen* is a product's own interface: a dashboard, a form, settings. A *page* is public: a
 landing page, a shop, a portfolio, a magazine. A rule that names one holds for that one.
@@ -63,6 +63,11 @@ its own system is made when the user asks for one.[with the editor's tools:  A
 component written into the code is placed once the user runs Sync, in either job. Do not ask them
 to run it, and do not wait: draw what the job asks for now, with the components the system has
 and, where one is missing, its parts, and say in your last message what Sync will bring in. | without: ]
+
+## Writing only the words
+
+Writing or reviewing the words of a screen or a page and nothing else, its strings or its copy:
+read `references/content.md` and follow its steps.
 
 ## When the screen has one
 

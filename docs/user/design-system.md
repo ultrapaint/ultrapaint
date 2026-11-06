@@ -116,7 +116,8 @@ Before it designs, every agent is also told how to design well, whatever the pro
 layout, spacing, typography, colour, elevation, borders and radius, iconography, motion,
 content, states, how to compose with components, and accessibility. These
 skills ship with the tool and come before `DESIGN.md`, which wins where they disagree: a rule
-that holds for this product alone belongs in its Do's and Don'ts. **Settings**
+that holds for this product alone belongs in its Do's and Don'ts, and what it chose for its
+words (how they sound, the one name of each thing, its formats) in its Content section. **Settings**
 lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`),
 and whether a design thread is told them whole (the default) or by their titles and summaries,
 each read whole before the work it is about (`skills.briefing: "summaries"`, about 30,000
