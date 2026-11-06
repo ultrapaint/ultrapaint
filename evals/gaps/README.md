@@ -76,7 +76,9 @@ Pictures stay outside git, in the evals' data directory (`~/Code/ultrapaint-data
 ## Adding a gap
 
 1. After a person corrects a design made with the skill, add a file here, status `open`. Leave
-   `skills/ultrapaint/` as it is.
+   `skills/ultrapaint/` as it is. What review models find while the person keeps findings comes
+   here too, through `pnpm evals triage` (ADR 0066): the problems that recur, drafted as gaps the
+   person keeps in a deck.
 2. Put their screenshots in `gaps/<id>/`. If recall can measure the gap, capture the section as
    it was before the fix into `gaps/sections/<section>/` and name the section in `sections`.
 3. Write a candidate: copies of the skill's files with the proposed change, in

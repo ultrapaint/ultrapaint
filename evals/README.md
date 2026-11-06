@@ -231,6 +231,27 @@ pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sections�
 It takes `--effort` (high) and resumes like a round. It writes `runs/<round>/report.md` and each
 measured gap's line under **Result.**
 
+### Triage: gaps from what reviews find
+
+While the person keeps findings (Settings › Preferences › Keep findings), every review of a
+design appends its findings to `~/.ultrapaint/findings/<project>.jsonl` (ADR 0066). `triage`
+turns the recurring ones into gaps:
+
+```sh
+pnpm evals triage <name>            # group, check, draft; then answer the deck it names
+pnpm evals decide triage-<name>     # keep or drop each draft
+pnpm evals triage <name> --apply    # write what was kept into gaps/
+```
+
+It reads the findings logged since the last applied triage (`--all` for every one), and groups
+them category by category into problems (`--grouper`, gpt-6.1-sol). A problem found in two designs
+or by two review models (`--min-designs`, `--min-models`), and not mostly declined by its
+designers, is checked by models on two providers (`--models`, `opus,gpt-6.1-sol`) against the
+skill and the gaps: whether it is real and general, a rule the skill lacks (`missing`) or has
+(`missed`), and whether a gap covers it already. What they all find real and general is drafted:
+a new gap, or a line of evidence for the gap that covers it. The run keeps its groups and checks
+in `triage/<name>/` of the data directory and resumes; nothing reaches `gaps/` until `--apply`.
+
 To compare models as reviewers, give several to `--models` (opus by default): each reviews with
 every version of the skill, as a version of its own (`shipped@gpt-6.1-sol`), and one model judges
 them all, blind to who reviewed (`--judge-model`, opus). A `gpt-` model runs in Codex, and any of
