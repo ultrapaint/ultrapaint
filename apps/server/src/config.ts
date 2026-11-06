@@ -136,6 +136,12 @@ export class ServerConfig extends Context.Service<
      * machine has on a network of its own (`--allowed-host`, given once per name).
      */
     readonly allowedHosts: readonly string[];
+    /**
+     * The port the editor is reached on when another process serves it on this host (Vite,
+     * under `ultrapaint --dev`): the run file and the ready line name it rather than the
+     * server's own, so that whoever attaches lands on the editor. The server's port otherwise.
+     */
+    readonly editorPort: number | undefined;
     /** Whether agents are given the editor's own MCP server to call. */
     readonly mcp: boolean;
     /** The port asked for; with 0 the system picks one, which `ListenPort` says once known. */
@@ -150,7 +156,8 @@ export class ServerConfig extends Context.Service<
     /**
      * This run's id, random: the run file, the ready line and `/api/health` carry it, so that
      * whoever finds a run file can tell the server answering on its port is the one that wrote
-     * it. Not a secret and not a credential: the server has no authentication.
+     * it. Not a secret and not a credential: the server has no authentication. `ultrapaint
+     * --dev` gives one for its whole session (`--token`), which the server's restarts keep.
      */
     readonly token: string;
     /** User-level data that is only read, such as custom agents: `~/.ultrapaint`. */
@@ -179,6 +186,7 @@ export class ServerConfig extends Context.Service<
         briefing: false,
         cwd: tmpdir(),
         discovery: false,
+        editorPort: undefined,
         host: "127.0.0.1",
         mcp: false,
         port: 0,

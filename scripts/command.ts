@@ -17,7 +17,8 @@
  * server's restarts keep it and quitting the command still throws it away. Run as the desktop
  * app runs a project's server over SSH (`--port 0 --ready-json --stop-with-stdin`), `--dev`
  * picks its two ports once, says in its ready line where Vite is, and stops when its stdin
- * closes: the app on another machine shows this checkout's sources as they change. `pnpm dev` in the
+ * closes: the app on another machine shows this checkout's sources as they change. Its run file
+ * names Vite too, so a `--dev` session left running is the one the app attaches to. `pnpm dev` in the
  * checkout is this mode with development's ports and settings; a project that links the
  * checkout gets it as `ultrapaint --dev`.
  *
@@ -26,6 +27,7 @@
  * Both call `main` in their own process, so the children are always the command's own and go
  * with its scope.
  */
+import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -539,9 +541,12 @@ export const main = (args: readonly string[]): void => {
    * end (Vite on a taken port, say) ends the session: each runs in a scope of its own, and the
    * other is stopped by closing it. The returned code is the command's.
    *
-   * With the ready line asked for, stdout carries one line once both answer: the server's own,
-   * with Vite's port and URL, where the editor is, and this command's pid, the run's. A server
-   * that found another running for the project hands on that one's line, and the session ends.
+   * The server is told Vite's port, which its run file names, so that whoever opens the project
+   * meanwhile (the desktop app, here or over SSH) attaches to this session's editor, and a token
+   * for the whole session, which its restarts keep. With the ready line asked for, stdout
+   * carries one line once both answer: the server's own, with this command's pid, the run's. A
+   * server that found another running for the project hands on that one's line, and the session
+   * ends.
    * With `--stop-with-stdin` the command watches its stdin: `tsx watch` would not pass it on.
    */
   const develop = (where: Places) =>
@@ -557,6 +562,7 @@ export const main = (args: readonly string[]): void => {
             ]
           : [];
       const serverLine = yield* Deferred.make<ReadyLine>();
+      const token = randomBytes(16).toString("hex");
       const processes = Effect.gen(function* () {
         const [name, code] = yield* Effect.raceFirst(
           Effect.scoped(
@@ -573,6 +579,11 @@ export const main = (args: readonly string[]): void => {
                 host,
                 "--port",
                 String(where.serverPort),
+                // Whoever attaches lands on Vite, and finds the same run after a restart.
+                "--editor-port",
+                String(where.webPort),
+                "--token",
+                token,
                 ...session,
                 ...withoutFlag(serverArgs, "--port").filter(
                   (arg) => arg !== "--stop-with-stdin"
@@ -615,15 +626,9 @@ export const main = (args: readonly string[]): void => {
           yield* Console.log(JSON.stringify(line));
           return 0;
         }
-        const url = yield* viteReady(where);
-        yield* Console.log(
-          JSON.stringify({
-            ...line,
-            pid: process.pid,
-            port: where.webPort,
-            url,
-          })
-        );
+        yield* viteReady(where);
+        // The server's line names Vite already; the run is this command's.
+        yield* Console.log(JSON.stringify({ ...line, pid: process.pid }));
         return yield* Effect.never;
       }).pipe(
         Effect.catch(() =>

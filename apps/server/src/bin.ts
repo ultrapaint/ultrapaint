@@ -88,6 +88,12 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_CONFIG")),
       Flag.optional
     ),
+    editorPort: Flag.Int("editor-port").pipe(
+      Flag.withDescription(
+        "Port the editor is served on by another process on this host, such as Vite; the run file and the ready line name it instead of the server's (ultrapaint --dev gives it)"
+      ),
+      Flag.optional
+    ),
     ephemeral: Flag.Boolean("ephemeral").pipe(
       Flag.withDescription(
         "Save nothing, even when a configuration file exists"
@@ -148,6 +154,12 @@ const serve = Command.make(
       ),
       Flag.withDefault(false)
     ),
+    token: Flag.String("token").pipe(
+      Flag.withDescription(
+        "This run's id in the run file, the ready line and /api/health, kept across restarts by whoever restarts the server (ultrapaint --dev); random otherwise"
+      ),
+      Flag.optional
+    ),
     webDist: Flag.String("web-dist").pipe(
       Flag.withDescription("Built editor bundle to serve"),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_WEB_DIST")),
@@ -157,6 +169,7 @@ const serve = Command.make(
   Effect.fn(function* ({
     allowedHost,
     config,
+    editorPort,
     ephemeral,
     home,
     host,
@@ -167,6 +180,7 @@ const serve = Command.make(
     readyJson,
     sessionDir,
     stopWithStdin,
+    token,
     webDist,
   }) {
     const cwd = process.cwd();
@@ -204,6 +218,7 @@ const serve = Command.make(
       briefing: !noBriefing,
       cwd,
       discovery: !noDiscovery,
+      editorPort: Option.getOrUndefined(editorPort),
       host,
       machine: {
         // Read on every request: a network joined since the start brings an address.
@@ -231,7 +246,7 @@ const serve = Command.make(
       port,
       readyJson,
       storage,
-      token: randomBytes(16).toString("hex"),
+      token: Option.getOrElse(token, () => randomBytes(16).toString("hex")),
       userDir,
       version: VERSION,
       webDist: Option.getOrUndefined(webDist),
