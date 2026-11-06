@@ -12,6 +12,7 @@ import {
   useEditor,
 } from "./editor.ts";
 import { toPageCanvas } from "./location.ts";
+import { LOOK_ITEM } from "./look-page.ts";
 import { surfaceNow } from "./surface.ts";
 
 /**
@@ -104,7 +105,12 @@ export const useRightSubject = () => {
     }))
   );
   const picks = useCanvasPicks((s) => s.ids.length);
-  const board = useBoard((s) => s.open !== null);
+  // The look page's samples have nothing to inspect: the dials are on the left.
+  const board = useBoard(
+    (s) =>
+      s.open !== null &&
+      !(s.open.view === "system" && s.open.item === LOOK_ITEM)
+  );
   return subjectOf(editor, picks, board);
 };
 

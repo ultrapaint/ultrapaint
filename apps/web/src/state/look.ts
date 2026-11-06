@@ -20,9 +20,11 @@ import type { Look, Preview } from "@ultrapaint/preview-core/preview";
 import { designCss } from "@ultrapaint/system-components/look";
 import { useMemo } from "react";
 import { create } from "zustand";
+import { loadFonts } from "../lib/fonts.ts";
 import { useComponents } from "./components.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
+import { trialSystem, useLookPage } from "./look-page.ts";
 import { reportError } from "./project.ts";
 
 /** One part's style at one place of a system component's look, as it is being typed. */
@@ -88,18 +90,25 @@ const lookOf = (
   return memo.look;
 };
 
+/** The design system drawn: the look page's trial while it is open, else the project's. */
+const drawnSystem = () =>
+  trialSystem() ?? useDesignSystem.getState().designSystem;
+
 /** The look as it is now. */
 const designLook = (): Look =>
   lookOf(
     useComponents.getState().components,
     useLookDraft.getState().draft,
-    useDesignSystem.getState().designSystem
+    drawnSystem()
   );
 
 /** Sets the look on `preview` now and whenever it changes; answers the function that stops it. */
 export const followLook = (preview: Preview): (() => void) => {
-  preview.setLook(designLook());
-  const changed = () => preview.setLook(designLook());
+  const changed = () => {
+    preview.setLook(designLook());
+    loadFonts(drawnSystem());
+  };
+  changed();
   const stops = [
     useComponents.subscribe((now, before) => {
       if (now.components !== before.components) {
@@ -112,6 +121,11 @@ export const followLook = (preview: Preview): (() => void) => {
       }
     }),
     useLookDraft.subscribe(changed),
+    useLookPage.subscribe((now, before) => {
+      if (now.trial !== before.trial) {
+        changed();
+      }
+    }),
   ];
   return () => {
     for (const stop of stops) {
@@ -122,7 +136,9 @@ export const followLook = (preview: Preview): (() => void) => {
 
 /** The look as it changes: a new one only when the components, the draft or the design system do. */
 export const useDesignLook = (): Look => {
-  const designSystem = useDesignSystem((s) => s.designSystem);
+  const project = useDesignSystem((s) => s.designSystem);
+  const trial = useLookPage((s) => s.trial);
+  const designSystem = trial ?? project;
   const components = useComponents((s) => s.components);
   const draft = useLookDraft((s) => s.draft);
   return useMemo(

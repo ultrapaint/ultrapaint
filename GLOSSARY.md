@@ -22,6 +22,12 @@ refactor and the board view left.
 - **Default look**: what a project with no design system of its own is drawn in (ADR 0062), shown
   in the Design system place like any system until the person makes the project's own.
   _Avoid_: neutral look, no design system.
+- **Look page**: a look chosen by seeing it (ADR 0062): *I'll pick the look* on the start
+  screen, or *A new look* in the Design system place. Its **dials** (`design-document`'s
+  `look-dials`: a preset, the brand colour, greys, corners, density, surfaces, the typeface) make
+  a design system drawn as a trial over the project's on sample screens; *Use this look* writes
+  it, and the prompt that waited for it is sent.
+  _Avoid_: theme picker, look wizard.
 - **Setup chat**: the chat that sets up a folder opened for the first time (ADR 0062), started by
   the editor with `/setup` and titled *Set up <name>*: an agent checks what detection found and
   saves it with `save_setup` (the designs directory and `ultrapaint.config.json`, no code).

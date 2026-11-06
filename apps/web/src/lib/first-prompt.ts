@@ -33,22 +33,10 @@ export const takeFirstPrompt = (): FirstPrompt | null => {
 };
 
 /**
- * What is sent. A person who picks the look is asked for it before the agent draws: the look
- * page that will show it (PLAN-onboarding, slice 4) is not there yet.
+ * Sends a prompt in a new chat with the agent and model it names (the agent's own when it has no
+ * such model), opened in the left panel.
  */
-export const promptText = (start: FirstPrompt) =>
-  start.look === "pick"
-    ? `${start.prompt}\n\nI'll pick the look myself: ask me how it should look and feel before you draw.`
-    : start.prompt;
-
-/**
- * Sends the start screen's prompt, if the editor was opened with one: a new chat with the agent
- * and model it names (the agent's own when it has no such model), opened in the left panel.
- */
-export const sendFirstPrompt = async (start = takeFirstPrompt()) => {
-  if (!start) {
-    return;
-  }
+export const sendPrompt = async (start: FirstPrompt) => {
   try {
     const thread = await api().request("threads.create", {
       ...(start.agentId && { agentId: start.agentId }),
@@ -69,10 +57,28 @@ export const sendFirstPrompt = async (start = takeFirstPrompt()) => {
     await showLeftPanel({ chat: thread, draft: "" });
     await api().request("threads.prompt", {
       attachments: [],
-      text: promptText(start),
+      text: start.prompt,
       threadId: thread.id,
     });
   } catch (error) {
     reportError(error);
   }
+};
+
+/**
+ * The start screen's prompt, if the editor was opened with one. A person who picks the look
+ * picks it on the look page first (`openLook`), which sends the prompt once it is chosen.
+ */
+export const sendFirstPrompt = async (
+  start = takeFirstPrompt(),
+  openLook: (pending: FirstPrompt) => void = () => undefined
+) => {
+  if (!start) {
+    return;
+  }
+  if (start.look === "pick") {
+    openLook(start);
+    return;
+  }
+  await sendPrompt(start);
 };

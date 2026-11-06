@@ -149,6 +149,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "designSystem.placeDocument": () => designSystem((d) => d.placeDocument),
       "designSystem.setSection": ({ name, text }) =>
         designMd((m) => m.setSection(name, text)),
+      "designSystem.write": ({ designSystem: input, document }) =>
+        designSystem((d) =>
+          Effect.map(d.write(input, document), ({ findings }) => ({
+            findings,
+          }))
+        ),
       "documents.apply": (input) =>
         documents((d) =>
           Effect.map(d.apply(input), ({ changes, created }) => ({

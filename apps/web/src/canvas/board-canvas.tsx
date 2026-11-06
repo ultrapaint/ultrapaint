@@ -32,6 +32,7 @@ import {
   libraryBoards,
   OVERVIEW,
 } from "../boards/library-boards.ts";
+import { lookBoards } from "../boards/look-boards.ts";
 import { pickOfId } from "../boards/pick.ts";
 import {
   type Board,
@@ -60,6 +61,7 @@ import {
   useIsolatedRequest,
   useIsolation,
 } from "../state/isolation.ts";
+import { LOOK_ITEM, useLookPage } from "../state/look-page.ts";
 import { useSelectedIn } from "../state/selection.ts";
 import { screenPx } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
@@ -92,19 +94,21 @@ const useBoards = (open: BoardPlace): Boards => {
   const catalogue = useComponents((s) => s.catalogue);
   const components = useComponents((s) => s.components);
   const guideDraft = useBoard((s) => s.guideDraft);
+  const dials = useLookPage((s) => s.dials);
   const drawn = useOverviewWidths(open, catalogue);
-  return useMemo(
-    () =>
-      open.view === "system"
-        ? systemBoards(open.item, ds, withGuideDraft(document, guideDraft))
-        : libraryBoards(
-            open.item,
-            catalogue,
-            (name) => fileOf(components, name),
-            drawn
-          ),
-    [open, ds, document, catalogue, components, guideDraft, drawn]
-  );
+  return useMemo(() => {
+    if (open.view === "system" && open.item === LOOK_ITEM) {
+      return lookBoards(dials);
+    }
+    return open.view === "system"
+      ? systemBoards(open.item, ds, withGuideDraft(document, guideDraft))
+      : libraryBoards(
+          open.item,
+          catalogue,
+          (name) => fileOf(components, name),
+          drawn
+        );
+  }, [open, ds, document, catalogue, components, guideDraft, drawn, dials]);
 };
 
 /**
@@ -152,6 +156,9 @@ const withGuideDraft = (
 /** What the item open is called: over its boards, in its inspector. */
 export const useItemName = (open: BoardPlace) => {
   const document = useDesignSystem((s) => s.document);
+  if (open.view === "system" && open.item === LOOK_ITEM) {
+    return "Samples";
+  }
   if (open.view === "system") {
     return systemItemName(open.item, document);
   }

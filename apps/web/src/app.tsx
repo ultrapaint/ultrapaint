@@ -42,6 +42,7 @@ import {
 import { deferred } from "./lib/deferred.ts";
 import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
+import { openLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { setUpOnOpen } from "./lib/project-setup.ts";
 import { ModeAndCanvases } from "./panels/canvases.tsx";
@@ -559,7 +560,7 @@ export const App = () => {
     if (loaded) {
       const start = takeFirstPrompt();
       setUpOnOpen({ behind: start !== null });
-      sendFirstPrompt(start);
+      sendFirstPrompt(start, openLookPage);
     }
   }, [loaded]);
 

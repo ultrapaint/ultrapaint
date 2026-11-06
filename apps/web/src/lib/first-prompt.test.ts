@@ -11,8 +11,6 @@ vi.mock(
 // The chat panel is the threads' own business; here it is only opened.
 vi.mock("../state/panels.ts", () => ({ showLeftPanel: vi.fn() }));
 
-const ASKS_FOR_THE_LOOK_RE = /^A shop\n\nI'll pick the look myself/;
-
 const location = window.location as { href?: string; search: string };
 const replaced: string[] = [];
 window.history.replaceState = (_state, _title, url) => {
@@ -102,13 +100,13 @@ describe("the start screen's prompt", () => {
     expect(call("threads.prompt")).toMatchObject({ text: "A shop" });
   });
 
-  it("asks for the look first when the person picks it", async () => {
+  it("opens the look page first when the person picks the look, and sends nothing yet", async () => {
     withPrompt({ look: "pick", prompt: "A shop" });
     answerThreads();
-    await sendFirstPrompt();
-    expect(
-      (call("threads.prompt") as { text: string } | undefined)?.text
-    ).toMatch(ASKS_FOR_THE_LOOK_RE);
+    const opened: unknown[] = [];
+    await sendFirstPrompt(undefined, (pending) => opened.push(pending));
+    expect(opened).toEqual([{ look: "pick", prompt: "A shop" }]);
+    expect(call("threads.prompt")).toBeUndefined();
   });
 
   it("leaves any other opening of the editor as it is", async () => {
