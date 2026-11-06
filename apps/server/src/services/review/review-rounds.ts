@@ -326,6 +326,50 @@ export interface Found {
   readonly reviewer: string;
 }
 
+const SEVERITY_RANK: Readonly<Record<Finding["severity"], number>> = {
+  blocker: 0,
+  major: 1,
+  minor: 2,
+  nit: 3,
+};
+
+/** A page's short name in a merged finding's `where`: `share-copied`, not its whole file. */
+const shortPage = (page: string) =>
+  page.split("/").at(-1)?.replace(PAGE_SUFFIX_RE, "") ?? page;
+const PAGE_SUFFIX_RE = /\.page\.json$/;
+
+/**
+ * A review model's findings with each problem once: the same title in the same category on
+ * several pages (the states of one screen) is one finding, at its most severe, naming the pages.
+ * The designer fixes it once; the transcript counts it once.
+ */
+export const mergeFound = (found: readonly Found[]): readonly Found[] => {
+  const groups = new Map<string, Found[]>();
+  for (const f of found) {
+    const key = `${f.reviewer}|${f.finding.category}|${f.finding.title.trim().toLowerCase()}`;
+    groups.set(key, [...(groups.get(key) ?? []), f]);
+  }
+  return [...groups.values()].map((group) => {
+    const [first] = group;
+    if (first === undefined || group.length === 1) {
+      return first as Found;
+    }
+    const worst = group.reduce((a, b) =>
+      SEVERITY_RANK[b.finding.severity] < SEVERITY_RANK[a.finding.severity]
+        ? b
+        : a
+    );
+    const pages = [...new Set(group.map((f) => f.page))];
+    return {
+      ...worst,
+      finding: {
+        ...worst.finding,
+        where: `${worst.finding.where}, on ${pages.length} pages (${pages.map(shortPage).join(", ")})`,
+      },
+    };
+  });
+};
+
 /** A finding as the transcript shows it. */
 export const toRoundFinding = (f: Found): RoundFinding => ({
   category: f.finding.category,
@@ -373,12 +417,13 @@ export const reviewerResult = (
       );
     }
   });
+  const merged = mergeFound(found);
   return {
-    found,
+    found: merged,
     left,
     patch: {
       approved,
-      findings: found.length,
+      findings: merged.length,
       status: "done",
       ...(score.kind === "scored"
         ? { score: score.overall }

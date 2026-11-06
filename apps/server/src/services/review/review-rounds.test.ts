@@ -6,6 +6,7 @@ import {
   answersByPage,
   declinedOf,
   handsToAll,
+  mergeFound,
   type PageAnswer,
   reviewerScore,
   runOf,
@@ -136,6 +137,24 @@ describe("a review model's answer", () => {
     expect(scored.approved).toBe(false);
     expect(scored.score.kind === "scored" && scored.score.overall).toBe(100);
     expect(reviewerScore(pages, [answer(), answer()]).approved).toBe(true);
+  });
+
+  it("gives a problem shared by several pages once, at its worst, naming the pages", () => {
+    const at = (page: string, severity: "major" | "minor") => ({
+      finding: { ...finding, severity },
+      page,
+      reviewer: "opus",
+    });
+    const merged = mergeFound([
+      at("designs/share.page.json", "minor"),
+      at("designs/share-copied.page.json", "major"),
+      { ...at("designs/share.page.json", "minor"), reviewer: "gpt-6.1-sol" },
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0]?.finding.severity).toBe("major");
+    expect(merged[0]?.finding.where).toContain(
+      "on 2 pages (share, share-copied)"
+    );
   });
 
   it("approves a page where it found nothing and left nothing", () => {

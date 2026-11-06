@@ -11,7 +11,11 @@
  * project's own skills go, so they replace or extend the shipped ones for that round only.
  */
 import path from "node:path";
-import { Goal } from "@ultrapaint/contracts/review";
+import {
+  formatReviewModel,
+  Goal,
+  type ReviewSettings,
+} from "@ultrapaint/contracts/review";
 import {
   isEditorMcpCall,
   type ThreadItem,
@@ -123,6 +127,11 @@ export type RunInfo = typeof RunInfo.Type;
 
 export interface GenerateOptions {
   readonly agent: string;
+  /**
+   * The editor's own review loop instead of the lab's (`--review editor`, ADR 0063): its
+   * settings for the round's project. Off when absent.
+   */
+  readonly editorReview?: ReviewSettings | undefined;
   /** The project under `hosts/` the agents design in. */
   readonly host: string;
   /** How long one run may take. */
@@ -724,6 +733,11 @@ const runOnce = Effect.fn("runOnce")(function* (
     problems,
   };
   yield* writeJson(path.join(dir, "run.json"), info);
+  // The editor's review rounds, as its transcript holds them (`--review editor`).
+  const rounds = items.filter((i) => i.kind === "review");
+  if (rounds.length > 0) {
+    yield* writeJson(path.join(dir, "editor-review.json"), rounds);
+  }
   yield* Effect.log(
     `${reference.id} run ${run}: ${info.toolCalls} tool calls, ${info.seconds}s, ${(info.tokens / 1000).toFixed(0)}k tokens${problems.length > 0 ? `; ${problems.join("; ")}` : ""}`
   );
@@ -785,6 +799,17 @@ const startRound = Effect.fn("startRound")(function* (
           signOff: options.review.signOff,
         },
       }),
+      ...(options.editorReview?.on && {
+        review: {
+          eachRound: options.editorReview.eachRound,
+          goal: options.editorReview.goal,
+          mode: "editor",
+          reviewers: (options.editorReview.reviewModels ?? []).map(
+            formatReviewModel
+          ),
+          signOff: options.editorReview.approval,
+        },
+      }),
       runs: options.runs,
       skills: skillsOfRound(options, skillsBriefing),
       startedAt: new Date().toISOString(),
@@ -833,7 +858,7 @@ export const generate = Effect.fn("generate")(function* (
   for (const [index, host] of hosts.entries()) {
     yield* Effect.scoped(
       Effect.gen(function* () {
-        const session = yield* launch(host, "scratch");
+        const session = yield* launch(host, "scratch", options.editorReview);
         yield* resetDesigns(session);
         yield* placeSkills(session.designs, options.skills);
         if (index === 0) {
