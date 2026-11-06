@@ -34,9 +34,9 @@ const sayProgress = (progress: NewDesignProgress) => {
 export const newCommand = Command.make(
   "new",
   {
-    code: Flag.Literals("code", ["app", "root"]).pipe(
+    code: Flag.Literals("code", ["app", "root", "none"]).pipe(
       Flag.withDescription(
-        "Where the application's code goes: an app directory beside the designs, or the folder's root"
+        "Where the application's code goes: an app directory beside the designs, the folder's root, or none for designs only (the first implementation writes it)"
       ),
       Flag.withDefault("app")
     ),

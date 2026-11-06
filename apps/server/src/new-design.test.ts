@@ -127,6 +127,33 @@ describe("a new design", () => {
     30_000
   );
 
+  it.effect(
+    "writes designs only, with nothing to install, the application left for the first implementation",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const folder = yield* tempDir;
+        const { result, steps } = yield* create({
+          code: "none",
+          folder,
+          install: true,
+        });
+        assert.isTrue(result._tag === "Success");
+        assert.deepStrictEqual(ends(steps), [
+          "folder:done",
+          "write:done",
+          "install:skipped",
+        ]);
+        assert.isFalse(yield* fs.exists(path.join(folder, "package.json")));
+        assert.isTrue(yield* fs.exists(path.join(folder, "designs")));
+        const config = yield* decodeConfig(
+          yield* fs.readFileString(path.join(folder, "ultrapaint.config.json"))
+        );
+        assert.strictEqual(config.designsDir, "designs");
+        assert.deepStrictEqual(config.hostCss ?? [], []);
+      }).pipe(Effect.scoped, Effect.provide(Live))
+  );
+
   it.effect("writes the starter's components at the folder's root", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

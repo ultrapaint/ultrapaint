@@ -84,6 +84,27 @@ const designChanges = Effect.gen(function* () {
 
 describe("tasks, with the editor's MCP server", () => {
   eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "has the stack settled first in a project of designs only, and not where there is code",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const { repo } = yield* ProjectFixture;
+          const implementHome = textOf({ _tag: "Implement", target: "/home" });
+          assert.notInclude(yield* implementHome, "designs only");
+          for (const name of yield* fs.readDirectory(repo)) {
+            if (name !== "designs" && !name.startsWith(".")) {
+              yield* fs.remove(path.join(repo, name), { recursive: true });
+            }
+          }
+          const text = yield* implementHome;
+          assert.include(text, "This project is designs only");
+          assert.include(text, "Implement the page Home");
+        })
+    );
+  });
+
+  eachTest(ProjectTest({ mcp: true }))((it) => {
     it.effect("gives each request its task and its thread's purpose", () =>
       Effect.gen(function* () {
         const init = yield* task({ _tag: "Init" });

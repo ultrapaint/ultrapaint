@@ -1,14 +1,18 @@
 /**
  * A new design from nothing (PLAN-desktop D11): a folder, written with a configuration, a designs
- * directory and an application, its packages installed and, when the git integration is on, a
+ * directory and, unless it is designs only (ADR 0062), an application, its packages installed and, when the git integration is on, a
  * first commit. `ultrapaint new` writes it, and says how far it got one line at a time, which
  * the desktop app shows as the steps of its dialog.
  */
 import { Schema } from "effect";
 import { ScaffoldTemplate } from "./setup.ts";
 
-/** Where the application's code goes: an `app` directory beside the designs, or the root. */
-export const CodeLocation = Schema.Literals(["app", "root"]);
+/**
+ * Where the application's code goes: an `app` directory beside the designs, or the root; `none`
+ * for designs only (ADR 0062), whose application is written at its first implementation, in the
+ * stack the person chooses then.
+ */
+export const CodeLocation = Schema.Literals(["app", "root", "none"]);
 export type CodeLocation = typeof CodeLocation.Type;
 
 /** Where a new design's pages go, beside its code. */

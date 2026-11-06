@@ -25,7 +25,7 @@ import type {
 } from "@ultrapaint/contracts/tasks";
 import { walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
@@ -39,6 +39,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { componentBody } from "./agent-docs.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
+import { designsOnly, stackStep } from "./first-implementation.ts";
 import {
   needsTools,
   OUTLINE_DEPTH,
@@ -236,6 +237,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
 }) {
   const { ways } = deps;
   const project = yield* OpenProject;
+  const fs = yield* FileSystem.FileSystem;
 
   /**
    * Implement (ADR 0030): a page or a component turned into the application's code. A
@@ -425,8 +427,9 @@ ${used.map(waitingLine).join("\n")}
     const owned = files.filter((c) => used.has(c.name));
     const where = whereOf(page);
     const tokens = yield* tokensFor(page.id);
+    const stack = (yield* designsOnly(fs)) ? stackStep(designSystem, ways) : "";
     return `<ultrapaint-task command="implement">
-Implement the page ${page.name} of the design (${page.file}) in this repository's application,
+${stack}Implement the page ${page.name} of the design (${page.file}) in this repository's application,
 in its own conventions. ${where}
 The design is what it looks like and which states it has; what it does (data, permissions,
 validation, what a button calls) is the code's, and the behaviour notes below say what is wanted.
