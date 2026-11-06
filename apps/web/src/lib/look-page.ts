@@ -11,7 +11,12 @@ import {
   lookSystem,
   presetOf,
 } from "@ultrapaint/design-document/look-dials";
-import { leaveBoard, openBoard, useBoard } from "../state/board.ts";
+import {
+  fitBoardsWhenLaidOut,
+  leaveBoard,
+  openBoard,
+  useBoard,
+} from "../state/board.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import {
@@ -28,6 +33,7 @@ import { startNewLook } from "./start-thread.ts";
 export const openLookPage = (pending: FirstPrompt | null = null) => {
   showLookPage(pending);
   openBoard({ item: LOOK_ITEM, view: "system" });
+  fitBoardsWhenLaidOut();
 };
 
 /** Closes the page, back on the canvas, and sends what waited for the look. */

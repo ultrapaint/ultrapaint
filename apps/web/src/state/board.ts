@@ -468,6 +468,29 @@ const fitFirstView = () => {
   }
 };
 
+/**
+ * Fits the open item's boards between the panels once they are laid out, whatever the camera did
+ * meanwhile: the look page's samples, opened as the editor loads.
+ */
+export const fitBoardsWhenLaidOut = () => {
+  const fitNow = () => {
+    const frames = Object.values(useBoard.getState().frames);
+    if (frames.length === 0) {
+      return false;
+    }
+    setView(firstBoardView(frames, viewportSize()));
+    return true;
+  };
+  if (fitNow()) {
+    return;
+  }
+  const stop = useBoard.subscribe((now, before) => {
+    if (now.frames !== before.frames && fitNow()) {
+      stop();
+    }
+  });
+};
+
 /** A guideline's text drawn on its board as it is typed; null once it is saved or let go. */
 export const setGuideDraft = (draft: BoardStore["guideDraft"]) =>
   useBoard.setState({ guideDraft: draft });

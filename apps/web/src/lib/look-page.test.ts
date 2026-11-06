@@ -16,6 +16,7 @@ vi.mock(
 );
 vi.mock("../state/panels.ts", () => ({ showLeftPanel: vi.fn() }));
 vi.mock("../state/board.ts", () => ({
+  fitBoardsWhenLaidOut: vi.fn(),
   leaveBoard: vi.fn(),
   openBoard: vi.fn(),
   useBoard: { subscribe: vi.fn() },
