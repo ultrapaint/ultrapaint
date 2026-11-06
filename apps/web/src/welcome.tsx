@@ -229,7 +229,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
           ? where.folder
           : await newDesign.folderFor(name);
       const outcome = await newDesign.create(
-        { code: "app", folder, git: false, name, start, template: "blank" },
+        { code: "none", folder, git: false, name, start, template: "blank" },
         (update) => {
           if (update.state === "active") {
             setDoing(STEP_DOING[update.step]);

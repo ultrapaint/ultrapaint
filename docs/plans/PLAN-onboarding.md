@@ -1,6 +1,6 @@
 # Plan: a new person starts from a prompt or an opened project
 
-Status: in progress, 2026-11-05. Decisions in ADR 0062 (amends 0050 and 0023). The flows are
+Status: done, 2026-11-06. Decisions in ADR 0062 (amends 0050 and 0023). The flows are
 drawn on the Onboarding canvas (`docs/designs/onboarding/`); their screens show what happens, and
 each slice is designed again with the design skill as it is built, not copied from them.
 
@@ -45,11 +45,16 @@ Each one ships alone, in this order.
    system; the skill's part is gap `g51`. The code's own components (shadcn's, in the app) still
    read the roles: an implementation of a detailed system writes the aliases into its `@theme`.
 6. **The stack at the first implementation.** A new project is designs only; the first
-   implementation asks for the stack, filled in from the look.
+   implementation asks for the stack, filled in from the look. *Done:* `ultrapaint new
+   --code=none` writes the configuration and the designs directory alone, which the start screen
+   asks for; `/implement` in a project with no application starts with the stack, settled with
+   the user (`first-implementation.ts`): the look's typeface package, Lucide at its stroke,
+   Tailwind v4 in its token preset's names. The agent points the settings at the new stylesheet
+   with `save_setup`; the rest of the setup (resolveFrom, the component library) is detected
+   the next time the folder is set up.
 
 ## Notes
 
 - The start screen has no server behind it, so it cannot ask an agent for its models. It shows
   what the chat remembers (`~/.ultrapaint/chat/preferences.json`, the user's); with nothing
   remembered, the agent's name, as the composer does.
-- A new project still gets the blank application until slice 6.

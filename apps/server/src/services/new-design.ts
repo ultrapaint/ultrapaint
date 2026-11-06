@@ -140,17 +140,33 @@ export class NewDesignService extends Context.Service<
                     `${folder} is not empty (${there.slice(0, 3).join(", ")}${there.length > 3 ? ", …" : ""}): a new design starts in an empty folder.`
                   );
                 }
-                const made = yield* Effect.mapError(
-                  setup.scaffold({
-                    designsDir: NEW_DESIGNS_DIR,
-                    dir,
-                    install: false,
-                    name: options.name,
-                    repoPath: folder,
-                    template: options.template,
-                  }),
-                  said
-                );
+                // Designs only (ADR 0062): the designs directory, and no application yet.
+                const made =
+                  options.code === "none"
+                    ? yield* Effect.mapError(
+                        Effect.map(
+                          setup.createDesigns({
+                            designsDir: NEW_DESIGNS_DIR,
+                            repoPath: folder,
+                          }),
+                          ({ created }) => ({
+                            created,
+                            settings: { designsDir: NEW_DESIGNS_DIR },
+                          })
+                        ),
+                        said
+                      )
+                    : yield* Effect.mapError(
+                        setup.scaffold({
+                          designsDir: NEW_DESIGNS_DIR,
+                          dir,
+                          install: false,
+                          name: options.name,
+                          repoPath: folder,
+                          template: options.template,
+                        }),
+                        said
+                      );
                 const settings = {
                   ...defaultSettings(folder),
                   ...made.settings,
@@ -171,30 +187,37 @@ export class NewDesignService extends Context.Service<
               })
         );
 
-        const installed = options.install
-          ? yield* step(
-              "install",
-              Effect.gen(function* () {
-                const result = yield* Effect.mapError(
-                  setup.install({
-                    dir,
-                    packageManager: options.packageManager,
-                    repoPath: folder,
-                  }),
-                  said
-                );
-                if (!result.installed) {
-                  return yield* Effect.fail(
-                    `${result.packageManager} install failed${result.installLog ? `:\n${result.installLog}` : "."}`
+        const installed =
+          options.install && options.code !== "none"
+            ? yield* step(
+                "install",
+                Effect.gen(function* () {
+                  const result = yield* Effect.mapError(
+                    setup.install({
+                      dir,
+                      packageManager: options.packageManager,
+                      repoPath: folder,
+                    }),
+                    said
                   );
-                }
-                return { detail: `With ${result.packageManager}.` };
-              })
-            )
-          : yield* step(
-              "install",
-              Effect.succeed({ detail: "Not asked for.", skipped: true })
-            );
+                  if (!result.installed) {
+                    return yield* Effect.fail(
+                      `${result.packageManager} install failed${result.installLog ? `:\n${result.installLog}` : "."}`
+                    );
+                  }
+                  return { detail: `With ${result.packageManager}.` };
+                })
+              )
+            : yield* step(
+                "install",
+                Effect.succeed({
+                  detail:
+                    options.code === "none"
+                      ? "Designs only: nothing to install."
+                      : "Not asked for.",
+                  skipped: true,
+                })
+              );
 
         if (options.git) {
           yield* step(
