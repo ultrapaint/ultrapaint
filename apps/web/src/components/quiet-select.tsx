@@ -84,7 +84,7 @@ export const QuietSelect = ({
         {icon}
         <span className="truncate">{current?.label}</span>
         {extra ? (
-          <span className="@max-sm:hidden shrink-0 opacity-70">{extra}</span>
+          <span className="@max-sm:hidden shrink-0">{extra}</span>
         ) : null}
         <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
@@ -95,7 +95,10 @@ export const QuietSelect = ({
         >
           {groupsOf(choices).map(([group, items]) => (
             <DropdownMenuGroup key={group}>
-              {group ? <DropdownMenuLabel>{group}</DropdownMenuLabel> : null}
+              {/* A group of one named as its group ("Codex" alone) says it once. */}
+              {group && !(items.length === 1 && items[0]?.label === group) ? (
+                <DropdownMenuLabel>{group}</DropdownMenuLabel>
+              ) : null}
               {items.map((choice) => (
                 <DropdownMenuRadioItem key={choice.value} value={choice.value}>
                   <span className="truncate">{choice.label}</span>

@@ -120,7 +120,7 @@ const today = (board: string, dials: LookDials): DesignNode => {
         {
           children: [
             text("Today", "text-2xl", { role: "heading", weight: 600 }),
-            text("Thursday, 5 November · 2 of 5 done", "text-sm", {
+            text("Thursday, 5 November", "text-sm", {
               color: tokenRef("color-muted-foreground"),
             }),
           ],
@@ -174,7 +174,11 @@ const form = (board: string, dials: LookDials): DesignNode => {
             placeholder: "Book the train to Leeds",
           }),
           instance("Input", { label: "Project", value: "Events" }),
-          instance("Switch", { checked: true, label: "Remind me at 9:00" }),
+          // Label left, the switch at the row's right edge.
+          row([
+            text("Remind me at 9:00", "text-sm", { weight: 500 }),
+            instance("Switch", { checked: true }),
+          ]),
           row(
             [
               instance("Button", { variant: "outline" }, "Cancel"),
@@ -207,7 +211,7 @@ export const lookBoards = (dials: LookDials): Boards => {
       name: "form",
       root: form("form", dials),
       theme: "light",
-      title: "A form",
+      title: "New task",
     },
     {
       name: "today-dark",

@@ -44,6 +44,11 @@ describe("a look made from the dials", () => {
             valueInTheme(ds, "color-background", theme) ?? ""
           ) ?? 0;
         expect(on("color-foreground")).toBeGreaterThan(13);
+        const edge = contrastRatio(
+          valueInTheme(ds, "color-input", theme) ?? "",
+          valueInTheme(ds, "color-card", theme) ?? ""
+        );
+        expect(edge).toBeGreaterThanOrEqual(3);
         expect(on("color-muted-foreground")).toBeGreaterThan(4.5);
       }
     }
@@ -81,6 +86,17 @@ describe("a look made from the dials", () => {
       "--color-primary: var(--background-color-brand-bold);"
     );
     expect(css).toContain("--icon-stroke: 2.5;");
+  });
+
+  it("keeps its type above the floors at every density: captions 13px, interface text 14px", () => {
+    for (const density of ["compact", "regular", "open"] as const) {
+      const sizes = lookSystem({ ...calm, density }).typography.sizes;
+      const px = (name: string) =>
+        Number.parseFloat(sizes.find((t) => t.name === name)?.value ?? "0") *
+        16;
+      expect(px("text-xs")).toBeGreaterThanOrEqual(13);
+      expect(px("text-sm")).toBeGreaterThanOrEqual(14);
+    }
   });
 
   it("knows the preset its dials are, and none once one is changed", () => {

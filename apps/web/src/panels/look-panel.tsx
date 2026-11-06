@@ -38,8 +38,8 @@ const HEX_RE = /^#[0-9a-f]{6}$/i;
 /** A dial: its name over its control. */
 const Dial = ({ children, label }: { children: ReactNode; label: string }) => (
   // biome-ignore lint/a11y/noLabelWithoutControl: the control is inside, whichever it is
-  <label className="flex flex-col gap-1.5">
-    <span className="font-small text-muted-foreground">{label}</span>
+  <label className="flex flex-col gap-1">
+    <span className="font-heading-xsmall">{label}</span>
     {children}
   </label>
 );
@@ -84,7 +84,7 @@ const BrandColour = ({ brand }: { brand: string }) => {
 };
 
 const Dials = ({ dials }: { dials: LookDials }) => (
-  <div className="flex flex-col gap-4 px-4 pb-4">
+  <div className="flex flex-col gap-6 px-4 pt-1 pb-4">
     <Dial label="Start from">
       <Segmented
         onChange={(name) => {
@@ -162,36 +162,52 @@ const Dials = ({ dials }: { dials: LookDials }) => (
 /** An agent asked to make the look from a description or a site, instead of the dials. */
 const Describe = ({ busy }: { busy: boolean }) => {
   const [text, setText] = useState("");
+  // Sent with nothing written: what is missing, under the field, until something is.
+  const [missing, setMissing] = useState(false);
   const send = () => {
     if (text.trim()) {
       describeTheLook(text);
+    } else {
+      setMissing(true);
     }
   };
   return (
-    <div className="relative">
-      <Textarea
-        aria-label="Describe the look"
-        className="min-h-14 pr-9 font-small"
-        disabled={busy}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            send();
-          }
-        }}
-        placeholder="Or describe it, or name a site: like linear.app, but warmer"
-        value={text}
-      />
-      <Button
-        aria-label="Ask an agent for this look"
-        className="absolute right-1.5 bottom-1.5 size-6 rounded-full"
-        disabled={busy || !text.trim()}
-        onClick={send}
-        size="icon"
-      >
-        <ArrowUp />
-      </Button>
+    <div className="flex flex-col gap-1">
+      <label className="font-heading-xsmall" htmlFor="look-description">
+        Or describe it to an agent
+      </label>
+      <div className="relative">
+        <Textarea
+          className="min-h-14 pr-9 font-small"
+          disabled={busy}
+          id="look-description"
+          onChange={(e) => {
+            setText(e.target.value);
+            setMissing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Like linear.app, but warmer"
+          value={text}
+        />
+        <IconButton
+          className="absolute right-1 bottom-1 size-7"
+          disabled={busy}
+          onClick={send}
+          tooltip="Ask an agent for this look"
+        >
+          <ArrowUp />
+        </IconButton>
+      </div>
+      {missing ? (
+        <span className="font-small text-muted-foreground" role="status">
+          Describe the look first, or name a site.
+        </span>
+      ) : null}
     </div>
   );
 };
@@ -212,7 +228,7 @@ export const LookPanel = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-4">
-        <h2 className="flex-1 truncate font-heading-xsmall">Choose a look</h2>
+        <h2 className="flex-1 truncate font-heading-xsmall">Pick a look</h2>
         {pending ? null : (
           <IconButton
             className="text-muted-foreground"

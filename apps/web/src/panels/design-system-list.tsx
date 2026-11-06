@@ -161,7 +161,7 @@ const DefaultLook = () => {
   return (
     <section
       aria-label="Default look"
-      className="mx-2 mb-2 flex flex-col gap-3 rounded-lg bg-card px-2 py-3 ring-1 ring-border"
+      className="mx-2 mb-2 flex flex-col gap-3 rounded-lg bg-card p-2 ring-1 ring-border"
     >
       <div className="flex flex-col gap-0.5">
         <h3 className="font-heading-xsmall">Ultrapaint’s default look</h3>
@@ -180,7 +180,7 @@ const DefaultLook = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={() => openLookPage()}>
-              A new look…
+              Pick a new look…
             </DropdownMenuItem>
             <DropdownMenuItem onClick={pickFigmaFile}>
               Import from Figma…
@@ -245,6 +245,7 @@ export const DesignSystemList = () => {
           </IconButton>
         ) : null}
       </div>
+      {loaded && !designSystem ? <DefaultLook /> : null}
       <div className="shrink-0 px-2 pb-2">
         <InputGroup>
           <InputGroupAddon>
@@ -265,7 +266,6 @@ export const DesignSystemList = () => {
         </InputGroup>
       </div>
       <div className="min-h-0 flex-1 overflow-auto pb-2">
-        {loaded && !designSystem && !searching ? <DefaultLook /> : null}
         {loaded ? <SyncWaiting /> : <LoadingRows />}
         {foundations.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
