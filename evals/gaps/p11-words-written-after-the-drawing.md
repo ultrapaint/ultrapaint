@@ -40,3 +40,18 @@ problems.
   the look is the problem (g37, g38, g39, g43, g44, g48). The list took the reviewer's attention
   off the look. Next to try: the list in the designer's steps only, measured by a round and its
   panel, not by recall.
+- `copy-base` against `copy-words`: 2026-11-06, the designer's side. The step in the router's
+  design steps (branch `experiment/copy-words-first`, 1a3cab0) against the shipped router
+  (ffedc8f), three Untitled UI settings screens from their briefs without pictures, 2 runs each,
+  Opus 5.5 designing; an Opus panel (effort high, the shipped skill) on every section. Problems
+  per run: shipped 28.0 (5 runs; notification-settings run 1 ran out of time and drew nothing),
+  candidate 35.3 (6 runs); word problems 0.2 in both. The judge's fidelity went the other way:
+  shipped 2.8, candidate 3.2. No trace shows a list of the words, and `content.md` was read once
+  in six runs: the agents didn't follow the step. Those runs also took half the time
+  (179 s against about 350 s). (runs/copy-base/panel.md, runs/copy-words/panel.md, and
+  `compare copy-base copy-words`)
+- Decision of 2026-11-06 (made by the agent, as the person asked): not shipped. A brief fixes the
+  words ("use its content as written"), so these rounds leave the designer almost none to write,
+  and the panel found as few word problems either way. The test the gap needs is a design whose
+  words are the designer's: a redesign of a screen with its own copy (p06's case) or a request
+  with no brief, which the lab has not got yet; g52 needs the same.
