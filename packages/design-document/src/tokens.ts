@@ -14,11 +14,13 @@ import {
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { themeSelector } from "@ultrapaint/contracts/themes";
+import { DETAILED_ROLES } from "@ultrapaint/contracts/token-presets";
 import {
   allTokens,
   lineHeightName,
   SPACING_BASE,
   spacingStepOf,
+  tokenKindOf,
 } from "@ultrapaint/contracts/token-table";
 import { childrenOf } from "./tree.ts";
 
@@ -166,20 +168,34 @@ export const tokensUsed = (
   return used;
 };
 
-const COLOR_PREFIX = "color-";
+/**
+ * In a detailed system (ADR 0062), the roles the system components read, each the detailed token
+ * the preset names, where the system does not give the role a value of its own.
+ */
+const roleAliases = (ds: DesignSystem, names: ReadonlySet<string>) =>
+  ds.tokenPreset === "detailed"
+    ? Object.entries(DETAILED_ROLES).flatMap(([role, token]) =>
+        names.has(token) && !names.has(role)
+          ? [`  --${role}: var(--${token});`]
+          : []
+      )
+    : [];
 
 /**
  * Every token of the design system as the custom property it is (`--color-primary`), on the
  * frame's root (`:host`, a frame being a shadow root, ADR 0042), and each other theme's values
  * under that theme (ADR 0040): the frames draw with
  * the design's values alone, the system components' look and every node's style alike. A font size's
- * line height is `--text-sm--line-height`, as Tailwind names it.
+ * line height is `--text-sm--line-height`, as Tailwind names it. A detailed system's roles are its
+ * detailed tokens, and the icons' stroke is `--icon-stroke`.
  */
 export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
   if (!ds) {
     return "";
   }
   const tokens = allTokens(ds).filter((t) => t.value !== "");
+  const names = new Set(tokens.map((t) => t.name));
+  const aliases = roleAliases(ds, names);
   const base: string[] = [];
   for (const token of tokens) {
     base.push(`  --${token.name}: ${token.value};`);
@@ -188,9 +204,14 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
       base.push(`  --${lineHeightName(token.name)}: ${lineHeight};`);
     }
   }
+  base.push(...aliases);
+  if (ds.icons?.stroke !== undefined) {
+    base.push(`  --icon-stroke: ${ds.icons.stroke};`);
+  }
   // Every other theme declares every colour again, its own value or the default's: a token the
   // design gives in one theme only is the same in the others, never the neutral look's value
   // for that theme, which is declared on the theme's element and so wins over what it inherits.
+  // A role is declared again too, so it reads the theme's token rather than the one it inherited.
   const themes = new Set([
     ...(ds.themes ?? []).slice(1),
     ...tokens.flatMap((t) => Object.keys(t.values ?? {})),
@@ -198,11 +219,11 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
   const themed = [...themes].map((theme) => {
     const declarations = tokens.flatMap((t) => {
       const own = t.values?.[theme];
-      return own !== undefined || t.name.startsWith(COLOR_PREFIX)
+      return own !== undefined || tokenKindOf(t.name) === "color"
         ? [`  --${t.name}: ${own ?? t.value};`]
         : [];
     });
-    return `${themeSelector(theme)} {\n${declarations.join("\n")}\n}`;
+    return `${themeSelector(theme)} {\n${[...declarations, ...aliases].join("\n")}\n}`;
   });
   return [
     ...(base.length > 0 ? [`:host {\n${base.join("\n")}\n}`] : []),

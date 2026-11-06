@@ -327,7 +327,7 @@ function SystemCheckbox(props: SystemComponentProps) {
               d="m3.5 8.5 3 3 6-7"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              style={{ strokeWidth: "var(--icon-stroke, 2)" }}
             />
           </svg>
         </Checkbox.Indicator>
@@ -735,13 +735,19 @@ function SystemDialog(props: SystemComponentProps) {
 
 /* ---------------- Icons ---------------- */
 
+/**
+ * A glyph's stroke follows the look's icons (ADR 0062): `--icon-stroke` is Lucide's on its 24px
+ * grid, these are drawn on 16, a little lighter.
+ */
+const GLYPH_STROKE = { strokeWidth: "calc(var(--icon-stroke, 2) * 0.75)" };
+
 const Chevron = () => (
   <svg aria-hidden viewBox="0 0 16 16">
     <path
       d="m4 6 4 4 4-4"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      style={GLYPH_STROKE}
     />
   </svg>
 );
@@ -751,7 +757,7 @@ const Check = () => (
       d="m3.5 8.5 3 3 6-7"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      style={{ strokeWidth: "calc(var(--icon-stroke, 2) * 0.875)" }}
     />
   </svg>
 );
@@ -761,7 +767,7 @@ const Cross = () => (
       d="m4 4 8 8M12 4l-8 8"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      style={GLYPH_STROKE}
     />
   </svg>
 );

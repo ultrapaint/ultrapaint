@@ -77,6 +77,14 @@ default look until the user makes the project's own in the Design system tab (fr
 new look or Figma). Do not write a design system unless the user asks for one, or the project is
 new and its theme declares nothing.`;
 
+/**
+ * What an agent is told of a design system whose colours are named by property and meaning (ADR
+ * 0062): which namespace serves which property, and that each serves only its own.
+ */
+export const DETAILED_NOTE = `Its colours are named by property and meaning: text-color-* for text, background-color-* for
+fills, border-color-* for borders (in the code, text-subtle, bg-danger-subtle, border-focus). Use
+each only for its own property, the one whose meaning fits: never a background colour on text.`;
+
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
 
@@ -285,7 +293,7 @@ ${pagesListOf(pages)}
 ${
   ds
     ? `Design tokens: ${tokensOf(ds)}
-${
+${ds.tokenPreset === "detailed" ? `${DETAILED_NOTE}\n` : ""}${
   styles.length > 0
     ? `Text styles: ${textStylesByGroup(styles)}
 `

@@ -38,7 +38,12 @@ Each one ships alone, in this order.
    and the token preset come with slice 5.
 5. **Token presets and icon stroke.** One preset per system, simple (shadcn's roles) or detailed
    (Atlassian's); the detailed one writes Tailwind v4's per-property namespaces and the system
-   components read their colours through the preset. Lucide's stroke is the look's.
+   components read their colours through the preset. Lucide's stroke is the look's. *Done:*
+   `tokenPreset` and `icons.stroke` on the design system, contracts' `token-presets` (the
+   detailed tokens each role is), the role aliases in the frames' token CSS, `--icon-stroke` for
+   the system components' glyphs, both dials on the look page, the briefing's note on a detailed
+   system; the skill's part is gap `g51`. The code's own components (shadcn's, in the app) still
+   read the roles: an implementation of a detailed system writes the aliases into its `@theme`.
 6. **The stack at the first implementation.** A new project is designs only; the first
    implementation asks for the stack, filled in from the look.
 

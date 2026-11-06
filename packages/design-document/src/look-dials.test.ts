@@ -9,6 +9,7 @@ import {
   lookSystem,
   presetOf,
 } from "./look-dials.ts";
+import { designTokenCss } from "./tokens.ts";
 
 const calm = (LOOK_PRESETS[0] as { dials: LookDials }).dials;
 
@@ -63,8 +64,28 @@ describe("a look made from the dials", () => {
     expect(ds.typography.fonts[0]?.source).toContain("family=Inter");
   });
 
+  it("names its colours by property and meaning in the detailed preset, the stroke the look's", () => {
+    const ds = lookSystem({ ...calm, iconStroke: "bold", tokens: "detailed" });
+    expect(ds.tokenPreset).toBe("detailed");
+    expect(ds.colors.map((g) => g.name)).toEqual([
+      "Text",
+      "Background",
+      "Border",
+    ]);
+    expect(valueInTheme(ds, "background-color-brand-bold", "light")).toBe(
+      calm.brand
+    );
+    expect(ds.icons?.stroke).toBe(2.5);
+    const css = designTokenCss(ds);
+    expect(css).toContain(
+      "--color-primary: var(--background-color-brand-bold);"
+    );
+    expect(css).toContain("--icon-stroke: 2.5;");
+  });
+
   it("knows the preset its dials are, and none once one is changed", () => {
     expect(presetOf(calm)?.name).toBe("Calm");
     expect(presetOf({ ...calm, corners: "round" })).toBeUndefined();
+    expect(presetOf({ ...calm, tokens: "detailed" })?.name).toBe("Calm");
   });
 });

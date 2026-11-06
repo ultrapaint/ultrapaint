@@ -118,7 +118,12 @@ interface TokenKindEntry {
  * kind `other`, which the design system has no list for.
  */
 export const TOKEN_TABLE: readonly TokenKindEntry[] = [
-  { kind: "color", list: ["colors", "*", "tokens"], prefixes: ["color-"] },
+  {
+    kind: "color",
+    list: ["colors", "*", "tokens"],
+    // A detailed preset's colours are in Tailwind v4's per-property namespaces (ADR 0062).
+    prefixes: ["color-", "text-color-", "background-color-", "border-color-"],
+  },
   { kind: "spacing", list: ["spacing", "tokens"], prefixes: ["spacing-"] },
   { kind: "fontSize", list: ["typography", "sizes"], prefixes: ["text-"] },
   {
