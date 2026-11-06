@@ -5,6 +5,7 @@
  * server's code, so the evals keep working while its insides move, and they measure what ships.
  */
 import path from "node:path";
+import type { ReviewSettings } from "@ultrapaint/contracts/review";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
@@ -233,7 +234,12 @@ const connectMcp = Effect.fn("connectMcp")(function* (connection: {
 export const launch = Effect.fn("launch")(function* (
   /** A host under `hosts/` by name, or the absolute path of a copy of one. */
   host: string,
-  designsIn: "scratch" | "own"
+  designsIn: "scratch" | "own",
+  /**
+   * The editor's own review loop (ADR 0063) for the round's design threads; off unless the
+   * round tests it, so a baseline, and the lab's own loop, are not reviewed twice.
+   */
+  editorReview: ReviewSettings = { on: false }
 ) {
   const { checkout, data, skillsBriefing: briefing } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
@@ -268,6 +274,7 @@ export const launch = Effect.fn("launch")(function* (
     ...own,
     designsDir,
     repoPath: root,
+    review: editorReview,
     ...(Object.keys(skills).length > 0 && { skills }),
   });
 
@@ -466,6 +473,16 @@ export interface DesignThread {
   ) => Effect.Effect<Turn, EvalsError>;
 }
 
+/** A turn's items end where a turn does: on its end, or on the review round that closed it. */
+const settled = (items: readonly ThreadItem[]) => {
+  const last = items.at(-1);
+  return (
+    items.some((i) => i.kind === "turn_end") &&
+    (last?.kind === "turn_end" ||
+      (last?.kind === "review" && last.end !== undefined))
+  );
+};
+
 /**
  * Starts a thread for the agent and holds it until the scope closes. Nobody is there to click, so
  * every tool call the agent asks permission for is allowed, as by a user who trusts it, and each
@@ -562,7 +579,8 @@ export const openThread = (
           items,
         };
       });
-      // The turn has ended when the thread is idle on a `turn_end` that came after the prompt.
+      // The turn has ended when the thread is idle on a `turn_end` that came after the prompt, or
+      // on the editor's last review round after it (ADR 0063), its findings answered meanwhile.
       const done = yield* read.pipe(
         Effect.tap(() => Effect.sleep("1 second")),
         Effect.repeat({
@@ -572,7 +590,7 @@ export const openThread = (
             (current.status === "error" ||
               (current.status === "idle" &&
                 items.length > before &&
-                items.at(-1)?.kind === "turn_end")),
+                settled(items.slice(before)))),
         }),
         Effect.timeoutOption(Duration.minutes(options.minutes))
       );

@@ -32,6 +32,7 @@ import {
   DEFAULT_REVIEW,
   EACH_ROUND,
   type EachRound,
+  parseReviewModel,
 } from "@ultrapaint/contracts/review";
 import { Effect, Layer, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -184,7 +185,8 @@ const reviewFlags = {
   logFindings: Flag.Boolean("log-findings").pipe(
     Flag.withDescription(
       "Append every pass's findings to the findings log (~/.ultrapaint/findings/lab.jsonl, or ULTRAPAINT_FINDINGS)"
-    )
+    ),
+    Flag.withDefault(false)
   ),
   maxRounds: Flag.Int("max-rounds").pipe(
     Flag.withDescription(
@@ -194,10 +196,10 @@ const reviewFlags = {
   ),
   review: Flag.ChoiceWithValue(
     "review",
-    REVIEW_MODES.map((m) => [m, m] as const)
+    [...REVIEW_MODES, "editor" as const].map((m) => [m, m] as const)
   ).pipe(
     Flag.withDescription(
-      "Review the design in its loop: `end` reviews the page when the designer's turn ends, `each-section` each section as it is built; none without it"
+      "Review the design in its loop: `end` reviews the page when the designer's turn ends, `each-section` each section as it is built (the lab's loop), `editor` with the editor's own review loop (ADR 0063); none without it"
     ),
     Flag.optional
   ),
@@ -281,7 +283,7 @@ interface GenerateInput {
   readonly picture: boolean;
   readonly prompt: Option.Option<string>;
   readonly refs: readonly string[];
-  readonly review: Option.Option<ReviewMode>;
+  readonly review: Option.Option<ReviewMode | "editor">;
   readonly reviewerGoals: Option.Option<string>;
   readonly reviewers: string;
   readonly runs: number;
@@ -299,23 +301,39 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
   });
   yield* generate(yield* loadReferences(input.refs), {
     agent: input.agent,
+    editorReview:
+      Option.getOrUndefined(input.review) === "editor"
+        ? {
+            approval: input.signOff,
+            eachRound: input.eachRound,
+            goal,
+            on: true,
+            reviewModels: modelList(input.reviewers).map((reviewer) => ({
+              ...parseReviewModel(reviewer),
+              effort: input.effort,
+            })),
+          }
+        : undefined,
     host: input.host,
     minutes: input.minutes,
     model: Option.getOrUndefined(input.agentModel),
     picture: input.picture,
     prompt: Option.getOrUndefined(input.prompt),
     review: Option.getOrUndefined(
-      Option.map(input.review, (mode) => ({
-        concurrency: input.concurrency,
-        eachRound: input.eachRound,
-        effort: input.effort,
-        goal,
-        judgeModel: input.judgeModel,
-        logFindings: input.logFindings,
-        mode,
-        reviewers: modelList(input.reviewers),
-        signOff: input.signOff,
-      }))
+      Option.map(
+        Option.filter(input.review, (m): m is ReviewMode => m !== "editor"),
+        (mode) => ({
+          concurrency: input.concurrency,
+          eachRound: input.eachRound,
+          effort: input.effort,
+          goal,
+          judgeModel: input.judgeModel,
+          logFindings: input.logFindings,
+          mode,
+          reviewers: modelList(input.reviewers),
+          signOff: input.signOff,
+        })
+      )
     ),
     round: input.name,
     runs: input.runs,
@@ -839,7 +857,8 @@ const measureCommand = Command.make(
     checks: Flag.Boolean("checks").pipe(
       Flag.withDescription(
         "Run the general design checks too: contrast, control edges, surface tones, the spacing scale, touching rows, clipped text, names that can't truncate, targets"
-      )
+      ),
+      Flag.withDefault(false)
     ),
     grid: Flag.Int("grid").pipe(
       Flag.withDescription(
@@ -850,7 +869,8 @@ const measureCommand = Command.make(
     hover: Flag.Boolean("hover").pipe(
       Flag.withDescription(
         "With --checks: check again with every control drawn as hovered, for fills that touch and controls shown only on hover"
-      )
+      ),
+      Flag.withDefault(false)
     ),
     out: Flag.String("out").pipe(
       Flag.withDescription("A JSON file the findings are written to"),
@@ -875,7 +895,8 @@ const measureCommand = Command.make(
     stress: Flag.Boolean("stress").pipe(
       Flag.withDescription(
         "With --checks: lengthen a name in each list to see whether it truncates"
-      )
+      ),
+      Flag.withDefault(false)
     ),
     theme: Flag.ChoiceWithValue("theme", [
       ["dark", "dark"],

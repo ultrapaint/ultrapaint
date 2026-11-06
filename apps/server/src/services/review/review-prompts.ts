@@ -27,7 +27,7 @@ Review what takes judgement, which a check can't: the hierarchy (what is seen fi
 
 Review within the person's request below: its content is used as written (a word, a label or a line of copy it gives is not a finding), a picture it gave decides the look, and the components (a dialog, tabs, a switch, an input, a button) are the design system's: how one draws itself is the system's. Report only what the designer can change within this request.
 
-List every problem in each page that a careful designer would fix: one finding per problem, each with what is wrong, where, which rule it breaks and the fix. Leave out what is fine.
+List every problem in each page that a careful designer would fix: one finding per problem, each with what is wrong, where, which rule it breaks and the fix. Leave out what is fine. The pages are often one screen in its states (empty, loading, an error): a problem they share is one finding, given once, on the first page that has it, its \`where\` naming the others.
 
 Answer with one fenced \`\`\`json block, and nothing after it:
 
@@ -41,7 +41,7 @@ Answer with one fenced \`\`\`json block, and nothing after it:
   - \`severity\`: \`blocker\` (it fails at its job: unreadable, can't be used, broken), \`major\` (a careful designer wouldn't ship it), \`minor\` (noticeable, worth fixing) or \`nit\` (polish);
   - \`rule\`: the skill's rule it breaks, as its reference and the rule's words (\`references/states.md › every load has its error\`), or empty when the skill has no rule for it.
 - \`reached\`: the categories the page has besides hierarchy, restraint, layout, spacing, typography and color (icons → \`iconography\`, words → \`content\`, a loading or empty state → \`states\`, …): what it is scored on.
-- \`signOff\`: \`done\` true when, for what the person asked, the page is good enough as it stands, with \`left\` empty; else \`done\` false and \`left\` saying in a sentence what has to change first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower one.`;
+- \`signOff\`: \`done\` true when, for what the person asked, the page is good enough as it stands: nothing a careful designer wouldn't ship is left (no blocker or major finding); minor findings and nits are worth fixing and don't hold it back. Then \`left\` is empty. Else \`done\` false and \`left\` saying in a sentence what has to change first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower one.`;
 
 /** A page's name as the review says it. */
 export const pageName = (page: {
