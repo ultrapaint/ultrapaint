@@ -37,16 +37,15 @@ import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { pickFigmaFile } from "../lib/import-figma.ts";
-import {
-  makeSystemFromCode,
-  startInit,
-  startNewLook,
-} from "../lib/start-thread.ts";
+import { openLookPage } from "../lib/look-page.ts";
+import { makeSystemFromCode, startInit } from "../lib/start-thread.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
+import { LookPanel } from "./look-panel.tsx";
 import { SyncView } from "./sync.tsx";
 
 const showSetup = () => useDesignSystemSetup.getState().show(true);
@@ -180,7 +179,7 @@ const DefaultLook = () => {
             <ChevronDown data-icon="inline-end" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={startNewLook}>
+            <DropdownMenuItem onClick={() => openLookPage()}>
               A new look…
             </DropdownMenuItem>
             <DropdownMenuItem onClick={pickFigmaFile}>
@@ -199,6 +198,7 @@ export const DesignSystemList = () => {
   const document = useDesignSystem((s) => s.document);
   const loaded = useDesignSystem((s) => s.loaded);
   const setupShown = useDesignSystemSetup((s) => s.shown);
+  const lookPage = useLookPage((s) => s.open);
   const openItem = useBoard((s) =>
     s.open?.view === "system" ? s.open.item : null
   );
@@ -212,6 +212,9 @@ export const DesignSystemList = () => {
 
   if (!configured) {
     return <NoFolder />;
+  }
+  if (lookPage) {
+    return <LookPanel />;
   }
   if (setupShown) {
     return <SyncView onBack={designSystem ? hideSetup : undefined} />;

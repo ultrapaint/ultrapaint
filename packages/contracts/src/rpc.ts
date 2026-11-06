@@ -13,7 +13,11 @@ import {
   ComponentEntry,
   ComponentList,
 } from "./components.ts";
-import { DesignSystem, DesignSystemState } from "./design-system.ts";
+import {
+  DesignFinding,
+  DesignSystem,
+  DesignSystemState,
+} from "./design-system.ts";
 import { DesignSystemEditInput } from "./design-system-edit.ts";
 import {
   DefineMode,
@@ -336,6 +340,18 @@ const requestRpcs = [
     error: Schema.Union([BadRequest, NotConfigured]),
     payload: DesignSystemEditInput,
     success: Schema.Struct({ files: Schema.Array(Schema.String) }),
+  }),
+  /**
+   * A whole design system saved, with DESIGN.md when given: a look chosen on the look page (ADR
+   * 0062). What the format's linter says comes back; an error of its refuses the write.
+   */
+  Rpc.make("designSystem.write", {
+    error: EditError,
+    payload: Schema.Struct({
+      designSystem: DesignSystem,
+      document: Schema.optional(Schema.String),
+    }),
+    success: Schema.Struct({ findings: Schema.Array(DesignFinding) }),
   }),
   /** Runs the fixed-rule scan and saves what it finds, without an agent. */
   Rpc.make("designSystem.detect", {
