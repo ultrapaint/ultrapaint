@@ -1,10 +1,13 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import {
   type ConfigOption,
   defaultChoice,
   namedChoices,
+  PromptAttachment,
   startingMode,
   summarise,
+  TEXT_ATTACHMENT_LIMIT,
   withNamedChoices,
 } from "./threads.ts";
 
@@ -126,5 +129,15 @@ describe("summarise", () => {
         },
       ])
     ).toEqual({ text: "Which alarm types?", waiting: true });
+  });
+});
+
+describe("a text file attached to a prompt", () => {
+  const decodes = (text: string) =>
+    Schema.is(PromptAttachment)({ kind: "text", name: "notes.md", text });
+
+  it("holds up to the limit, and no more", () => {
+    expect(decodes("x".repeat(TEXT_ATTACHMENT_LIMIT))).toBe(true);
+    expect(decodes("x".repeat(TEXT_ATTACHMENT_LIMIT + 1))).toBe(false);
   });
 });

@@ -522,6 +522,37 @@ describe("a turn", () => {
       assert.deepStrictEqual(uris, [pathToFileURL(path.join(repo, file)).href]);
     }));
 
+  test("reads a text file from the person's disk into the prompt's text, named in the transcript", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const agents = yield* ScriptedAgents;
+      // An agent that takes nothing but text still reads it.
+      yield* agents.script({ capabilities: { promptCapabilities: {} } });
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
+      yield* promptThread({
+        attachments: [
+          { kind: "text", name: "brief.md", text: "# Brief\nA habit tracker" },
+        ],
+        text: "make this",
+        threadId,
+      });
+      const turn = yield* Effect.flatMap(agents.next, (a) => a.nextTurn);
+      const file = turn.prompt.find(
+        (b) => b.type === "text" && b.text.includes("<attached-file")
+      );
+      assert.deepStrictEqual(file, {
+        text: 'The user attached the file brief.md:\n<attached-file name="brief.md">\n# Brief\nA habit tracker\n</attached-file>',
+        type: "text",
+      });
+      const { items } = yield* threadWhen(threadId, (_thread, all) =>
+        all.some((i) => i.kind === "user")
+      );
+      const user = items.find((i) => i.kind === "user");
+      assert.deepStrictEqual(user?.kind === "user" && user.attachments, [
+        "brief.md",
+      ]);
+    }));
+
   test("sends what the agent takes: a file as a link, a picture as a note, where it says it takes neither", () =>
     Effect.gen(function* () {
       const threads = yield* ThreadSessions;

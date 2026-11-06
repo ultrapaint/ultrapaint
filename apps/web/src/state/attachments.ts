@@ -1,7 +1,8 @@
 /**
  * What the composer of each thread sends along with its next prompt, as chips: nodes attached
  * from the canvas (Add to chat, a layer dragged in, the right-click menu), pages, what is
- * picked on a board of Design system or the Library (ADR 0045, B11), and images pasted in. A store, not
+ * picked on a board of Design system or the Library (ADR 0045, B11), and pictures and text files
+ * pasted, dropped or picked from disk (ADR 0064). A store, not
  * the composer's state: the canvas adds to it while the chat may be closed. `attachmentsOf` says
  * what chips go with a prompt as, a comment sent to an agent's included.
  */
@@ -45,25 +46,56 @@ export type Chip =
     }
   /** What is picked on a board, as the prompt carries it (`lib/board-chip.ts`). */
   | BoardAttachment
-  /** An image pasted into the composer, sent as the picture itself. */
-  | {
-      readonly dataUrl: string;
-      /** Tells two pasted images apart, whatever their names. */
-      readonly id: string;
-      readonly kind: "image";
-      readonly name: string;
-    };
+  /** A picture pasted, dropped or picked from disk, sent as the picture itself. */
+  | ImageChip
+  /** A text file from disk, sent as its text (ADR 0064). */
+  | TextChip;
 
-let images = 0;
+export interface ImageChip {
+  readonly dataUrl: string;
+  /** Tells two pictures apart, whatever their names. */
+  readonly id: string;
+  readonly kind: "image";
+  readonly name: string;
+}
 
-/** The chip of an image pasted in, as a data URL. */
-export const imageChip = (name: string, dataUrl: string): Chip => {
-  images += 1;
-  return { dataUrl, id: `${Date.now()}-${images}`, kind: "image", name };
+export interface TextChip {
+  /** Tells two files apart, whatever their names. */
+  readonly id: string;
+  readonly kind: "text";
+  readonly name: string;
+  /** Its size in bytes, as the chip's tooltip says it. */
+  readonly size: number;
+  readonly text: string;
+}
+
+let attached = 0;
+
+const attachedId = () => {
+  attached += 1;
+  return `${Date.now()}-${attached}`;
 };
 
-/** Whether a chip says where in the designs the prompt is about, which an image does not. */
-export const isPlace = (chip: Chip) => chip.kind !== "image";
+/** The chip of a picture, as a data URL. */
+export const imageChip = (name: string, dataUrl: string): ImageChip => ({
+  dataUrl,
+  id: attachedId(),
+  kind: "image",
+  name,
+});
+
+/** The chip of a text file, read. */
+export const textChip = (name: string, text: string): TextChip => ({
+  id: attachedId(),
+  kind: "text",
+  name,
+  size: new TextEncoder().encode(text).length,
+  text,
+});
+
+/** Whether a chip says where in the designs the prompt is about, which a file from disk does not. */
+export const isPlace = (chip: Chip) =>
+  chip.kind !== "image" && chip.kind !== "text";
 
 /** The key of a node's chip, known from where the node is without the node itself. */
 export const nodeKey = (frame: string, nodeId: string) =>
@@ -77,8 +109,8 @@ export const chipKey = (chip: Chip): string => {
   if (chip.kind === "board") {
     return boardChipKey(chip);
   }
-  if (chip.kind === "image") {
-    return `image:${chip.id}`;
+  if (chip.kind === "image" || chip.kind === "text") {
+    return `${chip.kind}:${chip.id}`;
   }
   return chip.kind === "node"
     ? nodeKey(chip.frame, chip.nodeId)
@@ -212,7 +244,7 @@ export const pageChip = (page: Page): Chip => ({
 
 /**
  * The chip a prompt's attachment came from, to put a queued prompt back in the composer: a node
- * found again where it is, a page, or a picture.
+ * found again where it is, a page, a picture or a text file.
  */
 export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
   if (attachment.kind === "board") {
@@ -220,6 +252,9 @@ export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
   }
   if (attachment.kind === "image") {
     return imageChip(attachment.name, attachment.dataUrl);
+  }
+  if (attachment.kind === "text") {
+    return textChip(attachment.name, attachment.text);
   }
   const { pages } = useProject.getState();
   if (attachment.kind === "file") {
@@ -281,6 +316,10 @@ export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
         kind: "image",
         name: chip.name,
       });
+      continue;
+    }
+    if (chip.kind === "text") {
+      attachments.push({ kind: "text", name: chip.name, text: chip.text });
       continue;
     }
     if (!files.has(chip.file)) {

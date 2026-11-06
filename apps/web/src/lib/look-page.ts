@@ -1,7 +1,7 @@
 /**
  * What the look page does (ADR 0062): it opens on the samples, writes the look the dials make as
- * the project's design system, leaves the look to an agent, or hands an agent a description or a
- * site to make it from. A first prompt from the start screen that waited for the look is sent
+ * the project's design system, leaves the look to an agent, or hands an agent a description, a
+ * site or pictures to make it from. A first prompt from the start screen that waited for the look is sent
  * once it is settled, in the chat it would have had.
  */
 import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
@@ -11,6 +11,7 @@ import {
   lookSystem,
   presetOf,
 } from "@ultrapaint/design-document/look-dials";
+import { attachmentsOf, type ImageChip } from "../state/attachments.ts";
 import {
   fitBoardsWhenLaidOut,
   leaveBoard,
@@ -77,17 +78,39 @@ export const letTheAgentDecide = async () => {
   await startNewLook();
 };
 
-/** An agent makes the look from what the person said (a description, a site), then the screen. */
-export const describeTheLook = async (description: string) => {
+/** What the agent is asked to make the look from: what the person wrote, the pictures, or both. */
+export const lookFrom = (description: string, pictures: number) => {
+  const said = description.trim();
+  const shown =
+    pictures === 1 ? "the picture attached" : "the pictures attached";
+  if (!said) {
+    return `Make this project's look from ${shown}.`;
+  }
+  return pictures > 0
+    ? `Make this project's look from this, and from ${shown}: ${said}`
+    : `Make this project's look from this: ${said}`;
+};
+
+/**
+ * An agent makes the look from what the person gave it (a description, a site, pictures), then
+ * the screen.
+ */
+export const describeTheLook = async (
+  description: string,
+  pictures: readonly ImageChip[] = []
+) => {
   const { pending } = useLookPage.getState();
-  const look = `Make this project's look from this: ${description.trim()}\n\nWrite its design system before anything else, and say in three lines what you chose.`;
+  const look = `${lookFrom(description, pictures.length)}\n\nWrite its design system before anything else, and say in three lines what you chose.`;
   hideLookPage();
   leaveBoard();
-  await sendPrompt({
-    look: "agent",
-    ...(pending ?? {}),
-    prompt: pending ? `${look}\n\nThen: ${pending.prompt}` : look,
-  });
+  await sendPrompt(
+    {
+      look: "agent",
+      ...(pending ?? {}),
+      prompt: pending ? `${look}\n\nThen: ${pending.prompt}` : look,
+    },
+    attachmentsOf(pictures)
+  );
 };
 
 // Leaving the samples (another place, another item) leaves the trial look with them.

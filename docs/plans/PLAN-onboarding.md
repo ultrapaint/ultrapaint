@@ -34,7 +34,8 @@ Each one ships alone, in this order.
    dials on a sidebar, sample screens on a canvas, an agent box for a description, a site or a
    picture. *Use this look* writes the design system and sends the prompt. *Done:* the page is
    the Design system place's `look` item, its samples drawn in the trial look; the agent box
-   takes a description or a site (a picture waits for the composer's attachments). Icon stroke
+   takes a description, a site or pictures, pasted, dropped or added with its picture button
+   (ADR 0064). Icon stroke
    and the token preset come with slice 5.
 5. **Token presets and icon stroke.** One preset per system, simple (shadcn's roles) or detailed
    (Atlassian's); the detailed one writes Tailwind v4's per-property namespaces and the system

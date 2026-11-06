@@ -169,6 +169,13 @@ export const BoardPickKind = Schema.Literals([
 export type BoardPickKind = typeof BoardPickKind.Type;
 
 /**
+ * The most a text file attached to a prompt holds (ADR 0064): 100 KB, about 25,000 tokens of the
+ * agent's context. The editor measures a file in bytes, the wire its text in characters, which
+ * are never more.
+ */
+export const TEXT_ATTACHMENT_LIMIT = 100_000;
+
+/**
  * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
  * can switch it between prompts. Its session starts with the first prompt that needs it, so a
  * thread exists before any agent does.
@@ -189,6 +196,15 @@ export const PromptAttachment = Schema.Union([
     dataUrl: Schema.String,
     kind: Schema.Literal("image"),
     name: Schema.String,
+  }),
+  /**
+   * A text file from the person's disk, read into the prompt (ADR 0064): its name and its text,
+   * at most `TEXT_ATTACHMENT_LIMIT` characters.
+   */
+  Schema.Struct({
+    kind: Schema.Literal("text"),
+    name: Schema.String,
+    text: Schema.String.check(Schema.isMaxLength(TEXT_ATTACHMENT_LIMIT)),
   }),
   /**
    * What the user has picked on a board of Design system or the Library (ADR 0045, B11): a
