@@ -1,6 +1,6 @@
 /**
  * The look page's panel (ADR 0062), in the Design system place while its samples are open: where
- * a look starts from, its dials, an agent asked to make it from a description or a site, and the
+ * a look starts from, its dials, an agent asked to make it from a description, a site or pictures, and the
  * way out, using the look or leaving it to the agent. Every dial is drawn on the samples at once.
  */
 
@@ -16,20 +16,28 @@ import {
   type Surfaces,
   TYPEFACES,
 } from "@ultrapaint/design-document/look-dials";
-import { ArrowUp, X } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { ArrowUp, ImagePlus, X } from "lucide-react";
+import { type ReactNode, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { ImageThumb } from "../components/image-thumb.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import {
+  admit,
+  pastedImages,
+  readFiles,
+  tellRefused,
+} from "../lib/attach-files.ts";
 import {
   describeTheLook,
   letTheAgentDecide,
   saveTheLook,
 } from "../lib/look-page.ts";
+import type { ImageChip } from "../state/attachments.ts";
 import { leaveBoard } from "../state/board.ts";
 import { hideLookPage, setDials, useLookPage } from "../state/look-page.ts";
 
@@ -162,11 +170,25 @@ const Dials = ({ dials }: { dials: LookDials }) => (
 /** An agent asked to make the look from a description or a site, instead of the dials. */
 const Describe = ({ busy }: { busy: boolean }) => {
   const [text, setText] = useState("");
-  // Sent with nothing written: what is missing, under the field, until something is.
+  const [pictures, setPictures] = useState<readonly ImageChip[]>([]);
+  const picker = useRef<HTMLInputElement>(null);
+  // Sent with nothing written or shown: what is missing, under the field, until something is.
   const [missing, setMissing] = useState(false);
+  const add = async (files: readonly File[]) => {
+    const read = await readFiles(files, "pictures");
+    const admitted = admit(
+      pictures,
+      read.chips.filter((c): c is ImageChip => c.kind === "image")
+    );
+    setPictures((now) => [...now, ...admitted.chips]);
+    if (admitted.chips.length > 0) {
+      setMissing(false);
+    }
+    tellRefused([...read.refused, ...admitted.refused]);
+  };
   const send = () => {
-    if (text.trim()) {
-      describeTheLook(text);
+    if (text.trim() || pictures.length > 0) {
+      describeTheLook(text, pictures);
     } else {
       setMissing(true);
     }
@@ -176,9 +198,26 @@ const Describe = ({ busy }: { busy: boolean }) => {
       <label className="font-heading-xsmall" htmlFor="look-description">
         Or describe it to an agent
       </label>
-      <div className="relative">
-        <Textarea
-          className="min-h-14 pr-9 font-small"
+      <FileDropBox
+        className="flex flex-col rounded-md border border-transparent bg-muted transition-colors duration-100 hover:border-input has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/25"
+        hint="Drop to add a picture"
+        onFiles={add}
+      >
+        {pictures.length > 0 ? (
+          <div className="flex flex-wrap gap-2 px-2 pt-2">
+            {pictures.map((chip) => (
+              <ImageThumb
+                chip={chip}
+                key={chip.id}
+                onRemove={() =>
+                  setPictures((now) => now.filter((p) => p.id !== chip.id))
+                }
+              />
+            ))}
+          </div>
+        ) : null}
+        <textarea
+          className="field-sizing-content min-h-14 w-full resize-none bg-transparent px-2 py-2 pr-16 font-small outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
           disabled={busy}
           id="look-description"
           onChange={(e) => {
@@ -191,21 +230,39 @@ const Describe = ({ busy }: { busy: boolean }) => {
               send();
             }
           }}
+          onPaste={(e) => {
+            const pasted = pastedImages(e.clipboardData);
+            if (pasted.length > 0) {
+              e.preventDefault();
+              add(pasted);
+            }
+          }}
           placeholder="Like linear.app, but warmer"
           value={text}
         />
-        <IconButton
-          className="absolute right-1 bottom-1 size-7"
-          disabled={busy}
-          onClick={send}
-          tooltip="Ask an agent for this look"
-        >
-          <ArrowUp />
-        </IconButton>
-      </div>
+        <div className="absolute right-1 bottom-1 flex items-center">
+          <IconButton
+            className="size-7 text-muted-foreground"
+            disabled={busy}
+            onClick={() => picker.current?.click()}
+            tooltip="Add a picture"
+          >
+            <ImagePlus />
+          </IconButton>
+          <IconButton
+            className="size-7"
+            disabled={busy}
+            onClick={send}
+            tooltip="Ask an agent for this look"
+          >
+            <ArrowUp />
+          </IconButton>
+        </div>
+        <FilesInput accept="image/*" onFiles={add} ref={picker} />
+      </FileDropBox>
       {missing ? (
         <span className="font-small text-muted-foreground" role="status">
-          Describe the look first, or name a site.
+          Describe the look, name a site or add a picture.
         </span>
       ) : null}
     </div>

@@ -6,9 +6,16 @@ import {
 } from "@ultrapaint/design-document/look-dials";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lookBoards } from "../boards/look-boards.ts";
+import { imageChip } from "../state/attachments.ts";
 import { useLookPage } from "../state/look-page.ts";
 import { fakeApi } from "../testing/fake-api.ts";
-import { openLookPage, overviewOf, saveTheLook } from "./look-page.ts";
+import {
+  describeTheLook,
+  lookFrom,
+  openLookPage,
+  overviewOf,
+  saveTheLook,
+} from "./look-page.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -63,6 +70,31 @@ describe("the look page", () => {
     expect(inputOf("threads.prompt")).toMatchObject({
       text: "A habit tracker",
     });
+  });
+
+  it("hands an agent the pictures it was given, with what was written or alone", async () => {
+    fakeApi.respond("threads.create", () => thread);
+    fakeApi.respond("threads.prompt", () => undefined);
+    const shot = imageChip("ref.png", "data:image/png;base64,AAAA");
+    await describeTheLook("", [shot]);
+    expect(inputOf("threads.prompt")).toMatchObject({
+      attachments: [
+        {
+          dataUrl: "data:image/png;base64,AAAA",
+          kind: "image",
+          name: "ref.png",
+        },
+      ],
+      text: expect.stringContaining(
+        "Make this project's look from the picture attached."
+      ),
+    });
+    expect(lookFrom("warmer", 2)).toBe(
+      "Make this project's look from this, and from the pictures attached: warmer"
+    );
+    expect(lookFrom("warmer", 0)).toBe(
+      "Make this project's look from this: warmer"
+    );
   });
 
   it("has its samples in light and dark", () => {

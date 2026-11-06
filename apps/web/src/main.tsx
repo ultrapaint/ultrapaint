@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app.tsx";
 import { frameErrors, frameOf } from "./canvas/editor-frame.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
+import { openLookPage } from "./lib/look-page.ts";
 import { pageById, zoomToPage } from "./lib/page-actions.ts";
 
 import { useAgents } from "./state/agents.ts";
@@ -30,6 +31,7 @@ if (import.meta.env.DEV) {
     openBoard,
     // What `pnpm bench:canvas` drives the canvas with.
     openCanvas,
+    openLookPage,
     select,
     setView,
     showLeftPanel,

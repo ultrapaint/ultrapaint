@@ -133,6 +133,10 @@ refactor and the board view left.
   (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
   `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
   `attachmentsOf`.
+- **File from disk**: a picture or a text file pasted, dropped or picked into a prompt (ADR 0064),
+  read by the web's `attach-files` (`readFiles`, `admit` for a prompt's limits) into an image chip
+  or a **text attachment** (`kind: "text"`, at most `TEXT_ATTACHMENT_LIMIT`), which the agent gets
+  in the prompt's text; any other file is refused with what to do instead.
 - **A turn's files**: the files the folder's stamps found changed during a turn (ADR 0031), told
   apart by its **witness** (`turn-witness`), which hears who each file was written for
   (`DesignFiles.writes`) and the files the agent's tool calls edit. When nothing else changed files

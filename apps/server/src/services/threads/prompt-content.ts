@@ -148,6 +148,13 @@ export const boardPickText = (a: BoardAttachment): string =>
 const boardPickLabel = (a: BoardAttachment) =>
   `${[a.name, memberKey(a.place), a.place?.state].filter(Boolean).join(" ")} @ ${a.file}`;
 
+/**
+ * A text file from the person's disk as the agent reads it (ADR 0064): in the prompt's text,
+ * which every agent takes, since it has no path in the project to link to.
+ */
+export const attachedText = (name: string, text: string) =>
+  `The user attached the file ${name}:\n<attached-file name=${JSON.stringify(name)}>\n${text}\n</attached-file>`;
+
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
 export const titleOf = (text: string) => {
   const line = text.trim().split("\n")[0]?.trim() ?? "";
@@ -221,6 +228,9 @@ export const makePromptContent = Effect.fnUntraced(function* () {
       } else if (a.kind === "board") {
         blocks.push(...(yield* boardBlocks(a, paths)));
         labels.push(boardPickLabel(a));
+      } else if (a.kind === "text") {
+        blocks.push({ text: attachedText(a.name, a.text), type: "text" });
+        labels.push(a.name);
       } else {
         const match = a.dataUrl.match(DATA_URL_RE);
         if (match?.[1] && match[2] !== undefined) {

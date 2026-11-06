@@ -8,7 +8,10 @@ import {
   FIRST_PROMPT_PARAM,
   FirstPrompt,
 } from "@ultrapaint/contracts/shell-bridge";
-import { isModelOption } from "@ultrapaint/contracts/threads";
+import {
+  isModelOption,
+  type PromptAttachment,
+} from "@ultrapaint/contracts/threads";
 import { Option, Schema } from "effect";
 import { api } from "../state/connection.ts";
 import { showLeftPanel } from "../state/panels.ts";
@@ -34,9 +37,12 @@ export const takeFirstPrompt = (): FirstPrompt | null => {
 
 /**
  * Sends a prompt in a new chat with the agent and model it names (the agent's own when it has no
- * such model), opened in the left panel.
+ * such model), opened in the left panel, with what it carries (the look page's pictures).
  */
-export const sendPrompt = async (start: FirstPrompt) => {
+export const sendPrompt = async (
+  start: FirstPrompt,
+  attachments: readonly PromptAttachment[] = []
+) => {
   try {
     const thread = await api().request("threads.create", {
       ...(start.agentId && { agentId: start.agentId }),
@@ -56,7 +62,7 @@ export const sendPrompt = async (start: FirstPrompt) => {
     }
     await showLeftPanel({ chat: thread, draft: "" });
     await api().request("threads.prompt", {
-      attachments: [],
+      attachments: [...attachments],
       text: start.prompt,
       threadId: thread.id,
     });

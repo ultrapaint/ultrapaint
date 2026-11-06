@@ -17,8 +17,10 @@ import {
   Camera,
   Component,
   FileInput,
+  FileText,
   ListPlus,
   Palette,
+  Paperclip,
   Pencil,
   Plus,
   SquareDashedMousePointer,
@@ -54,12 +56,14 @@ import {
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
+import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { ImageThumb } from "../components/image-thumb.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
+import { attachFiles, pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import { importFigma } from "../lib/import-figma.ts";
 import { chordLabel } from "../lib/keys.ts";
-import { attachImages, pastedImages } from "../lib/pasted-images.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -69,6 +73,7 @@ import {
   chipKey,
   chipOfAttachment,
   clearChips,
+  type ImageChip,
   isPlace,
   nodeChip,
   pageChip,
@@ -167,6 +172,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const [dismissed, setDismissed] = useState<readonly string[]>([]);
   const [attachShot, setAttachShot] = useState(false);
   const figma = useRef<HTMLInputElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const selection = useEditor((s) => s.selection);
   const activePage = useEditor((s) => s.activePage);
@@ -188,9 +194,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const selectedChip =
     (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
     boardChip;
-  // Pictures show as themselves, over the chips of the places the prompt is about.
+  // Pictures show as themselves, over the chips of the places the prompt is about and its files.
   const images = chips.filter(isImage);
   const places = chips.filter(isPlace);
+  const tags = chips.filter((chip) => !isImage(chip));
   const implicit =
     places.length > 0 ||
     selectedChip === null ||
@@ -285,7 +292,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     const pasted = pastedImages(e.clipboardData);
     if (pasted.length > 0) {
       e.preventDefault();
-      attachImages(thread.id, pasted);
+      attachFiles(thread.id, pasted);
     }
   };
   const cancel = () =>
@@ -315,7 +322,12 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         thread={thread}
       />
       <OpenQuestion answering={answering} threadId={thread.id} />
-      <div className={composerBox} data-composer>
+      <FileDropBox
+        className={composerBox}
+        data-composer
+        hint="Drop to attach"
+        onFiles={(dropped) => attachFiles(thread.id, dropped)}
+      >
         {images.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {images.map((chip) => (
@@ -327,9 +339,9 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             ))}
           </div>
         ) : null}
-        {places.length > 0 || implicit.length > 0 || showShot ? (
+        {tags.length > 0 || implicit.length > 0 || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
-            {places.map((chip) => (
+            {tags.map((chip) => (
               <AttachmentChip
                 chip={chip}
                 key={chipKey(chip)}
@@ -445,6 +457,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                 </DropdownMenuCheckboxItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => picker.current?.click()}>
+                <Paperclip />
+                Add pictures or files…
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => figma.current?.click()}>
                 <FileInput />
                 Import a .fig file…
@@ -463,6 +479,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             }}
             ref={figma}
             type="file"
+          />
+          <FilesInput
+            onFiles={(picked) => attachFiles(thread.id, picked)}
+            ref={picker}
           />
           <ModelPicker thread={thread} />
           <ReviewChip thread={thread} />
@@ -485,7 +505,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             )}
           </div>
         </div>
-      </div>
+      </FileDropBox>
     </div>
   );
 };
@@ -639,6 +659,9 @@ const chipTitle = (chip: Chip) => {
   if (chip.kind === "image") {
     return chip.name;
   }
+  if (chip.kind === "text") {
+    return `${chip.name} · ${sizeLabel(chip.size)}`;
+  }
   return chip.kind === "node" ? `${chip.name} · ${chip.file}` : chip.file;
 };
 
@@ -665,10 +688,13 @@ const BoardIcon = ({ chip }: { chip: Chip & { kind: "board" } }) => {
   }
 };
 
-/** The icon a chip leads with: a page, a component, an element, a board's pick. */
+/** The icon a chip leads with: a page, a component, an element, a board's pick, a file. */
 const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
   if (chip.kind === "board") {
     return <BoardIcon chip={chip} />;
+  }
+  if (chip.kind === "text") {
+    return <FileText />;
   }
   if (chip.kind === "page") {
     return <AppWindow />;
@@ -676,39 +702,7 @@ const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
   return component ? <Component /> : <SquareDashedMousePointer />;
 };
 
-type ImageChip = Extract<Chip, { kind: "image" }>;
-
 const isImage = (chip: Chip): chip is ImageChip => chip.kind === "image";
-
-/** A picture sent with the next prompt, as itself; its × shows over its corner on hover. */
-const ImageThumb = ({
-  chip,
-  onRemove,
-}: {
-  chip: ImageChip;
-  onRemove: () => void;
-}) => (
-  <span
-    className="group/thumb relative size-14 shrink-0"
-    title={chipTitle(chip)}
-  >
-    <img
-      alt={chip.name}
-      className="size-full rounded-md object-cover outline outline-black/10 -outline-offset-1 dark:outline-white/10"
-      height={56}
-      src={chip.dataUrl}
-      width={56}
-    />
-    <button
-      aria-label={`Remove ${chip.name}`}
-      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-foreground text-background opacity-0 outline-none transition-opacity duration-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/thumb:opacity-100 [&_svg]:size-3"
-      onClick={onRemove}
-      type="button"
-    >
-      <X />
-    </button>
-  </span>
-);
 
 /** The chips' look: a raised neutral tag in the composer's well; dashed when only implied. */
 const chipClass =
