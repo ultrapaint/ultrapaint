@@ -28,6 +28,7 @@ import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
+import { makeSystemFromCode } from "../lib/start-thread.ts";
 import { Swatch } from "../lib/token-options.tsx";
 import {
   type BoardPlace,
@@ -151,7 +152,15 @@ const SystemBody = ({
   }
   if (!ds) {
     return (
-      <PanelEmpty icon={<Palette />} title="The default look is fixed">
+      <PanelEmpty
+        action={
+          <Button onClick={makeSystemFromCode} size="sm" variant="secondary">
+            Make it from the code
+          </Button>
+        }
+        icon={<Palette />}
+        title="The default look is fixed"
+      >
         Make the project’s own design system to change its values.
       </PanelEmpty>
     );

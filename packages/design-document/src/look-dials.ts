@@ -159,9 +159,9 @@ const DENSITY: Record<
   Density,
   { readonly body: string; readonly spacing: string }
 > = {
-  compact: { body: "0.875rem", spacing: "0.225rem" },
-  open: { body: "1rem", spacing: "0.275rem" },
-  regular: { body: "0.9375rem", spacing: "0.25rem" },
+  compact: { body: "0.9375rem", spacing: "0.225rem" },
+  open: { body: "1.0625rem", spacing: "0.275rem" },
+  regular: { body: "1rem", spacing: "0.25rem" },
 };
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -242,7 +242,13 @@ const colorsOf = (dials: LookDials): Token[] => {
       g(0.3),
       "Rules and the edges of cards"
     ),
-    token("color-input", g(0.88), g(0.33), "The edges of fields"),
+    // A field's edge and an unchecked box read at 3:1 on a card, as the skill asks.
+    token(
+      "color-input",
+      g(0.64),
+      g(0.52),
+      "The edges of fields and checkboxes"
+    ),
     token("color-ring", dials.brand, darkBrand, "The focus ring"),
   ];
 };
@@ -307,13 +313,17 @@ const SHADOWS = {
   sm: "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)",
 };
 
-/** The type scale, its body at the density's size and the rest in proportion. */
+/**
+ * The type scale, its body at the density's size and the rest in proportion, never under the
+ * skill's floors: a caption 13px, interface text 14px. Density shows mostly in the spacing.
+ */
 const sizesOf = (density: Density) => {
   const body = Number.parseFloat(DENSITY[density].body);
-  const rem = (factor: number) => `${round3(body * factor)}rem`;
+  const rem = (factor: number, floor = 0) =>
+    `${round3(Math.max(body * factor, floor))}rem`;
   return [
-    { ...token("text-xs", rem(0.8)), lineHeight: "1.4" },
-    { ...token("text-sm", rem(0.9)), lineHeight: "1.45" },
+    { ...token("text-xs", rem(0.8, 0.8125)), lineHeight: "1.4" },
+    { ...token("text-sm", rem(0.9, 0.875)), lineHeight: "1.45" },
     { ...token("text-base", rem(1)), lineHeight: "1.5" },
     { ...token("text-lg", rem(1.15)), lineHeight: "1.5" },
     { ...token("text-xl", rem(1.3)), lineHeight: "1.4" },

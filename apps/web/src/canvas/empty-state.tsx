@@ -13,6 +13,7 @@ import { newCanvas } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { newPage } from "../lib/page-actions.ts";
 import { chooseFolder } from "../lib/project-setup.ts";
+import { startPrompt } from "../lib/start-thread.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -21,6 +22,10 @@ import { useProject } from "../state/project.ts";
 const keepFromCanvas = (e: ReactPointerEvent) => e.stopPropagation();
 
 const askAgent = () => showLeftPanel("chat");
+
+/** A new chat drafted to draw the canvas's first page, for the person to finish and send. */
+const askForFirstPage = (canvas: string) =>
+  startPrompt(`Draw the first page of ${canvas}: `);
 
 /**
  * An empty state on the canvas, as every panel has one: a muted icon, what will be here in one
@@ -65,13 +70,13 @@ const NoPages = ({ canvas }: { canvas: string }) => {
     <Lead
       description="Pages are drawn here side by side, one for each screen of this part of the app."
       icon={PanelsTopLeft}
-      title={`${name} has no pages yet`}
+      title="No pages yet"
     >
       <Button onClick={newPage}>
         <Plus />
         New page
       </Button>
-      <Button onClick={askAgent} variant="outline">
+      <Button onClick={() => askForFirstPage(name)} variant="outline">
         <Sparkles />
         Ask an agent
       </Button>

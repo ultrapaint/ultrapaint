@@ -6,6 +6,7 @@
  * offers them. Everything already on disk opens with one button, the recent projects under it.
  * There is no server behind it: all of it goes through `Platform`.
  */
+import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import { cn } from "cn";
 import {
   ArrowLeft,
@@ -14,7 +15,7 @@ import {
   CircleAlert,
   Folder,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { composerBox, composerText } from "./components/composer-style.ts";
+import { IconButton } from "./components/icon-button.tsx";
 import { Logo } from "./components/logo.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
 import {
@@ -126,10 +128,13 @@ const AlreadyAProject = ({
   folder,
   onChooseAnother,
   onClose,
+  start,
 }: {
   folder: { readonly name: string; readonly path: string } | null;
   onChooseAnother: () => void;
   onClose: () => void;
+  /** What was written: sent in a new chat there once it opens. */
+  start: FirstPrompt | null;
 }) => {
   const { projects } = platform();
   return (
@@ -147,7 +152,9 @@ const AlreadyAProject = ({
             {folder?.name} is already an Ultrapaint project
           </DialogTitle>
           <DialogDescription>
-            Open it to go on with it. A prompt here always starts a new project.
+            {start
+              ? "Open it, and your prompt goes to a new chat there."
+              : "Open it to go on with it."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -157,7 +164,9 @@ const AlreadyAProject = ({
           <Button
             onClick={() => {
               if (folder) {
-                projects?.openFolder(folder.path).catch(() => undefined);
+                projects
+                  ?.openFolder(folder.path, start ?? undefined)
+                  .catch(() => undefined);
               }
               onClose();
             }}
@@ -180,6 +189,9 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
   const { chosen, models, setChosen } = useModels();
   const [doing, setDoing] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  // Pressed with nothing written: what is missing, under the prompt, until something is.
+  const [missing, setMissing] = useState(false);
+  const promptField = useRef<HTMLTextAreaElement>(null);
   const [project, setProject] = useState<{
     readonly name: string;
     readonly path: string;
@@ -203,17 +215,25 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
     });
   };
 
+  /** What the prompt starts with: its text, who picks the look, the agent and model. */
+  const startOf = (prompt: string): FirstPrompt => ({
+    look,
+    prompt,
+    ...(chosen && { agentId: chosen.agentId }),
+    ...(chosen?.model !== undefined && { model: chosen.model }),
+  });
+
   const send = async () => {
     const prompt = text.trim();
-    if (!prompt || doing !== null || !newDesign || !projects) {
+    if (!prompt) {
+      setMissing(true);
+      promptField.current?.focus();
       return;
     }
-    const start = {
-      look,
-      prompt,
-      ...(chosen && { agentId: chosen.agentId }),
-      ...(chosen?.model !== undefined && { model: chosen.model }),
-    };
+    if (doing !== null || !newDesign || !projects) {
+      return;
+    }
+    const start = startOf(prompt);
     setFailed(null);
     setDoing(STEP_DOING.folder);
     try {
@@ -270,7 +290,10 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
           autoFocus
           className={cn(composerText, "min-h-24")}
           disabled={doing !== null}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setMissing(false);
+          }}
           onKeyDown={(e) => {
             if (isSendKey(e, sendKey)) {
               e.preventDefault();
@@ -278,6 +301,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
             }
           }}
           placeholder="A booking app for a climbing gym…"
+          ref={promptField}
           value={text}
         />
         <div className="@container flex min-w-0 items-center gap-0.5 p-1.5 pt-0">
@@ -316,15 +340,15 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
               {...(chosen.effort === undefined ? {} : { extra: chosen.effort })}
             />
           ) : null}
-          <Button
-            aria-label="Start"
+          <IconButton
             className="rounded-full"
-            disabled={text.trim() === "" || doing !== null}
+            disabled={doing !== null}
             onClick={send}
-            size="icon"
+            tooltip="Start the project"
+            variant="default"
           >
             {doing === null ? <ArrowUp /> : <Spinner />}
-          </Button>
+          </IconButton>
         </div>
       </div>
       {doing === null ? null : (
@@ -332,6 +356,11 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
           {doing}
         </span>
       )}
+      {missing && doing === null ? (
+        <span className="px-1 font-small text-muted-foreground" role="status">
+          Say what you want to make first.
+        </span>
+      ) : null}
       {failed ? (
         <Alert variant="destructive">
           <CircleAlert />
@@ -348,6 +377,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
           chooseFolder().catch((error: unknown) => onProblem(messageOf(error)));
         }}
         onClose={() => setProject(null)}
+        start={text.trim() ? startOf(text.trim()) : null}
       />
     </div>
   );
@@ -479,8 +509,8 @@ const Welcome = () => {
         </Alert>
       ) : null}
       <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <h2 className="font-small text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-heading-xsmall">
             {list.length > 0 ? "Recent projects" : "No projects yet"}
           </h2>
           <OpenProject onProblem={setProblem} />
@@ -490,7 +520,7 @@ const Welcome = () => {
             {list.map((project) => (
               <li key={project.id}>
                 <button
-                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:bg-accent"
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   onClick={() => projects?.open(project.id).catch(say)}
                   type="button"
                 >
@@ -508,7 +538,7 @@ const Welcome = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-pretty px-1 font-small text-muted-foreground">
+          <p className="text-pretty font-small text-muted-foreground">
             Open a folder that holds an app to design on it, here or over SSH.
           </p>
         )}
