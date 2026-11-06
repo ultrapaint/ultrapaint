@@ -56,7 +56,7 @@ describe("Settings › Agents › Review", () => {
     render(undefined);
     expect(pressed()).toEqual(["Standard"]);
     expect(container.textContent).toContain(
-      "Your review models take turns, and all of them approve the result."
+      "One review model looks, in turn; then all of them check the fixes."
     );
     // Keeping findings is the person's, in Preferences (ADR 0066).
     expect(rows()).toEqual(["Level", "Review models"]);

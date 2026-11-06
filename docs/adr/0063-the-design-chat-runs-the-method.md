@@ -1,6 +1,6 @@
 # ADR 0063: The design chat runs the method, and the person sets how much review it gets
 
-Status: accepted, 2026-11-06. Builds on 0060 (the council) and 0061 (checks before reviews), and
+Status: accepted, 2026-11-06; amended the same day by the lab (the lighter review, below). Builds on 0060 (the council) and 0061 (checks before reviews), and
 replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
 `docs/plans/PLAN-design-chat.md`, mocks in `docs/plans/design-chat/`.
 
@@ -55,3 +55,24 @@ redesign in four rounds of mocks and chose the names and controls below.
   files; a check that needs the code waits for the checks at each edit (ADR 0061).
 - The run card's Outline step shows only when the agent writes one, until the skill's outline
   step ships (review-loop plan, phase 4).
+
+## Amended: the lighter review (2026-11-06)
+
+In the lab (`~/Code/ultrapaint-data/runs/chat-compare/summary.md`), Codex designed three screens
+without review and with Standard as first built (Opus and GPT-6.1-Sol in turn, fresh looks, six
+rounds at most). With review, a panel of fresh reviewers (GPT-6.1-Sol and Grok 4.7) still found
+36.3 problems a screen against 33.3 without, at 7× the time and 6× the tokens; no review ended
+approved, each fresh look finding 2–4 new majors once the last were fixed. The person chose a
+lighter review:
+
+- Only blockers and majors go to the designer; minor findings and nits stay in the round, for the
+  person to see. A review model with none to send approves.
+- Round 1 is a first look by the round's model (in turn). Round 2 is a second look, by every review
+  model when all are to approve, else by the first look's: told what the designer was sent, it
+  gives back only what isn't fixed and any new blocker.
+- Two rounds at most (contracts' `MAX_ROUNDS`). At the cap, blockers and majors left are sent once
+  more and the review ends there.
+- A finding the states of one screen share is given once, naming its pages.
+
+The levels keep their names: Quick (the first model looks, then checks the fixes), Standard (one
+model looks, in turn; then all check the fixes), Thorough (all look, then all check).
