@@ -181,8 +181,9 @@ are the design's: change them in the design system, never in a stylesheet.`;
 const DESIGN_CHAT = `How you work in this chat:
 - Before the first node, say your plan once, in at most three sentences: the page, its sections
   and the states each will have. Then work; don't narrate each step.
-- Keep your plan (your todo list) as "Outline", then one "Build <section>" per section, ticked
-  off as you go: the chat shows it as the run's progress.
+- Keep your plan with your plan or todo tool, as "Outline", then one "Build <section>" per
+  section, ticked off as you go: the chat shows it as the run's progress, so never write the
+  list into your messages.
 - When your turn ends, the editor has the user's review models look at what you made and sends
   you their findings. Fix each, or decline it with its reason, and end that reply with one line
   per declined finding: "Declined: <title> — <reason>". The editor runs the review: don't start
