@@ -482,10 +482,9 @@ export class ReviewLoop extends Context.Service<
             reason,
             status: "no-score",
           });
-          const next =
-            reason === TIMED_OUT
-              ? standInFor(review.models, model, state.inRound)
-              : undefined;
+          // Silent past the time or failed (signed out, its prompt too long): the next model in
+          // turn takes the round.
+          const next = standInFor(review.models, model, state.inRound);
           if (next !== undefined) {
             state.inRound.add(formatReviewModel(next));
             const entry = yield* looking(next);

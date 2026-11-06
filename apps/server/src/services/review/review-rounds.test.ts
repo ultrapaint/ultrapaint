@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Option } from "effect";
+import { withoutDataUrls } from "./page-views.ts";
 import {
+  answeredRound,
   answerOf,
   answersByPage,
   declinedOf,
@@ -234,5 +236,49 @@ describe("the designer's answer", () => {
       findings
     );
     expect([...declined.entries()]).toEqual([[1, "out of scope"]]);
+  });
+});
+
+describe("a round answered", () => {
+  it("counts as fixed only what the designer was sent, less what it declined", () => {
+    const answered = {
+      at: 0,
+      findings: [
+        {
+          ...finding,
+          reviewer: "opus",
+          severity: "major" as const,
+          title: "A",
+        },
+        {
+          ...finding,
+          reviewer: "opus",
+          severity: "major" as const,
+          title: "B",
+        },
+        {
+          ...finding,
+          reviewer: "opus",
+          severity: "minor" as const,
+          title: "C",
+        },
+      ],
+      id: "r1",
+      kind: "review" as const,
+      maxRounds: 2,
+      reviewers: [],
+      round: 1,
+    };
+    expect(answeredRound(answered, new Map([[1, "the brief"]])).fixed).toBe(1);
+  });
+});
+
+describe("what a reviewer is shown", () => {
+  it("says an image inlined as data by its type and size, not its bytes", () => {
+    const data = `data:image/png;base64,${"A".repeat(4096)}`;
+    const shown = withoutDataUrls(JSON.stringify({ src: data, text: "Hi" }));
+    expect(shown).not.toContain("AAAA");
+    expect(shown).toContain("(a image/png inlined as data, 3 KB)");
+    expect(shown).toContain('"text":"Hi"');
   });
 });
