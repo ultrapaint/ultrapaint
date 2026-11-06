@@ -42,9 +42,16 @@ error. This repository's DESIGN.md already had a `## Content` of its own.
 
 ## Consequences
 
+- The split was measured before it stayed: in `recall-copy-1` (Opus, effort high, 2 runs on the
+  five sections holding the word gaps) the shipped split caught 77/92 (+7 partly) of the gaps,
+  the old single file 76/92 (+5 partly).
 - A project's copy guide is its DESIGN.md, which agents outside the editor read too; nothing else
   holds the product's words.
-- Writing the words with the outline, a copy check on the document and a review model for the
-  words alone are left to the lab: each starts as a gap.
+- Writing the words before drawing (gap p11) and the product's vocabulary in its Content (gap
+  g52) are measured in the lab before the skill takes them. A review model for the words alone
+  waits for what p11 leaves.
+- No program checks the words. `catchable-2` sorted every finding about words, among 283 (the
+  gaps, the held-out findings rated real, a panel's), as one a text list of the words shows, and
+  none as one a program would catch; a check joins ADR 0061's only when it catches a gap.
 - Every DESIGN.md this tool makes has a Content heading; one written elsewhere keeps its sections,
   and a Content added later is placed before its Do's and Don'ts.
