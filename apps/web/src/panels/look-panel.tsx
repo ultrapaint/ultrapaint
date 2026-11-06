@@ -3,10 +3,13 @@
  * a look starts from, its dials, an agent asked to make it from a description or a site, and the
  * way out, using the look or leaving it to the agent. Every dial is drawn on the samples at once.
  */
+
+import type { TokenPreset } from "@ultrapaint/contracts/token-presets";
 import {
   type Corners,
   type Density,
   type Greys,
+  type IconStroke,
   LOOK_PRESETS,
   type LookDials,
   presetOf,
@@ -87,7 +90,8 @@ const Dials = ({ dials }: { dials: LookDials }) => (
         onChange={(name) => {
           const preset = LOOK_PRESETS.find((p) => p.name === name);
           if (preset) {
-            setDials(preset.dials);
+            // How the colours are named is the person's, whatever the preset.
+            setDials({ ...preset.dials, tokens: dials.tokens });
           }
         }}
         options={LOOK_PRESETS.map((p) => ({ label: p.name, value: p.name }))}
@@ -132,6 +136,25 @@ const Dials = ({ dials }: { dials: LookDials }) => (
         size="sm"
         value={dials.typeface}
       />
+    </Dial>
+    <Dial label="Icon stroke">
+      <Segmented<IconStroke>
+        onChange={(iconStroke) => setDials({ iconStroke })}
+        options={choices("light", "regular", "bold")}
+        value={dials.iconStroke}
+      />
+    </Dial>
+    <Dial label="Tokens">
+      <Segmented<TokenPreset>
+        onChange={(tokens) => setDials({ tokens })}
+        options={choices("simple", "detailed")}
+        value={dials.tokens}
+      />
+      <span className="font-small text-muted-foreground">
+        {dials.tokens === "simple"
+          ? "primary, muted-foreground, border: shadcn’s roles"
+          : "text-subtle, bg-danger-subtle, border-focus: by property, as Atlassian’s"}
+      </span>
     </Dial>
   </div>
 );

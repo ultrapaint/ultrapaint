@@ -8,6 +8,7 @@
  */
 import { Schema } from "effect";
 import { SyncBaseline } from "./sync.ts";
+import { TokenPreset } from "./token-presets.ts";
 import { DEFAULT_SPACING_BASE } from "./token-table.ts";
 
 export const DESIGN_SYSTEM_FILE = "design-system.json";
@@ -149,6 +150,11 @@ export const IconSet = Schema.Struct({
   from: Schema.optional(Schema.String),
   /** Sizes in pixels, smallest first. */
   sizes: Schema.optional(Schema.Array(Schema.Number)),
+  /**
+   * The stroke the icons are drawn at, in Lucide's units on its 24px grid (ADR 0062): the look's
+   * own, 2 when absent. The system components' glyphs follow it.
+   */
+  stroke: Schema.optional(Schema.Number),
 });
 export type IconSet = typeof IconSet.Type;
 
@@ -210,6 +216,8 @@ export const DesignSystem = Schema.Struct({
   sync: Schema.optional(SyncBaseline),
   /** Names of the themes the values are given in, the default first. */
   themes: Schema.optional(Schema.Array(Schema.String)),
+  /** How its colours are named (ADR 0062): `simple` roles when absent, or `detailed` tokens. */
+  tokenPreset: Schema.optional(TokenPreset),
   typography: Schema.Struct({
     fonts: Schema.Array(FontFamily),
     leading: Schema.optional(Schema.Array(Token)),

@@ -10,6 +10,7 @@ import {
   starterTextStyles,
   type Token,
 } from "@ultrapaint/contracts/design-system";
+import type { TokenPreset } from "@ultrapaint/contracts/token-presets";
 import {
   contrastRatio,
   parseColor,
@@ -20,6 +21,7 @@ export type Greys = "warm" | "neutral" | "cool";
 export type Corners = "sharp" | "soft" | "round";
 export type Density = "compact" | "regular" | "open";
 export type Surfaces = "flat" | "borders" | "shadows";
+export type IconStroke = "light" | "regular" | "bold";
 
 export interface LookDials {
   /** The brand colour, any CSS colour: the main action, the selection, the focus ring. */
@@ -27,10 +29,20 @@ export interface LookDials {
   readonly corners: Corners;
   readonly density: Density;
   readonly greys: Greys;
+  readonly iconStroke: IconStroke;
   readonly surfaces: Surfaces;
+  /** How the colours are named: shadcn's roles, or tokens by property and meaning. */
+  readonly tokens: TokenPreset;
   /** One of `TYPEFACES`, by its name. */
   readonly typeface: string;
 }
+
+/** Lucide's stroke on its 24px grid, for each weight the page offers. */
+export const ICON_STROKES: Record<IconStroke, number> = {
+  bold: 2.5,
+  light: 1.5,
+  regular: 2,
+};
 
 /** A typeface the look page offers: its stack, and the stylesheet that loads it. */
 export interface Typeface {
@@ -71,7 +83,9 @@ export const LOOK_PRESETS: readonly LookPreset[] = [
       corners: "soft",
       density: "regular",
       greys: "warm",
+      iconStroke: "regular",
       surfaces: "borders",
+      tokens: "simple",
       typeface: "Figtree",
     },
     name: "Calm",
@@ -82,7 +96,9 @@ export const LOOK_PRESETS: readonly LookPreset[] = [
       corners: "sharp",
       density: "open",
       greys: "warm",
+      iconStroke: "light",
       surfaces: "flat",
+      tokens: "simple",
       typeface: "IBM Plex Sans",
     },
     name: "Notebook",
@@ -93,7 +109,9 @@ export const LOOK_PRESETS: readonly LookPreset[] = [
       corners: "round",
       density: "regular",
       greys: "neutral",
+      iconStroke: "bold",
       surfaces: "shadows",
+      tokens: "simple",
       typeface: "Nunito",
     },
     name: "Playful",
@@ -104,7 +122,9 @@ export const LOOK_PRESETS: readonly LookPreset[] = [
       corners: "sharp",
       density: "compact",
       greys: "cool",
+      iconStroke: "regular",
       surfaces: "borders",
+      tokens: "simple",
       typeface: "Inter",
     },
     name: "Crisp",
@@ -114,9 +134,10 @@ export const LOOK_PRESETS: readonly LookPreset[] = [
 /** The preset these dials are, if they are one. */
 export const presetOf = (dials: LookDials): LookPreset | undefined =>
   LOOK_PRESETS.find((p) =>
-    (Object.keys(p.dials) as (keyof LookDials)[]).every(
-      (k) => p.dials[k].toLowerCase() === dials[k].toLowerCase()
-    )
+    (Object.keys(p.dials) as (keyof LookDials)[])
+      // How the colours are named is not a look's: any preset is written either way.
+      .filter((k) => k !== "tokens")
+      .every((k) => p.dials[k].toLowerCase() === dials[k].toLowerCase())
   );
 
 /** How each family of greys leans: its hue, and how much of it. */
@@ -226,6 +247,60 @@ const colorsOf = (dials: LookDials): Token[] => {
   ];
 };
 
+/** A role's value in light and dark, as another token's. */
+const like = (roles: readonly Token[], role: string, name: string) => {
+  const found = roles.find((t) => t.name === role);
+  return token(name, found?.value ?? "", found?.values?.dark);
+};
+
+/**
+ * The detailed preset's colours (ADR 0062), by property and meaning, from the roles' values:
+ * what text, a background or a border is for, each in Tailwind v4's namespace for it.
+ */
+const detailedColorsOf = (dials: LookDials, roles: readonly Token[]) => {
+  const g = greyOf(dials.greys);
+  return [
+    {
+      name: "Text",
+      tokens: [
+        like(roles, "color-foreground", "text-color-default"),
+        like(roles, "color-muted-foreground", "text-color-subtle"),
+        token("text-color-subtlest", g(0.58), g(0.6)),
+        like(roles, "color-primary-foreground", "text-color-on-brand"),
+        token("text-color-inverse", "oklch(1 0 0)"),
+        like(roles, "color-primary", "text-color-brand"),
+        like(roles, "color-destructive", "text-color-danger"),
+      ],
+    },
+    {
+      name: "Background",
+      tokens: [
+        like(roles, "color-background", "background-color-default"),
+        like(roles, "color-card", "background-color-raised"),
+        like(roles, "color-popover", "background-color-overlay"),
+        like(roles, "color-muted", "background-color-neutral"),
+        like(roles, "color-accent", "background-color-neutral-hovered"),
+        like(roles, "color-primary", "background-color-brand-bold"),
+        like(roles, "color-destructive", "background-color-danger-bold"),
+        token(
+          "background-color-danger-subtle",
+          "oklch(0.97 0.02 27)",
+          "oklch(0.3 0.07 27)"
+        ),
+      ],
+    },
+    {
+      name: "Border",
+      tokens: [
+        like(roles, "color-border", "border-color-default"),
+        like(roles, "color-input", "border-color-input"),
+        like(roles, "color-ring", "border-color-focus"),
+        like(roles, "color-destructive", "border-color-danger"),
+      ],
+    },
+  ];
+};
+
 const SHADOWS = {
   lg: "0 12px 24px -6px rgb(0 0 0 / 0.14), 0 4px 8px -4px rgb(0 0 0 / 0.08)",
   md: "0 4px 10px -2px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.06)",
@@ -287,8 +362,12 @@ export const lookSystem = (dials: LookDials): DesignSystem => {
   const sizes = sizesOf(dials.density);
   const [sm, md, lg] = RADII[dials.corners];
   const raised = dials.surfaces === "shadows";
+  const roles = colorsOf(dials);
+  const detailed = dials.tokens === "detailed";
   return {
-    colors: [{ name: "Semantic", tokens: colorsOf(dials) }],
+    colors: detailed
+      ? detailedColorsOf(dials, roles)
+      : [{ name: "Semantic", tokens: roles }],
     elevation: [
       {
         description: "The page and what sits flat on it",
@@ -313,9 +392,10 @@ export const lookSystem = (dials: LookDials): DesignSystem => {
       },
     ],
     icons: {
-      description: "Lucide, beside a label wherever there is room for one",
+      description: `Lucide at a ${ICON_STROKES[dials.iconStroke]}px stroke, beside a label wherever there is room for one`,
       from: "lucide-react",
       sizes: [16, 20],
+      stroke: ICON_STROKES[dials.iconStroke],
     },
     radius: [
       token("radius-sm", sm, undefined, "Items inside menus and lists"),
@@ -330,6 +410,7 @@ export const lookSystem = (dials: LookDials): DesignSystem => {
     source: "Chosen on the look page",
     spacing: { base: DENSITY[dials.density].spacing },
     themes: ["light", "dark"],
+    ...(detailed && { tokenPreset: "detailed" as const }),
     typography: {
       fonts,
       leading: LEADING,
@@ -357,4 +438,8 @@ export const dialsLine = (dials: LookDials): string =>
     dials.surfaces === "flat"
       ? "flat surfaces"
       : `surfaces set apart by ${dials.surfaces}`,
+    `${dials.iconStroke} icon strokes`,
+    dials.tokens === "detailed"
+      ? "colours named by property and meaning"
+      : "colours named by role",
   ].join(", ");

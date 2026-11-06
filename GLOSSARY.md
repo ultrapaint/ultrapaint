@@ -34,7 +34,9 @@ refactor and the board view left.
   _Avoid_: setup dialog, first-run setup.
 - **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
   **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
-  property and meaning (`text.subtle`, `background.success.subtle`, Atlassian's).
+  property and meaning (`text.subtle`, `background.success.subtle`, Atlassian's), written in
+  Tailwind v4's per-property namespaces (`--text-color-subtle`): contracts' `token-presets`, its
+  `DETAILED_ROLES` saying which detailed token each role the system components read is.
   _Avoid_: semantic layer, token style.
 - **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
   Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the

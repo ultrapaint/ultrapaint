@@ -122,6 +122,7 @@ export const DEFAULT_LOOK: DesignSystem = {
       "Lucide at a 2px stroke, beside a label wherever there is room for one",
     from: "lucide-react",
     sizes: [16, 20],
+    stroke: 2,
   },
   radius: [
     token("radius-sm", "0.375rem", "Items inside menus and lists"),
