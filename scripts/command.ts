@@ -14,7 +14,10 @@
  * watch`, which restarts it when a file changes, and the editor under Vite, which reloads it.
  * The browser opens on Vite's port, and Vite proxies the API and the socket to the server. A
  * session started without a configuration is kept in a directory the command owns, so the
- * server's restarts keep it and quitting the command still throws it away. `pnpm dev` in the
+ * server's restarts keep it and quitting the command still throws it away. Run as the desktop
+ * app runs a project's server over SSH (`--port 0 --ready-json --stop-with-stdin`), `--dev`
+ * picks its two ports once, says in its ready line where Vite is, and stops when its stdin
+ * closes: the app on another machine shows this checkout's sources as they change. `pnpm dev` in the
  * checkout is this mode with development's ports and settings; a project that links the
  * checkout gets it as `ultrapaint --dev`.
  *
@@ -25,6 +28,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
@@ -103,9 +107,18 @@ FLAGS OF THE COMMAND
   ULTRAPAINT_WEB_PORT is its port (default: the server's port plus one).
 `;
 
-/** The server's ready line: where it listens. */
+/** The server's ready line (`--ready-json`, ADR 0031): where it listens, and which run it is. */
+const ReadyLine = Schema.Struct({
+  /** The server found another already running for the project; this is that one's line. */
+  attached: Schema.optional(Schema.Boolean),
+  pid: Schema.Int,
+  port: Schema.Int,
+  token: Schema.String,
+  url: Schema.String,
+});
+type ReadyLine = typeof ReadyLine.Type;
 const decodeReady = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Struct({ url: Schema.String }))
+  Schema.fromJsonString(ReadyLine)
 );
 
 /** The value of `--name value` or `--name=value` in the arguments, if given. */
@@ -117,6 +130,67 @@ const flagValue = (args: readonly string[], name: string) => {
     ? undefined
     : (args[index]?.split("=")[1] ?? args[index + 1]);
 };
+
+/** The arguments without the flag `--name value` or `--name=value`, however often given. */
+const withoutFlag = (args: readonly string[], name: string) =>
+  args.filter(
+    (arg, index) =>
+      !(
+        arg === name ||
+        arg.startsWith(`${name}=`) ||
+        (args[index - 1] === name && !arg.startsWith("--"))
+      )
+  );
+
+/**
+ * Ports free on `host` now, all of them different: each is held until all are found. What the
+ * system picks for port 0, picked once so that a process restarted on it finds it again.
+ */
+const freePorts = (host: string, count: number) =>
+  Effect.tryPromise(async () => {
+    const servers = Array.from({ length: count }, () => createServer());
+    try {
+      return await Promise.all(
+        servers.map(
+          (server) =>
+            new Promise<number>((resolve, reject) => {
+              server.once("error", reject);
+              server.listen(0, host, () => {
+                const address = server.address();
+                resolve(
+                  typeof address === "object" && address ? address.port : 0
+                );
+              });
+            })
+        )
+      );
+    } finally {
+      await Promise.all(
+        servers.map(
+          (server) =>
+            new Promise<void>((resolve) =>
+              server.listening ? server.close(() => resolve()) : resolve()
+            )
+        )
+      );
+    }
+  });
+
+/**
+ * Completes when stdin closes: whoever started the command went, however it went. It is read and
+ * dropped, as the server reads its own (`--stop-with-stdin`), since a paused stream never ends.
+ */
+const stdinClosed = Effect.callback<void>((resume) => {
+  const done = () => resume(Effect.void);
+  process.stdin.once("end", done);
+  process.stdin.once("close", done);
+  process.stdin.resume();
+  return Effect.sync(() => {
+    process.stdin.off("end", done);
+    process.stdin.off("close", done);
+    process.stdin.pause();
+  });
+});
 
 /** Every value of a flag given more than once, `--name value` or `--name=value`. */
 const flagValues = (args: readonly string[], name: string) =>
@@ -143,6 +217,10 @@ interface RunOptions {
   readonly env?: Readonly<Record<string, string>>;
   /** Given, the child's output is printed line by line under this name. */
   readonly name?: string;
+  /** Given with `name`, the child's ready line on stdout goes here rather than to the output. */
+  readonly ready?: Deferred.Deferred<ReadyLine>;
+  /** Given with `name`, the child's output is printed on stderr, stdout being kept for another. */
+  readonly toStderr?: boolean;
 }
 
 const run = (
@@ -166,12 +244,31 @@ const run = (
         ...stdio,
       })
     );
-    const { name } = options;
+    const { name, ready } = options;
     if (name) {
-      yield* child.all.pipe(
-        Stream.decodeText(),
-        Stream.splitLines,
-        Stream.runForEach((line) => Console.log(`[${name}] ${line}`))
+      const print = (line: string) =>
+        options.toStderr
+          ? Console.error(`[${name}] ${line}`)
+          : Console.log(`[${name}] ${line}`);
+      const lines = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+        stream.pipe(Stream.decodeText(), Stream.splitLines);
+      yield* Effect.all(
+        [
+          lines(child.stdout).pipe(
+            Stream.runForEach((line) =>
+              Option.match(ready ? decodeReady(line.trim()) : Option.none(), {
+                onNone: () => print(line),
+                // The first is kept; a restart's own line says nothing new to whoever read it.
+                onSome: (found) =>
+                  ready
+                    ? Effect.asVoid(Deferred.succeed(ready, found))
+                    : print(line),
+              })
+            )
+          ),
+          lines(child.stderr).pipe(Stream.runForEach(print)),
+        ],
+        { concurrency: "unbounded", discard: true }
       );
     }
     return yield* child.exitCode;
@@ -284,12 +381,12 @@ export const main = (args: readonly string[]): void => {
   // A build given is served as it is: not rebuilt, and not replaced by the checkout's.
   const givenWebDist = flagValue(serverArgs, "--web-dist") !== undefined;
 
-  const serverPort = Number(
+  const givenPort = Number(
     flagValue(serverArgs, "--port") ??
       process.env.ULTRAPAINT_PORT ??
       DEFAULT_PORT
   );
-  const webPort = Number(process.env.ULTRAPAINT_WEB_PORT ?? serverPort + 1);
+  const givenWebPort = process.env.ULTRAPAINT_WEB_PORT;
   // Loopback, with --dev too: whoever reaches the port can run agents with the user's rights,
   // so another machine is let in only when `--host` names an address for it.
   const host =
@@ -299,28 +396,54 @@ export const main = (args: readonly string[]): void => {
   const wildcard = host === "0.0.0.0" || host === "::";
   // Where this machine reaches what is bound to `host`.
   const reach = wildcard ? "127.0.0.1" : inUrl(host);
-  const serverUrl = `http://${reach}:${serverPort}`;
-  const editorPort = dev ? webPort : serverPort;
-  /** Where the editor is: served by the server from its build, or by Vite with `--dev`. */
-  const editorUrl = `http://${reach}:${editorPort}`;
-  // Bound to one address, the line above already names it.
-  const fromNetwork = wildcard
-    ? machineAddresses().map((address) => `http://${address}:${editorPort}`)
-    : [];
+  /** Where the server and the editor are, on these ports. */
+  const placesAt = (serverPort: number, webPort: number) => {
+    const editorPort = dev ? webPort : serverPort;
+    return {
+      /** Where the editor is: served by the server from its build, or by Vite with `--dev`. */
+      editorUrl: `http://${reach}:${editorPort}`,
+      // Bound to one address, the editor's URL already names it.
+      fromNetwork: wildcard
+        ? machineAddresses().map((address) => `http://${address}:${editorPort}`)
+        : [],
+      serverPort,
+      serverUrl: `http://${reach}:${serverPort}`,
+      webPort,
+    };
+  };
+  type Places = ReturnType<typeof placesAt>;
+  /**
+   * The ports as given. Port 0 is the server's to pick, except with `--dev`: `tsx watch` restarts
+   * the server, which must come back where Vite proxies to, so both ports are picked here, once.
+   */
+  const places =
+    dev && givenPort === 0
+      ? freePorts(host, givenWebPort === undefined ? 2 : 1).pipe(
+          Effect.map(([serverPort = 0, webPort]) =>
+            placesAt(serverPort, Number(givenWebPort ?? webPort))
+          )
+        )
+      : Effect.succeed(
+          placesAt(givenPort, Number(givenWebPort ?? givenPort + 1))
+        );
   // Where the command was typed: the repository the user is in.
   const cwd = process.cwd();
+
+  /** With `--dev`, where the editor is once the server and Vite both answer. */
+  const viteReady = (where: Places) =>
+    Effect.gen(function* () {
+      yield* answers(`${where.serverUrl}/api/health`);
+      yield* answers(where.editorUrl);
+      return where.editorUrl;
+    });
 
   /**
    * Where the editor is, once it answers: the server's ready line says so for a build; with
    * `--dev`, the server and Vite are asked until they answer.
    */
-  const editorReady = (ready: Deferred.Deferred<string>) =>
+  const editorReady = (where: Places, ready: Deferred.Deferred<string>) =>
     dev
-      ? Effect.gen(function* () {
-          yield* answers(`${serverUrl}/api/health`);
-          yield* answers(editorUrl);
-          return editorUrl;
-        })
+      ? viteReady(where)
       : Deferred.await(ready).pipe(Effect.timeout("2 minutes"));
 
   // With the ready line asked for, stdout carries that line alone: whoever reads it may stop
@@ -328,11 +451,11 @@ export const main = (args: readonly string[]): void => {
   const say = (line: string) =>
     asked ? Console.error(line) : Console.log(line);
 
-  const openBrowser = (ready: Deferred.Deferred<string>) =>
+  const openBrowser = (where: Places, ready: Deferred.Deferred<string>) =>
     Effect.gen(function* () {
-      const url = yield* editorReady(ready);
+      const url = yield* editorReady(where, ready);
       yield* say(`[ultrapaint] ${url}`);
-      for (const address of fromNetwork) {
+      for (const address of where.fromNetwork) {
         yield* say(`[ultrapaint] from the network: ${address}`);
       }
       if (!open) {
@@ -351,7 +474,7 @@ export const main = (args: readonly string[]): void => {
     }).pipe(
       // Said once; the processes' own output says why.
       Effect.catch(() =>
-        say(`[ultrapaint] ${editorUrl} did not answer in two minutes`)
+        say(`[ultrapaint] ${where.editorUrl} did not answer in two minutes`)
       )
     );
 
@@ -415,62 +538,109 @@ export const main = (args: readonly string[]): void => {
    * those restarts. Neither ends on its own, so the first to
    * end (Vite on a taken port, say) ends the session: each runs in a scope of its own, and the
    * other is stopped by closing it. The returned code is the command's.
+   *
+   * With the ready line asked for, stdout carries one line once both answer: the server's own,
+   * with Vite's port and URL, where the editor is, and this command's pid, the run's. A server
+   * that found another running for the project hands on that one's line, and the session ends.
+   * With `--stop-with-stdin` the command watches its stdin: `tsx watch` would not pass it on.
    */
-  const develop = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const session =
-      flagValue(serverArgs, "--session-dir") === undefined
-        ? [
-            "--session-dir",
-            yield* fs.makeTempDirectoryScoped({
-              prefix: "ultrapaint-session-",
-            }),
-          ]
-        : [];
-    const [name, code] = yield* Effect.raceFirst(
-      Effect.scoped(
-        run(
-          process.execPath,
-          guarded([
-            tsx(),
-            "watch",
-            "--clear-screen=false",
-            "--tsconfig",
-            serverTsconfig,
-            serverBin,
-            "--host",
-            host,
-            "--port",
-            String(serverPort),
-            ...session,
-            ...serverArgs,
-          ]),
-          cwd,
-          { name: "server" }
+  const develop = (where: Places) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const session =
+        flagValue(serverArgs, "--session-dir") === undefined
+          ? [
+              "--session-dir",
+              yield* fs.makeTempDirectoryScoped({
+                prefix: "ultrapaint-session-",
+              }),
+            ]
+          : [];
+      const serverLine = yield* Deferred.make<ReadyLine>();
+      const processes = Effect.gen(function* () {
+        const [name, code] = yield* Effect.raceFirst(
+          Effect.scoped(
+            run(
+              process.execPath,
+              guarded([
+                tsx(),
+                "watch",
+                "--clear-screen=false",
+                "--tsconfig",
+                serverTsconfig,
+                serverBin,
+                "--host",
+                host,
+                "--port",
+                String(where.serverPort),
+                ...session,
+                ...withoutFlag(serverArgs, "--port").filter(
+                  (arg) => arg !== "--stop-with-stdin"
+                ),
+              ]),
+              cwd,
+              {
+                name: "server",
+                toStderr: asked,
+                ...(asked ? { ready: serverLine } : {}),
+              }
+            )
+          ).pipe(Effect.map((exit) => ["server", Number(exit)] as const)),
+          Effect.scoped(
+            run(process.execPath, guarded([vite()]), webDir, {
+              env: {
+                // Vite checks the Host of a request itself, before its proxy reaches the server.
+                ULTRAPAINT_ALLOWED_HOSTS: flagValues(
+                  serverArgs,
+                  "--allowed-host"
+                ).join(","),
+                ULTRAPAINT_HOST: host,
+                ULTRAPAINT_PORT: String(where.serverPort),
+                ULTRAPAINT_WEB_PORT: String(where.webPort),
+              },
+              name: "web",
+              toStderr: asked,
+            })
+          ).pipe(Effect.map((exit) => ["web", Number(exit)] as const))
+        );
+        yield* Console.error(
+          `[ultrapaint] the ${name} process ended with code ${code}; stopping the session`
+        );
+        // Ending at all is a failure here, even with 0: the session was meant to run until stopped.
+        return code === 0 ? 1 : code;
+      });
+      const announce = Effect.gen(function* () {
+        const line = yield* Deferred.await(serverLine);
+        if (line.attached) {
+          yield* Console.log(JSON.stringify(line));
+          return 0;
+        }
+        const url = yield* viteReady(where);
+        yield* Console.log(
+          JSON.stringify({
+            ...line,
+            pid: process.pid,
+            port: where.webPort,
+            url,
+          })
+        );
+        return yield* Effect.never;
+      }).pipe(
+        Effect.catch(() =>
+          Effect.as(
+            Console.error(
+              `[ultrapaint] ${where.editorUrl} did not answer in two minutes`
+            ),
+            1
+          )
         )
-      ).pipe(Effect.map((exit) => ["server", Number(exit)] as const)),
-      Effect.scoped(
-        run(process.execPath, guarded([vite()]), webDir, {
-          env: {
-            // Vite checks the Host of a request itself, before its proxy reaches the server.
-            ULTRAPAINT_ALLOWED_HOSTS: flagValues(
-              serverArgs,
-              "--allowed-host"
-            ).join(","),
-            ULTRAPAINT_HOST: host,
-            ULTRAPAINT_PORT: String(serverPort),
-            ULTRAPAINT_WEB_PORT: String(webPort),
-          },
-          name: "web",
-        })
-      ).pipe(Effect.map((exit) => ["web", Number(exit)] as const))
-    );
-    yield* Console.error(
-      `[ultrapaint] the ${name} process ended with code ${code}; stopping the session`
-    );
-    // Ending at all is a failure here, even with 0: the session was meant to run until stopped.
-    return code === 0 ? 1 : code;
-  });
+      );
+      return yield* Effect.raceAll([
+        processes,
+        asked ? announce : Effect.never,
+        stopWithStdin ? Effect.as(stdinClosed, 0) : Effect.never,
+      ]);
+    });
 
   const program = Effect.gen(function* () {
     if (informational) {
@@ -487,10 +657,11 @@ export const main = (args: readonly string[]): void => {
       process.exitCode = 1;
       return;
     }
+    const where = yield* places;
     const ready = yield* Deferred.make<string>();
-    const opening = yield* Effect.forkScoped(openBrowser(ready));
+    const opening = yield* Effect.forkScoped(openBrowser(where, ready));
     if (dev) {
-      process.exitCode = yield* develop;
+      process.exitCode = yield* develop(where);
       return;
     }
     if (!givenWebDist) {

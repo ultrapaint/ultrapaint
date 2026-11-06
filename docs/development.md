@@ -13,6 +13,11 @@ checkout's path so several worktrees, and the installed command on 4770, run sid
 keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--ephemeral`. Read
 [`AGENTS.md`](../AGENTS.md) before writing server code.
 
+The desktop app on another machine shows this checkout's sources as they change: `pnpm
+install:cli` here, then in the app an SSH project on this machine (over Tailscale, say) with the
+command `ultrapaint --dev`. The editor reloads and the server restarts as files change; only
+`apps/desktop` itself needs the app rebuilt there.
+
 `pnpm pack:local` makes the package a release carries, in `dist/ultrapaint-<version>.tgz`. A
 release is made by hand: the **Release** workflow in the Actions tab raises the version in
 `package.json`, tags it and attaches the package.
