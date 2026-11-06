@@ -95,14 +95,15 @@ export const liveRun = Effect.fnUntraced(function* (stateDir: string) {
  */
 export const Announce = Layer.effectDiscard(
   Effect.gen(function* () {
-    const { host, readyJson, token } = yield* ServerConfig;
+    const { editorPort, host, readyJson, token } = yield* ServerConfig;
     const storage = yield* Storage;
     const server = yield* HttpServer.HttpServer;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const writeAtomic = makeWriteAtomic(fs, path);
     const { address } = server;
-    const port = "port" in address ? address.port : 0;
+    // Where the editor is: this server's port, or the one another process serves it on.
+    const port = editorPort ?? ("port" in address ? address.port : 0);
     const run: RunInfo = {
       pid: process.pid,
       port,
@@ -125,8 +126,13 @@ export const Announce = Layer.effectDiscard(
         Effect.gen(function* () {
           const dir = yield* storage.stateDir;
           const found = yield* readRunFile(dir);
-          // Another run took the directory over since: its file is not ours to remove.
-          if (Option.isSome(found) && found.value.token === token) {
+          // Another run took the directory over since: its file is not ours to remove. A restart
+          // keeps the token, and the process that wrote the file says which run it is.
+          if (
+            Option.isSome(found) &&
+            found.value.token === token &&
+            found.value.pid === process.pid
+          ) {
             yield* Effect.ignore(fs.remove(path.join(dir, RUN_FILE_NAME)));
           }
         })

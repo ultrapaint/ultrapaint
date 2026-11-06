@@ -271,6 +271,7 @@ const program = Effect.gen(function* () {
         cwd: repo,
         // Model options are known from discovery, before the first prompt starts a session.
         discovery: true,
+        editorPort: undefined,
         host: "127.0.0.1",
         machine: {
           addresses: () => [],

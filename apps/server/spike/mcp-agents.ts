@@ -37,6 +37,7 @@ const program = Effect.gen(function* () {
         briefing: true,
         cwd: repo,
         discovery: false,
+        editorPort: undefined,
         host: "127.0.0.1",
         machine: {
           addresses: () => [],

@@ -119,6 +119,32 @@ describe("the run file of a server that stops", () => {
       assert.isFalse(yield* fs.exists(path.join(home, RUN_FILE_NAME)));
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
+
+  it.effect(
+    "stays when another process wrote it since, with the same token: a restart's",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(home, RUN_FILE_NAME);
+        const server = makeTestServer(() =>
+          Effect.succeed({ home, mode: "managed" })
+        );
+        const restarted = JSON.stringify({
+          pid: NO_SUCH_PID,
+          port: 1,
+          token: "test",
+          url: "http://127.0.0.1:1",
+        });
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            yield* Layer.build(server);
+            yield* fs.writeFileString(file, restarted);
+          })
+        );
+        assert.strictEqual(yield* fs.readFileString(file), restarted);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
 });
 
 const tsx = createRequire(
@@ -206,6 +232,33 @@ describe("--ready-json", () => {
         assert.deepStrictEqual(
           [...said].map((l) => JSON.parse(l)),
           [{ ...ready, attached: true }]
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    90_000
+  );
+});
+
+describe("--editor-port and --token", () => {
+  it.effect(
+    "name where the editor is and which run it is, in the ready line and the run file",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const server = yield* startServer(home, {
+          flags: ["--editor-port", "4999", "--token", "the-session"],
+        });
+        const line = yield* lines(server.stdout).pipe(
+          Stream.runHead,
+          Effect.timeout("40 seconds")
+        );
+        const ready = JSON.parse(Option.getOrThrow(line));
+        assert.strictEqual(ready.port, 4999);
+        assert.strictEqual(ready.url, "http://127.0.0.1:4999");
+        assert.strictEqual(ready.token, "the-session");
+        assert.deepStrictEqual(
+          Option.getOrThrow(yield* readRunFile(home)),
+          ready
         );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     90_000
