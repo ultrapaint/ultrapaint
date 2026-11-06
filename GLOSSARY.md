@@ -220,9 +220,11 @@ refactor and the board view left.
   converging. **Each round** says who of them reviews while the designer works (one, in turn,
   all), **approval** who must approve at the end (all, or the round's own) (ADR 0061). Contracts'
   `review` (`sectionScore`, `pageScore`, `verdictOf`, `ReviewSettings`, `reviewersOfRound`).
-- **Review level**: a name for the usual review (ADR 0063): Off, Quick (the first model, which
-  approves alone), Standard (in turn, all approve), Thorough (all every round), or Custom for
-  any other settings or a goal (contracts' `levelOf`, `withLevel`). Set per project in Settings ›
+- **Review level**: a name for the usual review (ADR 0063): Off, Quick (the first model looks,
+  then checks the fixes), Standard (one model looks, in turn; then all check the fixes),
+  Thorough (all look, then all check), or Custom for any other settings or a goal (contracts'
+  `levelOf`, `withLevel`). A **first look** sends the designer blockers and majors only; the
+  **second look** says which of them aren't fixed and adds only new blockers; two rounds at most. Set per project in Settings ›
   Agents › Review and per design by the composer's **Review chip**.
 - **Design run**: a design thread's work from the person's prompt to the design approved: its
   plan as **Outline** and **Build** steps and the **review rounds** (`review` items) the editor's

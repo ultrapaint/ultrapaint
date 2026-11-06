@@ -391,12 +391,45 @@ export interface ReviewerResult {
   readonly result: ReviewerRound;
 }
 
+/**
+ * The findings the designer is sent (ADR 0063, the lighter review): blockers and majors. Minor
+ * ones and nits stay in the round for the person to see; in the lab, demanding them made the
+ * designer churn without leaving fewer problems.
+ */
+export const isSent = (finding: Pick<Finding, "severity">) =>
+  finding.severity === "blocker" || finding.severity === "major";
+
+/** A round's findings, those sent first and the worst first, so the prompt numbers them as the round lists them. */
+export const bySeverity = <T extends { readonly finding: Finding }>(
+  found: readonly T[]
+): readonly T[] =>
+  [...found].sort(
+    (a, b) =>
+      SEVERITY_RANK[a.finding.severity] - SEVERITY_RANK[b.finding.severity]
+  );
+
+/**
+ * In a round that looks again (the second), what a model may give: a finding it was sent before
+ * and finds not fixed, by its title, or a new blocker. Everything new and less is let go.
+ */
+export const keptOnSecondLook =
+  (open: readonly Pick<RoundFinding, "title">[]) =>
+  (finding: Finding): boolean =>
+    finding.severity === "blocker" ||
+    open.some((o) => normal(o.title) === normal(finding.title));
+
 /** A review model's answer, for the round: `name` is how the designer is told who said what. */
 export const reviewerResult = (
   pages: readonly ReviewedPage[],
-  answered: readonly PageAnswer[],
-  who: { readonly key: string; readonly name: string }
+  given: readonly PageAnswer[],
+  who: { readonly key: string; readonly name: string },
+  /** What of its findings counts; all of them when absent. */
+  keep: (finding: Finding) => boolean = () => true
 ): ReviewerResult => {
+  const answered = given.map((a) => ({
+    ...a,
+    findings: a.findings.filter(keep),
+  }));
   const answers = answersByPage(pages, answered);
   const { approved, score } = reviewerScore(pages, answers);
   const found: Found[] = [];
@@ -417,19 +450,21 @@ export const reviewerResult = (
       );
     }
   });
-  const merged = mergeFound(found);
+  const merged = bySeverity(mergeFound(found));
+  // Nothing to send is approval: what is left is minor, and the designer isn't asked for it.
+  const satisfied = approved || !merged.some((f) => isSent(f.finding));
   return {
     found: merged,
-    left,
+    left: satisfied ? [] : left,
     patch: {
-      approved,
+      approved: satisfied,
       findings: merged.length,
       status: "done",
       ...(score.kind === "scored"
         ? { score: score.overall }
         : { reason: score.reason }),
     },
-    result: { score, signedOff: approved },
+    result: { score, signedOff: satisfied },
   };
 };
 

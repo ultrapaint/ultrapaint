@@ -211,8 +211,11 @@ export const Goal = Schema.Struct({
 });
 export type Goal = typeof Goal.Type;
 
-/** The safety cap on rounds, when the goal sets none. */
-export const MAX_ROUNDS = 6;
+/**
+ * The cap on rounds when the goal sets none: a first look and a second (ADR 0063). In the lab, six
+ * rounds of fresh looks never converged and left no fewer problems.
+ */
+export const MAX_ROUNDS = 2;
 
 /** Fewer points than this over this many rounds is no gain. */
 export const PLATEAU = { points: 2, rounds: 2 } as const;

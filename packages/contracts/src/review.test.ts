@@ -201,7 +201,7 @@ describe("verdictOf", () => {
 
   it("stops when two rounds gain less than two points", () => {
     expect(
-      verdictOf({ score: 95 }, [
+      verdictOf({ maxRounds: 6, score: 95 }, [
         round({ opus: scored(80) }),
         round({ opus: scored(81) }),
         round({ opus: scored(81) }),
@@ -211,7 +211,7 @@ describe("verdictOf", () => {
 
   it("stops at the budget", () => {
     expect(
-      verdictOf({ budgetUsd: 20, score: 95 }, [
+      verdictOf({ budgetUsd: 20, maxRounds: 6, score: 95 }, [
         round({ opus: scored(70) }, [], 12),
         round({ opus: scored(80) }, [], 9),
       ])
@@ -253,7 +253,7 @@ describe("who reviews", () => {
   it("compares a reviewer with itself for the plateau when the members take turns", () => {
     // Opus gains on Opus; GPT's lower scores in between don't make it a plateau.
     expect(
-      verdictOf({ score: 99 }, [
+      verdictOf({ maxRounds: 6, score: 99 }, [
         round({ opus: scored(70) }),
         round({ gpt: scored(60) }),
         round({ opus: scored(80) }),

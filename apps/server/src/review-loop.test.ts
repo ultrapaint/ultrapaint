@@ -7,7 +7,7 @@
  */
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import type { ReviewSettings } from "@ultrapaint/contracts/review";
+import { MAX_ROUNDS, type ReviewSettings } from "@ultrapaint/contracts/review";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
@@ -167,7 +167,7 @@ describe("a design's review", () => {
         unmet: [],
       });
       assert.strictEqual(round?.round, 1);
-      assert.strictEqual(round?.maxRounds, 6);
+      assert.strictEqual(round?.maxRounds, MAX_ROUNDS);
       // The designer is asked nothing.
       assert.strictEqual(items.filter((i) => i.kind === "user").length, 1);
     }));
@@ -212,6 +212,69 @@ describe("a design's review", () => {
         ]
       );
       assert.strictEqual(next?.round, 2);
+    }));
+
+  test("sends the designer only blockers and majors, the minor ones kept in the round", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed();
+      const reviewing = yield* nextReviewer;
+      yield* reviewing.turn.say(
+        answer(
+          [
+            { ...finding("Tight label"), severity: "minor" },
+            finding("Uneven gap"),
+          ],
+          false
+        )
+      );
+      yield* reviewing.turn.end();
+      const fixing = yield* designer.nextTurn;
+      const asked = fixing.texts.join("\n");
+      assert.include(asked, "Uneven gap");
+      assert.notInclude(asked, "Tight label");
+      const { items } = yield* threadWhen(
+        threadId,
+        (t) => t.status === "running"
+      );
+      assert.deepStrictEqual(
+        reviewsOf(items)[0]?.findings.map((f) => [f.title, f.severity]),
+        [
+          ["Uneven gap", "major"],
+          ["Tight label", "minor"],
+        ]
+      );
+    }));
+
+  test("looks a second time at what it sent and new blockers only, then ends at the cap", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed();
+      const first = yield* nextReviewer;
+      yield* first.turn.say(answer([finding("Uneven gap")], false));
+      yield* first.turn.end();
+      const fixing = yield* designer.nextTurn;
+      yield* fixing.say("Evened the gap out.");
+      yield* fixing.end();
+      // The second look is told what was sent, and gives back a new major (let go) and the gap.
+      const second = yield* nextReviewer;
+      assert.include(second.turn.texts.join("\n"), "This is a second look");
+      assert.include(second.turn.texts.join("\n"), "Uneven gap");
+      yield* second.turn.say(
+        answer([finding("Uneven gap"), finding("A new major")], false)
+      );
+      yield* second.turn.end();
+      // At the cap, what is left is sent once more and the review ends.
+      const last = yield* designer.nextTurn;
+      assert.include(last.texts.join("\n"), "Uneven gap");
+      assert.notInclude(last.texts.join("\n"), "A new major");
+      const { items } = yield* threadWhen(
+        threadId,
+        (_, all) => reviewsOf(all)[1]?.end !== undefined
+      );
+      assert.strictEqual(reviewsOf(items)[1]?.end?.reason, "max-rounds");
+      assert.deepStrictEqual(
+        reviewsOf(items)[1]?.findings.map((f) => f.title),
+        ["Uneven gap"]
+      );
     }));
 
   test("hands the round on when a review model doesn't answer in 5 minutes", () =>

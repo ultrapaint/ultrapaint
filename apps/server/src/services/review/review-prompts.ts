@@ -49,10 +49,29 @@ export const pageName = (page: {
   readonly route?: string | undefined;
 }) => (page.route === undefined ? page.file : `${page.route} (${page.file})`);
 
+/**
+ * The second look (ADR 0063): the findings the designer was sent, to say which are not fixed,
+ * and nothing new but a blocker.
+ */
+export const secondLook = (open: readonly RoundFinding[]): string =>
+  `## This is a second look
+
+${
+  open.length > 0
+    ? `The designer was sent these findings and has answered them:\n\n${open
+        .map((f, i) => `${i + 1}. **${f.title}** (${f.where}): ${f.problem}`)
+        .join(
+          "\n"
+        )}\n\nFor each, decide whether the design fixes it now. Give back as findings only those not fixed, with their title as written above, and any new blocker.`
+    : "Another review model looked first and found nothing the designer had to fix. Give back only blockers."
+} Leave out everything else: new majors, minor findings and nits are let go at this point. \`signOff.done\` is true when you give back nothing.`;
+
 /** What a review model is given: its role, the request, and each page's picture and document. */
 export const reviewerPrompt = (
   request: string,
-  pages: readonly PageView[]
+  pages: readonly PageView[],
+  /** On a second look, the findings it checks; absent on a first. */
+  open?: readonly RoundFinding[]
 ): ContentBlock[] => [
   { text: REVIEWER_ROLE, type: "text" },
   {
@@ -82,6 +101,9 @@ export const reviewerPrompt = (
       type: "text",
     },
   ]),
+  ...(open === undefined
+    ? []
+    : [{ text: secondLook(open), type: "text" as const }]),
 ];
 
 /**

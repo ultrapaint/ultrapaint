@@ -37,11 +37,11 @@ export const LEVEL_NAMES: Record<ReviewLevel | "custom", string> = {
 export const LEVEL_LINES: Record<ReviewLevel | "custom", string> = {
   custom: "You choose who reviews each round, who approves, and the goal.",
   off: "Not recommended. Nothing checks the design before it’s done.",
-  quick: "Your first review model reviews until it approves.",
+  quick: "Your first review model looks, then checks the fixes.",
   standard:
-    "Your review models take turns, and all of them approve the result.",
+    "One review model looks, in turn; then all of them check the fixes.",
   thorough:
-    "All your review models review every round. Slower, and the most thorough.",
+    "All your review models look, then all check the fixes. Slower, and the most thorough.",
 };
 
 /** The fields a level sets in a chat's own settings: over the project's, a goal it has cleared. */

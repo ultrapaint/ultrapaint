@@ -26,6 +26,7 @@ import {
 import {
   isModelOption,
   namedChoices,
+  type RoundFinding,
   type RoundReviewer,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -57,11 +58,14 @@ import {
 } from "./review-prompts.ts";
 import {
   answeredRound,
+  bySeverity,
   declinedOf,
   endedRound,
   type Found,
   handsToAll,
   isPageFile,
+  isSent,
+  keptOnSecondLook,
   REVIEW_TIMEOUT,
   type ReviewItem,
   reviewerResult,
@@ -80,6 +84,11 @@ import { makeReviewer, ReviewerFailure } from "./reviewer.ts";
 export interface DueRound {
   /** The round's number, from 1. */
   readonly number: number;
+  /**
+   * The findings the last round sent the designer and it didn't decline: what a second look
+   * checks (ADR 0063). Empty on a first look.
+   */
+  readonly open: readonly RoundFinding[];
   /** The pages it looks at, repository-relative. */
   readonly pages: readonly string[];
   /** The run's rounds so far, as the verdict reads them. */
@@ -96,6 +105,26 @@ export interface ToDesigner {
   readonly review: string;
   readonly text: string;
 }
+
+/**
+ * How a round ends (ADR 0063): with nothing to send, approved, or as its verdict says; at a cap
+ * with blockers or majors left, they are sent once more and the review ends there; else they go.
+ */
+const outcomeOf = (
+  sent: number,
+  verdict: ReturnType<typeof verdictOf>
+): { readonly end?: ReviewItem["end"]; readonly send: boolean } => {
+  if (!verdict.stop) {
+    return sent === 0
+      ? { end: { reason: "approved", unmet: [] }, send: false }
+      : { send: true };
+  }
+  const capped =
+    verdict.reason === "max-rounds" ||
+    verdict.reason === "plateau" ||
+    verdict.reason === "budget";
+  return { end: roundEndOf(verdict), send: capped && sent > 0 };
+};
 
 /** What the review shows when nobody can review. */
 const NOBODY =
@@ -117,6 +146,10 @@ interface RoundState {
   readonly id: string;
   readonly inRound: Set<string>;
   readonly left: string[];
+  /** On a second look, the findings it checks (ADR 0063); absent on a first. */
+  readonly open: readonly RoundFinding[] | undefined;
+  /** What its review models are given. */
+  readonly prompt: readonly ContentBlock[];
   readonly scores: Record<string, ReviewerRound>;
 }
 
@@ -127,7 +160,8 @@ interface Review {
   readonly maxRounds: number;
   readonly models: readonly ReviewModel[];
   readonly projectName: string;
-  readonly prompt: readonly ContentBlock[];
+  /** What the person asked, which every round's prompt keeps to. */
+  readonly request: string;
   readonly root: string;
   readonly settings: ReviewSettings;
   readonly threadId: string;
@@ -334,8 +368,12 @@ export class ReviewLoop extends Context.Service<
         }
         pending.delete(threadId);
         lastPages.set(threadId, pages);
+        const last = run.rounds.at(-1);
         const round: DueRound = {
           number: run.rounds.length + 1,
+          open: (last?.findings ?? []).filter(
+            (f) => isSent(f) && f.declined === undefined
+          ),
           pages,
           previous: run.rounds.map(roundOf),
           request: run.request,
@@ -391,7 +429,7 @@ export class ReviewLoop extends Context.Service<
       ) =>
         patchRound(review.threadId, state.id, (item) => ({
           ...item,
-          findings: state.found.map(toRoundFinding),
+          findings: bySeverity(state.found).map(toRoundFinding),
           reviewers: item.reviewers.map((r) =>
             r.key === key ? { ...r, ...patch } : r
           ),
@@ -411,7 +449,7 @@ export class ReviewLoop extends Context.Service<
           const answered = yield* lookWith(
             model,
             review.root,
-            review.prompt
+            state.prompt
           ).pipe(
             Effect.timeoutOrElse({
               duration: REVIEW_TIMEOUT,
@@ -422,10 +460,14 @@ export class ReviewLoop extends Context.Service<
           );
           if (Result.isSuccess(answered)) {
             const entry = yield* looking(model);
-            const given = reviewerResult(review.views, answered.success, {
-              key,
-              name: entry.name,
-            });
+            const given = reviewerResult(
+              review.views,
+              answered.success,
+              { key, name: entry.name },
+              state.open === undefined
+                ? undefined
+                : keptOnSecondLook(state.open)
+            );
             state.scores[key] = given.result;
             state.found.push(...given.found);
             state.left.push(...given.left);
@@ -476,13 +518,17 @@ export class ReviewLoop extends Context.Service<
         return id;
       });
 
-      /** One round by `who`, then the closing one or the end, or the findings to send. */
+      /**
+       * One round by `who`, a first look or, with `open`, a second; then the closing one or the
+       * end, or the findings to send.
+       */
       const roundBy = (
         review: Review,
         who: readonly ReviewModel[],
         closing: boolean,
         number: number,
-        previous: readonly Round[]
+        previous: readonly Round[],
+        open?: readonly RoundFinding[]
       ): Effect.Effect<ToDesigner | null> =>
         Effect.gen(function* () {
           const state: RoundState = {
@@ -493,6 +539,8 @@ export class ReviewLoop extends Context.Service<
             }),
             inRound: new Set(who.map(formatReviewModel)),
             left: [],
+            open,
+            prompt: reviewerPrompt(review.request, review.views, open),
             scores: {},
           };
           yield* Effect.forEach(who, (m) => lookBy(review, state, m), {
@@ -513,29 +561,37 @@ export class ReviewLoop extends Context.Service<
           const unsent = review.settings.findingsLog
             ? logFindings(logged, () => ({ did: "unanswered" }))
             : Effect.void;
+          // Blockers and majors go to the designer; the rest stays in the round (ADR 0063).
+          const sent = bySeverity(state.found).filter((f) => isSent(f.finding));
           const toAll = handsToAll({
             approval: review.settings.approval ?? "all",
             closing,
-            found: state.found.length,
+            found: sent.length,
             models: review.models.length,
             verdict,
             who: who.length,
           });
-          if (toAll) {
+          // Satisfied on a first look while every model is to approve: they all look a second
+          // time, for blockers only, within the cap.
+          if (toAll && number < review.maxRounds) {
             yield* unsent;
             return yield* roundBy(
               review,
               review.models,
               true,
               number + 1,
-              rounds
+              rounds,
+              []
             );
           }
-          if (verdict.stop || state.found.length + state.left.length === 0) {
+          const { end, send } = outcomeOf(sent.length, verdict);
+          if (end !== undefined) {
             yield* patchRound(review.threadId, state.id, (item) => ({
               ...item,
-              end: roundEndOf(verdict),
+              end,
             }));
+          }
+          if (!send) {
             yield* unsent;
             return null;
           }
@@ -546,7 +602,7 @@ export class ReviewLoop extends Context.Service<
             review: state.id,
             text: findingsPrompt(
               review.views,
-              state.found.map(toRoundFinding),
+              sent.map(toRoundFinding),
               state.left
             ),
           };
@@ -585,7 +641,7 @@ export class ReviewLoop extends Context.Service<
           maxRounds: settings.goal?.maxRounds ?? MAX_ROUNDS,
           models,
           projectName: path.basename(paths.root),
-          prompt: reviewerPrompt(round.request, views),
+          request: round.request,
           root: paths.root,
           settings,
           threadId,
@@ -598,12 +654,31 @@ export class ReviewLoop extends Context.Service<
           });
           return null;
         }
+        if (round.number === 1) {
+          return yield* roundBy(
+            started,
+            reviewersOfRound(
+              models,
+              settings.eachRound ?? "rotate",
+              round.turns
+            ),
+            false,
+            round.number,
+            round.previous
+          );
+        }
+        // A second look: every review model when all are to approve, else the first look's.
+        const first = new Set(Object.keys(round.previous[0]?.reviewers ?? {}));
+        const theFirst = models.filter((m) => first.has(formatReviewModel(m)));
+        const all = (settings.approval ?? "all") === "all";
+        const who = all || theFirst.length === 0 ? models : theFirst;
         return yield* roundBy(
           started,
-          reviewersOfRound(models, settings.eachRound ?? "rotate", round.turns),
-          false,
+          who,
+          all && models.length > 1,
           round.number,
-          round.previous
+          round.previous,
+          round.open
         );
       });
 
