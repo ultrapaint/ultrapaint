@@ -95,4 +95,7 @@ is nothing to say:
    - Shapes: the radii ({rounded.md}) and where each goes.
    - Components: which component to use for what, and what each variant is for.
    - Do's and Don'ts: the rules, short and specific, what to avoid among them.
-   Short and specific: a named reference carries more than a list of adjectives.`;
+   Short and specific: a named reference carries more than a list of adjectives. It holds what this
+   product chose (its values, which variant, which of two allowed ways, and why), never a rule that
+   holds for any product (one primary action, a tooltip on an icon button, what an empty state
+   says): that rule is the design skill's, and copied here it loses its condition and outranks it.`;

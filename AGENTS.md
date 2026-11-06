@@ -12,7 +12,8 @@
 - `evals/gaps/`: the design skill's known gaps, one file each, with their status and the lab's
   results (`pnpm evals gaps` lists them). Read the ones a design task touches. When a person
   corrects a design made with the skill, add a gap there and leave `skills/ultrapaint/` as it is
-  (`evals/gaps/README.md` says how).
+  (`evals/gaps/README.md` says how). `DESIGN.md` takes only what this product chose (a value, a
+  variant, one of two allowed ways); a correction that holds for any product is a gap (ADR 0065).
 - Several decisions to ask the person: write them as a deck and serve it with `pnpm evals decide`
   (`evals/README.md`, "Decisions").
 - A link the editor copies (`…?canvas=redesign&route=/vibe&node=c_1`, `page=` for a page without

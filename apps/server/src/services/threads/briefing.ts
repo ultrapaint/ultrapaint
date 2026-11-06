@@ -106,8 +106,9 @@ const craftOf = ({ listed, whole }: SkillsTold) => {
     return "";
   }
   const lead = `How to design well, whatever the product. The design system's tokens and its conventions,
-below, come first where they disagree: a number given here is for what the design system does
-not name.`;
+below, come first for what they choose (a value, a variant, one of two allowed ways): a number
+given here is for what the design system does not name. Where they only restate a rule given
+here, the rule holds as it is given here, its condition with it.`;
   if (listed.length === 0) {
     return `
 ${lead} Before ending a turn, run each skill's "Before you finish" checks against what you

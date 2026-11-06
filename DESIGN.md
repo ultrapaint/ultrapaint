@@ -139,21 +139,17 @@ code. Roles are `font-<role>` utilities; the editor never uses a stock size.
 - `font-caption` 12/16 medium: keys, counts, badges, avatars' initials only.
 - `font-code` 13/20 mono.
 
-A panel's section title is `font-heading-xsmall` in the foreground, never the small muted of a
-count or a description; the rows under it carry their label in `font-small` muted and their value
-in the foreground. A description sits in muted, never in the foreground.
+A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
+label in `font-small` muted and their value in the foreground.
 
 ## Layout
 
 A 4px scale. Controls 28px (24 small, 32 large), list rows 28px, menu rows 28px, panel headers 44px.
-Panel padding 8px around rows, 16px for text: a panel's title starts on its rows' text edge. Rows of a group sit together; the next group stands
-at least three times as far from it as the rows' text is from each other (24px more above a
-section's title), measured with `pnpm evals measure`. A divider in a bar is a short rule centred on
-the bar's line, checked the same way. The
-editor fills the window: the canvas with three floating cards over it, 8px from the window's edge
-and from each other. Dialogs are 28rem wide by default, 20px padding. A panel scrolls as one; a
-list's last row keeps the panel's padding under it. A target is at least 24px, a fold chevron or a
-checkbox included, by padding past its glyph.
+Panel padding 8px around rows, 16px for text: a panel's title starts on its rows' text edge. A
+section's title stands 24px further from the group above it than rows do from each other. A divider
+in a bar is a short rule centred on the bar's line. The editor fills the window: the canvas with
+three floating cards over it, 8px from the window's edge and from each other. Dialogs are 28rem
+wide by default, 20px padding. A list's last row keeps the panel's padding under it.
 
 ## Elevation & Depth
 
@@ -179,22 +175,17 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 
 - Button: `default` (ultramarine) for the one action a view is for; `secondary` for a quieter filled
   action; `outline` beside a primary; `ghost` for toolbar and panel actions (the most common);
-  `destructive` for delete, apart from the others. Icon buttons carry a tooltip.
+  `destructive` for delete, apart from the others.
 - Fields are filled ({colors.muted}), borderless at rest; a hairline on hover; the ring on focus.
 - Tabs: a segmented control (muted track, raised chip) to switch views inside a card.
-- Badge: neutral; a status is a coloured dot inside it.
 - Menu for actions on a thing; Popover for a few fields edited in place, reusing the inspector's
   fields; Dialog for a task that needs the whole attention; Toast for a result elsewhere or an undo.
 - Tooltips: a short name and the keys, nothing more. No arrows.
-- Empty states: an empty panel takes a muted icon, a one-line title, one muted sentence, one
-  action. An empty section among full ones is one row: "None yet" in muted, its action at the end.
-- A hint about the selection ("Inserts into …") shows only while something is selected, at the
-  panel's foot.
-- A row's actions are in a ⋯ menu shown at rest, Delete apart at its end; a row's click does one
-  thing in every list of a panel. An action keeps its place whether its list is empty or not.
-- What can be undone runs at once with Undo in its toast; no confirm. A primary stays pressable:
-  pressed before it can act, it says what is missing under it. Busy, it shows a spinner and its
-  verb ("Committing…").
+- An empty panel's state is centred in it, a muted icon above its text and buttons.
+- A hint about the selection ("Inserts into …") sits at the panel's foot.
+- A row's actions are in a ⋯ menu shown at rest, Delete apart at its end.
+- What can be undone runs at once with Undo in its toast; no confirm. A busy button shows a
+  spinner and its verb ("Committing…").
 - List rows sit 2px apart, so their fills never touch; a row's keyboard focus is the 2px ring
   around the whole row. Checkboxes and off switches are edged in {colors.muted-foreground}; a
   checkbox's focus is a 2px ring 2px off it. A name cut short has its full text in the row's
@@ -204,14 +195,12 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - A select in a settings row is its value and a chevron, filled only on hover; a field there is
   13rem wide, on the row's right edge.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
-- A field opened in place of text (a rename) keeps the text's place and weight.
-- An error tied to a row sits under it in full, across the row, on a 10% red box, saying how to
-  fix it; a file's schema error names the place in the file (in mono), what it holds and what to
-  make it, never the validator's text. A notice takes the same place, muted, with a warning icon.
-  A state shown by colour also has an icon or a word; a status that blocks the action (a conflict)
-  is in the foreground with a warning dot.
-- Loading keeps the panel's layout with skeleton rows of every column, at foreground 10%; a read
-  that fails says so once, in place, with Try again.
+- An error tied to a row sits under it in full, across the row, on a 10% red box; a file's schema
+  error names the place in the file in mono, never the validator's text. A notice takes the same
+  place, muted, with a warning icon. A status that blocks the action (a conflict) is in the
+  foreground with a warning dot.
+- Loading draws skeleton rows of every column at foreground 10%; a read that fails says so in
+  place, with Try again.
 - A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
   28rem wide.
 - A section that applies at once has Done in its footer in place of Cancel and Save, and says
@@ -221,14 +210,12 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 ## Motion
 
 Hover and press change colour in 100–150ms. Menus and popovers enter from 95% scale and transparent
-in 150ms on `--ease-enter`; dialogs in 150–200ms. Nothing the keyboard triggers animates. Under
-reduced motion only fades remain.
+in 150ms on `--ease-enter`; dialogs in 150–200ms.
 
 ## Content
 
-Terse and plain: the noun and the number. Sentence case everywhere ("Design system", "New chat").
-Buttons start with a verb. Tooltips name the thing and its keys. Empty states say what will be there
-and offer one action. Errors say what happened and what to do. No exclamation marks.
+Terse and plain: the noun and the number ("Design system", "New chat", "3 pages"). No
+exclamation marks.
 
 ## Do's and Don'ts
 
@@ -238,7 +225,5 @@ and offer one action. Errors say what happened and what to do. No exclamation ma
 - Do reuse the inspector's fields in a plain popover rather than drawing a bespoke diagram.
 - Don't put a shadow on anything inside a card.
 - Don't use the canvas's selection, component or agent colours on the chrome.
-- Don't add icons to every row or label, or a description that repeats its heading.
 - Don't draw a tree's guide lines across a row's fill.
 - Don't use the browser's `title` for a tooltip: the system Tooltip, with a short name.
-- Don't use a second primary button in one view.
