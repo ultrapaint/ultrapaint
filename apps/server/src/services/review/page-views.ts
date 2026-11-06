@@ -30,6 +30,19 @@ const decodeDocument = Schema.decodeUnknownEffect(
 /** Why a page has no picture when no editor is open. */
 export const NO_EDITOR = "no editor is open to draw it.";
 
+const DATA_URL_RE = /data:([\w.+-]+\/[\w.+-]+);base64,[A-Za-z0-9+/=]+/g;
+
+/**
+ * A document with each image inlined as data said only by its type and size: the picture shows
+ * it, and one such image made a reviewer's prompt 2.4M tokens long, past what it takes.
+ */
+export const withoutDataUrls = (document: string): string =>
+  document.replace(
+    DATA_URL_RE,
+    (url, type: string) =>
+      `(a ${type} inlined as data, ${Math.round((url.length * 3) / 4 / 1024)} KB)`
+  );
+
 export const makePageViews = Effect.fnUntraced(function* () {
   const screenshots = yield* Screenshots;
   const project = yield* OpenProject;
@@ -109,10 +122,12 @@ export const makePageViews = Effect.fnUntraced(function* () {
         .readFileString(path.join(root, file))
         .pipe(Effect.option);
       if (Option.isSome(text)) {
-        // Compact: the reviewer reads it whole.
-        const document = yield* decodeDocument(text.value).pipe(
-          Effect.flatMap(encodeDocument),
-          Effect.orElseSucceed(() => text.value)
+        // Compact: the reviewer reads it whole, an image inlined as data said only by its size.
+        const document = withoutDataUrls(
+          yield* decodeDocument(text.value).pipe(
+            Effect.flatMap(encodeDocument),
+            Effect.orElseSucceed(() => text.value)
+          )
         );
         views.push({ document, file, ...(yield* pictureOf(file, editors)) });
       }

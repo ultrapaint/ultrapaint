@@ -478,7 +478,13 @@ export const answeredRound = (
     const reason = declined.get(i);
     return reason === undefined ? f : { ...f, declined: reason };
   }),
-  fixed: item.findings.length - declined.size,
+  // What the designer was sent: blockers and majors (ADR 0063), less what it declined.
+  fixed:
+    item.findings.filter(isSent).length -
+    [...declined.keys()].filter((i) => {
+      const f = item.findings[i];
+      return f !== undefined && isSent(f);
+    }).length,
 });
 
 /** The round ended, the reviewers still looking stopped with it; one that ended stays as it is. */
