@@ -43,6 +43,7 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { makeId } from "../../ids.ts";
 import { OpenProject } from "../../project.ts";
+import { ProfileService } from "../profile.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "../threads/agent-configs.ts";
 import { ChatPreferences } from "../threads/chat-preferences.ts";
@@ -173,6 +174,7 @@ export class ReviewLoop extends Context.Service<
       const lookWith = yield* makeReviewer();
       const viewsOf = yield* makePageViews();
       const findingsLog = yield* makeFindingsLog();
+      const profile = yield* ProfileService;
       const newItemId = makeId("item");
 
       /** The pages each thread's turns changed since its last round. */
@@ -299,7 +301,12 @@ export class ReviewLoop extends Context.Service<
         if (!thread || paths === null) {
           return null;
         }
-        const settings = reviewSettingsOf(paths.settings.review, thread.review);
+        // Keeping findings is the person's (their profile), or a project's that still says so.
+        const { keepFindings } = yield* profile.get;
+        const settings = {
+          ...reviewSettingsOf(paths.settings.review, thread.review),
+          ...(keepFindings === true && { findingsLog: true }),
+        };
         if (
           (thread.purpose ?? "design") !== "design" ||
           settings.on === false

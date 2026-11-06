@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
-import { ProfileRow } from "./settings-profile.tsx";
+import { KeepFindingsRow, ProfileRow } from "./settings-profile.tsx";
 
 vi.mock(
   "../state/connection.ts",
@@ -111,5 +111,29 @@ describe("the display name", () => {
     expect(container.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn’t save your name (disk full)"
     );
+  });
+});
+
+describe("Keep findings", () => {
+  it("shows whether the person keeps findings, and saves a change to their profile at once", async () => {
+    fakeApi.respond("profile.get", () => ({ keepFindings: true }));
+    fakeApi.respond("profile.set", (input) => ({ ...input }));
+    container = document.createElement("div");
+    mounted = createRoot(container);
+    act(() => {
+      mounted.render(<KeepFindingsRow />);
+    });
+    await act(async () => {
+      await fakeApi.requested("profile.get");
+    });
+    const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+    expect(toggle?.hasAttribute("data-checked")).toBe(true);
+    act(() => toggle?.click());
+    await act(async () => {
+      await fakeApi.requested("profile.set");
+    });
+    expect(fakeApi.calls.filter((c) => c.method === "profile.set")).toEqual([
+      { input: { keepFindings: false }, method: "profile.set" },
+    ]);
   });
 });

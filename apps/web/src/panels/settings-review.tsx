@@ -33,7 +33,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -611,19 +610,6 @@ export const ReviewGroup = ({
           />
         </>
       ) : null}
-      {shown === "off" ? null : (
-        <Row
-          description="Saves what reviewers find to ~/.ultrapaint/findings, so the design skill can learn from it."
-          htmlFor="settings-review-findings"
-          title="Keep findings"
-        >
-          <Switch
-            checked={merged.findingsLog === true}
-            id="settings-review-findings"
-            onCheckedChange={(findingsLog) => set({ findingsLog })}
-          />
-        </Row>
-      )}
     </Group>
   );
 };

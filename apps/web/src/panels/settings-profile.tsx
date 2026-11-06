@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 import { Row, RowMessage, rowField } from "./settings-group.tsx";
@@ -124,6 +125,50 @@ export const ProfileRow = () => {
           {line}
         </p>
       ) : null}
+    </Row>
+  );
+};
+
+/**
+ * Whether review models' findings are kept, in every project (ADR 0066): the log is in the user's
+ * own directory, so the choice is the user's, saved at once with the rest of the profile.
+ */
+export const KeepFindingsRow = () => {
+  const [kept, setKept] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    api()
+      .request("profile.get", undefined)
+      .then((profile) => setKept(profile.keepFindings === true))
+      .catch((error: Error) => {
+        setKept(false);
+        setFailed(`Couldn’t read the setting (${error.message}).`);
+      });
+  }, []);
+  const change = (next: boolean) => {
+    setKept(next);
+    setFailed(null);
+    api()
+      .request("profile.set", { keepFindings: next })
+      .then((profile) => setKept(profile.keepFindings === true))
+      .catch((error: Error) => {
+        setKept(!next);
+        setFailed(`Couldn’t save it (${error.message}). Try again.`);
+      });
+  };
+  return (
+    <Row
+      description="Saves what review models find, in every project, to ~/.ultrapaint/findings, so the design skill can learn from it."
+      htmlFor="settings-keep-findings"
+      message={failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
+      title="Keep findings"
+    >
+      <Switch
+        checked={kept === true}
+        disabled={kept === null}
+        id="settings-keep-findings"
+        onCheckedChange={change}
+      />
     </Row>
   );
 };

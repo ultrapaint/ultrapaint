@@ -228,9 +228,10 @@ refactor and the board view left.
   node (ADR 0061); in the lab, a gap section's `outline.md`, which `recall --inputs outline`
   reviews instead of its pictures.
 - **Findings log**: the review models' findings from every project, appended to
-  `~/.ultrapaint/findings/<project>.jsonl` when it is turned on (contracts' `LoggedFinding`), each
-  with its category, the rule it cites or none, and what the designer did, for triage into design
-  gaps.
+  `~/.ultrapaint/findings/<project>.jsonl` while the person keeps findings (their profile's
+  `keepFindings`, ADR 0066; contracts' `LoggedFinding`), each with its category, the rule it cites
+  or none, and what the designer did. **Triage** (`pnpm evals triage`) groups them and drafts the
+  recurring ones as design gaps.
 - **Where** (MCP's lookup): one resolver for what a tool is pointed at, a page, a node on the
   canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
   (`where`).

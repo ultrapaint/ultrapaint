@@ -58,7 +58,8 @@ describe("Settings › Agents › Review", () => {
     expect(container.textContent).toContain(
       "Your review models take turns, and all of them approve the result."
     );
-    expect(rows()).toEqual(["Level", "Review models", "Keep findings"]);
+    // Keeping findings is the person's, in Preferences (ADR 0066).
+    expect(rows()).toEqual(["Level", "Review models"]);
   });
 
   it("saves a level as its settings, the defaults left out", () => {
@@ -86,7 +87,6 @@ describe("Settings › Agents › Review", () => {
       "Each round",
       "Approval",
       "Goal",
-      "Keep findings",
     ]);
     render({ goal: { score: 90 } });
     expect(pressed()).toContain("Custom");

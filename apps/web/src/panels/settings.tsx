@@ -51,7 +51,7 @@ import {
   SkillsGroup,
 } from "./settings-agents.tsx";
 import { Group, Row, RowMessage } from "./settings-group.tsx";
-import { ProfileRow } from "./settings-profile.tsx";
+import { KeepFindingsRow, ProfileRow } from "./settings-profile.tsx";
 import { ReviewGroup } from "./settings-review.tsx";
 import { ThemeRow } from "./settings-theme.tsx";
 
@@ -912,6 +912,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       <ThemeRow />
       <ProfileRow />
       <SendKeyRow />
+      <KeepFindingsRow />
     </Group>
   );
 
