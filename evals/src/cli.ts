@@ -21,6 +21,7 @@
  *   pnpm evals off-system <rounds…>                values a round's pages set where a token was due
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
  *   pnpm evals panel <round> [rounds…]             what a fixed panel still finds in finished designs
+ *   pnpm evals triage <name> [--apply]              the findings log's recurring problems, as gaps to keep
  *
  * `generate`, `judge` and `report` run one step of a round each, to resume or redo one.
  * See evals/README.md.
@@ -70,6 +71,7 @@ import { review } from "./review.ts";
 import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
+import { applyTriage, triage } from "./triage.ts";
 
 const refs = Argument.String("refs").pipe(
   Argument.withDescription(
@@ -1081,6 +1083,72 @@ const catchableCommand = Command.make(
   )
 );
 
+const triageCommand = Command.make(
+  "triage",
+  {
+    all: Flag.Boolean("all").pipe(
+      Flag.withDescription(
+        "Read every logged finding, not only those after the last applied triage"
+      ),
+      Flag.withDefault(false)
+    ),
+    apply: Flag.Boolean("apply").pipe(
+      Flag.withDescription(
+        "Write what was kept in the deck into evals/gaps/, and start the next triage after these findings"
+      ),
+      Flag.withDefault(false)
+    ),
+    concurrency: Flag.Int("concurrency").pipe(
+      Flag.withDescription("Problems checked at once"),
+      Flag.withDefault(3)
+    ),
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the models think"),
+      Flag.withDefault("high")
+    ),
+    grouper: Flag.String("grouper").pipe(
+      Flag.withDescription("The model that groups the findings into problems"),
+      Flag.withDefault("gpt-6.1-sol")
+    ),
+    minDesigns: Flag.Int("min-designs").pipe(
+      Flag.withDescription("A problem recurs once found in this many designs"),
+      Flag.withDefault(2)
+    ),
+    minModels: Flag.Int("min-models").pipe(
+      Flag.withDescription("…or once found by this many review models"),
+      Flag.withDefault(2)
+    ),
+    models: Flag.String("models").pipe(
+      Flag.withDescription(
+        "The models that check each recurring problem, on different providers, comma-separated"
+      ),
+      Flag.withDefault("opus,gpt-6.1-sol")
+    ),
+    name: Argument.String("name").pipe(
+      Argument.withDescription("The run, in the data directory's triage/")
+    ),
+  },
+  Effect.fn(function* (input) {
+    if (input.apply) {
+      return yield* applyTriage(input.name);
+    }
+    yield* triage({
+      all: input.all,
+      concurrency: input.concurrency,
+      effort: input.effort,
+      grouper: input.grouper,
+      minDesigns: input.minDesigns,
+      minModels: input.minModels,
+      models: modelList(input.models),
+      name: input.name,
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Turn the findings log's recurring problems into draft gaps, checked by review models, for the person to keep in a deck"
+  )
+);
+
 const offSystemCommand = Command.make(
   "off-system",
   {
@@ -1161,6 +1229,7 @@ Command.make("design-evals").pipe(
     decideCommand,
     measureCommand,
     catchableCommand,
+    triageCommand,
     offSystemCommand,
     outlineCommand,
   ]),
