@@ -102,12 +102,13 @@ export const unblind = (
 
 const RUN_RE = /^run-\d+$/;
 /** A path or a brace list of them ending on `.md`, as a tool call names files. */
-const MD_RE = /[\w{},/.-]*\.md/g;
+const MD_RE = /[\w{},/.$-]*\.md/g;
 /** Up to a file's path in the skills' cache: the version's folder and the wording's. */
 const CACHE_PREFIX_RE =
   /^.*\.cache\/ultrapaint\/skills\/[0-9a-f]+\/(?:with-tools\/|without-tools\/)?/;
 const BRACES_RE = /\{([^{}]*)\}/;
-const REFERENCES_RE = /^references\//;
+/** A shell variable naming the folder (`$S/layout.md`), as an agent writes a long path once. */
+const VARIABLE_RE = /^\$\w+\//;
 const SKILL_FILE_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*\.md$/;
 
 /** `content/{voice,interface}.md` as the shell expands it. */
@@ -124,21 +125,23 @@ const expand = (file: string): string[] => {
 
 /**
  * The skill's files a trace shows opened, from its tool calls, each by its path in the
- * references (`design-system/components.md`), sorted. A call that failed opened nothing; a brace
- * list opens each of its files; a call that reads part of a file counts.
+ * references (`design-system/components.md`), sorted. A brace list opens each of its files, and a
+ * call that reads part of a file counts. A call marked failed still read its files when only a
+ * later command of its chain failed; a `references/` path, which the cache has not got, opened
+ * nothing.
  */
 export const skillReads = (trace: string) => {
   const files = new Set<string>();
   for (const line of trace.split("\n")) {
-    if (line.startsWith("- ✗") || !line.includes(".cache/ultrapaint/skills")) {
+    if (!line.includes(".cache/ultrapaint/skills")) {
       continue;
     }
     for (const [token] of line.matchAll(MD_RE)) {
       const inSkill = token
         .replace(CACHE_PREFIX_RE, "")
-        .replace(REFERENCES_RE, "");
+        .replace(VARIABLE_RE, "");
       for (const file of expand(inSkill)) {
-        if (SKILL_FILE_RE.test(file)) {
+        if (SKILL_FILE_RE.test(file) && !file.startsWith("references/")) {
           files.add(file);
         }
       }

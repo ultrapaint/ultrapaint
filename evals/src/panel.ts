@@ -18,6 +18,7 @@ import { EvalsConfig } from "./config.ts";
 import { commitOf, RoundInfo, RunInfo, referencePictures } from "./generate.ts";
 import { Judgement, roundRuns } from "./judge.ts";
 import { readJson, writeJson, writeText } from "./layout.ts";
+import { skillReads } from "./pairwise.ts";
 import { writeSkillTree } from "./recall.ts";
 import { notesOf, REVIEW_FILE } from "./review-loop.ts";
 import {
@@ -173,11 +174,66 @@ export const panelRun = Effect.fn("panelRun")(function* (
   return result;
 });
 
+/** Every part a briefing tells whole with the router: what a run needs and never opens. */
+const TOLD_WITH_THE_ROUTER: ReadonlySet<string> = new Set([
+  "hierarchy",
+  "restraint",
+]);
+
+export interface ReadWhenNeeded {
+  /** The parts its sections reached, beyond what the briefing told whole. */
+  readonly needed: readonly string[];
+  /** Those of them whose file the run opened. */
+  readonly read: readonly string[];
+}
+
+/**
+ * Whether a run read the parts of the skill its sections needed (ADR 0048): a part is needed
+ * where a reviewer found the section reaching it or a finding in it, and read where the run
+ * opened its file. A round told every part whole needed to open none.
+ */
+export const readWhenNeeded = (
+  result: PanelResult,
+  reads: readonly string[],
+  toldWhole: boolean
+): ReadWhenNeeded => {
+  const reached = new Set<string>();
+  for (const section of result.sections) {
+    for (const review of section.reviews) {
+      for (const category of review.reached) {
+        reached.add(category);
+      }
+      for (const finding of review.findings) {
+        reached.add(finding.category);
+      }
+    }
+  }
+  const opened = new Set(reads);
+  const needed = toldWhole
+    ? []
+    : [...reached].filter((c) => !TOLD_WITH_THE_ROUTER.has(c)).sort();
+  return { needed, read: needed.filter((c) => opened.has(`${c}.md`)) };
+};
+
+const readsCell = (reads: ReadWhenNeeded | undefined) =>
+  reads === undefined || reads.needed.length === 0
+    ? "–"
+    : `${reads.read.length}/${reads.needed.length}`;
+
+/** The share of the parts needed that were read, over every run that needed one. */
+const readsShare = (rows: readonly PanelRow[]) => {
+  const needed = rows.reduce((n, r) => n + (r.reads?.needed.length ?? 0), 0);
+  const read = rows.reduce((n, r) => n + (r.reads?.read.length ?? 0), 0);
+  return needed === 0 ? "–" : `${Math.round((read / needed) * 100)}%`;
+};
+
 /** One run as the table shows it. */
 export interface PanelRow {
   /** The judge's overall score, when the run was judged. */
   readonly fidelity: number | undefined;
   readonly panel: PanelResult;
+  /** The parts its sections needed and how many of them it opened, when its trace says. */
+  readonly reads: ReadWhenNeeded | undefined;
   readonly reference: string;
   /** What reviewing took in the run's loop, when it had one. */
   readonly reviewSeconds: number | undefined;
@@ -264,7 +320,7 @@ export const panelTable = (
   const lines = [
     `# Panel: ${round}`,
     "",
-    `What a fixed panel of fresh reviewers still finds in each run's final page, section by section: ${models.map((m) => `\`${m}\``).join(", ")}, grouped by \`${options.judgeModel}\`, effort ${options.effort}. Fewer problems is better. A problem is one thing wrong, whichever reviewers found it. A model's column is its score out of 100 from its own findings, higher being better, with how many it made in brackets; "no score" where it gave no review. Notes counts what only a design-system component would fix, kept out of the problems. Fidelity is the judge's overall score (1–5).`,
+    `What a fixed panel of fresh reviewers still finds in each run's final page, section by section: ${models.map((m) => `\`${m}\``).join(", ")}, grouped by \`${options.judgeModel}\`, effort ${options.effort}. Fewer problems is better. A problem is one thing wrong, whichever reviewers found it. A model's column is its score out of 100 from its own findings, higher being better, with how many it made in brackets; "no score" where it gave no review. Notes counts what only a design-system component would fix, kept out of the problems. Fidelity is the judge's overall score (1–5). Read is how many of the skill's parts the run's sections reached it opened, beyond those the briefing tells whole.`,
     "",
     "## Per run",
     "",
@@ -273,6 +329,7 @@ export const panelTable = (
       "Problems",
       ...models,
       "Notes",
+      "Read",
       "Fidelity",
       "Seconds",
       "Review seconds",
@@ -284,6 +341,7 @@ export const panelTable = (
         `**${problemsOf(r.panel)}**`,
         ...models.map((m) => scoreCell(r.panel, m)),
         notesCount(r.panel),
+        readsCell(r.reads),
         r.fidelity ?? "–",
         r.seconds ?? "–",
         r.reviewSeconds === undefined ? "–" : Math.round(r.reviewSeconds),
@@ -295,6 +353,7 @@ export const panelTable = (
       `**${mean(rows.map((r) => problemsOf(r.panel)))}**`,
       ...models.map((m) => mean(rows.flatMap((r) => scoreValue(r.panel, m)))),
       mean(rows.map((r) => notesCount(r.panel))),
+      readsShare(rows),
       mean(rows.flatMap((r) => (r.fidelity === undefined ? [] : [r.fidelity]))),
       mean(rows.flatMap((r) => (r.seconds === undefined ? [] : [r.seconds]))),
       mean(
@@ -334,7 +393,8 @@ const ReviewTotals = Schema.Struct({
 /** A run's row: its panel, its judge's overall score, and what it took. */
 const rowOf = Effect.fn("rowOf")(function* (
   run: { readonly dir: string; readonly reference: string },
-  result: PanelResult
+  result: PanelResult,
+  toldWhole: boolean
 ) {
   const fs = yield* FileSystem.FileSystem;
   const optional = <S extends Schema.Top>(schema: S, file: string) =>
@@ -345,9 +405,18 @@ const rowOf = Effect.fn("rowOf")(function* (
   const judged = yield* optional(Judgement, "judge.json");
   const info = yield* optional(RunInfo, "run.json");
   const review = yield* optional(ReviewTotals, REVIEW_FILE);
+  const trace = path.join(run.dir, "trace.md");
+  const reads = (yield* fs.exists(trace))
+    ? readWhenNeeded(
+        result,
+        skillReads(yield* fs.readFileString(trace)),
+        toldWhole
+      )
+    : undefined;
   return {
     fidelity: judged?.scores.find((s) => s.area === "overall")?.score,
     panel: result,
+    reads,
     reference: run.reference,
     reviewSeconds: review?.totals.review.seconds,
     run: path.basename(run.dir),
@@ -380,6 +449,17 @@ const requestOf = Effect.fn("requestOf")(function* (
   } satisfies ReviewRequest;
 });
 
+/** Whether a round's designers were told every part whole (`EVAL_SKILLS_BRIEFING=full`). */
+const toldWholeIn = Effect.fn("toldWholeIn")(function* (round: string) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  const file = path.join(data.runs, round, "round.json");
+  if (!(yield* fs.exists(file))) {
+    return false;
+  }
+  return (yield* readJson(RoundInfo, file)).skills.endsWith("(full)");
+});
+
 export const panel = Effect.fn("panel")(function* (
   rounds: readonly string[],
   options: PanelOptions
@@ -394,6 +474,7 @@ export const panel = Effect.fn("panel")(function* (
       "built-in"
     );
     const runs = yield* roundRuns(round);
+    const toldWhole = yield* toldWholeIn(round);
     const rows: PanelRow[] = [];
     for (const run of runs) {
       if (!marked.has(run.reference)) {
@@ -424,7 +505,7 @@ export const panel = Effect.fn("panel")(function* (
         )
       );
       if (result !== undefined) {
-        rows.push(yield* rowOf(run, result));
+        rows.push(yield* rowOf(run, result, toldWhole));
         yield* Effect.log(
           `${data.fromData(run.dir)}: ${problemsOf(result)} problems`
         );

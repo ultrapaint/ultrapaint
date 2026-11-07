@@ -61,6 +61,12 @@ const aRound = (score: (run: number) => number) =>
             })),
           },
         ],
+        [
+          `${RUN}${run}/trace.md`,
+          run === 1
+            ? "- · Read /home/me/.cache/ultrapaint/skills/abc/with-tools/spacing.md"
+            : "- · get_screenshot",
+        ],
         [`${RUN}${run}/shots/sections/header.jpg`, "a picture"],
         [`${RUN}${run}/shots/sections/footer.jpg`, "a picture"],
       ])
@@ -174,20 +180,21 @@ describe("the panel", () => {
         const table = yield* readData("runs/r/panel.md");
         assert.include(
           table,
-          "| Run | Problems | opus | gpt-6.1-sol | Notes | Fidelity | Seconds | Review seconds | Tokens |"
+          "| Run | Problems | opus | gpt-6.1-sol | Notes | Read | Fidelity | Seconds | Review seconds | Tokens |"
         );
         assert.include(
           table,
-          // A major spacing finding takes a section to 98: opus has one in each, GPT in one.
-          "| share/run-1 | **2** | 98 (2) | 99 (1) | 1 | 4 | 100 | – | 2k |"
+          // A major spacing finding takes a section to 98: opus has one in each, GPT in one. Its
+          // spacing findings made the part needed, and the run read it.
+          "| share/run-1 | **2** | 98 (2) | 99 (1) | 1 | 1/1 | 4 | 100 | – | 2k |"
         );
         assert.include(
           table,
-          "| share/run-2 | **0** | 100 (0) | 100 (0) | 0 | 3 | 200 | – | 4k |"
+          "| share/run-2 | **0** | 100 (0) | 100 (0) | 0 | – | 3 | 200 | – | 4k |"
         );
         assert.include(
           table,
-          "| **Mean** | **1.0** | 99.0 | 99.5 | 0.5 | 3.5 | 150.0 | – |  |"
+          "| **Mean** | **1.0** | 99.0 | 99.5 | 0.5 | 100% | 3.5 | 150.0 | – |  |"
         );
         assert.include(table, "| Section | share/run-1 | share/run-2 | Mean |");
         assert.include(table, "| Header | 1 | 0 | 0.5 |");

@@ -77,13 +77,13 @@ describe("pairwise", () => {
     assert.deepStrictEqual(skillReads(""), []);
   });
 
-  it("reads each file of a brace list, a folder's files by their path, and nothing from a call that failed", () => {
+  it("reads each file of a brace list, a folder's files by their path, a variable's files, and nothing from a path the cache has not got", () => {
     const cache = "/home/me/.cache/ultrapaint/skills/abc";
     const trace = [
       `- · cat ${cache}/with-tools/{layout,spacing}.md ${cache}/with-tools/content/{voice,interface}.md`,
       `- · Read ${cache}/without-tools/design-system/components.md`,
-      `- ✗ Read ${cache}/with-tools/references/patterns/navigation.md`,
-      `- · Read ${cache}/references/studies/picture.md`,
+      `- ✗ cat ${cache}/with-tools/references/patterns/navigation.md`,
+      `- ✗ S=${cache}/with-tools; cat $S/typography.md; ls nowhere`,
       `- · ls ${cache}/with-tools/*.md`,
     ].join("\n");
     assert.deepStrictEqual(skillReads(trace), [
@@ -92,7 +92,7 @@ describe("pairwise", () => {
       "design-system/components.md",
       "layout.md",
       "spacing.md",
-      "studies/picture.md",
+      "typography.md",
     ]);
   });
 });
