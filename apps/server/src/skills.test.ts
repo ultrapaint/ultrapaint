@@ -8,6 +8,7 @@ import { turnEnded } from "./testing/turns.ts";
 const FRONT_MATTER_RE = /^---\nextends: true\n---\n/;
 const REFERENCES_DIR_RE = /The references are in `([^`]+)\/`/;
 const TYPOGRAPHY_RE = /`([^`]+\/typography\.md)`/;
+const MENTIONED_RE = /`(\/[^`]+\.md)`/g;
 const EXTENDED_COLOUR_RE =
   /semantic tokens[\s\S]*Blue is the brand; never use it for status\.\n$/;
 
@@ -256,6 +257,18 @@ describe("design skills", () => {
           named.startsWith(path.join(home, ".cache", "ultrapaint"))
         );
         assert.include(yield* fs.readFileString(named), "# Typography");
+
+        // A file read there reads as the briefing does: worded for this agent, and every file it
+        // names is where it says.
+        const color = yield* fs.readFileString(
+          path.join(path.dirname(named), "color.md")
+        );
+        assert.notInclude(color, "editor's tools:");
+        const mentioned = [...color.matchAll(MENTIONED_RE)].map((m) => m[1]);
+        assert.isAbove(mentioned.length, 0);
+        for (const file of mentioned) {
+          assert.isTrue(yield* fs.exists(file ?? ""), `${file} is not there`);
+        }
       }),
     30_000
   );

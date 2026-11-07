@@ -101,16 +101,46 @@ export const unblind = (
 };
 
 const RUN_RE = /^run-\d+$/;
-/** A skill file named on a line of the trace that reaches the skills' cache. */
-const SKILL_FILE_RE = /((?:patterns|studies)\/)?([a-z-]+)\.md/g;
+/** A path or a brace list of them ending on `.md`, as a tool call names files. */
+const MD_RE = /[\w{},/.-]*\.md/g;
+/** Up to a file's path in the skills' cache: the version's folder and the wording's. */
+const CACHE_PREFIX_RE =
+  /^.*\.cache\/ultrapaint\/skills\/[0-9a-f]+\/(?:with-tools\/|without-tools\/)?/;
+const BRACES_RE = /\{([^{}]*)\}/;
+const REFERENCES_RE = /^references\//;
+const SKILL_FILE_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*\.md$/;
 
-/** The skill's files a trace shows opened, from its tool calls, sorted. */
+/** `content/{voice,interface}.md` as the shell expands it. */
+const expand = (file: string): string[] => {
+  // Typed by hand: the linter otherwise takes the match for non-null.
+  const m: RegExpExecArray | null = BRACES_RE.exec(file);
+  if (!m) {
+    return [file];
+  }
+  return (m[1] ?? "")
+    .split(",")
+    .flatMap((part) => expand(file.replace(m[0], part)));
+};
+
+/**
+ * The skill's files a trace shows opened, from its tool calls, each by its path in the
+ * references (`design-system/components.md`), sorted. A call that failed opened nothing; a brace
+ * list opens each of its files; a call that reads part of a file counts.
+ */
 export const skillReads = (trace: string) => {
   const files = new Set<string>();
   for (const line of trace.split("\n")) {
-    if (line.includes(".cache/ultrapaint/skills")) {
-      for (const m of line.matchAll(SKILL_FILE_RE)) {
-        files.add(`${m[1] ?? ""}${m[2]}.md`);
+    if (line.startsWith("- ✗") || !line.includes(".cache/ultrapaint/skills")) {
+      continue;
+    }
+    for (const [token] of line.matchAll(MD_RE)) {
+      const inSkill = token
+        .replace(CACHE_PREFIX_RE, "")
+        .replace(REFERENCES_RE, "");
+      for (const file of expand(inSkill)) {
+        if (SKILL_FILE_RE.test(file)) {
+          files.add(file);
+        }
       }
     }
   }

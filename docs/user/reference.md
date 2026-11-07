@@ -54,7 +54,7 @@ type after it is added to it.
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `skills.disabled` | Design skills agents are not told |
-| `skills.briefing` | `summaries` to tell a design thread the skills by their titles and summaries, read whole when needed; `full` (the default) tells them whole |
+| `skills.briefing` | How a design thread is told the design skill: `router` (the default) tells its router with what every screen needs and has the agent read the rest when the work reaches it; `full` tells every part whole; `summaries` tells each by its title and summary, read whole when needed |
 
 You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and
 agents never do.

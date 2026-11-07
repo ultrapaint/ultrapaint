@@ -15,10 +15,11 @@ import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import {
   builtInSkills,
-  REFERENCES_MENTION,
+  naming,
+  referencesAt,
   referencesDirOf,
+  referencesFor,
   routerText,
-  skillReferences,
   TOLD_WHEN_MAKING_THE_SYSTEM,
   TOLD_WITH_ROUTER,
 } from "../skills/index.ts";
@@ -95,35 +96,44 @@ export class SkillsService extends Context.Service<
       // As the settings show them: worded for the tools the server offers.
       const { machine, mcp } = yield* ServerConfig;
       const referencesDir = referencesDirOf(machine.home, path.join);
+      const dirFor = (tools: boolean) =>
+        referencesFor(referencesDir, path.join, agentWays(tools).tools);
 
       /*
-       * The references written where agents read them, once per server. One that cannot be
-       * written leaves its skill pointing at nothing, which costs the agent the reference and
-       * nothing else: the thread goes on.
+       * The references written where agents read them, once per server: a folder for an agent
+       * with the editor's tools and one for an agent without, each file worded for it and naming
+       * the others where they are. One that cannot be written leaves its skill pointing at
+       * nothing, which costs the agent the reference and nothing else: the thread goes on.
        */
       const references = yield* Effect.cached(
-        Effect.forEach(Object.entries(skillReferences), ([file, text]) =>
-          Effect.gen(function* () {
-            const into = path.join(referencesDir, file);
-            yield* fs.makeDirectory(path.dirname(into), { recursive: true });
-            yield* fs.writeFileString(into, text);
-          })
+        Effect.forEach([true, false], (tools) =>
+          Effect.forEach(
+            referencesAt(dirFor(tools), agentWays(tools).tools),
+            ([file, text]) =>
+              Effect.gen(function* () {
+                const into = path.join(dirFor(tools), file);
+                yield* fs.makeDirectory(path.dirname(into), {
+                  recursive: true,
+                });
+                yield* fs.writeFileString(into, text);
+              })
+          )
         ).pipe(Effect.ignore)
       );
 
-      /** A built-in text, each file of the references named where it is written. */
-      const withReferences = (text: string) =>
-        text.replaceAll(REFERENCES_MENTION, `\`${referencesDir}/`);
+      /** A built-in text, each file of the references named where it is written for `tools`. */
+      const withReferences = (text: string, tools: boolean) =>
+        naming(text, dirFor(tools));
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
 
-      const builtIn = (name: string, text: string): Skill => ({
+      const builtIn = (name: string, text: string, tools: boolean): Skill => ({
         enabled: !disabled.has(name),
         extends: false,
         name,
         source: "built-in",
-        text: withReferences(text),
+        text: withReferences(text, tools),
         ...describeSkill(name, text),
       });
 
@@ -174,7 +184,7 @@ export class SkillsService extends Context.Service<
         const skills = builtIns.map((skill) => {
           const file = own.get(skill.name);
           return file === undefined
-            ? builtIn(skill.name, skill.text)
+            ? builtIn(skill.name, skill.text, tools)
             : fromFile(skill.name, file, skill.text);
         });
         const known = new Set(builtIns.map((s) => s.name));
@@ -209,7 +219,7 @@ export class SkillsService extends Context.Service<
         const { skills } = yield* listFor(tools);
         const listed: string[] = [];
         const whole: string[] = router
-          ? [withReferences(routerText(agentWays(tools).tools)).trim()]
+          ? [withReferences(routerText(agentWays(tools).tools), tools).trim()]
           : [];
         for (const skill of skills.filter((s) => s.enabled)) {
           // Read from the references when the router names it: what the project wrote is told.

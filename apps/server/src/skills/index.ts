@@ -110,7 +110,30 @@ export const referencesDirOf = (
   );
 
 /**
+ * The folder of `referencesDirOf` that holds the references worded for an agent with the
+ * editor's tools or without them: what an agent opens there reads as what it is told.
+ */
+export const referencesFor = (
+  dir: string,
+  join: (...parts: string[]) => string,
+  tools: ToolNames | null
+) => join(dir, tools ? "with-tools" : "without-tools");
+
+/**
  * How the skill names a file of its references (`` `references/layout.md` ``); the briefing names the
  * folder they are written to instead.
  */
 export const REFERENCES_MENTION = "`references/";
+
+/** A text of the skill, each file of its references named where `dir` holds them. */
+export const naming = (text: string, dir: string) =>
+  text.replaceAll(REFERENCES_MENTION, `\`${dir}/`);
+
+/**
+ * Every file of the references as an agent reads it from `dir`: worded for the tools it has, and
+ * each file it names named where `dir` holds it.
+ */
+export const referencesAt = (dir: string, tools: ToolNames | null) =>
+  Object.entries(skillReferences).map(
+    ([file, text]) => [file, naming(withWays(text, tools), dir)] as const
+  );

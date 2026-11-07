@@ -51,9 +51,9 @@ const skillsBriefings = [
 
 /** What a design thread is told, for each way of telling the skills. */
 const briefingDescriptions: Record<SkillsBriefing, string> = {
-  full: "Every skill that is on, whole: about 70,000 characters before the first prompt.",
+  full: "Every skill that is on, whole: about 81,000 characters before the first prompt.",
   router:
-    "The router and what every screen needs, about 13,000 characters; the rest is read as the work reaches it.",
+    "The router and what every screen needs, about 19,000 characters; the rest is read as the work reaches it.",
   summaries:
     "Each skill’s title and summary, about 2,500 characters; a skill is read whole before its work.",
 };
