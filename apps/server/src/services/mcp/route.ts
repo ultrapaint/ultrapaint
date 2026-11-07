@@ -5,10 +5,12 @@
  * listens on loopback, but a page in the browser is on loopback too, so without a token any
  * website the user has open could call the editor's tools.
  */
+import { skillUri } from "@ultrapaint/contracts/skills";
 import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
 import { McpProtocol, McpSchema, McpServer, Toolkit } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { CORE_FILE } from "../../skills/index.ts";
 import { canvasesIn, NODES, PAGES } from "../threads/agent-docs.ts";
 import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
 import {
@@ -143,7 +145,8 @@ Change designs through these tools, not by editing their files: ${TOOLS.read_pag
 first, then a part at a time with node), then ${TOOLS.apply_operations}; ${TOOLS.get_document_format} has the whole
 format, ${TOOLS.get_component} an instance to start from. Call ${TOOLS.focus} before changing nodes, so the user
 sees where you work, and ${TOOLS.get_screenshot} to look at the result. A component's file in components/ is
-written as a file. Token values are the design system's, never a stylesheet's.
+written as a file. Token values are the design system's, never a stylesheet's. Before designing,
+read the design skill, the resource ${skillUri(CORE_FILE)}: it names the references it needs.
 To implement a design, ${handoffCall("list")} says what is ready or changed since it was implemented,
 and "read" with its target gives the task, which says the rest. What the code must do that a design
 cannot show (a permission, a validation, a call) is written down with "note", on a page's node or a

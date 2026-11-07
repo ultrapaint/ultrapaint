@@ -188,16 +188,32 @@ refactor and the board view left.
   tasks compose; a component in one line (`componentLine`), a schema compacted (`compactSchema`),
   a tool's schema without JSON Schema's defaults (`leanSchema`), a tree too big to give whole as
   its outline (`treeForAgent`, for `read_page` and `/implement` alike). The design skills go only
-  to threads that draw designs (`drawsDesigns`), and to any agent as MCP resources
-  (`skill://ultrapaint/<name>`): whole, or, with the setting `skills.briefing: "summaries"`, by
-  their titles and summaries with where each is read whole (`SkillsTold`); the slash commands are
-  MCP prompts too.
-- **Content**: the words of a design, and the design skill's part for them (ADR 0067):
-  `references/content.md`, a router to `references/content/` (`voice.md`, `interface.md`,
-  `pages.md`), followed with a design or alone when a task writes only the words. What a product
-  chose for its words (how they sound, the one name of each thing and the words never used for it,
-  its formats) is DESIGN.md's Content section, which this tool adds to the format's eight
-  (design-md's `SECTIONS`); a rule for any product stays in the skill (ADR 0065).
+  to threads that draw designs or make the design system (`toldTheDesignSkill`), and to any agent
+  as MCP resources (`skill://ultrapaint/SKILL.md`, `skill://ultrapaint/references/<path>`, a
+  project's own `skill://ultrapaint/<name>`): the core whole, or, with the setting
+  `skills.briefing: "summaries"`, by their titles and summaries with where each is read whole
+  (`SkillsTold`); the slash commands are MCP prompts too.
+- **Design skill**: what the tool teaches agents about designing interfaces and their design
+  systems, one skill, `skills/ultrapaint/`, named `ultrapaint` in the settings (server's
+  `skills/`, `SkillsService`). Its **core**, `SKILL.md`, holds every rule as a line with its value,
+  the steps of its three jobs (a screen or page, the design system, the words alone) and the table
+  of **kinds**; a design thread is told it whole. Its **references**, `references/…`, hold what a
+  rule line cannot: a topic's detail (`layout.md`, `surfaces.md`), a kind of screen
+  (`kinds/dialog.md`) or of public page (`pages/landing.md`), making the system (`system/`), the
+  words (`words/`). A **kind** is the one file the agent names in step 2 and opens before the first
+  element. The skill speaks the web's terms; the briefing says what they are in the editor
+  (`skillTerms`). It is written whole to `~/.cache/ultrapaint/skills/<hash>/`, each mention of a
+  reference named there, and a project's own skill files in `<designsDir>/skills/` are told after
+  it. A review **category** names a concern, held by one file of the skill (contracts'
+  `CATEGORY_FILES`).
+  _Avoid_: router, part, override (the per-part skills, replaced or extended by a project's file,
+  before the core).
+- **Content**: the words of a design, and the design skill's references for them (ADR 0067):
+  `references/words/` (`voice.md`, `interface.md`, `pages.md`), followed with a design or alone
+  when a task writes only the words. What a product chose for its words (how they sound, the one
+  name of each thing and the words never used for it, its formats) is DESIGN.md's Content
+  section, which this tool adds to the format's eight (design-md's `SECTIONS`); a rule for any
+  product stays in the skill (ADR 0065).
   _Avoid_: copy skill, voice file.
 - **Design gap**: what a person found wrong in a design made with the design skill, kept until
   the lab shows a change to the skill catches it (ADR 0059): one file each in `evals/gaps/`, read
@@ -213,8 +229,8 @@ refactor and the board view left.
 - **Review models**: the models a design is reviewed by, the person's choice, in the order they
   take turns (ADR 0060, 0063; called the **council** before): each a **review model**, an agent,
   one of its models and its effort (contracts' `ReviewModel`). They have no score of their own:
-  each scores the design out of 100, overall and per **category** (one of the design skill's
-  references), from its own findings, each with a **severity**; one that gave no review has **no
+  each scores the design out of 100, overall and per **category** (a concern the design skill
+  holds rules for), from its own findings, each with a **severity**; one that gave no review has **no
   score**. A **goal** says when the loop stops: every review model reaches its target score, or,
   with none asked, every one **approves** (its sign-off); a cap ends a loop that isn't
   converging. **Each round** says who of them reviews while the designer works (one, in turn,

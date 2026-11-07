@@ -6,9 +6,10 @@
  * Then the text the page shows that its brief did not (`added-text.json`), each with a picture of
  * the node around it (`parts/`): what the judge and a person look at for "less is more".
  *
- * The agent is told the skills the way it is in the product: the briefing of its thread. A round
- * with `--skills candidates/<name>` puts those files in the designs directory's `skills/`, where a
- * project's own skills go, so they replace or extend the shipped ones for that round only.
+ * The agent is told the skills the way it is in the product: the briefing of its thread, with the
+ * design skill of the checkout the command runs from. A candidate skill is tried from a checkout
+ * of its own (`ULTRAPAINT_CHECKOUT`, `evals/README.md`): the server carries the skill it was
+ * built with, so a round cannot swap it.
  */
 import path from "node:path";
 import {
@@ -33,7 +34,6 @@ import { foldName, tileName } from "./capture.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
-  listDir,
   prompt,
   readJson,
   readPageFile,
@@ -106,7 +106,10 @@ export const RoundInfo = Schema.Struct({
     })
   ),
   runs: Schema.Number,
-  /** `built-in`, or the candidates directory the round tried. */
+  /**
+   * `built-in`, the checkout's, with how it was told when not by default (`built-in (full)`); an
+   * older round may name the candidates directory it tried.
+   */
   skills: Schema.String,
   startedAt: Schema.String,
 });
@@ -150,8 +153,6 @@ export interface GenerateOptions {
     | undefined;
   readonly round: string;
   readonly runs: number;
-  /** A directory of skill files, relative to the data directory, or none for the shipped skills. */
-  readonly skills: string | undefined;
 }
 
 export const commitOf = Effect.gen(function* () {
@@ -203,34 +204,6 @@ const referenceImages = Effect.fn("referenceImages")(function* (
   return images;
 });
 const ZOOM = /^zoom-\d+\.jpg$/;
-
-/** The candidate skill files, put where a project's own skills go. */
-const placeSkills = Effect.fn("placeSkills")(function* (
-  designs: string,
-  skills: string | undefined
-) {
-  const { data } = yield* EvalsConfig;
-  if (skills === undefined) {
-    return;
-  }
-  const fs = yield* FileSystem.FileSystem;
-  const from = path.resolve(data.root, skills);
-  // A candidate's `SKILL.md` is the router, which a project's skills cannot replace: only
-  // `recall` reads it.
-  const files = (yield* listDir(from)).filter(
-    (f) => f.endsWith(".md") && f !== "SKILL.md"
-  );
-  if (files.length === 0) {
-    return yield* new EvalsError({ message: `no skill files in ${skills}` });
-  }
-  yield* fs.makeDirectory(path.join(designs, "skills"), { recursive: true });
-  for (const file of files) {
-    yield* fs.copyFile(
-      path.join(from, file),
-      path.join(designs, "skills", file)
-    );
-  }
-});
 
 /** The skills as agents are told them this round, one file each, for the judge and the report. */
 const recordSkills = Effect.fn("recordSkills")(function* (
@@ -624,7 +597,7 @@ const designTurns = Effect.fn("designTurns")(function* (
     // The skill as the designer was briefed with it, read without the editor's tools.
     tree: yield* writeSkillTree(
       path.join(data.runs, options.round, "review-skill"),
-      options.skills ?? "built-in"
+      "built-in"
     ),
     viewport,
   });
@@ -642,7 +615,6 @@ const runOnce = Effect.fn("runOnce")(function* (
   const dir = data.runDir(options.round, reference.id, run);
   yield* fs.remove(dir, { force: true, recursive: true });
   yield* resetDesigns(session);
-  yield* placeSkills(session.designs, options.skills);
 
   const brief = yield* fs.readFileString(data.briefFile(reference.id));
   const viewports = viewportsOf(reference);
@@ -744,13 +716,8 @@ const runOnce = Effect.fn("runOnce")(function* (
 });
 
 /** The skills a round is told, and how when it is not the default (`EVAL_SKILLS_BRIEFING`). */
-const skillsOfRound = (
-  options: GenerateOptions,
-  briefing: string | undefined
-) => {
-  const skills = options.skills ?? "built-in";
-  return briefing === undefined ? skills : `${skills} (${briefing})`;
-};
+const skillsOfRound = (briefing: string | undefined) =>
+  briefing === undefined ? "built-in" : `built-in (${briefing})`;
 
 /**
  * The round's record, written when it starts; a round run again must be the same round: one host,
@@ -765,7 +732,7 @@ const startRound = Effect.fn("startRound")(function* (
   const roundFile = path.join(data.runs, options.round, "round.json");
   if (yield* fs.exists(roundFile)) {
     const before = yield* readJson(RoundInfo, roundFile);
-    const skills = skillsOfRound(options, skillsBriefing);
+    const skills = skillsOfRound(skillsBriefing);
     if (
       before.host !== options.host ||
       before.skills !== skills ||
@@ -811,7 +778,7 @@ const startRound = Effect.fn("startRound")(function* (
         },
       }),
       runs: options.runs,
-      skills: skillsOfRound(options, skillsBriefing),
+      skills: skillsOfRound(skillsBriefing),
       startedAt: new Date().toISOString(),
     } satisfies RoundInfo);
   }
@@ -860,7 +827,6 @@ export const generate = Effect.fn("generate")(function* (
       Effect.gen(function* () {
         const session = yield* launch(host, "scratch", options.editorReview);
         yield* resetDesigns(session);
-        yield* placeSkills(session.designs, options.skills);
         if (index === 0) {
           yield* recordSkills(session, options.round);
         }

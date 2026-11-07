@@ -102,33 +102,16 @@ export const taskPurpose = (request: TaskRequest): ThreadPurpose =>
   request._tag === "Implement" ? "implement" : "design";
 
 /**
- * Whether the thread that runs a task draws designs, and is told the design skills, which the
- * design evals were tuned with (ADR 0043): a canvas redrawn, a Figma file made pages, the design
- * system imported or defined. Implementing, linking pages built already, mapping and migrating
- * the code and matching tokens draw nothing.
+ * Whether the thread that runs a task is told the design skill, which the design evals were tuned
+ * with (ADR 0043): it draws designs (a canvas redrawn, a Figma file made pages) or makes the
+ * design system (the repository's imported, one defined, Figma's tokens matched). Implementing,
+ * linking pages built already, and mapping and migrating the code do neither.
  */
-export const drawsDesigns = (request: TaskRequest): boolean => {
+export const toldTheDesignSkill = (request: TaskRequest): boolean => {
   switch (request._tag) {
     case "Init":
     case "ImportFigma":
     case "Redraw":
-      return true;
-    case "SetupStep":
-      return request.step === "define";
-    default:
-      return false;
-  }
-};
-
-/**
- * Whether the task makes the design system, beside or before any page (ADR 0048, 0049): the
- * repository's imported, a Figma file's brought in or its tokens matched, one defined. Its thread
- * is told the design skill's design-system part with the router, not left to find it.
- */
-export const designsTheSystem = (request: TaskRequest): boolean => {
-  switch (request._tag) {
-    case "Init":
-    case "ImportFigma":
       return true;
     case "SetupStep":
       return request.step === "define";

@@ -15,6 +15,7 @@
 import path from "node:path";
 import {
   CATEGORIES,
+  CATEGORY_FILES,
   type Category,
   LoggedFinding,
 } from "@ultrapaint/contracts/review";
@@ -474,6 +475,7 @@ const groupCategory = Effect.fnUntraced(function* (
           model: run.options.grouper,
           prompt: yield* prompt("triage-group", {
             category,
+            file: CATEGORY_FILES[category],
             findings: these.map(findingLine).join("\n"),
           }),
         })).value;

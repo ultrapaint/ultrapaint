@@ -138,6 +138,33 @@ past 75 characters, a group gap under 3× its items. `scripts/check` runs them o
 in any agent; in the editor the same rules run on the page model and come back with
 `apply_operations` and in the review loop. Its own decision once the rebuild has shipped.
 
+### What Impeccable adds
+
+Impeccable (github.com/pbakaus/impeccable, read at `687bc381`) is the closest skill to ours: an
+87-line `SKILL.md` over 414K characters of references, a context script and a 62-rule detector
+run as hooks. What it measured, and what we take:
+
+- **A pointer is not a read.** An outside measurement found 0 of 21 reads of its
+  "read immediately before any UI edit" file; what reliably arrives is what its context script
+  prints. If the rebuilt core's step 2 still leaves the kind file unread, the editor returns the
+  kind's file in a tool result (the page's creation, or `get_context` with the kind) instead of
+  pointing at it; outside the editor, a `scripts/` command prints it.
+- **Checks at each edit, tiered.** The mechanical rules (`offSystemValues` in
+  `packages/design-document`, foreground under 15:1, text under 12px, two primaries, more than
+  three sizes) come back in `apply_operations`' result, at most five, each once a session, with a
+  line saying a clean check is not a good design; every rule runs over what changed at the turn's
+  end, before the review loop. A finding declined is recorded with who decided and why. This is
+  the checker, after the rebuild.
+- **The review judges pictures, not narration.** Before a section is reviewed its crop is checked
+  (not blank, not half-loaded, the section it names); the second look scores what the new picture
+  shows, not what the designer says it fixed.
+- **Descriptions under about 220 characters**, past which Claude Code lists a skill by name alone
+  once its listing is full: ours is 191.
+- Not taken: its 24 commands, the dice and comp gates, the "overused font" rule (Inter and Geist
+  are our default), telemetry. Its public-page tells (a kicker over a heading, gradient text, an
+  icon tile over every card, a one-side accent border, a dark glow) go to `evals/gaps/` as
+  candidates.
+
 ## Steps
 
 1. **Fix the delivery bugs** above. They hurt every thread today, whatever comes next.

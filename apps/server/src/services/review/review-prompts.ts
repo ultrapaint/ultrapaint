@@ -39,9 +39,9 @@ Answer with one fenced \`\`\`json block, and nothing after it:
 
 - \`findings\`, each with:
   - \`title\` (a few words), \`where\` (the element), \`problem\` (what is wrong, in one or two sentences) and \`fix\`;
-  - \`category\`: the skill's reference it falls under, one of ${CATEGORIES.map((c) => `\`${c}\``).join(", ")} (\`picture\` for how it keeps to a picture it was given);
+  - \`category\`: the concern it falls under, one of ${CATEGORIES.map((c) => `\`${c}\``).join(", ")} (\`picture\` for how it keeps to a picture it was given);
   - \`severity\`: \`blocker\` (it fails at its job: unreadable, can't be used, broken), \`major\` (a careful designer wouldn't ship what is drawn), \`minor\` (noticeable, worth fixing) or \`nit\` (polish);
-  - \`rule\`: the skill's rule it breaks, as its reference and the rule's words (\`references/states.md › every load has its error\`), or empty when the skill has no rule for it.
+  - \`rule\`: the skill's rule it breaks, as its file and the rule's words (\`references/states.md › every load has its error\`), or empty when the skill has no rule for it.
 - \`reached\`: the categories the page has besides hierarchy, restraint, layout, spacing, typography and color (icons → \`iconography\`, words → \`content\`, a loading or empty state → \`states\`, …): what it is scored on.
 - \`signOff\`: \`done\` true when, for what the person asked, the page is good enough as it stands: nothing a careful designer wouldn't ship is left (no blocker or major finding); minor findings and nits are worth fixing and don't hold it back. Then \`left\` is empty. Else \`done\` false and \`left\` saying in a sentence what has to change first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower one.`;
 

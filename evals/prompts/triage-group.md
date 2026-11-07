@@ -1,6 +1,6 @@
 Below are findings that review models made of interface designs, all in the category
-`{{category}}` of the design skill (`skills/ultrapaint/references/{{category}}.md`). They come from
-different designs, projects and review models.
+`{{category}}` of the design skill (its rules are in `skills/ultrapaint/{{file}}`). They come
+from different designs, projects and review models.
 
 Group the findings that describe the same problem: the same thing wrong for the same reason, even
 when the words, the screen or the element differ ("the gap between groups equals the gap within

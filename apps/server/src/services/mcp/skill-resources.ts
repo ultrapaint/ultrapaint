@@ -1,16 +1,31 @@
 /**
- * The design skills as MCP resources, `skill://ultrapaint/<name>`, read from the same list the
- * briefing tells (`SkillsService.list`): a project's own file under `<designsDir>/skills/`
- * replaces or extends a built-in in both, and a skill of its own is read by its name. A design
- * thread is told them in its briefing; any other agent, in the editor or outside it, reads the
- * one it needs.
+ * The design skills as MCP resources, read from the same list the briefing tells
+ * (`SkillsService.list`). A design thread is told them in its briefing; any other agent, in the
+ * editor or outside it, reads what it needs here.
+ *
+ * The URIs, under `skill://ultrapaint/`:
+ *
+ * - `skill://ultrapaint/SKILL.md`: the design skill's core;
+ * - `skill://ultrapaint/references/<path>`: each of its references by its path in the skill
+ *   (`skill://ultrapaint/references/kinds/dialog.md`);
+ * - `skill://ultrapaint/<name>`: a project's own skill, `<designsDir>/skills/<name>.md`.
+ *
+ * The design skill's files are each a resource of its own, listed: a template's parameter is one
+ * segment of the URI (the router stops it at a `/`), so it could not carry a reference's path. A
+ * project's skills are read through one template by their names, which have no `/`. The files are
+ * worded with these URIs, never the cache's paths: an MCP client may be on another machine.
  */
 import { NotFound } from "@ultrapaint/contracts/errors";
-import { describeSkill, skillUri } from "@ultrapaint/contracts/skills";
+import {
+  DESIGN_SKILL,
+  describeSkill,
+  SKILL_ROOT_URI,
+  skillUri,
+} from "@ultrapaint/contracts/skills";
 import { Effect, Layer, Schema } from "effect";
 import { McpServer } from "effect/ai";
 import { OpenProject } from "../../project.ts";
-import { builtInSkills } from "../../skills/index.ts";
+import { coreText, naming, skillFilesAt } from "../../skills/index.ts";
 import { SkillsService } from "../skills.ts";
 
 const MARKDOWN = "text/markdown";
@@ -19,8 +34,8 @@ export const SkillResources = Layer.effectDiscard(
   Effect.gen(function* () {
     const project = yield* OpenProject;
 
-    /** A skill's text as the open project has it: its own file, or the built-in. */
-    const textOf = (name: string) =>
+    /** A skill as the open project has it, refused when there is none or it is off. */
+    const skillOf = (name: string) =>
       project.use(
         Effect.gen(function* () {
           const { skills } = yield* (yield* SkillsService).list;
@@ -35,25 +50,30 @@ export const SkillResources = Layer.effectDiscard(
               message: `the ${skill.title} skill is turned off in the settings`,
             });
           }
-          return skill.text;
+          return skill;
         })
       );
 
-    // The built-ins by name, each with what it is about; the words do not depend on the tools.
-    for (const { name, text } of builtInSkills(null)) {
-      const { summary, title } = describeSkill(name, text);
+    // The design skill's files, each by its path, while it is on.
+    for (const [file, text] of skillFilesAt(SKILL_ROOT_URI)) {
+      const { summary, title } = describeSkill(file, text);
       yield* McpServer.registerResource({
-        content: textOf(name),
+        content: Effect.as(skillOf(DESIGN_SKILL), text),
         description: summary,
         mimeType: MARKDOWN,
         name: title,
-        uri: skillUri(name),
+        uri: skillUri(file),
       });
     }
-    // Any other, a project's own included.
+    // A project's own skill by its name; the design skill's name reads its core.
     yield* McpServer.registerResource`skill://ultrapaint/${Schema.String}`({
-      content: (_uri: string, name: string) => textOf(name),
-      description: "A design skill by its name, a project's own included.",
+      content: (_uri: string, name: string) =>
+        Effect.map(skillOf(name), (skill) =>
+          skill.source === "built-in"
+            ? naming(coreText, SKILL_ROOT_URI)
+            : skill.text
+        ),
+      description: "A project's own design skill by its name.",
       mimeType: MARKDOWN,
       name: "skill",
     });

@@ -3,9 +3,9 @@ section for the first time. You only look: read files and pictures, and change n
 designer makes the fixes.
 
 The skill is in `{{skill}}`. Read `{{skill}}/SKILL.md` first (where it says how to review a
-section, do that), then the references it routes to for what this section has: a path
-`references/…` in it is under `{{skill}}`. Run the "Before you finish" table of each reference
-you read against the section.
+section, do that), then the references it sends you to for what this section has: a path
+`references/…` in it is under `{{skill}}`. Run its rules and the checks of each reference you
+read against the section.
 
 The section: {{name}}. {{where}}
 
@@ -20,7 +20,7 @@ Answer with:
 - `findings`, each with:
   - `title` (a few words), `where` (the element), `problem` (what is wrong, in one or two
     sentences) and `fix`;
-  - `category`: the skill's reference it falls under (`spacing`, `states`, `content`, …;
+  - `category`: the concern it falls under (`spacing`, `states`, `content`, …;
     `picture` for how it keeps to a picture it was given);
   - `severity`: `blocker` (it fails at its job: unreadable, can't be used, broken), `major` (a
     careful designer wouldn't ship it), `minor` (noticeable, worth fixing) or `nit` (polish);

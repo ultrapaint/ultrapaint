@@ -2,8 +2,8 @@ Review models found the problem below in several designs. Decide whether it shou
 of the design skill: a place where designs made with the skill go wrong, which the lab then tries
 to prevent with a change to the skill.
 
-The skill is `skills/ultrapaint/` in this repository: `SKILL.md` routes to the references in
-`references/`. The gaps already recorded are the files of `evals/gaps/` (`README.md` says what a
+The skill is `skills/ultrapaint/` in this repository: `SKILL.md`, its core, holds every rule and
+names the reference in `references/` that holds each one's detail. The gaps already recorded are the files of `evals/gaps/` (`README.md` says what a
 gap is). Read what you need of both before answering.
 
 Answer:
@@ -15,8 +15,8 @@ Answer:
 - `kind`: `missed` when the skill already has a rule that prevents it (it was not applied),
   `missing` when it has none, `process` when it is about how the skill is run (reviewing,
   checking, briefing) rather than what it says.
-- `rule`: for `missed`, the rule as `references/<file>.md › <heading or table row>`, quoted
-  briefly; empty otherwise.
+- `rule`: for `missed`, the rule as `<file> › <heading or table row>` (`SKILL.md › Spacing`,
+  `references/kinds/dialog.md › The footer`), quoted briefly; empty otherwise.
 - `gap`: the id of a gap in `evals/gaps/` that already covers this problem (`g12`), or empty.
 - `title`: the gap's title, the problem in a few words ("Groups as close as their rows").
 - `happened`: two to four sentences: what the reviews found, where, and why it matters.

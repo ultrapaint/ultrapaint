@@ -1,128 +1,86 @@
 # Colour
 
-Colour is meaning first. Use the design system's semantic tokens for what a thing is, and reach
-into a palette only when the semantic set has nothing for it.
+Naming and adding tokens, computing contrast, colouring charts and categories, and colouring a
+public page.
 
-Colour has exact answers, so compute them: [with the editor's tools: `read_design_system` | without: `design.tokens.json`] gives every token's value in
-every theme. A contrast you did not compute is a guess.
+## Token presets
 
-Read `references/studies/color.md` when you colour a public page (a landing page, shop, portfolio or magazine). It holds the counts from 4,983 sites, how each character colours its grounds, accents and gradients, and recipes such as a dark product hero, a flood colour or a monochrome gallery.
+A design system names its semantic tokens in one of two presets; use the one it has.
 
-## Tokens by role
+- **Simple**: roles, in shadcn's names: `background`, `foreground`, `card`, `popover`, `muted`
+  and `muted-foreground`, `border`, `input`, `ring`, `primary`, `secondary`, `destructive`, each
+  with its `-foreground` pair, and the chart colours.
+- **Detailed**: tokens by property and meaning, grouped text, background and border
+  (`text-color-subtle`, `background-color-danger-subtle`, `border-color-focus`), each meaning with
+  its subtle and bold steps where screens need them. A property takes only its own group: a
+  background token never colours text.
 
-Surfaces, text and borders come from semantic tokens. A design system names them by one **token
-preset**, its `tokenPreset`:
+A raw step of the colour scale (`blue-500`) appears on a screen only where DESIGN.md's colours
+name it for that use.
 
-- **simple** (the default): roles, shadcn's names: background, foreground, muted, border, primary,
-  destructive and their pairs.
-- **detailed**: tokens by property and meaning, Atlassian's way, in Tailwind v4's namespaces:
-  text takes a `text-color-*` (`text-color-subtle`), a fill a `background-color-*`
-  (`background-color-danger-subtle`), an edge a `border-color-*` (`border-color-focus`). Each
-  property takes its own namespace, the meaning that fits.
+## Adding a token
 
-A palette colour (`"$color-blue-500"`) on a screen is a decision the design system did not make;
-use one only where DESIGN.md's Colors section does.
+When a role has no token (a status, a category's hue, a tinted row), add it to the design system
+under its role's name, write a line in DESIGN.md saying why, and tell the user. A token the system
+has but gets wrong stays theirs to change: use it, and tell them.
 
-The neutrals are the design system's, neutral or warm (`references/design-system/foundations.md`).
-When the system's are blue-grey and its character is not cool, tell the user rather than
-overriding them on one screen.
+## Computing contrast
 
-## A token only in its role
+Read every token's value in every theme the system has and compute each pair you set: text on
+its surface, an icon on its fill, a border on its ground. Convert each colour to sRGB (an `oklch`
+token first), linearise each channel (`c ≤ 0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4`), take the
+luminance `L = 0.2126 R + 0.7152 G + 0.0722 B`, and the ratio `(L1 + 0.05) / (L2 + 0.05)`, the
+lighter over the darker. A contrast not computed is a guess; a fill that works on light may
+vanish on dark.
 
-Pick a token for the job its name says, never for the value it has today. The border token used
-as a text colour fades the day borders get lighter. When a role has no token (a status, a
-category's hue, a tinted row), add it to the design system rather than borrowing one or dropping
-what it says: [with the editor's tools: with `write_design_system`, | without: in DESIGN.md's tokens,] a line in DESIGN.md saying why,
-and tell the user. A token the system has but gets wrong stays theirs to change: use it, and tell
-them.
+A deep brand ink (navy, forest green) counts as the foreground when it computes to `15:1`, and so
+does an off-white on a dark ground. On a single-ink page, darken the ink until it computes rather
+than adding black.
 
-## One accent
+## One hue, one meaning
 
-The primary colour marks the primary action and a chosen option: a selected card, a switch that is
-on, a checked box. The current place (the active navigation item, the active tab) takes the design
-system's selected style, a neutral fill or a solid brand fill as DESIGN.md says; where the system
-draws something solid, keep it solid. On a button the accent is the fill, with its foreground pair
-for the label; accent text on a neutral button reads as a link. Headings, icons and borders stay
-neutral.
-
-In a product's own screens there is one accent, apart from category hues. On a public page, a second hue may join it
-when it has one fixed job and keeps that job everywhere: categories, a promotion or data. Where the
-content is photographs or work, the interface may take no hue at all and leave the colour to the content.
-
-## Two text colours, clearly apart
-
-The foreground is near-black, `15:1` or more against its background. A deep brand ink (navy,
-forest green) counts as the foreground when it computes to `15:1`, and so does an off-white on a dark ground. Below that it is not the
-foreground, whatever its role. Muted text sits as light as legibility allows: about `4.5–5.5:1`.
-Compute both from [with the editor's tools: `read_design_system` | without: `design.tokens.json`]. When the muted token is darker than about `6:1`, the two
-levels blur. Say so to the user, and set descriptions and metadata in muted all the same.
-
-## Badges are neutral
-
-A status or change badge (Paid, Active, ↗ 1.2%) is the system's Badge: a neutral fill that
-differs from its card's surface, the foreground or muted text. A status may add a small coloured
-dot inside it, a change its arrow; nothing else in it takes a colour. Blurred, the screen shows
-no coloured block where a badge is. A filter for that status repeats the same dot.
-
-## One colour, one meaning
-
-A hue means one thing across the product, and hues within about `15°` of each other count as the
-same one. If the accent means interactive, static text in it invites clicks.
-
-## Status colours report status
-
-Success, warning and destructive say that something happened or will. They stay off decoration
-and off chart series. Categories (calendar events, tags) take their own hues from the palette;
-one may be green or orange, in a shade that is not the status token. Each category keeps its
-own tint; flattening them to one accent and grey loses what they say.
-
-A secondary link (help, a handle in running text) is muted or foreground and underlined, not the
-accent in bold.
-
-## Text on a colour takes its pair
-
-Text on primary takes primary-foreground, on destructive destructive-foreground: that pair is
-what reads in every theme. Text over a photograph sits on a scrim or a solid surface.
-
-## States are steps of one role
-
-Hover, pressed, focus and disabled are the system's, steps of the same role, drawn through the
-component's own states. Selected is the system's selected style: a neutral fill, or a solid brand
-fill, never a pale wash of the accent. A state brings no new hue.
-
-## Gradients
-
-A gradient is light, not a surface. On a public page it is atmosphere: a glow behind a product
-screenshot, a wash in a hero, a fade into the next band. It never fills navigation, cards or
-controls, and it is never a state, so buttons stay solid. Text on a gradient is computed like text
-on a photograph.
+A hue means one thing across the product; hues within about `15°` count as one. When the accent
+means interactive, static text in it invites a click. Categories (tags, calendar events, the
+steps of a process) take their own hues, at least `30°` from the primary and from each other; one
+may be green or orange in a shade that is not the status token. Each category keeps its tint
+wherever it appears, and a filter for a status repeats the status's dot. A change badge
+(↗ 1.2%) is the neutral Badge with its arrow; nothing in it takes a colour.
 
 ## Charts
 
-The chart colours, in their order. Sequential data is one hue from light to dark; diverging data
-is two hues around a neutral midpoint. One series is often one hue: the current period solid, the
-previous dashed, a forecast hatched. When the styling tells the series apart, there is no legend;
-a tooltip names what is under the pointer.
+- **Series**: the chart colours in order, apart in every theme.
+- **Sequential** data: one hue from light to dark. **Diverging**: two hues around a neutral
+  midpoint.
+- **One series over time**: one hue: the current period solid, the previous dashed, a forecast
+  hatched.
+- A tooltip names what is under the pointer.
 
-## Every theme
+## Gradients
 
-A fill that works on light may vanish on dark. For every pair you set, compare the two tokens'
-values in each theme the design system has.
+A gradient is light: a glow behind a product screenshot, a wash in a hero, a screenshot fading
+into the page at its foot, a band fading into the next. It is never a state, so buttons stay
+solid. Text on it is computed as on a photograph.
 
-## Before you finish
+## A public page
+
+- **Ground**: white or a warm off-white (cream, stone, warm grey paper) by default; a dark page
+  is near-black, and on it a card is one step lighter, told apart by tone or a `1px` low-contrast
+  border.
+- **The accent**: the primary action, text links, the active tab or filter; on a technical page
+  often a solid near-black primary instead of a hue.
+- **A second hue's job**: categories, a promotion, or data.
+- **Content that is colour** (photographs, a portfolio's work): the interface takes no hue; the
+  current item is full ink against grey, or underlined.
+- **Logos and showcased screenshots** in greyscale or monochrome, so the page keeps one accent.
+- **A photograph under type** is darkened by an overlay or a bottom scrim, the type placed where
+  the scrim is darkest; type on an undimmed bright photo fails.
+
+## Check
 
 | You see | Fix |
 | --- | --- |
-| A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role, in the system's preset |
-| In a detailed system, one property's token on another (a `background-color-*` on text) | The token of that property, the same meaning |
-| A palette token in a component's colours | The semantic token it stands for |
-| A blue-grey neutral the character does not ask for | A neutral or warm one; if the system's own is blue-grey, tell the user |
-| The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
-| A second hue with no fixed job, or any second hue in a product's own screens | Remove it |
-| A badge on a tinted green or red fill | The neutral Badge; at most a coloured dot inside it |
-| A selected item on a pale tint of the accent | The system's selected style: neutral, or solid brand |
-| A gradient on navigation, cards, buttons or a state | A solid fill; a gradient only lights the page |
-| A foreground ink below `15:1` | The foreground token; if the token itself is below, tell the user |
-| A legend for series the line styles already tell apart | Remove it |
-| A status colour as decoration or a chart series | Neutral, or the chart colours |
-| Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
+| A contrast claimed and not computed, or computed in one theme only | Compute the pair from the token values in each theme |
+| Two categories, or a category and the primary, within `30°` | Move one |
+| Categories flattened to the accent and grey | Each its own hue |
+| A colour logo strip beside an accent | Greyscale or monochrome |
+| Type on a bright photograph with no scrim | An overlay or a bottom scrim |

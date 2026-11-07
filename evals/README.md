@@ -22,7 +22,7 @@ their captures, the hosts, the rounds, the studies' corpus. It is `ULTRAPAINT_EV
 hosts/          the projects the agents design in (below)
 references/     one directory per reference: reference.json, capture/, brief.md
 families/       a product's screens and component crops, for track A
-candidates/     skill files to try in a round (--skills candidates/<fix>)
+candidates/     skill files to try, at their paths in the skill (recall --skills candidates/<fix>)
 gaps/           the design gaps' pictures, and the sections recall reviews (gaps/README.md)
 runs/           one directory per round, and <a>-vs-<b>/ for pairwise
 corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources and notes
@@ -94,10 +94,9 @@ pnpm evals learn <round>                               # what the picks say
 6. **Read the report** (`runs/<name>/report.md`): scores per level of design, how much the agents
    added that should not be there, and the gaps, most frequent first, each with its level, the
    skill it belongs to and why it happened. Run `report` again after a review.
-7. **Try a fix**: copy the proposals worth trying from `runs/<name>/proposals/` (or write your
-   own) into `candidates/<fix>/`, run `round <name>-<fix> --host <host> --skills
-   candidates/<fix>`, and `compare <name> <name>-<fix>`. What helps goes into the shipped skills
-   later, by hand.
+7. **Try a fix**: write the change into the skill of a worktree of its own (below, "A candidate
+   in a round"), run `round <name>-<fix> --host <host>` from it, and `compare <name>
+   <name>-<fix>`. What helps goes into the shipped skill later, by hand.
 
 The same references in two hosts, compared, say what a design system changes: which gaps it
 closes, and which rules only hold with tokens to hold them.
@@ -119,7 +118,7 @@ pnpm evals panel <round> [rounds…]             # what a fixed panel still find
 ```
 
 `round` takes `--runs` (3), `--agent` (claude-code), `--agent-model` (the name the agent's model
-picker shows; its default otherwise), `--skills candidates/<fix>`, `--minutes` (30, per run),
+picker shows; its default otherwise), `--minutes` (30, per run),
 `--judge-model` (opus) and `--concurrency` (3 judgements at once), and the review loop's
 `--review end|each-section` (none by default), `--reviewers` (opus), its goal (`--goal`,
 `--reviewer-goals`, `--floors`, `--max-rounds` (6), `--budget`), `--log-findings` and `--effort`
@@ -211,8 +210,22 @@ run gets `panel.json`, kept while the panel is the same, and the round `panel.md
 run and per section, each model's score, beside the judge's overall score and the run's seconds
 and tokens.
 
-A round's `--skills` cannot replace `SKILL.md`, so a candidate that changes it is measured from a
-worktree of its own branch, by `ULTRAPAINT_CHECKOUT`, as above.
+### A candidate in a round
+
+A round's agents are told the skill the way a project is: by the server, which carries the skill
+it was built with (`design.generated.ts`) and takes no skill from the host. So a round has no
+`--skills`: a candidate is the whole skill, `skills/ultrapaint/`, in a worktree of its own, written
+into its server and measured by `ULTRAPAINT_CHECKOUT`:
+
+```sh
+git worktree add ../fix-<fix> && pnpm -C ../fix-<fix> install
+cp -r <the candidate's files> ../fix-<fix>/skills/ultrapaint/   # at their paths in the skill
+pnpm -C ../fix-<fix> -F @ultrapaint/server skills
+ULTRAPAINT_CHECKOUT=../fix-<fix> pnpm evals round <name>-<fix> --host <host>
+```
+
+The round's reviewers and the panel read the same checkout's skill. `recall` needs no worktree: it
+reads the skill as files, and lays `candidates/<fix>/` over the checkout's (below).
 
 ## Gaps and recall
 
@@ -228,8 +241,10 @@ pnpm evals gaps
 pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sections…]
 ```
 
-It takes `--effort` (high) and resumes like a round. It writes `runs/<round>/report.md` and each
-measured gap's line under **Result.**
+A version is `built-in`, the checkout's `skills/ultrapaint/`, or `candidates/<fix>`: its files
+laid over the checkout's at their paths in the skill (`SKILL.md`, `references/kinds/dialog.md`),
+the rest as shipped. It takes `--effort` (high) and resumes like a round. It writes
+`runs/<round>/report.md` and each measured gap's line under **Result.**
 
 ### Triage: gaps from what reviews find
 

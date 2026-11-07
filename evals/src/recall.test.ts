@@ -10,7 +10,6 @@ import {
   spentLines,
   unmatchedOf,
   versionsOf,
-  withoutTools,
 } from "./recall.ts";
 import { readData, TestData, writeData } from "./test-data.ts";
 
@@ -94,18 +93,17 @@ const RESULT_RE =
 const world = Layer.merge(TestData, Models.layerTest(scripted));
 
 describe("recall", () => {
-  it("lays a candidate over the shipped skill: SKILL.md is the router, the rest references", () => {
+  it("lays a candidate's files over the shipped skill at their paths in it", () => {
     assert.strictEqual(placeOf("SKILL.md"), "SKILL.md");
+    assert.strictEqual(
+      placeOf("references/kinds/dialog.md"),
+      "references/kinds/dialog.md"
+    );
+    // As candidates were once written: a reference by its path under `references/`.
     assert.strictEqual(placeOf("states.md"), "references/states.md");
     assert.strictEqual(
-      placeOf("patterns/canvas-tools.md"),
-      "references/patterns/canvas-tools.md"
-    );
-    assert.strictEqual(
-      withoutTools(
-        "Ask [with the editor's tools: `get_component` | without: the list] for it."
-      ),
-      "Ask the list for it."
+      placeOf("system/figma.md"),
+      "references/system/figma.md"
     );
   });
 

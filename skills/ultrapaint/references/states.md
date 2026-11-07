@@ -1,43 +1,33 @@
 # States
 
-A screen is not one picture. Show the states it will actually be in, and design each of them,
-not only the one where everything is loaded and tidy.
+How to draw each state beyond the loaded one: where it goes, what it keeps, how it ends.
 
-Draw each state as its own frame beside the loaded one, a copy of the page or the region named
-for its state. What the screen holds decides which; a static page has none to draw.
+## Draw each beside the loaded one
 
-## The states follow from the content
+Each state is its own copy of the screen or of the region that changes, beside the loaded one and
+named for its state ("Invoices, empty"). A static page has none to draw.
 
-| When the screen | Draw |
-| --- | --- |
-| Shows text it does not author | Empty, one word, typical, several sentences, one unbreakable string |
-| Lists items | None, one, the realistic count, ten times it |
-| Waits on the network | Loading, and the error |
-| Takes input | Errors on the fields, submitting |
-| Changes or deletes something | Success, and the confirmation or the undo |
+## Empty
 
-## Empty states start something
+The region keeps its place and size and says what will be there, with the one action that fills
+it (its words: `references/words/interface.md`). Suggestions past four belong in search or a
+command.
 
-Before there is anything, the region keeps its place and says what will be there, with one
-action that fills it. The words are content's.
+## Loading
 
-Suggestions in an empty state (a chat's starters, a search's recent queries) are three or four,
-chosen for the moment. More belong in search or a command.
+- A page or a region: skeletons in the shape of what is coming, at the layout's own sizes.
+- An action: a spinner inside its control, which keeps its label and its width. The screen is the
+  same screen, waiting.
 
-## Loading keeps the layout
+## Errors
 
-For a page or a region, skeletons in the shape of what is coming. For an action, a spinner
-inside the control, which keeps its label and its width. The screen is the same screen, waiting.
-
-## Errors sit where they happened
-
-A field's error under the field, a section's in the section, the page's at the top. The rest of
-the screen stays usable.
+A section's error sits in the section, the page's at its top; the rest of the screen stays
+usable.
 
 ## Lists show their edge
 
-Enough varied rows to look like data, then what happens past them: it scrolls, pages or offers
-"Show 12 more".
+Enough rows, varied as real data is, to look like data, then what happens past them: it scrolls,
+it pages, or it offers "Show 12 more".
 
 ## Controls show their states
 
@@ -47,26 +37,17 @@ usually better.
 
 ## Success is quiet
 
-The change shows where it was made. A toast is for what happened elsewhere, or for an undo.
+The change shows where it was made. A toast is for what happened elsewhere, or for an undo; an
+undo stays until it is dismissed.
 
-## Destructive actions confirm or undo
-
-Ask first, naming what will be lost, or act at once and offer an undo that stays until
-dismissed.
-
-## Before you finish
+## Check
 
 | You see | Fix |
 | --- | --- |
-| Only the loaded state of a screen with data | Draw empty, loading and error |
-| Ten identical rows | Varied, realistic rows |
-| A spinner in place of the whole page | Skeletons in the page's layout |
-| A banner at the top for one field's error | The error under the field |
-| A disabled submit with no reason given | Enabled; say what is missing on submit |
-| A name that only ever fits | One that wraps or truncates, drawn |
-| More than four suggestions in an empty state | Three or four for the moment; the rest in search or a command |
-| A loading state that only success ends | The error in its place, with a retry |
-| A field that saves on blur with nothing shown | Saving and saved beside it, its error under it |
-| An empty state that doesn't say it is empty | "None yet" and the action that fills it |
-| A destructive action beside safe ones, in their style | Apart: the row's menu or the destructive variant, with its undo |
-| A confirm for what can be undone | Act, and offer the undo; a confirm's title names what is lost |
+| Ten identical rows | Varied, realistic rows, and the list's edge |
+| A button that loses its label or changes width while it works | A spinner inside it, label and width kept |
+| A skeleton in shapes the content does not have | The loaded layout's shapes and sizes |
+| An error that blocks the whole screen for one section | The error in its section, the rest usable |
+| A disabled control with no reason | Say why, or enable it and say what is missing |
+| A toast for a change visible where it was made | The change in place, no toast |
+| An undo that times out before it can be read | Until dismissed |

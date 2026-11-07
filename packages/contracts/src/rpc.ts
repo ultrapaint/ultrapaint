@@ -78,7 +78,7 @@ import {
   ScaffoldResult,
   SetupSuggestions,
 } from "./setup.ts";
-import { CustomiseMode, Skill, SkillList } from "./skills.ts";
+import { SkillList } from "./skills.ts";
 import { Checkpoint, FileDiff, Snapshot, SnapshotView } from "./snapshots.ts";
 import {
   SyncPlan,
@@ -508,15 +508,6 @@ const requestRpcs = [
   Rpc.make("skills.list", {
     error: NotConfigured,
     success: SkillList,
-  }),
-  /**
-   * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
-   * that extends it. A skill the project already has is returned as it is.
-   */
-  Rpc.make("skills.customise", {
-    error: EditError,
-    payload: { mode: CustomiseMode, name: Schema.String },
-    success: Skill,
   }),
 
   /** Thumbnails of the Library drawn earlier, under the key of what they were drawn from. */

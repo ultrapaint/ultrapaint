@@ -1,51 +1,49 @@
 # Ultrapaint
 
-What Ultrapaint teaches its agents about designing interfaces and their design systems, as one
-skill in the Agent Skills layout: `SKILL.md`, a router an agent reads first (its front matter has
-the `name` and the `description` an agent picks it by), and `references/`, one file per part of a
-design (`layout.md`, `typography.md`…), with `patterns/` (how well-made products build each kind
-of screen, counted) and `studies/` (what 4,983 well-made sites do, by character) beneath.
+What Ultrapaint teaches agents about designing interfaces and their design systems, as one skill
+in the Agent Skills layout (ADR 0069). It is written for any agent building any web interface:
+it installs as it is in `.agents/skills/` or `.claude/skills/`. This README does not ship with it.
 
-The router has two jobs. Designing a screen or a page uses the design system it is given: the
-screen's references say how to use the tokens and components, not how to choose them. Making the
-design system is `references/design-system.md`, a router of its own to
-`references/design-system/`: `foundations.md` (the face, colour by role, the type scale, spacing,
-radius, elevation, motion, icons, widths), `components.md` (making them), `extract.md` (from a
-product's code or pictures) and `figma.md` (from a Figma file). The words are a router too:
-`references/content.md` leads to `references/content/`: `voice.md` (what the product chose in
-DESIGN.md's Content section, a tone for the moment, one name per thing), `interface.md` (a
-screen's labels, actions, errors and empty states) and `pages.md` (a public page's, with
-`studies/content.md`). A task that writes only the words follows its steps. `character.md` serves both: it
-settles how the product should feel, from DESIGN.md, the product or the user (asked once when
-nothing says it), and writes it in DESIGN.md before the first node.
+## Layout
+
+`SKILL.md` is the core, the one file always read: the steps of the three jobs (a screen or page
+with the design system it has, making the design system, writing only the words), every rule
+that bears on most screens as one line with its value, and the table of kinds. Its front matter
+has the `name` and the `description` an agent picks it by, under 220 characters.
+
+`references/` holds what a line cannot, each file named by the core, one level deep:
+
+- `kinds/`: a product's screens (dialog, settings, table, dashboard, form, navigation,
+  feedback), opened at step 2 by the screen's kind;
+- `pages/`: public pages (landing, shop, portfolio, editorial, title);
+- topic files (`character.md`, `layout.md`, `typography.md`, `color.md`, `surfaces.md`,
+  `iconography.md`, `motion.md`, `picture.md`, `components.md`, `states.md`, `usability.md`,
+  `accessibility.md`), each opened when the core's line says;
+- `system/` (foundations, components, extract, figma) and `words/` (voice, interface, pages).
+
+A file never repeats a core line; it adds anatomy, values, recipes and reasons, and ends on a
+check table of what it adds. The skill speaks the web's terms, with no markers and none of the
+editor's words: the briefing's `skillTerms` says them in the editor (`textStyle`, `"$name"`,
+`at`, its tools).
 
 ## In Ultrapaint
 
 `pnpm -F @ultrapaint/server skills` writes the skill into the server
 (`apps/server/src/skills/design.generated.ts`), and a test fails when the two differ, so run it
-after an edit. Each part is a built-in skill there, in the order `apps/server/src/skills/index.ts`
-gives: a project replaces or extends one with `<designsDir>/skills/<name>.md`, and the settings
-turn one off.
+after an edit. It is one built-in skill, `ultrapaint`, turned off with
+`skills.disabled: ["ultrapaint"]`; a project's own files in `<designsDir>/skills/` are told after
+it. `skills.briefing`: `router` (the default) tells the core, `full` the core and every reference,
+`summaries` one line. The whole skill is written to `~/.cache/ultrapaint/skills/<hash>/`, which
+the agent sandbox lets agents read, with each `references/…` mention named there; MCP clients
+read `skill://ultrapaint/SKILL.md` and `skill://ultrapaint/references/<path>`.
 
-The settings' `skills.briefing` says how a thread is told them: the router with character,
-hierarchy and restraint, the agent reading every other part when it reaches it (`router`, the
-default), every part whole (`full`), or each by its title and summary (`summaries`). A thread whose
-task makes the design system (`/init`, `/import-figma`, `/sync figma`, the setup's Define step) is
-told `design-system.md` with the router too. The references are
-written to the user's cache (`~/.cache/ultrapaint/skills/<version>/`), the agent sandbox lets
-agents read it, and a mention of `` `references/…` `` names the file there.
-
-Each part names principles under headings, with exact values, and ends on a "Before you finish"
-table of what to look for and what fixes it. A rule lives in one part and the others leave it
-there.
+The review's categories name concerns; `CATEGORY_FILES` in `packages/contracts/src/review.ts`
+says which file holds each.
 
 ## Where the rules come from
 
-Besides what the skills started with, the design evals (`evals/`): agents remake good reference
-screens, a judge and a person compare the results section by section, and the changes that win
-are written back here.
-
-A change to the skill starts from a gap in `evals/gaps/`, what a person found wrong in a design
-made with it. It is tried as a candidate in the data directory's `candidates/` and measured with
-`pnpm evals recall` against the shipped skill. A change that lands names the gaps it closes, and
-their status becomes `done`.
+A change starts from a gap in `evals/gaps/`, what a person found wrong in a design made with the
+skill. `pnpm evals recall --skills candidates/<fix>` lays a candidate over the skill, each file at
+its path, and measures it against the shipped one; a design round tries a candidate from a
+worktree through `ULTRAPAINT_CHECKOUT` (`evals/README.md`). A change that lands names the gaps it
+closes, and their status becomes `done`.

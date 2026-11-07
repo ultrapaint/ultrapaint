@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   commandNameOf,
   commandOf,
-  designsTheSystem,
   parseCommand,
   slashCommands,
   type TaskRequest,
   taskPurpose,
+  toldTheDesignSkill,
 } from "./tasks.ts";
 
 const requestOf = (text: string) => {
@@ -195,18 +195,21 @@ describe("taskPurpose", () => {
   });
 });
 
-describe("designsTheSystem", () => {
-  it("is the tasks that import or define the design system (ADR 0048)", () => {
-    expect(designsTheSystem({ _tag: "Init", extra: "" })).toBe(true);
-    expect(designsTheSystem({ _tag: "ImportFigma", extra: "" })).toBe(true);
+describe("toldTheDesignSkill", () => {
+  it("is the tasks that draw designs or make the design system (ADR 0043, 0049)", () => {
+    expect(toldTheDesignSkill({ _tag: "Init", extra: "" })).toBe(true);
+    expect(toldTheDesignSkill({ _tag: "ImportFigma", extra: "" })).toBe(true);
+    expect(toldTheDesignSkill({ _tag: "Redraw", canvas: '""' })).toBe(true);
     expect(
-      designsTheSystem({ _tag: "SetupStep", extra: "", step: "define" })
+      toldTheDesignSkill({ _tag: "SetupStep", extra: "", step: "define" })
     ).toBe(true);
     expect(
-      designsTheSystem({ _tag: "SetupStep", extra: "", step: "map" })
+      toldTheDesignSkill({ _tag: "SetupStep", extra: "", step: "map" })
     ).toBe(false);
-    expect(designsTheSystem({ _tag: "Sync", source: "figma" })).toBe(true);
-    expect(designsTheSystem({ _tag: "Sync", source: "code" })).toBe(false);
-    expect(designsTheSystem({ _tag: "Redraw", canvas: '""' })).toBe(false);
+    expect(toldTheDesignSkill({ _tag: "Sync", source: "figma" })).toBe(true);
+    expect(toldTheDesignSkill({ _tag: "Sync", source: "code" })).toBe(false);
+    expect(toldTheDesignSkill({ _tag: "Implement", target: "/home" })).toBe(
+      false
+    );
   });
 });

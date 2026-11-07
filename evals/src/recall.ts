@@ -223,18 +223,14 @@ export const versionsOf = (
   );
 
 /**
- * Where a candidate's file goes in the skill's tree: `SKILL.md` is the router, every other file
- * a reference (`states.md`, `patterns/canvas-tools.md`).
+ * Where a candidate's file goes in the skill's tree: at its path in the skill (`SKILL.md`,
+ * `references/kinds/dialog.md`); a file named without `references/` is a reference by its path
+ * there (`states.md`), as candidates were once written.
  */
 export const placeOf = (file: string) =>
-  file === "SKILL.md" ? file : path.join("references", file);
-
-const WAYS_RE =
-  /\[with the editor's tools: ([\s\S]*?) \| without: ([\s\S]*?)\]/g;
-
-/** The skill's text as an agent without the editor's tools reads it, as the server words it. */
-export const withoutTools = (text: string) =>
-  text.replace(WAYS_RE, (_, _withTools: string, without: string) => without);
+  file === "SKILL.md" || file.startsWith(`references${path.sep}`)
+    ? file
+    : path.join("references", file);
 
 /** The numbers of a review's findings, from 1, that no gap was matched with. */
 export const unmatchedOf = (
@@ -356,8 +352,9 @@ const skillTree = Effect.fn("skillTree")(function* (
 });
 
 /**
- * The skill as a version gives it, as an agent without the editor's tools reads it, written once
- * at `tree`: the checkout's `skills/ultrapaint/`, with a candidate's files laid over it.
+ * The skill as a version gives it, written once at `tree`: the checkout's `skills/ultrapaint/`,
+ * with a candidate's files laid over it at their paths in the skill (`placeOf`). Its core names
+ * its references as `references/…`, which are under `tree`.
  */
 export const writeSkillTree = Effect.fn("writeSkillTree")(function* (
   tree: string,
@@ -370,10 +367,7 @@ export const writeSkillTree = Effect.fn("writeSkillTree")(function* (
   }
   const shipped = path.join(checkout, "skills", "ultrapaint");
   const write = (from: string, to: string) =>
-    Effect.gen(function* () {
-      const text = yield* fs.readFileString(from);
-      yield* writeText(to, withoutTools(text));
-    });
+    Effect.flatMap(fs.readFileString(from), (text) => writeText(to, text));
   for (const file of yield* fs.readDirectory(shipped, { recursive: true })) {
     if (file.endsWith(".md")) {
       yield* write(path.join(shipped, file), path.join(tree, file));

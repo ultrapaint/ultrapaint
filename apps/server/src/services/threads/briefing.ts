@@ -111,21 +111,20 @@ given here is for what the design system does not name. Where they only restate 
 here, the rule holds as it is given here, its condition with it.`;
   if (listed.length === 0) {
     return `
-${lead} Before ending a turn, run each skill's "Before you finish" checks against what you
-changed and fix what you find. Tell the user only what you could not fix, or what needs their
-decision.
+${lead} Before ending a turn, run the checks each skill gives against what you changed and fix
+what you find. Tell the user only what you could not fix, or what needs their decision.
 
 ${whole}
 `;
   }
   return `
 ${lead} Each skill is listed by its title, where to read it whole and what it is
-about: read a skill whole before the work it is about. Before ending a turn, run the "Before
-you finish" checks of each skill you read against what you changed and fix what you find. Tell
-the user only what you could not fix, or what needs their decision.
+about: read a skill whole before the work it is about. Before ending a turn, run the checks of
+each skill you read against what you changed and fix what you find. Tell the user only what you
+could not fix, or what needs their decision.
 
 ${listed.join("\n")}
-${whole ? `\nThese have no file of their own to read, so they are told whole:\n\n${whole}\n` : ""}`;
+`;
 };
 
 const conventionsOf = (document: DesignDocument | null) =>
@@ -194,6 +193,45 @@ const DESIGN_CHAT = `How you work in this chat:
 `;
 
 /**
+ * The design skill's terms in this tool. The skill is written for any web interface, so a text
+ * style, a token, a breakpoint or a size is said there in the web's words and here in the page
+ * model's fields; what it leaves to "a question" or "the design system", here to the tools.
+ */
+export const skillTerms = (
+  ways: AgentWays,
+  designsDir: string,
+  /** Where the design skill's files are written (`SkillsTold.dir`). */
+  skillDir: string
+) => {
+  const t = ways.tools;
+  const lines = [
+    `- A text style is a text's textStyle, a token "$name", a container width "$container-3xl", a shared baseline crossAlign: "baseline"; what sizes to its content is "hug", what takes the room left "fill".`,
+    `- A breakpoint is "at": the smallest width in the node's own fields, then {op: "update", id, at: "md", set: {…}} for what changes from md up; what only a wide screen has is hidden: true with at: {lg: {hidden: false}}. It changes any style field, a text, an instance's props, hidden and order; the tree is one for every width.`,
+    "- A transition is a text node beside the page on the canvas, one line each: trigger, what moves, duration, curve; the page shows its end state.",
+    ...(t
+      ? [
+          `- DESIGN.md and the tokens, each value in every theme: ${t.read_design_system}. Save both together with ${t.write_design_system}.`,
+          `- The one question the skill asks goes to ${t.ask_user}.`,
+          `- A component's props, variants and example: ${t.get_component}; replace every placeholder of its example with real content.`,
+          `- Check a width with ${t.get_screenshot}'s width, and give the page views at the widths you check (${t.set_frame}'s views: [390, 1440]).`,
+          "- A component written into the code is placed once the user runs Sync. Do not ask them to run it, and do not wait: draw now with the components the system has and, where one is missing, its parts, and say in your last message what Sync will bring in.",
+          `- From Figma, /sync figma and /import-figma run the steps; the skill's \`${skillDir}/references/system/figma.md\` decides each match.`,
+        ]
+      : [
+          `- DESIGN.md is at the root of the repository, its tokens in its front matter; every token's value in every theme is in ${designsDir}/design.tokens.json.`,
+          "- A component's props and variants are its line among the components listed below.",
+        ]),
+  ];
+  return `The design skill in this tool:\n${lines.join("\n")}\n`;
+};
+
+/** The design skill's terms, when it is told. */
+const termsOf = (skills: SkillsTold, ways: AgentWays, designsDir: string) =>
+  skills.dir === undefined
+    ? ""
+    : `\n${skillTerms(ways, designsDir, skills.dir)}`;
+
+/**
  * The components (ADR 0041): their files, which system components' look the design owns, and the
  * format an agent writes a component's file in.
  */
@@ -213,16 +251,13 @@ export class ProjectBriefing extends Context.Service<
     /**
      * The briefing for the open project, for a thread of this purpose (ADR 0030), or nothing when
      * no project is open. `tools`: its agent has the editor's tools (ADR 0039), the server's MCP
-     * setting when it is not said. `system`: its task makes the design system, whose part of the
-     * design skill it is told. `designs`: the thread draws designs and is told the design
-     * skills; a design thread does unless said otherwise (`drawsDesigns`), an implement thread
-     * never.
+     * setting when it is not said. `designs`: the thread is told the design skills; a design
+     * thread is unless said otherwise (`toldTheDesignSkill`), an implement thread never.
      */
     readonly text: (
       purpose: ThreadPurpose,
       options?: {
         readonly designs?: boolean;
-        readonly system?: boolean;
         readonly tools?: boolean;
       }
     ) => Effect.Effect<string | undefined>;
@@ -238,8 +273,7 @@ export class ProjectBriefing extends Context.Service<
       const build = Effect.fnUntraced(function* (
         purpose: ThreadPurpose,
         tools: boolean,
-        designs: boolean,
-        makesTheSystem: boolean
+        designs: boolean
       ) {
         const ways = agentWays(tools);
         const paths = yield* RepoPaths;
@@ -254,11 +288,11 @@ export class ProjectBriefing extends Context.Service<
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
-        const none: SkillsTold = { listed: [], whole: "" };
+        const none: SkillsTold = { dir: undefined, listed: [], whole: "" };
         const skills = designs
           ? yield* Effect.orElseSucceed(
               Effect.flatMap(SkillsService, (service) =>
-                service.briefing(tools, makesTheSystem)
+                service.briefing(tools)
               ),
               () => none
             )
@@ -322,7 +356,7 @@ ${ds.tokenPreset === "detailed" ? `${DETAILED_NOTE}\n` : ""}${
     : `${DEFAULT_LOOK_NOTE}
 Design tokens of the default look: ${tokensOf(DEFAULT_LOOK)}
 `
-}${craft}${conventions}
+}${craft}${termsOf(skills, ways, settings.designsDir)}${conventions}
 ${
   components.length > 0
     ? `Components you can place, the project's own marked (app), a default slot *${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
@@ -346,8 +380,7 @@ never write it; when styles are missing, send the user to Sync in the Design sys
               build(
                 purpose,
                 options.tools ?? mcp,
-                purpose === "design" && options.designs !== false,
-                options.system ?? false
+                purpose === "design" && options.designs !== false
               )
             )
             // No project open, or a repository the server cannot read: the agent manages without.

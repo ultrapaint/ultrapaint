@@ -82,8 +82,9 @@ Pictures stay outside git, in the evals' data directory (`~/Code/ultrapaint-data
 2. Put their screenshots in `gaps/<id>/`. If recall can measure the gap, capture the section as
    it was before the fix into `gaps/sections/<section>/` and name the section in `sections`.
 3. Write a candidate: copies of the skill's files with the proposed change, in
-   `candidates/<fix>/` of the data directory. `SKILL.md` is the router; every other file is a
-   reference by its path under `references/` (`states.md`, `patterns/canvas-tools.md`).
+   `candidates/<fix>/` of the data directory, each at its path in the skill (`SKILL.md`, the
+   core; `references/kinds/dialog.md`). A file named without `references/` is a reference by its
+   path there (`states.md`).
 4. Run `pnpm evals recall <round> --skills built-in,candidates/<fix>`. The run writes its line
    under **Result.** in each gap it measured, shipped against candidate, and sets an `open` gap
    to `testing`. Its report, with the findings no gap matched, is in `runs/<round>/report.md`.

@@ -35,7 +35,7 @@ type after it is added to it.
 | Pages panel → **Implement** | `/implement` for that page |
 | Settings → Repository | Where the components, stylesheets and designs are; **Write to git**, off unless you want the Changes panel to commit; **Rename to ultrapaint.config.json** for an old file |
 | Settings → Editor → **Display name** | The name your comments are signed with when git has none |
-| Settings → Design system | The design skills agents are told, and the ones you replace or extend |
+| Settings → Design system | The design skills agents are told, and how |
 | Title card → **Not saved** (⚠) | Save the configuration to `ultrapaint.config.json` |
 | ⌘K, or **Commands** at the top right | Every command of the editor, by name |
 | A dot on **Design System**, and on Foundations | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
@@ -53,8 +53,8 @@ type after it is added to it.
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
-| `skills.disabled` | Design skills agents are not told |
-| `skills.briefing` | How a design thread is told the design skill: `router` (the default) tells its router with what every screen needs and has the agent read the rest when the work reaches it; `full` tells every part whole; `summaries` tells each by its title and summary, read whole when needed |
+| `skills.disabled` | Design skills agents are not told: `ultrapaint` for the design skill, a project file's name for its own |
+| `skills.briefing` | How a design thread is told the design skill: `router` (the default) tells its core whole and has the agent read its references when the core sends it there; `full` tells the core and every reference whole; `summaries` tells each skill by its title and summary, read whole when needed |
 
 You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and
 agents never do.

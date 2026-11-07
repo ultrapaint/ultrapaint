@@ -242,8 +242,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           input,
           figma((f) => f.theme)
         ),
-      "skills.customise": ({ mode, name }) =>
-        skills((s) => s.customise(name, mode)),
       "skills.list": () => skills((s) => s.list),
       "snapshots.create": ({ checkpoint, name }) =>
         snapshots.create(name, checkpoint),

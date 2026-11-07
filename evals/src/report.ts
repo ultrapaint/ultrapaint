@@ -5,8 +5,8 @@
  * wrong; a gap in some runs is something they teach that agents follow flakily.
  *
  * The model also proposes skill files for the gaps worth fixing. They are proposals: a person
- * reads them, puts the ones worth trying in `candidates/<name>/`, and runs a round with
- * `--skills candidates/<name>` to see whether they help.
+ * reads them, writes the ones worth trying into the skill of a worktree, and runs a round from it
+ * (`ULTRAPAINT_CHECKOUT`, `evals/README.md`) to see whether they help.
  *
  * A person's review (`review.json`) overrules the judge: a finding they said is no problem is
  * left out, a text they called noise is noise, and their comments are the synthesis's first
@@ -451,7 +451,7 @@ export const report = Effect.fn("report")(function* (
     synthesis.rewrites.length === 0
       ? "None this round."
       : [
-          "Whole replacements of the shipped skill, in `proposals/`. To try one, copy it to `candidates/<name>/` and run a round with `--skills candidates/<name>`, then `compare` the two rounds.",
+          'Whole replacements of the shipped skill, in `proposals/`. To try one, write it into the skill of a worktree and run a round from it with `ULTRAPAINT_CHECKOUT` (evals/README.md, "A candidate in a round"), then `compare` the two rounds.',
           "",
           ...synthesis.rewrites.map(
             (r) => `- [${r.skill}](proposals/${r.skill}.md): ${r.why}`

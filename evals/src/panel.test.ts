@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { Browser } from "./browser.ts";
 import { type Asked, Models } from "./models.ts";
-import { PanelResult, panel } from "./panel.ts";
+import { PanelResult, panel, readWhenNeeded } from "./panel.ts";
 import { judgement, readData, TestData, writeData } from "./test-data.ts";
 
 const box = { height: 0.2, width: 1, x: 0, y: 0 };
@@ -64,7 +64,7 @@ const aRound = (score: (run: number) => number) =>
         [
           `${RUN}${run}/trace.md`,
           run === 1
-            ? "- · Read /home/me/.cache/ultrapaint/skills/abc/with-tools/spacing.md"
+            ? "- · Read /home/me/.cache/ultrapaint/skills/abc/references/typography.md"
             : "- · get_screenshot",
         ],
         [`${RUN}${run}/shots/sections/header.jpg`, "a picture"],
@@ -74,7 +74,7 @@ const aRound = (score: (run: number) => number) =>
   });
 
 const finding = (title: string) => ({
-  category: "spacing",
+  category: "typography",
   fix: "Fix it.",
   problem: `${title} is wrong.`,
   rule: "",
@@ -184,8 +184,8 @@ describe("the panel", () => {
         );
         assert.include(
           table,
-          // A major spacing finding takes a section to 98: opus has one in each, GPT in one. Its
-          // spacing findings made the part needed, and the run read it.
+          // A major typography finding takes a section to 98: opus has one in each, GPT in one. Its
+          // typography findings made its reference needed, and the run read it.
           "| share/run-1 | **2** | 98 (2) | 99 (1) | 1 | 1/1 | 4 | 100 | – | 2k |"
         );
         assert.include(
@@ -230,5 +230,44 @@ describe("the panel", () => {
         )
       )
     );
+  });
+
+  it("needs the file that holds each category reached, beyond what the briefing told whole", () => {
+    const result = {
+      commit: "",
+      costUsd: 0,
+      effort: "high",
+      judgeModel: "opus",
+      models: ["opus"],
+      sections: [
+        {
+          name: "Header",
+          picture: "",
+          problems: [],
+          reviews: [
+            {
+              findings: [{ ...finding("Tight"), category: "spacing" }],
+              reached: ["elevation", "borders", "content"] as const,
+              reviewer: "opus",
+              signOff: { done: false, left: "" },
+            },
+          ],
+          systemNotes: [],
+        },
+      ],
+      withRequest: true,
+    } as unknown as PanelResult;
+    const reads = ["references/surfaces.md"];
+    // Elevation and borders are both the surfaces' reference; spacing is the core's, told whole.
+    assert.deepStrictEqual(readWhenNeeded(result, reads, "router"), {
+      needed: ["references/surfaces.md", "references/words/interface.md"],
+      read: ["references/surfaces.md"],
+    });
+    assert.deepStrictEqual(readWhenNeeded(result, reads, "summaries").needed, [
+      "SKILL.md",
+      "references/surfaces.md",
+      "references/words/interface.md",
+    ]);
+    assert.deepStrictEqual(readWhenNeeded(result, reads, "full").needed, []);
   });
 });

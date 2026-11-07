@@ -1,14 +1,13 @@
 /**
- * Design skills: the craft guidance every agent is told before it designs. Hierarchy, layout,
- * spacing, type, colour, elevation, borders, icons, motion, content, states, usability,
- * components, accessibility: what applies to any product, as opposed to `DESIGN.md`, which is this
- * product's own conventions and comes after them.
+ * Design skills: the craft guidance every agent is told before it designs, what applies to any
+ * product, as opposed to `DESIGN.md`, which is this product's own conventions and comes after
+ * them.
  *
- * The tool ships a set. A project puts a markdown file with the same name in
- * `<designsDir>/skills/` to replace one, or to extend it when the file opens with the front
- * matter `extends: true`; a file with any other name is a skill of its own; and the settings turn
- * any of them off. The file is the skill: its first heading is the title, the paragraph after it
- * the summary the settings show.
+ * The tool ships one, the design skill `ultrapaint`: its core (`SKILL.md`, every rule and the
+ * steps) and its references (`references/…`, read when the core sends the agent there). A project
+ * adds skills of its own as markdown files in `<designsDir>/skills/`, each told whole, and the
+ * settings turn any of them off, the design skill included. The file is the skill: its first
+ * heading is the title, the paragraph after it the summary the settings show.
  */
 import { Schema } from "effect";
 
@@ -21,11 +20,9 @@ const SkillSource = Schema.Literals(["built-in", "project"]);
 export const Skill = Schema.Struct({
   /** Off in the settings: agents are not told it. */
   enabled: Schema.Boolean,
-  /** A project file that follows the built-in of the same name rather than replacing it. */
-  extends: Schema.Boolean,
   /** Repo-relative path of the file, for a project skill. */
   file: Schema.optional(Schema.String),
-  /** The file's stem: `spacing`. What the settings' `skills.disabled` names. */
+  /** `ultrapaint` for the design skill, a file's stem for a project's: what `skills.disabled` names. */
   name: Schema.String,
   source: SkillSource,
   /** The first paragraph after the title, or the first line when there is no title. */
@@ -43,14 +40,26 @@ export const SkillList = Schema.Struct({
 });
 export type SkillList = typeof SkillList.Type;
 
-/** Where an agent with the editor's tools reads a design skill whole: an MCP resource. */
-export const skillUri = (name: string) => `skill://ultrapaint/${name}`;
+/** The design skill the tool ships, by the name the settings turn it off with. */
+export const DESIGN_SKILL = "ultrapaint";
+
+/** The MCP resources' root: the design skill's files are under it as they are in its folder. */
+export const SKILL_ROOT_URI = `skill://${DESIGN_SKILL}`;
 
 /**
- * How a design thread's briefing tells the skills: the design skill's router with the parts
- * every screen needs, the rest read from its references as the agent reaches each part
- * (`router`, the default, ADR 0048); each whole (`full`); or each by its title and summary with
- * where to read it whole (`summaries`), which an agent does before the work a skill is about.
+ * Where an agent with the editor's tools reads a skill as an MCP resource: a project's skill by
+ * its name (`skill://ultrapaint/voice`), a file of the design skill by its path in it
+ * (`skill://ultrapaint/SKILL.md`, `skill://ultrapaint/references/kinds/dialog.md`).
+ */
+export const skillUri = (nameOrPath: string) =>
+  `${SKILL_ROOT_URI}/${nameOrPath}`;
+
+/**
+ * How a design thread's briefing tells the skills: the design skill's core whole, its references
+ * read as the core sends the agent to them (`router`, the default, ADR 0048); the core and every
+ * reference whole (`full`); or each skill by its title and summary with where to read it whole
+ * (`summaries`), which an agent does before the work a skill is about. A project's own skills
+ * are told whole but at `summaries`.
  */
 export const SkillsBriefing = Schema.Literals(["full", "summaries", "router"]);
 export type SkillsBriefing = typeof SkillsBriefing.Type;
@@ -63,25 +72,12 @@ export const SkillsConfig = Schema.Struct({
 });
 export type SkillsConfig = typeof SkillsConfig.Type;
 
-/** What a project file may do to the built-in of the same name. */
-export const CustomiseMode = Schema.Literals(["replace", "extend"]);
-export type CustomiseMode = typeof CustomiseMode.Type;
+const FRONT_MATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 
-const FRONT_MATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
-const EXTENDS_RE = /^extends:\s*true\s*$/m;
-
-/** The front matter a skill file may open with, and the markdown after it. */
-export const parseSkillFile = (
-  text: string
-): { readonly body: string; readonly extends: boolean } => {
-  // Typed by hand: the linter otherwise takes the result for non-null.
-  const match: RegExpExecArray | null = FRONT_MATTER_RE.exec(text);
-  if (match === null) {
-    return { body: text, extends: false };
-  }
-  const [whole, front = ""] = match;
-  return { body: text.slice(whole.length), extends: EXTENDS_RE.test(front) };
-};
+/** A skill file's markdown after the front matter it may open with. */
+export const parseSkillFile = (text: string): { readonly body: string } => ({
+  body: text.replace(FRONT_MATTER_RE, ""),
+});
 
 const TITLE_RE = /^#\s+(.+?)\s*$/;
 

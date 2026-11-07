@@ -1,6 +1,5 @@
-import { NotFound } from "@ultrapaint/contracts/errors";
 import {
-  type CustomiseMode,
+  DESIGN_SKILL,
   describeSkill,
   parseSkillFile,
   SKILL_EXTENSION,
@@ -14,69 +13,45 @@ import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import {
-  builtInSkills,
+  CORE_FILE,
+  coreText,
   naming,
-  referencesAt,
-  referencesDirOf,
-  referencesFor,
-  routerText,
-  TOLD_WHEN_MAKING_THE_SYSTEM,
-  TOLD_WITH_ROUTER,
+  referenceFiles,
+  skillDirOf,
+  skillFiles,
+  skillFilesAt,
 } from "../skills/index.ts";
 import { DesignFiles } from "./design-files.ts";
-import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { agentWays } from "./threads/agent-ways.ts";
-
-/** What a file that extends a built-in starts as: the user writes the rest. */
-const extendStub = (title: string) => `---
-extends: true
----
-
-In this product, also (told after the built-in "${title}" skill):
-
-- 
-`;
 
 /**
- * The skills that are on, as a design thread's briefing tells them. With the settings'
- * `skills.briefing` at `summaries`, a skill read whole somewhere is a line: its MCP resource
- * with the editor's tools, else its file, which a built-in, or a file that extends one, has not.
- * At `router`, the design skill's router is told, with the parts every screen needs and the
- * project's own files; the router names where the agent reads every other part.
+ * The skills that are on, as a design thread's briefing tells them (the settings'
+ * `skills.briefing`). At `router`, the design skill's core and the project's own files whole; the
+ * core names where the agent reads each reference. At `full`, every reference whole too. At
+ * `summaries`, a line each: its MCP resource with the editor's tools, else its file.
  */
 export interface SkillsTold {
-  /** A line per skill told by its title and summary: `- Hierarchy (<where>): <summary>`. */
+  /**
+   * Where the design skill's files are written for agents to read, when it is on: the folder its
+   * `references/…` are named in.
+   */
+  readonly dir: string | undefined;
+  /** A line per skill told by its title and summary: `- Ultrapaint (<where>): <summary>`. */
   readonly listed: readonly string[];
   /** The skills told whole, as one markdown text; empty when none. */
   readonly whole: string;
 }
 
 /**
- * The design skills an agent is told: the built-in set, each replaced or extended by a project
- * file of the same name under `<designsDir>/skills/`, plus every other file there, minus what
- * the settings turn off. Read on every call, so a file saved by hand is the next briefing's.
+ * The design skills an agent is told: the design skill the tool ships (`ultrapaint`), then every
+ * file of the project's under `<designsDir>/skills/`, minus what the settings turn off. Read on
+ * every call, so a file saved by hand is the next briefing's.
  */
 export class SkillsService extends Context.Service<
   SkillsService,
   {
-    /**
-     * The skills that are on, as the briefing tells them, worded for an agent with the editor's
-     * tools or without them.
-     */
-    readonly briefing: (
-      tools: boolean,
-      /** The thread's task makes the design system: its part is told with the router. */
-      system?: boolean
-    ) => Effect.Effect<SkillsTold>;
-    /**
-     * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
-     * that extends it. A skill the project already has is returned as it is.
-     */
-    readonly customise: (
-      name: string,
-      mode: CustomiseMode
-    ) => Effect.Effect<Skill, EditFailure>;
+    /** The skills that are on, as the briefing tells them, to an agent with the editor's tools or without. */
+    readonly briefing: (tools: boolean) => Effect.Effect<SkillsTold>;
     readonly list: Effect.Effect<SkillList>;
   }
 >()("ultrapaint/server/SkillsService") {
@@ -84,74 +59,54 @@ export class SkillsService extends Context.Service<
     SkillsService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
-      const edit = yield* EditService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const dir = path.join(paths.designsDir, SKILLS_DIR);
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
-      const summaries = paths.settings.skills?.briefing === "summaries";
-      const router = (paths.settings.skills?.briefing ?? "router") === "router";
-      // As the settings show them: worded for the tools the server offers.
-      const { machine, mcp } = yield* ServerConfig;
-      const referencesDir = referencesDirOf(machine.home, path.join);
-      const dirFor = (tools: boolean) =>
-        referencesFor(referencesDir, path.join, agentWays(tools).tools);
+      const told = paths.settings.skills?.briefing ?? "router";
+      const { machine } = yield* ServerConfig;
+      const skillDir = skillDirOf(machine.home, path.join);
 
       /*
-       * The references written where agents read them, once per server: a folder for an agent
-       * with the editor's tools and one for an agent without, each file worded for it and naming
-       * the others where they are. One that cannot be written leaves its skill pointing at
-       * nothing, which costs the agent the reference and nothing else: the thread goes on.
+       * The design skill written where agents read it, once per server: `SKILL.md` and its
+       * `references/`, each file naming the others where they are. One that cannot be written
+       * leaves the core pointing at nothing, which costs the agent the reference and nothing
+       * else: the thread goes on.
        */
-      const references = yield* Effect.cached(
-        Effect.forEach([true, false], (tools) =>
-          Effect.forEach(
-            referencesAt(dirFor(tools), agentWays(tools).tools),
-            ([file, text]) =>
-              Effect.gen(function* () {
-                const into = path.join(dirFor(tools), file);
-                yield* fs.makeDirectory(path.dirname(into), {
-                  recursive: true,
-                });
-                yield* fs.writeFileString(into, text);
-              })
-          )
+      const written = yield* Effect.cached(
+        Effect.forEach(skillFilesAt(skillDir), ([file, text]) =>
+          Effect.gen(function* () {
+            const into = path.join(skillDir, file);
+            yield* fs.makeDirectory(path.dirname(into), { recursive: true });
+            yield* fs.writeFileString(into, text);
+          })
         ).pipe(Effect.ignore)
       );
 
-      /** A built-in text, each file of the references named where it is written for `tools`. */
-      const withReferences = (text: string, tools: boolean) =>
-        naming(text, dirFor(tools));
+      /** The design skill as the settings list it: its core, named where its files are. */
+      const designSkill: Skill = {
+        enabled: !disabled.has(DESIGN_SKILL),
+        name: DESIGN_SKILL,
+        source: "built-in",
+        text: naming(coreText, skillDir),
+        ...describeSkill(DESIGN_SKILL, coreText),
+      };
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
 
-      const builtIn = (name: string, text: string, tools: boolean): Skill => ({
-        enabled: !disabled.has(name),
-        extends: false,
-        name,
-        source: "built-in",
-        text: withReferences(text, tools),
-        ...describeSkill(name, text),
-      });
-
-      /** A project file on its own, or following the built-in it extends. */
-      const fromFile = (name: string, file: string, base?: string): Skill => {
-        const parsed = parseSkillFile(file);
-        const extended = base !== undefined && parsed.extends;
-        const text = extended
-          ? `${base.trim()}\n\n${parsed.body.trim()}\n`
-          : parsed.body;
+      /** A project's own file, told whole. */
+      const fromFile = (name: string, file: string): Skill => {
+        const { body } = parseSkillFile(file);
         return {
           enabled: !disabled.has(name),
-          extends: extended,
           file: fileOf(name),
           name,
           source: "project",
-          text,
-          ...describeSkill(name, extended ? base : parsed.body),
+          text: body,
+          ...describeSkill(name, body),
         };
       };
 
@@ -161,107 +116,62 @@ export class SkillsService extends Context.Service<
           fs.readDirectory(dir),
           (): string[] => []
         );
-        const entries = yield* Effect.forEach(
+        return yield* Effect.forEach(
           names.filter((n) => n.endsWith(SKILL_EXTENSION)).sort(),
           (file) =>
             Effect.option(
-              Effect.map(
-                fs.readFileString(path.join(dir, file)),
-                (text) =>
-                  [file.slice(0, -SKILL_EXTENSION.length), text] as const
+              Effect.map(fs.readFileString(path.join(dir, file)), (text) =>
+                fromFile(file.slice(0, -SKILL_EXTENSION.length), text)
               )
             )
-        );
-        return new Map(
-          entries.flatMap((e) => (e._tag === "Some" ? [e.value] : []))
+        ).pipe(
+          Effect.map((read) =>
+            read.flatMap((e) => (e._tag === "Some" ? [e.value] : []))
+          )
         );
       });
 
-      /** Every skill, the built-ins worded for an agent with the tools or without them. */
-      const listFor = Effect.fnUntraced(function* (tools: boolean) {
-        const builtIns = builtInSkills(agentWays(tools).tools);
-        const own = yield* projectFiles;
-        const skills = builtIns.map((skill) => {
-          const file = own.get(skill.name);
-          return file === undefined
-            ? builtIn(skill.name, skill.text, tools)
-            : fromFile(skill.name, file, skill.text);
-        });
-        const known = new Set(builtIns.map((s) => s.name));
-        for (const [name, file] of own) {
-          if (!known.has(name)) {
-            skills.push(fromFile(name, file));
-          }
-        }
-        return { dir: relDir, skills } satisfies SkillList;
-      });
       // Written before any skill is read, whole or in the briefing, so its folder is there.
-      const list = Effect.andThen(references, listFor(mcp)).pipe(
+      const list = Effect.andThen(written, projectFiles).pipe(
+        Effect.map(
+          (own): SkillList => ({ dir: relDir, skills: [designSkill, ...own] })
+        ),
         Effect.withSpan("SkillsService.list")
       );
 
       /** Where the agent reads a skill whole, when it is told only its summary. */
       const whereRead = (skill: Skill, tools: boolean) => {
-        if (!summaries) {
-          return;
+        if (skill.source === "built-in") {
+          return tools ? skillUri(CORE_FILE) : `${skillDir}/${CORE_FILE}`;
         }
-        if (tools) {
-          return skillUri(skill.name);
-        }
-        return skill.extends ? undefined : skill.file;
+        return tools ? skillUri(skill.name) : (skill.file ?? skill.name);
       };
 
-      const briefing = Effect.fn("SkillsService.briefing")(function* (
-        tools: boolean,
-        system = false
-      ): Effect.fn.Return<SkillsTold> {
-        yield* references;
-        const { skills } = yield* listFor(tools);
-        const listed: string[] = [];
-        const whole: string[] = router
-          ? [withReferences(routerText(agentWays(tools).tools), tools).trim()]
-          : [];
-        for (const skill of skills.filter((s) => s.enabled)) {
-          // Read from the references when the router names it: what the project wrote is told.
-          if (
-            router &&
-            skill.source === "built-in" &&
-            !TOLD_WITH_ROUTER.has(skill.name) &&
-            !(system && skill.name === TOLD_WHEN_MAKING_THE_SYSTEM)
-          ) {
-            continue;
-          }
-          const where = whereRead(skill, tools);
-          if (where === undefined) {
-            whole.push(skill.text.trim());
-          } else {
-            listed.push(`- ${skill.title} (${where}): ${skill.summary}`);
-          }
-        }
-        return { listed, whole: whole.join("\n\n") };
-      });
+      /** A reference told whole, after the path the core names it by. */
+      const referenceTold = (file: string) =>
+        `The reference \`${skillDir}/${file}\`:\n\n${naming(skillFiles[file] ?? "", skillDir).trim()}`;
 
-      const customise = Effect.fn("SkillsService.customise")(function* (
-        name: string,
-        mode: CustomiseMode
-      ) {
+      const briefing = Effect.fn("SkillsService.briefing")(function* (
+        tools: boolean
+      ): Effect.fn.Return<SkillsTold> {
         const { skills } = yield* list;
-        const skill = skills.find((s) => s.name === name);
-        if (!skill) {
-          return yield* new NotFound({ message: `no skill named ${name}` });
+        const on = skills.filter((s) => s.enabled);
+        const at = designSkill.enabled ? skillDir : undefined;
+        if (told === "summaries") {
+          return {
+            dir: at,
+            listed: on.map(
+              (s) => `- ${s.title} (${whereRead(s, tools)}): ${s.summary}`
+            ),
+            whole: "",
+          };
         }
-        if (skill.source === "project") {
-          return skill;
-        }
-        const content =
-          mode === "extend" ? extendStub(skill.title) : skill.text;
-        yield* edit.transaction(
-          `${mode === "extend" ? "Extend" : "Replace"} the ${skill.title} skill`,
-          (tx) => tx.create(fileOf(name), content)
+        const whole = on.flatMap((skill) =>
+          skill.source === "built-in" && told === "full"
+            ? [skill.text.trim(), ...referenceFiles.map(referenceTold)]
+            : [skill.text.trim()]
         );
-        const after = yield* list;
-        yield* events.publish("skills", after);
-        return after.skills.find((s) => s.name === name) ?? skill;
+        return { dir: at, listed: [], whole: whole.join("\n\n") };
       });
 
       // Whoever changes the files: an undo, an agent, an editor, a checkout.
@@ -273,7 +183,7 @@ export class SkillsService extends Context.Service<
         Effect.forkScoped
       );
 
-      return SkillsService.of({ briefing, customise, list });
+      return SkillsService.of({ briefing, list });
     })
   );
 }

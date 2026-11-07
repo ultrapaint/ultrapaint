@@ -483,24 +483,18 @@ describe("the editor's tools in what an agent is told", () => {
   const refused = (read: readonly Read[]) =>
     read.filter((r) => !r.task).map((r) => r.of);
 
-  /** A project on either server, its briefing with the built-in design skills. */
-  // Told whole, so every skill's words with and without the tools are in the briefing.
-  const project = (mcp: boolean) =>
-    ProjectTest({ git: true, mcp, settings: { skills: { briefing: "full" } } });
+  /** A project on either server, its briefing with the design skill. */
+  const project = (mcp: boolean) => ProjectTest({ git: true, mcp });
 
-  /** The built-in skills that name tools, by a line each says with the tools and without. */
+  /** What the briefing says of the design skill's terms, by a line with the tools and without. */
   const skillLines = {
-    color: [
-      "compute them: `read_design_system` gives every token's value in",
-      "compute them: `design.tokens.json` gives every token's value in",
-    ],
     components: [
-      "ask\n`get_component` for its props and variants.",
-      "read its line among the components listed for its props and variants.",
+      "A component's props, variants and example: get_component",
+      "A component's props and variants are its line among the components listed below.",
     ],
-    layout: [
-      "or at `390` and `1440` with\n`get_screenshot`'s `width`.",
-      "or at `390` and `1440`. Keep",
+    tokens: [
+      "DESIGN.md and the tokens, each value in every theme: read_design_system",
+      "every token's value in every theme is in designs/design.tokens.json",
     ],
   } as const;
 
@@ -560,7 +554,7 @@ describe("the editor's tools in what an agent is told", () => {
           ]
         );
         assert.deepStrictEqual(stale([...before, ...after, instructions]), []);
-        // The skills keep their words with the tools, which the design evals were tuned to.
+        // What the design skill's words are in the editor, with its tools.
         for (const [withTools] of Object.values(skillLines)) {
           assert.include(briefings(after), withTools);
         }
@@ -601,8 +595,8 @@ describe("the editor's tools in what an agent is told", () => {
   });
 });
 
-/** Where a briefing says the design system's foundations are read. */
-const FOUNDATIONS_RE = /`(\S+\/design-system\/foundations\.md)`/;
+/** The design skill's line in a briefing that tells summaries: where its core is read. */
+const DESIGN_SKILL_LINE_RE = /^- Ultrapaint \(([^)]+)\): \S/m;
 
 describe("the briefing", () => {
   test.effect(
@@ -621,36 +615,18 @@ describe("the briefing", () => {
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 
-  test.effect(
-    "tells the design-system part with the router to a thread that makes the design system",
-    () =>
-      Effect.gen(function* () {
-        const briefing = yield* ProjectBriefing;
-        const toldTheSystem = (text: string | undefined) =>
-          (text ?? "").includes("\n# Design system\n");
-        const told = yield* briefing.text("design", { system: true });
-        assert.isTrue(toldTheSystem(told));
-        assert.isFalse(toldTheSystem(yield* briefing.text("design")));
-
-        // Its files are named where they are written, read whole from there.
-        // Typed by hand: the linter otherwise takes the match for non-null.
-        const found: RegExpExecArray | null = FOUNDATIONS_RE.exec(told ?? "");
-        const fs = yield* FileSystem.FileSystem;
-        assert.include(
-          yield* fs.readFileString(found?.[1] ?? ""),
-          "# Foundations"
-        );
-      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
-  );
-
-  /** A project's own skill, a built-in replaced, and a built-in extended. */
+  /** The project's own skills: one with a heading, and one without. */
   const ownSkills = {
-    "designs/skills/color.md":
-      "---\nextends: true\n---\nBlue is the brand; never use it for status.\n",
-    "designs/skills/spacing.md":
-      "# Our spacing\n\nEight pixels, everywhere.\n\nNever seven.\n",
+    "designs/skills/color.md": "Blue is the brand; never use it for status.\n",
     "designs/skills/voice.md":
       "# Voice\n\nShort words, said plainly.\n\nNo exclamation marks.\n",
+  };
+
+  /** Where a briefing that tells summaries says the design skill's core is read. */
+  const coreReadAt = (text: string) => {
+    // Typed by hand: the linter otherwise takes the match for non-null.
+    const found: RegExpExecArray | null = DESIGN_SKILL_LINE_RE.exec(text);
+    return found?.[1] ?? "";
   };
 
   test.effect(
@@ -658,29 +634,18 @@ describe("the briefing", () => {
     () =>
       Effect.gen(function* () {
         const text = (yield* (yield* ProjectBriefing).text("design")) ?? "";
-        assert.include(
-          text,
-          "- Hierarchy (skill://ultrapaint/hierarchy): Every screen has one thing it is for."
-        );
-        assert.include(
-          text,
-          "- Our spacing (skill://ultrapaint/spacing): Eight pixels, everywhere."
-        );
+        assert.strictEqual(coreReadAt(text), "skill://ultrapaint/SKILL.md");
         assert.include(
           text,
           "- Voice (skill://ultrapaint/voice): Short words, said plainly."
         );
-        // The extended built-in's resource holds the project's words too.
-        assert.include(text, "- Colour (skill://ultrapaint/color): ");
-        for (const body of [
-          "## One primary action",
-          "## Before you finish",
-          "Never seven.",
-          "No exclamation marks.",
-          "Blue is the brand",
-        ]) {
-          assert.notInclude(text, body);
-        }
+        // A file without a heading is named by its name, its first line the summary.
+        assert.include(
+          text,
+          "- color (skill://ultrapaint/color): Blue is the brand; never use it for status."
+        );
+        assert.notInclude(text, "\n# Ultrapaint\n");
+        assert.notInclude(text, "No exclamation marks.");
       }).pipe(
         Effect.provide(
           ProjectTest({
@@ -694,25 +659,21 @@ describe("the briefing", () => {
   );
 
   test.effect(
-    "without the tools, tells a skill a file holds whole by its path, and the others in full",
+    "without the tools, tells each skill's summary with the file it is read whole from",
     () =>
       Effect.gen(function* () {
         const text =
           (yield* (yield* ProjectBriefing).text("design", { tools: false })) ??
           "";
         assert.notInclude(text, "skill://");
-        assert.include(
-          text,
-          "- Our spacing (designs/skills/spacing.md): Eight pixels, everywhere."
-        );
+        const core = coreReadAt(text);
+        const fs = yield* FileSystem.FileSystem;
+        assert.include(yield* fs.readFileString(core), "# Ultrapaint");
         assert.include(
           text,
           "- Voice (designs/skills/voice.md): Short words, said plainly."
         );
         assert.notInclude(text, "No exclamation marks.");
-        // No file holds a built-in, or an extended one with its built-in's words.
-        assert.include(text, "## One primary action");
-        assert.include(text, "Blue is the brand; never use it for status.");
       }).pipe(
         Effect.provide(
           ProjectTest({

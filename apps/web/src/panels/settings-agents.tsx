@@ -3,7 +3,6 @@
  * given, the key that sends a prompt, and what a new chat starts with.
  */
 import type {
-  CustomiseMode,
   Skill,
   SkillsBriefing,
   SkillsConfig,
@@ -18,16 +17,9 @@ import {
   startingMode,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
-import { Check, Copy, Ellipsis, FilePen, FilePlus2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { IconButton } from "../components/icon-button.tsx";
@@ -44,18 +36,18 @@ import { useSkills } from "../state/skills.ts";
 import { Group, Row, rowSelect } from "./settings-group.tsx";
 
 const skillsBriefings = [
-  { label: "Router", value: "router" },
+  { label: "Core", value: "router" },
   { label: "Whole", value: "full" },
   { label: "Summaries", value: "summaries" },
 ];
 
 /** What a design thread is told, for each way of telling the skills. */
 const briefingDescriptions: Record<SkillsBriefing, string> = {
-  full: "Every skill that is on, whole: about 81,000 characters before the first prompt.",
+  full: "The design skill’s core and every reference, whole: about 145,000 characters before the first prompt.",
   router:
-    "The router and what every screen needs, about 19,000 characters; the rest is read as the work reaches it.",
+    "The design skill’s core, every rule and the steps, about 22,000 characters; a reference is read when the core sends the agent to it.",
   summaries:
-    "Each skill’s title and summary, about 2,500 characters; a skill is read whole before its work.",
+    "Each skill’s title and summary, a few hundred characters; a skill is read whole before its work.",
 };
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
@@ -128,17 +120,7 @@ export const McpConnectionGroup = () => {
   );
 };
 
-/** Where a skill the project took over is written; nothing for a built-in one. */
-const sourceLabel = (skill: Skill) => {
-  if (skill.source === "built-in") {
-    return "";
-  }
-  return skill.extends
-    ? `Extended in ${skill.file}`
-    : `Replaced by ${skill.file}`;
-};
-
-/** One skill: on or off, what it says, and how the project takes it over. */
+/** One skill: on or off, and what it says. */
 const SkillRow = ({
   enabled,
   onToggle,
@@ -150,22 +132,6 @@ const SkillRow = ({
 }) => {
   const [shown, setShown] = useState(false);
   const id = `settings-skill-${skill.name}`;
-  const customise = (mode: CustomiseMode) => {
-    useSkills
-      .getState()
-      .customise(skill.name, mode)
-      .then((result) => {
-        if (result?.file) {
-          toast(`${result.file} is yours to edit`, {
-            description:
-              mode === "extend"
-                ? `What you write is told after the built-in ${skill.title}.`
-                : `It replaces the built-in ${skill.title}.`,
-          });
-        }
-      });
-  };
-  const source = sourceLabel(skill);
   return (
     <Row
       description={
@@ -173,7 +139,9 @@ const SkillRow = ({
           <span className="line-clamp-2" title={skill.summary}>
             {skill.summary}
           </span>
-          {source ? <span className="mt-0.5 block">{source}</span> : null}
+          {skill.file ? (
+            <span className="mt-0.5 block">{skill.file}</span>
+          ) : null}
           {shown ? (
             <div className="mt-2 max-h-96 overflow-y-auto rounded-md bg-muted p-3 font-body text-foreground">
               <Markdown>{skill.text}</Markdown>
@@ -188,31 +156,6 @@ const SkillRow = ({
         <Button onClick={() => setShown((v) => !v)} size="sm" variant="ghost">
           {shown ? "Hide" : "View"}
         </Button>
-        {skill.source === "built-in" ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label={`More for ${skill.title}`}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <Ellipsis />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => customise("extend")}>
-                <FilePlus2 />
-                Extend in a file…
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => customise("replace")}>
-                <FilePen />
-                Replace with a file…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
         <Switch
           aria-label={skill.title}
           checked={enabled}
@@ -226,8 +169,8 @@ const SkillRow = ({
 };
 
 /**
- * The design skills every agent is told before it designs. The set is the tool's; a project
- * replaces or extends one with a file, adds its own, and turns any off here.
+ * The design skills every agent is told before it designs: the tool's design skill, and the
+ * project's own files beside it; any is turned off here.
  */
 export const SkillsGroup = ({
   config,
@@ -259,11 +202,9 @@ export const SkillsGroup = ({
     <Group
       note={
         <>
-          Told to every agent before it designs. A file in{" "}
-          <code className="font-code">{dir}</code> with a skill’s name replaces
-          it, or extends it with{" "}
-          <code className="font-code">extends: true</code>; any other file is a
-          skill of its own.
+          Told to every agent before it designs. Each file in{" "}
+          <code className="font-code">{dir}</code> is a skill of the project’s
+          own, told after the design skill.
         </>
       }
       title="Design skills"

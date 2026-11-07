@@ -20,6 +20,7 @@ import { PagesService } from "./services/pages.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
+import { skillFiles } from "./skills/index.ts";
 import {
   subscribed,
   TestEnv,
@@ -35,7 +36,8 @@ import {
   type ProjectTestOptions,
 } from "./testing/project.ts";
 
-const REFERENCES_DIR_RE = /The references are in `([^`]+)\/`/;
+/** A file of the design skill a resource names by its URI. */
+const SKILL_URI_RE = /`(skill:\/\/ultrapaint\/[^`]+\.md)`/g;
 
 /**
  * What only the wire does, on a server of its own over a socket (docs/TESTING.md rules 1 and 3):
@@ -333,7 +335,7 @@ describe("the editor's MCP server, over the wire", () => {
   );
 
   onAServer(
-    "serves the design skills as resources, a project's own file in place of a built-in",
+    "serves the design skill's files as resources by their paths, worded with their URIs, and a project's own by its name",
     () =>
       Effect.gen(function* () {
         const { client, port, repo, settings } = yield* TestEnv;
@@ -349,7 +351,8 @@ describe("the editor's MCP server, over the wire", () => {
               Effect.promise(
                 () =>
                   response.json() as Promise<{
-                    result: {
+                    error?: unknown;
+                    result?: {
                       contents?: { text: string; uri: string }[];
                       resources?: { name: string; uri: string }[];
                     };
@@ -359,44 +362,45 @@ describe("the editor's MCP server, over the wire", () => {
           );
         const listed = yield* json({ method: "resources/list" });
         assert.includeMembers(
-          (listed.result.resources ?? []).map((r) => r.uri),
-          ["skill://ultrapaint/layout", "skill://ultrapaint/spacing"]
+          (listed.result?.resources ?? []).map((r) => r.uri),
+          Object.keys(skillFiles).map((file) => `skill://ultrapaint/${file}`)
         );
         const read = (uri: string) =>
           Effect.map(
             json({ method: "resources/read", params: { uri } }),
-            (answer) =>
-              answer.result?.contents?.[0]?.text ?? JSON.stringify(answer)
+            (answer) => answer.result?.contents?.[0]?.text
           );
-        assert.include(
-          yield* read("skill://ultrapaint/spacing"),
-          "Before you finish"
-        );
-        // A skill read whole, before any thread's briefing, names its references where they are.
-        const patterns = yield* read("skill://ultrapaint/patterns");
-        // Typed by hand: the linter otherwise takes the match for non-null.
-        const found: RegExpExecArray | null = REFERENCES_DIR_RE.exec(patterns);
-        const folder = found?.[1] ?? "";
-        assert.include(
-          yield* fs.readFileString(path.join(folder, "dialogs.md")),
-          "# Dialogs"
-        );
+        const core = (yield* read("skill://ultrapaint/SKILL.md")) ?? "";
+        assert.include(core, "# Ultrapaint");
+        // An MCP client may be on another machine: the files it is sent to are resources too.
+        assert.notInclude(core, "`references/");
+        assert.notInclude(core, ".cache");
+        const named = [
+          ...new Set([...core.matchAll(SKILL_URI_RE)].map((m) => m[1] ?? "")),
+        ];
+        assert.isNotEmpty(named);
+        for (const uri of named) {
+          const text = yield* read(uri);
+          assert.isDefined(text, `${uri} is not served`);
+          assert.notInclude(text, "`references/", uri);
+        }
+        assert.strictEqual(yield* read("skill://ultrapaint/ultrapaint"), core);
+
         yield* fs.makeDirectory(path.join(repo, "designs/skills"), {
           recursive: true,
         });
         yield* fs.writeFileString(
-          path.join(repo, "designs/skills/spacing.md"),
-          "# Spacing\n\nOurs: an 8px grid.\n"
-        );
-        yield* fs.writeFileString(
           path.join(repo, "designs/skills/voice.md"),
           "# Voice\n\nPlain words.\n"
         );
-        assert.include(
-          yield* read("skill://ultrapaint/spacing"),
-          "Ours: an 8px grid."
-        );
         assert.include(yield* read("skill://ultrapaint/voice"), "Plain words.");
+
+        // Turned off, the design skill is not read.
+        yield* client["settings.set"]({
+          ...settings,
+          skills: { disabled: ["ultrapaint"] },
+        });
+        assert.isUndefined(yield* read("skill://ultrapaint/SKILL.md"));
       })
   );
 

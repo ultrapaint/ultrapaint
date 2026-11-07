@@ -6,8 +6,8 @@
  * - The **review models** are the set of reviewers. They have no score of their own: each reviewer is scored
  *   on its own findings.
  * - A reviewer only looks. It finds problems; the designer fixes them.
- * - A finding names its **category**, one of the design skill's references, so a score, a
- *   finding, a gap and a rule share one name; and its **severity**, which sets what it costs.
+ * - A finding names its **category**, one of the concerns the design skill holds rules for, so a
+ *   score, a finding, a gap and a rule share one name; and its **severity**, which sets what it costs.
  * - A category scores 100 less what its findings cost, never below 0. A section's overall is the
  *   mean of the categories it is scored on; a blocker caps it. A page's is the mean of its
  *   sections'. A reviewer that gave no review has **no score**: nothing is guessed for it.
@@ -20,8 +20,9 @@
 import { Schema } from "effect";
 
 /**
- * The categories a finding is in: the design skill's references (`skills/ultrapaint/references/
- * <category>.md`), `picture` being how the design keeps to a picture it was given.
+ * The categories a finding is in: the concerns of a design the design skill holds rules for,
+ * `picture` being how the design keeps to a picture it was given. Each is held by one file of the
+ * skill (`CATEGORY_FILES`).
  */
 export const CATEGORIES = [
   "hierarchy",
@@ -43,6 +44,30 @@ export const CATEGORIES = [
 ] as const;
 export const Category = Schema.Literals(CATEGORIES);
 export type Category = typeof Category.Type;
+
+/**
+ * The file of the design skill (`skills/ultrapaint/`) that holds each category's rules, by its
+ * path there: the core (`SKILL.md`) for what every screen needs, a reference for the rest. Two
+ * categories may share a file.
+ */
+export const CATEGORY_FILES: Readonly<Record<Category, string>> = {
+  accessibility: "references/accessibility.md",
+  borders: "references/surfaces.md",
+  color: "references/color.md",
+  components: "references/components.md",
+  content: "references/words/interface.md",
+  elevation: "references/surfaces.md",
+  hierarchy: "SKILL.md",
+  iconography: "references/iconography.md",
+  layout: "references/layout.md",
+  motion: "references/motion.md",
+  picture: "references/picture.md",
+  restraint: "SKILL.md",
+  spacing: "SKILL.md",
+  states: "references/states.md",
+  typography: "references/typography.md",
+  usability: "references/usability.md",
+};
 
 /** Scored on every section: every screen has them. The others, where the section has them. */
 export const ALWAYS_SCORED: readonly Category[] = [

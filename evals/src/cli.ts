@@ -133,12 +133,6 @@ const generateFlags = {
     ),
     Flag.withDefault(3)
   ),
-  skills: Flag.String("skills").pipe(
-    Flag.withDescription(
-      "A directory of skill files to try instead of the shipped ones: candidates/<name>"
-    ),
-    Flag.optional
-  ),
 };
 const judgeFlags = {
   concurrency: Flag.Int("concurrency").pipe(
@@ -290,7 +284,6 @@ interface GenerateInput {
   readonly reviewers: string;
   readonly runs: number;
   readonly signOff: Approval;
-  readonly skills: Option.Option<string>;
 }
 
 const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
@@ -339,7 +332,6 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
     ),
     round: input.name,
     runs: input.runs,
-    skills: Option.getOrUndefined(input.skills),
   });
 });
 

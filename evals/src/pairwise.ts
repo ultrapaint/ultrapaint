@@ -103,13 +103,14 @@ export const unblind = (
 const RUN_RE = /^run-\d+$/;
 /** A path or a brace list of them ending on `.md`, as a tool call names files. */
 const MD_RE = /[\w{},/.$-]*\.md/g;
-/** Up to a file's path in the skills' cache: the version's folder and the wording's. */
-const CACHE_PREFIX_RE =
-  /^.*\.cache\/ultrapaint\/skills\/[0-9a-f]+\/(?:with-tools\/|without-tools\/)?/;
+/** Up to a file's path in the skill's cache: the version's folder. */
+const CACHE_PREFIX_RE = /^.*\.cache\/ultrapaint\/skills\/[0-9a-f]+\//;
+/** The folder of one wording, in a cache from before it held the whole skill. */
+const WORDING_RE = /^(?:with-tools|without-tools)\//;
 const BRACES_RE = /\{([^{}]*)\}/;
 /** A shell variable naming the folder (`$S/layout.md`), as an agent writes a long path once. */
 const VARIABLE_RE = /^\$\w+\//;
-const SKILL_FILE_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*\.md$/;
+const SKILL_FILE_RE = /^(?:SKILL|[a-z0-9-]+(?:\/[a-z0-9-]+)*)\.md$/;
 
 /** `content/{voice,interface}.md` as the shell expands it. */
 const expand = (file: string): string[] => {
@@ -124,30 +125,42 @@ const expand = (file: string): string[] => {
 };
 
 /**
- * The skill's files a trace shows opened, from its tool calls, each by its path in the
- * references (`design-system/components.md`), sorted. A brace list opens each of its files, and a
- * call that reads part of a file counts. A call marked failed still read its files when only a
- * later command of its chain failed; a `references/` path, which the cache has not got, opened
- * nothing.
+ * The skill's files a trace shows opened, from its tool calls, each by its path in the skill
+ * (`SKILL.md`, `references/system/components.md`), sorted. A brace list opens each of its files,
+ * and a call that reads part of a file counts. A call marked failed still read its files when
+ * only a later command of its chain failed. A trace from before the cache held the whole skill
+ * names a reference by its path under `references/`, which the cache was then, and a
+ * `references/` path in it opened nothing.
  */
 export const skillReads = (trace: string) => {
   const files = new Set<string>();
   for (const line of trace.split("\n")) {
-    if (!line.includes(".cache/ultrapaint/skills")) {
-      continue;
-    }
-    for (const [token] of line.matchAll(MD_RE)) {
-      const inSkill = token
-        .replace(CACHE_PREFIX_RE, "")
-        .replace(VARIABLE_RE, "");
-      for (const file of expand(inSkill)) {
-        if (SKILL_FILE_RE.test(file) && !file.startsWith("references/")) {
+    if (line.includes(".cache/ultrapaint/skills")) {
+      for (const [token] of line.matchAll(MD_RE)) {
+        for (const file of inSkill(token)) {
           files.add(file);
         }
       }
     }
   }
   return [...files].sort();
+};
+
+/** The skill's files a path in a tool call names, by their paths in the skill. */
+const inSkill = (token: string): string[] => {
+  const inCache = token.replace(CACHE_PREFIX_RE, "").replace(VARIABLE_RE, "");
+  // Before, the cache held the references alone, a folder per wording or none.
+  const before = WORDING_RE.test(inCache);
+  return expand(inCache.replace(WORDING_RE, "")).flatMap((file) => {
+    if (!SKILL_FILE_RE.test(file)) {
+      return [];
+    }
+    if (file === "SKILL.md" || file.startsWith("references/")) {
+      // A `references/` path in a cache of the references alone opened nothing.
+      return before ? [] : [file];
+    }
+    return [`references/${file}`];
+  });
 };
 
 /** The skill's files a run opened, from the tool calls of its trace. */

@@ -1,93 +1,89 @@
 # Components
 
-The design system's components are the vocabulary. Compose with them before drawing anything of
-your own, and use them the way they were meant.
+How to find what a component of the design system takes, and the anatomy of the controls screens
+most often get wrong.
 
-Read `references/studies/components.md` when you design a public page (a landing page, shop, portfolio or magazine). It holds the figures by character, the ways technical, humanistic and expressive sites differ, and recipes for a hero, a feature grid, a pricing page, a shop, a portfolio and an editorial front page.
+## Look before you use it
 
-## Look before you draw
+Read the component in its documentation, its source or the list of components you were given:
+its props, its variants, its sizes and its slots. Start from its example and replace every
+placeholder with real content. Its size comes from outside: the room its parent gives it, its size
+prop. When no variant says what the screen needs, take another component or ask the user.
 
-For a button, a field, a badge, a dialog or tabs, find the component in the palette and [with the editor's tools: ask
-`get_component` | without: read its line among the components listed] for its props and variants. A copy drawn from rows and text matches nothing, and
-gets implemented as nothing.
+## Buttons
 
-## Variants carry the meaning
+- The primary pairs with a quieter partner of the same height: the secondary (a light grey fill),
+  the outline (a hairline border) or a text link with a chevron. A second action is never a second
+  colour.
+- A filter button is its word and, once set, its value ("Status: Open"); no icon in front.
+- Previous, Today and Next are one button group with shared borders, not three buttons.
+- A helper action over a column ("Disable all") is a muted link, underlined.
 
-A destructive action is the destructive variant, a secondary action the secondary variant, a
-small button the size prop. A default button filled red, or a primary shrunk, says something the
-system does not.
+## Fields
 
-## The component owns its look
+- Whatever a field holds, it is the system's field: its icon in the field's icon slot, its chips
+  the field's own, its action in its end slot. Text in a box of your own reads as typed; an icon
+  laid over a field drifts off its line.
+- Only what the user types into gets a field's box. A value the user reads is text.
+- Search is a field with its magnifier and a placeholder wherever there is room; an icon button
+  that opens one is for a toolbar too narrow for the field. Where search is the page's task (a
+  help centre, a job board, a marketplace), the field is the hero.
 
-Size an instance with `width` and `height`; restyle it only through its props and variants. When
-none fits, choose another component or ask the user. Text inside a component is its `text` or
-its children.
+## Selects and menus
 
-## Forms are fields
+- A quiet select in a row or a sentence ("Can view") has no fill and no fixed width either: it
+  sizes to its text. In a form it takes the field's box.
+- A badge that only shows a value never opens a menu: no chevron on it.
 
-A form is labelled field components in one column, with the primary action at the end. Two
-fields share a row only when they are one thing: a city and its postcode.
+## Switches and checkboxes
 
-## Controls inside rows stay quiet
+A switch row's description, when it needs one, is one muted line under its label. An unchecked
+box has a light border; the checked box carries the weight.
 
-A select inside a row or a sentence ("Can view") is its text and a small chevron: no border, no
-fill, no fixed width. A copy action for a link sits at the field's right end, not as a button
-beside it. A helper action over a column ("Disable all") is a muted link, underlined. A switch in
-a list of settings sits at the row's right edge, the label at its left. Only what the user types
-into gets a field's box.
+## Badges
 
-A field is the system's field component, whatever it holds: its hint is the field's placeholder,
-its icon the field's own icon slot, its chips the field's own. A text node laid in a box of one's
-own reads as typed, and an icon laid over a field drifts off its line.
+- A status or plan badge ("Popular", "High risk") sits in its card's top-right corner, opposite
+  the title. On a public page a badge on an image ("New") takes one corner, the same on every tile.
+- A card carries one badge. A recommended plan is marked once: a tab on its top edge, or the only
+  filled button; a border, a tab and a colour together say it three times.
+- A count beside a navigation item sits quiet at the row's right end: a plain muted number, or the
+  system's small grey count badge; never an outlined or coloured pill.
 
-## Badges sit at the edge
+## Tabs and segmented controls
 
-A change badge (↗ 1.2%) is small, sits on the value's row at the card's far right, and carries
-no caption. A status or plan badge ("Popular", "High risk") goes in its card's
-top-right corner, opposite the title. On a public page, a badge on an image ("New" on a product
-tile) takes one corner of the image, the same corner on every tile. A recommended plan may carry
-its mark as a tab on its top edge instead. A card carries one badge, and a plan is marked once:
-a border, a tab and a colour of its own together say the same thing three times. A badge that
-only shows a value never opens a menu: no chevron on it. A count beside a navigation item is
-quiet, at the row's right end: a plain muted number, or the system's small grey count badge;
-never an outlined or coloured pill.
+- Tabs switch the views of one thing: an underline under the current tab, a segmented track with
+  a raised chip, or plain text with a fill on the current one.
+- The modes of one dialog or panel are a segmented control across its full width.
 
-## The component the job names
+## Choice cards
 
-Previous, Today and Next are one button group with shared borders, not three buttons. Events in
-time are a timeline: nodes on a vertical line, not rows split by dividers. Modes of one dialog
-are a segmented control across its full width. A filter button is its word and, when it is set,
-its value; no icon in front. A short list of details reads inline, a muted label and its value
-after it ("Phone (629) 555-0123"); columns are for many rows scanned down.
+For a few options that each need a line of description (a plan, a role, a template): one card
+per option, its name in the label style and its line muted. The selected card takes a `2px`
+accent border and a filled check in its top-right corner; an unselected card keeps an empty circle
+in the same spot. The fill stays as it is: a tint, coloured text, a border and a check together
+mark one thing four times.
 
-## Search is a field
+## Details and events
 
-Where there is room, search is a field with its magnifier and a placeholder, not an icon button
-that opens one. An icon alone is for a toolbar too narrow for the field. Where search is the
-page's main task (a help centre, a job board, a marketplace), the field is the hero.
-
-## Real props
-
-[with the editor's tools: Start from `get_component`'s example and replace every placeholder in it with real content. | without: Give every prop real content, never a placeholder.]
+A short list of details reads inline, a muted label and its value after it ("Phone (629)
+555-0123"); columns are for many rows scanned down. Events in time are a timeline, points on a
+vertical line, not rows split by dividers.
 
 ## New pieces are named
 
-What the system truly lacks is built from rows, text and tokens, named for what it is ("Plan
-card"). Tell the user it is new: it will need building as a component.
+What the system truly lacks is built from its tokens and named for what it is ("Plan card"). Tell
+the user it is new: it needs making as a component (`references/system/components.md`).
 
-## Before you finish
+## Check
 
 | You see | Fix |
 | --- | --- |
-| A row with a fill, a radius and a text that looks like a button | A Button instance |
-| `fill`, `radius` or `border` set on an instance to restyle it | A variant or a prop |
-| A text node laid over an instance | The instance's own text |
-| "Button" or "Label" left from an example | A real label |
-| An outlined select inside a table row or a sentence | Text and a chevron |
-| A "Copy" button beside a link field | The copy action inside the field's end |
-| A switch in front of its label | Label left, switch at the right edge |
-| A field's hint as text in a box, or an icon laid over a field | The field's placeholder and icon slot |
-| A change badge under its value, or captioned "vs last year" | Small, at the row's far right, no caption |
-| A plan marked by a border, a tab and a colour at once | One mark |
-| Prev, Today and Next as three separate buttons | One button group |
-| An icon inside a filter button | The word alone |
+| An icon or chips laid over a field | The field's own icon slot and chips |
+| A value the user only reads, in a field's box | Text |
+| An icon button for search where the field fits | The search field |
+| Prev, Today and Next as three buttons | One button group |
+| An icon inside a filter button | The word, and its value once set |
+| A chevron on a badge that only shows a value | No chevron |
+| A navigation count as an outlined or coloured pill | A muted number or the small grey count badge |
+| A plan or choice marked by tint, border and colour at once | One mark: the `2px` border and its check, or the tab |
+| A secondary action in a second colour | The secondary, outline or a text link |

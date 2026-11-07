@@ -1,44 +1,47 @@
 # Accessibility
 
-A design that some people cannot use is not done. Design for keyboards, screen readers, low
-vision, colour blindness and large text from the first frame, not as a fix later.
-
-These are requirements, not preferences. When DESIGN.md or a request conflicts with one, tell
+What focus, the keyboard, a screen reader, low vision and large text need beyond the core's
+Accessibility rules. These are requirements: when DESIGN.md or a request conflicts with one, tell
 the user what fails.
 
-## Contrast meets AA
+## Contrast
 
-Text needs `4.5:1` against what it sits on, large text (`24px`, or `18.7px` bold) `3:1`. Icons,
-field borders and focus rings need `3:1`. Compute it from the two token values in every theme;
-muted and placeholder text fail first.
+Muted and placeholder text fail first, then a field's border on a tinted surface: compute those
+pairs before any other.
 
 ## A second signal beside colour
 
-Status carries an icon or a word, a link in running text is underlined, and a chart's series
-differ by shape or label as well as hue.
+A link in running text is underlined; a chart's series differ by shape or label as well as hue.
 
-## Focus is visible
+## Focus
 
-Everything clickable is reachable by keyboard in reading order. Its focus ring is `2px` in the
-ring colour, `2px` off the edge. Draw the focused state of any control you design yourself.
+The focus ring is `2px` in the ring colour, `2px` off the edge, at full opacity and `3:1` against
+what it sits on. Draw the focused state of every control you design yourself.
+
+## Keyboard
+
+- Everything clickable is reached with Tab in reading order; inside one composite control (tabs,
+  a menu, a radio group, a list box, a grid) the arrow keys move and Tab leaves it.
+- Enter or Space acts; Escape closes the open overlay and returns focus to what opened it.
+- A dialog keeps focus inside it while it is open and puts it on its first field or its primary.
 
 ## Targets
 
-At least `24×24px` everywhere, `44×44px` on touch and `40×40px` on desktop where density allows.
-A small icon button reaches its target with padding, and neighbouring targets never overlap.
+On desktop, `40×40px` where the density allows; `24×24px` is the floor, not the aim.
 
-## Visible labels
+## Labels
 
-Every field has a visible label; a placeholder is only an example. Two fields need no label of
-their own: a search field with its magnifier, and a field whose row label names it. An error is
-tied to its field and says how to fix it. Mark whichever of required or optional is rarer, and
-explain the mark.
+A placeholder is only an example. Two fields need no label of their own: a search field with its
+magnifier, and a field whose row label names it. An error is tied to its field. Mark whichever of
+required or optional is rarer, and say what the mark means.
 
-## Real structure
+## Structure
 
-One level 1 heading per page and levels in order below it. Lists are lists, tabular data is a
-table, buttons act and links navigate. A header, a navigation and a main region frame the page.
-In code, native elements come before ARIA.
+One level-1 heading per page. Lists are lists, tabular data is a table, buttons act and links
+navigate. A header, a navigation and a main region frame the page. In code, native elements come
+before ARIA; a custom control states its role and its state (expanded, selected, pressed,
+checked). A message that appears without focus moving (a toast, "Saved") is announced through a
+live region (`role="status"`).
 
 ## Names for what has no words
 
@@ -47,18 +50,15 @@ An image that carries meaning has `alt` text saying the meaning; a decorative on
 
 ## Text can grow
 
-The layout survives `200%` text size and a `320px` viewport without hiding or overlapping
-content. Text containers grow with `hug` and `minHeight` rather than a fixed height.
+The layout survives `200%` text size and a `320px` viewport with nothing hidden or overlapping.
 
-## Before you finish
+## Check
 
 | You see | Fix |
 | --- | --- |
-| Muted text at `12–14px` on a tinted surface | Compute it; the foreground colour if it fails |
-| Status shown by colour alone | Add an icon or a word |
-| An icon button under `24px` square | Pad it to the target size |
-| A field with only a placeholder | A visible label |
-| Heading levels jumping from 1 to 3 | Levels in order |
-| An informative image with no `alt` | Describe its meaning |
-| A fixed `height` on a box of text | `hug` or `minHeight` |
-| A checkbox or chevron whose target is its `16px` box | `24×24` by padding |
+| A focus ring at low opacity, or flush with the edge | `2px`, the ring colour, `2px` off, `3:1` |
+| A control reached by the pointer only | Reachable by Tab, in reading order |
+| An overlay that Escape leaves open, or that drops focus on close | Escape closes it; focus returns to its trigger |
+| A custom toggle or disclosure with no state for a screen reader | Its role and its state |
+| A toast or "Saved" that a screen reader never hears | A live region |
+| A decorative image with descriptive `alt` | An empty `alt` |

@@ -59,40 +59,53 @@ describe("pairwise", () => {
     );
   });
 
-  it("reads the skill's files a trace opened from the skills' cache, each once", () => {
+  it("reads the skill's files a trace opened from the skill's cache, each once, by their paths in the skill", () => {
+    const cache = "/home/me/.cache/ultrapaint/skills/abc";
     const trace = [
-      "- · Read /home/me/.cache/ultrapaint/skills/abc/design.md",
-      "- · Read /home/me/.cache/ultrapaint/skills/abc/patterns/dialogs.md",
-      "- · Read /home/me/.cache/ultrapaint/skills/abc/design.md",
-      "- · Read /home/me/.cache/ultrapaint/skills/abc/studies/color.md and layout.md",
+      `- · Read ${cache}/SKILL.md`,
+      `- · Read ${cache}/references/kinds/dialog.md`,
+      `- · Read ${cache}/SKILL.md`,
+      `- · Read ${cache}/references/system/foundations.md and references/color.md`,
       "- · Read /home/me/project/notes.md",
       "- ✗ get_screenshot",
     ].join("\n");
     assert.deepStrictEqual(skillReads(trace), [
-      "design.md",
-      "layout.md",
-      "patterns/dialogs.md",
-      "studies/color.md",
+      "SKILL.md",
+      "references/color.md",
+      "references/kinds/dialog.md",
+      "references/system/foundations.md",
     ]);
     assert.deepStrictEqual(skillReads(""), []);
   });
 
-  it("reads each file of a brace list, a folder's files by their path, a variable's files, and nothing from a path the cache has not got", () => {
+  it("reads each file of a brace list, a variable's files, and a call that failed after its read", () => {
     const cache = "/home/me/.cache/ultrapaint/skills/abc";
     const trace = [
-      `- · cat ${cache}/with-tools/{layout,spacing}.md ${cache}/with-tools/content/{voice,interface}.md`,
-      `- · Read ${cache}/without-tools/design-system/components.md`,
-      `- ✗ cat ${cache}/with-tools/references/patterns/navigation.md`,
-      `- ✗ S=${cache}/with-tools; cat $S/typography.md; ls nowhere`,
-      `- · ls ${cache}/with-tools/*.md`,
+      `- · cat ${cache}/references/{layout,spacing}.md ${cache}/references/words/{voice,interface}.md`,
+      `- ✗ S=${cache}; cat $S/references/typography.md; ls nowhere`,
+      `- · ls ${cache}/references/*.md`,
     ].join("\n");
     assert.deepStrictEqual(skillReads(trace), [
-      "content/interface.md",
-      "content/voice.md",
-      "design-system/components.md",
-      "layout.md",
-      "spacing.md",
-      "typography.md",
+      "references/layout.md",
+      "references/spacing.md",
+      "references/typography.md",
+      "references/words/interface.md",
+      "references/words/voice.md",
+    ]);
+  });
+
+  it("reads a trace from before the cache held the whole skill as the references it held", () => {
+    const cache = "/home/me/.cache/ultrapaint/skills/abc";
+    const trace = [
+      `- · Read ${cache}/with-tools/design-system/components.md`,
+      `- ✗ cat ${cache}/with-tools/references/patterns/navigation.md`,
+      `- ✗ S=${cache}/with-tools; cat $S/typography.md; ls nowhere`,
+      `- · Read ${cache}/layout.md`,
+    ].join("\n");
+    assert.deepStrictEqual(skillReads(trace), [
+      "references/design-system/components.md",
+      "references/layout.md",
+      "references/typography.md",
     ]);
   });
 });

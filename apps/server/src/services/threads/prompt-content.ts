@@ -9,10 +9,9 @@ import { pathToFileURL } from "node:url";
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
 import type { LookPlace } from "@ultrapaint/contracts/components";
 import {
-  designsTheSystem,
-  drawsDesigns,
   parseCommand,
   taskPurpose,
+  toldTheDesignSkill,
 } from "@ultrapaint/contracts/tasks";
 import type {
   BoardAttachment,
@@ -264,13 +263,10 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     // A session started for a task that draws nothing (Map, an implementation's link) is not
     // told how to design well.
     const parsed = parseCommand(text);
-    const system =
-      parsed?._tag === "Request" && designsTheSystem(parsed.request);
-    // Matching Figma's tokens draws nothing, and makes the design system all the same.
     const designs =
-      parsed?._tag !== "Request" || drawsDesigns(parsed.request) || system;
+      parsed?._tag !== "Request" || toldTheDesignSkill(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { designs, system, tools })
+      ? yield* briefing.text(purpose, { designs, tools })
       : undefined;
     const recap = resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((said): ContentBlock[] =>

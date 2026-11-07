@@ -112,27 +112,28 @@ directory, not in the repository ([ADR 0023](../adr/0023-design-system-setup.md)
 
 ## Design skills
 
-Before it designs, every agent is also told how to design well, whatever the product: hierarchy,
-layout, spacing, typography, colour, elevation, borders and radius, iconography, motion,
-content, states, how to compose with components, and accessibility. These
-skills ship with the tool and come before `DESIGN.md`, which wins where they disagree: a rule
-that holds for this product alone belongs in its Do's and Don'ts, and what it chose for its
-words (how they sound, the one name of each thing, its formats) in its Content section. **Settings**
-lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`),
-and whether a design thread is told them whole (the default) or by their titles and summaries,
-each read whole before the work it is about (`skills.briefing: "summaries"`, about 30,000
-characters fewer): an agent with the editor's tools reads a skill as the MCP resource
-`skill://ultrapaint/<name>`, one without them a project's file by its path, and is told whole
-the skills no file holds (a built-in, or a file that extends one).
+Before it designs, every agent is also told how to design well, whatever the product: the design
+skill, which ships with the tool. Its core holds every rule (hierarchy, restraint, layout,
+spacing, type, colour, surfaces, icons, components, states, usability, accessibility, words,
+motion) and the steps of a design, and names the reference to read for each kind of screen or
+page and for what a rule line cannot hold. It comes before `DESIGN.md`, which wins where they
+disagree: a rule that holds for this product alone belongs in its Do's and Don'ts, and what it
+chose for its words (how they sound, the one name of each thing, its formats) in its Content
+section.
 
-A project takes a skill over with a markdown file in `skills/` inside the designs directory:
+**Settings** lists the skills, with a switch to turn any off (saved in `ultrapaint.config.json`
+as `skills.disabled`; the design skill is `ultrapaint`), and how a design thread is told them
+(`skills.briefing`): the core whole, the references read as the core sends the agent to them
+(`router`, the default); everything whole (`full`); or each skill by its title and summary, read
+whole before the work it is about (`summaries`). An agent with the editor's tools reads the design
+skill as MCP resources (`skill://ultrapaint/SKILL.md` and `skill://ultrapaint/references/…`), one
+without them from the copy the tool writes in `~/.cache/ultrapaint/skills/`.
 
-- a file with a built-in's name (`skills/spacing.md`) replaces it;
-- the same file opening with the front matter `extends: true` is told after the built-in instead;
-- a file with any other name is a skill of its own.
-
-**Replace…** and **Extend…** in Settings start that file for you, as one undo step. The file's
-first heading is its title and the paragraph after it the summary Settings show.
+A project adds skills of its own as markdown files in `skills/` inside the designs directory
+(`skills/brand.md`): each is told whole after the design skill, and read as
+`skill://ultrapaint/<name>` too. The file's first heading is its title and the paragraph after it
+the summary Settings show. The design skill itself is not replaced or extended by a file: what
+this product chose goes in `DESIGN.md`.
 
 Foundations' boards show them: swatches per theme, type specimens in your own fonts,
 spacing, radius, shadows, elevation, border widths, layout and motion tokens. **Components**
