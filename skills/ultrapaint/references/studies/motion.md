@@ -8,12 +8,12 @@ Counts are marked "% of 662" when they come from the measurement and "n of 300" 
 
 - **Load and scroll only.** Hover numbers are the transitions declared on hoverable elements: their duration, curve and properties. They do not show what a hover looks like. Whether a `transform` is a 2 px lift or a 1.1 scale was never seen.
 - **Nothing behind a click.** Menus, dialogs, drawers, sheets, toasts and palettes are unmeasured. The skill's sections 3 and 4 on these rest on the skill alone. A handful of notes caught one in passing, too few to count:
-  - stripe-bfcm dropdown: background 200 ms, opacity 250 ms.
-  - turo popover: scaleY(0.9) to 1 in 300 ms.
+  - a payments company's dropdown: background 200 ms, opacity 250 ms.
+  - a car-sharing marketplace's popover: scaleY(0.9) to 1 in 300 ms.
 - **These are websites.** They are landing, brand, editorial and commerce pages. "Technical" here means the site of a technical product, not its admin screens. Nothing here measures a dashboard, so the skill's rules for product interfaces stand.
 - **Leave out 8 of the 300 notes.**
   - Six captures reached a spam page instead of the site.
-  - Two never reached the site: hex-test, the-society.
+  - Two never reached the site.
   - They are all glows and endless loops, and they inflate the loop counts. Third-party chat loaders and email popups are not the site's own motion either.
 
 Curves are written out where they are named. The CSS keywords stand for these curves:
@@ -35,9 +35,9 @@ Curves are written out where they are named. The CSS keywords stand for these cu
   - 49% have no entrance.
   - In the notes, 131 of 300 have no entrance. Amount is subtle on 165, moderate on 83, heavy on 47 and none on 5.
 - **Stillness is not a technical-only habit.** No entrance on 11 of 28 technical, 28 of 59 humanistic and 77 of 187 expressive sites.
-- **Static pages succeed on type and image alone:** foundation, sound-ethics, ana-rita-morais, akron-street, confetti-studio, mjc-la-bouvardiere.
-- **What people read stays still.** News and magazine fronts move only their chrome and their loading images: the-new-yorker, time, advertising-age, compact-mag.
-  - Splitting body copy into hundreds of fading spans is rare and not to copy: terminal-industries (680 spans), af1 (898 spans).
+- **Static pages succeed on type and image alone:** a lender, a research nonprofit, a personal résumé, a furniture brand, a design studio and an arts centre.
+- **What people read stays still.** News and magazine fronts move only their chrome and their loading images: two news magazines, a trade paper and a political magazine.
+  - Splitting body copy into hundreds of fading spans is rare and not to copy: a logistics-software site (680 spans) and a camera launch (898 spans).
 
 Name the one thing on the page that moves before anything else. The default is nothing.
 
@@ -78,15 +78,15 @@ Default: opacity `0`→`1` with `translateY(20px)`→`0`, `600ms`, range `400–
 
   | Site | House curve |
   | --- | --- |
-  | pizzato | `cubic-bezier(0.19, 1, 0.22, 1)` |
-  | ma | `cubic-bezier(0.16, 1, 0.3, 1)` |
-  | sons-and-daughters | `cubic-bezier(0, 0, 0.2, 1)` |
-  | ritual | `cubic-bezier(0.165, 0.84, 0.44, 1)` |
-  | theatre-de-quatsous | `cubic-bezier(0.33, 1, 0.68, 1)` |
-  | authentic-form-and-function | `cubic-bezier(0.2, 0.7, 0.2, 1)` |
-  | romance-journal | `cubic-bezier(0.645, 0.045, 0.355, 1)` |
+  | A bathroom supplier | `cubic-bezier(0.19, 1, 0.22, 1)` |
+  | An interactive case study | `cubic-bezier(0.16, 1, 0.3, 1)` |
+  | A documentary magazine | `cubic-bezier(0, 0, 0.2, 1)` |
+  | A design studio | `cubic-bezier(0.165, 0.84, 0.44, 1)` |
+  | A theatre | `cubic-bezier(0.33, 1, 0.68, 1)` |
+  | A marketing agency | `cubic-bezier(0.2, 0.7, 0.2, 1)` |
+  | An editorial journal | `cubic-bezier(0.645, 0.045, 0.355, 1)` |
 
-  The others are kpr-ramen-wars, spot-studio, gardener, chrysler-museum-of-art and atelier-vaste.
+  The other five are a game, two studios, an art museum and a furniture brand.
 
 Default:
 - Every entrance: `cubic-bezier(0.23, 1, 0.32, 1)`.
@@ -98,9 +98,9 @@ Default:
 
 - **How often:** 78 of 300 sites stagger, at a median of 100 ms.
 - **Measured groups:** median 150 ms, p25 72 ms, p75 500 ms (685 groups). The upper end includes whole waves, not gaps between neighbours.
-- **Blocks in a row: 70–120 ms apart.** canopy 90, conductor 75, captain-toucan 120, brikkenco 120, tdf 80, housemait 80, medium-rare 70, viewport-2 about 100–120.
-- **Split text: 15–30 ms per word or character.** pizzato 15, david-alaba 15, vooban 30, digital-design-days 30.
-- **Fixed delay steps keep long grids short.** Sites that pick from a few fixed steps instead of stepping per index never cascade for seconds: kulfi-beauty, lucas-vocos, intent-hq.
+- **Blocks in a row: 70–120 ms apart.** A fintech app 90, a property consultancy 75, two agencies 120, a design conference 80, a family-organiser app 80, a studio 70, a Mac app about 100–120.
+- **Split text: 15–30 ms per word or character.** A bathroom supplier 15, an athlete's site 15, a digital agency 30, a design conference 30.
+- **Fixed delay steps keep long grids short.** Sites that pick from a few fixed steps instead of stepping per index never cascade for seconds: a beauty shop, a developer's portfolio, an enterprise AI platform.
 
 Default: `80ms` between blocks, at most 6 steps, and the whole cascade finished within `500ms` of the first block.
 
@@ -108,14 +108,14 @@ Default: `80ms` between blocks, at most 6 steps, and the whole cascade finished 
 
 These sites scale travel and time with the element:
 
-- **conductor:** small items rise 16 px in 400 ms, blocks 24 px in 500 ms, hero lines 40 px in 800 ms.
-- **micro:** rows clear blur(4px) in 350 ms; tiles clear blur(10px) in 550 ms.
+- **A property consultancy:** small items rise 16 px in 400 ms, blocks 24 px in 500 ms, hero lines 40 px in 800 ms.
+- **An AI productivity app:** rows clear blur(4px) in 350 ms; tiles clear blur(10px) in 550 ms.
 - **Small controls against large surfaces:**
-  - omega: 200 ms against 320 ms.
-  - nitex: 150, 300 and 500 ms.
-  - mouthful-of-dust: 200 ms against 1000 ms.
-- **naughtyduk-c-2:** line length sets the draw time.
-- **intent-hq:** the inverse inside one stack. Each later element rises less and finishes sooner, so the stack lands together.
+  - a watch brand: 200 ms against 320 ms.
+  - a fashion supply-chain firm: 150, 300 and 500 ms.
+  - an interactive story: 200 ms against 1000 ms.
+- **A digital agency:** line length sets the draw time.
+- **An enterprise AI platform:** the inverse inside one stack. Each later element rises less and finishes sooner, so the stack lands together.
 
 ### Hover: colour, quick, plain curve
 
@@ -132,13 +132,13 @@ Default:
 ### Loops are slow, linear, and gated
 
 - **163 of 300 sites loop.** The common, useful loop is a marquee: `translateX` on `linear` at 20–90 s per cycle, slow enough to read.
-  - jam 88.6 s, captioneer 70–76 s, micro 24–32 s, viewport-2 44 s, techspeed 40 s, wegems 40 s, misfits-market 25 s, leep 60/85/100 s.
+  - Eight sites, from developer tools to a grocery delivery service: 88.6 s, 70–76 s, 24–32 s, 44 s, 40 s, 40 s, 25 s and 60/85/100 s.
 - **Neighbouring loops fall out of step by duration, not delay.**
-  - micro runs 24, 28, 30 and 32 s.
-  - herd runs 29–48 s with negative delays of −5 to −37 s, so the layers are already mid-cycle on first paint.
+  - An AI app runs 24, 28, 30 and 32 s.
+  - A developer tool runs 29–48 s with negative delays of −5 to −37 s, so the layers are already mid-cycle on first paint.
 - **Spinners turn once per `1000ms`, `linear`.**
 - **Most sites never ask about reduced motion.** It is checked by 34% of 662 and 106 of 300.
-  - Endless loops run ungated on fitonist (238 dots), quechua (letter wiggle), the-lookback (film grain) and mat (text shimmer).
+  - Endless loops run ungated on a fitness app (238 dots), an outdoor lookbook (letter wiggle), an agency's year in review (film grain) and a mobile app (text shimmer).
 
 ### Smooth scroll and scroll-linking are extras
 
@@ -166,12 +166,12 @@ Technical and humanistic samples are small. The stagger rows rest on 12 and 10 s
 ### Technical: motion acts out the product
 
 - **Scripted demos show what the product does.** In 8 of 28 the motion is a demo, the skill's "explanation" purpose:
-  - kelvin-zero: a passwordless login plays out. Button press 150 ms; a "captured" label rises 4 px in 300 ms.
-  - canopy: a post writes itself; "thinking" dots pulse on a 720 ms loop.
-  - pairio: a remote cursor flies in over 700 ms and a chat bubble pops from scale(0.8) in 280 ms.
-  - The others are f13, rig, micro, walbi and slack.
+  - A cybersecurity product: a passwordless login plays out. Button press 150 ms; a "captured" label rises 4 px in 300 ms.
+  - A fintech app: a post writes itself; "thinking" dots pulse on a 720 ms loop.
+  - A collaboration app: a remote cursor flies in over 700 ms and a chat bubble pops from scale(0.8) in 280 ms.
+  - The other five are AI, developer-security, trading and team-chat products.
 - **Entrances** are a 10–24 px fade-rise on `cubic-bezier(0.16, 1, 0.3, 1)`.
-- **Blur, 4–10 px,** clears only on headings: viewport-2, humanoid-index, micro, captioneer.
+- **Blur, 4–10 px,** clears only on headings: a Mac app, a robot catalogue, an AI app and a video plugin.
 - **Timer bars** show when an auto-advancing tab will change (recipe 6).
 - **Technical sites check reduced motion** more often than any other character.
 - **For the product's own screens there is no evidence.** The skill's table stands.
@@ -181,15 +181,15 @@ Technical and humanistic samples are small. The stagger rows rest on 12 and 10 s
 - **Heavy motion almost never:** 2 of 59.
 - **Entrances** are a plain fade or a 16–40 px fade-rise on `ease`, 600–1000 ms.
 - **Life comes from slow loops in the illustration,** not from entrances:
-  - maxima-therapy: clouds drift on a 20 s loop.
-  - cozy-hollow: six cloud layers at 40–90 s, with negative delays so the sky is mid-drift on load.
-  - playdate: clouds breathe at 3–5 s, out of sync.
-  - my-merry-miles: icon badges bob at 2–3 s.
+  - A therapy nonprofit: clouds drift on a 20 s loop.
+  - A children's play space: six cloud layers at 40–90 s, with negative delays so the sky is mid-drift on load.
+  - A game console: clouds breathe at 3–5 s, out of sync.
+  - A quiz game: icon badges bob at 2–3 s.
 - **Commerce chrome carries the rest:**
   - The header (recipe 5).
   - Carousels at 300 ms.
   - Popups fading in over 350 ms.
-- **Celebration belongs where something happens.** plastic's confetti falls for an anniversary, not on arrival.
+- **Celebration belongs where something happens.** A music app's confetti falls for an anniversary, not on arrival.
 
 ### Expressive: freer, and still often still
 
@@ -200,20 +200,20 @@ What expressive sites add:
 
   | Site | Wipe | Time | Curve |
   | --- | --- | --- | --- |
-  | lpas | `inset(40% 0 0)` | 1200 ms | `cubic-bezier(0.14, 0.83, 0.4, 1)` |
-  | medium-rare | `inset(0 100% 0 0)` | 920 ms | `cubic-bezier(0.76, 0, 0.24, 1)` |
-  | waabi | cards open | 600 ms | `cubic-bezier(0.645, 0.045, 0.355, 1)` |
+  | An architecture studio | `inset(40% 0 0)` | 1200 ms | `cubic-bezier(0.14, 0.83, 0.4, 1)` |
+  | A studio portfolio | `inset(0 100% 0 0)` | 920 ms | `cubic-bezier(0.76, 0, 0.24, 1)` |
+  | An autonomous-trucking startup | cards open | 600 ms | `cubic-bezier(0.645, 0.045, 0.355, 1)` |
 
 - **Sections that retheme as they pass, in 12 sites.** Background and text colour cross-fade in 300–600 ms.
-  - kenkashi 300 ms, wolff-olins 500, ma 500, here 500, brikkenco 600, red-antler 600.
-  - The others are the-workshop, impactor, tesoro-1, lightweight, zentry and shortstop.
+  - 300 ms on an eco shop; 500 on a branding agency, an interactive case study and a city-guide app; 600 on a design agency and a branding agency.
+  - Six more: studios, gaming platforms, a cycling brand and a donut shop.
 
 What to keep in mind:
 - **41% have no entrance and 26% no hover transition.** A brand page may let type carry it.
 - **Don't copy these:**
-  - Intros that hold content back: metropolis 2800 ms; af1 3000 ms; pilot-republick 7200 ms; manuel-sofia's header at 7000 ms.
-  - Panels sliding 900 px with no reduced-motion gate: pop-up-10-ans.
-  - A 1250 ms page-builder fade that reads sluggish: jerome-harris.
+  - Intros that hold content back: 2800 ms (a car's 3D experience), 3000 ms (a camera launch), 7200 ms (an aviation consultancy), a header held to 7000 ms (a 3D studio).
+  - Panels sliding 900 px with no reduced-motion gate (a brand pop-up).
+  - A 1250 ms page-builder fade that reads sluggish.
 
 ## 3. Recipes
 
@@ -229,16 +229,16 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
 
   | Site | Rise | Duration | Curve | Apart |
   | --- | --- | --- | --- | --- |
-  | viewport-2 (about 290 elements) | 10–20 px | 620–820 ms | `cubic-bezier(0.16, 1, 0.3, 1)` | 100–120 ms steps |
-  | canopy | 18 px | 900 ms | `cubic-bezier(0.16, 1, 0.3, 1)` | 90 ms |
-  | authentic-form-and-function | 22 px | 900 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 90 ms |
-  | tdf | 18 px | 900 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 80 ms |
-  | housemait | 14 px | 700 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 80 ms |
-  | pairio | 24 px | 500 ms | `ease-out` | 100 ms |
-  | conductor | 24 px | 500 ms | `ease-out` | 75 ms |
-  | captain-toucan | 16 px | 520 ms | `cubic-bezier(0.22, 1, 0.36, 1)` | 120 ms |
+  | A Mac app (about 290 elements) | 10–20 px | 620–820 ms | `cubic-bezier(0.16, 1, 0.3, 1)` | 100–120 ms steps |
+  | A fintech app | 18 px | 900 ms | `cubic-bezier(0.16, 1, 0.3, 1)` | 90 ms |
+  | A marketing agency | 22 px | 900 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 90 ms |
+  | A design conference | 18 px | 900 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 80 ms |
+  | A family-organiser app | 14 px | 700 ms | `cubic-bezier(0.2, 0.7, 0.2, 1)` | 80 ms |
+  | A collaboration app | 24 px | 500 ms | `ease-out` | 100 ms |
+  | A property consultancy | 24 px | 500 ms | `ease-out` | 75 ms |
+  | Another marketing agency | 16 px | 520 ms | `cubic-bezier(0.22, 1, 0.36, 1)` | 120 ms |
 
-  Also ycn-2016, kona-coffee, joby, marina-rachello, uni and vid2txt.
+  Six more do the same.
 - `Scroll into view · section blocks · opacity 0→1, translateY(20px)→0 · 700ms · cubic-bezier(0.16, 1, 0.3, 1) · 80ms apart`
 
 ### 2. Hero sequence: content first, chrome last (6 notes)
@@ -250,7 +250,7 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
   - The action is visible within 1 s.
   - An eyebrow only appears if the brief asks for one.
 - **Sites:**
-  - intent-hq:
+  - An enterprise AI platform:
 
     | Element | Rise | Duration | Starts |
     | --- | --- | --- | --- |
@@ -259,11 +259,11 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
     | buttons | 20 px | 700 ms | 750 ms |
 
     All on `cubic-bezier(0.16, 1, 0.3, 1)`.
-  - humanoid-index: the navigation arrives 150 ms after the content.
-  - tdf: headline lines 150 ms apart; the navigation comes at 1050 ms.
-  - canopy: the product window lands at 470 ms, after the copy.
-  - conductor: the two headline lines are 350 ms apart.
-  - kaiunta: 200 ms apart and 1.6 s in total, which is too long. It also stages an eyebrow, which principle 1 removes.
+  - A robot catalogue: the navigation arrives 150 ms after the content.
+  - A design conference: headline lines 150 ms apart; the navigation comes at 1050 ms.
+  - A fintech app: the product window lands at 470 ms, after the copy.
+  - A property consultancy: the two headline lines are 350 ms apart.
+  - A feedback tool: 200 ms apart and 1.6 s in total, which is too long. It also stages an eyebrow, which principle 1 removes.
 - `Load · headline, then line, then action · opacity 0→1, translateY(24px)→0, each 100ms shorter · 800ms · cubic-bezier(0.16, 1, 0.3, 1) · 200ms apart`
 
 ### 3. Media fades as it loads (20 notes)
@@ -274,12 +274,12 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
   - A placeholder holds the space so nothing jumps.
   - Opacity-only fades are safe without a reduced-motion gate.
 - **Sites:**
-  - sam-george 500 ms `ease`; intern-magazine 500 ms `ease`.
-  - wgp-architects and thibaud 300 ms `cubic-bezier(0.4, 0, 0.2, 1)`; snohetta 600 ms; jean-stories 200 ms `linear`.
+  - A designer's portfolio and a magazine, 500 ms `ease`.
+  - An architecture practice and a filmmaker's portfolio, 300 ms `cubic-bezier(0.4, 0, 0.2, 1)`; another architecture practice, 600 ms; a fashion magazine, 200 ms `linear`.
   - Two-step versions:
-    - grafik fades a blurred placeholder in over 350 ms, then the full image over 600 ms. It hides the placeholder at 600 ms, exactly when the fade ends.
-    - pact-studio clears the image from blur(10px) in 330 ms.
-  - Also adam-ho, lm-chabot, inverse, cinemateket, lpas, maisonette, margaret-rajic, invisible-folio, nikolai-dobreff, baggy, previously-unavailable and ben-barry.
+    - A design studio fades a blurred placeholder in over 350 ms, then the full image over 600 ms. It hides the placeholder at 600 ms, exactly when the fade ends.
+    - An e-commerce agency clears the image from blur(10px) in 330 ms.
+  - Twelve more, most of them portfolios and studios.
 - `Image loaded · image · opacity 0→1 · 400ms · cubic-bezier(0.4, 0, 0.2, 1)`
 
 ### 4. Display headline rises from a mask (expressive only, 8 notes)
@@ -292,13 +292,13 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
 
   | Site | From | Duration | Curve | Apart |
   | --- | --- | --- | --- | --- |
-  | pizzato | 105% | 1000 ms | `cubic-bezier(0.19, 1, 0.22, 1)` | 15 ms |
-  | vooban | 110% with rotate(10deg) | 800 ms | `cubic-bezier(0.53, 0, 0, 1)` | 30 ms |
-  | chris-biron | 100% with a 7deg tilt | 666 ms | `ease` | line by line |
-  | david-alaba | yPercent | 1500–1620 ms | custom | 15 ms; lines 30 ms |
-  | animus-studios | about 69 px | 1000 ms | expo-out | 150 ms |
+  | A bathroom supplier | 105% | 1000 ms | `cubic-bezier(0.19, 1, 0.22, 1)` | 15 ms |
+  | A digital agency | 110% with rotate(10deg) | 800 ms | `cubic-bezier(0.53, 0, 0, 1)` | 30 ms |
+  | A designer's portfolio | 100% with a 7deg tilt | 666 ms | `ease` | line by line |
+  | An athlete's site | yPercent | 1500–1620 ms | custom | 15 ms; lines 30 ms |
+  | An animation studio | about 69 px | 1000 ms | expo-out | 150 ms |
 
-  Also metropolis, digital-design-days and alpine-bio. Text-split appears on 13 of 300 sites, 8 of them expressive.
+  Three more do it. Text-split appears on 13 of 300 sites, 8 of them expressive.
 - `Scroll into view · headline words · translateY(105%)→0 in mask · 1000ms · cubic-bezier(0.19, 1, 0.22, 1) · 20ms apart`
 
 ### 5. The header answers the scroll (19 notes, every character)
@@ -308,12 +308,12 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
   - Once past the hero, its background fills from transparent in 200–300 ms.
   - It compacts in 300–500 ms by scaling the logo, not by animating height.
 - **Sites:**
-  - ai-milestones 200 ms `ease`; wozere and studio-size 300 ms `ease-in-out`.
-  - omega 400 ms `cubic-bezier(0.39, 0.575, 0.565, 1)`.
-  - theatre-de-quatsous 300 ms `cubic-bezier(0.33, 1, 0.68, 1)`.
-  - the-new-yorker 300 ms `cubic-bezier(0, 0.59, 0.32, 1)`; el-burro 500 ms `cubic-bezier(0.23, 1, 0.32, 1)`.
-  - get-vesto and bricklane 200 ms; good-pair-days and turo 300 ms.
-  - Also bite, gitman-bros, majority, pact-studio, 1040, joby, techspeed and sons-and-daughters.
+  - An interactive timeline, 200 ms `ease`; two studios, 300 ms `ease-in-out`.
+  - A watch brand, 400 ms `cubic-bezier(0.39, 0.575, 0.565, 1)`.
+  - A theatre, 300 ms `cubic-bezier(0.33, 1, 0.68, 1)`.
+  - A news magazine, 300 ms `cubic-bezier(0, 0.59, 0.32, 1)`; a restaurant, 500 ms `cubic-bezier(0.23, 1, 0.32, 1)`.
+  - A treasury dashboard and a property investor, 200 ms; a wine subscription and a car-sharing marketplace, 300 ms.
+  - Eight more do it.
 - `Scroll down/up · header · translateY(-100%)↔0 · 300ms · cubic-bezier(0.23, 1, 0.32, 1)`
 - `Past hero · header background · opacity 0→1 · 200ms · ease`
 
@@ -326,11 +326,11 @@ Each recipe ends with its line for the canvas note: trigger · what moves · dur
 - **Timer bar (6 notes):**
   - The bar runs `scaleX(0)`→`1` on `linear` over exactly the slide's time. It shows when an auto-advancing tab will change.
   - Sites:
-    - intercom: 7000–30000 ms.
-    - slack: 8000 ms, and 28000 ms on the video carousel.
-    - micro: 7000 ms.
-    - pairio: 5000 ms, built on `width`; use `scaleX` instead.
-    - rig: a step fills over 6000 ms.
-    - rumsey-taylor: an SVG ring draws over 3000 ms.
+    - A customer-messaging product: 7000–30000 ms.
+    - A team-chat product: 8000 ms, and 28000 ms on the video carousel.
+    - An AI app: 7000 ms.
+    - A collaboration app: 5000 ms, built on `width`; use `scaleX` instead.
+    - A developer security tool: a step fills over 6000 ms.
+    - A personal site: an SVG ring draws over 3000 ms.
 - `Always · logo row · translateX 0→-50% · 60000ms · linear · paused under reduced motion`
 - `Tab active · progress bar · scaleX(0)→1 · 8000ms · linear`

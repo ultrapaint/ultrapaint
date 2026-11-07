@@ -32,8 +32,8 @@ A surface is earned by a job to hold (principle 3). It is not the default contai
 
 890 of 4,983 sites record no section gap. These are single-screen pages, or bands butted edge to edge. In the notes, these sites separate sections in one of two ways instead of with space:
 
-- **A change of band colour:** Mount Sapo, Fly By Jing, Piecework Puzzles, The Cozy Hollow.
-- **A shared 1 px rule:** Dabbit's edge-to-edge cell grid, Inkredible Notary's "shared 1px borders instead of gaps", and the developer-auth feature box whose "cells share 1px dividers instead of using gaps".
+- **A change of band colour:** a skincare shop, a food shop, a puzzle shop and a children's play space.
+- **A shared 1 px rule:** a Mac app's edge-to-edge cell grid, a notary's "shared 1px borders instead of gaps", and the developer-auth feature box whose "cells share 1px dividers instead of using gaps".
 
 Each of these replaces the gap. None adds to it. Never draw a rule across a gap that already separates two things.
 
@@ -50,7 +50,7 @@ Let the section span the width. Keep the text to roughly 480–700 px.
 
 ### Inset panels keep an even margin from the viewport
 
-A rounded hero or panel inset from the window keeps the same small margin on every side. Sampled sites use 8 px (Orbi), 12–14 px (Hedera Dx, a healthcare platform), 15–16 px (Norma, OffCourt), 20 px (Lowe's Innovation Labs, Vestris) and 24 px (Aave).
+A rounded hero or panel inset from the window keeps the same small margin on every side. Sampled sites use 8 px (an AI app), 12–14 px (a health diagnostics company), 15–16 px (an HR tool, a body-care brand), 20 px (a retailer's innovation lab, a real-estate tool) and 24 px (a fintech app).
 
 Pick one value and use it for every panel on the page.
 
@@ -88,13 +88,13 @@ Two genres in the sample differ enough to name:
   - mostly balanced, with sections about **90 px** apart;
   - padding often 0;
   - borderless product tiles on a tinted fill;
-  - gutters from none (Everyday Humans) to 2–4 px (RAQ) and 8 px (Pedestal).
+  - gutters from none (a skincare shop) to 2–4 px (a swimwear shop) and 8 px (a furniture shop).
 - **Hospitality (restaurants, hotels, bars), about thirty in the sample:**
   - airy, with sections 110–160 px apart and padding mostly 0;
   - full-bleed photo bands;
-  - photos matted in a 14–20 px frame (Jacob's Cove, Allta's 16 px gutter with about 110 px between photos);
+  - photos matted in a 14–20 px frame (a lake resort's, a restaurant's 16 px gutter with about 110 px between photos);
   - text in narrow centred columns.
-- **Games and game microsites** are usually one fixed screen with no section gap at all (Equinox, World Chess, BEIGE FORCE, KPR).
+- **Games and game microsites** are usually one fixed screen with no section gap at all.
 
 ### Expressive: most airy, most dense, fewest surfaces
 
@@ -106,13 +106,13 @@ Rests on 3,005 sites:
 
 Particulars from the notes:
 
-- Portfolios anchor small text to the four corners of an empty viewport, inset about 14 px (Niccolò Debole, Ben Wegscheider).
+- Portfolios anchor small text to the four corners of an empty viewport, inset about 14 px.
 - Manifestos put 300–400 px or more between statements.
-- Agencies stage a full-screen band holding one small paragraph as a pause (Monolog).
+- Agencies stage a full-screen band holding one small paragraph as a pause.
 
 Two genres differ enough to name:
 
-- **News and magazine fronts (about fifteen in the sample: Wired, Vox, Mic, Mother Jones, Harvard Gazette, Coda Story):**
+- **News and magazine fronts (about fifteen in the sample):**
   - balanced to dense, with sections **40–90 px** apart;
   - padding 0;
   - three columns split by vertical hairlines;
@@ -130,41 +130,41 @@ Two genres differ enough to name:
    - Features in one bordered panel whose cells share 1 px dividers instead of gaps.
    - Cards padded 24–32 px.
    - A logo wall of equal ruled cells directly under the hero.
-   - *Examples:* the developer-auth platform (airy, 160 / 48), PlanetScale-style database pages (balanced, 160 / 32).
+   - *Examples:* the developer-auth platform (airy, 160 / 48), a database platform (balanced, 160 / 32).
 
 2. **Stacked inset sheets.**
    - Rounded panels inset 8–24 px from the viewport on a darker or tinted page.
    - Padding 40–60 px.
    - Panels touching or 16–24 px apart, so the page edge frames each sheet like a bezel.
-   - *Examples:* the crypto-wallet page (120 / 48), the GTM data SaaS (24 / 48, stacked pastel panels), OffCourt (16 px inset and gaps, 40 padding), Norma (15 px inset, 56 padding).
+   - *Examples:* the crypto-wallet page (120 / 48), the GTM data SaaS (24 / 48, stacked pastel panels), the body-care brand (16 px inset and gaps, 40 padding), the HR tool (15 px inset, 56 padding).
 
 3. **Tight bento.**
    - Gutters of 4–16 px.
    - Padding 24–48 px.
    - Each tile one tone off the page.
    - Text padded evenly; the product crop bleeds off the bottom edge.
-   - *Examples:* Herding (16 px gutters, 45 padding), The Workshop Survival Guide (6 px gutters, 40), Spor (12 px gutters, 48), Wild Week (4 px gutters, 28).
+   - *Examples:* a bookmarking tool (16 px gutters, 45 padding), a workshop guide (6 px gutters, 40), another site at 12 px gutters and 48 padding, a company-retreat event (4 px gutters, 28).
 
 4. **Editorial front page.**
    - Dense or balanced.
    - Sections 40–90 px apart.
    - No cards and padding 0.
    - Three columns divided by vertical hairlines, with stories stacked between horizontal rules.
-   - *Examples:* Wired (dense, 60 / 0), Vox (dense, 60 / 16), Harvard Gazette (balanced, 70 / 0), Mother Jones (balanced, 60 / 28).
+   - *Examples:* two news magazines (dense, 60 / 0 and 60 / 16), a university paper (balanced, 70 / 0), a nonprofit magazine (balanced, 60 / 28).
 
 5. **Hospitality band page.**
    - Airy.
    - Full-bleed photo bands about 110–160 px apart.
    - Padding 0.
    - Text in a narrow centred column between photos; photos matted in a 14–20 px frame.
-   - *Examples:* Allta (110, 16 px gutters), The Ellison (140), Kereliott (160), Jacob's Cove (20 px matte).
+   - *Examples:* a restaurant (110, 16 px gutters), a boutique hotel (140), a holiday rental (160), a lake resort (20 px matte).
 
 6. **Single-screen statement.**
    - Airy, with no section gap.
    - One block of text or one object centred in an empty viewport.
    - Labels pinned to the corners at an even 14–30 px inset.
    - Everything at one or two type sizes.
-   - *Examples:* Niccolò Debole, Middle Child (30 px corners), Hugo & Marie. A scrolling variant pauses 300–700 px between statements (Telescope, the healthcare-AI manifesto at 400 px).
+   - *Examples:* an artist's portfolio, a restaurant (30 px corners), a creative studio. A scrolling variant pauses 300–700 px between statements (a recommendation app, the healthcare-AI manifesto at 400 px).
 
 ## Before you finish
 

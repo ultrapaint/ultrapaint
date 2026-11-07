@@ -9,9 +9,10 @@ the user said of it wins over a default below; the product, where there is one, 
 
 The face carries much of the look. Name it precisely in the tokens and make the stylesheet load
 it: Google Fonts, Fontsource, or the foundry's own CSS. A face named but not loaded renders in
-the machine's fallback, and every screen looks generic. A commercial face nobody has a licence
-for gives way to the nearest free one of the same character (its geometry, x-height and width),
-and the user is told which.
+the machine's fallback, and every screen looks generic. A face is free (the SIL Open Font
+License, as on Google Fonts and Fontsource) or paid. A paid face is used only where the product
+already loads it or the user says they hold its licence; otherwise the nearest free one of the
+same character (its geometry, x-height and width) takes its place, and the user is told which.
 
 When the product has none yet, the type voice picks it: a neo-grotesque or geometric sans for
 interface text (Inter, Geist, Instrument Sans, Figtree, Space Grotesk); a friendly geometric or

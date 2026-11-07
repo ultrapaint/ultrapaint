@@ -15,10 +15,9 @@ Read the character skill first. This reference sets the words. The principles st
 - 94% of sites have a headline (4,668 of 4,983). The median is **5 words**.
 - Write it as a claim, not a label. In the notes, short stacked sentences with full stops recur across all three characters:
   - "Send it. Win it."
-  - "Built to think. Born to haul."
-  - "Outthink. Outmake. Outlast."
+  - three verbs of one word each, each with its full stop;
   - "Real food. Honest guides. No fluff."
-- Section titles take the full stop too: "The Crank.", "How Norma compares.", "Measure your baseline."
+- Section titles take the full stop too: "How we compare.", "Measure your baseline."
 
 ### A subhead is one sentence, and often there is none
 
@@ -32,7 +31,7 @@ Read the character skill first. This reference sets the words. The principles st
 - 78% of sites carry no eyebrow (3,861 of 4,968).
 - On the 1,107 that do, the eyebrow in the notes almost always says something the heading does not:
   - **News:** a "New" chip, the announcement and an arrow.
-  - **Proof:** "Rated 4.9/5 on Capterra and G2", "#1 Product of the Day", "Trustpilot 4.7 of 5".
+  - **Proof:** a rating with its score and the review site that gave it, a launch-day ranking. Write one only from a rating the product really has.
   - **A sequence:** "01 · AGENTS RESEARCH", "STEP 4".
   - **A card's category:** "FOOD HISTORY", "ARTICLE in TRAVEL".
 - An eyebrow that names the section its heading already names is noise. Remove it.
@@ -78,7 +77,7 @@ Read the character skill first. This reference sets the words. The principles st
 
 - A headline can carry its own second level: a near-black claim, then a grey continuation at the same size.
   - "Your data has been talking. You just couldn't hear it."
-  - "Train weav once. / Watch it improve forever."
+  - "Set it up once. / Watch it get better."
 - About 30 of the 300 technical notes do this, and a handful of the others.
 - It often replaces a subhead.
 - The grey must be visibly lighter (principle 8). If the two read as one grey, use one colour.
@@ -103,7 +102,7 @@ Read the character skill first. This reference sets the words. The principles st
 Technical products speak most on their own pages: the longest headlines, a subhead on 83%, three actions, and the most eyebrows.
 
 - **Headline.** Six words, often two-tone, often two sentences. When a full-width product mock carries the screen, the headline drops to about 26–30 px and lets the mock lead (notes).
-- **Subhead.** One sentence of about 19 words saying what the product does for whom. Inline product nouns can stand in for a feature list: "Webflow, HTML, icons, easings, course".
+- **Subhead.** One sentence of about 19 words saying what the product does for whom. Inline product nouns can stand in for a feature list: "HTML, icons, easings, course".
 - **Proof.** Logos come right after the hero. Ratings come right after the button. Case studies lead with the result figure ("$40M+", "+140%").
 - **Tone.** Exact, sometimes dry and funny: "yep, all of them", "Back to building by 2:33pm". It is never vague.
 - **Pricing pages** (about 16 notes):
@@ -116,7 +115,7 @@ Technical products speak most on their own pages: the longest headlines, a subhe
 
 - **Headline.** Five words, a subhead on two in three, two actions.
 - **Voice.** The voice is warmer, and the warmth is in the words:
-  - puns as product names, each with a plain descriptor beside it ("The Dutchess", "Holy Sheet");
+  - puns as product names, each with a plain descriptor beside it;
   - questions answered in the body: "What's pasture raised?";
   - "you" and "your" throughout.
 - **Shops** (the largest humanistic genre in the notes):
@@ -204,8 +203,8 @@ About 16 expressive notes, mostly studios and portfolios.
 
 - One paragraph of **17–35 words** (up to 72) is the headline.
 - It sits at about **36–58 px**, regular weight, tight leading:
-  - "Petra Garmon": 22 words at about 48 px;
-  - "Karl Anders": 35 words at about 58 px, six lines.
+  - a film production company's: 22 words at about 48 px;
+  - a branding agency's: 35 words at about 58 px, six lines.
 - One phrase may switch to a serif italic.
 - No subhead, no eyebrow, and at most one quiet action: a text link ("Let's chat"), or an underlined email field.
 

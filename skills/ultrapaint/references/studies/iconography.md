@@ -112,7 +112,7 @@ One site in the notes shows a broken glyph above "App Of The Day", where an icon
 - **38.7% carry no icon style**, the largest single value in any character.
 - **780 sites (26%) record no icon use at all.** Another 20 use "hamburger menu only".
 - **Typography does the icons' work:**
-  - a typographic arrow inside the text ("↳ Browse all work", "Still Water ↗")
+  - a typographic arrow inside the text ("↳ Browse all work", a project's name with "↗")
   - bracketed labels ("[ SEE COLLECTION ]", "[ BUY ]")
   - a word in place of a control ("Menu", "play", "unmute", "Sound off")
   - an index number in a corner
@@ -122,7 +122,7 @@ One site in the notes shows a broken glyph above "App Of The Day", where an icon
   - an Instagram glyph
 - **Editorial magazines** (about 12 in the notes) are the exception that needs icons:
   - search and account in the masthead
-  - a small format badge on story cards: headphones on Wired, play and audio on Vox, podcast and gallery markers on the Harvard Gazette
+  - a small format badge on story cards: headphones, play and audio, podcast and gallery markers
   - a share rail
 - **Fashion and homeware shops** keep the shop header row (search, wishlist, bag) even inside an expressive design.
 

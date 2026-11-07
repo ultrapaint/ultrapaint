@@ -106,12 +106,12 @@ The failures, also from the notes:
 - Uppercase and wide tracking go with it, at 10–12 px.
 
 **A serif display on the landing page only**
-- 171 technical sites (17%) put a serif display on the landing page: Tiempos Headline, Instrument Serif, GT Sectra, Domaine Display.
+- 171 technical sites (17%) put a serif display on the landing page, most often a paid editorial serif.
 - In every case the product screenshots beneath stay sans. Section 3 has the recipe.
 
 **The common accent is a muted continuation**
 - The second sentence or clause of the headline drops to the muted grey. More than 30 of the 300 technical notes do this.
-- Examples: "Train weav once. / Watch it improve forever.", and "the first clause is black and the continuation is grey".
+- Examples: a product's claim with its promise in grey on the next line, and "the first clause is black and the continuation is grey".
 - It uses the screen's own second colour, so it adds no new colour.
 
 ### Humanistic: a serif or friendly display over a plain sans body
@@ -191,11 +191,11 @@ Rests on 996 technical sites; the muted continuation on 30+ of the 300 technical
 - **Eyebrow:** keep a small pill above the headline only if it carries news, such as a release, a date or a version.
 
 ### Editorial serif on a technical product
-Rests on 171 technical sites (17%); notes include Granola, Resend, Typeform, Gusto, Pinpoint and Attentive.
+Rests on 171 technical sites (17%); in the notes, AI, developer, payroll, recruiting and marketing products.
 
-- **Headline:** a serif display (Tiempos Headline, Instrument Serif, GT Sectra) at 56–88 px, regular weight, tight, sentence case.
+- **Headline:** a serif display at 56–88 px, regular weight, tight, sentence case. Use a free one (Instrument Serif, Newsreader, Source Serif 4, Fraunces); the paid editorial serifs these sites use need a licence the user holds (`references/design-system/foundations.md`).
 - **Body:** a small grey sans, usually Inter.
-- **Screenshots:** the product UI keeps its sans. "The app UI itself uses the same serif for note titles" (Granola) is the one exception: content titles, never controls.
+- **Screenshots:** the product UI keeps its sans. "The app UI itself uses the same serif for note titles" (an AI notes app) is the one exception: content titles, never controls.
 - **Accent, if any:** one word in the same serif's italic.
 
 ### Consumer brand page: shop, clinic, hotel, food brand
