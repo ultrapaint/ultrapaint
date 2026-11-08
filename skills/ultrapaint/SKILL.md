@@ -12,8 +12,8 @@ hold: the anatomy of a kind of screen, the recipe of a kind of page, tables of v
 A *screen* is a product's own interface: a dashboard, a form, settings. A *page* is public: a
 landing page, a shop, a portfolio, a magazine. A rule that names one holds for that one.
 
-Three jobs, below: designing a screen or a page with the design system it has; making the design
-system; writing only the words.
+Four jobs, below: designing a screen or a page with the design system it has; reviewing one;
+making the design system; writing only the words.
 
 ## Designing a screen or a page
 
@@ -28,8 +28,11 @@ system; writing only the words.
 3. **Build it with the design system**: its components, text styles and tokens, by the rules
    below. A picture to remake: open `references/picture.md` first.
 4. **Draw its states**: the ones its content implies (States, below).
-5. **Check.** Run every rule below against every screen, then the checks of each file you
-   opened, and fix what fails. Your last message names each file you opened.
+5. **Check.** Open the topic file of every concern the screen has that you have not opened yet:
+   its words, icons, states, surfaces, colour, type, components, layout, usability,
+   accessibility. Run every rule below against every screen, element by element, then the Check
+   table of each file you opened, and fix what fails. Your last message names each file you
+   opened.
 6. **Have each section reviewed.** Where your work is reviewed for you (an editor's review loop),
    answer its findings. Elsewhere, when you can start another agent, have a fresh one review each
    section from a crop at 2× (dark and light where the product has both) with this skill, and fix
@@ -311,6 +314,13 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - Enter with `cubic-bezier(0.23, 1, 0.32, 1)`, from `scale(0.95)` and opacity `0`, never
   `scale(0)`; a popover grows from its trigger. Under reduced motion, loops stop.
 - More: `references/motion.md`, before you specify any transition.
+
+## Reviewing a design
+
+A screen, a page or one section of one, made by someone else or by you: name its kind and open the
+kind's file and the files it names, then check it as step 5 says, against what the picture shows:
+each element, each text, each icon, each gap. Report each failure with the rule it breaks (its
+file and its words), where it is, and the fix.
 
 ## Making the design system
 
