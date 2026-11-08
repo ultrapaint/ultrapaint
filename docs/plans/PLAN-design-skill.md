@@ -1,8 +1,9 @@
 # Plan: the design skill, rebuilt to be read
 
-Status: proposal, 2026-11-07. Nothing here is decided; the open choices are the deck
-`decisions/design-skill.json` in the data directory (`pnpm evals decide design-skill`). It would
-amend ADR 0048 (the router), 0049 (two jobs), 0067 (the words) and the per-part overrides.
+Status: shipped as ADR 0069, 2026-11-08, with what the lab measured there. The deck
+`decisions/design-skill.json` settled the eight disagreements. Still open: recall for a reviewer
+told the skill (59% against 71%), the checker, publishing, and the outside run as a lab command
+(it is `.work/probe/outside.mjs` in the data directory for now).
 
 ## What we have
 

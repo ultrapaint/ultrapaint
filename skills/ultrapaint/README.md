@@ -6,19 +6,21 @@ it installs as it is in `.agents/skills/` or `.claude/skills/`. This README does
 
 ## Layout
 
-`SKILL.md` is the core, the one file always read: the steps of the three jobs (a screen or page
-with the design system it has, making the design system, writing only the words), every rule
+`SKILL.md` is the core, the one file always read: the steps of the four jobs (a screen or page
+with the design system it has, reviewing one, making the design system, writing only the words), every rule
 that bears on most screens as one line with its value, and the table of kinds. Its front matter
 has the `name` and the `description` an agent picks it by, under 220 characters.
 
 `references/` holds what a line cannot, each file named by the core, one level deep:
 
 - `kinds/`: a product's screens (dialog, settings, table, dashboard, form, navigation,
-  feedback), opened at step 2 by the screen's kind;
+  feedback), opened at step 2 by the screen's kind, each naming under its title the topic files
+  it is opened with;
 - `pages/`: public pages (landing, shop, portfolio, editorial, title);
 - topic files (`character.md`, `layout.md`, `typography.md`, `color.md`, `surfaces.md`,
   `iconography.md`, `motion.md`, `picture.md`, `components.md`, `states.md`, `usability.md`,
-  `accessibility.md`), each opened when the core's line says;
+  `accessibility.md`), opened with a kind's file, when the core's line says, and at the check
+  for every concern the screen has;
 - `system/` (foundations, components, extract, figma) and `words/` (voice, interface, pages).
 
 A file never repeats a core line; it adds anatomy, values, recipes and reasons, and ends on a
