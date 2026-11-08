@@ -319,7 +319,8 @@ const photograph = Effect.fn("photograph")(function* (
     /**
      * The whole page: the frame grows until the content ends above its bottom. A page whose
      * top moves as the frame grows is drawn to the window's size (a full-height layout), so its
-     * window is the whole of it.
+     * window is the whole of it. A page whose bottom moves with the frame (a sidebar's foot
+     * pinned to the window's) ended in the shorter frame.
      */
     const whole = Effect.gen(function* () {
       const first = yield* shoot(viewport.height);
@@ -330,7 +331,7 @@ const photograph = Effect.fn("photograph")(function* (
       for (const times of GROWTH) {
         const png = yield* shoot(viewport.height * times);
         const seen = yield* browser.compare(png, previous, viewport.width);
-        if (!seen.sameTop) {
+        if (!seen.sameTop || seen.sameBottom) {
           return { first, page: previous };
         }
         previous = png;

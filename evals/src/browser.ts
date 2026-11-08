@@ -90,7 +90,12 @@ export class Browser extends Context.Service<
       previous: Uint8Array | null,
       width: number
     ) => Effect.Effect<
-      { readonly blankBottom: boolean; readonly sameTop: boolean },
+      {
+        readonly blankBottom: boolean;
+        /** Whether its bottom is the shorter frame's bottom: content pinned to the frame's foot. */
+        readonly sameBottom: boolean;
+        readonly sameTop: boolean;
+      },
       EvalsError
     >;
     /**

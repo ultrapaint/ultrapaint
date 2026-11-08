@@ -263,7 +263,7 @@ export const compareInBrowser = async (input: {
   };
   const current = await draw(input.data);
   if (!current.context) {
-    return { blankBottom: false, sameTop: false };
+    return { blankBottom: false, sameBottom: false, sameTop: false };
   }
   const rows = current.context.getImageData(
     0,
@@ -279,21 +279,45 @@ export const compareInBrowser = async (input: {
     }
   }
   if (input.previous === null) {
-    return { blankBottom, sameTop: true };
+    return { blankBottom, sameBottom: false, sameTop: true };
   }
   const previous = await draw(input.previous);
-  const top = Math.floor(previous.height / 2);
-  const a = previous.context?.getImageData(0, 0, input.width, top).data;
-  const b = current.context.getImageData(0, 0, input.width, top).data;
-  let differing = 0;
-  let sampled = 0;
-  for (let i = 0; a && i < a.length; i += 32) {
-    sampled += 1;
-    if (Math.abs((a[i] ?? 0) - (b[i] ?? 0)) > 12) {
-      differing += 1;
+  /** Whether two bands of pixels are alike: under 1% of the sampled ones apart. */
+  const alike = (
+    a: Uint8ClampedArray | undefined,
+    b: Uint8ClampedArray
+  ): boolean => {
+    let differing = 0;
+    let sampled = 0;
+    for (let i = 0; a && i < a.length; i += 32) {
+      sampled += 1;
+      if (Math.abs((a[i] ?? 0) - (b[i] ?? 0)) > 12) {
+        differing += 1;
+      }
     }
-  }
-  return { blankBottom, sameTop: sampled > 0 && differing / sampled < 0.01 };
+    return sampled > 0 && differing / sampled < 0.01;
+  };
+  const top = Math.floor(previous.height / 2);
+  // The bottom of the frame as it was, found again at the bottom of the grown one: content pinned to
+  // the frame's foot (a sidebar's account row) moved down with it, so the page ended above.
+  const band = Math.min(160, Math.floor(previous.height / 4));
+  return {
+    blankBottom,
+    sameBottom: alike(
+      previous.context?.getImageData(
+        0,
+        previous.height - band,
+        input.width,
+        band
+      ).data,
+      current.context.getImageData(0, current.height - band, input.width, band)
+        .data
+    ),
+    sameTop: alike(
+      previous.context?.getImageData(0, 0, input.width, top).data,
+      current.context.getImageData(0, 0, input.width, top).data
+    ),
+  };
 };
 
 /**
