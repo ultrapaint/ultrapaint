@@ -3,6 +3,9 @@
 A person's or a studio's work shown as the page: expressive, composed, mostly type and images.
 What every public page shares (sections, imagery, motion) is in `references/pages/landing.md`.
 
+Open with it, before the first element: `references/layout.md`, `references/typography.md`,
+`references/motion.md`.
+
 ## Two poles
 
 A portfolio picks one and keeps to it; the middle reads as a template.

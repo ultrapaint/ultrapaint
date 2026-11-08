@@ -3,6 +3,8 @@
 The anatomy of a sidebar, a top bar, a command menu (⌘K), a dropdown or account menu, a mega
 menu, an editor's toolbar, a calendar and a date picker.
 
+Open with it, before the first element: `references/iconography.md`, `references/components.md`.
+
 ## Sidebar
 
 - A row: the icon at the system's size, the small step, the label in the control style. Row

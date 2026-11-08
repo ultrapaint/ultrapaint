@@ -24,7 +24,7 @@ system; writing only the words.
    asks the user one question, and writes it down.
 2. **Name the screen's job, its primary action and its kind** in one sentence: "Billing settings:
    change the plan; settings." Open the kind's file from the table below now, before the first
-   element. When you cannot name the job, ask the user.
+   element, and the files its first lines name with it. When you cannot name the job, ask the user.
 3. **Build it with the design system**: its components, text styles and tokens, by the rules
    below. A picture to remake: open `references/picture.md` first.
 4. **Draw its states**: the ones its content implies (States, below).
@@ -69,6 +69,8 @@ A screen of two kinds (a table inside settings) opens both. A kind not listed op
 - In a row, the identifying content leads; metadata and actions trail. The one figure the user
   came for tops its group, larger and heavier than its label. What the user does most sits where
   the hand already is; what frames the whole page sits in its header.
+- A group's label over navigation items or settings rows is small and quiet beside its rows, a
+  step above their details; never a bold heading that outweighs what it groups.
 - Rows of equal weight are a menu, not a hierarchy: the likely choice leads, and when none is
   likely there are few choices.
 - A destructive action sits apart from the primary, at the far end or in a menu, in the
@@ -114,6 +116,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   each (a panel becomes a sheet, columns stack, a table becomes a list).
 - Text and controls stay `16px` or more inside the edge on a phone; backgrounds, media and
   full-width tables may bleed. The primary action stays reachable.
+- A sidebar is the window's height and scrolls inside itself; what sits at its foot (the
+  account, the plan) stays in view, never below the window's edge.
 - One scroll region per page. A horizontal scroller lets the next item peek `16–32px`.
 - Density follows the task: compact where the user works (tables, toolbars, editors), open where
   they read or decide (settings, onboarding, empty states).
@@ -221,6 +225,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
 
 ### Icons
 
+- Every icon comes from the icon package the system names (Lucide when it names none), as SVG:
+  never a typed character (`⌄`, `▦`, `★`, `✓`, `⋯`), an emoji or shapes drawn to stand in for one.
 - One set, the system's, at its listed sizes, matched to the text beside it; stroke `1.5` beside
   regular text, `2` beside medium or semibold. An icon takes its label's colour.
 - Outline by default, filled when active. One icon per meaning across the window, and the icon
@@ -229,7 +235,7 @@ says what the content already shows is noise: remove it, rather than shrinking o
   links or every bullet; all or none in one menu; at most one in a page header's buttons; no
   folder before every item of a tree.
 - An icon-only button has a tooltip and an accessible name. A brand mark keeps its official form.
-  No emoji for icons.
+
 - More: `references/iconography.md`, when you choose a set or draw icons for a public page.
 
 ### Components

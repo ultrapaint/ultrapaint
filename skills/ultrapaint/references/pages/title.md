@@ -3,6 +3,8 @@
 A game's site or title screen, or any entry gate to an experience: one fixed scene, one way in.
 Past the gate, a game's site is a landing page (`references/pages/landing.md`).
 
+Open with it, before the first element: `references/typography.md`, `references/motion.md`.
+
 ## One screen
 
 - One fixed full-bleed scene, in 3D or flat illustration, darkened under the title; photographs

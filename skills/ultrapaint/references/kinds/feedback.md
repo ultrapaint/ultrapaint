@@ -3,6 +3,9 @@
 The anatomy of a toast, a notification panel, an activity feed, an AI chat panel and a file
 manager.
 
+Open with it, before the first element: `references/states.md`, `references/iconography.md`,
+`references/motion.md`.
+
 ## Toast
 
 - A toast reports what happened somewhere the user is not looking, or offers the undo of what

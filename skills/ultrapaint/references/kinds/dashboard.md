@@ -3,6 +3,9 @@
 The anatomy of a dashboard: its header and time range, the figure cards, the sections and the
 charts.
 
+Open with it, before the first element: `references/color.md`, `references/typography.md`,
+`references/layout.md`.
+
 ## Header
 
 - A breadcrumb above the title when the dashboard sits under something; the actions on the

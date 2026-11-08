@@ -3,6 +3,9 @@
 The anatomy of a table or a list of records: its container, toolbar, header, rows, selection,
 pagination and empty states.
 
+Open with it, before the first element: `references/components.md`, `references/iconography.md`,
+`references/states.md`.
+
 ## Table or not
 
 - Columns are for many rows scanned down. A few facts about one record read inline instead, a

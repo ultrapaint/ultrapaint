@@ -3,6 +3,9 @@
 The anatomy of a settings page and its relatives: the row, saving, sub-pages, billing,
 integrations, a profile and a team page.
 
+Open with it, before the first element: `references/components.md`, `references/typography.md`,
+`references/layout.md`.
+
 ## Settings are rows
 
 - A section is one surface (or the bare page) holding a stack of rows split by hairlines; never

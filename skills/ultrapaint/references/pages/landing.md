@@ -2,6 +2,9 @@
 
 A product's public page, section by section. Its first two parts hold on every public page.
 
+Open with it, before the first element: `references/layout.md`, `references/typography.md`,
+`references/color.md`, `references/iconography.md`.
+
 ## Every public page
 
 - **Sections** change by a band of a new surface or a gap; a hairline between them keeps

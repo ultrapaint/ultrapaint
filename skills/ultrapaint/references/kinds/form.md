@@ -3,6 +3,9 @@
 The anatomy of sign-in, sign-up, reset and verify pages, onboarding steps and contact forms, and
 the parts any form reaches for: field rows, a code, a password's rules, choice cards.
 
+Open with it, before the first element: `references/components.md`, `references/states.md`,
+`references/words/interface.md`.
+
 ## The page
 
 - **Split screen** (the default on a wide screen): the form column, about `360px` (`340–480px`),

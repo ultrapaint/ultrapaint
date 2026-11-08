@@ -4,6 +4,9 @@ A shop, a food or beauty brand, a restaurant, a bar, a hotel: a humanistic page 
 and bands. What every public page shares (sections, imagery, the photo hero, motion) is in
 `references/pages/landing.md`.
 
+Open with it, before the first element: `references/layout.md`, `references/typography.md`,
+`references/color.md`.
+
 ## The page
 
 - Full-bleed bands under a photograph; the hero centred, the sections left-aligned.

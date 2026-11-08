@@ -4,6 +4,8 @@ A magazine, a news front, a blog, a long article: pages to read, built from rule
 than boxes. What every public page shares (sections, imagery, the header) is in
 `references/pages/landing.md`.
 
+Open with it, before the first element: `references/layout.md`, `references/typography.md`.
+
 ## The front page
 
 - A masthead, then three columns of unequal width: the lead story about two-thirds wide (or

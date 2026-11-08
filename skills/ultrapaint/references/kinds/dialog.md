@@ -4,6 +4,8 @@ The anatomy of a dialog and a sheet: header, body, footer, and the recipes for a
 share or invite dialog and an upload. A dialog that holds a form, choice cards or a code also
 takes its fields from `references/kinds/form.md`.
 
+Open with it, before the first element: `references/components.md`, `references/states.md`.
+
 ## The frame
 
 - A dialog is centred and dims the page; a sheet slides from the edge it is attached to and
