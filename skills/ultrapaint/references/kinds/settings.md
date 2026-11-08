@@ -17,6 +17,12 @@ Open with it, before the first element: `references/components.md`, `references/
   taking the text's style and position so nothing moves.
 - A helper line carries a rule or live data ("Used on 3 invoices"), or a "Learn more" link where
   the question comes; a row whose label says it all has none.
+- A setting with several options (permissions as checkboxes) is one row: its name, its line and
+  its reset in the label column, the options stacked in the control column; never a heading
+  across the full width with the options under it.
+- A matrix of notifications: each event is a row whose name is a label (semibold, foreground)
+  with its muted line under it, and the channels are columns of switches under their names. A
+  group's name (Engagement, Teams) is a small quiet label over its rows, never a filled bar.
 - A helper action over a column of rows ("Disable all") is a muted underlined link.
 - On a phone the two sides stack: label, line, then the control full width.
 - Spacing: padding `24px`, `12px` within a group, sections `32px` apart. Rows and their lines
@@ -76,6 +82,8 @@ Open with it, before the first element: `references/components.md`, `references/
 | You see | Fix |
 | --- | --- |
 | A card around each settings row | One surface; rows split by hairlines |
+| Options of one setting across the full width, or its reset at the far right | The options in the control column, the reset under its name |
+| An event name in muted grey, or a group's name on a filled bar | The name in the label style; the group's name a quiet label |
 | A stored value drawn as a disabled field | The value as text, an Edit action at the row's end |
 | An inline edit that shifts the text or its weight | The field takes the text's style and place |
 | Save buttons on a page whose switches already save | One way of saving per page |
