@@ -63,4 +63,13 @@ describe("gap", () => {
       "status: done"
     );
   });
+
+  it("keeps what is under Result as written: a list item's indented lines and a paragraph", () => {
+    const written =
+      "**Result.**\n\n- `recall-1`: shipped 0/2\n- Decision: not shipped. On the twelve gaps\n  about words it caught more.\n\nThe test the gap needs is a design.\n";
+    assert.strictEqual(
+      withResult(written, "recall-2", "shipped 2/2"),
+      `${written}- \`recall-2\`: shipped 2/2\n`
+    );
+  });
 });

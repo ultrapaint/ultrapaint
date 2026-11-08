@@ -98,12 +98,17 @@ export const withResult = (text: string, run: string, line: string) => {
     return `${opened.trimEnd()}\n\n${RESULT}\n\n${entry}\n`;
   }
   const head = opened.slice(0, at + RESULT.length);
+  // What is under it stays as written, a list item's indented lines and the paragraphs too.
   const kept = opened
     .slice(at + RESULT.length)
     .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l !== "" && !l.startsWith(`- \`${run}\`:`));
-  return `${head}\n\n${[...kept, entry].join("\n")}\n`;
+    .filter((l) => !l.startsWith(`- \`${run}\`:`));
+  while (kept.length > 0 && kept.at(-1)?.trim() === "") {
+    kept.pop();
+  }
+  return kept.some((l) => l.trim() !== "")
+    ? `${head}${kept.join("\n")}\n${entry}\n`
+    : `${head}\n\n${entry}\n`;
 };
 
 const decodeGap = Schema.decodeUnknownEffect(Gap);
