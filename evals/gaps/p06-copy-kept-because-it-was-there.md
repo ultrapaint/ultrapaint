@@ -31,3 +31,6 @@ apply to inherited copy as much as to new copy.
 - `models-1`: 2026-11-04, its sections' gaps caught: shipped@opus 15/16 (+1 partly), shipped@gpt-6.1-sol 14/16 (+2 partly), shipped@cursor:grok-4.7-high 13/16 (+2 partly), shipped@cursor:composer-2.5 9/16 (+5 partly) (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
 - `recall-outline-1`: 2026-11-05, its sections' gaps caught: shipped 12/16 (+4 partly), shipped+outline 12/16 (+1 partly) (reviewed by gpt-6.1-sol, judged by opus, effort high; runs/recall-outline-1/report.md)
 - `recall-copy-1`: 2026-11-06, its sections' gaps caught: shipped 14/16 (+2 partly), content-single 15/16 (+1 partly), copy-outline 15/16 (+1 partly) (opus, effort high; runs/recall-copy-1/report.md)
+- `rb-recall-before`: 2026-11-08, its sections' gaps caught: shipped 14/16 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
+- `rb-recall-after`: 2026-11-08, its sections' gaps caught: shipped 10/16 (+5 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
+- `rb-recall-check`: 2026-11-08, its sections' gaps caught: rb-check 11/16 (+5 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)

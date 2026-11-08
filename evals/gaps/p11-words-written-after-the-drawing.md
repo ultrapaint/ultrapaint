@@ -55,3 +55,6 @@ problems.
   and the panel found as few word problems either way. The test the gap needs is a design whose
   words are the designer's: a redesign of a screen with its own copy (p06's case) or a request
   with no brief, which the lab has not got yet; g52 needs the same.
+- `rb-recall-before`: 2026-11-08, its sections' gaps caught: shipped 69/92 (+13 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
+- `rb-recall-after`: 2026-11-08, its sections' gaps caught: shipped 57/92 (+21 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
+- `rb-recall-check`: 2026-11-08, its sections' gaps caught: rb-check 57/92 (+24 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)

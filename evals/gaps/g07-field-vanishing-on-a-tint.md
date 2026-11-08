@@ -34,3 +34,6 @@ their ground.
 - `held-out-1`: 2026-11-04, caught: shipped 0/2 (+2 partly), held-out-themes 0/2 (+1 partly), held-out-plain 0/2 (+1 partly) (opus, effort high; runs/held-out-1/report.md)
 - `models-1`: 2026-11-04, caught: shipped@opus 0/2 (+2 partly), shipped@gpt-6.1-sol 0/2, shipped@cursor:grok-4.7-high 0/2 (+2 partly), shipped@cursor:composer-2.5 0/2 (+2 partly) (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
 - `recall-outline-1`: 2026-11-05, caught: shipped 0/2 (+2 partly), shipped+outline 0/2 (+1 partly) (reviewed by gpt-6.1-sol, judged by opus, effort high; runs/recall-outline-1/report.md)
+- `rb-recall-before`: 2026-11-08, caught: shipped 0/2 (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
+- `rb-recall-after`: 2026-11-08, caught: shipped 0/1 (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
+- `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)

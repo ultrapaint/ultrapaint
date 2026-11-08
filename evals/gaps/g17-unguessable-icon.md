@@ -32,3 +32,6 @@ action outside the list: give it a label". Today the table checks only for a mis
 - `models-1`: 2026-11-04, caught: shipped@opus 1/2 (+1 partly), shipped@gpt-6.1-sol 1/2 (+1 partly), shipped@cursor:grok-4.7-high 2/2, shipped@cursor:composer-2.5 0/2 (+1 partly) (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
 - `recall-outline-1`: 2026-11-05, caught: shipped 1/2 (+1 partly), shipped+outline 2/2 (reviewed by gpt-6.1-sol, judged by opus, effort high; runs/recall-outline-1/report.md)
 - `recall-copy-1`: 2026-11-06, caught: shipped 1/2 (+1 partly), content-single 1/2 (+1 partly), copy-outline 1/2 (+1 partly) (opus, effort high; runs/recall-copy-1/report.md)
+- `rb-recall-before`: 2026-11-08, caught: shipped 0/2 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
+- `rb-recall-after`: 2026-11-08, caught: shipped 1/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
+- `rb-recall-check`: 2026-11-08, caught: rb-check 2/2 (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)

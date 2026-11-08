@@ -28,3 +28,6 @@ named: shipped skill 1/2, redesign-gaps 1/2. The person rated it real
 - `models-1`: 2026-11-04, caught: shipped@opus 2/2, shipped@gpt-6.1-sol 0/2, shipped@cursor:grok-4.7-high 1/2, shipped@cursor:composer-2.5 0/2 (reviewed by opus, gpt-6.1-sol, cursor:grok-4.7-high, cursor:composer-2.5, judged by opus, effort high; runs/models-1/report.md)
 - `recall-outline-1`: 2026-11-05, caught: shipped 0/2, shipped+outline 0/2 (reviewed by gpt-6.1-sol, judged by opus, effort high; runs/recall-outline-1/report.md)
 - `recall-copy-1`: 2026-11-06, caught: shipped 1/2, content-single 1/2, copy-outline 0/2 (opus, effort high; runs/recall-copy-1/report.md)
+- `rb-recall-before`: 2026-11-08, caught: shipped 0/2 (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
+- `rb-recall-after`: 2026-11-08, caught: shipped 0/2 (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
+- `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
