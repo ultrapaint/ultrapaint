@@ -1,6 +1,7 @@
 # ADR 0073: A folder's setup is suggested, never started on its own
 
-Status: accepted, 2026-11-09. Amends 0062 (setup is a chat).
+Status: accepted, 2026-11-09. Amends 0062 (setup is a chat). Generalised by 0074: no agent is
+prompted on its own.
 
 ## Context
 

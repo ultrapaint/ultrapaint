@@ -20,6 +20,10 @@
   a URL) names node `c_1` of that page, in `docs/designs/<canvas>/`; the editor's MCP tools take
   it as they take `/vibe#c_1`.
 
+Nothing prompts the person's agents on its own: an agent works only on a prompt they sent and
+the run it starts (ADR 0074). What the editor would have an agent do, it drafts in a new chat's
+composer for them to send (`startTask`).
+
 A change is done when `pnpm typecheck`, `pnpm test` and `pnpm lint` pass (`pnpm format` fixes
 what lint can). Its commit message is `type: ` and the behaviour as it now is, in one sentence,
 naming the ADR it follows: `feat: the design skill has two jobs (ADR 0049): …`.
