@@ -29,33 +29,34 @@ colors:
   agent: "#ec4899"
 typography:
   heading-small:
-    fontFamily: Onest Variable
+    fontFamily: Cal Sans
     fontSize: 1rem
-    fontWeight: 600
+    fontWeight: 400
     lineHeight: 1.5rem
-    letterSpacing: -0.01em
+    letterSpacing: 0.02em
   heading-xsmall:
-    fontFamily: Onest Variable
+    fontFamily: Cal Sans
     fontSize: 0.875rem
-    fontWeight: 600
+    fontWeight: 400
     lineHeight: 1.25rem
+    letterSpacing: 0.02em
   body:
-    fontFamily: Onest Variable
+    fontFamily: Figtree Variable
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.25rem
   label:
-    fontFamily: Onest Variable
+    fontFamily: Figtree Variable
     fontSize: 0.875rem
     fontWeight: 500
     lineHeight: 1.25rem
   small:
-    fontFamily: Onest Variable
+    fontFamily: Figtree Variable
     fontSize: 0.8125rem
     fontWeight: 400
     lineHeight: 1.125rem
   caption:
-    fontFamily: Onest Variable
+    fontFamily: Figtree Variable
     fontSize: 0.75rem
     fontWeight: 500
     lineHeight: 1rem
@@ -127,11 +128,13 @@ follows the system's unless the person picks one in Settings › Preferences.
 
 ## Typography
 
-Onest, loaded with `@fontsource-variable/onest`; Geist Mono for values, tokens, routes in code and
-code. Roles are `font-<role>` utilities; the editor never uses a stock size.
+Cal Sans for the two headings (`@fontsource/cal-sans`), Figtree for everything else
+(`@fontsource-variable/figtree`), Geist Mono for values, tokens, routes in code and code. Cal Sans
+has one weight, its 400, and is spaced for display sizes, so the headings open it by 0.02em.
+Roles are `font-<role>` utilities; the editor never uses a stock size.
 
-- `font-heading-small` 16/24 semibold: a dialog's or a page's title.
-- `font-heading-xsmall` 14/20 semibold: a panel's, a section's or a card's title, a field label.
+- `font-heading-small` 16/24 Cal Sans: a dialog's or a page's title.
+- `font-heading-xsmall` 14/20 Cal Sans: a panel's, a section's or a card's title, a field label.
 - `font-body` 14/20: everything read.
 - `font-label` 14/20 medium: control text (buttons, tabs, menu items), names in a list.
 - `font-small` 13/18: what qualifies its neighbour: a size, a route, a time, a hint, a description,

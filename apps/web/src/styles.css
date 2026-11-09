@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "streamdown/styles.css";
-@import "@fontsource-variable/onest";
+@import "@fontsource/cal-sans";
+@import "@fontsource-variable/figtree";
 @import "@fontsource-variable/geist-mono";
 
 /* Streamdown's renderers carry Tailwind classes Tailwind cannot see from here. */
@@ -11,11 +12,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Onest: a geometric sans with round forms, set for the screen; Geist Mono for values, tokens
-     and code. Both are loaded, so the editor looks the same on every machine. */
-  --font-sans:
-    "Onest Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+  /* Cal Sans for titles, Figtree for everything else, Geist Mono for values, tokens and code
+     (ADR 0070). All are loaded, so the editor looks the same on every machine. */
+  --font-display:
+    "Cal Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
     sans-serif;
+  --font-sans:
+    "Figtree Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
   --font-mono:
     "Geist Mono Variable", ui-monospace, "SF Mono", "SFMono-Regular", Menlo,
     Consolas, monospace;
@@ -59,22 +63,24 @@
    the editor's own text never takes a stock size (`text-xs`, `text-[11px]`); Tailwind's scale is
    left for Streamdown's renderers and the designs drawn on the canvas. Four sizes: 16 for the
    title of a dialog or a page, 14 for everything read and clicked, 13 for what qualifies it,
-   12 for keys, counts and badges. A box too short for its line takes `leading-4`. */
+   12 for keys, counts and badges. A box too short for its line takes `leading-4`. The two
+   headings are Cal Sans, which has the one weight and is spaced for display sizes: 400, opened
+   by 0.02em at these. */
 @utility font-heading-small {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.5rem;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
 }
 
 /* A panel's, a section's or a card's title. */
 @utility font-heading-xsmall {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.25rem;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
 }
 
 @utility font-body {
@@ -200,7 +206,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-display);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-selection: var(--selection);

@@ -41,7 +41,7 @@ export const tokensFound = (
 
 /** The editor's face, which the boards' documentation is set in (the editor loads it). */
 export const UI_FONT =
-  '"Onest Variable", ui-sans-serif, system-ui, -apple-system, sans-serif';
+  '"Figtree Variable", ui-sans-serif, system-ui, -apple-system, sans-serif';
 
 /** The editor's mono, for a token's name and value. */
 export const MONO =
