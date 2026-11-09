@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>Design in your repository, with your agents beside you.</strong>
+  <strong>Design in your repository. Ship it as code.</strong>
 </p>
 
 <p align="center">
