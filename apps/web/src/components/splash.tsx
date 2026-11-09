@@ -12,7 +12,7 @@ export const Splash = ({ name }: { readonly name: string | null }) => (
     className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-canvas"
   >
     <Logo className="size-10" />
-    <span className="flex items-center gap-2 font-small text-muted-foreground">
+    <span className="flex items-center gap-2 font-body-small text-muted-foreground">
       <Spinner className="size-3.5" />
       {name ? `Opening ${name}` : "Opening the editor"}
     </span>

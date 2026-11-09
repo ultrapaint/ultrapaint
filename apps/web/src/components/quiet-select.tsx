@@ -3,7 +3,7 @@
  * row of text and says what is chosen without a field around it. Its menu lists the choices,
  * grouped when they say so, then any actions after a divider ("Choose a folder…").
  */
-import { cn } from "cn";
+
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 
 /** The trigger's look, shared with the composer's own pickers. */
 export const quietTrigger =

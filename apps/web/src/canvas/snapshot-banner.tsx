@@ -24,10 +24,13 @@ export const SnapshotBanner = () => {
       icon={<History className="text-warning" />}
       label={`Snapshot ${snapshot.name}, read only`}
     >
-      <span className="min-w-0 truncate font-label" title={snapshot.name}>
+      <span
+        className="min-w-0 truncate font-body font-medium"
+        title={snapshot.name}
+      >
         {snapshot.name}
       </span>
-      <span className="shrink-0 font-small text-muted-foreground">
+      <span className="shrink-0 font-body-small text-muted-foreground">
         {when.format(snapshot.at)} · Read only
       </span>
       <span className="flex shrink-0 items-center gap-1 pl-1">

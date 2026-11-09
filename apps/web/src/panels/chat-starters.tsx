@@ -71,7 +71,7 @@ export const ChatStarters = ({ thread }: { thread: Thread }) => {
         {starters.map((starter) => (
           <li key={starter.label}>
             <button
-              className="-mx-1.5 block min-h-7 w-[calc(100%+0.75rem)] rounded-md px-1.5 py-1 text-left font-label outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+              className="-mx-1.5 block min-h-7 w-[calc(100%+0.75rem)] rounded-md px-1.5 py-1 text-left font-body font-medium outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() =>
                 showLeftPanel({ chat: thread.id, draft: starter.prompt })
               }

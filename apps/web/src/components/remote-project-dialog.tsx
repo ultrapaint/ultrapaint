@@ -118,7 +118,7 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
               <option key={alias} value={alias} />
             ))}
           </datalist>
-          <FieldDescription className="font-small">
+          <FieldDescription className="font-body-small">
             A Host from ~/.ssh/config, or user@host. Your key must be in your
             ssh agent or have no passphrase.
           </FieldDescription>
@@ -147,7 +147,7 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
             spellCheck={false}
             value={command}
           />
-          <FieldDescription className="font-small">
+          <FieldDescription className="font-body-small">
             What starts the editor there, when it isn’t ultrapaint on the PATH.
           </FieldDescription>
         </Field>

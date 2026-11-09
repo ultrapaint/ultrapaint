@@ -167,11 +167,11 @@ const MatchRow = ({
         title={token.variable}
       >
         <Value kind={token.kind} value={token.source ?? ""} />
-        <span className="ml-auto shrink-0 font-small text-muted-foreground">
+        <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
           {token.by ? BY[token.by] : ""}
         </span>
       </span>
-      <span className="truncate font-small text-muted-foreground">
+      <span className="truncate font-body-small text-muted-foreground">
         {token.variable}
         {token.alias ? ` → ${token.alias}` : ""}
       </span>
@@ -500,7 +500,7 @@ export const TokensStep = ({
 
   if (agreed) {
     return (
-      <div className="flex flex-col gap-2 font-small">
+      <div className="flex flex-col gap-2 font-body-small">
         <p className="flex items-center gap-1.5">
           <Check className="size-3.5 text-success" />
           {plural(same.length, "token")} agree with {comparison.file}.
@@ -515,7 +515,7 @@ export const TokensStep = ({
     );
   }
   return (
-    <div className="flex flex-col gap-2 font-small">
+    <div className="flex flex-col gap-2 font-body-small">
       {comparison.notes.map((note) => (
         <p className="text-muted-foreground" key={note}>
           {note}

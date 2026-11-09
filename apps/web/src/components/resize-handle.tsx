@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -6,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/cn";
 
 interface Bounds {
   defaultWidth: number;

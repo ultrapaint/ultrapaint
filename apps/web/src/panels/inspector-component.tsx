@@ -209,7 +209,7 @@ export const PropertyRow = ({
       <div className="flex items-center gap-1">
         <Input
           aria-label="Property name"
-          className="min-w-0 flex-1 font-label"
+          className="min-w-0 flex-1 font-body font-medium"
           onBlur={rename}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -219,7 +219,7 @@ export const PropertyRow = ({
           }}
           value={name}
         />
-        <span className="shrink-0 px-1 font-small text-muted-foreground">
+        <span className="shrink-0 px-1 font-body-small text-muted-foreground">
           {KINDS.find((k) => k.kind === property.kind)?.label}
         </span>
         <IconButton
@@ -262,7 +262,7 @@ export const PropertyRow = ({
           property={property}
         />
       </Row>
-      <span className="px-0.5 font-small text-muted-foreground">
+      <span className="px-0.5 font-body-small text-muted-foreground">
         {whatItSets(property)}
       </span>
     </div>
@@ -499,7 +499,7 @@ const NodeSection = ({
             {slot.name}
           </span>
           {/* biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button */}
-          <label className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground">
+          <label className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground">
             <Checkbox
               checked={slot.default === true}
               onCheckedChange={(checked) =>
@@ -572,7 +572,7 @@ export const IsolatedComponent = ({
         title={`${file.name}’s properties`}
       >
         {file.properties.length === 0 ? (
-          <p className="font-small text-muted-foreground">
+          <p className="font-body-small text-muted-foreground">
             What an instance sets. Expose a field of a node below, or add one.
           </p>
         ) : (

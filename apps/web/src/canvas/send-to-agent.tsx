@@ -1,6 +1,5 @@
 import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
 import { isBusy } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import { Bot, MessageSquarePlus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 import { openChat } from "../lib/thread-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { type SendTarget, sendToAgent } from "../state/comments.ts";

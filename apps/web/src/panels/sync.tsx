@@ -77,7 +77,7 @@ const SyncCard = ({
       title={step.title}
       tone={tone}
     >
-      <p className="whitespace-pre-line text-pretty font-small text-muted-foreground">
+      <p className="whitespace-pre-line text-pretty font-body-small text-muted-foreground">
         {step.detail}
       </p>
       {children}
@@ -322,12 +322,12 @@ export const SyncView = ({
             {reading ? <Spinner /> : <RefreshCw />}
           </IconButton>
         </div>
-        <p className="text-pretty px-3 font-small text-muted-foreground">
+        <p className="text-pretty px-3 font-body-small text-muted-foreground">
           {plan.summary}
         </p>
         {plan.facts.figma ? null : (
           <div className="mx-2 mt-3 flex items-center gap-2 rounded-lg bg-muted py-2 pr-2 pl-3">
-            <span className="min-w-0 flex-1 text-pretty font-small text-muted-foreground">
+            <span className="min-w-0 flex-1 text-pretty font-body-small text-muted-foreground">
               A Figma file’s variables and styles can become your tokens.
             </span>
             <Button onClick={pickFigmaFile} size="sm" variant="outline">

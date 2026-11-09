@@ -10,8 +10,8 @@ import {
   type Visibility,
   visibilityOf,
 } from "@ultrapaint/design-document/breakpoints";
-import { cn } from "cn";
 import { X } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   OptionSelect,
   type SelectOption,

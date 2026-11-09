@@ -133,7 +133,7 @@ export const SelectionTag = ({
           render={
             <button
               aria-label={named ? undefined : nodeLabel(node)}
-              className="flex h-5 min-w-0 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-caption text-white outline-none focus-visible:underline"
+              className="flex h-5 min-w-0 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-body-small font-medium text-white outline-none focus-visible:underline"
               style={{ background: color }}
               title={named ? undefined : nodeLabel(node)}
               type="button"

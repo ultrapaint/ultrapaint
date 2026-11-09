@@ -4,7 +4,6 @@ import {
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import { ChevronLeft, CircleAlert, Ellipsis, LocateFixed } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,6 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
@@ -114,7 +114,7 @@ const ThreadHeader = ({
         <h2 className="truncate font-heading-xsmall" title={thread.title}>
           {thread.title}
         </h2>
-        <span className="flex min-w-0 items-center gap-1.5 font-small text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
           <span className="truncate">{agentName ?? thread.agentId}</span>
           {/* A design thread is the rule; one that may write the code says so (ADR 0030). */}
@@ -177,13 +177,13 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
     <div className="flex items-center gap-2.5 px-3 pb-2">
       <ScopePicture className="size-8" thread={thread} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-label" title={scope.name}>
+        <span className="truncate font-body font-medium" title={scope.name}>
           {scope.name}
           {more ? (
             <span className="text-muted-foreground"> and {more} more</span>
           ) : null}
         </span>
-        <span className="truncate font-small text-muted-foreground">
+        <span className="truncate font-body-small text-muted-foreground">
           {where}
         </span>
       </div>

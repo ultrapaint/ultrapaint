@@ -5,7 +5,6 @@
  * moves the window.
  */
 
-import { cn } from "cn";
 import {
   GitBranch,
   PanelLeftClose,
@@ -21,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { chooseFolder } from "../lib/project-setup.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -51,7 +51,7 @@ const ProjectName = () => {
   if (!info.configured) {
     return (
       <button
-        className="window-no-drag min-w-0 truncate text-left font-label text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
+        className="window-no-drag min-w-0 truncate text-left font-body font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
         onClick={chooseFolder}
         type="button"
       >
@@ -65,7 +65,7 @@ const ProjectName = () => {
         {info.name}
       </span>
       {info.branch ? (
-        <span className="flex min-w-0 items-center gap-1 font-small text-muted-foreground leading-4">
+        <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground leading-4">
           <GitBranch className="size-3 shrink-0" />
           <span className="truncate">{info.branch}</span>
         </span>
@@ -215,6 +215,6 @@ export const RightPanelBar = ({ name }: { name: string }) => (
     >
       <PanelRightOpen />
     </TopButton>
-    <span className="font-label text-muted-foreground">{name}</span>
+    <span className="font-body font-medium text-muted-foreground">{name}</span>
   </div>
 );

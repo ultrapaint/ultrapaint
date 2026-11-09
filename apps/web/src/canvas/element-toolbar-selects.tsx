@@ -18,7 +18,6 @@ import {
 } from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
-import { cn } from "cn";
 import {
   ALargeSmall,
   ChevronDown,
@@ -48,6 +47,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { type Control, propValue } from "../lib/element-controls.ts";
 import { LruMap } from "../lib/lru.ts";
 import { setField, setPropsOfNodes } from "../lib/node-actions.ts";
@@ -139,7 +139,7 @@ const FIELD: Record<
 
 /** A trigger of the toolbar: compact, its value and a chevron, filled while its menu is open. */
 export const TRIGGER_CLASS =
-  "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-label outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
+  "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
 
 /** A colour's dot in a trigger or a menu; a dashed ring when there is none. */
 export const SwatchDot = ({
@@ -512,7 +512,7 @@ export const TokenSelect = ({
         <span className="flex-1 font-code">
           {field.utility}-{step}
         </span>
-        <span className="font-small text-muted-foreground tabular-nums">
+        <span className="font-body-small text-muted-foreground tabular-nums">
           {step * base}px
         </span>
       </DropdownMenuRadioItem>
@@ -523,7 +523,7 @@ export const TokenSelect = ({
         <span className="flex-1 font-code">
           {field.utility}-{t.label}
         </span>
-        <span className="max-w-24 truncate font-small text-muted-foreground">
+        <span className="max-w-24 truncate font-body-small text-muted-foreground">
           {t.description}
         </span>
       </DropdownMenuRadioItem>

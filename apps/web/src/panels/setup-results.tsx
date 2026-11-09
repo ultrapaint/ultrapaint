@@ -13,7 +13,6 @@ import {
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
 import { tokenValues } from "@ultrapaint/design-document/tokens";
-import { cn } from "cn";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +22,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -114,11 +114,11 @@ const ValueRow = ({
       <span className="flex min-w-0 items-center gap-1.5">
         <Swatch kind={value.kind} value={value.value} />
         <span className="truncate font-code">{value.value}</span>
-        <span className="ml-auto shrink-0 font-small text-muted-foreground">
+        <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
           {value.count}×
         </span>
       </span>
-      <span className="truncate font-small text-muted-foreground">
+      <span className="truncate font-body-small text-muted-foreground">
         {value.status === "raw" ? "Written out" : capitalised(defaults)}
         {noteOf(value)}
         {where ? ` · ${where.file}:${where.line}` : ""}
@@ -163,7 +163,7 @@ export const InventoryResult = ({
           }
           return (
             <div className="flex flex-col gap-0.5" key={kind}>
-              <span className="flex items-baseline justify-between font-small">
+              <span className="flex items-baseline justify-between font-body-small">
                 <span>{label}</span>
                 <span className="text-muted-foreground">
                   {`${totals.system} · ${totals.default} · ${totals.raw}`}
@@ -173,7 +173,7 @@ export const InventoryResult = ({
             </div>
           );
         })}
-        <span className="flex items-center gap-3 font-small text-muted-foreground">
+        <span className="flex items-center gap-3 font-body-small text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-foreground" />
             The system's
@@ -190,7 +190,9 @@ export const InventoryResult = ({
       </div>
       {off.length > 0 ? (
         <div className="flex flex-col">
-          <span className="font-label">Most used off the system</span>
+          <span className="font-body font-medium">
+            Most used off the system
+          </span>
           <ul className="flex flex-col divide-y">
             {listed.map((v) => (
               <ValueRow
@@ -251,11 +253,11 @@ const MappingRow = ({
       <span className="flex min-w-0 items-center gap-1.5">
         <Swatch kind={entry.kind} value={entry.value} />
         <span className="truncate font-code">{entry.value}</span>
-        <span className="ml-auto shrink-0 font-small text-muted-foreground">
+        <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
           {entry.count}×{entry.by ? ` · ${BY[entry.by]}` : ""}
         </span>
       </span>
-      <span className="truncate font-small text-muted-foreground">
+      <span className="truncate font-body-small text-muted-foreground">
         {KIND_LABELS[entry.kind]}
         {entry.example && entry.example !== entry.value
           ? ` · ${entry.example}`
@@ -300,7 +302,7 @@ export const MappingView = () => {
   const kept = mapping.entries.filter((e) => e.keep).length;
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-small text-muted-foreground">
+      <span className="font-body-small text-muted-foreground">
         {decided} decided · {kept} kept · {open.length} undecided
       </span>
       <Segmented
@@ -321,7 +323,7 @@ export const MappingView = () => {
         ))}
       </ul>
       {shown.length === 0 ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           Every value is decided.
         </span>
       ) : null}
@@ -347,7 +349,7 @@ const BatchRow = ({ batch }: { batch: MigrationBatch }) => {
     <li className="flex flex-col gap-1 py-1.5" title={batch.files.join("\n")}>
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="truncate font-code">{batch.dir}</span>
-        <span className="shrink-0 font-small text-muted-foreground">
+        <span className="shrink-0 font-body-small text-muted-foreground">
           {batch.files.length} {batch.files.length === 1 ? "file" : "files"}
         </span>
         <Badge
@@ -359,7 +361,7 @@ const BatchRow = ({ batch }: { batch: MigrationBatch }) => {
         </Badge>
       </span>
       {batch.summary || batch.changes !== undefined ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           {batch.changes === undefined ? "" : `${batch.changes} by the rules. `}
           {batch.summary}
         </span>
@@ -393,7 +395,7 @@ export const BatchList = ({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-col gap-0.5">
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           {done} of {batches.length} batches done
         </span>
         <Bar

@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   type ComponentType,
   type CSSProperties,
@@ -12,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { Canvas } from "./canvas/canvas.tsx";
 import { placedFramesDrawn } from "./canvas/editor-frame.ts";
 import { IsolationBanner } from "./canvas/isolation-banner.tsx";
@@ -709,8 +709,8 @@ export const App = () => {
           toastOptions={{
             classNames: {
               description:
-                "whitespace-pre-wrap font-small text-muted-foreground!",
-              title: "font-label",
+                "whitespace-pre-wrap font-body-small text-muted-foreground!",
+              title: "font-body font-medium",
               toast: "font-body shadow-overlay!",
             },
           }}

@@ -149,8 +149,8 @@ const PageComments = ({
 const NoPages = () => (
   <div className="flex max-w-xs flex-col items-center gap-1 text-center">
     <PanelsTopLeft className="mb-2 size-5 text-muted-foreground" />
-    <span className="font-label">No pages to try</span>
-    <span className="text-balance font-small text-muted-foreground">
+    <span className="font-body font-medium">No pages to try</span>
+    <span className="text-balance font-body-small text-muted-foreground">
       The prototype clicks through the pages of this canvas. Draw one first.
     </span>
     <Button
@@ -276,11 +276,11 @@ export const Prototype = () => {
                 className="absolute inset-x-0 bottom-0 flex max-h-40 flex-col gap-1 overflow-auto border-destructive/40 border-t bg-popover px-3 py-2.5 text-popover-foreground"
                 role="alert"
               >
-                <span className="flex items-center gap-1.5 font-label">
+                <span className="flex items-center gap-1.5 font-body font-medium">
                   <TriangleAlert className="size-4 shrink-0 text-destructive" />
                   Part of this page failed to draw
                 </span>
-                <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
+                <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground leading-5">
                   {pageError.message}
                 </pre>
               </div>
@@ -370,7 +370,7 @@ const AddressField = () => {
       ) : null}
       <input
         aria-label="URL"
-        className="min-w-0 flex-1 bg-transparent font-code outline-none placeholder:font-small placeholder:text-muted-foreground"
+        className="min-w-0 flex-1 bg-transparent font-code outline-none placeholder:font-body-small placeholder:text-muted-foreground"
         onBlur={() => setDraft(null)}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}

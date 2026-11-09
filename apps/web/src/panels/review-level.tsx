@@ -13,7 +13,6 @@ import {
   withLevel,
 } from "@ultrapaint/contracts/review";
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import { ChevronDown, ScanEye } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/cn";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -64,7 +64,7 @@ export const LevelLine = ({
   tag?: string | undefined;
 }) => (
   <div className={cn("flex flex-col gap-0.5", className)}>
-    <span className="flex items-center gap-1.5 font-label">
+    <span className="flex items-center gap-1.5 font-body font-medium">
       {level === "off" ? (
         <span
           aria-hidden
@@ -73,12 +73,12 @@ export const LevelLine = ({
       ) : null}
       {LEVEL_NAMES[level]}
       {tag ? (
-        <span className="rounded-full bg-accent px-1.5 font-caption text-muted-foreground">
+        <span className="rounded-full bg-accent px-1.5 font-body-small font-medium text-muted-foreground">
           {tag}
         </span>
       ) : null}
     </span>
-    <span className="font-small text-muted-foreground">{line}</span>
+    <span className="font-body-small text-muted-foreground">{line}</span>
   </div>
 );
 
@@ -145,8 +145,10 @@ export const LevelSlider = ({
         {REVIEW_LEVELS.map((name, i) => (
           <button
             className={cn(
-              "h-6 rounded-sm font-small outline-none transition-colors duration-100 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-              i === at ? "font-label text-foreground" : "text-muted-foreground"
+              "h-6 rounded-sm font-body-small outline-none transition-colors duration-100 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+              i === at
+                ? "font-body font-medium text-foreground"
+                : "text-muted-foreground"
             )}
             key={name}
             onClick={() => onChange(name)}
@@ -222,7 +224,7 @@ export const ReviewChip = ({ thread }: { thread: Thread }) => {
           <span className="font-heading-xsmall">Review</span>
           {differs ? (
             <Button
-              className="-mr-1.5 h-6 px-1.5 font-small"
+              className="-mr-1.5 h-6 px-1.5 font-body-small"
               onClick={() => set(null)}
               size="sm"
               variant="ghost"
@@ -231,7 +233,7 @@ export const ReviewChip = ({ thread }: { thread: Thread }) => {
             </Button>
           ) : (
             <Button
-              className="-mr-1.5 h-6 px-1.5 font-small"
+              className="-mr-1.5 h-6 px-1.5 font-body-small"
               onClick={openSettings}
               size="sm"
               variant="ghost"

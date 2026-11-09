@@ -17,7 +17,6 @@ import type {
 } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
-import { cn } from "cn";
 import {
   BoxSelect,
   Code,
@@ -37,6 +36,7 @@ import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { LinkField } from "../components/link-field.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -232,7 +232,7 @@ const Kinds = ({
   );
   if (nodes.length > 1) {
     return (
-      <span className="min-w-0 truncate font-small text-muted-foreground">
+      <span className="min-w-0 truncate font-body-small text-muted-foreground">
         {[...new Set(nodes.map(nodeKind))].join(", ")}
       </span>
     );
@@ -242,7 +242,7 @@ const Kinds = ({
   const named =
     node.name !== undefined && node.name !== "" && node.name !== kind;
   return (
-    <span className="flex min-w-0 items-center gap-2 font-small text-muted-foreground tabular-nums">
+    <span className="flex min-w-0 items-center gap-2 font-body-small text-muted-foreground tabular-nums">
       {named ? <span className="truncate">{kind}</span> : null}
       {rect ? (
         <span className="shrink-0">
@@ -434,7 +434,7 @@ const PageSection = ({ frame }: { frame: string }) => {
  */
 const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
   <div className="flex items-start gap-2">
-    <p className="min-w-0 flex-1 font-small text-muted-foreground">
+    <p className="min-w-0 flex-1 font-body-small text-muted-foreground">
       {tokens.length === 1 ? "A token" : `${tokens.length} tokens`} it uses wait
       {tokens.length === 1 ? "s" : ""} for the code:{" "}
       <span className="font-code text-foreground">{tokens.join(", ")}</span>
@@ -502,7 +502,7 @@ const CodeLink = ({ page }: { page: Page }) => {
       ) : null}
       {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {changes ? (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground leading-5">
           {changes}
         </pre>
       ) : null}

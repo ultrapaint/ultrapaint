@@ -4,9 +4,9 @@
  * does; a layer, a component or text dragged over it is left to its own handlers.
  */
 
-import { cn } from "cn";
 import { Paperclip } from "lucide-react";
 import { type ComponentProps, type DragEvent, type Ref, useState } from "react";
+import { cn } from "@/lib/cn";
 import { dragsFiles } from "../lib/attach-files.ts";
 
 /** The ring a drop target takes while files are over it, as a field's on focus. */
@@ -48,7 +48,7 @@ const useFileDrop = (onFiles: (files: File[]) => void) => {
 
 /** What the target says while files are over it, over what it holds. */
 const DropHint = ({ label }: { label: string }) => (
-  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-[inherit] bg-muted font-small text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground">
+  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-[inherit] bg-muted font-body-small text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground">
     <Paperclip />
     {label}
   </div>

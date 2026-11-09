@@ -9,7 +9,6 @@ import type {
   QueuedPrompt,
   Thread,
 } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   AppWindow,
   ArrowUp,
@@ -53,6 +52,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
@@ -391,7 +391,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                     </span>
                   ) : null}
                 </span>
-                <span className="font-small text-muted-foreground">
+                <span className="font-body-small text-muted-foreground">
                   {command.description}
                 </span>
               </button>
@@ -556,7 +556,7 @@ const QueuedPrompts = ({
       aria-label="Queued prompts"
       className="flex flex-col gap-1 rounded-lg border px-3 py-2"
     >
-      <div className="flex min-h-6 items-center gap-2 font-small text-muted-foreground">
+      <div className="flex min-h-6 items-center gap-2 font-body-small text-muted-foreground">
         <span className="min-w-0 flex-1">
           {running
             ? `${queued.length} queued, sent when this turn ends`
@@ -706,7 +706,7 @@ const isImage = (chip: Chip): chip is ImageChip => chip.kind === "image";
 
 /** The chips' look: a raised neutral tag in the composer's well; dashed when only implied. */
 const chipClass =
-  "flex h-6 min-w-0 items-center gap-1 rounded-md pr-0.5 pl-1.5 font-small [&_svg]:size-3.5 [&_svg]:shrink-0";
+  "flex h-6 min-w-0 items-center gap-1 rounded-md pr-0.5 pl-1.5 font-body-small [&_svg]:size-3.5 [&_svg]:shrink-0";
 
 /** A chip's ×, muted until the pointer is on it. */
 const ChipRemove = ({

@@ -5,8 +5,6 @@
  * there (ADR 0045, B11).
  */
 import type { BoardAttachment } from "@ultrapaint/contracts/threads";
-
-import { cn } from "cn";
 import {
   MessageSquareText,
   MessageSquareX,
@@ -24,6 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import {
   addChipsToChat,
   addToChat,

@@ -1,7 +1,6 @@
 "use client";
 
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
-import { cn } from "cn";
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
 import { type ComponentPropsWithRef, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { cn } from "@/lib/cn";
 
 const Combobox = ComboboxPrimitive.Root;
 
@@ -176,7 +176,7 @@ function ComboboxLabel({
   return (
     <ComboboxPrimitive.GroupLabel
       className={cn(
-        "px-2 pt-2 pb-1 font-small text-muted-foreground",
+        "px-2 pt-2 pb-1 font-body-small text-muted-foreground",
         className
       )}
       data-slot="combobox-label"

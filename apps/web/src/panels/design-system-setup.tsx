@@ -9,7 +9,6 @@ import {
   type SetupStep,
 } from "@ultrapaint/contracts/design-system-setup";
 import { commandOf } from "@ultrapaint/contracts/tasks";
-import { cn } from "cn";
 import {
   ArrowRight,
   Check,
@@ -25,6 +24,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import { Segmented } from "../components/segmented.tsx";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
@@ -100,7 +100,7 @@ export const StepMarker = ({
 }) => (
   <span
     className={cn(
-      "flex size-5 shrink-0 items-center justify-center rounded-full font-caption",
+      "flex size-5 shrink-0 items-center justify-center rounded-full font-body-small font-medium",
       tone === "done" && "bg-primary text-primary-foreground",
       (tone === "current" || tone === "waiting" || tone === "working") &&
         "bg-foreground text-background",
@@ -191,7 +191,7 @@ const ModeChoice = ({
     <div className="flex flex-col gap-1.5">
       <Segmented onChange={onChange} options={MODES} value={chosen} />
       {recommended ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           {recommended.mode === chosen
             ? "Recommended: "
             : "The inventory recommends the other: "}
@@ -352,7 +352,7 @@ const DefineNote = ({ step }: { step: SetupStep }) => {
   }
   const finished = step.status === "review" || step.status === "done";
   return (
-    <span className="font-small text-muted-foreground">
+    <span className="font-body-small text-muted-foreground">
       {step.mode === "adopt"
         ? "Adopting the theme as the design system."
         : "Proposing a design system from what the code uses."}
@@ -399,9 +399,9 @@ export const StepCard = ({
       tone={state.tone}
     >
       {started && step.summary ? (
-        <p className="whitespace-pre-line font-small">{step.summary}</p>
+        <p className="whitespace-pre-line font-body-small">{step.summary}</p>
       ) : (
-        <p className="font-small text-muted-foreground">
+        <p className="font-body-small text-muted-foreground">
           {definition.description}
         </p>
       )}
@@ -444,8 +444,8 @@ const StepBarFor = ({ index, step }: { index: number; step: SetupStep }) => {
     <div className="flex shrink-0 items-center gap-2.5 border-b py-2 pr-2 pl-3">
       <StepMarker index={index} tone={state.tone} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-label">{title}</span>
-        <span className="truncate font-small text-muted-foreground">
+        <span className="truncate font-body font-medium">{title}</span>
+        <span className="truncate font-body-small text-muted-foreground">
           Design system setup{state.label ? ` · ${state.label}` : ""}
         </span>
       </div>
@@ -472,8 +472,10 @@ export const SetupStepIntro = ({ threadId }: { threadId: string }) => {
   const command = commandOf({ _tag: "SetupStep", step: step.id });
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-      <span className="font-label">{title} starts when you send</span>
-      <span className="max-w-72 text-pretty font-small text-muted-foreground">
+      <span className="font-body font-medium">
+        {title} starts when you send
+      </span>
+      <span className="max-w-72 text-pretty font-body-small text-muted-foreground">
         <code className="font-code">{command}</code> is the step’s task; add to
         it if you like. The agent asks here when a decision is yours.
       </span>

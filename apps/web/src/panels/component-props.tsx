@@ -121,7 +121,7 @@ const BooleanControl = ({
         onCheckedChange={onCheckedChange}
       />
       {mixed ? (
-        <span className="font-small text-muted-foreground">{MIXED}</span>
+        <span className="font-body-small text-muted-foreground">{MIXED}</span>
       ) : null}
     </>
   );

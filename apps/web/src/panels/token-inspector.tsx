@@ -190,7 +190,7 @@ export const UsesSection = ({
     <Section
       action={
         uses.length > 0 ? (
-          <span className="pr-1 font-small text-muted-foreground tabular-nums">
+          <span className="pr-1 font-body-small text-muted-foreground tabular-nums">
             {uses.length}
           </span>
         ) : null
@@ -198,7 +198,7 @@ export const UsesSection = ({
       title="Used in"
     >
       {uses.length === 0 ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           Nowhere on this canvas yet
         </span>
       ) : null}
@@ -213,13 +213,13 @@ export const UsesSection = ({
           <span className="min-w-0 flex-1 truncate" title={use.name}>
             {use.name}
           </span>
-          <span className="shrink-0 font-small text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
             {count(use)}
           </span>
         </span>
       ))}
       {uses.length > SHOWN ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           and {uses.length - SHOWN} more
         </span>
       ) : null}
@@ -314,7 +314,7 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
           {made ? (
             themesOf(ds).map((theme) => (
               <div className="flex flex-col gap-1" key={theme}>
-                <span className="font-small text-muted-foreground">
+                <span className="font-body-small text-muted-foreground">
                   {theme.charAt(0).toUpperCase() + theme.slice(1)}
                 </span>
                 <div className="flex gap-0.5">
@@ -330,12 +330,12 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
               </div>
             ))
           ) : (
-            <span className="font-small text-muted-foreground">
+            <span className="font-body-small text-muted-foreground">
               Enter a colour: hex, rgb() or oklch().
             </span>
           )}
           {made ? (
-            <span className="font-small text-muted-foreground">
+            <span className="font-body-small text-muted-foreground">
               {made.shades.length} shades,{" "}
               {made.shades[0]?.name.replace(FIRST_STEP, "-50…950")} in{" "}
               {made.palette.group}
@@ -366,7 +366,7 @@ export const TokenInspector = ({
   const token = tokenOf(ds, name);
   if (!token) {
     return (
-      <p className="px-3 py-3 font-small text-muted-foreground">
+      <p className="px-3 py-3 font-body-small text-muted-foreground">
         The design system has no token {name}. It may have been renamed or
         deleted.
       </p>
@@ -460,7 +460,7 @@ const AddToken = ({
         />
       </Row>
       {taken ? (
-        <span className="font-small text-destructive">
+        <span className="font-body-small text-destructive">
           {name} exists already. Give the new token another name.
         </span>
       ) : null}
@@ -488,7 +488,7 @@ export const GroupInspector = ({
   const group = ds.colors.find((g) => g.name === name);
   if (!group) {
     return (
-      <p className="px-3 py-3 font-small text-muted-foreground">
+      <p className="px-3 py-3 font-body-small text-muted-foreground">
         There is no group {name}. It may have been renamed or deleted.
       </p>
     );
@@ -500,7 +500,7 @@ export const GroupInspector = ({
     <>
       <Section
         action={
-          <span className="pr-1 font-small text-muted-foreground tabular-nums">
+          <span className="pr-1 font-body-small text-muted-foreground tabular-nums">
             {group.tokens.length}{" "}
             {group.tokens.length === 1 ? "colour" : "colours"}
           </span>
@@ -557,7 +557,7 @@ export const TextStyleInspector = ({
   const style = ds.typography.styles.find((s) => s.name === name);
   if (!style) {
     return (
-      <p className="px-3 py-3 font-small text-muted-foreground">
+      <p className="px-3 py-3 font-body-small text-muted-foreground">
         There is no text style {name}. It may have been renamed or deleted.
       </p>
     );
@@ -641,7 +641,7 @@ export const FoundationActions = ({
           />
         </Row>
         {taken ? (
-          <span className="font-small text-destructive">
+          <span className="font-body-small text-destructive">
             {group.trim()} exists already. Give the new group another name.
           </span>
         ) : null}

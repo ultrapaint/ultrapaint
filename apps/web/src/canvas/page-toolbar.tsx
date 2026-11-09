@@ -67,7 +67,7 @@ const ViewportSelect = ({
               <DropdownMenuRadioItem key={d.value} value={d.value}>
                 <Icon />
                 <span className="flex-1">{d.label}</span>
-                <span className="font-small text-muted-foreground tabular-nums">
+                <span className="font-body-small text-muted-foreground tabular-nums">
                   {d.size.width} × {d.size.height}
                 </span>
               </DropdownMenuRadioItem>
@@ -109,7 +109,7 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
               >
                 <Icon />
                 <span className="flex-1">{d.label}</span>
-                <span className="font-small text-muted-foreground tabular-nums">
+                <span className="font-body-small text-muted-foreground tabular-nums">
                   {d.size.width}
                 </span>
               </DropdownMenuItem>
@@ -122,7 +122,7 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
           {breakpoints.map((b) => (
             <DropdownMenuItem key={b.name} onClick={() => add(b.min)}>
               <span className="flex-1 font-code">{b.name}</span>
-              <span className="font-small text-muted-foreground tabular-nums">
+              <span className="font-body-small text-muted-foreground tabular-nums">
                 {b.min}
               </span>
             </DropdownMenuItem>

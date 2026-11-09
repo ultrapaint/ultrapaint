@@ -3,7 +3,6 @@
  * it stands. Opening one gives the thread; the list is where the chat opens.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   CircleAlert,
   ListFilter,
@@ -28,6 +27,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -119,7 +119,7 @@ export const ScopePicture = ({
         <MessageSquare className="size-4" />
       )}
       {several ? (
-        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-caption text-background tabular-nums">
+        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-body-small font-medium text-background tabular-nums">
           {thread.scope?.count}
         </span>
       ) : null}
@@ -134,7 +134,7 @@ export const ThreadStatus = ({ thread }: { thread: Thread }) => {
     return null;
   }
   return (
-    <span className="flex shrink-0 items-center gap-1.5 font-small text-foreground">
+    <span className="flex shrink-0 items-center gap-1.5 font-body-small text-foreground">
       {tone === "working" ? <Spinner className="size-3 text-agent" /> : null}
       {tone === "attention" ? (
         <span className="size-1.5 rounded-full bg-warning" />
@@ -172,7 +172,7 @@ const ThreadRow = ({
       <ScopePicture thread={thread} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate font-label text-foreground">
+          <span className="min-w-0 flex-1 truncate font-body font-medium text-foreground">
             {thread.title}
           </span>
           {/* What an agent did since the thread was last opened; a working one says so itself. */}
@@ -183,14 +183,14 @@ const ThreadRow = ({
               role="img"
             />
           ) : null}
-          <span className="shrink-0 font-small text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
             {ago(thread.updatedAt, now)}
           </span>
         </span>
-        <span className="truncate font-small text-muted-foreground">
+        <span className="truncate font-body-small text-muted-foreground">
           {thread.summary?.text || "Nothing sent yet"}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 font-small text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {scopeLabel ?? "Nothing attached"}
@@ -247,7 +247,7 @@ const FilterMenu = ({
           <DropdownMenuRadioItem closeOnClick key={f.value} value={f.value}>
             <span className="flex-1">{f.label}</span>
             {counts[f.value] === undefined ? null : (
-              <span className="font-small text-muted-foreground tabular-nums">
+              <span className="font-body-small text-muted-foreground tabular-nums">
                 {counts[f.value]}
               </span>
             )}
@@ -284,7 +284,7 @@ const Section = ({
 }) =>
   threads.length > 0 ? (
     <section className="flex flex-col">
-      <h3 className="px-2 pt-3 pb-1 font-small text-muted-foreground">
+      <h3 className="px-2 pt-3 pb-1 font-body-small text-muted-foreground">
         {label}
       </h3>
       {threads.map((t) => (

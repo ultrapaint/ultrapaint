@@ -12,7 +12,6 @@ import {
   type Thread,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   ChevronDown,
   Eye,
@@ -42,6 +41,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { quietTrigger } from "../components/quiet-select.tsx";
 import { useAgents } from "../state/agents.ts";
@@ -144,7 +144,7 @@ const SelectOptionSub = ({
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <span className="shrink-0">{option.name}</span>
-        <span className="min-w-0 flex-1 truncate text-right font-small text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-right font-body-small text-muted-foreground">
           {currentName(option)}
         </span>
       </DropdownMenuSubTrigger>
@@ -161,7 +161,7 @@ const SelectOptionSub = ({
                   {o.value === fallback ? <Badge>Default</Badge> : null}
                 </span>
                 {o.description ? (
-                  <span className="max-w-64 whitespace-normal font-small text-muted-foreground">
+                  <span className="max-w-64 whitespace-normal font-body-small text-muted-foreground">
                     {o.description}
                   </span>
                 ) : null}
@@ -198,7 +198,7 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <span className="shrink-0">Agent</span>
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 font-small text-muted-foreground">
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 font-body-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3" />
           <span className="truncate">{agent?.name ?? thread.agentId}</span>
         </span>
@@ -219,7 +219,7 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
                 <AgentIcon agentId={a.id} />
                 {a.name}
                 {readiness(machine[a.id]) ? (
-                  <span className="ml-auto pl-2 font-small text-muted-foreground">
+                  <span className="ml-auto pl-2 font-body-small text-muted-foreground">
                     {readiness(machine[a.id])}
                   </span>
                 ) : null}
@@ -250,7 +250,7 @@ const PermissionsSub = ({ thread }: { thread: Thread }) => {
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <span className="shrink-0">Permissions</span>
-        <span className="min-w-0 flex-1 truncate text-right font-small text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-right font-body-small text-muted-foreground">
           {current?.name}
         </span>
       </DropdownMenuSubTrigger>
@@ -271,7 +271,7 @@ const PermissionsSub = ({ thread }: { thread: Thread }) => {
               <span className="flex min-w-0 flex-col py-0.5">
                 <span>{m.name}</span>
                 {m.description ? (
-                  <span className="whitespace-normal text-pretty font-small text-muted-foreground">
+                  <span className="whitespace-normal text-pretty font-body-small text-muted-foreground">
                     {m.description}
                   </span>
                 ) : null}

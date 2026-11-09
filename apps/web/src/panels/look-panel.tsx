@@ -158,7 +158,7 @@ const Dials = ({ dials }: { dials: LookDials }) => (
         options={choices("simple", "detailed")}
         value={dials.tokens}
       />
-      <span className="font-small text-muted-foreground">
+      <span className="font-body-small text-muted-foreground">
         {dials.tokens === "simple"
           ? "primary, muted-foreground, border: shadcn’s roles"
           : "text-subtle, bg-danger-subtle, border-focus: by property, as Atlassian’s"}
@@ -217,7 +217,7 @@ const Describe = ({ busy }: { busy: boolean }) => {
           </div>
         ) : null}
         <textarea
-          className="field-sizing-content min-h-14 w-full resize-none bg-transparent px-2 py-2 pr-16 font-small outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="field-sizing-content min-h-14 w-full resize-none bg-transparent px-2 py-2 pr-16 font-body-small outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
           disabled={busy}
           id="look-description"
           onChange={(e) => {
@@ -261,7 +261,7 @@ const Describe = ({ busy }: { busy: boolean }) => {
         <FilesInput accept="image/*" onFiles={add} ref={picker} />
       </FileDropBox>
       {missing ? (
-        <span className="font-small text-muted-foreground" role="status">
+        <span className="font-body-small text-muted-foreground" role="status">
           Describe the look, name a site or add a picture.
         </span>
       ) : null}

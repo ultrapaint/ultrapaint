@@ -2,7 +2,6 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, Padding } from "@ultrapaint/contracts/document";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { cn } from "cn";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -24,6 +23,7 @@ import {
   StretchVertical,
 } from "lucide-react";
 import { type SyntheticEvent, useState } from "react";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SidesIcon } from "../components/sides-icon.tsx";

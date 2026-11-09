@@ -1,5 +1,4 @@
 import type { Canvas } from "@ultrapaint/contracts/pages";
-import { cn } from "cn";
 import {
   Check,
   ChevronDown,
@@ -21,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   newCanvas,
@@ -204,7 +204,7 @@ const CanvasRow = ({
         <button
           className={cn(
             "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
-            current && "font-label"
+            current && "font-body font-medium"
           )}
           onClick={open}
           onDoubleClick={() => setRenaming(true)}
@@ -216,7 +216,7 @@ const CanvasRow = ({
       )}
       {renaming ? null : (
         <>
-          <span className="shrink-0 font-small text-muted-foreground tabular-nums group-hover:hidden">
+          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums group-hover:hidden">
             {count} {count === 1 ? "page" : "pages"}
           </span>
           <IconButton
@@ -265,7 +265,7 @@ const CanvasPicker = ({
       title="Canvases"
     >
       <Frame className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-label">
+      <span className="min-w-0 flex-1 truncate font-body font-medium">
         {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
       </span>
       <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
@@ -275,7 +275,7 @@ const CanvasPicker = ({
       className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-0.5 overflow-auto p-1"
       sideOffset={4}
     >
-      <div className="px-2 pt-1.5 pb-1 font-small text-muted-foreground">
+      <div className="px-2 pt-1.5 pb-1 font-body-small text-muted-foreground">
         Canvases
       </div>
       <CanvasList canvases={canvases} current={current} />

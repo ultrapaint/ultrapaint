@@ -5,7 +5,7 @@
  * with the cursors a pan shows, on the surface's background. A press on nothing is the surface's
  * (`onGroundPress`); what else the pointer does on the ground is the caller's.
  */
-import { cn } from "cn";
+
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/cn";
 import { nextView, setViewSoon } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useEditor } from "../state/editor.ts";

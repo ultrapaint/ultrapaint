@@ -254,7 +254,7 @@ export const CodePanel = () => {
             {nodeLabel(node)}
           </span>
           {nodeKind(node) === nodeLabel(node) ? null : (
-            <span className="shrink-0 font-small text-muted-foreground">
+            <span className="shrink-0 font-body-small text-muted-foreground">
               {nodeKind(node)}
             </span>
           )}
@@ -275,7 +275,7 @@ export const CodePanel = () => {
 /** While the code is written: the lines it will take; if it could not be, why. */
 const CodeWaiting = ({ failed }: { failed: boolean }) =>
   failed ? (
-    <p className="font-small text-muted-foreground">
+    <p className="font-body-small text-muted-foreground">
       Couldn’t write the code. Select the layer again to retry.
     </p>
   ) : (

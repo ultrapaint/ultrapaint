@@ -98,7 +98,7 @@ const OpenBoard = ({ name }: { name: string }) => (
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
   <div className="group/item mx-2 flex h-7 items-center rounded-md pr-0.5 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
-      className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-label outline-none"
+      className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body font-medium outline-none"
       title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
@@ -150,7 +150,7 @@ const Thumbnail = ({
     return <span className="size-full animate-pulse rounded bg-black/4" />;
   }
   if (read.failed) {
-    return <span className="font-small text-black/50">{name}</span>;
+    return <span className="font-body-small text-black/50">{name}</span>;
   }
   return (
     <img
@@ -182,7 +182,10 @@ const GridItem = ({
       <Thumbnail name={c.name} src={thumbnail} />
     </button>
     <div className="flex h-6 items-center pl-1">
-      <span className="min-w-0 flex-1 truncate font-label" title={c.name}>
+      <span
+        className="min-w-0 flex-1 truncate font-body font-medium"
+        title={c.name}
+      >
         {c.name}
       </span>
       <OpenBoard name={c.name} />
@@ -437,7 +440,7 @@ const NoAppComponents = () => {
     selection !== null && pageOfRef(frameRefOf(selection.frame)) !== null;
   return (
     <div className="mx-2 flex h-7 items-center justify-between gap-2 pl-2">
-      <span className="truncate font-small text-muted-foreground">
+      <span className="truncate font-body-small text-muted-foreground">
         None yet
       </span>
       {fromSelection ? (
@@ -463,7 +466,7 @@ const NavRow = ({
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
-    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-label text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item, view: "library" })}
     title={title}
     type="button"
@@ -550,7 +553,7 @@ const InsertHint = () => {
     return null;
   }
   return (
-    <p className="shrink-0 truncate border-t px-4 py-2 font-small text-muted-foreground">
+    <p className="shrink-0 truncate border-t px-4 py-2 font-body-small text-muted-foreground">
       Inserts into <span className="text-foreground">{target.name}</span>
     </p>
   );

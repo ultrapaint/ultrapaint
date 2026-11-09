@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import type * as React from "react";
 import {
   Select,
@@ -9,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/cn";
 
 export interface SelectOption {
   /** Muted second line in the list, e.g. the class the option writes. */

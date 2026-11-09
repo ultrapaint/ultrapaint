@@ -1,5 +1,5 @@
-import { cn } from "cn";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 /**
  * A compact note floating over the canvas, as the place switch and the tools do: what the canvas

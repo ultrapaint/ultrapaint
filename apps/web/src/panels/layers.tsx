@@ -11,7 +11,6 @@ import { componentDocOf } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
-import { cn } from "cn";
 import {
   ChevronDown,
   ChevronRight,
@@ -52,6 +51,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -661,7 +661,7 @@ export const Layers = () => {
       <LayerFilter onDown={onFilterDown} onQuery={onQuery} query={query} />
       {shown.length === 0 ? (
         <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-2">
-          <p className="font-small text-muted-foreground">
+          <p className="font-body-small text-muted-foreground">
             No layers match “{query.trim()}”.
           </p>
           <Button onClick={() => onQuery("")} size="sm" variant="secondary">
@@ -999,7 +999,7 @@ const PageRow = ({
         onToggle={() => shared.toggle(key)}
       />
       <RowName
-        className="font-label"
+        className="font-body font-medium"
         item={item}
         label={page.name}
         onRename={(name) => renamePageTo(page, name)}
@@ -1008,7 +1008,7 @@ const PageRow = ({
       {shared.renaming === key ? null : (
         <>
           {/* The variant a page is drawn for tells it from its base page, named the same. */}
-          <span className="ml-1 min-w-0 flex-1 truncate font-small text-muted-foreground">
+          <span className="ml-1 min-w-0 flex-1 truncate font-body-small text-muted-foreground">
             {page.variant}
           </span>
           <RowMenu label={page.name} onOpen={selectThePage} target={target} />
@@ -1259,7 +1259,7 @@ const LayerRow = ({
     <div
       className={cn(
         ROW,
-        "font-label text-foreground",
+        "font-body font-medium text-foreground",
         rowTone(selected, hovered),
         dropHere === "inside" && "ring-2 ring-primary ring-inset",
         dropHere === "before" &&
@@ -1299,7 +1299,7 @@ const LayerRow = ({
           node={node}
         />
         <RowName
-          className="font-label"
+          className="font-body font-medium"
           item={item}
           label={label}
           onRename={(name) => renameNodeTo(name, target)}
@@ -1309,7 +1309,7 @@ const LayerRow = ({
           <Tooltip>
             <TooltipTrigger
               render={
-                <span className="shrink-0 truncate font-small text-muted-foreground">
+                <span className="shrink-0 truncate font-body-small text-muted-foreground">
                   {node.slot}
                 </span>
               }
@@ -1357,7 +1357,7 @@ const LinkTag = ({ link }: { link: string }) => {
         render={
           <span
             className={cn(
-              "flex min-w-0 shrink items-center gap-1 font-small",
+              "flex min-w-0 shrink items-center gap-1 font-body-small",
               broken ? "text-destructive" : "text-muted-foreground"
             )}
           >

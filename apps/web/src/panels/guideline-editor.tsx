@@ -28,7 +28,7 @@ export const GuidelineEditor = ({
   const typing = useRef<string | null>(null);
   if (!section) {
     return (
-      <p className="px-3 py-3 font-small text-muted-foreground">
+      <p className="px-3 py-3 font-body-small text-muted-foreground">
         DESIGN.md has no such section. It may have been renamed.
       </p>
     );
@@ -79,7 +79,7 @@ export const GuidelineEditor = ({
         }}
         value={typed ?? section.text}
       />
-      <span className="font-small text-muted-foreground">
+      <span className="font-body-small text-muted-foreground">
         Saved to DESIGN.md when you leave the field. Esc discards.
       </span>
     </Section>

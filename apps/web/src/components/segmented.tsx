@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import type * as React from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -6,6 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 
 /**
  * Single-choice segmented control: a muted track, the chosen option a raised chip, as the tabs
@@ -48,7 +48,7 @@ export const Segmented = <T extends string>({
           <ToggleGroupItem
             aria-label={o.title}
             // Equal while the labels fit; a longer one takes the room it needs from the others.
-            className="h-full min-w-fit flex-1 rounded-[calc(var(--radius-md)-2px)] px-1.5 font-label text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs dark:aria-pressed:bg-input [&_svg:not([class*='size-'])]:size-4"
+            className="h-full min-w-fit flex-1 rounded-[calc(var(--radius-md)-2px)] px-1.5 font-body font-medium text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs dark:aria-pressed:bg-input [&_svg:not([class*='size-'])]:size-4"
             key={o.value}
             value={o.value}
           >

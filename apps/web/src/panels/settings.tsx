@@ -13,7 +13,6 @@ import {
 } from "@ultrapaint/contracts/setup";
 import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
-import { cn } from "cn";
 import {
   Bot,
   FolderGit2,
@@ -34,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
@@ -260,7 +260,7 @@ const StorageLine = ({
     );
   }
   return (
-    <p className="flex min-w-0 flex-1 items-center gap-1.5 font-small text-muted-foreground">
+    <p className="flex min-w-0 flex-1 items-center gap-1.5 font-body-small text-muted-foreground">
       {warning ? (
         <TriangleAlert className="size-3.5 shrink-0 text-warning" />
       ) : null}
@@ -444,7 +444,7 @@ const Sidebar = ({
               // The section shown is raised as the groups are, as the left card's rail raises
               // its place; the focus is the ring alone.
               className={cn(
-                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-label outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-body font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
                 active
                   ? "bg-card text-foreground shadow-xs not-focus-visible:ring-1 not-focus-visible:ring-border"
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
@@ -577,7 +577,7 @@ const InstantFooter = ({
   const [first] = waiting;
   return (
     <div className="flex items-center gap-4">
-      <p className="min-w-0 flex-1 font-small text-muted-foreground">
+      <p className="min-w-0 flex-1 font-body-small text-muted-foreground">
         {first
           ? `Your edits in ${listOf(waiting.map(labelOf))} aren’t saved yet.`
           : null}

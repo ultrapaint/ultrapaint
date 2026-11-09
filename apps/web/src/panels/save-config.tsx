@@ -90,7 +90,7 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-1.5">
-          <span className="font-small text-muted-foreground">
+          <span className="font-body-small text-muted-foreground">
             Start the editor next time with
           </span>
           <code className="select-all rounded-md bg-muted px-2.5 py-1.5 font-code">
@@ -122,7 +122,7 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
           spellCheck={false}
           value={configPath}
         />
-        <FieldDescription className="font-small">
+        <FieldDescription className="font-body-small">
           Commit it to share the setup. Chats go to a git-ignored .ultrapaint
           folder beside it.
         </FieldDescription>

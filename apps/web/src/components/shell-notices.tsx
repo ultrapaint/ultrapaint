@@ -32,8 +32,8 @@ export const ShellNotices = () => {
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="font-label">{notice.title}</span>
-            <p className="text-pretty font-small text-muted-foreground">
+            <span className="font-body font-medium">{notice.title}</span>
+            <p className="text-pretty font-body-small text-muted-foreground">
               {notice.detail}
               {notice.command ? (
                 <code className="ml-1 select-all rounded-sm bg-muted px-1 py-0.5 font-code text-foreground">
@@ -43,7 +43,7 @@ export const ShellNotices = () => {
             </p>
             {notice.link ? (
               <a
-                className="mt-1 self-start font-small text-foreground underline decoration-foreground/30 underline-offset-3 hover:decoration-foreground"
+                className="mt-1 self-start font-body-small text-foreground underline decoration-foreground/30 underline-offset-3 hover:decoration-foreground"
                 href={notice.link.url}
                 rel="noreferrer"
                 target="_blank"

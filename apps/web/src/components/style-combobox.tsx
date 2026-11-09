@@ -1,5 +1,4 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
-import { cn } from "cn";
 import { ChevronDownIcon } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
+import { cn } from "@/lib/cn";
 
 export interface StyleOption {
   /** Muted text after the label, e.g. the size the step resolves to. */
@@ -147,7 +147,7 @@ const IdleCombobox = ({
       <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
         {hint && !selected ? (
           <span
-            className="min-w-0 max-w-24 truncate font-normal font-small"
+            className="min-w-0 max-w-24 truncate font-body-small font-normal"
             title={hint}
           >
             {hint}
@@ -270,7 +270,7 @@ const ActiveCombobox = ({
         <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
           {hint && !selected ? (
             <span
-              className="min-w-0 max-w-24 truncate font-normal font-small"
+              className="min-w-0 max-w-24 truncate font-body-small font-normal"
               title={hint}
             >
               {hint}

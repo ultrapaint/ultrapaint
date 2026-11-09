@@ -11,7 +11,6 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { tokenKindOf, tokenOf } from "@ultrapaint/contracts/token-table";
-import { cn } from "cn";
 import { Ellipsis, LayoutGrid, Palette, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 import { OVERVIEW } from "../boards/library-boards.ts";
 import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
@@ -176,7 +176,7 @@ const SystemBody = ({
   }
   return (
     <>
-      <p className="border-b px-3 py-3 font-small text-muted-foreground">
+      <p className="border-b px-3 py-3 font-body-small text-muted-foreground">
         Select a token on the boards to edit it.
       </p>
       <FoundationActions ds={ds} item={open.item} />
@@ -268,7 +268,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
           >
             {title}
           </h2>
-          <span className="min-w-0 flex-1 truncate font-small text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate font-body-small text-muted-foreground">
             {subtitle}
           </span>
         </div>

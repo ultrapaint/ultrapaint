@@ -1,7 +1,7 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
-import { cn } from "cn";
 import { Files, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { NO_URL_HINT } from "../lib/page-actions.ts";
@@ -93,7 +93,7 @@ export const Pages = () => {
         <h2 className="flex-1 truncate font-heading-xsmall">Pages</h2>
         {unreachable > 0 ? (
           <span
-            className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground"
+            className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground"
             title={`${unreachable === 1 ? "A page has" : `${unreachable} pages have`} no URL: no link of the prototype leads to ${unreachable === 1 ? "it" : "them"}`}
           >
             <TriangleAlert className="size-3.5 text-warning" />
@@ -142,11 +142,13 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
         title={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
         type="button"
       >
-        <span className="min-w-0 flex-1 truncate font-label">{page.name}</span>
+        <span className="min-w-0 flex-1 truncate font-body font-medium">
+          {page.name}
+        </span>
         <StatusDot target={page.id} />
         {page.route === undefined ? (
           <span
-            className="flex shrink-0 items-center gap-1.5 font-small text-muted-foreground"
+            className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground"
             title={NO_URL_HINT}
           >
             <TriangleAlert className="size-3.5 text-warning" />
@@ -213,7 +215,7 @@ const VariantRow = ({ page }: { page: Page }) => {
         {page.variant ?? page.state}
       </span>
       <StatusDot target={page.id} />
-      <span className="shrink-0 font-small text-muted-foreground">
+      <span className="shrink-0 font-body-small text-muted-foreground">
         {page.state === undefined ? "Variant" : "State"}
       </span>
     </button>

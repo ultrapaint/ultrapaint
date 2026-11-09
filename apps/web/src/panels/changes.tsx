@@ -5,7 +5,6 @@ import type {
   FileDiff,
   Snapshot,
 } from "@ultrapaint/contracts/snapshots";
-import { cn } from "cn";
 import { ArrowLeft, Ellipsis, Plus } from "lucide-react";
 import {
   type ChangeEvent,
@@ -37,6 +36,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { undoOrRedo } from "../lib/shortcuts.ts";
@@ -461,7 +461,7 @@ const NoRepository = ({
   onInit: (() => void) | null;
 }) => (
   <div className="flex flex-col items-start gap-2 px-2">
-    <p className="font-small text-muted-foreground">
+    <p className="font-body-small text-muted-foreground">
       This folder is not a git repository. Snapshots and checkpoints still keep
       the designs’ history.
     </p>
@@ -480,7 +480,7 @@ const NoRepository = ({
 /** What git said when a command of the panel failed, under its button, and what to do. */
 const GitFailure = ({ children, what }: { children: string; what: string }) => (
   <div
-    className="wrap-anywhere w-full rounded-md bg-destructive/10 px-2 py-1.5 font-small"
+    className="wrap-anywhere w-full rounded-md bg-destructive/10 px-2 py-1.5 font-body-small"
     role="alert"
   >
     {/* Git's own lines, as it wrote them. */}
@@ -564,7 +564,7 @@ const CommitBar = ({
       </div>
       {missing && !busy ? (
         <p
-          className="px-2 font-small text-muted-foreground"
+          className="px-2 font-body-small text-muted-foreground"
           id={`${id}-missing`}
         >
           {missing}
@@ -602,7 +602,7 @@ const GroupLabel = ({
 
 /** An empty section's one row, in muted. */
 const NoneRow = ({ children }: { children: ReactNode }) => (
-  <p className="flex h-7 items-center px-2 font-small text-muted-foreground">
+  <p className="flex h-7 items-center px-2 font-body-small text-muted-foreground">
     {children}
   </p>
 );
@@ -616,7 +616,7 @@ const Unread = ({
   onRetry: () => void;
 }) => (
   <div className="flex h-7 items-center justify-between gap-2 pl-2">
-    <span className="truncate font-small text-muted-foreground">
+    <span className="truncate font-body-small text-muted-foreground">
       {children}
     </span>
     <Button onClick={onRetry} size="sm" variant="ghost">
@@ -740,9 +740,11 @@ const HistoryRow = ({
       onClick={onShow}
       type="button"
     >
-      <span className="min-w-0 flex-1 truncate font-label">{name}</span>
-      {current ? <span className="shrink-0 font-small">Open</span> : null}
-      <span className="shrink-0 font-small text-muted-foreground tabular-nums">
+      <span className="min-w-0 flex-1 truncate font-body font-medium">
+        {name}
+      </span>
+      {current ? <span className="shrink-0 font-body-small">Open</span> : null}
+      <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
         {whenTaken(at)}
       </span>
     </button>
@@ -1054,10 +1056,12 @@ const FileRow = ({
               onClick={() => onShow(path)}
               type="button"
             >
-              <span className="min-w-0 truncate font-label">{name}</span>
+              <span className="min-w-0 truncate font-body font-medium">
+                {name}
+              </span>
               {folder ? (
                 // The folder gives way first; the name truncates only once it is gone.
-                <span className="min-w-0 shrink-[999] truncate font-small text-muted-foreground">
+                <span className="min-w-0 shrink-[999] truncate font-body-small text-muted-foreground">
                   {folder}
                 </span>
               ) : null}
@@ -1069,7 +1073,7 @@ const FileRow = ({
       {word ? (
         <span
           className={cn(
-            "flex shrink-0 items-center gap-1 font-small",
+            "flex shrink-0 items-center gap-1 font-body-small",
             conflict ? "text-foreground" : "text-muted-foreground"
           )}
         >
@@ -1123,18 +1127,18 @@ const DiffView = ({
 }) => (
   <div className="flex flex-col gap-3 px-2 pb-3">
     {since ? (
-      <p className="px-2 font-small text-muted-foreground">
+      <p className="px-2 font-body-small text-muted-foreground">
         {changedSince(diffs.length, since)}
       </p>
     ) : null}
     {diffs.map((d) => (
       <div className="flex flex-col gap-1" key={d.path}>
         {since ? (
-          <div className="wrap-anywhere px-2 font-small text-muted-foreground">
+          <div className="wrap-anywhere px-2 font-body-small text-muted-foreground">
             {d.path}
           </div>
         ) : null}
-        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
+        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code leading-5">
           {diffLines(d.diff).map(({ offset, text: line }) => (
             <div className={lineClass(line)} key={offset}>
               {line || " "}

@@ -3,8 +3,9 @@
  * and at the bottom of the chat that it is working and for how long. What it is doing is in the
  * folded work above, for whoever opens it.
  */
-import { cn } from "cn";
+
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/cn";
 import { formatDuration } from "../lib/thread-work.ts";
 
 /** Eight rays that light up in turn, the whole mark turning slowly. */
@@ -60,7 +61,7 @@ export const WorkingIndicator = ({
   return (
     <div
       aria-live="polite"
-      className="motion-safe:fade-in flex h-7 items-center gap-2 font-small motion-safe:animate-in"
+      className="motion-safe:fade-in flex h-7 items-center gap-2 font-body-small motion-safe:animate-in"
       role="status"
     >
       <WorkingMark />

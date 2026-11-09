@@ -17,7 +17,6 @@ import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, type ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import { cn } from "cn";
 import {
   type CSSProperties,
   memo,
@@ -27,6 +26,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { cn } from "@/lib/cn";
 import {
   drawnWidths,
   libraryBoards,
@@ -182,7 +182,7 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
       onContextMenu={(e) => e.preventDefault()}
       overlay={
         boards.length === 0 ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-small text-muted-foreground">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-body-small text-muted-foreground">
             Nothing to show for {name}
           </div>
         ) : null

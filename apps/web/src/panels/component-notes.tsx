@@ -70,7 +70,7 @@ export const Notes = ({
   return (
     <div className="flex flex-col gap-2 font-body">
       {notes.length === 0 ? (
-        <p className="font-small text-muted-foreground">
+        <p className="font-body-small text-muted-foreground">
           What the code must do that the design cannot show. Notes go with the
           component when it is implemented.
         </p>

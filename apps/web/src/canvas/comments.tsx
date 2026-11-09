@@ -1,6 +1,5 @@
 import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { cn } from "cn";
 import {
   ArrowUp,
   Check,
@@ -27,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/cn";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -106,7 +106,7 @@ export const CommentAvatar = ({
   <span
     aria-hidden="true"
     className={cn(
-      "flex size-6 shrink-0 items-center justify-center rounded-full font-caption",
+      "flex size-6 shrink-0 items-center justify-center rounded-full font-body-small font-medium",
       inverse
         ? "bg-foreground text-background"
         : "bg-secondary text-secondary-foreground",
@@ -287,12 +287,12 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
       {open ? null : (
         <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left group-hover:flex">
           <span className="flex h-6 items-center gap-1.5">
-            <span className="truncate font-label">
+            <span className="truncate font-body font-medium">
               {comment.kind === "behaviour"
                 ? "Behaviour note"
                 : (comment.author ?? "Someone")}
             </span>
-            <span className="shrink-0 font-small text-muted-foreground">
+            <span className="shrink-0 font-body-small text-muted-foreground">
               {relativeTime(comment.createdAt)}
               {comment.replies.length > 0
                 ? ` · ${repliesLabel(comment.replies.length)}`
@@ -341,12 +341,15 @@ const Card = ({ comment }: { comment: Comment }) => {
           comment={{ author: comment.author, kind: comment.kind }}
         />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="truncate font-label" title={comment.author ?? ""}>
+          <span
+            className="truncate font-body font-medium"
+            title={comment.author ?? ""}
+          >
             {comment.kind === "behaviour"
               ? "Behaviour note"
               : (comment.author ?? "Someone")}
           </span>
-          <span className="shrink-0 font-small text-muted-foreground">
+          <span className="shrink-0 font-body-small text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
         </div>
@@ -451,8 +454,10 @@ const Reply = ({
     <CommentAvatar comment={{ author: reply.author }} />
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex h-6 items-center gap-1.5">
-        <span className="truncate font-label">{reply.author ?? "Someone"}</span>
-        <span className="flex-1 truncate font-small text-muted-foreground">
+        <span className="truncate font-body font-medium">
+          {reply.author ?? "Someone"}
+        </span>
+        <span className="flex-1 truncate font-body-small text-muted-foreground">
           {relativeTime(reply.createdAt)}
         </span>
         <SendToAgent

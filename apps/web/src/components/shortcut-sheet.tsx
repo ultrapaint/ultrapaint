@@ -46,7 +46,7 @@ export const ShortcutSheet = () => {
               className="mb-5 flex break-inside-avoid flex-col"
               key={group.title}
             >
-              <h3 className="pb-1 font-small text-muted-foreground">
+              <h3 className="pb-1 font-body-small text-muted-foreground">
                 {group.title}
               </h3>
               {group.keys.map(({ keys, title }) => (

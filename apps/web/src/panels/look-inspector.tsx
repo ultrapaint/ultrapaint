@@ -153,7 +153,7 @@ const Field = ({
     leading = <Swatch color={color} />;
   } else if (mark) {
     leading = (
-      <span className="w-3 text-center font-caption text-muted-foreground">
+      <span className="w-3 text-center font-body-small font-medium text-muted-foreground">
         {mark}
       </span>
     );
@@ -575,7 +575,7 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
     <div className="flex flex-col gap-3 font-body">
       {optional.length > 0 ? (
         <div className="flex flex-col">
-          <span className="font-small text-muted-foreground">Shown</span>
+          <span className="font-body-small text-muted-foreground">Shown</span>
           {optional.map((part) => (
             // biome-ignore lint/a11y/noLabelWithoutControl: the checkbox inside is Base UI's button
             <label className="flex h-7 items-center gap-2" key={part.name}>
@@ -590,7 +590,7 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
       ) : null}
       {holding.length > 0 ? (
         <div className="flex flex-col">
-          <span className="font-small text-muted-foreground">
+          <span className="font-body-small text-muted-foreground">
             Content when empty
           </span>
           {holding.map((slot) => {
@@ -599,7 +599,7 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
               <div className="flex h-7 items-center gap-1.5" key={slot.name}>
                 <span className="min-w-0 flex-1 truncate">
                   {slot.label}{" "}
-                  <span className="font-small text-muted-foreground">
+                  <span className="font-body-small text-muted-foreground">
                     {held.length === 0
                       ? "nothing"
                       : `${held.length} node${held.length === 1 ? "" : "s"}`}
@@ -631,9 +631,9 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
       ) : null}
       {meta.templatedItems ? (
         <div className="flex flex-col gap-1">
-          <span className="font-small text-muted-foreground">Item</span>
+          <span className="font-body-small text-muted-foreground">Item</span>
           <div className="flex items-start gap-1.5">
-            <span className="min-w-0 flex-1 py-0.5 font-small">
+            <span className="min-w-0 flex-1 py-0.5 font-body-small">
               {file.item
                 ? "Drawn from your nodes: the first text is the label, the first image its picture."
                 : "Its label alone."}
@@ -878,7 +878,7 @@ export const LookInspector = ({
       <>
         {placeFields(false)}
         <div className="flex flex-col items-start gap-3 border-b px-3 py-3">
-          <p className="font-small text-muted-foreground">
+          <p className="font-body-small text-muted-foreground">
             {name} is drawn in its default look, over your tokens. Take the look
             over to change any part of it.
           </p>

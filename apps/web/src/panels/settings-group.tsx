@@ -1,8 +1,9 @@
 /** A group of the settings and a row of it: the layout every section is written in. */
-import { cn } from "cn";
+
 import { CircleAlert, TriangleAlert } from "lucide-react";
 import type * as React from "react";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/cn";
 
 /**
  * Rows on one quiet surface a step above the dialog's ground, split by hairlines: the fill is
@@ -25,7 +26,7 @@ export const Group = ({
       <div className="flex flex-col gap-0.5 px-4">
         {title ? <h3 className="font-heading-xsmall">{title}</h3> : null}
         {note ? (
-          <p className="max-w-md text-pretty font-small text-muted-foreground">
+          <p className="max-w-md text-pretty font-body-small text-muted-foreground">
             {note}
           </p>
         ) : null}
@@ -74,7 +75,7 @@ export const RowMessage = ({
 }) =>
   kind === "error" ? (
     <div
-      className="flex gap-2 rounded-md bg-destructive/10 px-3 py-2 font-small text-destructive"
+      className="flex gap-2 rounded-md bg-destructive/10 px-3 py-2 font-body-small text-destructive"
       id={id}
       role="alert"
     >
@@ -82,7 +83,7 @@ export const RowMessage = ({
       <div className="flex min-w-0 flex-col items-start gap-2">{children}</div>
     </div>
   ) : (
-    <div className="flex gap-2 font-small text-muted-foreground" id={id}>
+    <div className="flex gap-2 font-body-small text-muted-foreground" id={id}>
       <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
       <div className="min-w-0">{children}</div>
     </div>
@@ -154,7 +155,7 @@ const RowLine = ({
         {title}
       </Label>
       {description ? (
-        <div className="text-pretty font-small text-muted-foreground">
+        <div className="text-pretty font-body-small text-muted-foreground">
           {description}
         </div>
       ) : null}

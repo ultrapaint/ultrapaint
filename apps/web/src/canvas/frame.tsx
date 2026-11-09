@@ -2,7 +2,6 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/preview-core/preview";
-import { cn } from "cn";
 import { X } from "lucide-react";
 import {
   type CSSProperties,
@@ -16,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "@/lib/cn";
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
@@ -477,7 +477,7 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   return (
     <>
       <span
-        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-caption text-muted-foreground"
+        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small font-medium text-muted-foreground"
         title={`Breakpoint ${name}: edits here land at ${name}`}
       >
         {name}
@@ -602,7 +602,7 @@ export const FrameHeader = ({
 }) => (
   <div
     className={cn(
-      "@container pointer-events-none absolute left-0 flex flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap font-small *:pointer-events-auto",
+      "@container pointer-events-none absolute left-0 flex flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap font-body-small *:pointer-events-auto",
       className
     )}
     style={{

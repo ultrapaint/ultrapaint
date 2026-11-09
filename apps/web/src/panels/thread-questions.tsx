@@ -7,7 +7,6 @@ import {
   isBusy,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   Check,
   ChevronDown,
@@ -30,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { composerText } from "../components/composer-style.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import {
@@ -74,7 +74,7 @@ const AskCard = ({
   title: string;
 }) => (
   <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 font-body">
-    <span className="flex items-center gap-1.5 font-small text-muted-foreground">
+    <span className="flex items-center gap-1.5 font-body-small text-muted-foreground">
       <Icon className={cn("size-3.5 shrink-0", open && "text-warning")} />
       {title}
     </span>
@@ -144,13 +144,15 @@ export const Permission = ({
       <span
         className={cn(
           "wrap-break-word",
-          open ? "font-label text-foreground" : "text-muted-foreground"
+          open
+            ? "font-body font-medium text-foreground"
+            : "text-muted-foreground"
         )}
       >
         {item.title}
       </span>
       {item.detail && open ? (
-        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md bg-muted px-2.5 py-1.5 font-code text-muted-foreground">
+        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md bg-muted px-2.5 py-1.5 font-code text-muted-foreground leading-5">
           {item.detail}
         </pre>
       ) : null}
@@ -167,7 +169,7 @@ export const Permission = ({
           ))}
         </div>
       ) : (
-        <span className="font-label text-foreground">
+        <span className="font-body font-medium text-foreground">
           {item.options.find((o) => o.optionId === item.decision)?.name ??
             item.decision}
         </span>
@@ -224,9 +226,11 @@ const QuestionChoices = ({
             type="button"
           >
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-label text-foreground">{o.label}</span>
+              <span className="font-body font-medium text-foreground">
+                {o.label}
+              </span>
               {o.description ? (
-                <span className="font-small text-muted-foreground">
+                <span className="font-body-small text-muted-foreground">
                   {o.description}
                 </span>
               ) : null}
@@ -282,8 +286,10 @@ export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
     >
       {item.questions.map((q) => (
         <div className="flex flex-col" key={q.id}>
-          <span className="font-small text-muted-foreground">{q.question}</span>
-          <span className="font-label text-foreground">
+          <span className="font-body-small text-muted-foreground">
+            {q.question}
+          </span>
+          <span className="font-body font-medium text-foreground">
             {answerLabel(q, answered?.[q.id])}
           </span>
         </div>
@@ -318,11 +324,11 @@ const QuestionCard = ({
   const hint = questionHint(question);
   return (
     <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 font-body">
-      <div className="-mr-1.5 flex h-6 items-center gap-1.5 font-small text-muted-foreground">
+      <div className="-mr-1.5 flex h-6 items-center gap-1.5 font-body-small text-muted-foreground">
         <CircleHelp className="size-3.5 shrink-0 text-warning" />
         <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
         {count > 1 ? (
-          <span className="font-caption tabular-nums">
+          <span className="font-body-small font-medium tabular-nums">
             {draft.step + 1} of {count}
           </span>
         ) : null}
@@ -360,7 +366,7 @@ const QuestionCard = ({
           ) : null}
         </span>
         {hint && !collapsed ? (
-          <span className="font-small text-muted-foreground">{hint}</span>
+          <span className="font-body-small text-muted-foreground">{hint}</span>
         ) : null}
       </div>
       {/* Many choices scroll within the card rather than squeeze the thread above it. */}
@@ -370,7 +376,7 @@ const QuestionCard = ({
         </div>
       )}
       {running && !waiting ? (
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           The answers go once the agent’s turn ends.
         </span>
       ) : null}

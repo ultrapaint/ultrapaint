@@ -3,7 +3,6 @@
  * their output and diffs, and where each turn ended.
  */
 import type { ThreadItem, ToolContent } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   Check,
   ChevronRight,
@@ -28,6 +27,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { Markdown } from "../components/markdown.tsx";
 import { isOpenQuestion } from "../lib/answers.ts";
 import { isRunPlan } from "../lib/design-run.ts";
@@ -159,7 +159,7 @@ const Disclosure = ({
 }) => (
   <CollapsibleTrigger
     className={cn(
-      "group/button -mx-1.5 flex h-7 w-[calc(100%+0.75rem)] min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left font-small text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0",
+      "group/button -mx-1.5 flex h-7 w-[calc(100%+0.75rem)] min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left font-body-small text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0",
       className
     )}
     disabled={disabled}
@@ -204,7 +204,7 @@ const TurnEnd = ({
   const count = item.changedFiles.length;
   const during = item.changedDuring ?? [];
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 font-small text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-1.5 font-body-small text-muted-foreground">
       {note ? (
         <span className="flex items-center gap-1.5">
           <Square className="size-2.5 fill-warning text-warning" />
@@ -289,7 +289,7 @@ const TerminalView = ({
     end.current?.scrollIntoView({ block: "nearest" });
   }, [output]);
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground leading-5">
       {output ?? "…"}
       <div ref={end} />
     </pre>
@@ -319,7 +319,7 @@ const DiffContentView = ({
   }, [content.oldText, content.newText]);
   return (
     <div>
-      <div className="flex items-center gap-2 px-2.5 font-small text-muted-foreground">
+      <div className="flex items-center gap-2 px-2.5 font-body-small text-muted-foreground">
         <span className="min-w-0 truncate" title={content.path}>
           {content.path}
         </span>
@@ -330,7 +330,7 @@ const DiffContentView = ({
           −{removed}
         </span>
       </div>
-      <pre className="max-h-48 select-text overflow-auto py-1 font-code">
+      <pre className="max-h-48 select-text overflow-auto py-1 font-code leading-5">
         {rows.map((row) => (
           <div
             className={cn(
@@ -369,7 +369,7 @@ const ToolContentView = ({
     );
   }
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground leading-5">
       {content.text}
     </pre>
   );
@@ -455,7 +455,7 @@ const PlanMark = ({
 /** The agent's plan, its steps ticked off as it goes. */
 const Plan = ({ item }: { item: PlanItem }) => (
   <div className="flex flex-col gap-1 rounded-lg border px-3 py-2.5">
-    <span className="font-small text-muted-foreground">Plan</span>
+    <span className="font-body-small text-muted-foreground">Plan</span>
     <ol className="flex flex-col gap-1">
       {keyedEntries(item.entries).map(({ entry, key }) => (
         <li
@@ -501,7 +501,7 @@ const Item = ({
               </BubbleContent>
             </Bubble>
             {item.attachments.length > 0 && (
-              <span className="flex min-w-0 items-center justify-end gap-1 font-small text-muted-foreground">
+              <span className="flex min-w-0 items-center justify-end gap-1 font-body-small text-muted-foreground">
                 <Paperclip className="size-3 shrink-0" />
                 <span className="truncate" title={item.attachments.join(", ")}>
                   {item.attachments.join(", ")}

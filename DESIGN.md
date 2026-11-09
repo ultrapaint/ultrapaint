@@ -28,11 +28,32 @@ colors:
   component: "#8b5cf6"
   agent: "#ec4899"
 typography:
+  heading-xxlarge:
+    fontFamily: Cal Sans
+    fontSize: 2rem
+    fontWeight: 400
+    lineHeight: 2.25rem
+  heading-xlarge:
+    fontFamily: Cal Sans
+    fontSize: 1.75rem
+    fontWeight: 400
+    lineHeight: 2rem
+  heading-large:
+    fontFamily: Cal Sans
+    fontSize: 1.5rem
+    fontWeight: 400
+    lineHeight: 1.75rem
+  heading-medium:
+    fontFamily: Cal Sans
+    fontSize: 1.25rem
+    fontWeight: 400
+    lineHeight: 1.5rem
+    letterSpacing: 0.01em
   heading-small:
     fontFamily: Cal Sans
     fontSize: 1rem
     fontWeight: 400
-    lineHeight: 1.5rem
+    lineHeight: 1.25rem
     letterSpacing: 0.02em
   heading-xsmall:
     fontFamily: Cal Sans
@@ -40,31 +61,32 @@ typography:
     fontWeight: 400
     lineHeight: 1.25rem
     letterSpacing: 0.02em
+  heading-xxsmall:
+    fontFamily: Cal Sans
+    fontSize: 0.75rem
+    fontWeight: 400
+    lineHeight: 1rem
+    letterSpacing: 0.02em
+  body-large:
+    fontFamily: Figtree Variable
+    fontSize: 1rem
+    fontWeight: 400
+    lineHeight: 1.5rem
   body:
     fontFamily: Figtree Variable
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.25rem
-  label:
-    fontFamily: Figtree Variable
-    fontSize: 0.875rem
-    fontWeight: 500
-    lineHeight: 1.25rem
-  small:
-    fontFamily: Figtree Variable
-    fontSize: 0.8125rem
-    fontWeight: 400
-    lineHeight: 1.125rem
-  caption:
+  body-small:
     fontFamily: Figtree Variable
     fontSize: 0.75rem
-    fontWeight: 500
+    fontWeight: 400
     lineHeight: 1rem
   code:
     fontFamily: Geist Mono Variable
-    fontSize: 0.8125rem
+    fontSize: 0.75rem
     fontWeight: 400
-    lineHeight: 1.25rem
+    lineHeight: 1rem
 rounded:
   sm: 0.25rem
   md: 0.375rem
@@ -128,22 +150,31 @@ follows the system's unless the person picks one in Settings › Preferences.
 
 ## Typography
 
-Cal Sans for the two headings (`@fontsource/cal-sans`), Figtree for everything else
-(`@fontsource-variable/figtree`), Geist Mono for values, tokens, routes in code and code. Cal Sans
-has one weight, its 400, and is spaced for display sizes, so the headings open it by 0.02em.
-Roles are `font-<role>` utilities; the editor never uses a stock size.
+Atlassian's semantic type tokens: seven headings and three bodies, each a `font-<token>` utility
+carrying the face, size, line height, weight and tracking; the editor never uses a stock size.
+Headings are Cal Sans (`@fontsource/cal-sans`), bodies Figtree (`@fontsource-variable/figtree`),
+values, tokens, routes in code and code Geist Mono. Cal Sans has one weight, its 400, never made
+bold, and is spaced for display sizes, so the headings to 20px open it.
 
-- `font-heading-small` 16/24 Cal Sans: a dialog's or a page's title.
-- `font-heading-xsmall` 14/20 Cal Sans: a panel's, a section's or a card's title, a field label.
-- `font-body` 14/20: everything read.
-- `font-label` 14/20 medium: control text (buttons, tabs, menu items), names in a list.
-- `font-small` 13/18: what qualifies its neighbour: a size, a route, a time, a hint, a description,
-  an inspector row's label, a menu's group label.
-- `font-caption` 12/16 medium: keys, counts, badges, avatars' initials only.
-- `font-code` 13/20 mono.
+- `font-heading-xxlarge` 32/36, `-xlarge` 28/32, `-large` 24/28, `-medium` 20/24: for a page
+  of the editor's own that needs them; its panels and dialogs use the two below.
+- `font-heading-small` 16/20: a dialog's or a page's title.
+- `font-heading-xsmall` 14/20: a panel's, a section's or a card's title, a field's label.
+- `font-heading-xxsmall` 12/16.
+- `font-body-large` 16/24: a page's lead, where there is one.
+- `font-body` 14/20: everything read. With `font-medium`: control text (buttons, tabs, menu items),
+  names in a list.
+- `font-body-small` 12/16: what qualifies its neighbour: a size, a route, a time, a hint, a
+  description, an inspector row's label, a menu's group label. With `font-medium`: keys, counts,
+  badges, avatars' initials.
+- `font-code` 12/16 mono; a block of several lines takes `leading-5`.
+
+Emphasis is a weight utility after the token, Atlassian's weights: `font-regular` 400,
+`font-medium` 500, `font-semibold` 600, `font-bold` 653. Class lists are merged with the editor's
+`cn` (`apps/web/src/lib/cn.ts`), which drops a weight a later token replaces.
 
 A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
-label in `font-small` muted and their value in the foreground.
+label in `font-body-small` muted and their value in the foreground.
 
 ## Layout
 

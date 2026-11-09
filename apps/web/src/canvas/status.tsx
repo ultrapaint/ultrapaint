@@ -25,7 +25,7 @@ export const CanvasStatus = () => {
       icon={<Spinner className="text-muted-foreground" />}
       label={message}
     >
-      <span className="truncate pr-1.5 font-small" title={shell?.detail}>
+      <span className="truncate pr-1.5 font-body-small" title={shell?.detail}>
         {message}
       </span>
     </Banner>

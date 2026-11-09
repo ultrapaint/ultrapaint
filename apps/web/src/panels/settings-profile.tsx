@@ -119,7 +119,7 @@ export const ProfileRow = () => {
       {line ? (
         <p
           aria-live="polite"
-          className="@xl:w-52 font-small text-muted-foreground"
+          className="@xl:w-52 font-body-small text-muted-foreground"
           id="settings-display-name-status"
         >
           {line}

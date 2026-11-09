@@ -2,7 +2,7 @@
  * Four bars round a box: the sides of a padding or a margin. A field lights the sides it sets;
  * the button that opens a row to four sides lights them all.
  */
-import { cn } from "cn";
+import { cn } from "@/lib/cn";
 import type { Side } from "../lib/sides.ts";
 
 const BARS: readonly [Side, number, number, number, number][] = [

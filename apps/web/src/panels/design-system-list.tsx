@@ -7,7 +7,6 @@
  * own sees the default look's foundations, and the ways to make its own (ADR 0062).
  */
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
-import { cn } from "cn";
 import {
   AlertTriangle,
   ChevronDown,
@@ -28,6 +27,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { cn } from "@/lib/cn";
 import {
   foundationsOf,
   guidelinesOf,
@@ -53,7 +53,7 @@ const hideSetup = () => useDesignSystemSetup.getState().show(false);
 
 /** A group's name over its rows: small and muted, as the rows say what it holds. */
 const Heading = ({ children }: { children: string }) => (
-  <h3 className="flex h-9 items-end px-4 pb-1.5 font-small text-muted-foreground">
+  <h3 className="flex h-9 items-end px-4 pb-1.5 font-body-small text-muted-foreground">
     {children}
   </h3>
 );
@@ -65,7 +65,7 @@ const Findings = ({ findings }: { findings: readonly DesignFinding[] }) => {
     return null;
   }
   return (
-    <ul className="mt-3 flex flex-col gap-2 px-3 font-small">
+    <ul className="mt-3 flex flex-col gap-2 px-3 font-body-small">
       {shown.map((f) => (
         <li
           className="flex items-start gap-2"
@@ -93,14 +93,14 @@ const Findings = ({ findings }: { findings: readonly DesignFinding[] }) => {
 const ItemRow = ({ item, open }: { item: SystemItem; open: boolean }) => (
   <button
     aria-current={open ? "page" : undefined}
-    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-label text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item: item.id, view: "system" })}
     title={item.name}
     type="button"
   >
     <span className="truncate">{item.name}</span>
     {item.count > 0 ? (
-      <span className="ml-auto font-caption text-muted-foreground tabular-nums">
+      <span className="ml-auto font-body-small font-medium text-muted-foreground tabular-nums">
         {item.count}
       </span>
     ) : null}
@@ -144,10 +144,12 @@ const SyncWaiting = () => {
       type="button"
     >
       <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-warning" />
-      <span className="min-w-0 flex-1 truncate font-small">
+      <span className="min-w-0 flex-1 truncate font-body-small">
         {waiting.title}
       </span>
-      <span className="shrink-0 font-small text-muted-foreground">Review</span>
+      <span className="shrink-0 font-body-small text-muted-foreground">
+        Review
+      </span>
     </button>
   );
 };
@@ -165,7 +167,7 @@ const DefaultLook = () => {
     >
       <div className="flex flex-col gap-0.5">
         <h3 className="font-heading-xsmall">Ultrapaint’s default look</h3>
-        <p className="font-small text-muted-foreground">
+        <p className="font-body-small text-muted-foreground">
           Designs use it until {name ?? "the project"} has its own.
         </p>
       </div>

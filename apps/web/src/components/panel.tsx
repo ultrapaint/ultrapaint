@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import type * as React from "react";
 import {
   Empty,
@@ -8,6 +7,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/cn";
 
 export const Section = ({
   title,
@@ -72,8 +72,12 @@ export const PanelEmpty = ({
           {icon}
         </EmptyMedia>
       ) : null}
-      {title ? <EmptyTitle className="font-label">{title}</EmptyTitle> : null}
-      <EmptyDescription className="font-small">{children}</EmptyDescription>
+      {title ? (
+        <EmptyTitle className="font-body font-medium">{title}</EmptyTitle>
+      ) : null}
+      <EmptyDescription className="font-body-small">
+        {children}
+      </EmptyDescription>
     </EmptyHeader>
     {action}
   </Empty>

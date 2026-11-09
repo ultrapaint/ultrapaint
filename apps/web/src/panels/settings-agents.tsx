@@ -110,7 +110,7 @@ export const McpConnectionGroup = () => {
           </IconButton>
         </div>
         {connection.replaced ? (
-          <p className="font-small text-destructive">
+          <p className="font-body-small text-destructive">
             The token changed. Copy the command again for agents connected
             before.
           </p>
@@ -506,7 +506,7 @@ const MachineAgentRow = ({
       <div className="flex flex-col @xl:items-end gap-1.5">
         <div className="flex flex-wrap items-center @xl:justify-end gap-1">
           {downloading ? (
-            <span className="font-small text-muted-foreground">
+            <span className="font-body-small text-muted-foreground">
               {downloadLabel(progress)}
             </span>
           ) : null}

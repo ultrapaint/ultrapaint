@@ -1,7 +1,7 @@
 import { Select as SelectPrimitive } from "@base-ui/react/select";
-import { cn } from "cn";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import type * as React from "react";
+import { cn } from "@/lib/cn";
 
 const Select = SelectPrimitive.Root;
 
@@ -102,7 +102,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       className={cn(
-        "px-2 pt-2 pb-1 font-small text-muted-foreground",
+        "px-2 pt-2 pb-1 font-body-small text-muted-foreground",
         className
       )}
       data-slot="select-label"

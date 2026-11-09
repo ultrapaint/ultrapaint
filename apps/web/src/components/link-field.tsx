@@ -1,6 +1,6 @@
 import { BACK_LINK, linkTargetOf } from "@ultrapaint/shared/link";
-import { cn } from "cn";
 import { TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { describeLink, linkToPage } from "../lib/links.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
@@ -99,7 +99,7 @@ export const LinkField = ({
         value={mixed ? null : current}
       />
       {described?.broken ? (
-        <span className="flex items-center gap-1.5 font-small text-destructive">
+        <span className="flex items-center gap-1.5 font-body-small text-destructive">
           <TriangleAlert className="size-3.5 shrink-0" />
           Goes to a page that is not there
         </span>

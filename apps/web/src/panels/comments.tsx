@@ -1,5 +1,4 @@
 import type { Comment } from "@ultrapaint/contracts/comments";
-import { cn } from "cn";
 import {
   Check,
   CheckCheck,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 import {
   CommentAvatar,
   relativeTime,
@@ -71,7 +71,7 @@ export const Comments = () => {
   return (
     <div className="flex h-full flex-col">
       <CommentsHeading>
-        <span className="min-w-0 flex-1 truncate font-small text-muted-foreground tabular-nums">
+        <span className="min-w-0 flex-1 truncate font-body-small text-muted-foreground tabular-nums">
           {comments.length === 0
             ? null
             : `${comments.length - resolvedCount} open${resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ""}`}
@@ -125,7 +125,7 @@ export const Comments = () => {
             const page = pages.find((p) => p.path === pagePath);
             return (
               <section className="flex flex-col px-2" key={pagePath}>
-                <h3 className="flex h-9 items-end gap-1.5 truncate px-2 pb-1.5 font-small text-muted-foreground">
+                <h3 className="flex h-9 items-end gap-1.5 truncate px-2 pb-1.5 font-body-small text-muted-foreground">
                   {page ? (
                     <>
                       <span className="truncate">{page.name}</span>
@@ -178,7 +178,7 @@ const Item = ({ comment }: { comment: Comment }) => {
         <div className="flex h-6 items-center gap-1.5">
           <span
             className={cn(
-              "truncate font-label",
+              "truncate font-body font-medium",
               comment.resolved && "text-muted-foreground"
             )}
           >
@@ -186,7 +186,7 @@ const Item = ({ comment }: { comment: Comment }) => {
               ? "Behaviour note"
               : (comment.author ?? "Someone")}
           </span>
-          <span className="shrink-0 font-small text-muted-foreground">
+          <span className="shrink-0 font-body-small text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
           {comment.resolved ? (
@@ -205,7 +205,7 @@ const Item = ({ comment }: { comment: Comment }) => {
           {comment.text}
         </p>
         {comment.element || comment.replies.length > 0 ? (
-          <span className="flex min-w-0 gap-2 pt-0.5 font-small text-muted-foreground">
+          <span className="flex min-w-0 gap-2 pt-0.5 font-body-small text-muted-foreground">
             {comment.replies.length > 0 ? (
               <span className="shrink-0">
                 {repliesLabel(comment.replies.length)}

@@ -2,8 +2,9 @@
  * The markdown renderer itself, with the parser and highlighter it brings: loaded on its own,
  * when the first piece of markdown is shown, through `markdown.tsx`.
  */
-import { cn } from "cn";
+
 import { Streamdown } from "streamdown";
+import { cn } from "@/lib/cn";
 
 /**
  * Streamdown ships typography for a full-width page; the agent panel runs at
@@ -28,7 +29,7 @@ const compact = [
   // The header keeps its height: the copy button is pulled up over it by a
   // fixed margin, and shrinking one without the other tears them apart.
   "[&_[data-streamdown=code-block-header]]:font-body",
-  "[&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:p-2 [&_[data-streamdown=code-block-body]]:font-code",
+  "[&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:p-2 [&_[data-streamdown=code-block-body]]:font-code [&_[data-streamdown=code-block-body]]:leading-5",
   "[&_[data-streamdown=table-cell]]:px-2 [&_[data-streamdown=table-cell]]:py-1 [&_[data-streamdown=table-cell]]:font-body",
   "[&_[data-streamdown=table-header-cell]]:px-2 [&_[data-streamdown=table-header-cell]]:py-1 [&_[data-streamdown=table-header-cell]]:font-body [&_[data-streamdown=table-header-cell]]:font-semibold",
   // A link stays in its sentence, at its weight, underlined (typography.md).

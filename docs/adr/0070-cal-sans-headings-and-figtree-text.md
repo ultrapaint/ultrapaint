@@ -1,6 +1,7 @@
 # ADR 0070: Cal Sans for the headings, Figtree for the rest
 
-Status: accepted, 2026-11-09. Amends 0058 (the editor's faces).
+Status: accepted, 2026-11-09. Amends 0058 (the editor's faces). The roles named here are
+Atlassian's type tokens since 0071.
 
 ## Context
 

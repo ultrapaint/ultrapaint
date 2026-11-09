@@ -1,8 +1,8 @@
 import { BuiltInAgentId } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import { Schema } from "effect";
 import { Bot } from "lucide-react";
 import type { SVGProps } from "react";
+import { cn } from "@/lib/cn";
 
 // The marks are the ones t3code draws for its providers.
 

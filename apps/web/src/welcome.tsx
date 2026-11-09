@@ -7,7 +7,6 @@
  * There is no server behind it: all of it goes through `Platform`.
  */
 import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
-import { cn } from "cn";
 import {
   ArrowLeft,
   ArrowUp,
@@ -36,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { composerBox, composerText } from "./components/composer-style.ts";
 import { IconButton } from "./components/icon-button.tsx";
 import { Lockup } from "./components/logo.tsx";
@@ -352,12 +352,18 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
         </div>
       </div>
       {doing === null ? null : (
-        <span className="px-1 font-small text-muted-foreground" role="status">
+        <span
+          className="px-1 font-body-small text-muted-foreground"
+          role="status"
+        >
           {doing}
         </span>
       )}
       {missing && doing === null ? (
-        <span className="px-1 font-small text-muted-foreground" role="status">
+        <span
+          className="px-1 font-body-small text-muted-foreground"
+          role="status"
+        >
           Say what you want to make first.
         </span>
       ) : null}
@@ -474,16 +480,18 @@ const Welcome = () => {
         <div className="flex items-start gap-3 rounded-lg border bg-card p-3">
           <Spinner className="mt-0.5 shrink-0 text-muted-foreground" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate font-label">Opening {opening.name}…</span>
+            <span className="truncate font-body font-medium">
+              Opening {opening.name}…
+            </span>
             {opening.detail ? (
               <span
-                className="truncate font-small text-muted-foreground"
+                className="truncate font-body-small text-muted-foreground"
                 title={opening.detail}
               >
                 {opening.detail}
               </span>
             ) : null}
-            <span className="mt-1 text-pretty font-small text-muted-foreground">
+            <span className="mt-1 text-pretty font-body-small text-muted-foreground">
               Starting its server. A machine that is off or out of reach can
               take a minute to give up.
             </span>
@@ -524,10 +532,12 @@ const Welcome = () => {
                   onClick={() => projects?.open(project.id).catch(say)}
                   type="button"
                 >
-                  <span className="truncate font-label">{project.name}</span>
+                  <span className="truncate font-body font-medium">
+                    {project.name}
+                  </span>
                   {project.detail ? (
                     <span
-                      className="truncate font-small text-muted-foreground"
+                      className="truncate font-body-small text-muted-foreground"
                       title={project.detail}
                     >
                       {project.detail}
@@ -538,7 +548,7 @@ const Welcome = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-pretty font-small text-muted-foreground">
+          <p className="text-pretty font-body-small text-muted-foreground">
             Open a folder that holds an app to design on it, here or over SSH.
           </p>
         )}

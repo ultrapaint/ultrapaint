@@ -23,7 +23,6 @@ import {
   namedChoices,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import { ChevronDown, GripVertical, Search, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -208,13 +208,15 @@ const ChosenRow = ({
       >
         <GripVertical className="size-3.5" />
       </button>
-      <span className="min-w-0 flex-1 truncate font-label">{name}</span>
-      <span className="shrink-0 truncate font-small text-muted-foreground">
+      <span className="min-w-0 flex-1 truncate font-body font-medium">
+        {name}
+      </span>
+      <span className="shrink-0 truncate font-body-small text-muted-foreground">
         {agentName}
       </span>
       {efforts.length > 0 ? (
         <OptionSelect
-          className={cn(rowSelect, "h-6 font-small text-muted-foreground")}
+          className={cn(rowSelect, "h-6 font-body-small text-muted-foreground")}
           onChange={onEffort}
           options={efforts.map((e) => ({ label: e.name, value: e.value }))}
           size="sm"
@@ -288,7 +290,7 @@ const ReviewModelsPicker = ({
         render={
           <Button
             aria-label={`Review models: ${summary}`}
-            className="max-w-72 justify-end gap-1 px-2 font-label hover:bg-accent"
+            className="max-w-72 justify-end gap-1 px-2 font-body font-medium hover:bg-accent"
             variant="ghost"
           />
         }
@@ -299,7 +301,7 @@ const ReviewModelsPicker = ({
       <PopoverContent align="end" className="w-96 gap-0 p-1" side="top">
         {models.length > 0 ? (
           <section className="flex flex-col gap-0.5 p-1">
-            <h4 className="px-1 pb-1 font-small text-muted-foreground">
+            <h4 className="px-1 pb-1 font-body-small text-muted-foreground">
               {ordered ? "In turn order" : "Chosen"}
             </h4>
             <ol className="flex flex-col gap-0.5">
@@ -369,13 +371,13 @@ const ReviewModelsPicker = ({
               }
               return (
                 <section className="flex flex-col gap-0.5" key={agent.id}>
-                  <h4 className="flex h-6 items-center justify-between px-1 font-small text-muted-foreground">
+                  <h4 className="flex h-6 items-center justify-between px-1 font-body-small text-muted-foreground">
                     {agent.name}
                     {here?.state === "signed-out" &&
                     here.signInWith &&
                     setup ? (
                       <Button
-                        className="h-6 px-1.5 font-small"
+                        className="h-6 px-1.5 font-body-small"
                         onClick={() => signIn(here.id)}
                         size="sm"
                         variant="ghost"
@@ -385,18 +387,18 @@ const ReviewModelsPicker = ({
                     ) : null}
                   </h4>
                   {waiting ? (
-                    <p className="px-1 py-1 font-small text-muted-foreground">
+                    <p className="px-1 py-1 font-body-small text-muted-foreground">
                       Asking {agent.name} for its models…
                     </p>
                   ) : null}
                   {problem ? (
-                    <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-2 py-1.5 font-small text-destructive">
+                    <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-2 py-1.5 font-body-small text-destructive">
                       <p className="min-w-0 flex-1">
                         {word ??
                           `${agent.name} couldn’t list its models: ${problem}`}
                       </p>
                       <Button
-                        className="-my-0.5 h-6 shrink-0 px-1.5 font-small"
+                        className="-my-0.5 h-6 shrink-0 px-1.5 font-body-small"
                         onClick={() => retry(agent.id)}
                         size="sm"
                         variant="ghost"
@@ -422,11 +424,11 @@ const ReviewModelsPicker = ({
                         aria-hidden
                         className="size-4 shrink-0 rounded-sm border border-muted-foreground"
                       />
-                      <span className="min-w-0 flex-1 truncate font-label">
+                      <span className="min-w-0 flex-1 truncate font-body font-medium">
                         {c.name}
                       </span>
                       {word ? (
-                        <span className="shrink-0 font-small text-muted-foreground">
+                        <span className="shrink-0 font-body-small text-muted-foreground">
                           {word}
                         </span>
                       ) : null}
@@ -436,12 +438,12 @@ const ReviewModelsPicker = ({
               );
             })}
             {needle !== "" && !anyMatch ? (
-              <div className="flex items-center gap-2 px-1 py-1 font-small text-muted-foreground">
+              <div className="flex items-center gap-2 px-1 py-1 font-body-small text-muted-foreground">
                 <p className="min-w-0 flex-1 truncate">
                   No model matches “{query.trim()}”.
                 </p>
                 <Button
-                  className="-my-0.5 h-6 shrink-0 px-1.5 font-small"
+                  className="-my-0.5 h-6 shrink-0 px-1.5 font-body-small"
                   onClick={() => setQuery("")}
                   size="sm"
                   variant="ghost"

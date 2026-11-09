@@ -147,7 +147,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
 
   if (toCode.length + toDesign.length + conflicts.length === 0) {
     return (
-      <div className="flex flex-col gap-2 font-small">
+      <div className="flex flex-col gap-2 font-body-small">
         <p className="flex items-center gap-1.5">
           <Check className="size-3.5 text-success" />
           The code has every value of the design.
@@ -157,7 +157,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
     );
   }
   return (
-    <div className="flex flex-col gap-2 font-small">
+    <div className="flex flex-col gap-2 font-body-small">
       {comparison.notes.map((note) => (
         <p className="text-muted-foreground" key={note}>
           {note}

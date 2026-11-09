@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   FileText,
   LayoutGrid,
@@ -19,6 +18,7 @@ import { create } from "zustand";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
+import { cn } from "@/lib/cn";
 import {
   type Command,
   paletteCommands,
@@ -90,7 +90,7 @@ const Row = ({
     <div
       aria-selected={active}
       className={cn(
-        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-2 font-label",
+        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-2 font-body font-medium",
         active && "bg-accent",
         command.destructive && "text-destructive"
       )}
@@ -113,12 +113,12 @@ const Row = ({
         {command.title}
       </span>
       {command.detail ? (
-        <span className="max-w-40 shrink-0 truncate font-small text-muted-foreground">
+        <span className="max-w-40 shrink-0 truncate font-body-small text-muted-foreground">
           {command.detail}
         </span>
       ) : null}
       {grouped ? null : (
-        <span className="shrink-0 font-small text-muted-foreground">
+        <span className="shrink-0 font-body-small text-muted-foreground">
           {command.group}
         </span>
       )}
@@ -129,7 +129,7 @@ const Row = ({
 
 /** What the keys do, at the palette's foot. */
 const Legend = () => (
-  <div className="flex h-9 shrink-0 items-center gap-4 border-t px-3 font-small text-muted-foreground">
+  <div className="flex h-9 shrink-0 items-center gap-4 border-t px-3 font-body-small text-muted-foreground">
     <span className="flex items-center gap-1.5">
       <Kbd className={KEY_CAP}>↑↓</Kbd>
       Move
@@ -155,10 +155,10 @@ const NoMatch = ({
 }) => (
   <div className="flex flex-col items-center gap-1 px-6 py-10 text-center">
     <SearchX className="mb-2 size-5 text-muted-foreground" />
-    <span className="max-w-full truncate font-label">
+    <span className="max-w-full truncate font-body font-medium">
       No results for “{query}”
     </span>
-    <span className="font-small text-muted-foreground">
+    <span className="font-body-small text-muted-foreground">
       Commands, pages, canvases and chats are searched by name.
     </span>
     <Button className="mt-3" onClick={onClear} size="sm" variant="secondary">
@@ -245,7 +245,7 @@ const PaletteBody = () => {
               {heading ? (
                 <div
                   className={cn(
-                    "px-2 pb-1 font-small text-muted-foreground",
+                    "px-2 pb-1 font-body-small text-muted-foreground",
                     i === 0 ? "pt-1" : "pt-3"
                   )}
                 >

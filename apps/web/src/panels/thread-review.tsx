@@ -3,7 +3,6 @@
  * each review round with who looked, what they scored, and what the designer did with it.
  */
 import type { RoundReviewer, ThreadItem } from "@ultrapaint/contracts/threads";
-import { cn } from "cn";
 import {
   Check,
   ChevronRight,
@@ -21,6 +20,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import {
   endLine,
   type ReviewItem,
@@ -97,23 +97,23 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
   <div className="flex flex-col">
     <div className="flex items-center gap-2">
-      <span className="min-w-0 flex-1 truncate font-label">
+      <span className="min-w-0 flex-1 truncate font-body font-medium">
         {reviewer.name}
       </span>
       {reviewer.status === "looking" ? (
-        <span className="flex items-center gap-1.5 font-small text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-body-small text-muted-foreground">
           <Spinner className="size-3" />
           Looking
         </span>
       ) : null}
       {reviewer.status === "no-score" ? (
-        <span className="flex items-center gap-1.5 font-small text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-body-small text-muted-foreground">
           <CircleSlash aria-hidden className="size-3.5" />
           No score
         </span>
       ) : null}
       {reviewer.status === "done" ? (
-        <span className="flex items-center gap-1.5 font-small text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-body-small text-muted-foreground">
           {reviewer.approved ? (
             <>
               <Check aria-hidden className="size-3.5" />
@@ -123,7 +123,7 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
             plural(reviewer.findings, "finding")
           )}
           {reviewer.score === undefined ? null : (
-            <span className="min-w-6 text-right font-label text-foreground tabular-nums">
+            <span className="min-w-6 text-right font-body font-medium text-foreground tabular-nums">
               <span className="sr-only">, score </span>
               {reviewer.score}
               <span className="sr-only"> out of 100</span>
@@ -133,7 +133,7 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
       ) : null}
     </div>
     {reviewer.status === "no-score" && reviewer.reason ? (
-      <span className="font-small text-muted-foreground">
+      <span className="font-body-small text-muted-foreground">
         {reviewer.reason}
       </span>
     ) : null}
@@ -159,7 +159,7 @@ const RoundBody = ({ item }: { item: ReviewItem }) => {
         </div>
       ) : null}
       {item.fixed === undefined ? null : (
-        <p className="font-small text-muted-foreground">
+        <p className="font-body-small text-muted-foreground">
           {answered || "Nothing to fix"}
         </p>
       )}
@@ -167,8 +167,8 @@ const RoundBody = ({ item }: { item: ReviewItem }) => {
         <ul className="flex flex-col gap-1.5">
           {declined.map((f) => (
             <li className="flex flex-col" key={`${f.reviewer}:${f.title}`}>
-              <span className="font-label">{f.title}</span>
-              <span className="font-small text-muted-foreground">
+              <span className="font-body font-medium">{f.title}</span>
+              <span className="font-body-small text-muted-foreground">
                 Declined: {f.declined}
               </span>
             </li>
@@ -187,7 +187,7 @@ const Rounds = ({ rounds }: { rounds: readonly ReviewItem[] }) => (
   <ol className="mt-1.5 flex flex-col gap-2.5 border-l pl-3">
     {rounds.map((item) => (
       <li className="flex flex-col gap-1" key={item.id}>
-        <span className="font-small text-muted-foreground">
+        <span className="font-body-small text-muted-foreground">
           {roundTitle(item)}
         </span>
         <RoundBody item={item} />
@@ -211,20 +211,20 @@ const StepRow = ({
       </span>
       <span
         className={cn(
-          "font-label",
+          "font-body font-medium",
           step.status === "pending" && "text-muted-foreground"
         )}
       >
         {step.title}
       </span>
       {step.detail ? (
-        <span className="min-w-0 pt-px font-small text-muted-foreground">
+        <span className="min-w-0 pt-px font-body-small text-muted-foreground">
           {step.detail}
         </span>
       ) : null}
     </span>
     {step.now ? (
-      <span className="pl-5.5 font-small text-muted-foreground">
+      <span className="pl-5.5 font-body-small text-muted-foreground">
         {step.now}
       </span>
     ) : null}
@@ -288,14 +288,16 @@ export const RunCard = ({ plan }: { plan: PlanItem }) => {
         <span className="flex h-5 shrink-0 items-center">
           <StepMark status={review.status} />
         </span>
-        <span className="min-w-0 flex-1 font-label">{review.detail}</span>
+        <span className="min-w-0 flex-1 font-body font-medium">
+          {review.detail}
+        </span>
         <ChevronRight
           aria-hidden
           className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-panel-open/run:rotate-90"
         />
       </CollapsibleTrigger>
       {last.end.unmet.length > 0 ? (
-        <p className="pl-5.5 font-small text-muted-foreground">
+        <p className="pl-5.5 font-body-small text-muted-foreground">
           Still short: {last.end.unmet.join("; ")}
         </p>
       ) : null}
@@ -318,7 +320,7 @@ export const ReviewRound = ({ item }: { item: ReviewItem }) => (
     aria-label={`Review, round ${item.round}`}
     className="flex flex-col gap-2 rounded-lg border px-3 py-2.5"
   >
-    <header className="flex items-center gap-2 font-small text-muted-foreground">
+    <header className="flex items-center gap-2 font-body-small text-muted-foreground">
       <ScanEye aria-hidden className="size-3.5" />
       <span>{roundTitle(item)}</span>
     </header>
@@ -326,7 +328,7 @@ export const ReviewRound = ({ item }: { item: ReviewItem }) => (
     {item.end ? (
       <p
         className={cn(
-          "border-t pt-2 font-small",
+          "border-t pt-2 font-body-small",
           item.end.reason === "failed" ? "text-destructive" : "text-foreground"
         )}
       >

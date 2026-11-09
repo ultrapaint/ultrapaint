@@ -3,8 +3,9 @@
  * highlighter are most of the editor's weight, and nothing needs them before a message is shown.
  * Until it arrives the text is shown as it is.
  */
-import { cn } from "cn";
+
 import { Suspense } from "react";
+import { cn } from "@/lib/cn";
 import { deferred } from "../lib/deferred.ts";
 import type { MarkdownProps } from "./markdown-render.tsx";
 

@@ -1,11 +1,11 @@
 /** The inspector's own fields, and how a change reaches every node it inspects. */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
-import { cn } from "cn";
 import { Minus, Plus, TriangleAlert } from "lucide-react";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import {
@@ -104,7 +104,10 @@ export const Row = ({
       className
     )}
   >
-    <span className="truncate font-small text-muted-foreground" title={label}>
+    <span
+      className="truncate font-body-small text-muted-foreground"
+      title={label}
+    >
       {label}
     </span>
     <div className="flex min-w-0 items-center gap-2">{children}</div>
@@ -182,8 +185,8 @@ export const EmptyState = ({
   <div className="flex h-full min-h-48 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
     <div className="flex flex-col items-center gap-1">
       <span className="mb-1 text-muted-foreground [&_svg]:size-5">{icon}</span>
-      <p className="font-label">{title}</p>
-      <p className="max-w-60 text-balance font-small text-muted-foreground">
+      <p className="font-body font-medium">{title}</p>
+      <p className="max-w-60 text-balance font-body-small text-muted-foreground">
         {children}
       </p>
     </div>
@@ -300,7 +303,7 @@ export const TextInput = ({
 
 /** A line under a section's fields about why what they say is not what is drawn. */
 export const Warning = ({ children }: { children: ReactNode }) => (
-  <p className="flex gap-1.5 font-small text-muted-foreground [&_svg]:mt-0.5 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-warning">
+  <p className="flex gap-1.5 font-body-small text-muted-foreground [&_svg]:mt-0.5 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-warning">
     <TriangleAlert />
     <span>{children}</span>
   </p>

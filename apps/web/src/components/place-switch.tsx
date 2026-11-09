@@ -3,12 +3,13 @@
  * design system's boards (ADR 0053's two modes), and the prototype, clicked through. Where the
  * user is, said once, where the eye looks first.
  */
-import { cn } from "cn";
+
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { useEditor } from "../state/editor.ts";
 import { type EditorMode, showMode, useEditorMode } from "../state/panels.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
@@ -50,7 +51,7 @@ export const PlaceSwitch = () => {
                 <button
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-7 items-center gap-1.5 rounded-md px-3 font-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/25",
+                    "relative flex h-7 items-center gap-1.5 rounded-md px-3 font-body font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/25",
                     active
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:text-foreground"
