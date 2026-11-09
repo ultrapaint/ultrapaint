@@ -1,7 +1,7 @@
 # ADR 0071: The editor's type is Atlassian's semantic tokens
 
 Status: accepted, 2026-11-09. Amends 0058 (seven type roles at four sizes) and 0070 (the
-heading roles' tracking).
+heading roles' tracking). Emphasis and `font-code` are amended by 0072.
 
 ## Context
 

@@ -190,9 +190,7 @@ export const InventoryResult = ({
       </div>
       {off.length > 0 ? (
         <div className="flex flex-col">
-          <span className="font-body font-medium">
-            Most used off the system
-          </span>
+          <span className="font-body-medium">Most used off the system</span>
           <ul className="flex flex-col divide-y">
             {listed.map((v) => (
               <ValueRow

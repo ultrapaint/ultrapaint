@@ -144,15 +144,13 @@ export const Permission = ({
       <span
         className={cn(
           "wrap-break-word",
-          open
-            ? "font-body font-medium text-foreground"
-            : "text-muted-foreground"
+          open ? "font-body-medium text-foreground" : "text-muted-foreground"
         )}
       >
         {item.title}
       </span>
       {item.detail && open ? (
-        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md bg-muted px-2.5 py-1.5 font-code text-muted-foreground leading-5">
+        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md bg-muted px-2.5 py-1.5 font-code text-muted-foreground">
           {item.detail}
         </pre>
       ) : null}
@@ -169,7 +167,7 @@ export const Permission = ({
           ))}
         </div>
       ) : (
-        <span className="font-body font-medium text-foreground">
+        <span className="font-body-medium text-foreground">
           {item.options.find((o) => o.optionId === item.decision)?.name ??
             item.decision}
         </span>
@@ -226,7 +224,7 @@ const QuestionChoices = ({
             type="button"
           >
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-body font-medium text-foreground">
+              <span className="font-body-medium text-foreground">
                 {o.label}
               </span>
               {o.description ? (
@@ -289,7 +287,7 @@ export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
           <span className="font-body-small text-muted-foreground">
             {q.question}
           </span>
-          <span className="font-body font-medium text-foreground">
+          <span className="font-body-medium text-foreground">
             {answerLabel(q, answered?.[q.id])}
           </span>
         </div>
@@ -328,7 +326,7 @@ const QuestionCard = ({
         <CircleHelp className="size-3.5 shrink-0 text-warning" />
         <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
         {count > 1 ? (
-          <span className="font-body-small font-medium tabular-nums">
+          <span className="font-body-small-medium tabular-nums">
             {draft.step + 1} of {count}
           </span>
         ) : null}

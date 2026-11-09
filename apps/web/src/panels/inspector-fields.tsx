@@ -185,7 +185,7 @@ export const EmptyState = ({
   <div className="flex h-full min-h-48 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
     <div className="flex flex-col items-center gap-1">
       <span className="mb-1 text-muted-foreground [&_svg]:size-5">{icon}</span>
-      <p className="font-body font-medium">{title}</p>
+      <p className="font-body-medium">{title}</p>
       <p className="max-w-60 text-balance font-body-small text-muted-foreground">
         {children}
       </p>

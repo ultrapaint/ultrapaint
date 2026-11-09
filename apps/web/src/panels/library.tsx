@@ -98,7 +98,7 @@ const OpenBoard = ({ name }: { name: string }) => (
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
   <div className="group/item mx-2 flex h-7 items-center rounded-md pr-0.5 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
-      className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body font-medium outline-none"
+      className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body-medium outline-none"
       title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
@@ -182,10 +182,7 @@ const GridItem = ({
       <Thumbnail name={c.name} src={thumbnail} />
     </button>
     <div className="flex h-6 items-center pl-1">
-      <span
-        className="min-w-0 flex-1 truncate font-body font-medium"
-        title={c.name}
-      >
+      <span className="min-w-0 flex-1 truncate font-body-medium" title={c.name}>
         {c.name}
       </span>
       <OpenBoard name={c.name} />
@@ -466,7 +463,7 @@ const NavRow = ({
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
-    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item, view: "library" })}
     title={title}
     type="button"

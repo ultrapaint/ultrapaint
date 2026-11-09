@@ -41,10 +41,7 @@ export const Row = ({
   <div
     className={cn("grid grid-cols-[80px_1fr] items-center gap-2", className)}
   >
-    <Label
-      className="truncate font-body font-normal text-muted-foreground"
-      title={label}
-    >
+    <Label className="truncate font-body text-muted-foreground" title={label}>
       {label}
     </Label>
     <div className="flex min-w-0 items-center gap-1">{children}</div>
@@ -73,7 +70,7 @@ export const PanelEmpty = ({
         </EmptyMedia>
       ) : null}
       {title ? (
-        <EmptyTitle className="font-body font-medium">{title}</EmptyTitle>
+        <EmptyTitle className="font-body-medium">{title}</EmptyTitle>
       ) : null}
       <EmptyDescription className="font-body-small">
         {children}

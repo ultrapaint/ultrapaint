@@ -100,7 +100,7 @@ export const StepMarker = ({
 }) => (
   <span
     className={cn(
-      "flex size-5 shrink-0 items-center justify-center rounded-full font-body-small font-medium",
+      "flex size-5 shrink-0 items-center justify-center rounded-full font-body-small-medium",
       tone === "done" && "bg-primary text-primary-foreground",
       (tone === "current" || tone === "waiting" || tone === "working") &&
         "bg-foreground text-background",
@@ -444,7 +444,7 @@ const StepBarFor = ({ index, step }: { index: number; step: SetupStep }) => {
     <div className="flex shrink-0 items-center gap-2.5 border-b py-2 pr-2 pl-3">
       <StepMarker index={index} tone={state.tone} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-body font-medium">{title}</span>
+        <span className="truncate font-body-medium">{title}</span>
         <span className="truncate font-body-small text-muted-foreground">
           Design system setup{state.label ? ` · ${state.label}` : ""}
         </span>
@@ -472,9 +472,7 @@ export const SetupStepIntro = ({ threadId }: { threadId: string }) => {
   const command = commandOf({ _tag: "SetupStep", step: step.id });
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-      <span className="font-body font-medium">
-        {title} starts when you send
-      </span>
+      <span className="font-body-medium">{title} starts when you send</span>
       <span className="max-w-72 text-pretty font-body-small text-muted-foreground">
         <code className="font-code">{command}</code> is the step’s task; add to
         it if you like. The agent asks here when a decision is yours.

@@ -29,11 +29,12 @@ const compact = [
   // The header keeps its height: the copy button is pulled up over it by a
   // fixed margin, and shrinking one without the other tears them apart.
   "[&_[data-streamdown=code-block-header]]:font-body",
-  "[&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:p-2 [&_[data-streamdown=code-block-body]]:font-code [&_[data-streamdown=code-block-body]]:leading-5",
+  "[&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:p-2 [&_[data-streamdown=code-block-body]]:font-code",
+  "[&_[data-streamdown=strong]]:font-body-semibold",
   "[&_[data-streamdown=table-cell]]:px-2 [&_[data-streamdown=table-cell]]:py-1 [&_[data-streamdown=table-cell]]:font-body",
-  "[&_[data-streamdown=table-header-cell]]:px-2 [&_[data-streamdown=table-header-cell]]:py-1 [&_[data-streamdown=table-header-cell]]:font-body [&_[data-streamdown=table-header-cell]]:font-semibold",
+  "[&_[data-streamdown=table-header-cell]]:px-2 [&_[data-streamdown=table-header-cell]]:py-1 [&_[data-streamdown=table-header-cell]]:font-body-semibold",
   // A link stays in its sentence, at its weight, underlined (typography.md).
-  "[&_[data-streamdown=link]]:font-[inherit] [&_[data-streamdown=link]]:text-foreground [&_[data-streamdown=link]]:underline [&_[data-streamdown=link]]:decoration-foreground/30 [&_[data-streamdown=link]]:underline-offset-3 [&_[data-streamdown=link]:hover]:decoration-foreground",
+  "[&_[data-streamdown=link]]:text-foreground [&_[data-streamdown=link]]:underline [&_[data-streamdown=link]]:decoration-foreground/30 [&_[data-streamdown=link]]:underline-offset-3 [&_[data-streamdown=link]:hover]:decoration-foreground",
 ].join(" ");
 
 /** Downloads are meaningless in a local panel; copy and fullscreen are not. */

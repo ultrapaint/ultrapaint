@@ -119,7 +119,7 @@ export const ScopePicture = ({
         <MessageSquare className="size-4" />
       )}
       {several ? (
-        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-body-small font-medium text-background tabular-nums">
+        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-body-small-medium text-background tabular-nums">
           {thread.scope?.count}
         </span>
       ) : null}
@@ -172,7 +172,7 @@ const ThreadRow = ({
       <ScopePicture thread={thread} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate font-body font-medium text-foreground">
+          <span className="min-w-0 flex-1 truncate font-body-medium text-foreground">
             {thread.title}
           </span>
           {/* What an agent did since the thread was last opened; a working one says so itself. */}

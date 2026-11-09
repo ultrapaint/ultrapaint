@@ -444,7 +444,7 @@ const Sidebar = ({
               // The section shown is raised as the groups are, as the left card's rail raises
               // its place; the focus is the ring alone.
               className={cn(
-                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-body font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
                 active
                   ? "bg-card text-foreground shadow-xs not-focus-visible:ring-1 not-focus-visible:ring-border"
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"

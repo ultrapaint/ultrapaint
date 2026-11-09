@@ -170,7 +170,7 @@ const VariantRow = ({
   return (
     <button
       aria-current={editing ? "true" : undefined}
-      className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 aria-[current=true]:bg-accent"
+      className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 aria-[current=true]:bg-accent"
       onClick={() =>
         isolate(frame, inPlace.instance, { variant: inPlace.variant })
       }

@@ -133,7 +133,7 @@ export const CreateOverlay = () => {
 
 const Tag = ({ children, inv }: { children: ReactNode; inv: number }) => (
   <span
-    className="absolute top-0 left-0 flex h-5 items-center whitespace-nowrap rounded-sm bg-selection px-1.5 font-body-small font-medium text-white tabular-nums"
+    className="absolute top-0 left-0 flex h-5 items-center whitespace-nowrap rounded-sm bg-selection px-1.5 font-body-small-medium text-white tabular-nums"
     style={{
       transform: `translateY(calc(-100% - ${4 * inv}px)) scale(${inv})`,
       transformOrigin: "bottom left",

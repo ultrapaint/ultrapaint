@@ -32,7 +32,7 @@ export const ShellNotices = () => {
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="font-body font-medium">{notice.title}</span>
+            <span className="font-body-medium">{notice.title}</span>
             <p className="text-pretty font-body-small text-muted-foreground">
               {notice.detail}
               {notice.command ? (

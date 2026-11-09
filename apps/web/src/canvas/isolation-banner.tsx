@@ -39,10 +39,7 @@ export const IsolationBanner = () => {
     >
       <span className="min-w-0 truncate font-body-small text-muted-foreground">
         Editing{" "}
-        <span
-          className="font-body font-medium text-foreground"
-          title={file.name}
-        >
+        <span className="font-body-medium text-foreground" title={file.name}>
           {file.name}
         </span>{" "}
         · every instance follows
@@ -55,7 +52,7 @@ export const IsolationBanner = () => {
       {choices.length > 0 && !onBoard ? (
         <NativeSelect
           aria-label="Edits land on"
-          className="shrink-0 [&>select]:bg-transparent [&>select]:font-body [&>select]:font-medium [&>select]:hover:border-transparent [&>select]:hover:bg-accent"
+          className="shrink-0 [&>select]:bg-transparent [&>select]:font-body-medium [&>select]:hover:border-transparent [&>select]:hover:bg-accent"
           onChange={(e) => {
             const [property, member] = e.target.value.split("\n");
             editVariant(

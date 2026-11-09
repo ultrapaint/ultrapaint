@@ -999,7 +999,7 @@ const PageRow = ({
         onToggle={() => shared.toggle(key)}
       />
       <RowName
-        className="font-body font-medium"
+        className="font-body-medium"
         item={item}
         label={page.name}
         onRename={(name) => renamePageTo(page, name)}
@@ -1259,7 +1259,7 @@ const LayerRow = ({
     <div
       className={cn(
         ROW,
-        "font-body font-medium text-foreground",
+        "font-body-medium text-foreground",
         rowTone(selected, hovered),
         dropHere === "inside" && "ring-2 ring-primary ring-inset",
         dropHere === "before" &&
@@ -1299,7 +1299,7 @@ const LayerRow = ({
           node={node}
         />
         <RowName
-          className="font-body font-medium"
+          className="font-body-medium"
           item={item}
           label={label}
           onRename={(name) => renameNodeTo(name, target)}

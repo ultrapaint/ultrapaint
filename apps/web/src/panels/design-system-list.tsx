@@ -93,14 +93,14 @@ const Findings = ({ findings }: { findings: readonly DesignFinding[] }) => {
 const ItemRow = ({ item, open }: { item: SystemItem; open: boolean }) => (
   <button
     aria-current={open ? "page" : undefined}
-    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item: item.id, view: "system" })}
     title={item.name}
     type="button"
   >
     <span className="truncate">{item.name}</span>
     {item.count > 0 ? (
-      <span className="ml-auto font-body-small font-medium text-muted-foreground tabular-nums">
+      <span className="ml-auto font-body-small-medium text-muted-foreground tabular-nums">
         {item.count}
       </span>
     ) : null}

@@ -112,7 +112,7 @@ const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
   }
   return (
     <button
-      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-sm bg-agent px-1.5 font-body-small font-medium text-agent-foreground outline-none focus-visible:underline"
+      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-sm bg-agent px-1.5 font-body-small-medium text-agent-foreground outline-none focus-visible:underline"
       onClick={() => showLeftPanel({ chat: threadId })}
       onContextMenu={(e) => openMenuAt(e, { kind: "thread", threadId })}
       style={{

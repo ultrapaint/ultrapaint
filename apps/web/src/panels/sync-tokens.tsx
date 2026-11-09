@@ -380,7 +380,7 @@ export const Conflicts = ({
       <ul className="flex flex-col">
         {conflicts.map((d) => (
           <li className="flex flex-col gap-1 py-1.5" key={keyOf(d)}>
-            <span className="truncate font-medium" title={d.variable}>
+            <span className="truncate font-body-medium" title={d.variable}>
               {labelOf(d)}
             </span>
             <Segmented

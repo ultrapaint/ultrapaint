@@ -208,9 +208,7 @@ const ChosenRow = ({
       >
         <GripVertical className="size-3.5" />
       </button>
-      <span className="min-w-0 flex-1 truncate font-body font-medium">
-        {name}
-      </span>
+      <span className="min-w-0 flex-1 truncate font-body-medium">{name}</span>
       <span className="shrink-0 truncate font-body-small text-muted-foreground">
         {agentName}
       </span>
@@ -290,7 +288,7 @@ const ReviewModelsPicker = ({
         render={
           <Button
             aria-label={`Review models: ${summary}`}
-            className="max-w-72 justify-end gap-1 px-2 font-body font-medium hover:bg-accent"
+            className="max-w-72 justify-end gap-1 px-2 font-body-medium hover:bg-accent"
             variant="ghost"
           />
         }
@@ -424,7 +422,7 @@ const ReviewModelsPicker = ({
                         aria-hidden
                         className="size-4 shrink-0 rounded-sm border border-muted-foreground"
                       />
-                      <span className="min-w-0 flex-1 truncate font-body font-medium">
+                      <span className="min-w-0 flex-1 truncate font-body-medium">
                         {c.name}
                       </span>
                       {word ? (

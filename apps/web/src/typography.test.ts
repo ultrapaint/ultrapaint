@@ -15,8 +15,14 @@ const SKIPPED = ["pages/", "boards/look-boards.ts"];
 const STOCK_SIZE =
   /(?:^|[^\w-])text-(?:xs|sm|base|lg|[2-9]?xl|\[[\d.]+(?:px|rem|em)\])(?![\w-])/;
 
-/** A role from before the type tokens of ADR 0071, which Tailwind would drop without a word. */
-const OLD_ROLE = /(?:^|[^\w-])font-(?:label|small|caption)(?![\w-])/;
+/**
+ * Type set any other way than by a type token (ADR 0072): a role from before them, Tailwind's
+ * weights and faces (cleared from the theme, so they would draw nothing without a word), a line
+ * height or letter spacing (`leading-5` comes from the spacing scale, which the theme keeps), an
+ * arbitrary face or weight.
+ */
+const NOT_A_TOKEN =
+  /(?:^|[^\w-])font-(?:label|small|caption|thin|extralight|light|normal|regular|medium|semibold|bold|extrabold|black|sans|serif|mono|display|\[[^\]]*\])(?![\w-])|(?:^|[^\w-])(?:leading|tracking)-[\w.[\]-]+/;
 
 /** The `cn` package itself, which does not know the type tokens; `lib/cn.ts` does. */
 const PACKAGE_CN = /from "cn"/;
@@ -48,8 +54,8 @@ describe("typography", () => {
     expect(linesMatching(STOCK_SIZE, SKIPPED)).toEqual([]);
   });
 
-  it("names only the type tokens there are", () => {
-    expect(linesMatching(OLD_ROLE, [])).toEqual([]);
+  it("sets type with the type tokens alone", () => {
+    expect(linesMatching(NOT_A_TOKEN, SKIPPED)).toEqual([]);
   });
 
   it("merges classes with the editor's cn, which knows the type tokens", () => {

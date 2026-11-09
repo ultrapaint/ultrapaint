@@ -36,7 +36,7 @@ export const GitUserButton = () => {
         render={
           <button
             aria-label={`Git user: ${name}`}
-            className="flex size-7 items-center justify-center rounded-full bg-secondary font-body-small font-medium text-secondary-foreground outline-none ring-1 ring-border transition-shadow hover:ring-input focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:ring-2 data-popup-open:ring-ring/50"
+            className="flex size-7 items-center justify-center rounded-full bg-secondary font-body-small-medium text-secondary-foreground outline-none ring-1 ring-border transition-shadow hover:ring-input focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:ring-2 data-popup-open:ring-ring/50"
             type="button"
           />
         }
@@ -45,7 +45,7 @@ export const GitUserButton = () => {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 gap-3" side="right">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary font-body-small font-medium ring-1 ring-border">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary font-body-small-medium ring-1 ring-border">
             {initials}
           </span>
           <div className="flex min-w-0 flex-col">

@@ -27,7 +27,7 @@ function FieldLegend({
   return (
     <legend
       className={cn(
-        "mb-2 data-[variant=label]:font-body data-[variant=label]:font-medium data-[variant=legend]:font-heading-xsmall",
+        "mb-2 data-[variant=label]:font-body-medium data-[variant=legend]:font-heading-xsmall",
         className
       )}
       data-slot="field-legend"
@@ -88,7 +88,7 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "group/field-content flex flex-1 flex-col gap-0.5 leading-snug",
+        "group/field-content flex flex-1 flex-col gap-0.5",
         className
       )}
       data-slot="field-content"
@@ -104,7 +104,7 @@ function FieldLabel({
   return (
     <Label
       className={cn(
-        "group/field-label peer/field-label flex w-fit gap-2 leading-snug has-[>[data-slot=field]]:has-[:focus-visible]:border-ring has-[>[data-slot=field]]:has-[:focus-visible]:ring-2 has-[>[data-slot=field]]:has-[:focus-visible]:ring-ring/30 has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border has-data-checked:bg-primary/5 has-[>[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-input/40 *:data-[slot=field]:p-2 group-data-[disabled=true]/field:opacity-50 dark:has-data-checked:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit gap-2 has-[>[data-slot=field]]:has-[:focus-visible]:border-ring has-[>[data-slot=field]]:has-[:focus-visible]:ring-2 has-[>[data-slot=field]]:has-[:focus-visible]:ring-ring/30 has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border has-data-checked:bg-primary/5 has-[>[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-input/40 *:data-[slot=field]:p-2 group-data-[disabled=true]/field:opacity-50 dark:has-data-checked:bg-primary/10",
         "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
         className
       )}
@@ -118,7 +118,7 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex w-fit items-center gap-2 font-body font-medium group-data-[disabled=true]/field:opacity-50",
+        "flex w-fit items-center gap-2 font-body-medium group-data-[disabled=true]/field:opacity-50",
         className
       )}
       data-slot="field-label"
@@ -212,7 +212,7 @@ function FieldError({
 
   return (
     <div
-      className={cn("font-body font-normal text-destructive", className)}
+      className={cn("font-body text-destructive", className)}
       data-slot="field-error"
       role="alert"
       {...props}

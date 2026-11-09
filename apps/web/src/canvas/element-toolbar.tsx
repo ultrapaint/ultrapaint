@@ -49,7 +49,7 @@ import { Targets } from "./toolbar-targets.ts";
 
 /** A plain button of the bar: an icon and its label. */
 const BAR_BUTTON_CLASS =
-  "flex h-7 items-center gap-1.5 rounded-md px-2 font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 [&_svg]:size-4 [&_svg]:text-muted-foreground";
+  "flex h-7 items-center gap-1.5 rounded-md px-2 font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
 const Controls = ({ node }: { node: DesignNode }) => {
   const meta = useComponents((s) =>

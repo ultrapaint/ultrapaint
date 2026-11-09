@@ -289,7 +289,7 @@ const TerminalView = ({
     end.current?.scrollIntoView({ block: "nearest" });
   }, [output]);
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground leading-5">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
       {output ?? "…"}
       <div ref={end} />
     </pre>
@@ -330,7 +330,7 @@ const DiffContentView = ({
           −{removed}
         </span>
       </div>
-      <pre className="max-h-48 select-text overflow-auto py-1 font-code leading-5">
+      <pre className="max-h-48 select-text overflow-auto py-1 font-code">
         {rows.map((row) => (
           <div
             className={cn(
@@ -369,7 +369,7 @@ const ToolContentView = ({
     );
   }
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground leading-5">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2.5 font-code text-muted-foreground">
       {content.text}
     </pre>
   );

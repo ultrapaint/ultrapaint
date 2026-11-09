@@ -77,16 +77,31 @@ typography:
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.25rem
+  body-medium:
+    fontFamily: Figtree Variable
+    fontSize: 0.875rem
+    fontWeight: 500
+    lineHeight: 1.25rem
+  body-semibold:
+    fontFamily: Figtree Variable
+    fontSize: 0.875rem
+    fontWeight: 600
+    lineHeight: 1.25rem
   body-small:
     fontFamily: Figtree Variable
     fontSize: 0.75rem
     fontWeight: 400
     lineHeight: 1rem
+  body-small-medium:
+    fontFamily: Figtree Variable
+    fontSize: 0.75rem
+    fontWeight: 500
+    lineHeight: 1rem
   code:
     fontFamily: Geist Mono Variable
     fontSize: 0.75rem
     fontWeight: 400
-    lineHeight: 1rem
+    lineHeight: 1.25rem
 rounded:
   sm: 0.25rem
   md: 0.375rem
@@ -151,7 +166,8 @@ follows the system's unless the person picks one in Settings › Preferences.
 ## Typography
 
 Atlassian's semantic type tokens: seven headings and three bodies, each a `font-<token>` utility
-carrying the face, size, line height, weight and tracking; the editor never uses a stock size.
+carrying the face, size, line height, weight and tracking, and the only way the editor sets type:
+Tailwind's sizes, weights, line heights, letter spacing and faces are cleared from its theme.
 Headings are Cal Sans (`@fontsource/cal-sans`), bodies Figtree (`@fontsource-variable/figtree`),
 values, tokens, routes in code and code Geist Mono. Cal Sans has one weight, its 400, never made
 bold, and is spaced for display sizes, so the headings to 20px open it.
@@ -162,16 +178,17 @@ bold, and is spaced for display sizes, so the headings to 20px open it.
 - `font-heading-xsmall` 14/20: a panel's, a section's or a card's title, a field's label.
 - `font-heading-xxsmall` 12/16.
 - `font-body-large` 16/24: a page's lead, where there is one.
-- `font-body` 14/20: everything read. With `font-medium`: control text (buttons, tabs, menu items),
-  names in a list.
+- `font-body` 14/20: everything read.
+- `font-body-medium` 14/20 at 500: control text (buttons, tabs, menu items), names in a list.
+- `font-body-semibold` 14/20 at 600: bold in running text, a table's header.
 - `font-body-small` 12/16: what qualifies its neighbour: a size, a route, a time, a hint, a
-  description, an inspector row's label, a menu's group label. With `font-medium`: keys, counts,
-  badges, avatars' initials.
-- `font-code` 12/16 mono; a block of several lines takes `leading-5`.
+  description, an inspector row's label, a menu's group label.
+- `font-body-small-medium` 12/16 at 500: keys, counts, badges, avatars' initials.
+- `font-code` 12/20 mono: a value on its row, or a block of lines.
 
-Emphasis is a weight utility after the token, Atlassian's weights: `font-regular` 400,
-`font-medium` 500, `font-semibold` 600, `font-bold` 653. Class lists are merged with the editor's
-`cn` (`apps/web/src/lib/cn.ts`), which drops a weight a later token replaces.
+Emphasis is a token of its own, a body at Atlassian's `font.weight.medium` or `semibold`, never a
+weight added to a token. Class lists are merged with the editor's `cn`
+(`apps/web/src/lib/cn.ts`), where a later token replaces an earlier one.
 
 A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
 label in `font-body-small` muted and their value in the foreground.

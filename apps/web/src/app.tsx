@@ -710,7 +710,7 @@ export const App = () => {
             classNames: {
               description:
                 "whitespace-pre-wrap font-body-small text-muted-foreground!",
-              title: "font-body font-medium",
+              title: "font-body-medium",
               toast: "font-body shadow-overlay!",
             },
           }}

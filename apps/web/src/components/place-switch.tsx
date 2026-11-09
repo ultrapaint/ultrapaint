@@ -51,7 +51,7 @@ export const PlaceSwitch = () => {
                 <button
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-7 items-center gap-1.5 rounded-md px-3 font-body font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/25",
+                    "relative flex h-7 items-center gap-1.5 rounded-md px-3 font-body-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/25",
                     active
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:text-foreground"

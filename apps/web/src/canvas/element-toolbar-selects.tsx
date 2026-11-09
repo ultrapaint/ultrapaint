@@ -139,7 +139,7 @@ const FIELD: Record<
 
 /** A trigger of the toolbar: compact, its value and a chevron, filled while its menu is open. */
 export const TRIGGER_CLASS =
-  "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
+  "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
 
 /** A colour's dot in a trigger or a menu; a dashed ring when there is none. */
 export const SwatchDot = ({
@@ -216,9 +216,7 @@ export const MenuHead = ({
   <DropdownMenuLabel className="flex items-center gap-2">
     <span className="flex-1">{name}</span>
     {source ? (
-      <span className="font-code font-normal text-muted-foreground">
-        {source}
-      </span>
+      <span className="font-code text-muted-foreground">{source}</span>
     ) : null}
   </DropdownMenuLabel>
 );
@@ -380,7 +378,7 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
         <DropdownMenuGroup>
           <MenuHead name="Text style" source="text styles" />
           {styles.length === 0 ? (
-            <DropdownMenuLabel className="font-normal">
+            <DropdownMenuLabel>
               No text styles in the design system yet
             </DropdownMenuLabel>
           ) : null}

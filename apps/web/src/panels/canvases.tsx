@@ -68,7 +68,7 @@ export const InlineInput = ({
   return (
     <Input
       autoFocus
-      className={cn("h-5", mono && "font-mono", className)}
+      className={cn("h-5", mono && "font-code", className)}
       onBlur={onCancel}
       onChange={onChange}
       onClick={(e: MouseEvent) => e.stopPropagation()}
@@ -204,7 +204,7 @@ const CanvasRow = ({
         <button
           className={cn(
             "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
-            current && "font-body font-medium"
+            current && "font-body-medium"
           )}
           onClick={open}
           onDoubleClick={() => setRenaming(true)}
@@ -265,7 +265,7 @@ const CanvasPicker = ({
       title="Canvases"
     >
       <Frame className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-body font-medium">
+      <span className="min-w-0 flex-1 truncate font-body-medium">
         {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
       </span>
       <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />

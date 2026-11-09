@@ -142,7 +142,7 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
         title={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
         type="button"
       >
-        <span className="min-w-0 flex-1 truncate font-body font-medium">
+        <span className="min-w-0 flex-1 truncate font-body-medium">
           {page.name}
         </span>
         <StatusDot target={page.id} />

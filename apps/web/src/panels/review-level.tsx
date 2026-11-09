@@ -64,7 +64,7 @@ export const LevelLine = ({
   tag?: string | undefined;
 }) => (
   <div className={cn("flex flex-col gap-0.5", className)}>
-    <span className="flex items-center gap-1.5 font-body font-medium">
+    <span className="flex items-center gap-1.5 font-body-medium">
       {level === "off" ? (
         <span
           aria-hidden
@@ -73,7 +73,7 @@ export const LevelLine = ({
       ) : null}
       {LEVEL_NAMES[level]}
       {tag ? (
-        <span className="rounded-full bg-accent px-1.5 font-body-small font-medium text-muted-foreground">
+        <span className="rounded-full bg-accent px-1.5 font-body-small-medium text-muted-foreground">
           {tag}
         </span>
       ) : null}
@@ -147,7 +147,7 @@ export const LevelSlider = ({
             className={cn(
               "h-6 rounded-sm font-body-small outline-none transition-colors duration-100 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
               i === at
-                ? "font-body font-medium text-foreground"
+                ? "font-body-medium text-foreground"
                 : "text-muted-foreground"
             )}
             key={name}

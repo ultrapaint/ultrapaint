@@ -106,7 +106,7 @@ export const CommentAvatar = ({
   <span
     aria-hidden="true"
     className={cn(
-      "flex size-6 shrink-0 items-center justify-center rounded-full font-body-small font-medium",
+      "flex size-6 shrink-0 items-center justify-center rounded-full font-body-small-medium",
       inverse
         ? "bg-foreground text-background"
         : "bg-secondary text-secondary-foreground",
@@ -287,7 +287,7 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
       {open ? null : (
         <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left group-hover:flex">
           <span className="flex h-6 items-center gap-1.5">
-            <span className="truncate font-body font-medium">
+            <span className="truncate font-body-medium">
               {comment.kind === "behaviour"
                 ? "Behaviour note"
                 : (comment.author ?? "Someone")}
@@ -342,7 +342,7 @@ const Card = ({ comment }: { comment: Comment }) => {
         />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <span
-            className="truncate font-body font-medium"
+            className="truncate font-body-medium"
             title={comment.author ?? ""}
           >
             {comment.kind === "behaviour"
@@ -454,7 +454,7 @@ const Reply = ({
     <CommentAvatar comment={{ author: reply.author }} />
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex h-6 items-center gap-1.5">
-        <span className="truncate font-body font-medium">
+        <span className="truncate font-body-medium">
           {reply.author ?? "Someone"}
         </span>
         <span className="flex-1 truncate font-body-small text-muted-foreground">

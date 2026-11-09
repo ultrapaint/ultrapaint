@@ -740,9 +740,7 @@ const HistoryRow = ({
       onClick={onShow}
       type="button"
     >
-      <span className="min-w-0 flex-1 truncate font-body font-medium">
-        {name}
-      </span>
+      <span className="min-w-0 flex-1 truncate font-body-medium">{name}</span>
       {current ? <span className="shrink-0 font-body-small">Open</span> : null}
       <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
         {whenTaken(at)}
@@ -1056,9 +1054,7 @@ const FileRow = ({
               onClick={() => onShow(path)}
               type="button"
             >
-              <span className="min-w-0 truncate font-body font-medium">
-                {name}
-              </span>
+              <span className="min-w-0 truncate font-body-medium">{name}</span>
               {folder ? (
                 // The folder gives way first; the name truncates only once it is gone.
                 <span className="min-w-0 shrink-[999] truncate font-body-small text-muted-foreground">
@@ -1138,7 +1134,7 @@ const DiffView = ({
             {d.path}
           </div>
         ) : null}
-        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code leading-5">
+        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
           {diffLines(d.diff).map(({ offset, text: line }) => (
             <div className={lineClass(line)} key={offset}>
               {line || " "}

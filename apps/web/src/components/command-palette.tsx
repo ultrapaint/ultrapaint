@@ -90,7 +90,7 @@ const Row = ({
     <div
       aria-selected={active}
       className={cn(
-        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-2 font-body font-medium",
+        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-2 font-body-medium",
         active && "bg-accent",
         command.destructive && "text-destructive"
       )}
@@ -155,7 +155,7 @@ const NoMatch = ({
 }) => (
   <div className="flex flex-col items-center gap-1 px-6 py-10 text-center">
     <SearchX className="mb-2 size-5 text-muted-foreground" />
-    <span className="max-w-full truncate font-body font-medium">
+    <span className="max-w-full truncate font-body-medium">
       No results for “{query}”
     </span>
     <span className="font-body-small text-muted-foreground">

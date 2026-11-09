@@ -127,7 +127,7 @@ const IdleCombobox = ({
       title={title}
     >
       {leading ? (
-        <InputGroupAddon className="py-0 pr-0 pl-2 font-body font-normal">
+        <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
           {leading}
         </InputGroupAddon>
       ) : null}
@@ -147,7 +147,7 @@ const IdleCombobox = ({
       <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
         {hint && !selected ? (
           <span
-            className="min-w-0 max-w-24 truncate font-body-small font-normal"
+            className="min-w-0 max-w-24 truncate font-body-small"
             title={hint}
           >
             {hint}
@@ -257,7 +257,7 @@ const ActiveCombobox = ({
         title={title}
       >
         {leading ? (
-          <InputGroupAddon className="py-0 pr-0 pl-2 font-body font-normal">
+          <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
             {leading}
           </InputGroupAddon>
         ) : null}
@@ -270,7 +270,7 @@ const ActiveCombobox = ({
         <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
           {hint && !selected ? (
             <span
-              className="min-w-0 max-w-24 truncate font-body-small font-normal"
+              className="min-w-0 max-w-24 truncate font-body-small"
               title={hint}
             >
               {hint}

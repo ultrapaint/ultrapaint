@@ -150,7 +150,7 @@ const GroupOutline = ({
         }}
       >
         <span
-          className="flex h-5 items-center whitespace-nowrap rounded-t-sm px-1.5 font-body-small font-medium text-white"
+          className="flex h-5 items-center whitespace-nowrap rounded-t-sm px-1.5 font-body-small-medium text-white"
           style={{ background: color }}
         >
           {nodes.length} selected
@@ -177,11 +177,11 @@ const FrameError = ({ inv, message }: { inv: number; message: string }) => (
       width: `${100 / inv}%`,
     }}
   >
-    <span className="flex items-center gap-1.5 font-body font-medium">
+    <span className="flex items-center gap-1.5 font-body-medium">
       <AlertTriangle className="size-4 shrink-0 text-destructive" />
       Part of this page failed to draw
     </span>
-    <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground leading-5">
+    <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
       {message}
     </pre>
   </div>

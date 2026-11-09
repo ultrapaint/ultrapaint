@@ -177,7 +177,7 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
     <div className="flex items-center gap-2.5 px-3 pb-2">
       <ScopePicture className="size-8" thread={thread} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-body font-medium" title={scope.name}>
+        <span className="truncate font-body-medium" title={scope.name}>
           {scope.name}
           {more ? (
             <span className="text-muted-foreground"> and {more} more</span>

@@ -480,7 +480,7 @@ const Welcome = () => {
         <div className="flex items-start gap-3 rounded-lg border bg-card p-3">
           <Spinner className="mt-0.5 shrink-0 text-muted-foreground" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate font-body font-medium">
+            <span className="truncate font-body-medium">
               Opening {opening.name}…
             </span>
             {opening.detail ? (
@@ -532,7 +532,7 @@ const Welcome = () => {
                   onClick={() => projects?.open(project.id).catch(say)}
                   type="button"
                 >
-                  <span className="truncate font-body font-medium">
+                  <span className="truncate font-body-medium">
                     {project.name}
                   </span>
                   {project.detail ? (

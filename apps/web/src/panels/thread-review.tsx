@@ -97,7 +97,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
   <div className="flex flex-col">
     <div className="flex items-center gap-2">
-      <span className="min-w-0 flex-1 truncate font-body font-medium">
+      <span className="min-w-0 flex-1 truncate font-body-medium">
         {reviewer.name}
       </span>
       {reviewer.status === "looking" ? (
@@ -123,7 +123,7 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
             plural(reviewer.findings, "finding")
           )}
           {reviewer.score === undefined ? null : (
-            <span className="min-w-6 text-right font-body font-medium text-foreground tabular-nums">
+            <span className="min-w-6 text-right font-body-medium text-foreground tabular-nums">
               <span className="sr-only">, score </span>
               {reviewer.score}
               <span className="sr-only"> out of 100</span>
@@ -167,7 +167,7 @@ const RoundBody = ({ item }: { item: ReviewItem }) => {
         <ul className="flex flex-col gap-1.5">
           {declined.map((f) => (
             <li className="flex flex-col" key={`${f.reviewer}:${f.title}`}>
-              <span className="font-body font-medium">{f.title}</span>
+              <span className="font-body-medium">{f.title}</span>
               <span className="font-body-small text-muted-foreground">
                 Declined: {f.declined}
               </span>
@@ -211,7 +211,7 @@ const StepRow = ({
       </span>
       <span
         className={cn(
-          "font-body font-medium",
+          "font-body-medium",
           step.status === "pending" && "text-muted-foreground"
         )}
       >
@@ -288,9 +288,7 @@ export const RunCard = ({ plan }: { plan: PlanItem }) => {
         <span className="flex h-5 shrink-0 items-center">
           <StepMark status={review.status} />
         </span>
-        <span className="min-w-0 flex-1 font-body font-medium">
-          {review.detail}
-        </span>
+        <span className="min-w-0 flex-1 font-body-medium">{review.detail}</span>
         <ChevronRight
           aria-hidden
           className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-panel-open/run:rotate-90"

@@ -477,7 +477,7 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   return (
     <>
       <span
-        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small font-medium text-muted-foreground"
+        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small-medium text-muted-foreground"
         title={`Breakpoint ${name}: edits here land at ${name}`}
       >
         {name}
@@ -581,7 +581,7 @@ const HEADER_GAP = 4;
 
 /** The class of a header's first child, its name: cut short to the frame's width, as Figma does. */
 export const HEADER_NAME =
-  "pointer-events-auto min-w-0 max-w-full truncate leading-6 @max-[32px]:invisible";
+  "pointer-events-auto min-w-0 max-w-full truncate h-6 @max-[32px]:invisible";
 
 /**
  * What is said over a frame's top edge, a page's or a board's: its name and beside it what the

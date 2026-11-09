@@ -48,7 +48,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
   };
   return (
     <OptionSelect
-      className="font-semibold"
+      className="font-heading-xsmall"
       onChange={choose}
       options={[
         ...projects.map((p) => ({

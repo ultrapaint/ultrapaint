@@ -502,7 +502,7 @@ const CodeLink = ({ page }: { page: Page }) => {
       ) : null}
       {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {changes ? (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground leading-5">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
           {changes}
         </pre>
       ) : null}
@@ -587,7 +587,7 @@ const InstanceSection = ({
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="truncate">{node.component}</span>
             <span
-              className="truncate font-code font-normal text-muted-foreground"
+              className="truncate font-code text-muted-foreground"
               title={node.from}
             >
               {node.from}

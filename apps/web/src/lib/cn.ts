@@ -1,13 +1,13 @@
 /**
- * The editor's `cn`: the `cn` package's merge, told the type tokens of `styles.css` (ADR 0071).
- * A token sets the family, size, line height, weight and tracking at once, so a later token
- * drops an earlier weight, line height or tracking: `cn("font-body font-medium",
- * "font-heading-xsmall")` is the heading alone, as the heading is drawn. A weight after a token
- * stays, as the emphasis it is.
+ * The editor's `cn`: the `cn` package's merge, told the type tokens of `styles.css` (ADRs 0071,
+ * 0072). The tokens are one group, so a later token replaces an earlier one, `cn("font-body",
+ * "font-heading-xsmall")` the heading alone, as it would replace any of Tailwind's own type
+ * utilities, which the editor's theme draws nothing for.
  */
 import { createCn } from "cn/config";
 
-const TYPE_TOKENS = [
+/** The type tokens, as `styles.css` defines them. */
+export const TYPE_TOKENS = [
   "heading-xxlarge",
   "heading-xlarge",
   "heading-large",
@@ -17,13 +17,16 @@ const TYPE_TOKENS = [
   "heading-xxsmall",
   "body-large",
   "body",
+  "body-medium",
+  "body-semibold",
   "body-small",
+  "body-small-medium",
   "code",
-];
+] as const;
 
 export const cn = createCn({
   extend: {
-    classGroups: { "type-token": [{ font: TYPE_TOKENS }] },
+    classGroups: { "type-token": [{ font: [...TYPE_TOKENS] }] },
     conflictingClassGroups: {
       "type-token": [
         "font-family",

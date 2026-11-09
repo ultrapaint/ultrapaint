@@ -178,7 +178,7 @@ const Item = ({ comment }: { comment: Comment }) => {
         <div className="flex h-6 items-center gap-1.5">
           <span
             className={cn(
-              "truncate font-body font-medium",
+              "truncate font-body-medium",
               comment.resolved && "text-muted-foreground"
             )}
           >

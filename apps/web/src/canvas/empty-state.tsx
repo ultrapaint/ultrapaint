@@ -44,7 +44,7 @@ const Lead = ({
 }) => (
   <div className="flex max-w-sm flex-col items-center text-center">
     <Icon className="mb-3 size-5 text-muted-foreground" />
-    <span className="font-body font-medium">{title}</span>
+    <span className="font-body-medium">{title}</span>
     <span className="mt-1 text-balance font-body-small text-muted-foreground">
       {description}
     </span>

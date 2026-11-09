@@ -209,7 +209,7 @@ export const PropertyRow = ({
       <div className="flex items-center gap-1">
         <Input
           aria-label="Property name"
-          className="min-w-0 flex-1 font-body font-medium"
+          className="min-w-0 flex-1 font-body-medium"
           onBlur={rename}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {

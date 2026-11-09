@@ -51,7 +51,7 @@ const ProjectName = () => {
   if (!info.configured) {
     return (
       <button
-        className="window-no-drag min-w-0 truncate text-left font-body font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
+        className="window-no-drag min-w-0 truncate text-left font-body-medium text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
         onClick={chooseFolder}
         type="button"
       >
@@ -61,11 +61,9 @@ const ProjectName = () => {
   }
   return (
     <div className="flex min-w-0 flex-col justify-center" title={info.repoPath}>
-      <span className="truncate font-heading-xsmall leading-4">
-        {info.name}
-      </span>
+      <span className="truncate font-heading-xsmall">{info.name}</span>
       {info.branch ? (
-        <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground leading-4">
+        <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground">
           <GitBranch className="size-3 shrink-0" />
           <span className="truncate">{info.branch}</span>
         </span>
@@ -215,6 +213,6 @@ export const RightPanelBar = ({ name }: { name: string }) => (
     >
       <PanelRightOpen />
     </TopButton>
-    <span className="font-body font-medium text-muted-foreground">{name}</span>
+    <span className="font-body-medium text-muted-foreground">{name}</span>
   </div>
 );

@@ -153,7 +153,7 @@ const Field = ({
     leading = <Swatch color={color} />;
   } else if (mark) {
     leading = (
-      <span className="w-3 text-center font-body-small font-medium text-muted-foreground">
+      <span className="w-3 text-center font-body-small-medium text-muted-foreground">
         {mark}
       </span>
     );

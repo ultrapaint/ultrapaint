@@ -151,9 +151,7 @@ const RowLine = ({
       )}
     >
       {/* Label sets its line to the text's size; the title keeps its role's 20px line. */}
-      <Label className="font-heading-xsmall leading-5" htmlFor={htmlFor}>
-        {title}
-      </Label>
+      <Label htmlFor={htmlFor}>{title}</Label>
       {description ? (
         <div className="text-pretty font-body-small text-muted-foreground">
           {description}

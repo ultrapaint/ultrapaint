@@ -245,7 +245,7 @@ function ComboboxChip({
   return (
     <ComboboxPrimitive.Chip
       className={cn(
-        "flex h-[calc(--spacing(4.75))] w-fit items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius-sm)-2px)] bg-muted-foreground/10 px-1.5 font-body font-medium text-foreground leading-4 has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-data-[slot=combobox-chip-remove]:pr-0 has-disabled:opacity-50",
+        "flex h-[calc(--spacing(4.75))] w-fit items-center justify-center gap-1 whitespace-nowrap rounded-[calc(var(--radius-sm)-2px)] bg-muted-foreground/10 px-1.5 font-body-medium text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-data-[slot=combobox-chip-remove]:pr-0 has-disabled:opacity-50",
         className
       )}
       data-slot="combobox-chip"
