@@ -2,8 +2,10 @@
  * A new thread before its first prompt: a few ways to start that can act now, just above the
  * composer they fill. Each one only writes the prompt into the composer; nothing is sent until the
  * user sends it. With something attached (or selected, which goes along), they work on it; with
- * nothing, on a new page or the page shown.
+ * nothing, on a new page or the page shown. A folder whose settings were detected and not saved
+ * is offered its setup first (`/setup`), which nothing starts on its own (ADR 0073).
  */
+import { commandOf } from "@ultrapaint/contracts/tasks";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { isPlace, useChips } from "../state/attachments.ts";
 import { useEditor } from "../state/editor.ts";
@@ -23,6 +25,7 @@ const useStarters = (threadId: string): readonly Starter[] => {
   const attached = useChips(threadId).some(isPlace) || selection !== null;
   const activePage = useEditor((s) => s.activePage);
   const page = useProject((s) => s.pages.find((p) => p.id === activePage));
+  const info = useProject((s) => s.info);
   if (attached) {
     return [
       {
@@ -46,6 +49,14 @@ const useStarters = (threadId: string): readonly Starter[] => {
   }
   // The page shown, by the name its frame carries; the command takes its URL, or its file.
   return [
+    ...(info.configured && info.setup === "detected"
+      ? [
+          {
+            label: `Set up ${info.name ?? "this folder"}`,
+            prompt: commandOf({ _tag: "Setup" }),
+          },
+        ]
+      : []),
     { label: "Design a new page for…", prompt: "Design a new page for " },
     ...(page
       ? [

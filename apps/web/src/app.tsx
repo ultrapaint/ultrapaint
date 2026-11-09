@@ -44,7 +44,6 @@ import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
-import { setUpOnOpen } from "./lib/project-setup.ts";
 import { ModeAndCanvases } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
@@ -554,12 +553,11 @@ export const App = () => {
     }
   }, [configured]);
 
-  // Once the project's info is read (ADR 0062): the start screen's prompt in a chat, and a folder
-  // opened for the first time set up in another, behind it when there is one.
+  // Once the project's info is read (ADR 0062): the start screen's prompt in a chat. A folder
+  // opened for the first time is not set up on its own; a new chat suggests it (ADR 0073).
   useEffect(() => {
     if (loaded) {
       const start = takeFirstPrompt();
-      setUpOnOpen({ behind: start !== null });
       sendFirstPrompt(start, openLookPage);
     }
   }, [loaded]);

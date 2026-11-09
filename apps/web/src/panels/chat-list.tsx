@@ -31,7 +31,7 @@ import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { createThread } from "../lib/start-thread.ts";
+import { createThread, startTask } from "../lib/start-thread.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { isUnread, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -293,12 +293,55 @@ const Section = ({
     </section>
   ) : null;
 
+/**
+ * The list with no chats. A folder whose settings were detected and not saved is offered its
+ * setup, `/setup` in a new chat's composer for the person to send; nothing starts it on its own
+ * (ADR 0073).
+ */
+const NoChats = ({ unsetFolder }: { unsetFolder: string | null }) =>
+  unsetFolder === null ? (
+    <PanelEmpty
+      action={
+        <Button onClick={() => createThread()} variant="secondary">
+          <Plus data-icon="inline-start" />
+          New chat
+        </Button>
+      }
+      icon={<SquareDashedMousePointer />}
+      title="No chats yet"
+    >
+      Select something on the canvas and add it to a chat, or start one and say
+      what to make.
+    </PanelEmpty>
+  ) : (
+    <PanelEmpty
+      action={
+        <Button
+          onClick={() => startTask({ _tag: "Setup" })}
+          variant="secondary"
+        >
+          Set up {unsetFolder}
+        </Button>
+      }
+      icon={<SquareDashedMousePointer />}
+      title="No chats yet"
+    >
+      This folder's settings were detected, not saved. An agent can check them
+      against the code and save them.
+    </PanelEmpty>
+  );
+
 export const ThreadList = () => {
   const threads = useAgents((s) => s.threads);
   const seen = useAgents((s) => s.seen);
   const activePage = useEditor((s) => s.activePage);
   const pageFile = useProject(
     (s) => s.pages.find((p) => p.id === activePage)?.file
+  );
+  const unsetFolder = useProject((s) =>
+    s.info.configured && s.info.setup === "detected"
+      ? (s.info.name ?? "this folder")
+      : null
   );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -345,19 +388,7 @@ export const ThreadList = () => {
         </IconButton>
       </div>
       {threads.length === 0 ? (
-        <PanelEmpty
-          action={
-            <Button onClick={() => createThread()} variant="secondary">
-              <Plus data-icon="inline-start" />
-              New chat
-            </Button>
-          }
-          icon={<SquareDashedMousePointer />}
-          title="No chats yet"
-        >
-          Select something on the canvas and add it to a chat, or start one and
-          say what to make.
-        </PanelEmpty>
+        <NoChats unsetFolder={unsetFolder} />
       ) : (
         <>
           <div className="px-2 pb-1">

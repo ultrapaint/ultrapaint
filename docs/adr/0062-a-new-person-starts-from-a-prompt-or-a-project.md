@@ -2,7 +2,8 @@
 
 Status: accepted, 2026-11-05. Amends 0050 (an agent drawing in a project with no system writes
 one) and 0023 (the setup's steps start from the Design system tab). The flows are drawn on the
-Onboarding canvas, `docs/designs/onboarding/`.
+Onboarding canvas, `docs/designs/onboarding/`. The setup started on opening is replaced by a
+suggestion in 0073.
 
 ## Context
 
