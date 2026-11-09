@@ -1,9 +1,22 @@
-<h1>
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-white.svg">
-    <img alt="Ultrapaint" height="40" src="docs/brand/lockup.svg">
+    <img alt="Ultrapaint" height="72" src="docs/brand/lockup.svg">
   </picture>
-</h1>
+</p>
+
+<p align="center">
+  <strong>Design in your repository, with your agents beside you.</strong>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#desktop-app">Desktop app</a> ·
+  <a href="#license">License</a>
+</p>
+
+<br>
 
 Ultrapaint is a design tool that lives in your repository. You design on a canvas with your own
 design tokens and components, Claude Code and Codex design right next to you, and when a page is
