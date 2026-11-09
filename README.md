@@ -1,4 +1,9 @@
-# Ultrapaint
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-white.svg">
+    <img alt="Ultrapaint" height="40" src="docs/brand/lockup.svg">
+  </picture>
+</h1>
 
 Ultrapaint is a design tool that lives in your repository. You design on a canvas with your own
 design tokens and components, Claude Code and Codex design right next to you, and when a page is

@@ -34,6 +34,9 @@ execFileSync(
   { stdio: "inherit" }
 );
 
+/** The app icon: the mark on its tile, on Apple's grid, from `resources/icon.svg`. */
+const icon = path.join(desktopDir, "resources", "icon.png");
+
 const config = {
   appId: "dev.ultrapaint.desktop",
   artifactName: `ultrapaint-${placeholder("version")}-${placeholder("os")}-${placeholder("arch")}.${placeholder("ext")}`,
@@ -50,6 +53,7 @@ const config = {
   executableName: "ultrapaint",
   linux: {
     category: "Development",
+    icon,
     maintainer: "Alessandro Narciso <alessandro@narciso.dev>",
     syncDesktopName: true,
     synopsis: "A design tool for teams that work with coding agents",
@@ -58,6 +62,7 @@ const config = {
   mac: {
     category: "public.app-category.developer-tools",
     hardenedRuntime: false,
+    icon,
     // Unsigned until there is an Apple Developer account (PLAN-desktop, open questions).
     identity: null,
     target: onlyDir ? ["dir"] : ["dmg", "zip"],

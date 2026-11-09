@@ -38,7 +38,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { composerBox, composerText } from "./components/composer-style.ts";
 import { IconButton } from "./components/icon-button.tsx";
-import { Logo } from "./components/logo.tsx";
+import { Lockup } from "./components/logo.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
 import {
   canAddRemoteProjects,
@@ -460,7 +460,7 @@ const Welcome = () => {
       ) : null}
       <section className="flex flex-col gap-6">
         <header className="flex flex-col gap-4">
-          <Logo className="size-8" />
+          <Lockup className="h-7 self-start" />
           <div className="flex flex-col gap-1">
             <h1 className="font-heading-small">Start a new project</h1>
             <p className="text-pretty font-body text-muted-foreground">

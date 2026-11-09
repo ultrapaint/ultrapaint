@@ -323,6 +323,11 @@ const makeWindow = () => {
     // The editor's canvas in the theme it opens in, so the window shows no flash before it draws.
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#121110" : "#ecebe8",
     height: 950,
+    // On Linux the window's own icon, for a start with no launcher entry (`pnpm desktop:dev`);
+    // macOS takes the bundle's.
+    ...(process.platform === "linux"
+      ? { icon: path.join(appDir, "icon.png") }
+      : {}),
     show: false,
     ...(ownTitleBar
       ? { titleBarStyle: "hidden", trafficLightPosition: TRAFFIC_LIGHTS }

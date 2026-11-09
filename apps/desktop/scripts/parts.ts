@@ -5,6 +5,7 @@
  */
 import { execFileSync } from "node:child_process";
 import {
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -31,9 +32,16 @@ export { version };
 const requireBanner =
   "import { createRequire as __ultrapaintRequire } from 'node:module'; const require = __ultrapaintRequire(import.meta.url);";
 
-/** The main process, as ESM, and the preload script, as CommonJS: a sandboxed preload must be. */
+/**
+ * The main process, as ESM, and the preload script, as CommonJS: a sandboxed preload must be.
+ * With the app icon, which the window shows on Linux where no launcher entry names it.
+ */
 export const buildShell = async () => {
   mkdirSync(appDir, { recursive: true });
+  copyFileSync(
+    path.join(desktopDir, "resources", "icon.png"),
+    path.join(appDir, "icon.png")
+  );
   await build({
     banner: { js: requireBanner },
     bundle: true,
