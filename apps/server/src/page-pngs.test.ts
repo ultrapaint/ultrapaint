@@ -114,4 +114,48 @@ describe("page PNGs", () => {
         Effect.scoped
       )
   );
+
+  it.effect(
+    "read neither a page nor its PNG again while neither was written",
+    () => {
+      const read: string[] = [];
+      const noting = (fs: FileSystem.FileSystem): FileSystem.FileSystem => ({
+        ...fs,
+        readFile: (file) =>
+          Effect.suspend(() => {
+            read.push(file);
+            return fs.readFile(file);
+          }),
+        readFileString: (file, encoding) =>
+          Effect.suspend(() => {
+            read.push(file);
+            return fs.readFileString(file, encoding);
+          }),
+      });
+      return Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const refresh = project(Effect.flatMap(PagePngs, (p) => p.refresh));
+        /** The page's file and its PNG, where they were read since this was last asked. */
+        const readSince = () =>
+          read
+            .splice(0)
+            .map((file) => path.basename(file))
+            .filter((name) => name.startsWith("home.page."));
+        yield* anEditor;
+        const first = yield* refresh;
+        assert.deepStrictEqual(first.drawn, ["designs/home.page.png"]);
+        // The PNG just written is read once, for the key it carries.
+        yield* refresh;
+        readSince();
+        const third = yield* refresh;
+        assert.deepStrictEqual(third, { drawn: [], removed: [], stale: [] });
+        assert.deepStrictEqual(readSince(), []);
+      }).pipe(
+        Effect.provide(
+          ProjectTest({ fileSystem: noting, settings: { pagePngs: true } })
+        ),
+        Effect.scoped
+      );
+    }
+  );
 });

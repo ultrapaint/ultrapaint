@@ -48,6 +48,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeStamp } from "../file-stamp.ts";
 import { componentHash, hashContent, stableJson } from "../hash.ts";
 import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
@@ -121,6 +122,19 @@ export interface Current {
   readonly page?: Page | undefined;
   readonly snapshot: Implemented;
   readonly target: string;
+}
+
+/** A canvas's comments, as one reading of the designs has them. */
+type Pinned = (canvas: string) => Effect.Effect<readonly Comment[]>;
+
+/** A page as it was last read: its tree, and what the tree and its notes hash to. */
+interface PageRead {
+  readonly hash: string;
+  /** The notes hashed, as JSON. */
+  readonly notes: string;
+  readonly root: DesignNode;
+  /** The stamp of the page's file before it was read (`makeStamp`). */
+  readonly stamp: string;
 }
 
 /** What telling which tokens a design waits on needs, read once for a whole list. */
@@ -313,29 +327,65 @@ export class ImplementationService extends Context.Service<
       const snapshotRel = (target: string) =>
         paths.relative(path.join(paths.designsDir, implementedFileOf(target)));
 
-      const notes = (page: Page) =>
-        comments.list(page.canvas).pipe(
-          Effect.map((pinned) => pageNotes(page, pinned.comments)),
-          Effect.orElseSucceed((): Note[] => [])
-        );
+      /**
+       * The comments of each canvas, read once for however many of its pages one reading of the
+       * designs asks about.
+       */
+      const pinnedOnce = (): Pinned => {
+        const read = new Map<string, readonly Comment[]>();
+        return Effect.fnUntraced(function* (canvas: string) {
+          const known = read.get(canvas);
+          if (known !== undefined) {
+            return known;
+          }
+          const found = yield* comments.list(canvas).pipe(
+            Effect.map((pinned) => pinned.comments),
+            Effect.orElseSucceed((): readonly Comment[] => [])
+          );
+          read.set(canvas, found);
+          return found;
+        });
+      };
+
+      /**
+       * Every page as it was last read. A list is asked for after every change to the designs,
+       * and a page's hash is the cost of its whole tree: a page whose file was not written since
+       * is neither read nor hashed again, which costs a `stat` of it.
+       */
+      const stampOf = makeStamp(fs);
+      const pagesRead = new Map<string, PageRead>();
 
       const pageName = (page: Page) =>
         [page.name, page.variant ?? page.state].filter(Boolean).join(" · ");
 
       const pageCurrent = Effect.fnUntraced(function* (
-        page: Page
+        page: Page,
+        pinned: Pinned
       ): Effect.fn.Return<Current | null> {
-        const state = yield* documents
-          .get(page.id)
-          .pipe(Effect.orElseSucceed(() => null));
-        const root = state?.root ?? null;
+        // Stamped before it is read: a write made meanwhile is seen by the next reading.
+        const stamp = yield* stampOf([path.resolve(paths.root, page.file)]);
+        const before = pagesRead.get(page.id);
+        const root =
+          before?.stamp === stamp
+            ? before.root
+            : ((yield* documents
+                .get(page.id)
+                .pipe(Effect.orElseSucceed(() => null)))?.root ?? null);
         if (!root) {
+          // One that does not read is read again the next time: nothing says when it will.
+          pagesRead.delete(page.id);
           return null;
         }
-        const open = yield* notes(page);
+        const open = pageNotes(page, yield* pinned(page.canvas));
+        const notes = stableJson(open);
+        const hash =
+          before?.root === root && before.notes === notes
+            ? before.hash
+            : hashContent(stableJson({ notes: open, root }));
+        pagesRead.set(page.id, { hash, notes, root, stamp });
         const snapshot: Implemented = { kind: "page", notes: open, root };
         const found: Current = {
-          hash: hashContent(stableJson({ notes: open, root })),
+          hash,
           name: pageName(page),
           page,
           snapshot,
@@ -352,10 +402,20 @@ export class ImplementationService extends Context.Service<
       });
 
       /** Every design there is to implement, as it is now. */
-      const everything = Effect.gen(function* () {
+      const everything = Effect.fnUntraced(function* (
+        components: readonly ComponentFile[]
+      ) {
         const { pages: all } = yield* pages.list;
-        const fromPages = yield* Effect.forEach(all, pageCurrent);
-        const components = yield* componentsNow;
+        const pinned = pinnedOnce();
+        const fromPages = yield* Effect.forEach(all, (page) =>
+          pageCurrent(page, pinned)
+        );
+        const there = new Set(all.map((page) => page.id));
+        for (const id of pagesRead.keys()) {
+          if (!there.has(id)) {
+            pagesRead.delete(id);
+          }
+        }
         return [
           ...fromPages.filter((c): c is Current => c !== null),
           ...components.map(componentCurrent),
@@ -375,7 +435,7 @@ export class ImplementationService extends Context.Service<
         }
         const { pages: all } = yield* pages.list;
         const page = all.find((p) => p.id === target);
-        const found = page ? yield* pageCurrent(page) : null;
+        const found = page ? yield* pageCurrent(page, pinnedOnce()) : null;
         if (!found) {
           return yield* new NotFound({
             message: `no page ${target}: name a page by its id, or a component as component:<Name>`,
@@ -393,26 +453,23 @@ export class ImplementationService extends Context.Service<
         );
 
       /** The design system, the components and what waits for the code, for a list of designs. */
-      const tokenContext: Effect.Effect<TokenContext> = Effect.gen(
-        function* () {
-          const { designSystem } = yield* designSystems.get;
-          const comparison = designSystem
-            ? yield* code.comparison(designSystem)
-            : null;
-          const waiting = new Map<string, TokenDiff[]>();
-          // No stylesheet read: nothing can be said to be missing from it.
-          for (const d of comparison?.read ? comparison.diffs : []) {
-            if (d.outcome === "source-behind" || d.outcome === "conflict") {
-              waiting.set(d.name, [...(waiting.get(d.name) ?? []), d]);
-            }
+      const tokenContextOf = Effect.fnUntraced(function* (
+        components: readonly ComponentFile[]
+      ): Effect.fn.Return<TokenContext> {
+        const { designSystem } = yield* designSystems.get;
+        const comparison = designSystem
+          ? yield* code.comparison(designSystem)
+          : null;
+        const waiting = new Map<string, TokenDiff[]>();
+        // No stylesheet read: nothing can be said to be missing from it.
+        for (const d of comparison?.read ? comparison.diffs : []) {
+          if (d.outcome === "source-behind" || d.outcome === "conflict") {
+            waiting.set(d.name, [...(waiting.get(d.name) ?? []), d]);
           }
-          return {
-            components: yield* componentsNow,
-            designSystem,
-            waiting,
-          };
         }
-      );
+        return { components, designSystem, waiting };
+      });
+      const tokenContext = Effect.flatMap(componentsNow, tokenContextOf);
 
       const itemOf = Effect.fnUntraced(function* (
         found: Current,
@@ -461,15 +518,32 @@ export class ImplementationService extends Context.Service<
         } satisfies ImplementationItem;
       });
 
-      const list: Effect.Effect<ImplementationList> = Effect.gen(function* () {
-        const file = yield* readFile;
-        const all = yield* everything;
-        const ctx = yield* tokenContext;
-        const items = yield* Effect.forEach(all, (found) =>
-          itemOf(found, file.items[found.target], ctx)
-        );
-        return { items };
-      }).pipe(Effect.withSpan("ImplementationService.list"));
+      const listNow: Effect.Effect<ImplementationList> = Effect.gen(
+        function* () {
+          const file = yield* readFile;
+          const components = yield* componentsNow;
+          const all = yield* everything(components);
+          const ctx = yield* tokenContextOf(components);
+          const items = yield* Effect.forEach(all, (found) =>
+            itemOf(found, file.items[found.target], ctx)
+          );
+          return { items };
+        }
+      ).pipe(Effect.withSpan("ImplementationService.list"));
+
+      /**
+       * The list as the editors that follow it were last told, and whether one was given since
+       * that is not it: an editor that read a list nobody was told is told the next, even where
+       * that is the one told before.
+       */
+      let told: string | null = null;
+      let readOther = false;
+
+      const list = Effect.tap(listNow, (l) =>
+        Effect.sync(() => {
+          readOther ||= JSON.stringify(l) !== told;
+        })
+      );
 
       const item = Effect.fn("ImplementationService.item")(function* (
         target: string
@@ -496,8 +570,17 @@ export class ImplementationService extends Context.Service<
         };
       });
 
-      const publish = Effect.flatMap(list, (l) =>
-        events.publish("implementation", l)
+      /** Tells the editors the list, unless it is the one they have. */
+      const publish = Effect.flatMap(listNow, (l) =>
+        Effect.suspend(() => {
+          const text = JSON.stringify(l);
+          if (text === told && !readOther) {
+            return Effect.void;
+          }
+          told = text;
+          readOther = false;
+          return events.publish("implementation", l);
+        })
       );
 
       /** `implementation.json` with entries changed inside an action, read in it. */

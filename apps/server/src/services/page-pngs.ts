@@ -15,6 +15,7 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
+import { makeStamp } from "../file-stamp.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent } from "../hash.ts";
 import { readPngText, withPngText } from "../png-text.ts";
@@ -45,6 +46,15 @@ interface PngRefresh {
 
 const NOTHING: PngRefresh = { drawn: [], removed: [], stale: [] };
 
+/** Forgets what was read of whatever is not there any more. */
+const keepOnly = <A>(read: Map<string, A>, there: ReadonlySet<string>) => {
+  for (const key of read.keys()) {
+    if (!there.has(key)) {
+      read.delete(key);
+    }
+  }
+};
+
 /**
  * A PNG of every page beside its file, when the project's `pagePngs` setting says so: a picture
  * of each screen that anyone browsing the repository sees, and that a pull request shows as an
@@ -57,6 +67,10 @@ const NOTHING: PngRefresh = { drawn: [], removed: [], stale: [] };
  * rewritten, so it never shows up as a change. A page changed while no editor is open keeps its
  * old picture until one opens. A PNG this service wrote whose page is gone is removed; a PNG it
  * did not write is never touched.
+ *
+ * A pass follows every change to the designs, so it reads only what was written since the one
+ * before: a page's file and a PNG are each known by their stamp (`makeStamp`), and one that was
+ * not written costs a `stat`.
  */
 export class PagePngs extends Context.Service<
   PagePngs,
@@ -80,10 +94,57 @@ export class PagePngs extends Context.Service<
       const walk = makeWalk(fs, path);
       const { settings } = paths;
 
-      const keyOf = (absPng: string) =>
-        Effect.map(Effect.option(fs.readFile(absPng)), (bytes) =>
-          Option.isSome(bytes) ? readPngText(bytes.value, KEYWORD) : null
-        );
+      const stampOf = makeStamp(fs);
+      /** The key each PNG carries, null for none, as it was read when the file had this stamp. */
+      const keysRead = new Map<
+        string,
+        { readonly key: string | null; readonly stamp: string }
+      >();
+      /** What each page's file hashed to, as it was read when the file had this stamp. */
+      const pagesRead = new Map<
+        string,
+        { readonly hash: string; readonly stamp: string }
+      >();
+
+      const keyOf = Effect.fnUntraced(function* (absPng: string) {
+        // Stamped before it is read: a write made meanwhile is seen by the next pass.
+        const stamp = yield* stampOf([absPng]);
+        const known = keysRead.get(absPng);
+        if (known?.stamp === stamp) {
+          return known.key;
+        }
+        const bytes = yield* Effect.option(fs.readFile(absPng));
+        const key = Option.isSome(bytes)
+          ? readPngText(bytes.value, KEYWORD)
+          : null;
+        keysRead.set(absPng, { key, stamp });
+        return key;
+      });
+
+      /** The page as its file has it now; none for a file that does not read as a page. */
+      const pageOf = Effect.fnUntraced(function* (page: Page) {
+        const state = yield* Effect.option(documents.get(page.id));
+        // A page that does not read keeps its last picture; the editor reports the page.
+        return Option.isSome(state) && state.value.root?.type === "page"
+          ? Option.some({ hash: state.value.hash, root: state.value.root })
+          : Option.none();
+      });
+
+      /** The hash of the page's file, read only when the file was written since; null as `pageOf`. */
+      const hashOf = Effect.fnUntraced(function* (page: Page) {
+        const stamp = yield* stampOf([yield* paths.resolve(page.file)]);
+        const known = pagesRead.get(page.id);
+        if (known?.stamp === stamp) {
+          return known.hash;
+        }
+        const read = yield* pageOf(page);
+        if (Option.isNone(read)) {
+          pagesRead.delete(page.id);
+          return null;
+        }
+        pagesRead.set(page.id, { hash: read.value.hash, stamp });
+        return read.value.hash;
+      });
 
       /** PNGs this service wrote whose page is not there any more. */
       const removeOrphans = Effect.fnUntraced(function* (
@@ -94,6 +155,7 @@ export class PagePngs extends Context.Service<
           includeFile: (name) => name.endsWith(PNG_SUFFIX),
           skipDir: (name) => name.startsWith(".") || name === "node_modules",
         });
+        keepOnly(keysRead, new Set([...wanted, ...found]));
         const removed: string[] = [];
         for (const abs of found) {
           if (wanted.has(abs) || (yield* keyOf(abs)) === null) {
@@ -123,57 +185,84 @@ export class PagePngs extends Context.Service<
           return layouts.get(canvas) ?? null;
         });
 
-        /** What the page's PNG should be drawn from, or null when it cannot be drawn. */
+        /** The size the page is drawn at, and the key of a PNG drawn from a file of this hash. */
         const drawingOf = Effect.fnUntraced(function* (page: Page) {
-          const state = yield* Effect.option(documents.get(page.id));
-          // A page that does not read keeps its last picture; the editor reports the page.
-          const root = Option.isSome(state) ? state.value.root : null;
-          if (Option.isNone(state) || root?.type !== "page") {
-            return null;
-          }
           const layout = yield* layoutOf(page.canvas);
           const frame = layout?.frames[page.path] ?? presetSize.desktop;
           // The canvas's page defaults draw on every page of it (its fill, its type).
-          const key = hashContent(
-            `${context}:${state.value.hash}:${frame.width}x${frame.height}:${JSON.stringify(layout?.defaults ?? null)}`
-          );
-          return { frame, key, root };
+          const keyFor = (hash: string) =>
+            hashContent(
+              `${context}:${hash}:${frame.width}x${frame.height}:${JSON.stringify(layout?.defaults ?? null)}`
+            );
+          return { frame, keyFor };
         });
 
+        /** How the page's PNG is drawn, when it is not of the page as it is; null when it is. */
+        const outdated = Effect.fnUntraced(function* (
+          page: Page,
+          absPng: string
+        ) {
+          const hash = yield* hashOf(page);
+          if (hash === null) {
+            return null;
+          }
+          const drawing = yield* drawingOf(page);
+          return (yield* keyOf(absPng)) === drawing.keyFor(hash)
+            ? null
+            : drawing;
+        });
+
+        /** Draws the page into its PNG: whether it was, or no picture came (`stale`). */
+        const draw = Effect.fnUntraced(function* (
+          page: Page,
+          absPng: string,
+          { frame, keyFor }: Effect.Success<ReturnType<typeof drawingOf>>
+        ) {
+          // Read as it is drawn: the picture and its key are of the same file.
+          const now = yield* pageOf(page);
+          if (Option.isNone(now)) {
+            return "kept" as const;
+          }
+          const picture = yield* Effect.option(
+            screenshots.capture({
+              canvas: page.canvas,
+              height: frame.height,
+              mode: "page",
+              root: now.value.root,
+              width: frame.width,
+            })
+          );
+          if (Option.isNone(picture)) {
+            return "stale" as const;
+          }
+          yield* Effect.orDie(
+            writeAtomic(
+              absPng,
+              withPngText(picture.value, KEYWORD, keyFor(now.value.hash))
+            )
+          );
+          return "drawn" as const;
+        });
+
+        keepOnly(pagesRead, new Set(all.map((page) => page.id)));
         const wanted = new Set<string>();
         const drawn: string[] = [];
         const stale: string[] = [];
         for (const page of all) {
           const absPng = yield* paths.resolve(pngFileOf(page.file));
           wanted.add(absPng);
-          const drawing = yield* drawingOf(page);
-          if (drawing === null || (yield* keyOf(absPng)) === drawing.key) {
+          const drawing = yield* outdated(page, absPng);
+          if (drawing === null) {
             continue;
           }
           // Whatever stopped one page from being drawn stops the rest: they wait for the next pass.
-          const picture =
-            stale.length > 0
-              ? null
-              : yield* Effect.option(
-                  screenshots.capture({
-                    canvas: page.canvas,
-                    height: drawing.frame.height,
-                    mode: "page",
-                    root: drawing.root,
-                    width: drawing.frame.width,
-                  })
-                );
-          if (picture === null || Option.isNone(picture)) {
+          const outcome =
+            stale.length > 0 ? "stale" : yield* draw(page, absPng, drawing);
+          if (outcome === "stale") {
             stale.push(page.file);
-            continue;
+          } else if (outcome === "drawn") {
+            drawn.push(pngFileOf(page.file));
           }
-          yield* Effect.orDie(
-            writeAtomic(
-              absPng,
-              withPngText(picture.value, KEYWORD, drawing.key)
-            )
-          );
-          drawn.push(pngFileOf(page.file));
         }
         const removed = yield* removeOrphans(wanted);
         return { drawn, removed, stale } satisfies PngRefresh;
