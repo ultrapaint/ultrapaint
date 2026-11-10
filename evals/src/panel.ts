@@ -9,7 +9,7 @@
  * It writes `panel.json` in each run, kept while the panel is the same, and `panel.md` in each
  * round: the problems per run and per section, by panel model, beside the judge's overall score
  * and what the run took. It works on any round whose runs were cut into sections (`sections`
- * does it when they were not).
+ * does it when they were not); a run with no section to show is not reviewed, and is in neither.
  */
 import path from "node:path";
 import {
@@ -103,7 +103,10 @@ const samePanel = (
   saved.judgeModel === options.judgeModel &&
   [...saved.models].sort().join(",") === [...options.models].sort().join(",");
 
-/** What the panel finds in one run's final page; kept in `panel.json` while the panel is the same. */
+/**
+ * What the panel finds in one run's final page; kept in `panel.json` while the panel is the same.
+ * Nothing for a run with no section to review: it has no result, kept or returned.
+ */
 export const panelRun = Effect.fn("panelRun")(function* (
   run: { readonly dir: string; readonly reference: string },
   marked: readonly ReferenceSection[],
@@ -112,14 +115,20 @@ export const panelRun = Effect.fn("panelRun")(function* (
   request: ReviewRequest | undefined,
   options: PanelOptions
 ) {
+  const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const file = path.join(run.dir, PANEL_FILE);
   if (yield* fs.exists(file)) {
-    // A result from before the request was given does not decode, and is made again.
+    // A result from before the request was given does not decode, and is made again; so is one
+    // with no sections, which reviewed nothing.
     const saved = yield* readJson(PanelResult, file).pipe(
       Effect.catchTag("EvalsError", () => Effect.void)
     );
-    if (saved !== undefined && samePanel(saved, options, request)) {
+    if (
+      saved !== undefined &&
+      saved.sections.length > 0 &&
+      samePanel(saved, options, request)
+    ) {
       return saved;
     }
   }
@@ -143,6 +152,12 @@ export const panelRun = Effect.fn("panelRun")(function* (
           },
         ];
   });
+  if (sections.length === 0) {
+    // Reviewed blind, a run would score as one the panel found nothing wrong in.
+    return yield* Effect.logWarning(
+      `${data.fromData(run.dir)}: not reviewed: it has no sections (no pictures, or none of the reference's sections found in them)`
+    );
+  }
   const settings = { ...options, request, tree };
   const reviews = yield* reviewSections(sections, options.models, settings);
   const merges = yield* Effect.forEach(

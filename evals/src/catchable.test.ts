@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import path from "node:path";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer } from "effect";
 import {
+  catchable,
   catchableReport,
   countsOf,
   type Sorted,
   type ToSort,
 } from "./catchable.ts";
+import { EvalsConfig } from "./config.ts";
+import { writeText } from "./layout.ts";
+import { type Asked, Models } from "./models.ts";
+import { readData, TestData } from "./test-data.ts";
 
 const finding = (id: string, source: string): ToSort => ({
   id,
@@ -49,4 +56,63 @@ describe("catchable", () => {
     expect(report).toContain("| target size | 2 |");
     expect(report).toContain("| `h2` Finding h2 | not sorted |  |");
   });
+
+  const ID_RE = /^- `([^`]+)`/gm;
+
+  /** A gap a person saw, as its file. */
+  const aGap = Effect.fnUntraced(function* (id: string) {
+    const { gaps } = yield* EvalsConfig;
+    yield* writeText(
+      path.join(gaps, `${id}-a-gap.md`),
+      `---\nid: ${id}\ntitle: Gap ${id}\nkind: missing\nstatus: open\nfound: 2026-11-04\nsource: a test\nskill: [SKILL.md]\nsections: []\n---\n\n**What happened.** ${id} went wrong.\n\n**Result.**\n`
+    );
+  });
+
+  it.effect(
+    "keeps a batch while it holds the same findings, and sorts it again once a new finding has moved the others",
+    () => {
+      const asked: Asked[] = [];
+      const options = {
+        batch: 1,
+        concurrency: 1,
+        decks: [],
+        effort: "medium",
+        model: "gpt-6.1-sol",
+        name: "c",
+        panels: [],
+      };
+      return Effect.gen(function* () {
+        yield* aGap("g02");
+        yield* aGap("g03");
+        yield* catchable(options);
+        expect(asked.length).toBe(2);
+        yield* catchable(options);
+        expect(asked.length).toBe(2);
+
+        // A gap listed before them: each batch now holds the finding before the one it sorted.
+        yield* aGap("g01");
+        yield* catchable(options);
+        const report = yield* readData("runs/c/report.md");
+        expect(report).toContain("| gaps | 3 | 3 (100%) | 0 (0%) | 0 (0%) |");
+        expect(report).not.toContain("not sorted");
+      }).pipe(
+        Effect.provide(
+          Layer.merge(
+            TestData,
+            Models.layerTest((question) => {
+              asked.push(question);
+              return {
+                items: [...question.prompt.matchAll(ID_RE)].map((m) => ({
+                  catch: "code",
+                  check: "A check",
+                  how: "A program reads it.",
+                  id: m[1],
+                })),
+              };
+            })
+          )
+        )
+      );
+    }
+  );
 });

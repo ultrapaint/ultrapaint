@@ -6,11 +6,12 @@
  * review models) and that its designers did not mostly decline is checked by review models on two
  * providers against the skill and the gaps; what they agree is real and general is drafted as a
  * gap, or as evidence for the gap that covers it, and put to the person in a decision deck.
- * `--apply` writes what the person kept into `evals/gaps/`.
+ * `--apply` writes what the person kept into `evals/gaps/`, each draft once.
  *
  * Everything a run makes is in the data directory's `triage/<name>/`: what it read, the groups and
- * the checks (kept, so a run resumes), the drafts, and the crops the deck shows. Nothing of a
- * project reaches git until the person keeps it.
+ * the checks (kept while the findings are the same, so a run resumes), the drafts, the crops the
+ * deck shows, and which drafts were applied. Nothing of a project reaches git until the person
+ * keeps it.
  */
 import path from "node:path";
 import {
@@ -331,13 +332,32 @@ ${findings.slice(0, 8).map(quoted).join("\n")}
 
 const RESULT = "**Result.**";
 
-/** A gap's text with a line of new evidence under **Result.**, its status left as it is. */
-export const withEvidence = (text: string, line: string) => {
+/**
+ * A gap's text with a triage's lines of evidence under **Result.** (the lines it had from that
+ * triage replaced, so applying it again adds none), its status left as it is.
+ */
+export const withEvidence = (
+  text: string,
+  run: string,
+  lines: readonly string[]
+) => {
+  const label = `- \`triage ${run}\`:`;
+  const entries = lines.map((line) => `${label} ${line}`).join("\n");
   const at = text.indexOf(RESULT);
   if (at < 0) {
-    return `${text.trimEnd()}\n\n${RESULT}\n\n${line}\n`;
+    return `${text.trimEnd()}\n\n${RESULT}\n\n${entries}\n`;
   }
-  return `${text.trimEnd()}\n${line}\n`;
+  const head = text.slice(0, at + RESULT.length);
+  const kept = text
+    .slice(at + RESULT.length)
+    .split("\n")
+    .filter((l) => !l.startsWith(label));
+  while (kept.length > 0 && kept.at(-1)?.trim() === "") {
+    kept.pop();
+  }
+  return kept.some((l) => l.trim() !== "")
+    ? `${head}${kept.join("\n")}\n${entries}\n`
+    : `${head}\n\n${entries}\n`;
 };
 
 // ---- The run ----
@@ -346,6 +366,22 @@ export const withEvidence = (text: string, line: string) => {
 const triageDir = (data: string) => path.join(data, "triage");
 
 const Last = Schema.Struct({ at: Schema.String });
+
+/**
+ * The drafts `--apply` wrote, each with the gap it became or added to (`applied.json` of the run),
+ * so applying again writes none of them twice.
+ */
+const Applied = Schema.Record(Schema.String, Schema.String);
+const APPLIED_FILE = "applied.json";
+
+const readApplied = Effect.fnUntraced(function* (out: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const file = path.join(out, APPLIED_FILE);
+  const applied: Record<string, string> = (yield* fs.exists(file))
+    ? { ...(yield* readJson(Applied, file)) }
+    : {};
+  return applied;
+});
 
 /** A draft put to the person: a new gap or evidence, with what it rests on. */
 const Draft = Schema.Struct({
@@ -454,7 +490,42 @@ interface Run {
   readonly out: string;
 }
 
-/** A category's findings in groups: kept, so a run resumes; one finding is its own group. */
+/** Which finding one is, among those a run reads. */
+const keyOf = (f: LoggedFinding) =>
+  `${f.at} ${designOf(f)} › ${f.section} › ${f.reviewer} #${f.round}: ${f.title}`;
+
+/** A category's groups as kept, with the findings their numbers count. */
+const KeptGroups = Schema.Struct({
+  ...Grouped.fields,
+  /** In the order they were numbered; absent in groups kept before they were. */
+  keys: Schema.optional(Schema.Array(Schema.String)),
+});
+
+/**
+ * What was made of a category's groups goes when they are made again: a group's key is its place
+ * among them, so its checks and the draft applied under it would be another problem's.
+ */
+const forgetGroups = Effect.fnUntraced(function* (
+  out: string,
+  category: Category
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const ofCategory = (key: string) => key.startsWith(`${category}-`);
+  const checks = path.join(out, "checks");
+  for (const file of (yield* listDir(checks)).filter(ofCategory)) {
+    yield* fs.remove(path.join(checks, file));
+  }
+  const applied = yield* readApplied(out);
+  const others = Object.entries(applied).filter(([id]) => !ofCategory(id));
+  if (others.length < Object.keys(applied).length) {
+    yield* writeJson(path.join(out, APPLIED_FILE), Object.fromEntries(others));
+  }
+});
+
+/**
+ * A category's findings in groups: kept while the findings are the same, so a run resumes; one
+ * finding is its own group.
+ */
 const groupCategory = Effect.fnUntraced(function* (
   run: Run,
   category: Category,
@@ -462,9 +533,15 @@ const groupCategory = Effect.fnUntraced(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const cached = path.join(run.out, "groups", `${category}.json`);
+  const keys = these.map(keyOf);
   if (yield* fs.exists(cached)) {
-    return yield* readJson(Grouped, cached);
+    const kept = yield* readJson(KeptGroups, cached);
+    // A member is a finding's number among those read: among others, it is another finding's.
+    if (kept.keys?.join("\n") === keys.join("\n")) {
+      return kept;
+    }
   }
+  yield* forgetGroups(run.out, category);
   const grouped: Grouped =
     these.length === 1
       ? { groups: [{ members: [0], title: these[0]?.title ?? "" }] }
@@ -479,7 +556,7 @@ const groupCategory = Effect.fnUntraced(function* (
             findings: these.map(findingLine).join("\n"),
           }),
         })).value;
-  yield* writeJson(cached, grouped);
+  yield* writeJson(cached, { ...grouped, keys });
   return grouped;
 });
 
@@ -659,7 +736,6 @@ const Answers = Schema.Record(
     label: Schema.String,
   })
 );
-type Answer = (typeof Answers.Type)[string];
 
 /** The crops a new gap's findings were seen in, beside the gap's other pictures. */
 const copyCrops = Effect.fnUntraced(function* (id: string, draft: Draft) {
@@ -679,28 +755,36 @@ const copyCrops = Effect.fnUntraced(function* (id: string, draft: Draft) {
   }
 });
 
-/** A kept draft written: a line of evidence in the gap it names, or a new gap's file. */
+/**
+ * A kept draft written: a line of evidence in the gap it names, or a new gap's file. It says what
+ * it did, and the gap it wrote to when it wrote.
+ */
 const applyDraft = Effect.fnUntraced(function* (options: {
-  readonly answer: Answer;
   readonly draft: Draft;
+  /** Every line of evidence this triage has for a gap, this draft's among them. */
+  readonly evidenceFor: (gap: string) => readonly string[];
   readonly gaps: readonly LoadedGap[];
   readonly name: string;
   readonly next: (kind: Checked["kind"]) => string;
 }) {
-  const { answer, draft, gaps, name, next } = options;
+  const { draft, evidenceFor, gaps, name, next } = options;
   const { gaps: gapsDir } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   const gap = draft.gap ? gaps.find((g) => g.id === draft.gap) : undefined;
   if (gap) {
-    const line = `- \`triage ${name}\`: seen again, ${evidenceLine(draft.evidence, draft.findings.length)}${answer.comment ? `. ${answer.comment}` : ""}`;
+    // Two drafts of one triage may add to one gap: its lines are written together.
     yield* fs.writeFileString(
       gap.file,
-      withEvidence(yield* fs.readFileString(gap.file), line)
+      withEvidence(
+        yield* fs.readFileString(gap.file),
+        name,
+        evidenceFor(gap.id)
+      )
     );
-    return `evidence added to ${gap.id}`;
+    return { gap: gap.id, said: `evidence added to ${gap.id}` };
   }
   if (!draft.check) {
-    return "nothing to write";
+    return { said: "nothing to write" };
   }
   const id = next(draft.check.kind);
   const file = path.join(gapsDir, `${id}-${slugOf(draft.check.title)}.md`);
@@ -716,7 +800,7 @@ const applyDraft = Effect.fnUntraced(function* (options: {
     })
   );
   yield* copyCrops(id, draft);
-  return path.basename(file);
+  return { gap: id, said: path.basename(file) };
 });
 
 /** `pnpm evals triage <name> --apply`: what the person kept, written into `evals/gaps/`. */
@@ -738,13 +822,36 @@ export const applyTriage = Effect.fn("applyTriage")(function* (name: string) {
   const answers = yield* readJson(Answers, answersFile);
   const gaps = yield* loadGaps();
   const next = nextIds(gaps);
+  const applied = yield* readApplied(out);
+  const evidenceFor = (gap: string) =>
+    drafts.flatMap((draft) => {
+      const answer = answers[draft.id];
+      return draft.gap === gap && answer?.choice === "keep"
+        ? [
+            `seen again, ${evidenceLine(draft.evidence, draft.findings.length)}${answer.comment ? `. ${answer.comment}` : ""}`,
+          ]
+        : [];
+    });
   for (const draft of drafts) {
     const answer = answers[draft.id];
-    const done =
-      answer?.choice === "keep"
-        ? yield* applyDraft({ answer, draft, gaps, name, next })
-        : `not kept${answer?.label === OWN_ANSWER ? ` (${answer.comment ?? ""})` : ""}`;
-    yield* Console.log(`${draft.id}: ${done}`);
+    const before = applied[draft.id];
+    if (before !== undefined) {
+      yield* Console.log(`${draft.id}: already applied (${before})`);
+      continue;
+    }
+    if (answer?.choice !== "keep") {
+      yield* Console.log(
+        `${draft.id}: not kept${answer?.label === OWN_ANSWER ? ` (${answer.comment ?? ""})` : ""}`
+      );
+      continue;
+    }
+    const done = yield* applyDraft({ draft, evidenceFor, gaps, name, next });
+    if (done.gap !== undefined) {
+      // Kept as each is written, so a run that stops half way writes the rest and no more.
+      applied[draft.id] = done.gap;
+      yield* writeJson(path.join(out, APPLIED_FILE), applied);
+    }
+    yield* Console.log(`${draft.id}: ${done.said}`);
   }
   // The next triage starts after the findings this one read.
   const read = yield* readJson(

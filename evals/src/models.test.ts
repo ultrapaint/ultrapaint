@@ -110,6 +110,43 @@ describe("the models", () => {
   );
 
   it.effect(
+    "runs a model in the agent the editor's review runs it in, by its name",
+    () => {
+      const { layer, ran } = modelsOver(() =>
+        JSON.stringify({
+          item: { text: '{"brief":"A screen."}', type: "agent_message" },
+          type: "item.completed",
+        })
+      );
+      return Effect.gen(function* () {
+        const models = yield* Models;
+        assert.deepStrictEqual(
+          [
+            "opus",
+            "gpt-6.1-sol",
+            "o3",
+            "codex:o3",
+            "cursor:grok-4.7-high",
+            "cursor-opus-5.5",
+            // No agent's name before the colon: Claude's own name for a model.
+            "arn:aws:bedrock:opus",
+          ].map(models.runsIn),
+          ["claude", "codex", "codex", "codex", "cursor", "cursor", "claude"]
+        );
+        yield* models.ask({ ...question, model: "o3" });
+        yield* models.ask({ ...question, model: "codex:o3" });
+        assert.deepStrictEqual(
+          ran.map((r) => [r.command, r.args[r.args.indexOf("--model") + 1]]),
+          [
+            ["codex", "o3"],
+            ["codex", "o3"],
+          ]
+        );
+      }).pipe(Effect.provide(layer));
+    }
+  );
+
+  it.effect(
     "asks a cursor- model in Cursor under its name there, and once more when its answer does not fit",
     () => {
       const { layer, ran } = modelsOver((_, index) =>

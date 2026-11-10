@@ -91,7 +91,7 @@ const force = Flag.Boolean("force").pipe(
 const model = (fallback: string, what: string) =>
   Flag.String("model").pipe(
     Flag.withDescription(
-      `The model ${what}: a gpt- model runs in Codex, a cursor: one in Cursor, any other in Claude`
+      `The model ${what}: a gpt- or o<digit> model runs in Codex, a cursor: one in Cursor, any other in Claude`
     ),
     Flag.withDefault(fallback)
   );
@@ -618,7 +618,7 @@ const studyCommand = Command.make("study").pipe(
         ),
         model: Flag.String("model").pipe(
           Flag.withDescription(
-            "The model that looks at the sites: a gpt- model runs in Codex, cursor-opus-5.5 in Cursor, any other in Claude"
+            "The model that looks at the sites: a gpt- or o<digit> model runs in Codex, cursor-opus-5.5 in Cursor, any other in Claude"
           ),
           Flag.withDefault("gpt-6.1-sol")
         ),

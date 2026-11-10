@@ -1,6 +1,8 @@
+import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 import { Browser } from "./browser.ts";
+import { EvalsConfig } from "./config.ts";
 import { type Asked, Models } from "./models.ts";
 import { PanelResult, panel, readWhenNeeded } from "./panel.ts";
 import { judgement, readData, TestData, writeData } from "./test-data.ts";
@@ -221,6 +223,71 @@ describe("the panel", () => {
       assert.strictEqual(asked.length, before);
       yield* panel(["r"], { ...options, models: ["opus"] });
       assert.isAbove(asked.length, before);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          TestData,
+          Browser.layerTest,
+          Models.layerTest(script(asked))
+        )
+      )
+    );
+  });
+
+  it.effect(
+    "leaves a run with no sections out of the table and the mean, and keeps no result for it",
+    () => {
+      const asked: Asked[] = [];
+      return Effect.gen(function* () {
+        const { data } = yield* EvalsConfig;
+        const fs = yield* FileSystem.FileSystem;
+        yield* aRound(() => 4);
+        // Run 2 drew nothing: no pictures, so no sections to find in them.
+        const drawn = path.join(data.root, `${RUN}2`);
+        yield* fs.remove(path.join(drawn, "shots"), { recursive: true });
+        yield* fs.remove(path.join(drawn, "sections.json"));
+        yield* panel(["r"], options);
+
+        assert.isFalse(yield* fs.exists(path.join(drawn, "panel.json")));
+        const table = yield* readData("runs/r/panel.md");
+        assert.include(table, "| share/run-1 | **2** |");
+        assert.notInclude(table, "share/run-2");
+        assert.include(table, "| **Mean** | **2.0** |");
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            TestData,
+            Browser.layerTest,
+            Models.layerTest(script(asked))
+          )
+        )
+      );
+    }
+  );
+
+  it.effect("reviews again a run whose kept result has no sections", () => {
+    const asked: Asked[] = [];
+    return Effect.gen(function* () {
+      yield* aRound(() => 4);
+      yield* writeData({
+        [`${RUN}1/panel.json`]: {
+          commit: "abc",
+          costUsd: 0,
+          effort: options.effort,
+          judgeModel: options.judgeModel,
+          models: options.models,
+          sections: [],
+          withRequest: true,
+        },
+      });
+      yield* panel(["r"], options);
+      const saved = PanelResult.make(
+        JSON.parse(yield* readData(`${RUN}1/panel.json`))
+      );
+      assert.deepStrictEqual(
+        saved.sections.map((s) => s.name),
+        ["Header", "Footer"]
+      );
     }).pipe(
       Effect.provide(
         Layer.mergeAll(

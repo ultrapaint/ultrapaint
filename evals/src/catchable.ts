@@ -12,7 +12,8 @@
  *
  * The findings come from three sources: the design gaps (`evals/gaps/`), the held-out findings a
  * person rated real in a decision deck, and what a fixed panel found in a round's designs
- * (`panel.json`, unrated). A model sorts them in batches; each batch is kept, so a run resumes.
+ * (`panel.json`, unrated). A model sorts them in batches; each batch is kept while it holds the
+ * same findings, so a run resumes.
  * It ends on `runs/<name>/report.md`: the counts per source and kind, and every finding's kind
  * with the check or outline element that would catch it.
  */
@@ -46,6 +47,12 @@ const Sorted = Schema.Struct({
 export type Sorted = typeof Sorted.Type;
 
 const Batch = Schema.Struct({ items: Schema.Array(Sorted) });
+/** A batch as kept, with the findings it was asked about. */
+const KeptBatch = Schema.Struct({
+  /** Absent in a batch kept before they were: sorted again. */
+  ids: Schema.optional(Schema.Array(Schema.String)),
+  items: Schema.Array(Sorted),
+});
 const str = { type: "string" };
 const batchAnswer = {
   decode: Batch,
@@ -283,8 +290,13 @@ export const catchable = Effect.fn("catchable")(function* (
     (batch, i) =>
       Effect.gen(function* () {
         const file = path.join(out, "batches", `${i + 1}.json`);
+        const ids = batch.map((f) => f.id);
         if (yield* fs.exists(file)) {
-          return (yield* readJson(Batch, file)).items;
+          const kept = yield* readJson(KeptBatch, file);
+          // A batch is a place in the list: a finding added before it gives it other findings.
+          if (kept.ids?.join("\n") === ids.join("\n")) {
+            return kept.items;
+          }
         }
         const answer = yield* models.ask({
           cwd: out,
@@ -297,7 +309,7 @@ export const catchable = Effect.fn("catchable")(function* (
           }),
           ...batchAnswer,
         });
-        yield* writeJson(file, answer.value);
+        yield* writeJson(file, { ids, items: answer.value.items });
         yield* Effect.log(`batch ${i + 1}/${batches.length} sorted`);
         return answer.value.items;
       }).pipe(

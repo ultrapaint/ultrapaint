@@ -197,6 +197,64 @@ describe("recall", () => {
       }).pipe(Effect.provide(world))
   );
 
+  it.effect(
+    "asks no more models at once than its concurrency, however many sections it reviews",
+    () => {
+      let now = 0;
+      let most = 0;
+      // An answer takes turns of the event loop, so every review that may start beside it has.
+      const aTurn = Effect.promise(
+        () => new Promise<void>((resolve) => setImmediate(resolve))
+      );
+      const counted = Layer.effect(
+        Models,
+        Effect.gen(function* () {
+          const models = yield* Models;
+          return Models.of({
+            ...models,
+            ask: (question) =>
+              Effect.gen(function* () {
+                now += 1;
+                most = Math.max(most, now);
+                for (let turn = 0; turn < 20; turn += 1) {
+                  yield* aTurn;
+                }
+                return yield* models.ask(question);
+              }).pipe(
+                Effect.ensuring(
+                  Effect.sync(() => {
+                    now -= 1;
+                  })
+                )
+              ),
+          });
+        })
+      ).pipe(Layer.provide(Models.layerTest(scripted)));
+      return Effect.gen(function* () {
+        yield* writeData(
+          Object.fromEntries(
+            ["a", "b", "c"].flatMap((id) => [
+              [`gaps/sections/${id}/code/DESIGN.md`, "# Design\n"],
+              [`gaps/sections/${id}/section.json`, section(id)],
+            ])
+          )
+        );
+        yield* recall({
+          concurrency: 2,
+          effort: "high",
+          judgeModel: "opus",
+          models: ["opus"],
+          round: "c",
+          runs: 2,
+          sections: [],
+          skills: ["built-in"],
+        });
+        assert.include(yield* readData("runs/c/report.md"), "### c (`c`");
+        assert.isAtMost(most, 2);
+      }).pipe(Effect.provide(Layer.merge(TestData, counted)));
+    }
+  );
+
   it("names a version by its skill alone with one reviewing model, and by its skill and model with several", () => {
     assert.deepStrictEqual(
       versionsOf(["built-in"], ["opus"]).map((v) => v.name),

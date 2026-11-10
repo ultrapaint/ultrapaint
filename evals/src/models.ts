@@ -1,9 +1,10 @@
 /**
  * The models the evals ask to look at pictures and answer: the brief's writer, the judges, the
  * studies. Each runs as the user's own command with its own sign-in: Claude Code by default, a
- * `gpt-` model in Codex, a `cursor:` one (or a `cursor-` alias) in Cursor's agent. A step asks them all the same way, and
- * gets the answer decoded with its own schema.
+ * `gpt-` or `o<digit>` model in Codex, a `cursor:` one (or a `cursor-` alias) in Cursor's agent.
+ * A step asks them all the same way, and gets the answer decoded with its own schema.
  */
+import { parseReviewModel } from "@ultrapaint/contracts/review";
 import { Context, Effect, type FileSystem, Layer, Schema } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
 import { askClaude } from "./claude.ts";
@@ -23,8 +24,8 @@ export interface Question {
    */
   readonly images?: readonly string[];
   /**
-   * An alias (`opus`, `sonnet`), a full model name, a `gpt-` model, or one of Cursor's by its exact
-   * name there (`cursor:grok-4.7-high`, `cursor:composer-2.5`).
+   * An alias (`opus`, `sonnet`), a full model name, a `gpt-` or `o<digit>` model, or one of
+   * Cursor's by its exact name there (`cursor:grok-4.7-high`, `cursor:composer-2.5`).
    */
   readonly model: string;
   readonly prompt: string;
@@ -61,12 +62,23 @@ const CURSOR_MODELS: Readonly<Record<string, string>> = {
   "cursor-opus-5.5-rerun": "claude-opus-5-5",
 };
 
-/** Any of Cursor's models after this, by the name `cursor-agent --list-models` gives it. */
-const CURSOR = "cursor:";
-
 export type Backend = "claude" | "codex" | "cursor";
 
-/** Where a model runs, by its name, and the name it has there. */
+/**
+ * The command each agent of a lab name runs as: after `cursor:`, any of Cursor's models by the
+ * name `cursor-agent --list-models` gives it.
+ */
+const AGENT_BACKENDS: Readonly<Record<string, Backend>> = {
+  "claude-code": "claude",
+  codex: "codex",
+  cursor: "cursor",
+};
+
+/**
+ * Where a model runs, by its name, and the name it has there. Which agent a name is of is the
+ * contracts' rule (`parseReviewModel`), so a reviewer runs in the same one here as in the
+ * editor's review.
+ */
 const backendOf = (
   model: string
 ): {
@@ -75,14 +87,16 @@ const backendOf = (
   /** Whether the question's effort is added to the name, as Cursor names Opus's efforts. */
   readonly withEffort?: boolean;
 } => {
-  if (model.startsWith(CURSOR)) {
-    return { kind: "cursor", model: model.slice(CURSOR.length) };
-  }
   const cursorModel = CURSOR_MODELS[model];
   if (cursorModel !== undefined) {
     return { kind: "cursor", model: cursorModel, withEffort: true };
   }
-  return { kind: model.startsWith("gpt-") ? "codex" : "claude", model };
+  const named = parseReviewModel(model);
+  const kind = AGENT_BACKENDS[named.agentId];
+  // A colon after what is no agent's name is part of a model's own name, which is Claude's.
+  return kind === undefined
+    ? { kind: "claude", model }
+    : { kind, model: named.model };
 };
 
 export class Models extends Context.Service<
@@ -161,7 +175,7 @@ export class Models extends Context.Service<
           );
         }
         const run = backend.kind === "codex" ? askCodex : askClaude;
-        return run(asked).pipe(
+        return run({ ...asked, model: backend.model }).pipe(
           Effect.flatMap((reply) => decode(reply, false)),
           Effect.provideContext(context)
         );

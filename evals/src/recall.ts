@@ -19,7 +19,15 @@
  * `testing`.
  */
 import path from "node:path";
-import { Clock, DateTime, Effect, FileSystem, Predicate, Schema } from "effect";
+import {
+  Clock,
+  DateTime,
+  Effect,
+  FileSystem,
+  Predicate,
+  Schema,
+  Semaphore,
+} from "effect";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
@@ -733,6 +741,9 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   let cost = 0;
   const reviewed: Record<string, Reviewed[]> = {};
   const unmatched: Record<string, Unmatched> = {};
+  // Each model session holds a permit, whichever section it is of: `concurrency` is how many run
+  // at once in all, with sections side by side to use it.
+  const sessions = yield* Semaphore.make(options.concurrency);
   yield* Effect.forEach(
     ids,
     (id) =>
@@ -749,6 +760,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
           ({ run, version }) =>
             orLater(
               `${id} ${version.name} run ${run}`,
+              // One permit for a review and its judgement, which follow each other.
               Effect.gen(function* () {
                 const dir = path.join(out, id, version.name, `run-${run}`);
                 const tree = trees.get(version.skills) ?? "";
@@ -784,7 +796,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
                   },
                   version: version.name,
                 } satisfies Reviewed;
-              })
+              }).pipe(sessions.withPermit)
             ),
           { concurrency: options.concurrency }
         );
@@ -796,14 +808,14 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
             path.join(out, id, "unmatched.json"),
             reviewed[id],
             options
-          )
+          ).pipe(sessions.withPermit)
         );
         cost += grouped?.costUsd ?? 0;
         if (grouped) {
           unmatched[id] = grouped.value;
         }
       }),
-    { concurrency: 2 }
+    { concurrency: options.concurrency }
   );
 
   const tally = tallyOf(findingGaps, reviewed, versions);

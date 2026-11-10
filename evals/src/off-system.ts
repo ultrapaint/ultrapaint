@@ -5,16 +5,16 @@
  * designer leaves off the system that a check on the document would have caught.
  */
 import path from "node:path";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import { PageDocument } from "@ultrapaint/contracts/document";
 import {
   type OffSystemKind,
   type OffSystemValue,
   offSystemValues,
 } from "@ultrapaint/design-document/off-system";
-import { Effect, FileSystem, Predicate } from "effect";
+import { Effect, FileSystem } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { roundRuns } from "./judge.ts";
-import { listDir, readPageFile, writeText } from "./layout.ts";
+import { listDir, readJson, writeText } from "./layout.ts";
 
 const KINDS: readonly OffSystemKind[] = [
   "spacing",
@@ -28,22 +28,26 @@ const KINDS: readonly OffSystemKind[] = [
   "tracking",
 ];
 
-/** A page file's root node, when it has one. */
-const rootOf = (page: unknown): DesignNode | undefined =>
-  Predicate.isObject(page) && Predicate.isObject(page.root)
-    ? (page.root as unknown as DesignNode)
-    : undefined;
-
-/** Every value off the system in one run's pages, with the page each is on. */
+/**
+ * Every value off the system in one run's pages, with the page each is on. A page is decoded as
+ * this checkout's contracts have it, which is what `offSystemValues` reads; one that does not fit
+ * (a round may measure another commit of Ultrapaint) is said and left out, not counted as it is.
+ */
 const runValues = Effect.fn("runValues")(function* (dir: string) {
   const pages = path.join(dir, "pages");
   const found: (OffSystemValue & { readonly page: string })[] = [];
   for (const file of (yield* listDir(pages)).filter((f) =>
     f.endsWith(".page.json")
   )) {
-    const root = rootOf(yield* readPageFile(path.join(pages, file)));
-    if (root !== undefined) {
-      found.push(...offSystemValues(root).map((v) => ({ ...v, page: file })));
+    const page = yield* readJson(PageDocument, path.join(pages, file)).pipe(
+      Effect.catchTag("EvalsError", (error) =>
+        Effect.as(Effect.logWarning(`not counted: ${error.message}`), undefined)
+      )
+    );
+    if (page !== undefined) {
+      found.push(
+        ...offSystemValues(page.root).map((v) => ({ ...v, page: file }))
+      );
     }
   }
   return found;
