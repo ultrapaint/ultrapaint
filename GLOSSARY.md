@@ -222,7 +222,10 @@ refactor and the board view left.
   the lab shows a change to the skill catches it (ADR 0059): one file each in `evals/gaps/`, read
   by evals' `gap.ts`, its kind (missing, missed, process) and status (open, testing, done,
   wontfix). `pnpm evals recall` measures a candidate against the shipped skill on the gaps'
-  sections and writes its result into each gap.
+  sections and writes its result into each gap. Its report gives each count the interval a
+  resampling of the gaps leaves it (`recall-stats.ts`); the gaps not `done` are the **held-out
+  split**, since a `done` gap's rule was written from its own section, and what no gap matched is
+  rated real or noise in the **rating deck** (`rate-<round>`, `recall --rate`).
 - **Review loop**: reviewers that look at a design inside its build, look and adjust loop, their
   findings sent back into the designer's thread to fix or decline (ADR 0060). In the lab, a
   round's `--review end|each-section` (evals' `review-loop.ts`, one section reviewed and merged by

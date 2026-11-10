@@ -17,6 +17,13 @@
  * It resumes: a review, a judgement or a grouping already made is kept. It ends on
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status
  * `testing`.
+ *
+ * The report says how far its counts go (`recall-stats.ts`): each version's recall with the
+ * interval a resampling of the gaps gives it, its difference from the first version, and the gaps
+ * that are not `done` apart, since a `done` gap's rule was written from the section it is
+ * measured on. What no gap matched is counted per review, and `rate` writes the deck where a
+ * person rates it real or noise (`decisions/rate-<round>.json`): once answered, the report gives
+ * each version the share of what it found there that was real.
  */
 import path from "node:path";
 import {
@@ -29,6 +36,7 @@ import {
   Semaphore,
 } from "effect";
 import { EvalsConfig } from "./config.ts";
+import { Answers, type Deck } from "./decide.ts";
 import { EvalsError } from "./errors.ts";
 import {
   isFinding,
@@ -39,6 +47,14 @@ import {
 } from "./gap.ts";
 import { listDir, prompt, readJson, writeJson, writeText } from "./layout.ts";
 import { Models } from "./models.ts";
+import {
+  differenceOf,
+  intervalOf,
+  percent,
+  points,
+  RESAMPLES,
+  showInterval,
+} from "./recall-stats.ts";
 
 export const Section = Schema.Struct({
   /** The files under `code/`, the design system's `DESIGN.md` first. */
@@ -320,6 +336,25 @@ export const showTally = (t: Tally | undefined) =>
     ? "–"
     : `${t.caught}/${t.runs}${t.partly > 0 ? ` (+${t.partly} partly)` : ""}`;
 
+/** "60/102 · 59%": what was caught of the runs judged, and its share. */
+const showShare = (caught: number, runs: number) =>
+  runs === 0 ? "–" : `${caught}/${runs} · ${percent(caught / runs)}`;
+
+/** The deck where a person rates what no gap matched in a round, real or noise. */
+export const rateDeckName = (round: string) => `rate-${round}`;
+
+/** A problem's card in the rating deck: the same for the same problem of the same section. */
+export const ratingId = (section: string, title: string) =>
+  `${section}-${hash(title)}`;
+
+/** The runs of a version that found a grouped problem, from its findings' keys. */
+const foundBy = (findings: readonly string[], version: string) =>
+  new Set(
+    findings
+      .filter((f) => f.startsWith(`${version}/`))
+      .map((f) => f.split("#")[0])
+  ).size;
+
 const sum = (tallies: readonly (Tally | undefined)[]): Tally =>
   tallies.filter(Predicate.isNotUndefined).reduce<Tally>(
     (a, t) => ({
@@ -339,6 +374,8 @@ export interface RecallOptions {
   readonly judgeModel: string;
   /** The models that review, each with every version of the skill, to be compared. */
   readonly models: readonly string[];
+  /** Writes the deck that rates what no gap matched in the held-out sections. */
+  readonly rate?: boolean;
   readonly round: string;
   readonly runs: number;
   /** The sections to review; every one there is when empty. */
@@ -830,19 +867,60 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
         ),
       ])
     );
-  const sectionNames = new Map<string, string>();
+  const sectionsRead = new Map<string, Section>();
   for (const id of ids) {
-    sectionNames.set(
+    sectionsRead.set(
       id,
-      (yield* readJson(Section, path.join(data.sections, id, "section.json")))
-        .name
+      yield* readJson(Section, path.join(data.sections, id, "section.json"))
+    );
+  }
+  const sectionNames = new Map(
+    [...sectionsRead].map(([id, section]) => [id, section.name])
+  );
+  const held = ids.filter((id) => gapsOf(id).length === 0);
+  const decisions = path.join(data.root, "decisions");
+  if (options.rate) {
+    const deck = rateDeckOf({
+      held,
+      pictureAt: (id, file) =>
+        data.fromData(path.join(data.sections, id, file)),
+      round: options.round,
+      sections: sectionsRead,
+      unmatched,
+    });
+    yield* writeJson(
+      path.join(decisions, `${rateDeckName(options.round)}.json`),
+      deck
+    );
+    yield* Effect.log(
+      `${deck.cards.length} problems to rate: pnpm evals decide ${rateDeckName(options.round)}`
+    );
+  }
+  const answersFile = path.join(
+    decisions,
+    `${rateDeckName(options.round)}.answers.json`
+  );
+  const answers = (yield* fs.exists(answersFile))
+    ? yield* readJson(Answers, answersFile)
+    : {};
+  const ratings = new Map(
+    Object.entries(answers).flatMap(([id, answer]) =>
+      answer.choice === "real" || answer.choice === "noise"
+        ? [[id, answer.choice] as const]
+        : []
+    )
+  );
+  if (options.models.includes(options.judgeModel)) {
+    yield* Effect.logWarning(
+      `${options.judgeModel} judges reviews it wrote: give --judge-model another model to compare reviewers`
     );
   }
   const text = reportOf({
     cost,
     gaps,
-    held: ids.filter((id) => gapsOf(id).length === 0),
+    held,
     options,
+    ratings,
     reviewed,
     sectionNames,
     sections: ids,
@@ -882,6 +960,8 @@ interface ReportInput {
   readonly gaps: readonly LoadedGap[];
   readonly held: readonly string[];
   readonly options: RecallOptions;
+  /** What the person answered in the rating deck, by a problem's `ratingId`. */
+  readonly ratings?: ReadonlyMap<string, "real" | "noise">;
   readonly reviewed: Readonly<Record<string, readonly Reviewed[]>>;
   readonly sectionNames: ReadonlyMap<string, string>;
   /** The sections the round reviewed: a gap whose sections are all elsewhere is left out. */
@@ -927,12 +1007,194 @@ export const spentLines = (
   ];
 };
 
+const tableRow = (cells: readonly string[]) => `| ${cells.join(" | ")} |`;
+const tableHead = (cells: readonly string[]) =>
+  [tableRow(cells), tableRow(cells.map(() => "---"))].join("\n");
+
+const NO_RUNS: Tally = { caught: 0, partly: 0, runs: 0 };
+
+/**
+ * How far the counts go: each version's recall with its interval and its difference from the
+ * first version, then the gaps that are `done` apart from the rest.
+ */
+const trustLines = (
+  input: ReportInput,
+  findingGaps: readonly LoadedGap[]
+): string[] => {
+  const { options, versions } = input;
+  if (findingGaps.length === 0) {
+    return [];
+  }
+  const perGap = (v: string, gaps: readonly LoadedGap[] = findingGaps) =>
+    gaps.map((g) => input.tally[g.id]?.[v] ?? NO_RUNS);
+  const [first] = versions;
+  const lines = [
+    "## How far the counts go",
+    "",
+    tableHead([
+      "Version",
+      "Caught",
+      "Caught or partly",
+      "95% interval",
+      ...(versions.length > 1 ? [`Against ${first}`] : []),
+    ]),
+    ...versions.map((v, i) => {
+      const all = sum(perGap(v));
+      const interval = intervalOf(perGap(v));
+      const against =
+        i === 0 || first === undefined
+          ? undefined
+          : differenceOf(perGap(v), perGap(first));
+      return tableRow([
+        v,
+        showShare(all.caught, all.runs),
+        showShare(all.caught + all.partly, all.runs),
+        interval === undefined ? "–" : showInterval(interval),
+        ...(versions.length > 1
+          ? [
+              against === undefined
+                ? ""
+                : `${points(against.difference)} points (${points(against.low)} to ${points(against.high)})`,
+            ]
+          : []),
+      ]);
+    }),
+    "",
+    `The interval is where 95% of ${RESAMPLES.toLocaleString("en")} resamplings of the gaps fall: a gap's runs go together, so the gaps are what varies${
+      versions.length > 1
+        ? ". A difference whose interval holds 0 is one this round does not show"
+        : ""
+    }.${
+      options.runs < 3
+        ? ` With ${options.runs} run(s) per section a single gap's count says little: read the totals.`
+        : ""
+    }`,
+    "",
+  ];
+  if (options.models.includes(options.judgeModel)) {
+    lines.push(
+      `\`${options.judgeModel}\` judges reviews it wrote itself. A judge matches the wording it would use more readily, so compare versions inside this round, and give \`--judge-model\` another model to compare reviewers.`,
+      ""
+    );
+  }
+  const done = findingGaps.filter((g) => g.status === "done");
+  const rest = findingGaps.filter((g) => g.status !== "done");
+  if (done.length > 0 && rest.length > 0) {
+    const shares = (gaps: readonly LoadedGap[]) =>
+      versions.map((v) => {
+        const t = sum(perGap(v, gaps));
+        return showShare(t.caught, t.runs);
+      });
+    lines.push(
+      tableHead(["Gaps", ...versions]),
+      tableRow([`\`done\` (${done.length})`, ...shares(done)]),
+      tableRow([`not \`done\` (${rest.length})`, ...shares(rest)]),
+      "",
+      "A `done` gap's rule was written from the section it is measured on, so its count says whether the rule is still read. The gaps that are not `done` are the held-out split: a change is shown on them.",
+      ""
+    );
+  }
+  return lines;
+};
+
+/**
+ * What no gap matched, per version: how much of it a review brings, in every section and in the
+ * held-out ones, and of what the person rated, how much was real.
+ */
+const unmatchedLines = (input: ReportInput): string[] => {
+  const { versions } = input;
+  const mean = (reviews: readonly Reviewed[]) =>
+    reviews.length === 0
+      ? "–"
+      : (
+          reviews.reduce(
+            (n, r) => n + unmatchedOf(r.review, r.judgement).length,
+            0
+          ) / reviews.length
+        ).toFixed(1);
+  const of = (v: string, sections: readonly string[]) =>
+    sections
+      .flatMap((id) => input.reviewed[id] ?? [])
+      .filter((r) => r.version === v);
+  const rated = (v: string) => {
+    let real = 0;
+    let all = 0;
+    for (const [id, grouped] of Object.entries(input.unmatched)) {
+      for (const p of grouped.problems) {
+        const rating = input.ratings?.get(ratingId(id, p.title));
+        const found = foundBy(p.findings, v);
+        if (rating !== undefined) {
+          all += found;
+          real += rating === "real" ? found : 0;
+        }
+      }
+    }
+    return showShare(real, all);
+  };
+  const anyRated = (input.ratings?.size ?? 0) > 0;
+  return [
+    tableHead([
+      "Version",
+      "Reviews",
+      "Unmatched findings per review",
+      "In held-out sections",
+      ...(anyRated ? ["Real, of what was rated"] : []),
+    ]),
+    ...versions.map((v) =>
+      tableRow([
+        v,
+        String(of(v, input.sections).length),
+        mean(of(v, input.sections)),
+        mean(of(v, input.held)),
+        ...(anyRated ? [rated(v)] : []),
+      ])
+    ),
+    "",
+    anyRated
+      ? "A rated problem counts once for each run of the version that found it."
+      : `Unrated, a finding no gap matched is neither a false alarm nor a real one: \`recall --rate\` writes the deck (\`decide ${rateDeckName(input.options.round)}\`), and the report then says how much of each version's was real.`,
+    "",
+  ];
+};
+
+/**
+ * The deck that rates what no gap matched in the held-out sections: one card a problem, with the
+ * section's pictures and nothing that says which version found it.
+ */
+export const rateDeckOf = (input: {
+  readonly held: readonly string[];
+  /** A section's file by its path from the data directory, as a card names a picture. */
+  readonly pictureAt: (section: string, file: string) => string;
+  readonly round: string;
+  readonly sections: ReadonlyMap<string, Section>;
+  readonly unmatched: Readonly<Record<string, Unmatched>>;
+}): Deck => ({
+  cards: input.held.flatMap((id) => {
+    const section = input.sections.get(id);
+    return (input.unmatched[id]?.problems ?? []).map((p) => ({
+      body: `${p.problem}\n\nWould a careful designer fix this here?`,
+      eyebrow: section?.name ?? id,
+      id: ratingId(id, p.title),
+      options: [
+        { key: "real", label: "Real", leads: "A problem to fix" },
+        { key: "noise", label: "Noise", leads: "Not a problem here" },
+      ],
+      pictures: (section?.pictures ?? []).slice(0, 4).map((picture) => ({
+        caption: picture.shows,
+        src: input.pictureAt(id, picture.file),
+      })),
+      title: p.title,
+    }));
+  }),
+  intro: `What reviewers found in the held-out sections of \`${input.round}\` that no gap names. Each answer goes into the round's report: run \`pnpm evals recall ${input.round}\` again once you are done, with the flags it was run with.`,
+  title: `${input.round}: real or noise`,
+});
+
 /** The round's report: recall per gap and version, then what no gap matched, to be rated. */
 export const reportOf = (input: ReportInput) => {
   const { options, versions } = input;
-  const row = (cells: readonly string[]) => `| ${cells.join(" | ")} |`;
-  const head = (cells: readonly string[]) =>
-    [row(cells), row(cells.map(() => "---"))].join("\n");
+  const row = tableRow;
+  const head = tableHead;
   const reviewed = (g: LoadedGap) =>
     g.sections.some((s) => input.sections.includes(s));
   const findingGaps = input.gaps.filter((g) => isFinding(g) && reviewed(g));
@@ -973,6 +1235,7 @@ export const reportOf = (input: ReportInput) => {
       ),
     ]),
     "",
+    ...trustLines(input, findingGaps),
   ];
   if (processGaps.length > 0) {
     lines.push(
@@ -995,6 +1258,7 @@ export const reportOf = (input: ReportInput) => {
   lines.push(
     "## Found where no gap is",
     "",
+    ...unmatchedLines(input),
     "Each problem a review found that matches no gap, grouped across the reviews of its section, " +
       "with how many runs of each version found it. Rate each: real or noise.",
     ""
@@ -1017,15 +1281,8 @@ export const reportOf = (input: ReportInput) => {
           `**${p.title}.** ${p.problem}`
             .replaceAll("|", "\\|")
             .replaceAll("\n", " "),
-          ...versions.map((v) => {
-            const by = new Set(
-              p.findings
-                .filter((f) => f.startsWith(`${v}/`))
-                .map((f) => f.split("#")[0])
-            );
-            return `${by.size}/${runs(v)}`;
-          }),
-          "",
+          ...versions.map((v) => `${foundBy(p.findings, v)}/${runs(v)}`),
+          input.ratings?.get(ratingId(id, p.title)) ?? "",
         ])
       ),
       ""

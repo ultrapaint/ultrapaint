@@ -84,7 +84,8 @@ export const Answer = Schema.Struct({
 
 /** The label of an answer given in the person's own words, with no option chosen. */
 export const OWN_ANSWER = "Own answer";
-const Answers = Schema.Record(Schema.String, Answer);
+/** A deck's answers as they are saved, by card. */
+export const Answers = Schema.Record(Schema.String, Answer);
 
 const AnswerInput = Schema.Struct({
   choice: Schema.optional(Schema.String),

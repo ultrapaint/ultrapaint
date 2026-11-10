@@ -6,6 +6,8 @@ import type { Asked } from "./models.ts";
 import { Models } from "./models.ts";
 import {
   placeOf,
+  rateDeckName,
+  ratingId,
   recall,
   spentLines,
   unmatchedOf,
@@ -380,5 +382,127 @@ describe("recall", () => {
         );
       }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(byModel))));
     }
+  );
+
+  it.effect(
+    "says how far its counts go: each version's interval, its difference from the first, and the gaps that are not done apart",
+    () =>
+      Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeText(
+          `${gaps}/g03-closed.md`,
+          gapFile("g03", "missed", "panel").replace(
+            "status: open",
+            "status: done"
+          )
+        );
+        yield* writeData({
+          "candidates/fix/SKILL.md": "# The candidate's router\n",
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        yield* recall({
+          concurrency: 2,
+          effort: "high",
+          judgeModel: "opus",
+          models: ["opus"],
+          round: "r",
+          runs: 2,
+          sections: [],
+          skills: ["built-in", "candidates/fix"],
+        });
+
+        const report = yield* readData("runs/r/report.md");
+        assert.include(
+          report,
+          "| Version | Caught | Caught or partly | 95% interval | Against shipped |"
+        );
+        // The scripted judge answers for g01 alone, so g03 is judged in no run.
+        assert.include(report, "| shipped | 0/2 · 0% | 0/2 · 0% | 0–0% |  |");
+        assert.include(
+          report,
+          "| fix | 2/2 · 100% | 2/2 · 100% | 100–100% | +100 points (+100 to +100) |"
+        );
+        assert.include(report, "| `done` (1) | – | – |");
+        assert.include(report, "| not `done` (1) | 0/2 · 0% | 2/2 · 100% |");
+        assert.include(report, "`opus` judges reviews it wrote itself.");
+        assert.include(
+          report,
+          "With 2 run(s) per section a single gap's count says little"
+        );
+      }).pipe(Effect.provide(world))
+  );
+
+  it.effect(
+    "writes the deck that rates what no gap matched in the held-out sections, and counts what the person called real",
+    () =>
+      Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "gaps/sections/held/code/DESIGN.md": "# Design\n",
+          "gaps/sections/held/section.json": section("Held"),
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        const options = {
+          concurrency: 2,
+          effort: "high",
+          judgeModel: "opus",
+          models: ["opus"],
+          rate: true,
+          round: "r",
+          runs: 2,
+          sections: [],
+          skills: ["built-in"],
+        };
+        yield* recall(options);
+
+        const deck = JSON.parse(
+          yield* readData(`decisions/${rateDeckName("r")}.json`)
+        );
+        // The section a gap names is the judge's; only the held-out one is the person's to rate.
+        assert.deepStrictEqual(
+          deck.cards.map((c: { readonly id: string }) => c.id),
+          [ratingId("held", "Stray hairline")]
+        );
+        assert.strictEqual(deck.cards[0].eyebrow, "Held");
+        assert.strictEqual(
+          deck.cards[0].pictures[0].src,
+          "gaps/sections/held/pictures/panel-dark@2x.png"
+        );
+        const unrated = yield* readData("runs/r/report.md");
+        assert.include(
+          unrated,
+          "| Version | Reviews | Unmatched findings per review | In held-out sections |"
+        );
+        assert.include(unrated, "| shipped | 4 | 1.0 | 1.0 |");
+
+        yield* writeData({
+          [`decisions/${rateDeckName("r")}.answers.json`]: {
+            [ratingId("held", "Stray hairline")]: {
+              at: "2026-11-10T00:00:00.000Z",
+              choice: "noise",
+              label: "Noise",
+              title: "Stray hairline",
+            },
+          },
+        });
+        yield* recall(options);
+
+        const rated = yield* readData("runs/r/report.md");
+        assert.include(rated, "| shipped | 4 | 1.0 | 1.0 | 0/2 · 0% |");
+        assert.include(
+          rated,
+          "| **Stray hairline.** A hairline under the title. | 2/2 | noise |"
+        );
+      }).pipe(Effect.provide(world))
   );
 });

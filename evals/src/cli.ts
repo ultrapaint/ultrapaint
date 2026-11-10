@@ -993,9 +993,17 @@ const recallCommand = Command.make(
       Flag.withDefault("opus")
     ),
     name,
+    rate: Flag.Boolean("rate").pipe(
+      Flag.withDescription(
+        "Write the deck rate-<name>: what no gap matched in the held-out sections, for the person to rate real or noise"
+      ),
+      Flag.withDefault(false)
+    ),
     runs: Flag.Int("runs").pipe(
-      Flag.withDescription("Reviews per section, version and model"),
-      Flag.withDefault(2)
+      Flag.withDescription(
+        "Reviews per section, version and model: under three, one gap's count says little"
+      ),
+      Flag.withDefault(3)
     ),
     // Positional arguments are read in the order of their keys, sorted: `name`, then `sections`.
     sections: Argument.String("sections").pipe(
@@ -1027,6 +1035,7 @@ const recallCommand = Command.make(
       inputs: inputs as readonly RecallInput[],
       judgeModel: input.judgeModel,
       models: modelList(input.models),
+      rate: input.rate,
       round: input.name,
       runs: input.runs,
       sections: input.sections,

@@ -239,13 +239,27 @@ to rate.
 
 ```sh
 pnpm evals gaps
-pnpm evals recall <round> --skills built-in,candidates/<fix> --runs 2 [sections…]
+pnpm evals recall <round> --skills built-in,candidates/<fix> [sections…]
 ```
 
 A version is `built-in`, the checkout's `skills/ultrapaint/`, or `candidates/<fix>`: its files
 laid over the checkout's at their paths in the skill (`SKILL.md`, `references/kinds/dialog.md`),
-the rest as shipped. It takes `--effort` (high) and resumes like a round. It writes
-`runs/<round>/report.md` and each measured gap's line under **Result.**
+the rest as shipped. It takes `--runs` (3: under three, one gap's count says little), `--effort`
+(high) and resumes like a round. It writes `runs/<round>/report.md` and each measured gap's line
+under **Result.**
+
+The report says how far its counts go. Under **How far the counts go**, each version has what it
+caught, what it caught or partly caught, the 95% interval of its recall and its difference from
+the first version with an interval of its own: both come from resampling the gaps, since a gap's
+runs go together, and a difference whose interval holds 0 is one the round does not show. The
+gaps that are not `done` are counted apart: a `done` gap's rule was written from the section it is
+measured on, so the others are the held-out split a change has to show on. Give `--judge-model` a
+model that does not review: the report says so when the judge read its own reviews.
+
+What no gap matched is counted per review and version, in every section and in the held-out
+ones. `--rate` writes the deck `rate-<round>` of the held-out sections' problems, shown without
+the version that found them; after `pnpm evals decide rate-<round>`, the same `recall` command
+writes the report again with each version's share of real ones among what was rated.
 
 ### Triage: gaps from what reviews find
 
