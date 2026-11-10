@@ -78,10 +78,3 @@ property and children for its slots. Its board in Components draws each of its v
 side: a click picks one, a double-click edits the tree in place there (Layers lists it, the edits
 landing on that variant), and the inspector lists its properties, variants (with how many fields
 each overrides), slots, where it is used and its notes.
-
-A page made before, with your application's own components, draws each of them as a stand-in.
-**Sync** offers to bring the designs up to date in one step you can undo: a component is matched
-by its name (shadcn's `DropdownMenu` is the Menu), its variants, children and text are kept, and a
-compound component's parts (`DialogFooter`, `CardHeader`) fill the system component's slots; specs
-and draft components from before become component files. A stand-in's menu has **Replace with a
-system component** for one at a time.

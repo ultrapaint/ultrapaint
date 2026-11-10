@@ -9,8 +9,8 @@ runs too, and it does not depend on the agent — it is the operating system's d
 open, because an agent has to reach its model.
 
 This works on macOS, and on Linux when [bubblewrap](https://github.com/containers/bubblewrap) is
-installed (`bwrap`). Elsewhere the thread says **Not scoped**: the agent runs with your own rights
-until the sandbox for that platform lands.
+installed (`bwrap`). Elsewhere the agent runs with your own rights until the sandbox for that
+platform lands.
 
 An agent of your own, added as JSON under `~/.ultrapaint/agents/`, tells the sandbox where it
 keeps its login and sessions:

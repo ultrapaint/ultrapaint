@@ -28,9 +28,12 @@ refactor and the board view left.
   a design system drawn as a trial over the project's on sample screens; *Use this look* writes
   it, and the prompt that waited for it is sent.
   _Avoid_: theme picker, look wizard.
-- **Setup chat**: the chat that sets up a folder opened for the first time (ADR 0062), started by
-  the editor with `/setup` and titled *Set up <name>*: an agent checks what detection found and
-  saves it with `save_setup` (the designs directory and `ultrapaint.config.json`, no code).
+- **Setup chat**: the chat that sets up a folder opened for the first time (ADR 0062), suggested
+  by the editor and never started on its own (ADR 0073): while the folder's settings are detected
+  and not saved, the Agents list with no chats and a new chat's starters offer *Set up <name>*,
+  which puts `/setup` in a new chat's composer for the person to send. In it an agent checks what
+  detection found and saves it with `save_setup` (the designs directory and
+  `ultrapaint.config.json`, no code).
   _Avoid_: setup dialog, first-run setup.
 - **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
   **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
@@ -196,16 +199,16 @@ refactor and the board view left.
 - **Design skill**: what the tool teaches agents about designing interfaces and their design
   systems, one skill, `skills/ultrapaint/`, named `ultrapaint` in the settings (server's
   `skills/`, `SkillsService`). Its **core**, `SKILL.md`, holds every rule as a line with its value,
-  the steps of its three jobs (a screen or page, the design system, the words alone) and the table
-  of **kinds**; a design thread is told it whole. Its **references**, `references/…`, hold what a
-  rule line cannot: a topic's detail (`layout.md`, `surfaces.md`), a kind of screen
-  (`kinds/dialog.md`) or of public page (`pages/landing.md`), making the system (`system/`), the
-  words (`words/`). A **kind** is the one file the agent names in step 2 and opens before the first
-  element. The skill speaks the web's terms; the briefing says what they are in the editor
-  (`skillTerms`). It is written whole to `~/.cache/ultrapaint/skills/<hash>/`, each mention of a
-  reference named there, and a project's own skill files in `<designsDir>/skills/` are told after
-  it. A review **category** names a concern, held by one file of the skill (contracts'
-  `CATEGORY_FILES`).
+  the steps of its four jobs (a screen or page, reviewing one, the design system, the words alone)
+  and the table of **kinds**; a design thread is told it whole. Its **references**,
+  `references/…`, hold what a rule line cannot: a topic's detail (`layout.md`, `surfaces.md`), a
+  kind of screen (`kinds/dialog.md`) or of public page (`pages/landing.md`), making the system
+  (`system/`), the words (`words/`). A **kind** is the one file the agent names in step 2 and
+  opens before the first element. The skill speaks the web's terms; the briefing says what they
+  are in the editor (`skillTerms`). It is written whole to `~/.cache/ultrapaint/skills/<hash>/`,
+  each mention of a reference named there, and a project's own skill files in
+  `<designsDir>/skills/` are told after it. A review **category** names a concern, held by one
+  file of the skill (contracts' `CATEGORY_FILES`).
   _Avoid_: router, part, override (the per-part skills, replaced or extended by a project's file,
   before the core).
 - **Content**: the words of a design, and the design skill's references for them (ADR 0067):
@@ -463,10 +466,10 @@ refactor and the board view left.
 
 - **Composition root**: what the server is made of, each service on the ones below it, in
   `composition.ts`: the foundation, the open project's layer, the threads and the application
-  layer. It is built with **adapters**, the seams that have a test's second one: the preview's
-  host, the agents' launcher with its sandbox and the designs' changes. `ProjectTest` builds the
-  same application in a test, a project open on a fixture; `ProjectRpc` asks it the editor's
-  requests through an in-memory client; `callTool` calls an MCP tool's handler in-process.
+  layer. It is built with **adapters**, the seams that have a test's second one: the agents'
+  launcher with its sandbox and the designs' changes. `ProjectTest` builds the same application
+  in a test, a project open on a fixture; `ProjectRpc` asks it the editor's requests through an
+  in-memory client; `callTool` calls an MCP tool's handler in-process.
 - **Open project**: the services and scope of the project open now (`OpenProject`: `use`,
   `service`, `scope`), whoever asks for them.
 - **Designs' changes**: every change to the designs, whoever made it (the journal, an agent, a

@@ -34,7 +34,7 @@ type after it is added to it.
 | A board's inspector → the chat button | Send what is picked to the chat |
 | Pages panel → **Implement** | `/implement` for that page |
 | Settings → Repository | Where the components, stylesheets and designs are; **Write to git**, off unless you want the Changes panel to commit; **Rename to ultrapaint.config.json** for an old file |
-| Settings → Editor → **Display name** | The name your comments are signed with when git has none |
+| Settings → Preferences → **Display name** | The name your comments are signed with when git has none |
 | Settings → Design system | The design skills agents are told, and how |
 | Title card → **Not saved** (⚠) | Save the configuration to `ultrapaint.config.json` |
 | ⌘K, or **Commands** at the top right | Every command of the editor, by name |

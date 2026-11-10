@@ -28,13 +28,14 @@ release is made by hand: the **Release** workflow in the Actions tab raises the 
 - `apps/server` — local backend on the Effect 4 runtime: settings, pages and canvases, design documents, component files and the design system, undo, git where there is one, the snapshot store, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a system component's look as CSS, an instance's slots (what fills each, how each lays it out), an app component's instance as the nodes it draws, a node's JSX with the classes a style system writes.
-- `packages/framework-api` — what a framework and a style system give the server.
+- `packages/framework-api` — what a style system gives the server.
 - `packages/preview-core` — the editor's frames (`Preview`), drawn in its page by a renderer mounted through `RenderToCanvas`: shadow roots, the design's look set once, what to draw, measuring, hit-testing, pictures, text editing, the prototype's navigation.
-- `packages/system-components` — the editor's own components on Base UI (ADRs 0040, 0041): the catalogue over the component files (`catalogueOf`), their components, their default look, each frame's containment, and the conversion of what came before.
+- `packages/system-components` — the editor's own components on Base UI (ADRs 0040, 0041): the catalogue over the component files (`catalogueOf`), their components, their default look and each frame's containment.
 - `packages/renderer-react` — draws design documents with the editor's React: elements, system components and app components (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
 - `packages/framework-react-vite` — the Node side for React + Vite: repository detection and the application a repository can start from.
-- `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet, a node's utilities for the Code tab.
+- `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, a node's utilities for the Code tab.
+- `packages/design-md` — `DESIGN.md` in the open format (ADR 0027), pure and synchronous: its front matter's tokens and `##` sections read, the design system mirrored into the front matter, the document's values merged with the design system's, and the file written back with the rest left as it is.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 - `apps/desktop` — the desktop app: an Electron window around the same server and editor, its project list, the server it starts per project, the agents' adapters bundled and run on Electron's Node, the agents found, downloaded and signed in; `pnpm desktop:dev` and `pnpm desktop:build`.
