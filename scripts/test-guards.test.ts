@@ -6,13 +6,12 @@
  * just above it. Run by the root's `pnpm test`, with Node's own test runner.
  */
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const SKIPPED = new Set([".git", ".claude", "dist", "node_modules", "out"]);
-const TEST_FILE_RE = /\.test\.tsx?$/;
 /** What waits on time, or hides why a test failed. */
 const TIMED_RE =
   /setTimeout\(|Effect\.sleep\(|it\.live\(|\.retry\(|\bretry:\s*\d/;
@@ -20,17 +19,28 @@ const REASON_RE = /\/\/ (real|fake) clock:/;
 const COMMENT_RE = /^\s*\/\//;
 const SELF = path.relative(ROOT, import.meta.filename);
 
-const testFiles = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    if (SKIPPED.has(entry.name)) {
-      return [];
-    }
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      return testFiles(full);
-    }
-    return TEST_FILE_RE.test(entry.name) ? [full] : [];
-  });
+/**
+ * The test files git has: tracked, or new and not ignored. A checkout inside this one (a
+ * worktree, a clone kept for reference) is not the repository's, and git does not list into it.
+ */
+const testFiles = (root: string): string[] =>
+  execFileSync(
+    "git",
+    [
+      "ls-files",
+      "-z",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "--",
+      "*.test.ts",
+      "*.test.tsx",
+    ],
+    { cwd: root, encoding: "utf8" }
+  )
+    .split("\0")
+    .filter((file) => file !== "" && existsSync(path.join(root, file)))
+    .map((file) => path.join(root, file));
 
 /** Whether the line, or the comment just above it, says why it waits on time. */
 const explained = (lines: readonly string[], at: number) => {
