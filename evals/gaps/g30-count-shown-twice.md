@@ -5,7 +5,7 @@ kind: missed
 status: wontfix
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-24, rated real)
-skill: [references/restraint.md]
+skill: [SKILL.md, references/words/interface.md]
 sections: [changes]
 ---
 

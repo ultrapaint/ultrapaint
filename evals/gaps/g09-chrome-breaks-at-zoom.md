@@ -5,7 +5,7 @@ kind: missing
 status: wontfix
 found: 2026-11-03
 source: editor redesign (branch redesign)
-skill: [references/patterns.md]
+skill: [SKILL.md]
 sections: [element-toolbar]
 ---
 

@@ -5,7 +5,7 @@ kind: missed
 status: testing
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-7, rated real)
-skill: [references/content/voice.md, references/design-system.md]
+skill: [references/words/voice.md, SKILL.md]
 sections: [changes]
 ---
 

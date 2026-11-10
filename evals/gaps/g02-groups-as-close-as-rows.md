@@ -5,7 +5,7 @@ kind: missed
 status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
-skill: [references/spacing.md, references/patterns/navigation.md]
+skill: [SKILL.md, references/kinds/navigation.md]
 sections: [components-panel]
 ---
 

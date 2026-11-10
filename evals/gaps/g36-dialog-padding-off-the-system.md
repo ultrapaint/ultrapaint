@@ -5,7 +5,7 @@ kind: missed
 status: done
 found: 2026-11-04
 source: the Settings dialog, editor redesign at f608871 (held-out finding settings-3, rated real)
-skill: [references/spacing.md]
+skill: [SKILL.md]
 sections: [settings]
 ---
 

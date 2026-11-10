@@ -2,7 +2,7 @@
 id: p05
 title: Compliance claimed without the check
 kind: process
-status: open
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md]

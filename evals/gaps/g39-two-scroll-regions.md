@@ -5,7 +5,7 @@ kind: missing
 status: wontfix
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-29, rated real)
-skill: [references/spacing.md]
+skill: [SKILL.md]
 sections: [changes]
 ---
 

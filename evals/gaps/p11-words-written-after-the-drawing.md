@@ -5,7 +5,7 @@ kind: process
 status: testing
 found: 2026-11-06
 source: catchable-2 (runs/catchable-2/report.md), with p06 and ADR 0061's outline
-skill: [references/content.md]
+skill: [SKILL.md, references/words/interface.md]
 sections: [changes, settings, chat-starters, layers, components-panel]
 ---
 

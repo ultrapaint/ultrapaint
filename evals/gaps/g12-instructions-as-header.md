@@ -5,7 +5,7 @@ kind: missed
 status: wontfix
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
-skill: [references/restraint.md]
+skill: [SKILL.md]
 sections: [chat-starters]
 ---
 

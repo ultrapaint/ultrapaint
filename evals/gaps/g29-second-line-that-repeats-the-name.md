@@ -5,7 +5,7 @@ kind: missed
 status: wontfix
 found: 2026-11-04
 source: the Layers panel, editor redesign at f608871 (held-out finding layers-19, rated real)
-skill: [references/restraint.md]
+skill: [SKILL.md, references/words/interface.md]
 sections: [layers]
 ---
 

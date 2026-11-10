@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-06
 source: ADR 0062, the token preset chosen on the look page
-skill: [references/color.md, references/design-system/foundations.md]
+skill: [references/color.md, references/system/foundations.md]
 sections: []
 ---
 

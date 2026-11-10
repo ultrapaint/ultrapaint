@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
-skill: [references/states.md, references/hierarchy.md]
+skill: [references/states.md, SKILL.md]
 sections: [chat-starters]
 ---
 

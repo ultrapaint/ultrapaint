@@ -5,7 +5,7 @@ kind: process
 status: done
 found: 2026-11-06
 source: this repository's DESIGN.md (commits 3104112, eb7dde4); the onboarding review (c2d3380)
-skill: [references/design-system.md]
+skill: [SKILL.md]
 sections: []
 ---
 

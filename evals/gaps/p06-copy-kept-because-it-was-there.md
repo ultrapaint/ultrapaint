@@ -5,7 +5,7 @@ kind: process
 status: wontfix
 found: 2026-11-03
 source: the new chat's starters, editor redesign (branch redesign)
-skill: [SKILL.md, references/restraint.md, references/content.md]
+skill: [SKILL.md, references/words/interface.md]
 sections: [chat-starters]
 ---
 

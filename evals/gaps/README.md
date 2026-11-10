@@ -20,7 +20,7 @@ until the lab has shown that a change to the skill makes agents catch it, and th
 | --- | --- |
 | `open` | Recorded, not yet measured. |
 | `testing` | The lab has measured it; its results are under **Result.** |
-| `done` | A change to the skill closed it. The change names the gap. |
+| `done` | Closed: by a change to the skill, which names the gap, or by a check (the lab's `measure`, the editor's review). |
 | `wontfix` | Kept as a record, with the reason in its text. |
 
 ## A gap's file

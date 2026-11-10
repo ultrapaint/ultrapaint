@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-04
 source: the Layers panel, editor redesign at f608871 (held-out finding layers-20, rated real)
-skill: [references/elevation.md, references/components.md, references/typography.md]
+skill: [references/surfaces.md, references/components.md, references/typography.md]
 sections: [layers]
 ---
 

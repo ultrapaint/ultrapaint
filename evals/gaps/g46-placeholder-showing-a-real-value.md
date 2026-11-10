@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-04
 source: the Settings dialog, editor redesign at f608871 (held-out finding settings-5, rated real)
-skill: [references/elevation.md, references/components.md, references/typography.md]
+skill: [references/surfaces.md, references/components.md, references/typography.md]
 sections: [settings]
 ---
 

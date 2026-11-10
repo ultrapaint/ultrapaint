@@ -5,7 +5,7 @@ kind: missing
 status: done
 found: 2026-11-03
 source: editor redesign (branch redesign)
-skill: [references/restraint.md]
+skill: [SKILL.md]
 sections: [components-panel]
 ---
 

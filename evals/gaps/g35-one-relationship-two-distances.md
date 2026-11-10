@@ -5,7 +5,7 @@ kind: missed
 status: testing
 found: 2026-11-04
 source: the Layers panel, editor redesign at f608871 (held-out finding layers-18, rated real)
-skill: [references/spacing.md]
+skill: [SKILL.md]
 sections: [layers]
 ---
 

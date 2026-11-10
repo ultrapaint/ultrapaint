@@ -5,7 +5,7 @@ kind: missed
 status: done
 found: 2026-11-03
 source: editor redesign (branch redesign)
-skill: [references/spacing.md]
+skill: [SKILL.md, references/surfaces.md]
 sections: [left-card-raised]
 ---
 
