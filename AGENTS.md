@@ -27,6 +27,12 @@ Nothing prompts the person's agents on its own: an agent works only on a prompt 
 the run it starts (ADR 0074). What the editor would have an agent do, it drafts in a new chat's
 composer for them to send (`startTask`).
 
+Work that outlives your turn (a lab round, a long recall) runs as a systemd user job that sends
+your thread a message when it ends (`evals/README.md`, "Long jobs"), never `setsid nohup`. That
+message is the end of work you started, not a prompt ADR 0074 rules out. Put "⏳ " before your
+thread's title while the job runs and take it off in the turn its message starts; never end a
+turn on "check back later".
+
 A change is done when `pnpm typecheck`, `pnpm test` and `pnpm lint` pass (`pnpm format` fixes
 what lint can). Its commit message is `type: ` and the behaviour as it now is, in one sentence,
 naming the ADR it follows: `feat: the design skill has two jobs (ADR 0049): …`.

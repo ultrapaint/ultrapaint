@@ -166,6 +166,28 @@ signed in too. Run rounds one at a time: when the checkout has moved since its e
 built, `ultrapaint` rebuilds it as it starts, and two rounds starting at once collide. Every run costs one full agent session, and every judgement one Claude session over
 a dozen pictures: start with one reference and `--runs 1`.
 
+### Long jobs
+
+A bulk round runs for hours, past any agent's turn, so it runs as a systemd user job under
+`.work/probe/lab-guard.mjs`, which stops it when a quota nears its end. When the job ends, systemd
+sends the thread that started it a message, whatever its agent, and the thread picks up from
+there. From the data directory, with the round's commands in `.work/probe/<name>.sh`:
+
+```sh
+export XDG_RUNTIME_DIR=/run/user/$(id -u)  # agent shells lack it; systemctl --user needs it
+systemd-run --user --collect --unit=lab-<name> \
+  --working-directory="$HOME/Code/ultrapaint-data" \
+  --setenv=PATH --setenv=T3_THREAD="$T3CODE_THREAD_ID" --setenv=CODEX=80 --setenv=CLAUDE=80 \
+  -p 'ExecStopPost=/bin/sh -c "t3 thread send $$T3_THREAD \"lab-<name> ended: $$SERVICE_RESULT, exit $$EXIT_STATUS (75: the guard stopped it at a quota). Logs: .work/<name>.log, .work/<name>-guard.log\""' \
+  node .work/probe/lab-guard.mjs <name> .work/probe/<name>.sh
+```
+
+The job has no timeout and outlives the agent's session, a restart of T3 Code and a logout. The
+guard exits with the round's own code, or 75 when it stopped the round, and says why in its log.
+`systemctl --user list-units 'lab-*'` lists the jobs running, `journalctl --user -u lab-<name>` has
+what the guard printed, and `systemctl --user stop lab-<name>` stops one with everything it
+started.
+
 ## Reviews in a round
 
 ADR 0060 has review models look at a design inside its loop, each scoring it out of 100, until
@@ -296,7 +318,7 @@ The run is written where an editor round's is (`shots/` from the app's own dev s
 its source, `trace.md`, `agent.md`, `run.json`, and the agent's events as they came in
 `events.jsonl`), so `judge`, `panel`, `pairwise` and `review` read it as any run, and the skill's
 files a run opened are counted from the installed path. The agent and the dev server are stopped
-with their process group, at `--minutes` too. Run a bulk round under `.work/probe/lab-guard.mjs`.
+with their process group, at `--minutes` too. Run a bulk round as a long job (above, "Long jobs").
 
 ## Gaps and recall
 
