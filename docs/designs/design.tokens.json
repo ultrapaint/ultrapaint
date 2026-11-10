@@ -1,0 +1,1813 @@
+{
+  "color": {
+    "accent": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.935,
+          0.004,
+          80
+        ],
+        "hex": "#ebe9e6"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-accent",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.285,
+                0.004,
+                70
+              ],
+              "hex": "#2b2a28"
+            }
+          }
+        }
+      }
+    },
+    "accent-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-accent-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "agent": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.9255,
+          0.2824,
+          0.6
+        ],
+        "hex": "#ec4899"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-agent"
+        }
+      }
+    },
+    "agent-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          1,
+          1,
+          1
+        ],
+        "hex": "#ffffff"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-agent-foreground"
+        }
+      }
+    },
+    "background": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.99,
+          0.001,
+          80
+        ],
+        "hex": "#fcfcfb"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-background",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.175,
+                0.004,
+                70
+              ],
+              "hex": "#12100f"
+            }
+          }
+        }
+      }
+    },
+    "board": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.95,
+          0.012,
+          262
+        ],
+        "hex": "#eaeff7"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-board",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.185,
+                0.018,
+                262
+              ],
+              "hex": "#0e131b"
+            }
+          }
+        }
+      }
+    },
+    "border": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "alpha": 0.1,
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-border",
+          "css": "oklch(0.21 0.006 60 / 10%)",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                1,
+                0,
+                0
+              ],
+              "alpha": 0.08,
+              "hex": "#ffffff"
+            }
+          },
+          "themesCss": {
+            "dark": "oklch(1 0 0 / 8%)"
+          }
+        }
+      }
+    },
+    "brand": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-brand",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.56,
+                0.2,
+                263
+              ],
+              "hex": "#306ae7"
+            }
+          }
+        }
+      }
+    },
+    "brand-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.99,
+          0,
+          0
+        ],
+        "hex": "#fcfcfc"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-brand-foreground"
+        }
+      }
+    },
+    "canvas": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.945,
+          0.004,
+          80
+        ],
+        "hex": "#eeecea"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-canvas",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.165,
+                0.004,
+                70
+              ],
+              "hex": "#0f0e0c"
+            }
+          }
+        }
+      }
+    },
+    "canvas-grid": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "alpha": 0.07,
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-canvas-grid",
+          "css": "oklch(0.21 0.006 60 / 7%)",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                1,
+                0,
+                0
+              ],
+              "alpha": 0.07,
+              "hex": "#ffffff"
+            }
+          },
+          "themesCss": {
+            "dark": "oklch(1 0 0 / 7%)"
+          }
+        }
+      }
+    },
+    "card": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          1,
+          0,
+          0
+        ],
+        "hex": "#ffffff"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-card",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.235,
+                0.004,
+                70
+              ],
+              "hex": "#1f1e1c"
+            }
+          }
+        }
+      }
+    },
+    "card-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-card-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "component": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.5451,
+          0.3608,
+          0.9647
+        ],
+        "hex": "#8b5cf6"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-component"
+        }
+      }
+    },
+    "destructive": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.21,
+          27
+        ],
+        "hex": "#d01d21"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-destructive",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.68,
+                0.18,
+                25
+              ],
+              "hex": "#f3625d"
+            }
+          }
+        }
+      }
+    },
+    "foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "input": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "alpha": 0.16,
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-input",
+          "css": "oklch(0.21 0.006 60 / 16%)",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                1,
+                0,
+                0
+              ],
+              "alpha": 0.13,
+              "hex": "#ffffff"
+            }
+          },
+          "themesCss": {
+            "dark": "oklch(1 0 0 / 13%)"
+          }
+        }
+      }
+    },
+    "muted": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.955,
+          0.003,
+          80
+        ],
+        "hex": "#f1f0ee"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-muted",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.255,
+                0.004,
+                70
+              ],
+              "hex": "#242221"
+            }
+          }
+        }
+      }
+    },
+    "muted-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.01,
+          65
+        ],
+        "hex": "#706b66"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-muted-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.67,
+                0.008,
+                75
+              ],
+              "hex": "#989590"
+            }
+          }
+        }
+      }
+    },
+    "popover": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          1,
+          0,
+          0
+        ],
+        "hex": "#ffffff"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-popover",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.245,
+                0.005,
+                70
+              ],
+              "hex": "#22201e"
+            }
+          }
+        }
+      }
+    },
+    "popover-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-popover-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "primary": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-primary",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.56,
+                0.2,
+                263
+              ],
+              "hex": "#306ae7"
+            }
+          }
+        }
+      }
+    },
+    "primary-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.99,
+          0,
+          0
+        ],
+        "hex": "#fcfcfc"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-primary-foreground"
+        }
+      }
+    },
+    "rail": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.955,
+          0.004,
+          80
+        ],
+        "hex": "#f1f0ed"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-rail",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.176,
+                0.004,
+                70
+              ],
+              "hex": "#12100f"
+            }
+          }
+        }
+      }
+    },
+    "ring": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-ring",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.66,
+                0.17,
+                263
+              ],
+              "hex": "#598df9"
+            }
+          }
+        }
+      }
+    },
+    "secondary": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.945,
+          0.003,
+          80
+        ],
+        "hex": "#eeedea"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-secondary",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.28,
+                0.004,
+                70
+              ],
+              "hex": "#2a2927"
+            }
+          }
+        }
+      }
+    },
+    "secondary-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-secondary-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "selection": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2392,
+          0.4824,
+          1
+        ],
+        "hex": "#3d7bff"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-selection",
+          "themes": {
+            "dark": {
+              "colorSpace": "srgb",
+              "components": [
+                0.3098,
+                0.549,
+                1
+              ],
+              "hex": "#4f8cff"
+            }
+          }
+        }
+      }
+    },
+    "sidebar": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.995,
+          0.001,
+          80
+        ],
+        "hex": "#fefdfd"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.222,
+                0.004,
+                70
+              ],
+              "hex": "#1c1b19"
+            }
+          }
+        }
+      }
+    },
+    "sidebar-accent": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.935,
+          0.004,
+          80
+        ],
+        "hex": "#ebe9e6"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-accent",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.285,
+                0.004,
+                70
+              ],
+              "hex": "#2b2a28"
+            }
+          }
+        }
+      }
+    },
+    "sidebar-accent-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-accent-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "sidebar-border": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "alpha": 0.1,
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-border",
+          "css": "oklch(0.21 0.006 60 / 10%)",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                1,
+                0,
+                0
+              ],
+              "alpha": 0.08,
+              "hex": "#ffffff"
+            }
+          },
+          "themesCss": {
+            "dark": "oklch(1 0 0 / 8%)"
+          }
+        }
+      }
+    },
+    "sidebar-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.21,
+          0.006,
+          60
+        ],
+        "hex": "#1a1816"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-foreground",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.965,
+                0.003,
+                80
+              ],
+              "hex": "#f4f3f1"
+            }
+          }
+        }
+      }
+    },
+    "sidebar-primary": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-primary",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.56,
+                0.2,
+                263
+              ],
+              "hex": "#306ae7"
+            }
+          }
+        }
+      }
+    },
+    "sidebar-primary-foreground": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.99,
+          0,
+          0
+        ],
+        "hex": "#fcfcfc"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-primary-foreground"
+        }
+      }
+    },
+    "sidebar-ring": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-sidebar-ring",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.66,
+                0.17,
+                263
+              ],
+              "hex": "#598df9"
+            }
+          }
+        }
+      }
+    },
+    "success": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.6,
+          0.15,
+          155
+        ],
+        "hex": "#009956"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-success",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.74,
+                0.15,
+                155
+              ],
+              "hex": "#4bc680"
+            }
+          }
+        }
+      }
+    },
+    "warning": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.7,
+          0.15,
+          70
+        ],
+        "hex": "#d98b09"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-warning",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.82,
+                0.14,
+                78
+              ],
+              "hex": "#f6b84d"
+            }
+          }
+        }
+      }
+    },
+    "chart-1": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.53,
+          0.21,
+          263
+        ],
+        "hex": "#235fe2"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-chart-1",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.66,
+                0.17,
+                263
+              ],
+              "hex": "#598df9"
+            }
+          }
+        }
+      }
+    },
+    "chart-2": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.7,
+          0.13,
+          200
+        ],
+        "hex": "#00b6be"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-chart-2",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.75,
+                0.12,
+                200
+              ],
+              "hex": "#2ac4cc"
+            }
+          }
+        }
+      }
+    },
+    "chart-3": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.65,
+          0.15,
+          330
+        ],
+        "hex": "#c16aba"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-chart-3",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.72,
+                0.15,
+                330
+              ],
+              "hex": "#d87fd1"
+            }
+          }
+        }
+      }
+    },
+    "chart-4": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.75,
+          0.13,
+          85
+        ],
+        "hex": "#d4a73e"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-chart-4",
+          "themes": {
+            "dark": {
+              "colorSpace": "oklch",
+              "components": [
+                0.8,
+                0.13,
+                85
+              ],
+              "hex": "#e4b750"
+            }
+          }
+        }
+      }
+    },
+    "chart-5": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.6,
+          0.02,
+          70
+        ],
+        "hex": "#887e74"
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "color-chart-5"
+        }
+      }
+    }
+  },
+  "spacing": {
+    "$root": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.25
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "spacing"
+        }
+      }
+    }
+  },
+  "radius": {
+    "2xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 1
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-2xl"
+        }
+      }
+    },
+    "3xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 1.25
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-3xl"
+        }
+      }
+    },
+    "4xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 1.5
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-4xl"
+        }
+      }
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.625
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-lg"
+        }
+      }
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.375
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-md"
+        }
+      }
+    },
+    "sm": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.25
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-sm"
+        }
+      }
+    },
+    "xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.75
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-xl"
+        }
+      }
+    },
+    "xs": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 0.1875
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "radius-xs"
+        }
+      }
+    }
+  },
+  "shadow": {
+    "2xl": {
+      "$value": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-2xl",
+          "css": "0 25px 50px -12px rgb(0 0 0 / 0.25)"
+        }
+      }
+    },
+    "2xs": {
+      "$value": "0 1px rgb(0 0 0 / 0.05)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-2xs",
+          "css": "0 1px rgb(0 0 0 / 0.05)"
+        }
+      }
+    },
+    "floating": {
+      "$value": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-floating",
+          "css": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)",
+          "themes": {
+            "dark": "0 1px 2px oklch(0 0 0 / 30%), 0 12px 32px -8px oklch(0 0 0 / 55%)"
+          }
+        }
+      }
+    },
+    "inner": {
+      "$value": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-inner",
+          "css": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)"
+        }
+      }
+    },
+    "lg": {
+      "$value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-lg",
+          "css": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+        }
+      }
+    },
+    "md": {
+      "$value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-md",
+          "css": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+        }
+      }
+    },
+    "overlay": {
+      "$value": "0 2px 4px oklch(0.3 0.02 60 / 8%), 0 12px 32px -6px oklch(0.3 0.02 60 / 22%)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-overlay",
+          "css": "0 2px 4px oklch(0.3 0.02 60 / 8%), 0 12px 32px -6px oklch(0.3 0.02 60 / 22%)",
+          "themes": {
+            "dark": "0 2px 6px oklch(0 0 0 / 35%), 0 16px 40px -8px oklch(0 0 0 / 60%)"
+          }
+        }
+      }
+    },
+    "sm": {
+      "$value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-sm",
+          "css": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
+        }
+      }
+    },
+    "xl": {
+      "$value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-xl",
+          "css": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
+        }
+      }
+    },
+    "xs": {
+      "$value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "shadow-xs",
+          "css": "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+        }
+      }
+    }
+  },
+  "breakpoint": {
+    "sm": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 40
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "breakpoint-sm"
+        }
+      }
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 48
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "breakpoint-md"
+        }
+      }
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 64
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "breakpoint-lg"
+        }
+      }
+    },
+    "xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 80
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "breakpoint-xl"
+        }
+      }
+    },
+    "2xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 96
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "breakpoint-2xl"
+        }
+      }
+    }
+  },
+  "container": {
+    "3xs": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 16
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-3xs"
+        }
+      }
+    },
+    "2xs": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 18
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-2xs"
+        }
+      }
+    },
+    "xs": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 20
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-xs"
+        }
+      }
+    },
+    "sm": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 24
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-sm"
+        }
+      }
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 28
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-md"
+        }
+      }
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 32
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-lg"
+        }
+      }
+    },
+    "xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 36
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-xl"
+        }
+      }
+    },
+    "2xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 42
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-2xl"
+        }
+      }
+    },
+    "3xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 48
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-3xl"
+        }
+      }
+    },
+    "4xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 56
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-4xl"
+        }
+      }
+    },
+    "5xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 64
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-5xl"
+        }
+      }
+    },
+    "6xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 72
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-6xl"
+        }
+      }
+    },
+    "7xl": {
+      "$type": "dimension",
+      "$value": {
+        "unit": "rem",
+        "value": 80
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "container-7xl"
+        }
+      }
+    }
+  },
+  "easing": {
+    "enter": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.23,
+        1,
+        0.32,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-enter"
+        }
+      }
+    },
+    "in": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.4,
+        0,
+        1,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-in"
+        }
+      }
+    },
+    "in-out": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.4,
+        0,
+        0.2,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-in-out"
+        }
+      }
+    },
+    "move": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.77,
+        0,
+        0.175,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-move"
+        }
+      }
+    },
+    "out": {
+      "$type": "cubicBezier",
+      "$value": [
+        0,
+        0,
+        0.2,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-out"
+        }
+      }
+    },
+    "sheet": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.32,
+        0.72,
+        0,
+        1
+      ],
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "ease-sheet"
+        }
+      }
+    }
+  },
+  "duration": {
+    "default-transition-duration": {
+      "$type": "duration",
+      "$value": {
+        "unit": "ms",
+        "value": 150
+      },
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "default-transition-duration"
+        }
+      }
+    }
+  },
+  "animation": {
+    "accordion-down": {
+      "$value": "accordion-down .2sease-out0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-accordion-down",
+          "css": "accordion-down .2sease-out0s1normalnone"
+        }
+      }
+    },
+    "accordion-up": {
+      "$value": "accordion-up .2sease-out0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-accordion-up",
+          "css": "accordion-up .2sease-out0s1normalnone"
+        }
+      }
+    },
+    "agent-sweep": {
+      "$value": "agent-sweep 1.8s linear infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-agent-sweep",
+          "css": "agent-sweep 1.8s linear infinite"
+        }
+      }
+    },
+    "bounce": {
+      "$value": "bounce 1s infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-bounce",
+          "css": "bounce 1s infinite"
+        }
+      }
+    },
+    "caret-blink": {
+      "$value": "caret-blink 1.25s ease-out infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-caret-blink",
+          "css": "caret-blink 1.25s ease-out infinite"
+        }
+      }
+    },
+    "collapsible-down": {
+      "$value": "collapsible-down .2sease-out0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-collapsible-down",
+          "css": "collapsible-down .2sease-out0s1normalnone"
+        }
+      }
+    },
+    "collapsible-up": {
+      "$value": "collapsible-up .2sease-out0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-collapsible-up",
+          "css": "collapsible-up .2sease-out0s1normalnone"
+        }
+      }
+    },
+    "in": {
+      "$value": "enter .15sease0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-in",
+          "css": "enter .15sease0s1normalnone"
+        }
+      }
+    },
+    "out": {
+      "$value": "exit .15sease0s1normalnone",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-out",
+          "css": "exit .15sease0s1normalnone"
+        }
+      }
+    },
+    "ping": {
+      "$value": "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-ping",
+          "css": "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"
+        }
+      }
+    },
+    "pulse": {
+      "$value": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-pulse",
+          "css": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+        }
+      }
+    },
+    "ray": {
+      "$value": "ray 1s ease-in-out infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-ray",
+          "css": "ray 1s ease-in-out infinite"
+        }
+      }
+    },
+    "spin": {
+      "$value": "spin 1s linear infinite",
+      "$extensions": {
+        "dev.ultrapaint": {
+          "name": "animate-spin",
+          "css": "spin 1s linear infinite"
+        }
+      }
+    }
+  },
+  "$extensions": {
+    "dev.ultrapaint": {
+      "format": "2025.10",
+      "themes": [
+        "light",
+        "dark"
+      ]
+    }
+  }
+}

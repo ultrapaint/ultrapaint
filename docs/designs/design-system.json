@@ -1,0 +1,517 @@
+{
+  "colors": [
+    {
+      "name": "Semantic",
+      "tokens": [
+        {
+          "name": "color-accent"
+        },
+        {
+          "name": "color-accent-foreground"
+        },
+        {
+          "name": "color-agent"
+        },
+        {
+          "name": "color-agent-foreground"
+        },
+        {
+          "name": "color-background"
+        },
+        {
+          "name": "color-board"
+        },
+        {
+          "name": "color-border"
+        },
+        {
+          "name": "color-brand"
+        },
+        {
+          "name": "color-brand-foreground"
+        },
+        {
+          "name": "color-canvas"
+        },
+        {
+          "name": "color-canvas-grid"
+        },
+        {
+          "name": "color-card"
+        },
+        {
+          "name": "color-card-foreground"
+        },
+        {
+          "name": "color-component"
+        },
+        {
+          "name": "color-destructive"
+        },
+        {
+          "name": "color-foreground"
+        },
+        {
+          "name": "color-input"
+        },
+        {
+          "name": "color-muted"
+        },
+        {
+          "name": "color-muted-foreground"
+        },
+        {
+          "name": "color-popover"
+        },
+        {
+          "name": "color-popover-foreground"
+        },
+        {
+          "name": "color-primary"
+        },
+        {
+          "name": "color-primary-foreground"
+        },
+        {
+          "name": "color-rail"
+        },
+        {
+          "name": "color-ring"
+        },
+        {
+          "name": "color-secondary"
+        },
+        {
+          "name": "color-secondary-foreground"
+        },
+        {
+          "name": "color-selection"
+        },
+        {
+          "name": "color-sidebar"
+        },
+        {
+          "name": "color-sidebar-accent"
+        },
+        {
+          "name": "color-sidebar-accent-foreground"
+        },
+        {
+          "name": "color-sidebar-border"
+        },
+        {
+          "name": "color-sidebar-foreground"
+        },
+        {
+          "name": "color-sidebar-primary"
+        },
+        {
+          "name": "color-sidebar-primary-foreground"
+        },
+        {
+          "name": "color-sidebar-ring"
+        },
+        {
+          "name": "color-success"
+        },
+        {
+          "name": "color-warning"
+        }
+      ]
+    },
+    {
+      "name": "Chart",
+      "tokens": [
+        {
+          "name": "color-chart-1"
+        },
+        {
+          "name": "color-chart-2"
+        },
+        {
+          "name": "color-chart-3"
+        },
+        {
+          "name": "color-chart-4"
+        },
+        {
+          "name": "color-chart-5"
+        }
+      ]
+    }
+  ],
+  "elevation": [
+    {
+      "description": "Below the page: a well that groups content, a code block, a track.",
+      "name": "Sunken",
+      "surface": "$color-muted"
+    },
+    {
+      "description": "The page itself; flat cards on it take a border, not a shadow.",
+      "name": "Default",
+      "surface": "$color-background"
+    },
+    {
+      "description": "A card that stands off the page or can be moved.",
+      "name": "Raised",
+      "shadow": "$shadow-sm",
+      "surface": "$color-card"
+    },
+    {
+      "description": "Above everything else: menus, popovers, dialogs, tooltips.",
+      "layer": 50,
+      "name": "Overlay",
+      "shadow": "$shadow-lg",
+      "surface": "$color-popover"
+    }
+  ],
+  "icons": {
+    "from": "lucide-react",
+    "sizes": [
+      16,
+      20,
+      24
+    ]
+  },
+  "layout": {
+    "breakpoints": [
+      {
+        "name": "breakpoint-sm"
+      },
+      {
+        "name": "breakpoint-md"
+      },
+      {
+        "name": "breakpoint-lg"
+      },
+      {
+        "name": "breakpoint-xl"
+      },
+      {
+        "name": "breakpoint-2xl"
+      }
+    ],
+    "containers": [
+      {
+        "name": "container-3xs"
+      },
+      {
+        "name": "container-2xs"
+      },
+      {
+        "name": "container-xs"
+      },
+      {
+        "name": "container-sm"
+      },
+      {
+        "name": "container-md"
+      },
+      {
+        "name": "container-lg"
+      },
+      {
+        "name": "container-xl"
+      },
+      {
+        "name": "container-2xl"
+      },
+      {
+        "name": "container-3xl"
+      },
+      {
+        "name": "container-4xl"
+      },
+      {
+        "name": "container-5xl"
+      },
+      {
+        "name": "container-6xl"
+      },
+      {
+        "name": "container-7xl"
+      }
+    ]
+  },
+  "motion": {
+    "animations": [
+      {
+        "name": "animate-accordion-down"
+      },
+      {
+        "name": "animate-accordion-up"
+      },
+      {
+        "name": "animate-agent-sweep"
+      },
+      {
+        "name": "animate-bounce"
+      },
+      {
+        "name": "animate-caret-blink"
+      },
+      {
+        "name": "animate-collapsible-down"
+      },
+      {
+        "name": "animate-collapsible-up"
+      },
+      {
+        "name": "animate-in"
+      },
+      {
+        "name": "animate-out"
+      },
+      {
+        "name": "animate-ping"
+      },
+      {
+        "name": "animate-pulse"
+      },
+      {
+        "name": "animate-ray"
+      },
+      {
+        "name": "animate-spin"
+      }
+    ],
+    "durations": [
+      {
+        "name": "default-transition-duration"
+      }
+    ],
+    "easings": [
+      {
+        "name": "ease-enter"
+      },
+      {
+        "name": "ease-in"
+      },
+      {
+        "name": "ease-in-out"
+      },
+      {
+        "name": "ease-move"
+      },
+      {
+        "name": "ease-out"
+      },
+      {
+        "name": "ease-sheet"
+      }
+    ]
+  },
+  "radius": [
+    {
+      "name": "radius-2xl"
+    },
+    {
+      "name": "radius-3xl"
+    },
+    {
+      "name": "radius-4xl"
+    },
+    {
+      "name": "radius-lg"
+    },
+    {
+      "name": "radius-md"
+    },
+    {
+      "name": "radius-sm"
+    },
+    {
+      "name": "radius-xl"
+    },
+    {
+      "name": "radius-xs"
+    }
+  ],
+  "shadows": [
+    {
+      "name": "shadow-2xl"
+    },
+    {
+      "name": "shadow-2xs"
+    },
+    {
+      "name": "shadow-floating"
+    },
+    {
+      "name": "shadow-inner"
+    },
+    {
+      "name": "shadow-lg"
+    },
+    {
+      "name": "shadow-md"
+    },
+    {
+      "name": "shadow-overlay"
+    },
+    {
+      "name": "shadow-sm"
+    },
+    {
+      "name": "shadow-xl"
+    },
+    {
+      "name": "shadow-xs"
+    }
+  ],
+  "spacing": {},
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "typography": {
+    "fonts": [],
+    "sizes": [],
+    "styles": [],
+    "weights": []
+  },
+  "version": 1,
+  "codeSync": {
+    "agreed": {
+      "animate-accordion-down": "accordion-down .2sease-out0s1normalnone",
+      "animate-accordion-up": "accordion-up .2sease-out0s1normalnone",
+      "animate-agent-sweep": "agent-sweep 1.8s linear infinite",
+      "animate-bounce": "bounce 1s infinite",
+      "animate-caret-blink": "caret-blink 1.25s ease-out infinite",
+      "animate-collapsible-down": "collapsible-down .2sease-out0s1normalnone",
+      "animate-collapsible-up": "collapsible-up .2sease-out0s1normalnone",
+      "animate-in": "enter .15sease0s1normalnone",
+      "animate-out": "exit .15sease0s1normalnone",
+      "animate-ping": "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite",
+      "animate-pulse": "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      "animate-ray": "ray 1s ease-in-out infinite",
+      "animate-spin": "spin 1s linear infinite",
+      "breakpoint-2xl": "96rem",
+      "breakpoint-lg": "64rem",
+      "breakpoint-md": "48rem",
+      "breakpoint-sm": "40rem",
+      "breakpoint-xl": "80rem",
+      "color-accent": "oklch(0.935 0.004 80)",
+      "color-accent-foreground": "oklch(0.21 0.006 60)",
+      "color-accent-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-accent@dark": "oklch(0.285 0.004 70)",
+      "color-agent": "#ec4899",
+      "color-agent-foreground": "#ffffff",
+      "color-background": "oklch(0.99 0.001 80)",
+      "color-background@dark": "oklch(0.175 0.004 70)",
+      "color-board": "oklch(0.95 0.012 262)",
+      "color-board@dark": "oklch(0.185 0.018 262)",
+      "color-border": "oklch(0.21 0.006 60 / 10%)",
+      "color-border@dark": "oklch(1 0 0 / 8%)",
+      "color-brand": "oklch(0.53 0.21 263)",
+      "color-brand-foreground": "oklch(0.99 0 0)",
+      "color-brand@dark": "oklch(0.56 0.2 263)",
+      "color-canvas": "oklch(0.945 0.004 80)",
+      "color-canvas-grid": "oklch(0.21 0.006 60 / 7%)",
+      "color-canvas-grid@dark": "oklch(1 0 0 / 7%)",
+      "color-canvas@dark": "oklch(0.165 0.004 70)",
+      "color-card": "oklch(1 0 0)",
+      "color-card-foreground": "oklch(0.21 0.006 60)",
+      "color-card-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-card@dark": "oklch(0.235 0.004 70)",
+      "color-chart-1": "oklch(0.53 0.21 263)",
+      "color-chart-1@dark": "oklch(0.66 0.17 263)",
+      "color-chart-2": "oklch(0.7 0.13 200)",
+      "color-chart-2@dark": "oklch(0.75 0.12 200)",
+      "color-chart-3": "oklch(0.65 0.15 330)",
+      "color-chart-3@dark": "oklch(0.72 0.15 330)",
+      "color-chart-4": "oklch(0.75 0.13 85)",
+      "color-chart-4@dark": "oklch(0.8 0.13 85)",
+      "color-chart-5": "oklch(0.6 0.02 70)",
+      "color-component": "#8b5cf6",
+      "color-destructive": "oklch(0.55 0.21 27)",
+      "color-destructive@dark": "oklch(0.68 0.18 25)",
+      "color-foreground": "oklch(0.21 0.006 60)",
+      "color-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-input": "oklch(0.21 0.006 60 / 16%)",
+      "color-input@dark": "oklch(1 0 0 / 13%)",
+      "color-muted": "oklch(0.955 0.003 80)",
+      "color-muted-foreground": "oklch(0.53 0.01 65)",
+      "color-muted-foreground@dark": "oklch(0.67 0.008 75)",
+      "color-muted@dark": "oklch(0.255 0.004 70)",
+      "color-popover": "oklch(1 0 0)",
+      "color-popover-foreground": "oklch(0.21 0.006 60)",
+      "color-popover-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-popover@dark": "oklch(0.245 0.005 70)",
+      "color-primary": "oklch(0.53 0.21 263)",
+      "color-primary-foreground": "oklch(0.99 0 0)",
+      "color-primary@dark": "oklch(0.56 0.2 263)",
+      "color-rail": "oklch(0.955 0.004 80)",
+      "color-rail@dark": "oklch(0.176 0.004 70)",
+      "color-ring": "oklch(0.53 0.21 263)",
+      "color-ring@dark": "oklch(0.66 0.17 263)",
+      "color-secondary": "oklch(0.945 0.003 80)",
+      "color-secondary-foreground": "oklch(0.21 0.006 60)",
+      "color-secondary-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-secondary@dark": "oklch(0.28 0.004 70)",
+      "color-selection": "#3d7bff",
+      "color-selection@dark": "#4f8cff",
+      "color-sidebar": "oklch(0.995 0.001 80)",
+      "color-sidebar-accent": "oklch(0.935 0.004 80)",
+      "color-sidebar-accent-foreground": "oklch(0.21 0.006 60)",
+      "color-sidebar-accent-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-sidebar-accent@dark": "oklch(0.285 0.004 70)",
+      "color-sidebar-border": "oklch(0.21 0.006 60 / 10%)",
+      "color-sidebar-border@dark": "oklch(1 0 0 / 8%)",
+      "color-sidebar-foreground": "oklch(0.21 0.006 60)",
+      "color-sidebar-foreground@dark": "oklch(0.965 0.003 80)",
+      "color-sidebar-primary": "oklch(0.53 0.21 263)",
+      "color-sidebar-primary-foreground": "oklch(0.99 0 0)",
+      "color-sidebar-primary@dark": "oklch(0.56 0.2 263)",
+      "color-sidebar-ring": "oklch(0.53 0.21 263)",
+      "color-sidebar-ring@dark": "oklch(0.66 0.17 263)",
+      "color-sidebar@dark": "oklch(0.222 0.004 70)",
+      "color-success": "oklch(0.6 0.15 155)",
+      "color-success@dark": "oklch(0.74 0.15 155)",
+      "color-warning": "oklch(0.7 0.15 70)",
+      "color-warning@dark": "oklch(0.82 0.14 78)",
+      "container-2xl": "42rem",
+      "container-2xs": "18rem",
+      "container-3xl": "48rem",
+      "container-3xs": "16rem",
+      "container-4xl": "56rem",
+      "container-5xl": "64rem",
+      "container-6xl": "72rem",
+      "container-7xl": "80rem",
+      "container-lg": "32rem",
+      "container-md": "28rem",
+      "container-sm": "24rem",
+      "container-xl": "36rem",
+      "container-xs": "20rem",
+      "default-transition-duration": "150ms",
+      "ease-enter": "cubic-bezier(0.23, 1, 0.32, 1)",
+      "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
+      "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "ease-move": "cubic-bezier(0.77, 0, 0.175, 1)",
+      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
+      "ease-sheet": "cubic-bezier(0.32, 0.72, 0, 1)",
+      "radius-2xl": "1rem",
+      "radius-3xl": "1.25rem",
+      "radius-4xl": "1.5rem",
+      "radius-lg": "0.625rem",
+      "radius-md": "0.375rem",
+      "radius-sm": "0.25rem",
+      "radius-xl": "0.75rem",
+      "radius-xs": "0.1875rem",
+      "shadow-2xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+      "shadow-2xs": "0 1px rgb(0 0 0 / 0.05)",
+      "shadow-floating": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)",
+      "shadow-floating@dark": "0 1px 2px oklch(0 0 0 / 30%), 0 12px 32px -8px oklch(0 0 0 / 55%)",
+      "shadow-inner": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
+      "shadow-lg": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+      "shadow-md": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      "shadow-overlay": "0 2px 4px oklch(0.3 0.02 60 / 8%), 0 12px 32px -6px oklch(0.3 0.02 60 / 22%)",
+      "shadow-overlay@dark": "0 2px 6px oklch(0 0 0 / 35%), 0 16px 40px -8px oklch(0 0 0 / 60%)",
+      "shadow-sm": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+      "shadow-xl": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+      "shadow-xs": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      "spacing": "0.25rem"
+    },
+    "at": 1794309097938
+  }
+}
