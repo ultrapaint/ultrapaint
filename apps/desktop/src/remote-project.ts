@@ -202,7 +202,9 @@ export class RemoteProjects extends Context.Service<
           );
 
           return {
-            attached: !owned,
+            get attached() {
+              return !owned;
+            },
             get token() {
               return live.server.ready.token;
             },

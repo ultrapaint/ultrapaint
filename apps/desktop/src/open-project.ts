@@ -143,7 +143,8 @@ export class OpenProject extends Context.Service<
         const servers = yield* ProjectServer;
         const shell = yield* Shell;
         const path = yield* Path.Path;
-        // The terminal's PATH, so that the preview finds the user's Node and agents their tools.
+        // The terminal's PATH, so that a new application's install finds the user's Node and
+        // agents their tools.
         const { env } = yield* LoginShell;
         const agents = yield* Agents;
         const remote = yield* RemoteProjects;

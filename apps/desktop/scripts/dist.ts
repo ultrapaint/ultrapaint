@@ -40,8 +40,8 @@ const icon = path.join(desktopDir, "resources", "icon.png");
 const config = {
   appId: "dev.ultrapaint.desktop",
   artifactName: `ultrapaint-${placeholder("version")}-${placeholder("os")}-${placeholder("arch")}.${placeholder("ext")}`,
-  // The server, the adapters and the preview's bundles are run by other processes, the user's
-  // Node among them, and read through the sandbox's binds: plain files, not an archive.
+  // The server and the adapters are run by other processes and read through the sandbox's
+  // binds: plain files, not an archive.
   asar: false,
   buildVersion: version,
   deb: {
@@ -67,7 +67,7 @@ const config = {
     identity: null,
     target: onlyDir ? ["dir"] : ["dmg", "zip"],
   },
-  // The app's dependencies are installed by `stage.ts`, for this platform, as they are.
+  // `stage.ts` installs nothing beside the app's parts: there is nothing to rebuild.
   npmRebuild: false,
   productName: "Ultrapaint",
   // Where the update feed points; the workflow uploads, so electron-builder never publishes.

@@ -65,14 +65,17 @@ export const buildShell = async () => {
   });
 };
 
-/** The app's own package.json: what Electron reads to start it, and what is installed with it. */
-export const writeManifest = (dependencies: Record<string, string> = {}) => {
+/**
+ * The app's own package.json: what Electron reads to start it. It names no dependencies: nothing
+ * is installed beside the app's parts.
+ */
+export const writeManifest = () => {
   writeFileSync(
     path.join(appDir, "package.json"),
     `${JSON.stringify(
       {
         author: { email: "alessandro@narciso.dev", name: "Alessandro Narciso" },
-        dependencies,
+        dependencies: {},
         description: "A design tool for teams that work with coding agents",
         // The window's WM_CLASS on Linux, so the desktop links it to the launcher's entry.
         desktopName: "ultrapaint.desktop",

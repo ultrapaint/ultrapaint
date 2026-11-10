@@ -2,7 +2,8 @@
  * The environment a terminal has (PLAN-desktop D6). An app opened from the Dock or a launcher
  * gets the session's bare `PATH`, without what the shell's startup files add: fnm, nvm, Volta,
  * Homebrew, `~/.local/bin`. The login shell is asked once, at start, as T3 Code does, and what
- * it says goes to the servers the app starts, and through them to the preview and the agents.
+ * it says goes to the servers the app starts, and through them to a new application's install
+ * and the agents.
  */
 import { Context, Effect, Layer, Option } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";

@@ -37,5 +37,5 @@ execFileSync(
   { cwd: serverDir, stdio: "inherit" }
 );
 
-writeManifest({});
+writeManifest();
 console.log(`[stage] ${appDir}`);

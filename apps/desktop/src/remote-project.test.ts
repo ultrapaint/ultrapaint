@@ -317,6 +317,25 @@ describe("RemoteProjects", () => {
       )
   );
 
+  it.effect(
+    "is the app's to stop once it started the server again in place of one it attached to",
+    () =>
+      withMachine((machine, seen) =>
+        Effect.gen(function* () {
+          machine.running = { pid: 7, token: "theirs" };
+          const projects = yield* RemoteProjects;
+          const running = yield* projects.start(project, hooksFor(seen));
+          assert.isTrue(running.attached);
+          // Their server is gone with the connection: the app starts its own.
+          machine.running = null;
+          yield* dropConnection(machine, "closed");
+          yield* settle;
+          assert.include(machine.log, "start run-1");
+          assert.isFalse(running.attached);
+        })
+      )
+  );
+
   it.effect("says why it cannot start, and leaves nothing behind", () =>
     withMachine((machine, seen) =>
       Effect.gen(function* () {
