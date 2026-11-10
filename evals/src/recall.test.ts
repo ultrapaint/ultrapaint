@@ -9,6 +9,7 @@ import {
   rateDeckName,
   ratingId,
   recall,
+  settleJudgements,
   spentLines,
   toldRules,
   unmatchedOf,
@@ -456,6 +457,112 @@ describe("recall", () => {
       }).pipe(
         Effect.provide(Layer.merge(TestData, Models.layerTest(recording)))
       );
+    }
+  );
+
+  it("settles several judges' verdicts on the one most of them gave, the lower of two", () => {
+    const by = (
+      verdict: "caught" | "partly" | "missed",
+      findings: number[]
+    ) => ({
+      gaps: [{ findings, id: "g01", verdict, why: verdict }],
+    });
+    assert.deepStrictEqual(
+      settleJudgements([
+        by("caught", [1]),
+        by("missed", []),
+        by("caught", [2]),
+      ]),
+      {
+        gaps: [
+          {
+            findings: [1, 2],
+            id: "g01",
+            verdict: "caught",
+            why: "caught / caught",
+          },
+        ],
+      }
+    );
+    assert.strictEqual(
+      settleJudgements([by("caught", [1]), by("missed", []), by("partly", [1])])
+        ?.gaps[0]?.verdict,
+      "partly"
+    );
+    assert.deepStrictEqual(
+      settleJudgements([by("caught", [1]), by("missed", [])])?.gaps[0],
+      { findings: [], id: "g01", verdict: "missed", why: "missed / caught" }
+    );
+    assert.deepStrictEqual(
+      settleJudgements([by("partly", [3])]),
+      by("partly", [3])
+    );
+    assert.isUndefined(settleJudgements([]));
+  });
+
+  it.effect(
+    "has every judge judge every review, and says what each counted and how often they agreed",
+    () => {
+      // Opus and Grok see the gap in every review; GPT in none.
+      const byJudge = (asked: Asked) => {
+        if (asked.prompt.startsWith("You review")) {
+          return { findings: [finding("Empty group too heavy")], read: [] };
+        }
+        if (asked.prompt.startsWith("A reviewer")) {
+          const sees = asked.model !== "gpt-6.1-sol";
+          return {
+            gaps: [
+              {
+                findings: sees ? [1] : [],
+                id: "g01",
+                verdict: sees ? "caught" : "missed",
+                why: "",
+              },
+            ],
+          };
+        }
+        return { problems: [] };
+      };
+      return Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        yield* recall({
+          concurrency: 1,
+          effort: "high",
+          judgeModel: "opus",
+          judges: ["opus", "gpt-6.1-sol", "cursor:grok-4.7-high"],
+          models: ["opus"],
+          round: "r",
+          runs: 1,
+          sections: [],
+          skills: ["built-in"],
+        });
+
+        const report = yield* readData("runs/r/report.md");
+        assert.include(report, "| g01 Gap g01 | missing | panel | 1/1 |");
+        assert.include(report, "| `opus` | 1/1 · 100% |");
+        assert.include(report, "| `gpt-6.1-sol` | 0/1 · 0% |");
+        assert.include(report, "They gave one verdict on 0/1 · 0% of the gaps");
+        assert.include(report, "never alone");
+        assert.include(
+          yield* readData(
+            "runs/r/panel/shipped/run-1/judgement@cursor-grok-4.7-high.json"
+          ),
+          '"caught"'
+        );
+        const fs = yield* FileSystem.FileSystem;
+        assert.include(
+          yield* fs.readFileString(`${gaps}/g01-empty.md`),
+          "judged by opus, gpt-6.1-sol, cursor:grok-4.7-high"
+        );
+      }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(byJudge))));
     }
   );
 

@@ -23,6 +23,10 @@
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status
  * `testing`.
  *
+ * Several judges may judge every review (`judges`): a gap's verdict is then the one most of them
+ * gave, so no review is judged by its writer alone when the judges review too, and the report
+ * says what each judge counted and how often they agreed.
+ *
  * The report says how far its counts go (`recall-stats.ts`): each version's recall with the
  * interval a resampling of the gaps gives it, its difference from the first version, and the gaps
  * that are not `done` apart, since a `done` gap's rule was written from the section it is
@@ -282,8 +286,50 @@ export const unmatchedOf = (
 const hash = (s: string) =>
   [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1_000_003, 7);
 
+const RANK = { caught: 2, missed: 0, partly: 1 } as const;
+
+/**
+ * What several judges settle of one review: each gap's verdict is the middle one of theirs (the
+ * lower of two), matched with the findings of the judges that went at least that far.
+ */
+export const settleJudgements = (
+  judgements: readonly Judgement[]
+): Judgement | undefined => {
+  const [first] = judgements;
+  if (first === undefined || judgements.length === 1) {
+    return first;
+  }
+  return {
+    gaps: first.gaps.map((gap) => {
+      const given = judgements
+        .flatMap((j) => j.gaps.filter((g) => g.id === gap.id))
+        .sort((a, b) => RANK[a.verdict] - RANK[b.verdict]);
+      const middle = given[Math.floor((given.length - 1) / 2)] ?? gap;
+      const agreeing = given.filter(
+        (g) => RANK[g.verdict] >= RANK[middle.verdict]
+      );
+      return {
+        findings:
+          middle.verdict === "missed"
+            ? []
+            : [...new Set(agreeing.flatMap((g) => g.findings))].sort(
+                (a, b) => a - b
+              ),
+        id: gap.id,
+        verdict: middle.verdict,
+        why: agreeing.map((g) => g.why).join(" / "),
+      };
+    }),
+  };
+};
+
+/** A judge's name as a part of a file's name. */
+const fileNameOf = (model: string) => model.replaceAll(/[^\w.-]/g, "-");
+
 /** One review of a section with one version, and what was judged of it. */
 export interface Reviewed {
+  /** Each judge's own judgement, by its model, when several judged. */
+  readonly byJudge?: Readonly<Record<string, Judgement>>;
   readonly judgement: Judgement | undefined;
   readonly review: Review;
   readonly run: number;
@@ -381,6 +427,8 @@ export interface RecallOptions {
   readonly inputs?: readonly RecallInput[];
   /** The model that judges every review and groups what no gap matched, whoever reviewed. */
   readonly judgeModel: string;
+  /** Every model that judges each review, `judgeModel` first; `judgeModel` alone without it. */
+  readonly judges?: readonly string[];
   /** The models that review, each with every version of the skill, to be compared. */
   readonly models: readonly string[];
   /** Writes the deck that rates what no gap matched in the held-out sections. */
@@ -828,6 +876,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   }
   const reviewers = versionsOf(options.skills, options.models, options.inputs);
   const versions = reviewers.map((v) => v.name);
+  const judges = options.judges ?? [options.judgeModel];
   const trees = new Map<string, string>();
   for (const skills of options.skills) {
     trees.set(skills, yield* skillTree(options.round, skills));
@@ -836,6 +885,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
     effort: options.effort,
     inputs: options.inputs ?? ["pictures"],
     judgeModel: options.judgeModel,
+    ...(judges.length > 1 && { judges }),
     models: options.models,
     runs: options.runs,
     sections: ids,
@@ -879,20 +929,41 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
                   reviewOne(copy, tree, version, options)
                 );
                 cost += review.costUsd;
-                const judged =
+                const judgedBy =
                   gapsOf(id).length === 0
-                    ? undefined
-                    : yield* kept(
-                        path.join(dir, "judgement.json"),
-                        Judgement,
-                        judgeOne(copy, gapsOf(id), review.value, options)
+                    ? []
+                    : yield* Effect.forEach(judges, (judge) =>
+                        Effect.map(
+                          kept(
+                            path.join(
+                              dir,
+                              judges.length === 1
+                                ? "judgement.json"
+                                : `judgement@${fileNameOf(judge)}.json`
+                            ),
+                            Judgement,
+                            judgeOne(copy, gapsOf(id), review.value, {
+                              ...options,
+                              judgeModel: judge,
+                            })
+                          ),
+                          (judged) => ({ ...judged, judge })
+                        )
                       );
-                cost += judged?.costUsd ?? 0;
+                cost += judgedBy.reduce((n, j) => n + j.costUsd, 0);
+                const judgement = settleJudgements(
+                  judgedBy.map((j) => j.value)
+                );
                 yield* Effect.log(
                   `${id} ${version.name} run ${run}: ${review.value.findings.length} findings`
                 );
                 return {
-                  judgement: judged?.value,
+                  ...(judgedBy.length > 1 && {
+                    byJudge: Object.fromEntries(
+                      judgedBy.map((j) => [j.judge, j.value])
+                    ),
+                  }),
+                  judgement,
                   review: review.value,
                   run,
                   spent: {
@@ -982,7 +1053,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
         : []
     )
   );
-  if (options.models.includes(options.judgeModel)) {
+  if (judges.length === 1 && options.models.includes(options.judgeModel)) {
     yield* Effect.logWarning(
       `${options.judgeModel} judges reviews it wrote: give --judge-model another model to compare reviewers`
     );
@@ -1049,9 +1120,25 @@ interface ReportInput {
 /** Who reviewed and who judged, for the report and the gaps' result lines. */
 const whoOf = (options: RecallOptions) => {
   const [only] = options.models;
-  return options.models.length === 1 && only === options.judgeModel
+  const judges = options.judges ?? [options.judgeModel];
+  return options.models.length === 1 &&
+    judges.length === 1 &&
+    only === options.judgeModel
     ? `${only}, effort ${options.effort}`
-    : `reviewed by ${options.models.join(", ")}, judged by ${options.judgeModel}, effort ${options.effort}`;
+    : `reviewed by ${options.models.join(", ")}, judged by ${judges.join(", ")}, effort ${options.effort}`;
+};
+
+const code = (model: string) => `\`${model}\``;
+
+/** The report's first words: who reviewed, who judged, who grouped. */
+const headOf = (options: RecallOptions) => {
+  const judges = options.judges ?? [options.judgeModel];
+  if (judges.length > 1) {
+    return `Reviewers: ${options.models.map(code).join(", ")}; judges: ${judges.map(code).join(", ")}, each blind to who reviewed, a gap's verdict the one most of them gave; grouping: ${code(options.judgeModel)}`;
+  }
+  return options.models.length === 1 && options.models[0] === options.judgeModel
+    ? `Every reviewer, judge and grouping: ${code(options.judgeModel)}`
+    : `Reviewers: ${options.models.map(code).join(", ")}; every judge and grouping: ${code(options.judgeModel)}, blind to who reviewed`;
 };
 
 /** What a version's reviews took on average: seconds and, where counted, tokens. */
@@ -1143,7 +1230,10 @@ const trustLines = (
     }`,
     "",
   ];
-  if (options.models.includes(options.judgeModel)) {
+  const judges = options.judges ?? [options.judgeModel];
+  if (judges.length > 1) {
+    lines.push(...judgeLines(input, findingGaps, judges));
+  } else if (options.models.includes(options.judgeModel)) {
     lines.push(
       `\`${options.judgeModel}\` judges reviews it wrote itself. A judge matches the wording it would use more readily, so compare versions inside this round, and give \`--judge-model\` another model to compare reviewers.`,
       ""
@@ -1167,6 +1257,54 @@ const trustLines = (
     );
   }
   return lines;
+};
+
+/** What each judge counted alone, and how often they all gave one verdict. */
+const judgeLines = (
+  input: ReportInput,
+  findingGaps: readonly LoadedGap[],
+  judges: readonly string[]
+): string[] => {
+  const { versions } = input;
+  const all = Object.values(input.reviewed).flat();
+  let same = 0;
+  let judged = 0;
+  for (const r of all) {
+    const given = Object.values(r.byJudge ?? {});
+    for (const gap of given[0]?.gaps ?? []) {
+      const verdicts = new Set(
+        given.flatMap((j) =>
+          j.gaps.filter((g) => g.id === gap.id).map((g) => g.verdict)
+        )
+      );
+      judged += 1;
+      same += verdicts.size === 1 ? 1 : 0;
+    }
+  }
+  const alone = (judge: string) => {
+    const reviewed = Object.fromEntries(
+      Object.entries(input.reviewed).map(([id, reviews]) => [
+        id,
+        reviews.map((r) => ({ ...r, judgement: r.byJudge?.[judge] })),
+      ])
+    );
+    const tally = tallyOf(findingGaps, reviewed, versions);
+    return versions.map((v) => {
+      const t = sum(findingGaps.map((g) => tally[g.id]?.[v]));
+      return showShare(t.caught, t.runs);
+    });
+  };
+  return [
+    tableHead(["Judge", ...versions]),
+    ...judges.map((judge) => tableRow([code(judge), ...alone(judge)])),
+    "",
+    `What each judge counted alone; the counts above take the verdict most of them gave. They gave one verdict on ${showShare(same, judged)} of the gaps they judged.${
+      judges.some((judge) => input.options.models.includes(judge))
+        ? " A judge that also reviews reads its own reviews among the others, never alone."
+        : ""
+    }`,
+    "",
+  ];
 };
 
 /**
@@ -1274,11 +1412,7 @@ export const reportOf = (input: ReportInput) => {
   const lines = [
     `# Recall: ${options.round}`,
     "",
-    `${
-      options.models.length === 1 && options.models[0] === options.judgeModel
-        ? `Every reviewer, judge and grouping: \`${options.judgeModel}\``
-        : `Reviewers: ${options.models.map((m) => `\`${m}\``).join(", ")}; every judge and grouping: \`${options.judgeModel}\`, blind to who reviewed`
-    }, effort ${options.effort}. ` +
+    `${headOf(options)}, effort ${options.effort}. ` +
       `${options.runs} run(s) per section and version. Skills: ${options.skills
         .map((s) => `${versionName(s)} (\`${s}\`)`)
         .join(", ")}. Cost: $${input.cost.toFixed(2)}.`,

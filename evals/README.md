@@ -289,7 +289,10 @@ the first version with an interval of its own: both come from resampling the gap
 runs go together, and a difference whose interval holds 0 is one the round does not show. The
 gaps that are not `done` are counted apart: a `done` gap's rule was written from the section it is
 measured on, so the others are the held-out split a change has to show on. Give `--judge-model` a
-model that does not review: the report says so when the judge read its own reviews.
+model that does not review: the report says so when the judge read its own reviews. Or give it
+several (`--judge-model opus,gpt-6.1-sol,cursor:grok-4.7-high`): each judges every review, a gap's
+verdict is the one most of them gave, the first groups what no gap matched, and the report says
+what each judge counted alone and how often they agreed.
 
 What no gap matched is counted per review and version, in every section and in the held-out
 ones. `--rate` writes the deck `rate-<round>` of the held-out sections' problems, shown without
