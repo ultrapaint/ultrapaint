@@ -177,16 +177,18 @@ there. From the data directory, with the round's commands in `.work/probe/<name>
 export XDG_RUNTIME_DIR=/run/user/$(id -u)  # agent shells lack it; systemctl --user needs it
 systemd-run --user --collect --unit=lab-<name> \
   --working-directory="$HOME/Code/ultrapaint-data" \
-  --setenv=PATH --setenv=T3_THREAD="$T3CODE_THREAD_ID" --setenv=CODEX=80 --setenv=CLAUDE=80 \
-  -p 'ExecStopPost=/bin/sh -c "t3 thread send $$T3_THREAD \"lab-<name> ended: $$SERVICE_RESULT, exit $$EXIT_STATUS (75: the guard stopped it at a quota). Logs: .work/<name>.log, .work/<name>-guard.log\""' \
+  --setenv=PATH --setenv=CODEX=80 --setenv=CLAUDE=80 \
+  -p "ExecStopPost=$(command -v t3) thread send ${T3CODE_THREAD_ID:?not in a T3 thread} 'lab-<name> ended: journalctl --user -u lab-<name> -n 5 says how (status=75: the guard stopped it at a quota). Logs: .work/<name>.log, .work/<name>-guard.log'" \
   node .work/probe/lab-guard.mjs <name> .work/probe/<name>.sh
 ```
 
-The job has no timeout and outlives the agent's session, a restart of T3 Code and a logout. The
-guard exits with the round's own code, or 75 when it stopped the round, and says why in its log.
-`systemctl --user list-units 'lab-*'` lists the jobs running, `journalctl --user -u lab-<name>` has
-what the guard printed, and `systemctl --user stop lab-<name>` stops one with everything it
-started.
+The shell fills in the thread and the path to `t3` when it starts the job, so the end hook holds
+no `$` and no `%`: systemd expands both, and a `$$` in a job's command comes back from a
+`daemon-reload` as the shell's pid. The job has no timeout and outlives the agent's session, a
+restart of T3 Code and a logout. The guard exits with the round's own code, or 75 when it
+stopped the round, and says why in its log. `systemctl --user list-units 'lab-*'` lists the jobs
+running, `journalctl --user -u lab-<name>` has what the guard printed and how it exited, and
+`systemctl --user stop lab-<name>` stops one with everything it started.
 
 ## Reviews in a round
 
