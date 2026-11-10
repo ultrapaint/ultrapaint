@@ -3,12 +3,14 @@
  * Tailwind v4, with a component for each of ultrapaint's system components (`starter-components.ts`,
  * ADR 0040): the same names, props, parts (`data-slot`) and variant axes, on Base UI where the
  * system component is, so a design implemented there maps one to one. The theme's `@theme` starts from
- * the tokens the caller gives (a Figma file's), else from a neutral set; the components use only
- * the colours the neutral set names. A blank application (PLAN-desktop D11) has none of the
+ * the tokens the caller gives (a Figma file's), else from the default look (ADR 0062), so a new
+ * application is drawn as a new design is; the components use only the tokens the default look
+ * names. A blank application (PLAN-desktop D11) has none of the
  * components and a theme that declares nothing, for a design system defined from nothing; its
  * component directory is there, empty. Pure: the server writes the files.
  */
 import type { ScaffoldTemplate } from "@ultrapaint/contracts/setup";
+import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { STARTER_APP, STARTER_COMPONENTS } from "./starter-components.ts";
 
 /** A new application's files, repo-relative, and the settings that point the tool at it. */
@@ -22,49 +24,27 @@ interface Scaffolded {
   };
 }
 
-/** The theme a new application starts with when nothing else is given. */
-const STARTER_TOKENS: Readonly<Record<string, string>> = {
-  "color-accent": "#f4f4f5",
-  "color-accent-foreground": "#18181b",
-  "color-background": "#ffffff",
-  "color-border": "#e4e4e7",
-  "color-card": "#ffffff",
-  "color-card-foreground": "#09090b",
-  "color-destructive": "#dc2626",
-  "color-destructive-foreground": "#ffffff",
-  "color-foreground": "#09090b",
-  "color-input": "#e4e4e7",
-  "color-muted": "#f4f4f5",
-  "color-muted-foreground": "#71717a",
-  "color-popover": "#ffffff",
-  "color-popover-foreground": "#09090b",
-  "color-primary": "#2563eb",
-  "color-primary-foreground": "#ffffff",
-  "color-ring": "#2563eb",
-  "color-secondary": "#f4f4f5",
-  "color-secondary-foreground": "#18181b",
-  "font-sans": '"Inter", ui-sans-serif, system-ui, sans-serif',
-  "radius-lg": "0.75rem",
-  "radius-md": "0.5rem",
-  "radius-sm": "0.375rem",
-};
+/**
+ * What a theme declares of the default look: its colours, fonts, radii and shadows. Its type
+ * scale and spacing are Tailwind's own, which the stylesheet imports.
+ */
+const LOOK_TOKENS = [
+  ...DEFAULT_LOOK.colors.flatMap((group) => group.tokens),
+  ...DEFAULT_LOOK.typography.fonts,
+  ...DEFAULT_LOOK.radius,
+  ...DEFAULT_LOOK.shadows,
+];
 
-const DARK_TOKENS: Readonly<Record<string, string>> = {
-  "color-accent": "#27272a",
-  "color-accent-foreground": "#fafafa",
-  "color-background": "#09090b",
-  "color-border": "#27272a",
-  "color-card": "#18181b",
-  "color-card-foreground": "#fafafa",
-  "color-foreground": "#fafafa",
-  "color-input": "#27272a",
-  "color-muted": "#27272a",
-  "color-muted-foreground": "#a1a1aa",
-  "color-popover": "#18181b",
-  "color-popover-foreground": "#fafafa",
-  "color-secondary": "#27272a",
-  "color-secondary-foreground": "#fafafa",
-};
+/** The theme a new application starts with when nothing else is given: the default look's. */
+const STARTER_TOKENS: Readonly<Record<string, string>> = Object.fromEntries(
+  LOOK_TOKENS.map((token) => [token.name, token.value])
+);
+
+const DARK_TOKENS: Readonly<Record<string, string>> = Object.fromEntries(
+  LOOK_TOKENS.flatMap((token) =>
+    token.values?.dark === undefined ? [] : [[token.name, token.values.dark]]
+  )
+);
 
 const LEADING_DOT_SLASH_RE = /^\.\/?/;
 

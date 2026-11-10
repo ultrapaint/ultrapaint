@@ -84,7 +84,8 @@ describe("serialiseDocument", () => {
         (document) =>
           canonical(JSON.parse(serialiseDocument(document))) ===
           canonical(JSON.parse(serialise(document))),
-        { runs: 300, size: 12 }
+        // Seeded: the same 300 documents every run, so a failure is one that fails again.
+        { runs: 300, seed: "serialiseDocument", size: 12 }
       );
       expect(Arbitrary.formatCheckFailure(result)).toBeUndefined();
     })

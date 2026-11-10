@@ -403,6 +403,130 @@ describe("converting a frame", () => {
       name: "Note",
     });
   });
+
+  it("keeps what is no frame at its own size on its page, where a row fills it", () => {
+    const f = makeFixture();
+    const symbol = f.add(f.internal, {
+      fillPaints: [solid(0.2, 0.4, 1)],
+      name: "Button",
+      size: { x: 120, y: 40 },
+      stackMode: "HORIZONTAL",
+      type: "SYMBOL",
+    });
+    f.add(symbol, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 14,
+      name: "Label",
+      size: { x: 60, y: 20 },
+      textData: { characters: "Save" },
+      type: "TEXT",
+    });
+    f.add(f.page, {
+      name: "Button",
+      size: { x: 120, y: 40 },
+      symbolData: { symbolID: symbol },
+      type: "INSTANCE",
+    });
+    f.add(f.page, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 14,
+      name: "Note",
+      size: { x: 200, y: 20 },
+      textAutoResize: "WIDTH_AND_HEIGHT",
+      textData: { characters: "Ship on Friday" },
+      type: "TEXT",
+    });
+    f.add(f.page, {
+      fillPaints: [
+        {
+          image: { hash: new Uint8Array(20).fill(0xab) },
+          imageScaleMode: "FILL",
+          type: "IMAGE",
+          visible: true,
+        },
+      ],
+      name: "Photo",
+      size: { x: 320, y: 180 },
+      type: "RECTANGLE",
+    });
+    const toolbar = f.add(f.page, {
+      fillPaints: [solid(1, 1, 1)],
+      name: "Toolbar",
+      size: { x: 600, y: 48 },
+      stackMode: "HORIZONTAL",
+      type: "FRAME",
+    });
+    f.add(toolbar, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 14,
+      name: "Title",
+      size: { x: 60, y: 20 },
+      textData: { characters: "Orders" },
+      type: "TEXT",
+    });
+    f.addImage("ab".repeat(20), PNG_BYTES);
+    const file = readFig(f.build());
+    const [button, note, photo, row] = file.pages[0]?.frames ?? [];
+    if (!(button && note && photo && row)) {
+      throw new Error("no frames");
+    }
+    const pageOf = (frame: typeof button, mapping = {}) => {
+      const { root } = convertFrame(file, frame, { ...options(), mapping });
+      if (root.type !== "page") {
+        throw new Error("not a page");
+      }
+      return root;
+    };
+    const mapped = pageOf(button, {
+      Button: { component: "Button", kind: "component" },
+    });
+    expect(mapped.children).toMatchObject([{ type: "instance", width: "hug" }]);
+    // Unmapped, it is its component's row at the instance's size, its fill its own.
+    const expanded = pageOf(button);
+    expect(expanded.children).toMatchObject([
+      { fill: "#3366ff", type: "row", width: 120 },
+    ]);
+    expect(expanded.fill).toBeUndefined();
+    expect(pageOf(note).children).toMatchObject([
+      { type: "text", width: "hug" },
+    ]);
+    expect(pageOf(photo).children).toMatchObject([
+      { height: 180, type: "image", width: 320 },
+    ]);
+    // A frame is the page's own layout: a row fills it, and its fill is the page's.
+    expect(pageOf(row)).toMatchObject({
+      children: [{ type: "row", width: "fill" }],
+      fill: "#ffffff",
+    });
+  });
+
+  it("says so when the one instance of a page is of a component the mapping skips", () => {
+    const f = makeFixture();
+    const symbol = f.add(f.internal, {
+      name: "Annotation",
+      size: { x: 80, y: 24 },
+      type: "SYMBOL",
+    });
+    f.add(f.page, {
+      name: "Annotation",
+      size: { x: 80, y: 24 },
+      symbolData: { symbolID: symbol },
+      type: "INSTANCE",
+    });
+    const file = readFig(f.build());
+    const [annotation] = file.pages[0]?.frames ?? [];
+    if (!annotation) {
+      throw new Error("no frame");
+    }
+    const { root, warnings } = convertFrame(file, annotation, {
+      ...options(),
+      mapping: { Annotation: { kind: "skip" } },
+    });
+    expect(root).toMatchObject({ children: [], name: "Annotation" });
+    expect(warnings).toEqual([
+      '"Annotation" is an instance of a component the mapping skips; its page is empty',
+    ]);
+  });
 });
 
 describe("the outline", () => {

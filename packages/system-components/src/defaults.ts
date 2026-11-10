@@ -31,8 +31,8 @@ const line = (color: string): PartStyle["border"] => ({
   width: "1px",
 });
 
-const POPUP_SHADOW =
-  "0 10px 30px -10px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.06)";
+/** The shadow of what opens over the page: the overlay level's, as the design system lists it. */
+const POPUP_SHADOW = "$shadow-lg";
 const ROUND = "9999px";
 
 /** A popup's surface: a select's, a menu's, a popover's. */
@@ -259,7 +259,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
         gap: "1.5rem",
         padding: pad("1.5rem", 0),
         radius: "$radius-lg",
-        shadow: "0 1px 2px rgb(0 0 0 / 0.05)",
+        shadow: "$shadow-sm",
       },
     },
   },

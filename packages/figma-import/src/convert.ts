@@ -226,10 +226,14 @@ export const convertFrame = (
   const context = converter.rootContext();
   // A page of Figma's lists as a frame whatever is drawn on it: an instance, a text and a shape
   // have no layers of their own to lay out, and are what a frame would hold them as.
-  const converted = CONTAINERS.has(frame.type)
-    ? converter.container(frame, context, { direction: null })
-    : converter.convert(frame, context, { direction: null });
-  return converter.finish(converter.asPage(converted, frame.name));
+  return converter.finish(
+    CONTAINERS.has(frame.type)
+      ? converter.asPage(
+          converter.container(frame, context, { direction: null }),
+          frame.name
+        )
+      : converter.alone(frame, context)
+  );
 };
 
 /** A component's definition, expanded as a page would show it: what "custom" would keep. */
@@ -701,6 +705,29 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     });
   };
 
+  /**
+   * What is no frame as a page's one child, at the size it has in Figma: a page stretches what
+   * says no width, so one that has none hugs. Its fill stays its own.
+   */
+  const alone = (node: FigNode, context: Context): PageNode => {
+    const converted = convert(node, context, { direction: null });
+    if (converted === null) {
+      const component =
+        node.type === "INSTANCE" ? file.componentOf(node) : undefined;
+      if (component && options.mapping[component.key]?.kind === "skip") {
+        warn(
+          `"${node.name}" is an instance of a component the mapping skips; its page is empty`
+        );
+      }
+      return asPage(null, node.name);
+    }
+    const child = {
+      ...converted,
+      width: converted.width ?? ("hug" as const),
+    } as DesignNode;
+    return { children: [child], id: "root", name: node.name, type: "page" };
+  };
+
   const finish = (root: DesignNode): Conversion => ({
     images: [...images.values()],
     root,
@@ -708,5 +735,5 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     warnings: [...warnings],
   });
 
-  return { asPage, container, convert, finish, rootContext };
+  return { alone, asPage, container, finish, rootContext };
 };

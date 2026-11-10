@@ -36,7 +36,7 @@ const CHEVRON_ICON = `<svg
 
 /** A popup's surface: a select's, a menu's, a popover's. */
 const POPUP =
-  "origin-(--transform-origin) rounded-md bg-popover text-popover-foreground text-sm shadow-lg outline-none ring-1 ring-black/5 transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0";
+  "origin-(--transform-origin) rounded-md bg-popover text-popover-foreground text-sm shadow-lg outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0";
 
 /** How a compound component finds its parts among its children. */
 const PARTS = `import { Children, isValidElement, type ReactNode } from "react";
@@ -65,6 +65,22 @@ export function part(name: string) {
   const Part = ({ children }: { children?: ReactNode }) => children;
   Part.displayName = name;
   return Part;
+}
+`;
+
+/** How a Select, a Menu and Tabs read their items, as the system components do. */
+const ITEMS = `/** An item of a list: its label, or its label with a picture for an item drawn with one. */
+export type Item = string | { image?: string; label: string };
+
+/**
+ * A list's items, each with its label: given as labels, as \`{ label, image }\`, or as one string
+ * of labels with commas between them. An item with no label is left out.
+ */
+export function itemsOf(items: readonly Item[] | string): { image?: string; label: string }[] {
+  const list: readonly Item[] = typeof items === "string" ? items.split(",").map((item) => item.trim()) : items;
+  return list
+    .map((item) => (typeof item === "string" ? { label: item } : item))
+    .filter((item) => item.label !== "");
 }
 `;
 
@@ -499,6 +515,7 @@ export { Switch };
 const TABS = `import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import type * as React from "react";
 import { cn } from "@/lib/cn";
+import { type Item, itemsOf } from "@/lib/items";
 
 /** Tabs, one panel at a time: the children are the selected tab's panel. */
 function Tabs({
@@ -509,21 +526,22 @@ function Tabs({
 }: {
   children?: React.ReactNode;
   className?: string;
-  items?: readonly string[];
+  items?: readonly Item[] | string;
   value?: string;
 }) {
-  const selected = value ?? items[0];
+  const labels = itemsOf(items).map((item) => item.label);
+  const selected = value ?? labels[0];
   return (
     <TabsPrimitive.Root className={cn("flex flex-col gap-4", className)} data-slot="root" defaultValue={selected}>
       <TabsPrimitive.List className="relative flex gap-1 border-b" data-slot="tabs-list">
-        {items.map((item) => (
+        {labels.map((label) => (
           <TabsPrimitive.Tab
             className="cursor-pointer px-3 py-2 font-medium text-muted-foreground text-sm outline-none hover:text-foreground data-active:text-foreground"
             data-slot="tab"
-            key={item}
-            value={item}
+            key={label}
+            value={label}
           >
-            {item}
+            {label}
           </TabsPrimitive.Tab>
         ))}
         <TabsPrimitive.Indicator
@@ -543,6 +561,7 @@ export { Tabs };
 
 const SELECT = `import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { cn } from "@/lib/cn";
+import { type Item, itemsOf } from "@/lib/items";
 
 /** A choice of one among a list, which opens below its trigger. */
 function Select({
@@ -557,19 +576,20 @@ function Select({
 }: {
   className?: string;
   disabled?: boolean;
-  items?: readonly string[];
+  items?: readonly Item[] | string;
   label?: string;
   onValueChange?: (value: string | null) => void;
   open?: boolean;
   placeholder?: string;
   value?: string;
 }) {
+  const options = itemsOf(items);
   return (
     <SelectPrimitive.Root
       defaultOpen={open}
       defaultValue={value ?? null}
       disabled={disabled}
-      items={items.map((item) => ({ label: item, value: item }))}
+      items={options.map((option) => ({ label: option.label, value: option.label }))}
       onValueChange={onValueChange}
     >
       <div className={cn("flex min-w-0 flex-col gap-1.5", className)} data-slot="root">
@@ -599,17 +619,17 @@ function Select({
             data-slot="select-popup"
           >
             <SelectPrimitive.List>
-              {items.map((item) => (
+              {options.map((option) => (
                 <SelectPrimitive.Item
                   className="relative flex cursor-default select-none items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
                   data-slot="select-item"
-                  key={item}
-                  value={item}
+                  key={option.label}
+                  value={option.label}
                 >
                   <SelectPrimitive.ItemIndicator className="absolute left-2 flex" data-slot="select-item-indicator">
                     ${CHECK_ICON}
                   </SelectPrimitive.ItemIndicator>
-                  <SelectPrimitive.ItemText>{item}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                 </SelectPrimitive.Item>
               ))}
             </SelectPrimitive.List>
@@ -625,6 +645,7 @@ export { Select };
 
 const MENU = `import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import type * as React from "react";
+import { type Item, itemsOf } from "@/lib/items";
 
 /** A menu of actions, opened by its trigger: the children. An item \`-\` is a separator. */
 function Menu({
@@ -636,7 +657,7 @@ function Menu({
 }: {
   align?: "start" | "center" | "end";
   children?: React.ReactNode;
-  items?: readonly string[];
+  items?: readonly Item[] | string;
   onSelect?: (item: string) => void;
   open?: boolean;
 }) {
@@ -653,18 +674,18 @@ function Menu({
       <MenuPrimitive.Portal>
         <MenuPrimitive.Positioner align={align} className="z-50 outline-none" sideOffset={6}>
           <MenuPrimitive.Popup className="${POPUP} min-w-40 p-1" data-slot="menu-popup">
-            {items.map((item, at) =>
-              item === "-" ? (
+            {itemsOf(items).map(({ label }, at) =>
+              label === "-" ? (
                 // biome-ignore lint/suspicious/noArrayIndexKey: separators have no other name.
                 <MenuPrimitive.Separator className="-mx-1 my-1 h-px bg-border" data-slot="menu-separator" key={\`-\${at}\`} />
               ) : (
                 <MenuPrimitive.Item
                   className="flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
                   data-slot="menu-item"
-                  key={item}
-                  onClick={() => onSelect?.(item)}
+                  key={label}
+                  onClick={() => onSelect?.(label)}
                 >
-                  {item}
+                  {label}
                 </MenuPrimitive.Item>
               )
             )}
@@ -909,7 +930,7 @@ function Toast({
   children,
   className,
   description,
-  open = true,
+  open = false,
   title,
   variant = "default",
 }: VariantProps<typeof toastVariants> & {
@@ -972,6 +993,7 @@ export const STARTER_COMPONENTS: Readonly<Record<string, string>> = {
       text,
     ])
   ),
+  "lib/items.ts": ITEMS,
   "lib/parts.ts": PARTS,
 };
 

@@ -466,13 +466,13 @@ importers:
       '@ultrapaint/shared':
         specifier: workspace:*
         version: link:../shared
+      '@ultrapaint/system-components':
+        specifier: workspace:*
+        version: link:../system-components
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5
-      '@ultrapaint/system-components':
-        specifier: workspace:*
-        version: link:../system-components
       typescript:
         specifier: 7.0.2
         version: 7.0.2

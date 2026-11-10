@@ -4,6 +4,7 @@ import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";
+import { DEFAULT_LOOK } from "./default-look.ts";
 import { defaultLookOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 import { designCss, SYSTEM_COMPONENTS_CSS } from "./look.ts";
 
@@ -96,6 +97,33 @@ describe("the default look", () => {
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       "background-color: var(--color-primary)"
     );
+  });
+
+  it("is drawn with the values the default look lists, a card's and a popup's shadow their level's", () => {
+    const listed = [
+      ...DEFAULT_LOOK.colors.flatMap((group) => group.tokens),
+      ...DEFAULT_LOOK.typography.fonts,
+      ...DEFAULT_LOOK.radius,
+      ...DEFAULT_LOOK.shadows,
+    ];
+    for (const token of listed) {
+      for (const value of [token.value, ...Object.values(token.values ?? {})]) {
+        expect(SYSTEM_COMPONENTS_CSS).toContain(`--${token.name}: ${value};`);
+      }
+    }
+    const shadowOf = (level: string) =>
+      DEFAULT_LOOK.elevation?.find((l) => l.name === level)?.shadow;
+    expect(defaultLookOf("Card")?.base.root?.shadow).toBe(shadowOf("Raised"));
+    expect(
+      [
+        defaultLookOf("Menu")?.base["menu-popup"],
+        defaultLookOf("Select")?.base["select-popup"],
+        defaultLookOf("Popover")?.base.popover,
+        defaultLookOf("Dialog")?.base.dialog,
+        defaultLookOf("Toast")?.base.root,
+      ].map((part) => part?.shadow)
+    ).toEqual(new Array(5).fill(shadowOf("Overlay")));
+    expect(SYSTEM_COMPONENTS_CSS).toContain("box-shadow: var(--shadow-lg)");
   });
 
   it("styles a part's own state where Base UI puts it, on the part", () => {

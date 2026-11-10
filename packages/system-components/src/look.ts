@@ -61,6 +61,25 @@ export const NEUTRAL_COLORS: readonly {
   { dark: "#fafafa", light: "#09090b", name: "color-popover-foreground" },
 ];
 
+/**
+ * The shadows of the levels until the design says otherwise, which the looks name
+ * (`$shadow-lg`, a popup's) and the default look lists (`default-look.ts`).
+ */
+export const NEUTRAL_SHADOWS: readonly {
+  readonly name: string;
+  readonly value: string;
+}[] = [
+  { name: "shadow-sm", value: "0 1px 2px 0 rgb(0 0 0 / 0.05)" },
+  {
+    name: "shadow-md",
+    value: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  },
+  {
+    name: "shadow-lg",
+    value: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  },
+];
+
 const neutralIn = (theme: "dark" | "light") =>
   NEUTRAL_COLORS.map((c) => `--${c.name}: ${c[theme]};`).join(" ");
 
@@ -73,6 +92,7 @@ const DEFAULT_TOKENS = `
   :host {
     ${neutralIn("light")}
     --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
+    ${NEUTRAL_SHADOWS.map((s) => `--${s.name}: ${s.value};`).join(" ")}
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-family: var(--font-sans); line-height: 1.5; color: var(--color-foreground);

@@ -10,7 +10,7 @@ import {
   starterTextStyles,
   type Token,
 } from "@ultrapaint/contracts/design-system";
-import { NEUTRAL_COLORS } from "./look.ts";
+import { NEUTRAL_COLORS, NEUTRAL_SHADOWS } from "./look.ts";
 
 const token = (name: string, value: string, description?: string): Token => ({
   ...(description === undefined ? {} : { description }),
@@ -73,19 +73,16 @@ const leading = [
   token("leading-relaxed", "1.625"),
 ];
 
-const shadows = [
-  token("shadow-sm", "0 1px 2px 0 rgb(0 0 0 / 0.05)", "Raised cards"),
-  token(
-    "shadow-md",
-    "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    "What floats over the page: a dragged item"
-  ),
-  token(
-    "shadow-lg",
-    "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-    "Menus, popovers and dialogs"
-  ),
-];
+/** What each shadow is for, as the Elevation board says it. */
+const LEVELS: Readonly<Record<string, string>> = {
+  "shadow-lg": "Menus, popovers and dialogs",
+  "shadow-md": "What floats over the page: a dragged item",
+  "shadow-sm": "Raised cards",
+};
+
+const shadows = NEUTRAL_SHADOWS.map((s) =>
+  token(s.name, s.value, LEVELS[s.name])
+);
 
 export const DEFAULT_LOOK: DesignSystem = {
   colors: [

@@ -6,6 +6,7 @@ import {
   applicationNameOf,
 } from "@ultrapaint/contracts/catalogue";
 import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
+import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { afterAll, describe, expect, it } from "vitest";
 import { detect } from "./detect.ts";
 import { scaffold } from "./scaffold.ts";
@@ -33,6 +34,17 @@ const ui = (name: string) => String(app[`src/components/ui/${name}.tsx`]);
 /** What a source exports, in its one `export { … };`. */
 const EXPORTS_RE = /export \{ ([^}]+) \};/;
 
+/** What a block of a stylesheet declares, by name: `@theme`'s, `.dark`'s. */
+const declaredIn = (css: string, block: string) => {
+  const body = css.slice(css.indexOf(`${block} {`)).split("\n}")[0] ?? "";
+  return Object.fromEntries(
+    [...body.matchAll(/^ {2}--([\w-]+): (.+);$/gm)].map(([, name, value]) => [
+      name,
+      value,
+    ])
+  );
+};
+
 /** Every `data-slot` a source marks, in order. */
 const slotsOf = (source: string) =>
   [...source.matchAll(/data-slot="([a-z-]+)"/g)].map(([, slot]) => slot);
@@ -57,7 +69,7 @@ describe("a new application", () => {
     );
   });
 
-  it("starts its theme from the tokens it is given, or a neutral set with a dark theme", () => {
+  it("starts its theme from the tokens it is given, or the default look with its dark theme", () => {
     const given = scaffold({
       dir: ".",
       name: "x",
@@ -70,8 +82,28 @@ describe("a new application", () => {
     const starter = scaffold({ dir: ".", name: "x", tokens: {} }).files[
       "src/index.css"
     ];
-    expect(starter).toContain("--color-primary: #2563eb;");
+    expect(starter).toContain("--color-primary: #18181b;");
     expect(starter).toContain(".dark {");
+  });
+
+  it("is drawn as a new design is: its theme is the default look's colours, fonts, radii and shadows, light and dark", () => {
+    const look = [
+      ...DEFAULT_LOOK.colors.flatMap((group) => group.tokens),
+      ...DEFAULT_LOOK.typography.fonts,
+      ...DEFAULT_LOOK.radius,
+      ...DEFAULT_LOOK.shadows,
+    ];
+    const css = String(app["src/index.css"]);
+    expect(declaredIn(css, "@theme")).toEqual(
+      Object.fromEntries(look.map((token) => [token.name, token.value]))
+    );
+    expect(declaredIn(css, ".dark")).toEqual(
+      Object.fromEntries(
+        DEFAULT_LOOK.colors
+          .flatMap((group) => group.tokens)
+          .map((token) => [token.name, token.values?.dark])
+      )
+    );
   });
 
   it("depends on what its components import", () => {
@@ -197,6 +229,40 @@ describe("its components", () => {
       expect(source.includes(`from "@base-ui/react/${kebab(meta.name)}"`)).toBe(
         ON_BASE_UI.has(meta.name)
       );
+    }
+  });
+
+  it("show a Toast only when it is open, as the canvas does", () => {
+    expect(ui("toast")).toContain("  open = false,\n");
+  });
+
+  it("read a list's items as the system components do: labels, labels with a picture, or one string", async () => {
+    const root = written({ "items.ts": String(app["src/lib/items.ts"]) });
+    const { itemsOf } = (await import(path.join(root, "items.ts"))) as {
+      itemsOf: (items: unknown) => unknown;
+    };
+    expect(
+      itemsOf(["Profile", { image: "ada.png", label: "Ada" }, "", "-"])
+    ).toEqual([
+      { label: "Profile" },
+      { image: "ada.png", label: "Ada" },
+      { label: "-" },
+    ]);
+    expect(itemsOf("Active, Paused")).toEqual([
+      { label: "Active" },
+      { label: "Paused" },
+    ]);
+    for (const name of ["menu", "select", "tabs"]) {
+      expect(ui(name)).toContain("itemsOf(items)");
+      expect(ui(name)).toContain("items?: readonly Item[] | string;");
+    }
+  });
+
+  it("draw a card and what opens over the page with the shadow of their level", () => {
+    expect(ui("card")).toContain(" shadow-sm");
+    for (const name of ["dialog", "menu", "popover", "select", "toast"]) {
+      expect(ui(name)).toContain(" shadow-lg");
+      expect(ui(name)).not.toContain("ring-black");
     }
   });
 
