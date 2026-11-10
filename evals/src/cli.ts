@@ -56,6 +56,7 @@ import { learn } from "./learn.ts";
 import { measure } from "./measure.ts";
 import { Models } from "./models.ts";
 import { offSystem } from "./off-system.ts";
+import { generateOutside, outsideHostOf } from "./outside.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
@@ -134,6 +135,12 @@ const generateFlags = {
       "Runs per reference: what varies between them is what is flaky"
     ),
     Flag.withDefault(3)
+  ),
+  skill: Flag.String("skill").pipe(
+    Flag.withDescription(
+      "In a host outside the editor, the skill installed in the app: built-in, candidates/<fix>, or none"
+    ),
+    Flag.withDefault("built-in")
   ),
 };
 const judgeFlags = {
@@ -286,9 +293,31 @@ interface GenerateInput {
   readonly reviewers: string;
   readonly runs: number;
   readonly signOff: Approval;
+  readonly skill: string;
 }
 
 const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
+  const outside = yield* outsideHostOf(input.host);
+  if (Option.isSome(outside)) {
+    return yield* generateOutside(
+      yield* loadReferences(input.refs),
+      outside.value,
+      {
+        agent: input.agent,
+        host: input.host,
+        minutes: input.minutes,
+        model: Option.getOrUndefined(input.agentModel),
+        round: input.name,
+        runs: input.runs,
+        skill: input.skill,
+      }
+    );
+  }
+  if (input.skill !== "built-in") {
+    return yield* new EvalsError({
+      message: `--skill is for a host outside the editor (a host.json of kind outside); ${input.host} is told the skill by its server: try a candidate from a worktree (ULTRAPAINT_CHECKOUT)`,
+    });
+  }
   const goal = yield* goalFrom({
     budgetUsd: Option.getOrUndefined(input.budget),
     floors: Option.getOrUndefined(input.floors),

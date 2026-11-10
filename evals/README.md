@@ -233,6 +233,36 @@ ULTRAPAINT_CHECKOUT=../fix-<fix> pnpm evals round <name>-<fix> --host <host>
 The round's reviewers and the panel read the same checkout's skill. `recall` needs no worktree: it
 reads the skill as files, and lays `candidates/<fix>/` over the checkout's (below).
 
+### Outside the editor
+
+A host with a `host.json` of kind `outside` is a plain app, not an Ultrapaint project (`hosts/plain`:
+React, Vite, Tailwind). A round there measures the skill where nobody tells an agent about it:
+
+```sh
+pnpm evals round <name> [refs…] --host plain --agent codex --agent-model gpt-6.1-sol
+pnpm evals round <name>-none [refs…] --host plain --agent codex --agent-model gpt-6.1-sol --skill none
+pnpm evals pairwise <name>-none <name>
+```
+
+```json
+{ "kind": "outside", "entry": "src/App.tsx", "modules": "../blank/app/node_modules" }
+```
+
+Each run copies the host's app into `.work/outside/<round>/<reference>/run-<n>`, links the
+installed packages `modules` names (from the host's directory), installs the skill as a project
+does, in `.agents/skills/ultrapaint/` and `.claude/skills/ultrapaint/`, and runs the agent's own
+command there with the reference's brief (`prompts/generate-outside.md`), which never names the
+skill: `codex exec` for `--agent codex`, `claude -p` with the project's settings alone for
+`claude-code` (the default). `--agent-model` is the name that command takes (`gpt-6.1-sol`,
+`opus`). `--skill` is `built-in` (the checkout's), `candidates/<fix>` laid over it, or `none` for
+the baseline; a round keeps the one it started with.
+
+The run is written where an editor round's is (`shots/` from the app's own dev server, `pages/`
+its source, `trace.md`, `agent.md`, `run.json`, and the agent's events as they came in
+`events.jsonl`), so `judge`, `panel`, `pairwise` and `review` read it as any run, and the skill's
+files a run opened are counted from the installed path. The agent and the dev server are stopped
+with their process group, at `--minutes` too. Run a bulk round under `.work/probe/lab-guard.mjs`.
+
 ## Gaps and recall
 
 The design skill's known gaps are files in `gaps/` (`pnpm evals gaps` lists them): what a

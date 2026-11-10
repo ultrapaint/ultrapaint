@@ -148,6 +148,9 @@ const RUN_RE = /^run-\d+$/;
 const MD_RE = /[\w{},/.$-]*\.md/g;
 /** Up to a file's path in the skill's cache: the version's folder. */
 const CACHE_PREFIX_RE = /^.*\.cache\/ultrapaint\/skills\/[0-9a-f]+\//;
+/** Up to a file's path in the skill as a project installs it, for Codex or for Claude Code. */
+const INSTALLED_PREFIX_RE = /^.*\.(?:agents|claude)\/skills\/ultrapaint\//;
+const INSTALLED_RE = /\.(?:agents|claude)\/skills\/ultrapaint\//;
 /** The folder of one wording, in a cache from before it held the whole skill. */
 const WORDING_RE = /^(?:with-tools|without-tools)\//;
 const BRACES_RE = /\{([^{}]*)\}/;
@@ -169,7 +172,8 @@ const expand = (file: string): string[] => {
 
 /**
  * The skill's files a trace shows opened, from its tool calls, each by its path in the skill
- * (`SKILL.md`, `references/system/components.md`), sorted. A brace list opens each of its files,
+ * (`SKILL.md`, `references/system/components.md`), sorted: in the cache the editor's agents read
+ * it from, or where a project installs it (`.agents/skills/ultrapaint/`, a run outside the editor). A brace list opens each of its files,
  * and a call that reads part of a file counts. A call marked failed still read its files when
  * only a later command of its chain failed. A trace from before the cache held the whole skill
  * names a reference by its path under `references/`, which the cache was then, and a
@@ -178,7 +182,7 @@ const expand = (file: string): string[] => {
 export const skillReads = (trace: string) => {
   const files = new Set<string>();
   for (const line of trace.split("\n")) {
-    if (line.includes(".cache/ultrapaint/skills")) {
+    if (line.includes(".cache/ultrapaint/skills") || INSTALLED_RE.test(line)) {
       for (const [token] of line.matchAll(MD_RE)) {
         for (const file of inSkill(token)) {
           files.add(file);
@@ -191,7 +195,10 @@ export const skillReads = (trace: string) => {
 
 /** The skill's files a path in a tool call names, by their paths in the skill. */
 const inSkill = (token: string): string[] => {
-  const inCache = token.replace(CACHE_PREFIX_RE, "").replace(VARIABLE_RE, "");
+  const inCache = token
+    .replace(CACHE_PREFIX_RE, "")
+    .replace(INSTALLED_PREFIX_RE, "")
+    .replace(VARIABLE_RE, "");
   // Before, the cache held the references alone, a folder per wording or none.
   const before = WORDING_RE.test(inCache);
   return expand(inCache.replace(WORDING_RE, "")).flatMap((file) => {

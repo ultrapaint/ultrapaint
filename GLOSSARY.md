@@ -226,6 +226,10 @@ refactor and the board view left.
   resampling of the gaps leaves it (`recall-stats.ts`); the gaps not `done` are the **held-out
   split**, since a `done` gap's rule was written from its own section, and what no gap matched is
   rated real or noise in the **rating deck** (`rate-<round>`, `recall --rate`).
+- **Outside run**: a lab round in a host that is a plain app, not an Ultrapaint project (a
+  `host.json` of kind `outside`; evals' `outside.ts`): the skill installed as a project installs
+  one and the agent's own command run there, never told the skill's name (ADR 0069). It says
+  whether the skill is found, read and followed where nothing briefs the agent.
 - **Review loop**: reviewers that look at a design inside its build, look and adjust loop, their
   findings sent back into the designer's thread to fix or decline (ADR 0060). In the lab, a
   round's `--review end|each-section` (evals' `review-loop.ts`, one section reviewed and merged by
