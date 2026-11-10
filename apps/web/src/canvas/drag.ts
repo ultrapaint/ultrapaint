@@ -108,14 +108,24 @@ export const landingPoint = (
 
 // ---- Geometry ----
 
+/**
+ * Where the ground is in the window, as the ground on screen measured it when it was laid out
+ * (`CanvasGround`): a pointer move reading it off the DOM would make the browser lay out again
+ * what the last move changed, once per event. The window's corner while no ground is on screen.
+ */
+let ground = { left: 0, top: 0 };
+
+/** The ground on screen says where it is, whenever it is laid out; the window's corner as it goes. */
+export const groundIsAt = (origin: { left: number; top: number }) => {
+  ground = origin;
+};
+
 /** A pointer event's position in the canvas's own coordinates. */
 export const canvasPoint = (clientX: number, clientY: number) => {
-  const el = document.querySelector("[data-canvas]");
-  const r = el?.getBoundingClientRect() ?? { left: 0, top: 0 };
   const { x, y, zoom } = useEditor.getState().view;
   return {
-    x: (clientX - r.left - x) / zoom,
-    y: (clientY - r.top - y) / zoom,
+    x: (clientX - ground.left - x) / zoom,
+    y: (clientY - ground.top - y) / zoom,
   };
 };
 

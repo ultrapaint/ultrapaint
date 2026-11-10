@@ -24,7 +24,7 @@ import {
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { ChevronDown, GripVertical, Search, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -94,37 +94,35 @@ const useAgentOptions = (open: boolean) => {
       .then(setKnown)
       .catch(reportError);
   }, []);
+  // The agents being asked: one's answer changes what is known, and must not ask the others,
+  // which start a session each to answer, a second time.
+  const asking = useRef(new Set<string>());
   useEffect(() => {
     if (!open) {
       return;
     }
-    let live = true;
     for (const agent of agents) {
-      if (known.some((k) => k.agentId === agent.id) || problems[agent.id]) {
+      if (
+        known.some((k) => k.agentId === agent.id) ||
+        problems[agent.id] ||
+        asking.current.has(agent.id)
+      ) {
         continue;
       }
+      asking.current.add(agent.id);
       api()
         .request("agents.discover", { agentId: agent.id })
-        .then((options) => {
-          if (live) {
-            setKnown((k) => [
-              ...k.filter((x) => x.agentId !== agent.id),
-              options,
-            ]);
-          }
-        })
-        .catch((error: { message?: string }) => {
-          if (live) {
-            setProblems((p) => ({
-              ...p,
-              [agent.id]: error.message ?? String(error),
-            }));
-          }
-        });
+        .then((options) =>
+          setKnown((k) => [...k.filter((x) => x.agentId !== agent.id), options])
+        )
+        .catch((error: { message?: string }) =>
+          setProblems((p) => ({
+            ...p,
+            [agent.id]: error.message ?? String(error),
+          }))
+        )
+        .finally(() => asking.current.delete(agent.id));
     }
-    return () => {
-      live = false;
-    };
   }, [agents, known, open, problems]);
   /** Asks the agent again: after a sign-in, or when asking failed. */
   const retry = (agentId: string) =>

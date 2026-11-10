@@ -165,11 +165,31 @@ interface DrawnIn {
   readonly designSystem: DesignSystem | null;
 }
 
+/** What the last picture keyed was drawn in, and its hash. */
+let lastDrawnIn: { readonly hash: string; readonly in: DrawnIn } | null = null;
+
+/**
+ * A short key for what a picture is drawn in. The design system and the components are written
+ * out and hashed once while they are the same objects, however many pictures are keyed in them:
+ * a prop's menu keys one for each of its options.
+ */
+const drawnInHash = (drawnIn: DrawnIn) => {
+  const was = lastDrawnIn;
+  if (
+    was &&
+    was.in.designSystem === drawnIn.designSystem &&
+    was.in.components === drawnIn.components &&
+    was.in.canvas === drawnIn.canvas
+  ) {
+    return was.hash;
+  }
+  const hash = hashOf(
+    JSON.stringify([drawnIn.designSystem, drawnIn.components, drawnIn.canvas])
+  );
+  lastDrawnIn = { hash, in: drawnIn };
+  return hash;
+};
+
 /** A key for a picture of `shown`, the parts of a node it depends on, drawn in `drawnIn`. */
 export const pictureKey = (shown: unknown, drawnIn: DrawnIn) =>
-  JSON.stringify([
-    hashOf(
-      JSON.stringify([drawnIn.designSystem, drawnIn.components, drawnIn.canvas])
-    ),
-    shown,
-  ]);
+  JSON.stringify([drawnInHash(drawnIn), shown]);

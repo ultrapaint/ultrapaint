@@ -342,6 +342,23 @@ describe("reading a kind", () => {
     expect(tokenOf(full, "radius-x")?.value).toBe("1");
     expect(tokenOf(full, "radius-y")).toBeUndefined();
   });
+
+  it("walks a design system once, however many of its tokens are asked for", () => {
+    let walks = 0;
+    const counted: DesignSystem = Object.defineProperty({ ...full }, "radius", {
+      get: () => {
+        walks += 1;
+        return full.radius;
+      },
+    });
+    expect(tokenOf(counted, "radius-x")?.value).toBe("1");
+    expect(tokenOf(counted, "color-x")?.value).toBe("1");
+    expect(tokenOf(counted, "radius-y")).toBeUndefined();
+    expect(walks).toBe(1);
+    // Another design system is walked for itself.
+    const changed = withTokenChanges(full, [{ name: "radius-x", value: "2" }]);
+    expect(tokenOf(changed, "radius-x")?.value).toBe("2");
+  });
 });
 
 describe("the spacing scale", () => {

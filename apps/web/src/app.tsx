@@ -42,7 +42,7 @@ import {
 import { deferred } from "./lib/deferred.ts";
 import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
-import { openLookPage } from "./lib/look-page.ts";
+import { openLookPage, startLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { ModeAndCanvases } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
@@ -579,10 +579,11 @@ export const App = () => {
   useEffect(() => followHistory(), []);
   useEffect(() => followBoardHistory(), []);
   // What follows the editor's other stores: a board view gives way to the prototype, an app
-  // component edited in place to another canvas.
+  // component edited in place to another canvas, the look page's trial to another board.
   useEffect(() => startBoardView(), []);
   useEffect(() => startCanvasPicks(), []);
   useEffect(() => startIsolation(), []);
+  useEffect(() => startLookPage(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {

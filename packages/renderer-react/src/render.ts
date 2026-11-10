@@ -613,6 +613,63 @@ const FrameScope = ({
   return createElement(ComponentFrameProvider, { frame: value }, children);
 };
 
+/** What a design system gives the frames that draw in it. */
+interface SystemParts {
+  readonly breakpoints: readonly Breakpoint[];
+  readonly styles: StyleContext;
+}
+
+/** What the look's components give the frames that draw with them. */
+interface ComponentParts {
+  readonly apps: ReadonlyMap<string, AppComponentFile>;
+  readonly catalogue: Catalogue;
+  readonly systems: ReadonlyMap<string, SystemComponentFile>;
+}
+
+/**
+ * Both made once for a design system and for a look's components, however many frames draw in
+ * them: a look that changes draws every frame again, each with the same two.
+ */
+const systemParts = new WeakMap<DesignSystem, SystemParts>();
+const componentParts = new WeakMap<readonly ComponentFile[], ComponentParts>();
+
+const NO_SYSTEM: SystemParts = {
+  breakpoints: breakpointsOf(null),
+  styles: makeStyleContext(null),
+};
+
+const systemPartsOf = (designSystem: DesignSystem | null): SystemParts => {
+  if (!designSystem) {
+    return NO_SYSTEM;
+  }
+  let parts = systemParts.get(designSystem);
+  if (!parts) {
+    parts = {
+      breakpoints: breakpointsOf(designSystem),
+      styles: makeStyleContext(designSystem),
+    };
+    systemParts.set(designSystem, parts);
+  }
+  return parts;
+};
+
+const componentPartsOf = (
+  components: readonly ComponentFile[]
+): ComponentParts => {
+  let parts = componentParts.get(components);
+  if (!parts) {
+    parts = {
+      apps: new Map(appComponentsIn(components).map((c) => [c.name, c])),
+      catalogue: catalogueOf(components),
+      systems: new Map(systemComponentsIn(components).map((c) => [c.name, c])),
+    };
+    componentParts.set(components, parts);
+  }
+  return parts;
+};
+
+const NO_COMPONENTS: readonly ComponentFile[] = [];
+
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const root = createRoot(canvas, {
     onUncaughtError: (error) =>
@@ -622,12 +679,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       }),
   });
   let designSystem: DesignSystem | null = null;
-  let styles = makeStyleContext(null);
-  let breakpoints = breakpointsOf(null);
-  let components: readonly ComponentFile[] = [];
-  let apps: ReadonlyMap<string, AppComponentFile> = new Map();
-  let catalogue = catalogueOf([]);
-  let systems: ReadonlyMap<string, SystemComponentFile> = new Map();
+  let { breakpoints, styles } = systemPartsOf(designSystem);
+  let components = NO_COMPONENTS;
+  let { apps, catalogue, systems } = componentPartsOf(components);
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
 
@@ -636,14 +690,11 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const restyle = (drawing: Drawing) => {
     if (drawing.designSystem !== designSystem) {
       ({ designSystem } = drawing);
-      styles = makeStyleContext(designSystem);
-      breakpoints = breakpointsOf(designSystem);
+      ({ breakpoints, styles } = systemPartsOf(designSystem));
     }
     if (drawing.components !== components) {
       ({ components } = drawing);
-      catalogue = catalogueOf(components);
-      apps = new Map(appComponentsIn(components).map((c) => [c.name, c]));
-      systems = new Map(systemComponentsIn(components).map((c) => [c.name, c]));
+      ({ apps, catalogue, systems } = componentPartsOf(components));
     }
   };
 

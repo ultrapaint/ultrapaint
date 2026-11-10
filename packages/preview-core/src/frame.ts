@@ -8,10 +8,12 @@
  * screen are taken out of everything it measures.
  */
 
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { themeWord } from "@ultrapaint/contracts/themes";
 import {
   makeStyleContext,
   pageDefaultsStyle,
+  type StyleContext,
 } from "@ultrapaint/design-document/css";
 import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
@@ -200,6 +202,25 @@ const buildFrame = (host: HTMLElement, theme: string) => {
 };
 
 /**
+ * Each design system's style context, made once for every frame that draws in it: a frame
+ * writes its page's defaults from it at every draw, and every frame draws again when the look
+ * changes.
+ */
+const styleContexts = new WeakMap<DesignSystem, StyleContext>();
+const NO_SYSTEM = makeStyleContext(null);
+const stylesIn = (designSystem: DesignSystem | null): StyleContext => {
+  if (!designSystem) {
+    return NO_SYSTEM;
+  }
+  let styles = styleContexts.get(designSystem);
+  if (!styles) {
+    styles = makeStyleContext(designSystem);
+    styleContexts.set(designSystem, styles);
+  }
+  return styles;
+};
+
+/**
  * What the canvas draws every page in, on the frame's body, as an application sets it on its
  * root: popups the page opens are inside it too (`frame-host.ts` writes only what changed).
  */
@@ -216,9 +237,7 @@ const applyDefaults = (
   writeClasses(body, own === "" ? [] : [own]);
   writeStyle(
     body,
-    defaults
-      ? pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
-      : {}
+    defaults ? pageDefaultsStyle(defaults, stylesIn(request.designSystem)) : {}
   );
 };
 

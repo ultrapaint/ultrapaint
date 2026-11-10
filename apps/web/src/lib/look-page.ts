@@ -113,10 +113,15 @@ export const describeTheLook = async (
   );
 };
 
-// Leaving the samples (another place, another item) leaves the trial look with them.
-useBoard.subscribe((now) => {
-  const onLook = now.open?.view === "system" && now.open.item === LOOK_ITEM;
-  if (!onLook && useLookPage.getState().open) {
-    hideLookPage();
-  }
-});
+/**
+ * Starts the look page following the board view: leaving the samples (another place, another
+ * item) leaves the trial look with them. The app starts it, as a test that needs it does; the
+ * answer stops it.
+ */
+export const startLookPage = (): (() => void) =>
+  useBoard.subscribe((now) => {
+    const onLook = now.open?.view === "system" && now.open.item === LOOK_ITEM;
+    if (!onLook && useLookPage.getState().open) {
+      hideLookPage();
+    }
+  });

@@ -280,12 +280,31 @@ export const allTokens = (ds: DesignSystem): ListedToken[] => {
   });
 };
 
+/**
+ * Each design system's tokens by name, found the first time one is asked for: the colour boards
+ * ask for a token per colour per theme. A design system is never changed in place, so what was
+ * found holds for as long as the object does.
+ */
+const tokensByName = new WeakMap<
+  DesignSystem,
+  ReadonlyMap<string, ListedToken>
+>();
+
 /** A token of a design system by its name, the spacing base as `spacing`, with its values. */
 export const tokenOf = (
   ds: DesignSystem | null | undefined,
   name: string
-): ListedToken | undefined =>
-  ds ? allTokens(ds).find((t) => t.name === name) : undefined;
+): ListedToken | undefined => {
+  if (!ds) {
+    return;
+  }
+  let named = tokensByName.get(ds);
+  if (!named) {
+    named = new Map(allTokens(ds).map((t) => [t.name, t] as const));
+    tokensByName.set(ds, named);
+  }
+  return named.get(name);
+};
 
 /** A token held against a value: of its own kind when it says one, else its name's. */
 interface ValuedToken {

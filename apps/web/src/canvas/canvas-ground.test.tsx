@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditor } from "../state/editor.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
+import { canvasPoint } from "./drag.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -36,7 +37,11 @@ const pressGround = () => {
 };
 
 beforeEach(() => {
-  useEditor.setState({ mode: "select", spacePan: false });
+  useEditor.setState({
+    mode: "select",
+    spacePan: false,
+    view: { x: 0, y: 0, zoom: 1 },
+  });
   document.body.append(field);
   act(() =>
     root.render(
@@ -50,6 +55,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.render(null));
   field.remove();
+  vi.restoreAllMocks();
 });
 
 describe("a press on the canvas", () => {
@@ -64,5 +70,36 @@ describe("a press on the canvas", () => {
     inside?.focus();
     pressGround();
     expect(document.activeElement).toBe(inside);
+  });
+});
+
+describe("a pointer on the canvas", () => {
+  it("is placed by where the ground was laid out, read once and not at every move", () => {
+    const ground = host.querySelector("[data-canvas]") as HTMLElement;
+    const read = vi
+      .spyOn(ground, "getBoundingClientRect")
+      .mockReturnValue({ left: 40, top: 30 } as DOMRect);
+    // The window resized: the ground is laid out, and measured, again.
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    useEditor.setState({ view: { x: 10, y: 20, zoom: 2 } });
+    const reads = read.mock.calls.length;
+    expect(canvasPoint(150, 150)).toEqual({ x: 50, y: 50 });
+    expect(canvasPoint(250, 150)).toEqual({ x: 100, y: 50 });
+    expect(read).toHaveBeenCalledTimes(reads);
+  });
+
+  it("is placed from the window's corner once the ground is gone", () => {
+    const ground = host.querySelector("[data-canvas]") as HTMLElement;
+    vi.spyOn(ground, "getBoundingClientRect").mockReturnValue({
+      left: 40,
+      top: 30,
+    } as DOMRect);
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    act(() => root.render(null));
+    expect(canvasPoint(150, 150)).toEqual({ x: 150, y: 150 });
   });
 });

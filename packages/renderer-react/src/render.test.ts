@@ -10,8 +10,15 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import type { Mounted } from "@ultrapaint/preview-core/preview";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
-import { afterEach, describe, expect, it } from "vitest";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToCanvas } from "./render.ts";
+
+// The catalogue as it is, with its makings counted.
+vi.mock(import("@ultrapaint/system-components/catalogue"), async (original) => {
+  const actual = await original();
+  return { ...actual, catalogueOf: vi.fn(actual.catalogueOf) };
+});
 
 const instance = (
   id: string,
@@ -425,5 +432,24 @@ describe("an app component (ADR 0041)", () => {
     expect(
       canvas.querySelector('[data-ed-app-node="o-me"]')?.textContent
     ).toContain("drawn inside itself");
+  });
+});
+
+describe("the look's components", () => {
+  it("are made a catalogue of once, however many frames draw with them", async () => {
+    const components = [emptySystemComponent("Button")];
+    const first = await draw(column([instance("a", "Button")]), { components });
+    const frameA = mounted;
+    const second = await draw(column([instance("b", "Button")]), {
+      components,
+    });
+    expect(first.at("a")?.tagName).toBe("BUTTON");
+    expect(second.at("b")?.tagName).toBe("BUTTON");
+    frameA?.unmount();
+    expect(
+      vi
+        .mocked(catalogueOf)
+        .mock.calls.filter(([files]) => files === components)
+    ).toHaveLength(1);
   });
 });

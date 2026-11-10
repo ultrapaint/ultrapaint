@@ -7,7 +7,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lookBoards } from "../boards/look-boards.ts";
 import { imageChip } from "../state/attachments.ts";
-import { useLookPage } from "../state/look-page.ts";
+import { hideLookPage, LOOK_ITEM, useLookPage } from "../state/look-page.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import {
   describeTheLook,
@@ -15,6 +15,7 @@ import {
   openLookPage,
   overviewOf,
   saveTheLook,
+  startLookPage,
 } from "./look-page.ts";
 
 vi.mock(
@@ -22,12 +23,26 @@ vi.mock(
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 vi.mock("../state/panels.ts", () => ({ showLeftPanel: vi.fn() }));
+/** Who follows the board view, told where it is by a test (`boardAt`). */
+const boardFollowers = vi.hoisted(() => new Set<(now: unknown) => void>());
 vi.mock("../state/board.ts", () => ({
   fitBoardsWhenLaidOut: vi.fn(),
   leaveBoard: vi.fn(),
   openBoard: vi.fn(),
-  useBoard: { subscribe: vi.fn() },
+  useBoard: {
+    subscribe: (follower: (now: unknown) => void) => {
+      boardFollowers.add(follower);
+      return () => boardFollowers.delete(follower);
+    },
+  },
 }));
+
+/** The board view is on this item of Design system now. */
+const boardAt = (item: string) => {
+  for (const follower of boardFollowers) {
+    follower({ open: { item, view: "system" } });
+  }
+};
 vi.mock("../state/design-system.ts", () => ({
   useDesignSystem: { getState: () => ({ load: async () => undefined }) },
 }));
@@ -54,6 +69,26 @@ describe("the look page", () => {
     fakeApi.respond("designSystem.write", () => ({ findings: [] }));
     await saveTheLook();
     expect(useLookPage.getState()).toMatchObject({ open: false, trial: null });
+  });
+
+  it("leaves its trial look when the board view leaves the samples, from when the app starts it", () => {
+    // Read by a module, it follows nothing.
+    expect(boardFollowers.size).toBe(0);
+    const stop = startLookPage();
+    try {
+      openLookPage();
+      boardAt(LOOK_ITEM);
+      expect(useLookPage.getState().open).toBe(true);
+      boardAt("color");
+      expect(useLookPage.getState()).toMatchObject({
+        open: false,
+        trial: null,
+      });
+    } finally {
+      stop();
+      hideLookPage();
+    }
+    expect(boardFollowers.size).toBe(0);
   });
 
   it("writes the look with its overview, then sends the prompt that waited for it", async () => {

@@ -1,5 +1,9 @@
 // @vitest-environment happy-dom
 
+import {
+  type DesignSystem,
+  emptyDesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import { themeSelector } from "@ultrapaint/contracts/themes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrameRuntime, FrameShown } from "./preview.ts";
@@ -294,5 +298,36 @@ describe("the design's look (ADR 0042)", () => {
     );
     expect(sheetA).toBe(sheetB);
     expect(sheetText(sheetA)).toContain("--x: 1px");
+  });
+
+  it("has every frame write its page's defaults from one reading of the design system", () => {
+    let reads = 0;
+    const designSystem: DesignSystem = Object.defineProperty(
+      emptyDesignSystem(),
+      "radius",
+      {
+        get: () => {
+          reads += 1;
+          return [];
+        },
+      }
+    );
+    const frames = [open("a", "light"), open("b", "light")];
+    for (const [i, frame] of frames.entries()) {
+      frame.runtime.render({
+        defaults: { fill: "$color-page", theme: "light" },
+        designSystem,
+        mode: "page",
+        renderId: i + 1,
+        root: null,
+      });
+    }
+    // A look that changes draws every frame again.
+    preview.setLook({ components: [], css: "" });
+    expect(frames.map((f) => f.body.style.background)).toEqual([
+      "var(--color-page)",
+      "var(--color-page)",
+    ]);
+    expect(reads).toBe(1);
   });
 });

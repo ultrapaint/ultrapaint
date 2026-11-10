@@ -127,4 +127,22 @@ describe("pictureKey", () => {
       pictureKey(["Button", "primary"], { ...drawnIn, canvas: "c_2" })
     ).not.toBe(key);
   });
+
+  it("writes a design system out once for every option of a menu", () => {
+    let written = 0;
+    const counted = {
+      toJSON: () => {
+        written += 1;
+        return ds;
+      },
+    } as never;
+    const keys = ["sm", "md", "lg"].map((size) =>
+      pictureKey(["Button", size], { ...drawnIn, designSystem: counted })
+    );
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[0]).toBe(
+      pictureKey(["Button", "sm"], { ...drawnIn, designSystem: ds })
+    );
+    expect(written).toBe(1);
+  });
 });

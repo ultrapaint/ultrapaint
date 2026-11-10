@@ -139,6 +139,13 @@ const shotFrameOf = (
 const COMMAND_QUERY_RE = /^\/([\w-]*)$/;
 
 /**
+ * A queued prompt put back in the composer over what is typed there: its text, a blank line,
+ * then the draft, which nothing else would bring back. Its text alone over an empty draft.
+ */
+const overDraft = (queued: string, draft: string) =>
+  draft.trim() === "" ? queued : `${queued}\n\n${draft}`;
+
+/**
  * The commands a prompt may start with: the editor's, read once for every composer, then the
  * ones the thread's agent says its session has (`create_plan`), which go to it as typed.
  */
@@ -316,7 +323,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   return (
     <div className="flex flex-col gap-2 px-2 pb-2">
       <QueuedPrompts
-        onEdit={(queued) => setText(queued.text)}
+        onEdit={(queued) => setText((draft) => overDraft(queued.text, draft))}
         running={running}
         thread={thread}
       />
@@ -512,7 +519,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
 /**
  * What was sent while the agent worked, waiting for its turn to end, oldest first. Each goes when
  * a turn ends by itself; after one that was stopped or failed they wait for Send now. Edit puts
- * one back in the composer, with its attachments.
+ * one back in the composer, its text over what is typed there and its attachments beside the
+ * draft's (`overDraft`).
  */
 const QueuedPrompts = ({
   onEdit,

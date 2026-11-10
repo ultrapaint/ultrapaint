@@ -403,6 +403,83 @@ describe("the pool", () => {
   });
 });
 
+describe("a frame's handle", () => {
+  /** The turn is over: a handle with nothing left of it is forgotten. */
+  const turnOver = () => Promise.resolve();
+
+  it("is forgotten once its frame is thrown away and nothing is left of it", async () => {
+    const { preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    frame.open({ canvas: "c", holder: holder(), preview }).close();
+    await turnOver();
+    expect(m.frameOf("p1")).not.toBe(frame);
+  });
+
+  it("is forgotten with the turn when it was only asked what is where", async () => {
+    const asked = m.frameOf("p1");
+    expect(asked.hitTest(1, 2)).toEqual([]);
+    // The same one for the turn: what one caller told it, the next finds.
+    expect(m.frameOf("p1")).toBe(asked);
+    await turnOver();
+    expect(m.frameOf("p1")).not.toBe(asked);
+  });
+
+  it("is the same one while its frame is parked, someone listens or it has something to tell the next frame", async () => {
+    const { drawn, preview } = fakePreview();
+    const parked = m.frameOf("parked");
+    const opened = parked.open({
+      canvas: "c",
+      holder: holder(),
+      keep: true,
+      preview,
+    });
+    only(drawn).events.rendered?.(parked.render(page));
+    opened.close();
+    const heard = m.frameOf("heard");
+    const off = heard.listen({ ready: () => undefined });
+    const failing = m.frameOf("failing");
+    const offError = failing.onErrorChange(() => undefined);
+    const watched = m.frameOf("watched");
+    watched.watchRects(["a"]);
+    const working = m.frameOf("working");
+    working.skeleton(["s"]);
+    await turnOver();
+    expect(
+      ["parked", "heard", "failing", "watched", "working"].map(m.frameOf)
+    ).toEqual([parked, heard, failing, watched, working]);
+    parked.drop();
+    off();
+    offError();
+    watched.watchRects([]);
+    working.skeleton([]);
+    await turnOver();
+    for (const frame of [parked, heard, failing, watched, working]) {
+      expect(m.frameOf(frame.id)).not.toBe(frame);
+    }
+  });
+
+  it("is the one it was for a frame closed and opened again in one turn, shown as it was", async () => {
+    const { drawn, preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    const opened = frame.open({ canvas: "c", holder: holder(), preview });
+    frame.setTitle("Home");
+    // As an effect does when what it opened the frame with changes.
+    opened.close();
+    m.frameOf("p1").open({ canvas: "c", holder: holder(), preview });
+    await turnOver();
+    expect(m.frameOf("p1")).toBe(frame);
+    expect(drawn[1]?.options.shown).toMatchObject({ title: "Home" });
+  });
+
+  it("is found again by one who kept it, once it has something to it", async () => {
+    const frame = m.frameOf("p1");
+    frame.listen({ ready: () => undefined })();
+    await turnOver();
+    frame.watchRects(["a"]);
+    expect(m.frameOf("p1")).toBe(frame);
+  });
+});
+
 describe("a frame's error", () => {
   const thrown = { message: "boom" } as const;
   /** Another document each time: the frame draws it again. */

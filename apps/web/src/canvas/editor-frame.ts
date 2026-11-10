@@ -11,6 +11,12 @@
  * the skeletons, how its host is shown) is told again to the frame opened next, so a caller says
  * it once whether or not the frame is drawn yet.
  *
+ * It does not outlive what it is for. With no frame open, nobody listening and no nodes to tell
+ * the next frame, it is forgotten once the turn that left it so is over, and `frameOf(id)` makes
+ * another when asked: a caller asks for the handle where it uses it, and holds on to one only
+ * for as long as it listens to it. How a host is shown is said by what opens the frame, after it
+ * opened it.
+ *
  * What a view draws in a frame it says once, as a request (`useFrameDrawing`): drawn as soon as
  * the frame is open, again whenever the request changes, and again in a frame opened anew.
  *
@@ -207,6 +213,46 @@ export class EditorFrame {
 
   constructor(id: string) {
     this.id = id;
+    // Found by its id from the start, and for longer than the turn once it takes something on.
+    this.hold();
+    this.letGo();
+  }
+
+  /**
+   * Whether anything is left of it: a frame open, someone listening, something to tell the frame
+   * opened next. How its host is shown is its opener's to say, and the next opener says it again.
+   */
+  private get needed() {
+    return (
+      this.mount !== null ||
+      this.listeners.size > 0 ||
+      this.errorListeners.size > 0 ||
+      this.watched.length > 0 ||
+      this.skeletons.length > 0
+    );
+  }
+
+  /** It is the handle `frameOf` finds, again when it takes something on after it was forgotten. */
+  private hold() {
+    if (!frames.has(this.id)) {
+      frames.set(this.id, this);
+    }
+  }
+
+  /**
+   * It gave something up: with nothing left of it when the turn is over, it is forgotten. Not at
+   * once, as an effect that closes a frame to open it again, or stops listening to listen again,
+   * finds the handle it had, with how its host is shown.
+   */
+  private letGo() {
+    if (this.needed) {
+      return;
+    }
+    queueMicrotask(() => {
+      if (!this.needed && frames.get(this.id) === this) {
+        frames.delete(this.id);
+      }
+    });
   }
 
   /** The frame is open and answers. */
@@ -230,8 +276,10 @@ export class EditorFrame {
   /** Hears whenever `error` changes. Answers the function that stops it. */
   onErrorChange(listener: () => void): () => void {
     this.errorListeners.add(listener);
+    this.hold();
     return () => {
       this.errorListeners.delete(listener);
+      this.letGo();
     };
   }
 
@@ -275,6 +323,7 @@ export class EditorFrame {
    * same preview and canvas, moved there as it is, or a new one drawn by the preview.
    */
   open(options: OpenOptions): OpenedFrame {
+    this.hold();
     let m = this.mount;
     if (m && (m.preview !== options.preview || m.canvas !== options.canvas)) {
       this.drop();
@@ -451,6 +500,7 @@ export class EditorFrame {
     m.host.remove();
     this.fail(null);
     poolChanged();
+    this.letGo();
   }
 
   /**
@@ -459,12 +509,14 @@ export class EditorFrame {
    */
   listen(listeners: FrameListeners): () => void {
     this.listeners.add(listeners);
+    this.hold();
     if (this.mount) {
       tellBench(this.id, "ready");
       listeners.ready?.();
     }
     return () => {
       this.listeners.delete(listeners);
+      this.letGo();
     };
   }
 
@@ -539,13 +591,24 @@ export class EditorFrame {
   /** Nodes whose rects the frame tells (`rects`) whenever any of them moves. */
   watchRects(nodeIds: readonly string[]) {
     this.watched = nodeIds;
+    this.holdFor(nodeIds);
     this.mount?.runtime.watchRects(nodeIds);
   }
 
   /** Nodes an agent is rewriting, drawn as placeholders until it is done. */
   skeleton(nodeIds: readonly string[]) {
     this.skeletons = [...nodeIds];
+    this.holdFor(nodeIds);
     this.mount?.runtime.skeleton(this.skeletons);
+  }
+
+  /** Something to tell the next frame was set, or set to nothing. */
+  private holdFor(nodeIds: readonly string[]) {
+    if (nodeIds.length > 0) {
+      this.hold();
+    } else {
+      this.letGo();
+    }
   }
 
   editText(nodeId: string) {
@@ -576,15 +639,13 @@ export class EditorFrame {
   }
 }
 
-/** The handle on frame `id`, made the first time it is asked for. */
-export const frameOf = (id: string): EditorFrame => {
-  let frame = frames.get(id);
-  if (!frame) {
-    frame = new EditorFrame(id);
-    frames.set(id, frame);
-  }
-  return frame;
-};
+/**
+ * The handle on frame `id`, made when there is none: the same one for as long as there is
+ * something to it (a frame open, a listener, something to tell the next frame), and for the
+ * turn it is made in. One only asked what is where, of a frame that is not open, goes with it.
+ */
+export const frameOf = (id: string): EditorFrame =>
+  frames.get(id) ?? new EditorFrame(id);
 
 /** Frame `id`'s error (`EditorFrame.error`) as it changes; null for no frame. */
 export const useFrameError = (id: string | null): PageError | null => {

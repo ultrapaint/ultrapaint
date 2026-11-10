@@ -22,6 +22,7 @@ import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useEditor } from "../state/editor.ts";
 import { type Surface, surfaceNow } from "../state/surface.ts";
 import { useCamera, useSpacePan, wheelView } from "./camera.ts";
+import { groundIsAt } from "./drag.ts";
 import { fromFrame } from "./from-frame.ts";
 import { dotsBackground, gridBackground } from "./grid.ts";
 
@@ -81,7 +82,8 @@ export const CanvasGround = ({
   useSpacePan();
 
   // Where the ground is in the window, read when it is laid out anyway: a wheel event reading it
-  // would make the browser lay out again what the last zoom changed, once per event.
+  // would make the browser lay out again what the last zoom changed, once per event. A pointer
+  // move is placed on the canvas by the same measure (`canvasPoint`).
   const origin = useRef({ left: 0, top: 0 });
   const sized = useEffectEvent((size: { height: number; width: number }) =>
     onSize?.(size)
@@ -94,6 +96,7 @@ export const CanvasGround = ({
     const measure = () => {
       const rect = el.getBoundingClientRect();
       origin.current = { left: rect.left, top: rect.top };
+      groundIsAt(origin.current);
       sized({ height: el.clientHeight, width: el.clientWidth });
     };
     const ro = new ResizeObserver(measure);
@@ -118,6 +121,7 @@ export const CanvasGround = ({
       ro.disconnect();
       window.removeEventListener("resize", measure);
       el.removeEventListener("wheel", onWheel);
+      groundIsAt({ left: 0, top: 0 });
     };
   }, [ref]);
 

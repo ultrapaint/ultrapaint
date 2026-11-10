@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import type { ReviewSettings } from "@ultrapaint/contracts/review";
+import type { AgentConfig, AgentOptions } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useAgents } from "../state/agents.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { ReviewGroup } from "./settings-review.tsx";
 
@@ -47,8 +49,11 @@ beforeEach(() => {
   mounted = createRoot(container);
 });
 
+const noAgents = useAgents.getState();
+
 afterEach(() => {
   act(() => mounted.unmount());
+  useAgents.setState(noAgents, true);
 });
 
 describe("Settings › Agents › Review", () => {
@@ -159,5 +164,52 @@ describe("Settings › Agents › Review", () => {
       "sol",
       "opus",
     ]);
+  });
+});
+
+describe("the review models to add", () => {
+  const agent = (id: string): AgentConfig => ({
+    args: [],
+    builtIn: true,
+    command: id,
+    env: {},
+    id,
+    name: id,
+  });
+
+  it("asks each agent for its models once, whichever answers first", async () => {
+    const agents = [agent("claude"), agent("codex")];
+    fakeApi.respond("agents.list", () => agents);
+    fakeApi.respond("threads.list", () => []);
+    const answers = new Map<string, (options: AgentOptions) => void>();
+    fakeApi.respond(
+      "agents.discover",
+      ({ agentId }) =>
+        new Promise((resolve) => {
+          answers.set(agentId, resolve);
+        })
+    );
+    useAgents.setState({ agents });
+    render(undefined);
+    await act(async () => {
+      container
+        .querySelector<HTMLElement>("button[aria-label^='Review models']")
+        ?.click();
+      await fakeApi.requested("agents.discover", 2);
+    });
+    await act(async () => {
+      answers.get("claude")?.({ agentId: "claude", configOptions: [] });
+      await Promise.resolve();
+    });
+    // Claude answered: what is known changed, and Codex is still being asked.
+    expect(document.body.textContent).toContain("Asking codex for its models…");
+    expect(document.body.textContent).not.toContain(
+      "Asking claude for its models…"
+    );
+    expect(
+      fakeApi.calls.flatMap((c) =>
+        c.method === "agents.discover" ? [c.input] : []
+      )
+    ).toEqual([{ agentId: "claude" }, { agentId: "codex" }]);
   });
 });
