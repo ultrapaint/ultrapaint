@@ -2,7 +2,7 @@
 id: g02
 title: Groups as close as their rows
 kind: missed
-status: done
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [references/spacing.md, references/patterns/navigation.md]
@@ -43,3 +43,4 @@ each catches.
 - `rb-recall-after`: 2026-11-08, caught: shipped 0/2 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
 - 2026-11-10: `pnpm evals measure` flags under 2× by default, the ratio ADR 0069 settled for the core ("groups at least 2× the gap within them everywhere"). At 2× this gap's own case is not flagged (27px against 10px, 2.7×); `--ratio 3` still flags it. Whether that case is now fine is the person's call (`decisions/design-research-nov10`).
+- Reopened 2026-11-10 by the person (`decisions/design-research-nov10`): the core's 2× (ADR 0069) lets through the case this gap was found on. The candidate `candidates/g02-three-times/` asks for 3× between stacked groups of rows in a panel or a sidebar and leaves 2× elsewhere; `pnpm evals measure --ratio 3` is its check until the candidate is measured and the person decides.
