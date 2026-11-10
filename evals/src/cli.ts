@@ -990,7 +990,7 @@ const recallCommand = Command.make(
     ),
     inputs: Flag.String("inputs").pipe(
       Flag.withDescription(
-        "What the reviewers are shown, comma-separated: pictures (and code), outline (a text outline, from `outline`)"
+        "What the reviewers are shown, comma-separated: pictures (and code, with the skill to open), outline (a text outline, from `outline`), told (pictures and code, the rules in the prompt, no skill to open), untold (the same with no rules)"
       ),
       Flag.withDefault("pictures")
     ),

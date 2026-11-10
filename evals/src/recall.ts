@@ -14,6 +14,11 @@
  * words, actions and states, as a designer could write them before drawing. Which problems the
  * outline alone shows is what the shift-left proposal turns on.
  *
+ * The editor's review models open no file (ADR 0063), so two more inputs show a reviewer the
+ * pictures and code with no skill to read: `untold`, as those models are today, and `told`, with
+ * the core's rules and the version's review table (`references/review.md`, when it has one) in
+ * the prompt. Comparing them says what giving the rules to the editor's review models is worth.
+ *
  * It resumes: a review, a judgement or a grouping already made is kept. It ends on
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status
  * `testing`.
@@ -209,8 +214,12 @@ const Saved = <S extends Schema.Top>(schema: S) =>
 export const versionName = (skills: string) =>
   skills === "built-in" ? "shipped" : path.basename(skills);
 
-export const RECALL_INPUTS = ["pictures", "outline"] as const;
-/** What a reviewer is shown of a section: its pictures and code, or a text outline of it. */
+export const RECALL_INPUTS = ["pictures", "outline", "told", "untold"] as const;
+/**
+ * What a reviewer is shown of a section: its pictures and code with the skill to open
+ * (`pictures`), a text outline of it (`outline`), or its pictures and code with no skill to open,
+ * the rules in the prompt (`told`) or not (`untold`).
+ */
 export type RecallInput = (typeof RECALL_INPUTS)[number];
 
 /** What reviews a section: a version of the skill read by one model, shown one input. */
@@ -218,8 +227,8 @@ export interface Version {
   readonly input: RecallInput;
   readonly model: string;
   /**
-   * `shipped@gpt-6.1-sol`; the skill's name alone when one model reviews; `+outline` after it
-   * when the reviewer is shown the outline.
+   * `shipped@gpt-6.1-sol`; the skill's name alone when one model reviews; the input after it
+   * when it is not the pictures (`shipped+outline`, `shipped+told`).
    */
   readonly name: string;
   readonly skills: string;
@@ -239,7 +248,7 @@ export const versionsOf = (
         return {
           input,
           model,
-          name: input === "outline" ? `${base}+outline` : base,
+          name: input === "pictures" ? base : `${base}+${input}`,
           skills: s,
         };
       })
@@ -524,6 +533,42 @@ export const writeOutlines = Effect.fn("writeOutlines")(function* (options: {
   }
 });
 
+const RULES_HEADING = "## The rules";
+const NEXT_HEADING_RE = /\n## /;
+/** The review table a version of the skill may have: its rows as a reviewer sees a problem. */
+export const REVIEW_TABLE = path.join("references", "review.md");
+
+/**
+ * The rules as a prompt tells them to a reviewer that opens no file: the core's rule lines (its
+ * `## The rules`, the whole core where it has no such part) and the review table when there is
+ * one.
+ */
+export const toldRules = (core: string, table: string | undefined) => {
+  const from = core.indexOf(RULES_HEADING);
+  const after = from < 0 ? "" : core.slice(from + RULES_HEADING.length);
+  const end = after.search(NEXT_HEADING_RE);
+  const rules = from < 0 ? core : after.slice(0, end < 0 ? undefined : end);
+  return [
+    "",
+    "The skill's rules, which hold on every screen:",
+    "",
+    "<rules>",
+    rules.trim(),
+    "</rules>",
+    ...(table === undefined
+      ? []
+      : [
+          "",
+          "What to look for, row by row: each row is something you can see or read, and its fix.",
+          "",
+          "<review>",
+          table.trim(),
+          "</review>",
+        ]),
+    "",
+  ].join("\n");
+};
+
 const picturesOf = (section: Section) =>
   section.pictures.map((p) => `- \`${p.file}\`: ${p.shows}`).join("\n");
 
@@ -579,19 +624,46 @@ const askReview = Effect.fn("askReview")(function* (
       value: answer.value,
     };
   }
+  const shown = {
+    code: section.code.map((f) => `- \`${f}\``).join("\n"),
+    name: section.name,
+    pictures: picturesOf(section),
+    where: section.where,
+  };
+  if (version.input === "told" || version.input === "untold") {
+    const fs = yield* FileSystem.FileSystem;
+    const table = path.join(tree, REVIEW_TABLE);
+    const rules =
+      version.input === "untold"
+        ? ""
+        : toldRules(
+            yield* fs.readFileString(path.join(tree, "SKILL.md")),
+            (yield* fs.exists(table))
+              ? yield* fs.readFileString(table)
+              : undefined
+          );
+    // No skill directory is opened to it: what it knows of the skill is what the prompt says.
+    const answer = yield* models.ask({
+      cwd: copy.dir,
+      effort: options.effort,
+      images: section.pictures.map((p) => p.file),
+      model,
+      prompt: yield* prompt("recall-review-told", { ...shown, rules }),
+      ...reviewAnswer,
+    });
+    return {
+      costUsd: answer.costUsd,
+      tokens: answer.tokens,
+      value: answer.value,
+    };
+  }
   const answer = yield* models.ask({
     cwd: copy.dir,
     dirs: [tree],
     effort: options.effort,
     images: section.pictures.map((p) => p.file),
     model,
-    prompt: yield* prompt("recall-review", {
-      code: section.code.map((f) => `- \`${f}\``).join("\n"),
-      name: section.name,
-      pictures: picturesOf(section),
-      skill: tree,
-      where: section.where,
-    }),
+    prompt: yield* prompt("recall-review", { ...shown, skill: tree }),
     ...reviewAnswer,
   });
   return {

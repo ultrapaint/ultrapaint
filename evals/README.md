@@ -287,6 +287,15 @@ skill and the gaps: whether it is real and general, a rule the skill lacks (`mis
 a new gap, or a line of evidence for the gap that covers it. The run keeps its groups and checks
 in `triage/<name>/` of the data directory and resumes; nothing reaches `gaps/` until `--apply`.
 
+The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
+from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
+`told` with the core's rules and the version's review table (`references/review.md`, when it has
+one) in the prompt. Their difference is what giving those models the rules is worth:
+
+```sh
+pnpm evals recall <round> --skills candidates/review-table --inputs untold,told --models opus,gpt-6.1-sol
+```
+
 To compare models as reviewers, give several to `--models` (opus by default): each reviews with
 every version of the skill, as a version of its own (`shipped@gpt-6.1-sol`), and one model judges
 them all, blind to who reviewed (`--judge-model`, opus). A `gpt-` or `o<digit>` model runs in Codex, and any of

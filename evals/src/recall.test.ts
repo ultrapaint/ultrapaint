@@ -10,6 +10,7 @@ import {
   ratingId,
   recall,
   spentLines,
+  toldRules,
   unmatchedOf,
   versionsOf,
 } from "./recall.ts";
@@ -381,6 +382,80 @@ describe("recall", () => {
           "reviewed by opus, gpt-6.1-sol, judged by opus, effort high"
         );
       }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(byModel))));
+    }
+  );
+
+  it("tells a reviewer that opens no file the core's rules, and the review table when the version has one", () => {
+    const core =
+      "# Skill\n\n## Designing\n\n1. Settle the character.\n\n## The rules\n\n### Words\n\n- Nouns label, verbs act.\n\n## Reviewing a design\n\nOpen the kind's file.\n";
+    const told = toldRules(
+      core,
+      "| You see | Fix |\n| --- | --- |\n| A stray hairline | Remove it |\n"
+    );
+    assert.include(
+      told,
+      "<rules>\n### Words\n\n- Nouns label, verbs act.\n</rules>"
+    );
+    assert.include(told, "| A stray hairline | Remove it |\n</review>");
+    assert.notInclude(told, "Settle the character");
+    assert.notInclude(told, "Open the kind's file");
+    assert.notInclude(toldRules(core, undefined), "<review>");
+    // A core with no such part (a router) is told whole.
+    assert.include(
+      toldRules("# Router\n\nRead the parts.\n", undefined),
+      "Read the parts."
+    );
+  });
+
+  it.effect(
+    "reviews as the editor's review models do: no skill to open, the rules in the prompt or none",
+    () => {
+      const asked: Asked[] = [];
+      const recording = (question: Asked) => {
+        asked.push(question);
+        return scripted(question);
+      };
+      return Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "candidates/table/references/review.md":
+            "| You see | Fix |\n| --- | --- |\n| A stray hairline | Remove it |\n",
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        yield* recall({
+          concurrency: 1,
+          effort: "high",
+          inputs: ["untold", "told"],
+          judgeModel: "opus",
+          models: ["gpt-6.1-sol"],
+          round: "r",
+          runs: 1,
+          sections: [],
+          skills: ["candidates/table"],
+        });
+
+        const reviews = asked.filter((a) => a.prompt.startsWith("You review"));
+        assert.strictEqual(reviews.length, 2);
+        for (const review of reviews) {
+          assert.isUndefined(review.dirs);
+          assert.notInclude(review.prompt, "SKILL.md");
+        }
+        const [untold, told] = reviews;
+        assert.notInclude(untold?.prompt ?? "", "<rules>");
+        assert.include(told?.prompt ?? "", "- Nouns label, verbs act:");
+        assert.include(told?.prompt ?? "", "| A stray hairline | Remove it |");
+        assert.include(
+          yield* readData("runs/r/report.md"),
+          "| Gap | Kind | Section | table+untold | table+told |"
+        );
+      }).pipe(
+        Effect.provide(Layer.merge(TestData, Models.layerTest(recording)))
+      );
     }
   );
 
