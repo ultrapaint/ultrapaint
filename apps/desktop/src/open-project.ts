@@ -58,6 +58,17 @@ const stopQuestion = (
   };
 };
 
+/** Why a project still opening is stopped. */
+type StopReason = "list" | "switch" | "quit";
+
+/** How a project's editor is shown. */
+interface EditorView {
+  /** The page the window is on stays, on the server's new address. */
+  readonly keepLocation?: boolean;
+  /** For the editor, on its address. */
+  readonly query?: Readonly<Record<string, string>> | undefined;
+}
+
 interface Open {
   readonly project: Project;
   /** The server lives in it: closing it stops the server. */
@@ -75,7 +86,7 @@ export class OpenProject extends Context.Service<
     >;
     /**
      * Adds a folder on another machine (or finds it in the list) and opens it. Whether it is
-     * open, as for `openFolder`.
+     * open, as for `openFolder`; the one open shows its editor again, as there.
      */
     readonly addRemote: (
       input: RemoteProjectInput
@@ -89,6 +100,7 @@ export class OpenProject extends Context.Service<
      * Adds a folder (named on the command line, or a new design) when it is not in the list yet,
      * under `name` or the folder's own, and opens it. Whether it is open: the user may rather
      * let an agent at work in the open project finish, and the folder then waits in the list.
+     * The open project's own folder shows its editor again, from the start screen, with `query`.
      */
     readonly openFolder: (
       folder: string,
@@ -123,7 +135,8 @@ export class OpenProject extends Context.Service<
     /** Stops the project opening, if one is, and shows the list in its place. */
     readonly stopOpening: Effect.Effect<void>;
     /**
-     * Stops the open project's server, as the app quits. With `ask`, an agent at work is the
+     * Stops the open project's server, as the app quits; a project still opening is given up
+     * first, so that the quit does not wait for it. With `ask`, an agent at work is the
      * user's to stop: false when they would rather it went on, and nothing is stopped; a second
      * stop while the question is on screen asks nothing more and has its answer. Without, a
      * signal's: a question on screen (a quit's, a switch's or a restart's) is answered no, and
@@ -152,12 +165,12 @@ export class OpenProject extends Context.Service<
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
         /**
-         * The project opening and how to stop it: for the list, when the user asks, or for
-         * another project picked meanwhile.
+         * The project opening and how to stop it: for the list, when the user asks, for
+         * another project picked meanwhile, or as the app quits.
          */
         let opening: {
           readonly id: string;
-          readonly stop: Deferred.Deferred<"list" | "switch">;
+          readonly stop: Deferred.Deferred<StopReason>;
         } | null = null;
         // Done once a signal stops the app: no question is answered yes after it.
         const signalled = yield* Deferred.make<void>();
@@ -205,12 +218,30 @@ export class OpenProject extends Context.Service<
           return true;
         });
 
+        /** Whether the start screen is shown over the open project's editor (`showStart`). */
+        let behindStart = false;
+
+        /** Shows a server's editor, with the view's `query` on its address. */
+        const showEditor = (server: RunningServer, view: EditorView = {}) => {
+          const url = new URL(server.url);
+          for (const [key, value] of Object.entries(view.query ?? {})) {
+            url.searchParams.set(key, value);
+          }
+          return Effect.andThen(
+            Effect.sync(() => {
+              behindStart = false;
+            }),
+            shell.show({
+              _tag: "Editor",
+              ...(view.keepLocation ? { keepLocation: true } : {}),
+              url: view.query ? url.href : server.url,
+            })
+          );
+        };
+
         const launch = Effect.fn("OpenProject.launch")(function* (
           project: Project,
-          view: {
-            readonly keepLocation?: boolean;
-            readonly query?: Readonly<Record<string, string>> | undefined;
-          } = {}
+          view: EditorView = {}
         ) {
           const scope = yield* Scope.make();
           const server = yield* (
@@ -244,15 +275,7 @@ export class OpenProject extends Context.Service<
           );
           open = { project, scope, server };
           yield* store.opened(project.id);
-          const url = new URL(server.url);
-          for (const [key, value] of Object.entries(view.query ?? {})) {
-            url.searchParams.set(key, value);
-          }
-          yield* shell.show({
-            _tag: "Editor",
-            ...(view.keepLocation ? { keepLocation: true } : {}),
-            url: view.query ? url.href : server.url,
-          });
+          yield* showEditor(server, view);
         });
 
         /** Shows why a project could not be opened, and fails with it. */
@@ -267,13 +290,13 @@ export class OpenProject extends Context.Service<
 
         /**
          * Launches `project`, the window saying so meanwhile; false when it was stopped first,
-         * for the list (shown then) or for another project.
+         * for the list (shown then), for another project or for a quit.
          */
         const launchShown = Effect.fnUntraced(function* (
           project: Project,
           query?: Readonly<Record<string, string>>
         ) {
-          const stop = yield* Deferred.make<"list" | "switch">();
+          const stop = yield* Deferred.make<StopReason>();
           opening = { id: project.id, stop };
           yield* shell.show({
             _tag: "Opening",
@@ -300,7 +323,7 @@ export class OpenProject extends Context.Service<
         });
 
         /** Stops the project opening, for `reason`; nothing when none is. */
-        const stopOpening = (reason: "list" | "switch") =>
+        const stopOpening = (reason: StopReason) =>
           Effect.suspend(() =>
             opening
               ? Effect.asVoid(Deferred.succeed(opening.stop, reason))
@@ -332,19 +355,29 @@ export class OpenProject extends Context.Service<
           query?: Readonly<Record<string, string>>
         ) {
           const project = yield* store.add(folder, name);
-          const opened =
-            open?.project.id === project.id ||
-            (yield* openProject(project, query));
-          return { opened, project };
+          // The one open shows its editor again, from the start screen, with what it is given.
+          // On screen already (a second launch naming its folder), it is left as it is: showing
+          // it loads the page again.
+          if (open?.project.id === project.id) {
+            if (behindStart || Object.keys(query ?? {}).length > 0) {
+              yield* showEditor(open.server, { query });
+            }
+            return { opened: true, project };
+          }
+          return { opened: yield* openProject(project, query), project };
         });
 
         const addRemote = Effect.fn("OpenProject.addRemote")(function* (
           input: RemoteProjectInput
         ) {
           const project = yield* store.addRemote(input);
-          const opened =
-            open?.project.id === project.id || (yield* openProject(project));
-          return { opened, project };
+          if (open?.project.id === project.id) {
+            if (behindStart) {
+              yield* showEditor(open.server);
+            }
+            return { opened: true, project };
+          }
+          return { opened: yield* openProject(project), project };
         });
 
         /** A quit the user is asked about; a second one meanwhile has the first's answer. */
@@ -384,7 +417,7 @@ export class OpenProject extends Context.Service<
             Effect.flatMap(store.get(id), (project) => {
               // The one open shows its editor again; the one opening goes on as it is.
               if (open?.project.id === id) {
-                return shell.show({ _tag: "Editor", url: open.server.url });
+                return showEditor(open.server);
               }
               return opening?.id === id
                 ? Effect.void
@@ -402,12 +435,13 @@ export class OpenProject extends Context.Service<
               }
             })
           ),
-          showStart: Effect.suspend(() =>
-            shell.show({
+          showStart: Effect.suspend(() => {
+            behindStart = open !== null;
+            return shell.show({
               _tag: "Welcome",
               ...(open ? { back: open.project.name } : {}),
-            })
-          ),
+            });
+          }),
           start: Effect.gen(function* () {
             const last = yield* store.last;
             if (Option.isNone(last)) {
@@ -416,7 +450,9 @@ export class OpenProject extends Context.Service<
             // A project that cannot start leaves the window on the welcome page, saying why.
             yield* Effect.ignore(openProject(last.value));
           }),
-          stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
+          // The opening holds the switch a quit waits for: given up first, the quit goes on.
+          stop: ({ ask }) =>
+            Effect.andThen(stopOpening("quit"), ask ? askToQuit : stopAtOnce),
           stopOpening: stopOpening("list"),
         });
       })

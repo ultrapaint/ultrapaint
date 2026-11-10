@@ -40,12 +40,15 @@ const withApp = <A, E>(
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 /**
- * A signal's stop (SIGINT, SIGTERM): it waits for no answer, so it is given a second of the test
- * clock, a tenth at a time; none when it was still waiting then.
+ * A stop that should wait for nothing: it is given a second of the test clock, a tenth at a
+ * time; none when it was still waiting then.
  */
-const signal = Effect.fnUntraced(function* (open: OpenProject["Service"]) {
+const stopWithin = Effect.fnUntraced(function* (
+  open: OpenProject["Service"],
+  ask: boolean
+) {
   const stopping = yield* Effect.forkChild(
-    Effect.timeoutOption(open.stop({ ask: false }), "1 second"),
+    Effect.timeoutOption(open.stop({ ask }), "1 second"),
     { startImmediately: true }
   );
   for (let tenth = 0; tenth < 10; tenth += 1) {
@@ -53,6 +56,9 @@ const signal = Effect.fnUntraced(function* (open: OpenProject["Service"]) {
   }
   return yield* Fiber.join(stopping);
 });
+
+/** A signal's stop (SIGINT, SIGTERM), which waits for no answer. */
+const signal = (open: OpenProject["Service"]) => stopWithin(open, false);
 
 /** Lets the fibers forked run until a question is on screen (the store reads files first). */
 const asked = Effect.fnUntraced(function* (recorded: Recorded) {
@@ -418,5 +424,79 @@ describe("OpenProject", () => {
         assert.strictEqual(Option.getOrThrow(yield* open.current).id, here.id);
       })
     )
+  );
+
+  for (const [quit, ask] of [
+    ["a signal", false],
+    ["closing the window", true],
+  ] as const) {
+    it.effect(
+      `${quit} gives up the project still opening, and waits for it no longer`,
+      () =>
+        withApp((recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProject;
+            const off = yield* store.addRemote({
+              host: "silent",
+              path: "/srv",
+            });
+            const opening = yield* Effect.forkChild(open.open(off.id), {
+              startImmediately: true,
+            });
+            yield* connected(recorded);
+            assert.deepStrictEqual(
+              yield* stopWithin(open, ask),
+              Option.some(true)
+            );
+            yield* Fiber.join(opening);
+            assert.deepStrictEqual(recorded.events, [
+              "connect silent:srv",
+              "give up silent:srv",
+            ]);
+            // Nothing was open to ask about, and the window goes as it is.
+            assert.deepStrictEqual(recorded.questions, []);
+            assert.deepStrictEqual(recorded.views, [
+              { _tag: "Opening", detail: "silent:/srv", name: "srv" },
+            ]);
+            assert.isTrue(Option.isNone(yield* open.current));
+          })
+        )
+    );
+  }
+
+  it.effect(
+    "a quit while a switch's question is on screen asks its own once that one is answered",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          yield* open.open(busy.id);
+          recorded.working.busy = 1;
+          // The switch's question is on screen, and the window is closed: the quit has its own.
+          const answer = yield* Deferred.make<boolean>();
+          recorded.answers.push(Deferred.await(answer), false);
+          const switching = yield* Effect.forkChild(open.open(off.id));
+          yield* asked(recorded);
+          const closing = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          yield* Deferred.succeed(answer, false);
+          yield* Fiber.join(switching);
+          assert.isFalse(yield* Fiber.join(closing));
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in busy",
+            "An agent is working in busy",
+          ]);
+          assert.deepStrictEqual(recorded.events, ["start busy"]);
+          assert.strictEqual(
+            Option.getOrThrow(yield* open.current).id,
+            busy.id
+          );
+        })
+      )
   );
 });

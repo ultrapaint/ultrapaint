@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, FileSystem, Layer, Schedule, Scope } from "effect";
+import { Effect, Exit, FileSystem, Layer, Scope } from "effect";
 import { agentsWorking, ProjectServer, serverEnv } from "./project-server.ts";
 
 const fake = path.resolve(import.meta.dirname, "../testing/fake-server.mjs");
@@ -74,14 +74,26 @@ describe("ProjectServer", () => {
           path.join(dir, "session"),
         ]);
         assert.isTrue(alive(started.pid));
+        // Closing the scope waits for the process to exit.
         yield* Scope.close(scope, Exit.void);
-        yield* Effect.sync(() => alive(started.pid)).pipe(
-          Effect.repeat({
-            schedule: Schedule.spaced("50 millis"),
-            until: (live) => !live,
-          }),
-          Effect.timeout("5 seconds")
-        );
+        assert.isFalse(alive(started.pid));
+      }).pipe(Effect.scoped, Effect.provide(withFake))
+  );
+
+  it.effect(
+    "goes on reading what the server writes on stdout after its ready line",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const servers = yield* ProjectServer;
+        const running = yield* servers.start({
+          cwd: dir,
+          env: { FAKE_SERVER: "chatty" },
+          sessionDir: dir,
+        });
+        // It answers once all it wrote was read: a pipe left unread would hold it, or end it.
+        assert.strictEqual(yield* running.working, 1);
       }).pipe(Effect.scoped, Effect.provide(withFake))
   );
 

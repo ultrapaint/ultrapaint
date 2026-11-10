@@ -389,4 +389,65 @@ describe("the bridge's handlers", () => {
         })
       )
   );
+
+  it.effect(
+    "open the folder of the project behind the start screen as its editor again, with the prompt",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          yield* handlers["projects.openFolder"]("/work/shop");
+          yield* handlers["projects.showStart"]();
+          yield* handlers["projects.openFolder"]("/work/shop", {
+            look: "agent",
+            prompt: "A bike shop",
+          });
+          const editor = recorded.views.at(-1);
+          assert.strictEqual(editor?._tag, "Editor");
+          const url = new URL(editor?._tag === "Editor" ? editor.url : "");
+          assert.strictEqual(
+            url.origin + url.pathname,
+            "http://127.0.0.1/shop"
+          );
+          assert.deepStrictEqual(
+            JSON.parse(url.searchParams.get("first-prompt") ?? "null"),
+            { look: "agent", prompt: "A bike shop" }
+          );
+          // The server it had goes on: nothing started again.
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+        })
+      )
+  );
+
+  it.effect(
+    "leave the open project's editor as it is when its folder is opened again",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          yield* handlers["projects.openFolder"]("/work/shop");
+          const shown = recorded.views.length;
+          // A second launch of the app naming the folder: nothing is loaded again.
+          yield* handlers["projects.openFolder"]("/work/shop");
+          assert.strictEqual(recorded.views.length, shown);
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+        })
+      )
+  );
+
+  it.effect(
+    "add the remote project behind the start screen as its editor again",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          const site = { host: "devbox", path: "~/site" };
+          yield* handlers["projects.addRemote"](site);
+          yield* handlers["projects.showStart"]();
+          yield* handlers["projects.addRemote"](site);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/devbox/site",
+          });
+          assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
+        })
+      )
+  );
 });

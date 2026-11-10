@@ -215,6 +215,13 @@ const machineAddresses = () =>
     .filter((net) => net?.family === "IPv4" && !net.internal)
     .map((net) => net?.address ?? "");
 
+/** A URL at another address of the machine it names: the same port, as another machine reaches it. */
+const atAddress = (url: string, address: string) => {
+  const there = new URL(url);
+  there.hostname = address;
+  return there.origin;
+};
+
 interface RunOptions {
   readonly env?: Readonly<Record<string, string>>;
   /** Given, the child's output is printed line by line under this name. */
@@ -404,16 +411,21 @@ export const main = (args: readonly string[]): void => {
     return {
       /** Where the editor is: served by the server from its build, or by Vite with `--dev`. */
       editorUrl: `http://${reach}:${editorPort}`,
-      // Bound to one address, the editor's URL already names it.
-      fromNetwork: wildcard
-        ? machineAddresses().map((address) => `http://${address}:${editorPort}`)
-        : [],
       serverPort,
       serverUrl: `http://${reach}:${serverPort}`,
       webPort,
     };
   };
   type Places = ReturnType<typeof placesAt>;
+  /**
+   * Where other machines reach the editor that answers at `url`, whose port is the one it
+   * listens on: port 0 is picked by the server, and known from its ready line only. Bound to one
+   * address, the editor's URL already names it.
+   */
+  const fromNetwork = (url: string) =>
+    wildcard
+      ? machineAddresses().map((address) => atAddress(url, address))
+      : [];
   /**
    * The ports as given. Port 0 is the server's to pick, except with `--dev`: `tsx watch` restarts
    * the server, which must come back where Vite proxies to, so both ports are picked here, once.
@@ -457,7 +469,7 @@ export const main = (args: readonly string[]): void => {
     Effect.gen(function* () {
       const url = yield* editorReady(where, ready);
       yield* say(`[ultrapaint] ${url}`);
-      for (const address of where.fromNetwork) {
+      for (const address of fromNetwork(url)) {
         yield* say(`[ultrapaint] from the network: ${address}`);
       }
       if (!open) {

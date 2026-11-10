@@ -17,7 +17,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { ServerStartError } from "./errors.ts";
-import { firstReadyLine } from "./ready-line.ts";
+import { watchReadyLine } from "./ready-line.ts";
 
 /** How the server is started: the executable, and what comes before the server's own flags. */
 export interface ServerLaunch {
@@ -180,7 +180,7 @@ export class ProjectServer extends Context.Service<
             Effect.ignore,
             Effect.forkScoped
           );
-          const ready = yield* firstReadyLine(handle.stdout).pipe(
+          const ready = yield* watchReadyLine(handle.stdout).pipe(
             Effect.timeoutOrElse({
               duration: READY_TIMEOUT,
               orElse: () =>

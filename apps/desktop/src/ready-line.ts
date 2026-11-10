@@ -3,7 +3,7 @@
  * and which run it is. A server that found one already running for the project prints that
  * one's line, with `attached`, and exits.
  */
-import { Deferred, Effect, Option, Result, Schema, Stream } from "effect";
+import { Deferred, Effect, Result, Schema, Stream } from "effect";
 import { ServerStartError } from "./errors.ts";
 
 export const ReadyLine = Schema.Struct({
@@ -22,36 +22,9 @@ const decodeLine = Schema.decodeUnknownResult(Schema.fromJsonString(ReadyLine));
  * The first ready line on a server's stdout. A line that is not one (a log a dependency printed
  * before the server took stdout over) is passed over; a stream that ends without one is a server
  * that did not start.
- */
-export const firstReadyLine = <E>(stdout: Stream.Stream<Uint8Array, E>) =>
-  stdout.pipe(
-    Stream.decodeText(),
-    Stream.splitLines,
-    Stream.filterMap((line) => decodeLine(line.trim())),
-    Stream.runHead,
-    Effect.mapError(
-      () =>
-        new ServerStartError({
-          message: "the server's output could not be read",
-        })
-    ),
-    Effect.flatMap(
-      Option.match({
-        onNone: () =>
-          Effect.fail(
-            new ServerStartError({
-              message: "the server stopped before it said where it listens",
-            })
-          ),
-        onSome: Effect.succeed,
-      })
-    )
-  );
-
-/**
- * The first ready line on a server's stdout, read without letting go of the rest: a pipe no one
- * reads any more would end what writes to it, `ssh` among them. The rest is read and dropped as
- * long as the scope lasts.
+ *
+ * It is read without letting go of the rest: a pipe no one reads any more would end what writes
+ * to it, `ssh` among them. The rest is read and dropped as long as the scope lasts.
  */
 export const watchReadyLine = <E>(stdout: Stream.Stream<Uint8Array, E>) =>
   Effect.gen(function* () {
