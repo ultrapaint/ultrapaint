@@ -427,7 +427,7 @@ const designMdAdapter: SideAdapter = {
           if (!current) {
             return yield* new BadRequest({ message: noDocument });
           }
-          const mirror = yield* (yield* DesignMd).mirror(listed, current.text);
+          const mirror = yield* (yield* DesignMd).mirror(listed);
           const text = documentAfter(current.text, diffs, mirror);
           if (text === null) {
             return yield* new BadRequest({

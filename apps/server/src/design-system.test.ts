@@ -13,21 +13,11 @@ import {
 import { OpenProject, type ProjectServices } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { EditService } from "./services/edit.ts";
-import {
-  ProjectFixture,
-  ProjectTest,
-  type ProjectTestOptions,
-} from "./testing/project.ts";
+import { ProjectFixture, withProject } from "./testing/project.ts";
 
 /** An effect of the open project's services, run in it. */
 const inProject = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
   Effect.flatMap(OpenProject, (project) => project.use(effect));
-
-/** A test's own project: each test builds its world. */
-const withProject =
-  (options: ProjectTestOptions) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(ProjectTest(options)), Effect.scoped);
 
 const designSystem = inProject(
   Effect.flatMap(DesignSystemService, (d) => d.get)

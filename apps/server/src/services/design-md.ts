@@ -155,10 +155,7 @@ export class DesignMd extends Context.Service<
      * the format, and the component tokens of the system components whose look the project
      * owns, read from their files (ADR 0041).
      */
-    readonly mirror: (
-      ds: DesignSystem,
-      text: string | null
-    ) => Effect.Effect<TokenGroups>;
+    readonly mirror: (ds: DesignSystem) => Effect.Effect<TokenGroups>;
     /**
      * What a writer's DESIGN.md is saved as beside `ds`: its token groups the design system's,
      * filled in whatever it says, and the baseline it moves to. `findings` are what the format's
@@ -305,10 +302,7 @@ export class DesignMd extends Context.Service<
         readonly entries: Effect.Success<typeof lookEntries.get>;
         readonly groups: TokenGroups;
       } | null = null;
-      const mirror = Effect.fnUntraced(function* (
-        ds: DesignSystem,
-        _text: string | null
-      ) {
+      const mirror = Effect.fnUntraced(function* (ds: DesignSystem) {
         const entries = yield* lookEntries.get;
         if (!(mirrored?.ds === ds && mirrored.entries === entries)) {
           mirrored = { ds, entries, groups: mirrorOf(ds, entries).groups };
@@ -324,7 +318,7 @@ export class DesignMd extends Context.Service<
         const doc = parse(found.text);
         const held =
           ds && !found.legacy
-            ? mergeMirror(doc, yield* mirror(ds, found.text), agreedOf(ds)).held
+            ? mergeMirror(doc, yield* mirror(ds), agreedOf(ds)).held
             : [];
         return {
           body: found.text.slice(doc.body),
@@ -345,7 +339,7 @@ export class DesignMd extends Context.Service<
         text: string,
         ds: DesignSystem
       ) {
-        const groups = yield* mirror(ds, text);
+        const groups = yield* mirror(ds);
         const written = withMirror(text, groups);
         if ("problem" in written) {
           return yield* new BadRequest({
@@ -381,7 +375,7 @@ export class DesignMd extends Context.Service<
           if (!(ds && found && !found.legacy)) {
             return;
           }
-          const groups = yield* mirror(ds, found.text);
+          const groups = yield* mirror(ds);
           const agreed = agreedOf(ds);
           const rewrite = (content: string) => {
             const next = withMirror(
@@ -440,7 +434,7 @@ export class DesignMd extends Context.Service<
         if (legacy && !legacy.legacy) {
           return { path: legacy.path };
         }
-        const groups = ds ? yield* mirror(ds, legacy?.text ?? null) : null;
+        const groups = ds ? yield* mirror(ds) : null;
         const text = placedText(legacy?.text ?? null, groups);
         if (text === null) {
           return yield* new BadRequest({
@@ -460,7 +454,8 @@ export class DesignMd extends Context.Service<
               yield* tx.write(file, text);
             })
         );
-        // The baseline beside it, outside the undo history as every baseline moves.
+        // The baseline beside it, outside the undo history as every baseline moves, unless
+        // `design-system.json` does not read (reading it says why).
         if (agreed) {
           yield* Effect.ignore(
             moveBaseline(

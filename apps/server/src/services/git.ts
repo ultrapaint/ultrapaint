@@ -55,7 +55,7 @@ const parseStatus = (
     const code = entry.slice(0, 2);
     // Renames and copies carry the original path as the next entry.
     skipNext = code[0] === "R" || code[0] === "C";
-    const file = entry.slice(3).trim();
+    const file = entry.slice(3);
     files.push({
       code,
       design: isInDesigns(file),

@@ -232,7 +232,6 @@ ${JSON.stringify(shown.tree)}`;
 };
 
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
-  /** What a task says first when the editor sees no components. */
   readonly ways: AgentWays;
 }) {
   const { ways } = deps;

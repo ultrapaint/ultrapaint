@@ -112,11 +112,7 @@ export class AgentTasks extends Context.Service<
           })
         );
 
-        /**
-         * What a task says when the editor sees no components: the settings point nowhere. The
-         * agent must not try to fix them itself (it has guessed paths before); the user does, in
-         * the Sync view, which detects them.
-         */
+        /** `/init`: the repository's design system imported, in the steps above. */
         const init = (extra: string | undefined) =>
           Effect.map(
             importSteps,

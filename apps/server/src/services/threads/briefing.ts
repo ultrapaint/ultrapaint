@@ -81,7 +81,7 @@ new and its theme declares nothing.`;
  * What an agent is told of a design system whose colours are named by property and meaning (ADR
  * 0062): which namespace serves which property, and that each serves only its own.
  */
-export const DETAILED_NOTE = `Its colours are named by property and meaning: text-color-* for text, background-color-* for
+const DETAILED_NOTE = `Its colours are named by property and meaning: text-color-* for text, background-color-* for
 fills, border-color-* for borders (in the code, text-subtle, bg-danger-subtle, border-focus). Use
 each only for its own property, the one whose meaning fits: never a background colour on text.`;
 

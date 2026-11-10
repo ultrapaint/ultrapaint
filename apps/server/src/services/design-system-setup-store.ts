@@ -119,6 +119,7 @@ export const makeSetupStore = Effect.gen(function* () {
       write: Effect.fnUntraced(function* (value: A | null) {
         const file = path.join(yield* dir, name);
         if (value === null) {
+          // A file already gone is what was wanted.
           yield* Effect.ignore(fs.remove(file));
           return;
         }

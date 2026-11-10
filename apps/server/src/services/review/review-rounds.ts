@@ -261,7 +261,7 @@ export const handsToAll = (options: {
 };
 
 /** Why the review ended, as the transcript says it. */
-export const endReasonOf = (reason: StopReason): ReviewEnd =>
+const endReasonOf = (reason: StopReason): ReviewEnd =>
   reason === "signed-off" ? "approved" : reason;
 
 // ---- the designer's answer ----

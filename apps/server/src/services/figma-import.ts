@@ -199,10 +199,6 @@ export class FigmaImportService extends Context.Service<
       frame: string
     ) => Effect.Effect<FramePreview, ImportFailure>;
     readonly get: (id: string) => Effect.Effect<FigmaImport, ImportFailure>;
-    /** The file's variables and styles as tokens named the way the code names them (ADR 0025). */
-    readonly tokens: (
-      id: string
-    ) => Effect.Effect<FigmaTokenSet, ImportFailure>;
     /** The most recent import, or null when there is none. */
     readonly latest: Effect.Effect<FigmaImport | null>;
     /**
@@ -257,10 +253,19 @@ export class FigmaImportService extends Context.Service<
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
       const loaded = new Map<string, FigFile>();
+      /** Keeps a parsed file in memory, in place of the oldest once the limit is reached. */
+      const keep = (id: string, file: FigFile) => {
+        if (loaded.size >= LOADED_LIMIT) {
+          const oldest = loaded.keys().next().value;
+          if (oldest !== undefined) {
+            loaded.delete(oldest);
+          }
+        }
+        loaded.set(id, file);
+      };
       // The summary file is read, changed and written back: one at a time.
       const writing = yield* Semaphore.make(1);
 
-      // Removed recursively by `delete`: an id that named anything else would take that with it.
       const dirOf = (id: string) =>
         Effect.flatMap(safeFileId("Figma import", id), (safe) =>
           Effect.map(storage.stateDir, (state) =>
@@ -401,13 +406,7 @@ export class FigmaImportService extends Context.Service<
             }),
           try: () => readFig(bytes),
         });
-        if (loaded.size >= LOADED_LIMIT) {
-          const oldest = loaded.keys().next().value;
-          if (oldest !== undefined) {
-            loaded.delete(oldest);
-          }
-        }
-        loaded.set(id, file);
+        keep(id, file);
         return file;
       });
 
@@ -441,7 +440,7 @@ export class FigmaImportService extends Context.Service<
           fs.writeFile(path.join(dir, FILE_NAME), bytes)
         ).pipe(Effect.mapError(notSaved(name)));
         yield* writeSummary(summary);
-        loaded.set(id, file);
+        keep(id, file);
         return yield* withCandidates(summary);
       });
 
@@ -679,6 +678,9 @@ export class FigmaImportService extends Context.Service<
         } satisfies WrittenFrame;
       });
 
+      /**
+       * The file's variables and styles as tokens named the way the code names them (ADR 0025).
+       */
       const tokens = Effect.fn("FigmaImportService.tokens")(function* (
         id: string
       ) {
@@ -721,7 +723,6 @@ export class FigmaImportService extends Context.Service<
         list,
         map,
         theme,
-        tokens,
         writeFrame,
       });
     })

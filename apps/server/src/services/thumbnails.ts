@@ -68,6 +68,7 @@ export class Thumbnails extends Context.Service<
         const dir = yield* dirOf(key);
         const file = path.join(dir, `${name.replaceAll(UNSAFE_RE, "_")}.png`);
         const bytes = Buffer.from(dataUrl.slice(PNG_DATA_URL.length), "base64");
+        // A thumbnail that is not kept is only drawn again.
         yield* Effect.ignore(
           Effect.andThen(
             fs.makeDirectory(dir, { recursive: true }),

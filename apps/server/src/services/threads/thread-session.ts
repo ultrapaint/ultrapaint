@@ -475,7 +475,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
               })
         )
       )
-    ).pipe(Effect.withSpan("ThreadService.ensureLive"));
+    ).pipe(Effect.withSpan("ThreadSession.ensureLive"));
 
     const liveSession = Effect.gen(function* () {
       const session = yield* ensureLive;
@@ -667,7 +667,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     });
 
     /** A prompt, under `prompting`; `review` when it carries a review round's findings. */
-    const promptNow = Effect.fn("ThreadService.prompt")(function* (
+    const promptNow = Effect.fn("ThreadSession.prompt")(function* (
       input: PromptInput,
       review?: string
     ) {
@@ -741,7 +741,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     );
 
     // ---- what the user does ----
-    const answer = Effect.fn("ThreadService.answer")(function* (
+    const answer = Effect.fn("ThreadSession.answer")(function* (
       itemId: string,
       answers: Answers
     ) {
@@ -778,7 +778,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       if ((yield* turn.state)._tag !== "AtAgent") {
         yield* transition({ _tag: "CancelOutlived" });
       }
-    }).pipe(Effect.withSpan("ThreadService.cancel"));
+    }).pipe(Effect.withSpan("ThreadSession.cancel"));
 
     /** Until the thread no longer works on a turn, looked at again whenever the store changes. */
     const turnEnded = Effect.scoped(
@@ -803,7 +803,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       // An agent that cannot be asked to stop may still end its turn: it is waited for alike.
       yield* Effect.ignore(cancel, { log: true });
       yield* Effect.timeoutOption(turnEnded, TURN_END_WAIT);
-    }).pipe(Effect.withSpan("ThreadService.stop"));
+    }).pipe(Effect.withSpan("ThreadSession.stop"));
 
     const busy = () =>
       new Conflict({
@@ -866,7 +866,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       }
     });
 
-    const setConfigOption = Effect.fn("ThreadService.setConfigOption")(
+    const setConfigOption = Effect.fn("ThreadSession.setConfigOption")(
       function* (optionId: string, value: string) {
         const thread = yield* store.get(threadId);
         const options = thread?.configOptions ?? [];
@@ -897,7 +897,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       }
     );
 
-    const setMode = Effect.fn("ThreadService.setMode")(function* (
+    const setMode = Effect.fn("ThreadSession.setMode")(function* (
       modeId: string
     ) {
       const now = yield* current;
@@ -947,7 +947,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
                   onSome: Effect.succeed,
                 })
               ),
-              Effect.withSpan("ThreadService.switchAgent")
+              Effect.withSpan("ThreadSession.switchAgent")
             )
         ),
       unqueue: (id) => detached(taking.withPermit(takeQueued(id))),

@@ -15,6 +15,7 @@ const STATE_SUBDIRS = [
   "thumbnails",
   "imports",
   "design-system-setup",
+  "design-system-sync",
   "store",
   // The server's run file (PLAN-desktop D5): a second start finds it where the state now is.
   "run.json",

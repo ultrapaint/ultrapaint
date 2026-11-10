@@ -169,17 +169,7 @@ export class CommentsService extends Context.Service<
           const dir = dirname(file);
           const [saved, result] = yield* edit.amend(file, (content, nameIn) =>
             Effect.gen(function* () {
-              const before =
-                content === null
-                  ? emptyList()
-                  : yield* decodeComments(content).pipe(
-                      Effect.mapError(
-                        (error) =>
-                          new Conflict({
-                            message: `comments.json in ${canvas || "designs root"} is invalid: ${error.message}`,
-                          })
-                      )
-                    );
+              const before = yield* commentsCodec(canvas).decode(content);
               const pageIn = (page: string) => {
                 const named = nameIn(`${dir}/${page}`);
                 // A page moved to another canvas has no name in this one's comments.

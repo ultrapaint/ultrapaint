@@ -652,6 +652,21 @@ describe("the editor's requests on a project", () => {
     })
   );
 
+  inGitProject(
+    "names a changed file as it is called, a space at its start included",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(path.join(repo, " notes.txt"), "kept\n");
+        const status = yield* client["git.status"]();
+        assert.include(
+          status.files.map((f) => f.path),
+          " notes.txt"
+        );
+      })
+  );
+
   inProject(
     "imports the design system without an agent, and says so",
     () =>

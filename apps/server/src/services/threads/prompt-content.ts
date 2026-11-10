@@ -151,7 +151,7 @@ const boardPickLabel = (a: BoardAttachment) =>
  * A text file from the person's disk as the agent reads it (ADR 0064): in the prompt's text,
  * which every agent takes, since it has no path in the project to link to.
  */
-export const attachedText = (name: string, text: string) =>
+const attachedText = (name: string, text: string) =>
   `The user attached the file ${name}:\n<attached-file name=${JSON.stringify(name)}>\n${text}\n</attached-file>`;
 
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */

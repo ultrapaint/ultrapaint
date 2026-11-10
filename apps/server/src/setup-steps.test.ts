@@ -102,7 +102,6 @@ const Setup = Layer.effect(
                 ...(step === "migrate" && { batches: BATCHES }),
               })
             ),
-      stepOf: () => unused,
       stop: (step) =>
         Ref.updateAndGet(state, (s) =>
           withStep(s, step, { status: "stopped" })

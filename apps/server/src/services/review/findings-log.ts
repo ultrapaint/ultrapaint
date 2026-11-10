@@ -9,7 +9,7 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 
 /** Where the log is, in the user's directory. */
-export const FINDINGS_DIR = "findings";
+const FINDINGS_DIR = "findings";
 
 const encodeLine = Schema.encodeEffect(Schema.fromJsonString(LoggedFinding));
 
@@ -43,5 +43,5 @@ export const makeFindingsLog = Effect.fnUntraced(function* () {
       )
     );
 
-  return { append, fileOf };
+  return { append };
 });

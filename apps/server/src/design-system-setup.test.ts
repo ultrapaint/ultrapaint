@@ -13,12 +13,7 @@ import { runCommand } from "./process.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { SetupTools } from "./services/mcp/setup-tools.ts";
 import { Storage } from "./services/storage.ts";
-import {
-  callTool,
-  ProjectFixture,
-  ProjectTest,
-  type ProjectTestOptions,
-} from "./testing/project.ts";
+import { callTool, ProjectFixture, withProject } from "./testing/project.ts";
 
 const APP = `export const App = () => (
   <div className="bg-[#ff0000] p-4 text-gray-500">
@@ -26,12 +21,6 @@ const APP = `export const App = () => (
   </div>
 );
 `;
-
-/** A test's own project: each test builds its world. */
-const withProject =
-  (options: ProjectTestOptions = {}) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(ProjectTest(options)), Effect.scoped);
 
 const setup = Effect.map(DesignSystemSetupService, (service) => service);
 

@@ -175,6 +175,38 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
   );
 
   inProject.effect(
+    "says the design as it was implemented is not kept when its file no longer reads",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["implementation.mark"]({
+          files: ["src/home.tsx"],
+          target: HOME,
+        });
+        yield* fs.writeFileString(
+          path.join(repo, "designs/_implemented/home.implemented.json"),
+          "{ not JSON"
+        );
+        const { hash } = yield* client["documents.get"]({ doc: HOME });
+        yield* client["documents.apply"]({
+          edits: [
+            {
+              doc: HOME,
+              expectedHash: hash,
+              ops: [{ id: "heading", op: "update", set: { text: "World" } }],
+            },
+          ],
+        });
+        const changes = yield* client["implementation.changes"]({
+          target: HOME,
+        });
+        assert.isTrue(changes.implemented);
+        assert.include(changes.text, "is not kept");
+      })
+  );
+
+  inProject.effect(
     "draws a page in a state, which serves no URL and goes with its page",
     () =>
       Effect.gen(function* () {

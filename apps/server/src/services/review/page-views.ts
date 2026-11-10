@@ -28,7 +28,7 @@ const decodeDocument = Schema.decodeUnknownEffect(
 );
 
 /** Why a page has no picture when no editor is open. */
-export const NO_EDITOR = "no editor is open to draw it.";
+const NO_EDITOR = "no editor is open to draw it.";
 
 const DATA_URL_RE = /data:([\w.+-]+\/[\w.+-]+);base64,[A-Za-z0-9+/=]+/g;
 

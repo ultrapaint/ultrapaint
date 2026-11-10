@@ -55,7 +55,7 @@ export const pageName = (page: {
  * The second look (ADR 0063): the findings the designer was sent, to say which are not fixed,
  * and nothing new but a blocker.
  */
-export const secondLook = (open: readonly RoundFinding[]): string =>
+const secondLook = (open: readonly RoundFinding[]): string =>
   `## This is a second look
 
 ${

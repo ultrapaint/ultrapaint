@@ -111,13 +111,6 @@ export class TestEnv extends Context.Service<
   }
 >()("ultrapaint/server/testing/TestEnv") {}
 
-/**
- * The real server on a loopback port with its own home directory, a fixture repository and a
- * real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as `fake-auth`
- * and `fake-load` with the matching behaviour switched on. The server binds port 0 itself, as
- * the desktop app starts it: a port picked beforehand and let go of could be taken by another
- * test's server before this one listens.
- */
 /** The RPC protocol over a WebSocket of its own to the server on `port`, as an editor has. */
 const socketProtocol = (port: number) =>
   RpcClient.layerProtocolSocket().pipe(
@@ -133,6 +126,13 @@ export const anotherClient = Effect.gen(function* () {
   return yield* RpcClient.make(UltrapaintRpcs).pipe(Effect.provide(context));
 });
 
+/**
+ * The real server on a loopback port with its own home directory, a fixture repository and a
+ * real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as `fake-auth`
+ * and `fake-load` with the matching behaviour switched on. The server binds port 0 itself, as
+ * the desktop app starts it: a port picked beforehand and let go of could be taken by another
+ * test's server before this one listens.
+ */
 export const makeTestServer = (
   /** Runs before the server starts, so it can also put a configuration file in place. */
   storageFor: (dirs: {

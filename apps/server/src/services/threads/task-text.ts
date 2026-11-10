@@ -40,13 +40,24 @@ export const needsTools = (
     next
   );
 
+/** A text worked out the first time it is asked for, and kept: a schema is long to walk. */
+const once = (make: () => string) => {
+  let made: string | undefined;
+  return () => {
+    made ??= make();
+    return made;
+  };
+};
+
 /** The design system's schema, for an agent that has to write the file without the tools. */
-export const designSystemSchema = () =>
-  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(DesignSystem)));
+export const designSystemSchema = once(() =>
+  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(DesignSystem)))
+);
 
 /** The page format's schema, for agents. */
-export const pageSchema = () =>
-  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(PageDocument)));
+export const pageSchema = once(() =>
+  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(PageDocument)))
+);
 
 /** Past this many characters of compact JSON, a tree is given as its outline. */
 const WHOLE_LIMIT = 40_000;

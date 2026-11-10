@@ -157,10 +157,6 @@ export class DesignSystemSetupService extends Context.Service<
       step: SetupStepId,
       options: { readonly mode?: DefineMode; readonly threadId?: string }
     ) => Effect.Effect<DesignSystemSetup, SetupFailure>;
-    /** The step a thread runs, if it runs one. */
-    readonly stepOf: (
-      threadId: string
-    ) => Effect.Effect<SetupStep | null, NotConfigured>;
     /** Stops a step, keeping what it did. Its thread is the caller's to cancel. */
     readonly stop: (
       step: SetupStepId
@@ -282,15 +278,6 @@ export class DesignSystemSetupService extends Context.Service<
           )
         );
       }, lock.withPermits(1));
-
-      const stepOf = (threadId: string) =>
-        Effect.map(
-          get,
-          (setup) =>
-            setup.steps.find(
-              (s) => s.threadId === threadId && s.status !== "todo"
-            ) ?? null
-        );
 
       const finish = Effect.fn("DesignSystemSetupService.finish")(function* (
         threadId: string,
@@ -433,7 +420,6 @@ export class DesignSystemSetupService extends Context.Service<
         revertBatch,
         setMapping,
         start,
-        stepOf,
         stop,
       });
     })

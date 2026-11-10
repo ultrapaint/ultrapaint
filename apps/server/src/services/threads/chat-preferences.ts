@@ -25,7 +25,7 @@ const encodeStored = Schema.encodeEffect(
 );
 
 /** Where they are kept, in the user's directory: `~/.ultrapaint/chat/preferences.json`. */
-export const CHAT_PREFERENCES_FILE = ["chat", "preferences.json"] as const;
+const CHAT_PREFERENCES_FILE = ["chat", "preferences.json"] as const;
 
 /** The options a thread starts with, before its session says otherwise. */
 type ThreadOptions = Pick<Thread, "configOptions" | "currentModeId" | "modes">;

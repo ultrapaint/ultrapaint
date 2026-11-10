@@ -16,11 +16,9 @@ const VERSION = product.version;
 
 /**
  * Started by the desktop app with Electron's own binary as Node (ADR 0031). The variable that
- * makes it Node goes now, before anything is started: an agent, the preview or a shell command
- * inheriting it would start Electron as Node in its turn, where it means to start an app. The
- * preview runs on the user's own Node then (D7).
+ * makes it Node goes now, before anything is started: an agent or a shell command inheriting it
+ * would start Electron as Node in its turn, where it means to start an app.
  */
-const runAsNode = process.versions.electron !== undefined;
 delete process.env.ELECTRON_RUN_AS_NODE;
 
 class AgentRuntimeError extends Schema.TaggedError<AgentRuntimeError>()(
@@ -236,7 +234,6 @@ const serve = Command.make(
           )
         ),
         home: userHome,
-        node: runAsNode ? "node" : process.execPath,
         path: process.env.PATH ?? "",
         tmpdir: tmpdir(),
         uid: process.getuid?.(),

@@ -281,7 +281,6 @@ const program = Effect.gen(function* () {
             )
           ),
           home: homedir(),
-          node: process.execPath,
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),
           uid: process.getuid?.(),

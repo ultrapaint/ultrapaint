@@ -344,6 +344,8 @@ export class DesignSystemSyncService extends Context.Service<
               settledKeys(chosen, decisions, only)
             )
           );
+          // The editor is told the plan as the write left it; the write stands if the plan
+          // cannot be worked out.
           yield* Effect.ignore(plan);
           return result;
         },
@@ -380,6 +382,8 @@ export class DesignSystemSyncService extends Context.Service<
             reading.matching.what
           );
           const diffs = yield* project.use(reading.matching.save(set));
+          // The editor is told the plan as the matches left it; they are kept if the plan
+          // cannot be worked out.
           yield* Effect.ignore(plan);
           const unmatched = new Set(
             diffs

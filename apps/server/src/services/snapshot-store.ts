@@ -609,6 +609,7 @@ export class SnapshotStore extends Context.Service<
         for (const name of yield* listUnder(path.join(store, "manifests"))) {
           const id = path.basename(name, ".json");
           if (!kept.has(id)) {
+            // One that cannot be removed is found again by the next collection.
             yield* Effect.ignore(fs.remove(manifestPath(store, id)));
             continue;
           }
@@ -622,6 +623,7 @@ export class SnapshotStore extends Context.Service<
         for (const name of yield* listUnder(path.join(store, "objects"))) {
           const hash = name.replace(SEPARATOR_RE, "");
           if (HASH_RE.test(hash) && !listed.has(hash)) {
+            // As a manifest: what stays is found again by the next collection.
             yield* Effect.ignore(fs.remove(objectPath(store, hash)));
           }
         }

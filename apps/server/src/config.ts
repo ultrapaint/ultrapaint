@@ -1,8 +1,8 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentRuntime } from "@ultrapaint/acp/runtime";
-import { Context, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 /**
  * Where settings and tool state go, decided once at startup.
@@ -108,11 +108,6 @@ export class ServerConfig extends Context.Service<
        */
       readonly env: Readonly<Record<string, string>>;
       readonly home: string;
-      /**
-       * The Node the preview runs on: the one running the server, or, where that is Electron's
-       * own binary run as Node (the desktop app), the user's `node` on the `PATH` (D7).
-       */
-      readonly node: string;
       readonly path: string;
       /** The system's temporary directory, as `os.tmpdir()` says. */
       readonly tmpdir: string;
@@ -169,18 +164,18 @@ export class ServerConfig extends Context.Service<
 >()("ultrapaint/server/ServerConfig") {
   /**
    * A configuration for a test: loopback on port 0, nothing saved (an unsaved session), no
-   * discovery, briefing or MCP server, and the system's temporary directory for the home and
-   * the user directory. What a test cares about it says in `overrides`; `machine` is merged
-   * with the default one, so a test names only the fields it needs (its own home, the `PATH`).
+   * discovery, briefing or MCP server, the system's temporary directory for the home, and a
+   * user directory of its own that goes with the layer. What a test cares about it says in
+   * `overrides`; `machine` is merged with the default one, so a test names only the fields it
+   * needs (its own home, the `PATH`).
    */
   static readonly layerTest = (
     overrides: Partial<Omit<ServerConfig["Service"], "machine">> & {
       readonly machine?: Partial<ServerConfig["Service"]["machine"]>;
     } = {}
   ) => {
-    const { machine, ...rest } = overrides;
-    return Layer.succeed(
-      ServerConfig,
+    const { machine, userDir, ...rest } = overrides;
+    const config = (dir: string) =>
       ServerConfig.of({
         allowedHosts: [],
         briefing: false,
@@ -193,8 +188,7 @@ export class ServerConfig extends Context.Service<
         readyJson: false,
         storage: { mode: "ephemeral" },
         token: "test",
-        // Its own, so that what one test keeps there (the chat's preferences) no other reads.
-        userDir: mkdtempSync(join(tmpdir(), "ultrapaint-user-")),
+        userDir: dir,
         version: "test",
         webDist: undefined,
         ...rest,
@@ -202,13 +196,26 @@ export class ServerConfig extends Context.Service<
           addresses: () => [],
           env: {},
           home: tmpdir(),
-          node: process.execPath,
           path: "",
           tmpdir: tmpdir(),
           uid: process.getuid?.(),
           ...machine,
         },
-      })
+      });
+    if (userDir !== undefined) {
+      return Layer.succeed(ServerConfig, config(userDir));
+    }
+    // Its own, so that what one test keeps there (the chat's preferences) no other reads.
+    return Layer.effect(
+      ServerConfig,
+      Effect.map(
+        Effect.acquireRelease(
+          Effect.sync(() => mkdtempSync(join(tmpdir(), "ultrapaint-user-"))),
+          (dir) =>
+            Effect.sync(() => rmSync(dir, { force: true, recursive: true }))
+        ),
+        config
+      )
     );
   };
 }

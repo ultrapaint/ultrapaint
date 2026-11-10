@@ -240,11 +240,6 @@ export class ImplementationService extends Context.Service<
      * or `component:<Name>`. A name an agent or a user wrote is `DesignTargets.resolve`'s.
      */
     readonly current: (target: string) => Effect.Effect<Current, NotFound>;
-    /** The design as it was implemented, and the binding, when it was. */
-    readonly implemented: (target: string) => Effect.Effect<{
-      readonly binding: Binding;
-      readonly snapshot: Implemented | null;
-    } | null>;
     readonly changes: (
       target: string
     ) => Effect.Effect<ImplementationChanges, NotFound>;
@@ -280,13 +275,6 @@ export class ImplementationService extends Context.Service<
       targets: readonly string[],
       ready: boolean
     ) => Effect.Effect<number, NotFound | EditFailure>;
-    /** Several designs marked implemented by their files, in one undo step (ADR 0030). */
-    readonly markAll: (
-      marks: readonly {
-        readonly files: readonly string[];
-        readonly target: string;
-      }[]
-    ) => Effect.Effect<number, NotFound | EditFailure | ForbiddenPath>;
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
@@ -676,26 +664,6 @@ export class ImplementationService extends Context.Service<
         return yield* item(found.target);
       });
 
-      const markAll = Effect.fn("ImplementationService.markAll")(function* (
-        marks: readonly {
-          readonly files: readonly string[];
-          readonly target: string;
-        }[]
-      ) {
-        const changes = yield* Effect.forEach(marks, ({ files, target }) =>
-          Effect.flatMap(current(target), (found) =>
-            bindingFor(found, files, false, null)
-          )
-        );
-        if (changes.length > 0) {
-          yield* writeEntries(
-            `Link ${plural(changes.length, "design")} to their code`,
-            changes
-          );
-        }
-        return changes.length;
-      });
-
       const unbind = Effect.fn("ImplementationService.unbind")(function* (
         target: string
       ) {
@@ -716,6 +684,7 @@ export class ImplementationService extends Context.Service<
         );
       });
 
+      /** The design as it was implemented, and the binding, when it was. */
       const implemented = (target: string) =>
         Effect.gen(function* () {
           const file = yield* readFile;
@@ -726,7 +695,9 @@ export class ImplementationService extends Context.Service<
           const snapshot = yield* fs
             .readFileString(path.resolve(paths.root, snapshotRel(target)))
             .pipe(
-              Effect.map((text) => JSON.parse(text) as Implemented),
+              Effect.flatMap((text) =>
+                Effect.try(() => JSON.parse(text) as Implemented)
+              ),
               // A snapshot taken away or not readable: the binding still holds, the diff not.
               Effect.orElseSucceed(() => null)
             );
@@ -792,11 +763,9 @@ export class ImplementationService extends Context.Service<
       return ImplementationService.of({
         changes,
         current,
-        implemented,
         item,
         list,
         mark,
-        markAll,
         setReady,
         setReadyAll,
         tokens,

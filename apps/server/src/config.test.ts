@@ -1,5 +1,7 @@
+import { existsSync } from "node:fs";
 import { assert, describe, it } from "@effect/vitest";
-import { hostNameOf, isAllowedHost } from "./config.ts";
+import { Effect } from "effect";
+import { hostNameOf, isAllowedHost, ServerConfig } from "./config.ts";
 
 const allowed = (
   name: string,
@@ -51,4 +53,17 @@ describe("the names the server answers to", () => {
     assert.isUndefined(hostNameOf("localhost/evil"));
     assert.isUndefined(hostNameOf(""));
   });
+});
+
+describe("a test's configuration", () => {
+  it.effect("has a user directory of its own, which goes with it", () =>
+    Effect.gen(function* () {
+      const made = yield* Effect.gen(function* () {
+        const { userDir } = yield* ServerConfig;
+        assert.isTrue(existsSync(userDir));
+        return userDir;
+      }).pipe(Effect.provide(ServerConfig.layerTest()));
+      assert.isFalse(existsSync(made));
+    })
+  );
 });

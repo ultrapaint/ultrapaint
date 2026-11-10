@@ -15,6 +15,8 @@ import { AppLog } from "./app-log.ts";
 import { ServerConfig, type StorageTarget } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ServerLive } from "./server.ts";
+import { FigmaBaseline } from "./services/figma-baseline.ts";
+import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
 import { Storage } from "./services/storage.ts";
 import { resolveStorage } from "./storage-resolve.ts";
@@ -603,6 +605,40 @@ describe("an unsaved session in a directory the command lends", () => {
         }).pipe(Effect.provide(services))
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "takes the Figma baseline that waits for a design system along when it is saved",
+    () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const repo = yield* makeRepository;
+        const sessionDir = yield* tempDir;
+        const baseline = { at: 5, code: {}, figma: {}, file: "brand.fig" };
+        const waiting = yield* Effect.gen(function* () {
+          const figma = yield* FigmaBaseline;
+          yield* figma.wait(baseline);
+          yield* (yield* Storage).promote(path.join(repo, "ultrapaint.json"));
+          return yield* figma.pending;
+        }).pipe(
+          Effect.provide(
+            FigmaBaseline.layer.pipe(
+              Layer.provide(
+                RepoPaths.layer({
+                  designsDir: "designs",
+                  hostCss: [],
+                  libraryDirs: [],
+                  repoPath: repo,
+                })
+              ),
+              Layer.provideMerge(
+                settingsOf(repo, { mode: "ephemeral", sessionDir })
+              )
+            )
+          )
+        );
+        assert.deepStrictEqual(waiting, baseline);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 });
 

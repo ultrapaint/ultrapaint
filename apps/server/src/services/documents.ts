@@ -123,8 +123,6 @@ export class DocumentService extends Context.Service<
       input: ApplyInput,
       alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
     ) => Effect.Effect<Applied, EditFailure | Conflict>;
-    /** Every page and canvas of every canvas, as each is saved now. */
-    readonly all: Effect.Effect<readonly DocumentState[], EditFailure>;
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
@@ -524,8 +522,6 @@ export class DocumentService extends Context.Service<
         return { changes, created, documents } satisfies Applied;
       });
 
-      const all = allOf(true).pipe(Effect.withSpan("DocumentService.all"));
-
       const upload = Effect.fn("DocumentService.upload")(function* (
         input: UploadAssetInput
       ) {
@@ -613,7 +609,6 @@ export class DocumentService extends Context.Service<
       );
 
       return DocumentService.of({
-        all,
         apply,
         get,
         list,

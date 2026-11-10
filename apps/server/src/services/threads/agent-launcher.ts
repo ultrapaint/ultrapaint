@@ -52,10 +52,10 @@ export interface AgentLaunchOptions {
 }
 
 /** What an agent without a thread is refused, whatever it asks. */
-export const LISTING_ONLY = "the editor is only listing models";
+const LISTING_ONLY = "the editor is only listing models";
 
 /** What a review model is refused, whatever it asks: it changes nothing (ADR 0063). */
-export const ONLY_LOOKS = "a review model only looks and changes nothing";
+const ONLY_LOOKS = "a review model only looks and changes nothing";
 
 /** The editor's side of an agent without a thread: everything refused, its updates heard if asked. */
 export const hostless = (options: AgentLaunchOptions): AcpHandlers =>

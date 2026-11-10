@@ -162,15 +162,15 @@ export interface SetupSaved {
 
 /**
  * Owns the one open project and the settings in force. The project is a layer built into its
- * own scope: the preview host, the file watcher and every agent session live there, so changing
- * the settings or shutting down closes all of them together.
+ * own scope: the file watcher and every agent session live there, so changing the settings or
+ * shutting down closes all of them together.
  *
  * Whatever puts settings in force (a save, a configuration file saved or renamed, detection at
  * start, someone else's change to the file) comes through here, and one rule decides what
  * happens: the project is opened when none is, opened again when it runs other settings, and
- * left as it is when it runs these, its preview and undo history with it. The editor is told of
- * the project's info whenever what it is made of changes: the settings and where they are kept,
- * the preview, git, the user's profile.
+ * left as it is when it runs these, its undo history with it. The editor is told of the
+ * project's info whenever what it is made of changes: the settings and where they are kept, git,
+ * the user's profile.
  */
 export class ProjectManager extends Context.Service<
   ProjectManager,
