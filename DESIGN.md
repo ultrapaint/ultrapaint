@@ -231,9 +231,10 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - Tabs: a segmented control (muted track, raised chip) to switch views inside a card.
 - Menu for actions on a thing; Popover for a few fields edited in place, reusing the inspector's
   fields; Dialog for a task that needs the whole attention; Toast for a result elsewhere or an undo.
-- Tooltips: a short name and the keys, nothing more. No arrows. Undo and Redo with nothing to
-  take back say why in theirs when the history was dropped ("Nothing to undo: … changed outside
-  the editor").
+- Tooltips: a short name and the keys. One that has more to say than a name (why a control is
+  off, where a value comes from, what a status means) says it in a sentence or two, the
+  name first when there is one. No arrows. Undo and Redo with nothing to take back say why in
+  theirs when the history was dropped ("Nothing to undo: … changed outside the editor").
 - An empty panel's state is centred in it, a muted icon above its text and buttons.
 - A hint about the selection ("Inserts into …") sits at the panel's foot.
 - A row's actions are all in its ⋯ menu.
@@ -277,4 +278,4 @@ exclamation marks.
 - Don't put a shadow on anything inside a card.
 - Don't use the canvas's selection, component or agent colours on the chrome.
 - Don't draw a tree's guide lines across a row's fill.
-- Don't use the browser's `title` for a tooltip: the system Tooltip, with a short name.
+- Don't use the browser's `title` for a tooltip: the system Tooltip.

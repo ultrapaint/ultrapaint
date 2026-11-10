@@ -322,7 +322,7 @@ const DiffContentView = ({
     <div>
       <div className="flex items-center gap-2 px-2.5 font-body-small text-muted-foreground">
         <CutText className="min-w-0 truncate">{content.path}</CutText>
-        <span className="ml-auto shrink-0 text-success tabular-nums">
+        <span className="ml-auto shrink-0 text-foreground tabular-nums">
           +{added}
         </span>
         <span className="shrink-0 text-destructive tabular-nums">
