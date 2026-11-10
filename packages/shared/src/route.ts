@@ -142,9 +142,20 @@ const patternOf = (route: string): Pattern => {
     : { catchAll: null, segments };
 };
 
+/** A segment of a URL decoded; as it is written when its `%` escapes do not read. */
+const decodeSegment = (segment: string): string => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    // A URL someone typed or an agent wrote ("/invoices/100%") still names a page.
+    return segment;
+  }
+};
+
 /**
  * How well a pattern fits, or null when it does not. Compared segment by segment, so a static
- * segment beats a dynamic one at the same depth and any match beats a catch-all.
+ * segment beats a dynamic one at the same depth and any match beats a catch-all: it scores below
+ * the nothing of a pattern that ends there, so a page at the URL itself wins over it.
  */
 const scoreOf = (
   pattern: Pattern,
@@ -162,7 +173,7 @@ const scoreOf = (
   for (const [index, segment] of pattern.segments.entries()) {
     const actual = path[index] as string;
     if (segment.startsWith(":")) {
-      params[segment.slice(1)] = decodeURIComponent(actual);
+      params[segment.slice(1)] = decodeSegment(actual);
       score.push(2);
     } else if (segment === actual) {
       score.push(3);
@@ -172,7 +183,7 @@ const scoreOf = (
   }
   if (pattern.catchAll !== null) {
     params[pattern.catchAll] = path.slice(pattern.segments.length).join("/");
-    score.push(1);
+    score.push(-1);
   }
   return { params, score };
 };

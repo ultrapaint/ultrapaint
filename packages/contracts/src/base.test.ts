@@ -1,9 +1,30 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
-import { CanvasId, FileId } from "./base.ts";
+import { CanvasId, FileId, RepoRelativePath } from "./base.ts";
 
 const isFileId = Schema.is(FileId);
 const isCanvasId = Schema.is(CanvasId);
+const isRepoRelativePath = Schema.is(RepoRelativePath);
+
+describe("RepoRelativePath", () => {
+  it("takes a path inside the repository", () => {
+    for (const path of ["", ".", "docs/designs", "apps/web/src/app.tsx"]) {
+      expect(isRepoRelativePath(path), path).toBe(true);
+    }
+  });
+
+  it("refuses a path that climbs out or starts at the root, on any line of it", () => {
+    for (const path of [
+      "..",
+      "a/../b",
+      "/etc",
+      "a\0b",
+      "a\n/../../etc/passwd",
+    ]) {
+      expect(isRepoRelativePath(path), JSON.stringify(path)).toBe(false);
+    }
+  });
+});
 
 describe("FileId", () => {
   it("takes the ids the server makes", () => {

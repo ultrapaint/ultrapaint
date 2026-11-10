@@ -141,6 +141,43 @@ describe("matching a route", () => {
     });
   });
 
+  it("prefers a page at the URL itself over a catch-all that also takes it", () => {
+    const home = [{ route: "/*" }, { route: "/" }];
+    expect(matchRoute(home, "/")?.entry.route).toBe("/");
+    expect(matchRoute(home.toReversed(), "/")?.entry.route).toBe("/");
+    const docs = [{ route: "/docs/*" }, { route: "/docs" }];
+    expect(matchRoute(docs, "/docs")?.entry.route).toBe("/docs");
+    expect(matchRoute(docs.toReversed(), "/docs")?.entry.route).toBe("/docs");
+    expect(matchRoute(docs, "/docs/guide")?.entry.route).toBe("/docs/*");
+  });
+
+  it("lets a catch-all take its own URL when no page is at it", () => {
+    expect(matchRoute(entries, "/docs")).toEqual({
+      entry: { route: "/docs/*" },
+      params: { rest: "" },
+    });
+  });
+
+  it("prefers a dynamic segment, and the longer pattern, over a catch-all", () => {
+    const pages = [
+      { route: "/*" },
+      { route: "/docs/*" },
+      { route: "/docs/:page" },
+    ];
+    expect(matchRoute(pages, "/docs/intro")?.entry.route).toBe("/docs/:page");
+    expect(matchRoute(pages, "/docs/guide/intro")?.entry.route).toBe("/docs/*");
+    expect(matchRoute(pages, "/pricing")?.entry.route).toBe("/*");
+  });
+
+  it("binds a segment as it is written when its escapes do not read", () => {
+    expect(matchRoute(entries, "/invoices/100%")?.params).toEqual({
+      id: "100%",
+    });
+    expect(matchRoute(entries, "/invoices/a%20b")?.params).toEqual({
+      id: "a b",
+    });
+  });
+
   it("answers with nothing when no page serves the route", () => {
     expect(matchRoute(entries, "/nowhere")).toBeNull();
   });

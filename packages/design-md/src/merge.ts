@@ -30,7 +30,7 @@ import type { DesignMd } from "./parse.ts";
 import { follow, groupsOf, refOf } from "./tokens.ts";
 
 /** Mirrored values by path. */
-export type Flat = Readonly<Record<string, number | string>>;
+type Flat = Readonly<Record<string, number | string>>;
 
 /** Every mirrored value of the groups, by path. */
 export const flatten = (
@@ -117,7 +117,7 @@ export const resolvedValues = (
   return out;
 };
 
-export interface Merged {
+interface Merged {
   /** What agreed after the merge, for the next one: the old value where one is held. */
   readonly agreed: Record<string, string>;
   /** The groups to write: the design system's where it moved alone, the document's elsewhere. */

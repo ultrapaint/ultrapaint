@@ -130,6 +130,27 @@ describe("summarise", () => {
       ])
     ).toEqual({ text: "Which alarm types?", waiting: true });
   });
+
+  it.each(["declined", "cancelled"] as const)(
+    "no longer waits once a question is %s",
+    (outcome) => {
+      expect(
+        summarise([
+          { at, id: "1", kind: "agent", text: "One thing first" },
+          {
+            answers: null,
+            at,
+            id: "2",
+            kind: "question",
+            outcome,
+            questions: [
+              { id: "q", options: [], question: "Which alarm types?" },
+            ],
+          },
+        ])
+      ).toEqual({ text: "One thing first", waiting: false });
+    }
+  );
 });
 
 describe("a text file attached to a prompt", () => {

@@ -146,6 +146,19 @@ describe("withMirror", () => {
     expect(after).toBe(`---\ncolors:\n  ink: "#1E1A14"\n---\n\n${text}`);
   });
 
+  it("changes and takes out a token whose key YAML reads as a number", () => {
+    const text = "---\nspacing:\n  1: 4px\n  2: 8px\n---\n";
+    expect(
+      withMirror(text, {
+        ...emptyGroups(),
+        spacing: { "1": "4px", "2": "10px" },
+      })
+    ).toEqual({ changed: true, text: text.replace("8px", "10px") });
+    expect(
+      withMirror(text, { ...emptyGroups(), spacing: { "1": "4px" } })
+    ).toEqual({ changed: true, text: "---\nspacing:\n  1: 4px\n---\n" });
+  });
+
   it("refuses to rewrite YAML that does not read", () => {
     const result = withMirror("---\ncolors: [\n---\n", {
       ...emptyGroups(),
@@ -218,6 +231,13 @@ describe("withSection", () => {
     );
     expect(withSection(text, "Shapes", "Round.")).toBe(
       "---\nname: Acme\n---\n\n## Overview\n\nOld.\n\n## Shapes\n\nRound.\n"
+    );
+  });
+
+  it("replaces the text of a section whose heading ends the file, the rest kept", () => {
+    const ending = "---\nname: Acme\n---\n\n## Overview\n\nOld.\n\n## Content";
+    expect(withSection(ending, "Content", "Terse.")).toBe(
+      `${ending}\n\nTerse.\n`
     );
   });
 

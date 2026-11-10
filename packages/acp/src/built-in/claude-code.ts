@@ -35,7 +35,8 @@ export const claudeCode: BuiltInAgent<"claude-code"> = {
     entry: "dist/index.js",
     external: ["@anthropic-ai/claude-agent-sdk-*"],
     package: "@agentclientprotocol/claude-agent-acp",
-    // 0.79 is the first to speak MCP 2026-07-28 by default; npx fetches it when the cache is older.
+    // Every version in the range speaks MCP 2026-07-28 by default, as 0.79 and later do
+    // (ADR 0022); npx fetches one when the cache is older.
     range: "^0.85.0",
   },
   apiKeyEnv: "ANTHROPIC_API_KEY",

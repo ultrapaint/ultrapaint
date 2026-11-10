@@ -37,8 +37,6 @@ const EXPORTS_RE = /export \{ ([^}]+) \};/;
 const slotsOf = (source: string) =>
   [...source.matchAll(/data-slot="([a-z-]+)"/g)].map(([, slot]) => slot);
 
-/** React's types as far as the catalogue needs them: what a component returns, what it takes. */
-
 describe("a new application", () => {
   it("is one the setup recognises: the app, its own components, its stylesheet", () => {
     const result = scaffold({ dir: "app", name: "Acme Web", tokens: {} });

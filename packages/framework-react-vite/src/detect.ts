@@ -164,7 +164,7 @@ const best = <T>(items: Scored<T>[]): T[] =>
 /** What the setup proposes of a repository's application, the stylesheets aside. */
 export type Detected = Pick<
   SetupSuggestions,
-  "anchors" | "designsDirs" | "libraries" | "rootManifest"
+  "anchors" | "designsDirs" | "libraries"
 >;
 
 /**

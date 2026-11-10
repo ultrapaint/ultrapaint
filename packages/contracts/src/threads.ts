@@ -175,11 +175,6 @@ export type BoardPickKind = typeof BoardPickKind.Type;
  */
 export const TEXT_ATTACHMENT_LIMIT = 100_000;
 
-/**
- * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
- * can switch it between prompts. Its session starts with the first prompt that needs it, so a
- * thread exists before any agent does.
- */
 export const PromptAttachment = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
   /** A node of a design document the user has selected on the canvas. */
@@ -290,6 +285,11 @@ export const SlashCommand = Schema.Struct({
 });
 export type SlashCommand = typeof SlashCommand.Type;
 
+/**
+ * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
+ * can switch it between prompts. Its session starts with the first prompt that needs it, so a
+ * thread exists before any agent does.
+ */
 export const Thread = Schema.Struct({
   /**
    * The commands the agent's own session offers after a `/` (ACP's available commands), as it
@@ -502,8 +502,7 @@ const ToolCallStatus = Schema.Literals([
 ]);
 
 /** How a review model's look at a round went. */
-export const ReviewerStatus = Schema.Literals(["looking", "done", "no-score"]);
-export type ReviewerStatus = typeof ReviewerStatus.Type;
+const ReviewerStatus = Schema.Literals(["looking", "done", "no-score"]);
 
 /** One review model in one round of a design's review (ADR 0063). */
 export const RoundReviewer = Schema.Struct({
@@ -814,15 +813,17 @@ const textOf = (item: ThreadItem | undefined): string => {
 };
 
 /**
- * A thread's last line, and whether it waits on the user: a question unanswered or a permission
- * undecided. What the list of threads shows under each title.
+ * A thread's last line, and whether it waits on the user: a question neither answered, declined
+ * nor withdrawn, or a permission undecided. What the list of threads shows under each title.
  */
 export const summarise = (
   items: readonly ThreadItem[]
 ): { text: string; waiting: boolean } => {
   const pending = items.findLast(
     (i) =>
-      (i.kind === "question" && i.answers === null) ||
+      (i.kind === "question" &&
+        i.answers === null &&
+        i.outcome === undefined) ||
       (i.kind === "permission" && i.decision === null)
   );
   const said = items.findLast((i) => i.kind === "agent" || i.kind === "user");

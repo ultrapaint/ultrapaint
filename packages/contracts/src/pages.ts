@@ -83,7 +83,7 @@ export const presetSize: Record<
  */
 export const FrameView = Schema.Struct({
   height: Schema.Number,
-  /** What tells it from the page's other views, unique among them: `mobile`, `v2`. */
+  /** What tells it from the page's other views, unique among them: `w390`, `w390-2`. */
   id: Schema.String.check(Schema.isMinLength(1)),
   width: Schema.Number,
   /** From the page frame's left edge. */
@@ -105,11 +105,6 @@ export const FrameLayout = Schema.Struct({
 export type FrameLayout = typeof FrameLayout.Type;
 
 /**
- * Contents of `<canvas>/canvas.json`, the file that makes a directory a canvas: its name, where
- * the pages' frames sit and which URL each page serves, both keyed by the page's path inside the
- * canvas, and the nodes placed on the canvas beside the pages, each at its own `x` and `y`.
- */
-/**
  * What every page of a canvas is drawn in, as the application's root would set it: its theme,
  * its background and its type. Values are tokens (`$color-background`) or CSS, as a node's are.
  */
@@ -120,11 +115,19 @@ export const PageDefaults = Schema.Struct({
   /** A multiple of the size, or a length; the size's own line height when absent. */
   leading: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
   size: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
-  /** A theme of the design system: `dark` is the class, any other the `data-theme`. */
+  /**
+   * A theme of the design system, set as a class and as `data-theme` both: `dark` is a class to
+   * Tailwind, any other theme its `data-theme`.
+   */
   theme: Schema.optional(Schema.String),
 });
 export type PageDefaults = typeof PageDefaults.Type;
 
+/**
+ * Contents of `<canvas>/canvas.json`, the file that makes a directory a canvas: its name, where
+ * the pages' frames sit and which URL each page serves, both keyed by the page's path inside the
+ * canvas, and the nodes placed on the canvas beside the pages, each at its own `x` and `y`.
+ */
 export const CanvasLayout = Schema.Struct({
   /** What every page of the canvas is drawn in; the stylesheet's own defaults when absent. */
   defaults: Schema.optional(PageDefaults),

@@ -17,7 +17,7 @@ import { isToken } from "./tokens.ts";
 import { childrenOf } from "./tree.ts";
 
 /** The spacing base in pixels when the design system says none: Tailwind's 0.25rem. */
-export const DEFAULT_SPACING_BASE = 4;
+const DEFAULT_SPACING_BASE = 4;
 
 /** What kind of token a value should have been. */
 export type OffSystemKind =

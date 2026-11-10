@@ -168,6 +168,18 @@ describe("documentTokens", () => {
       "typography.body-md.fontSize: 16 is not a length in px, em or rem.",
     ]);
   });
+
+  it("says a weight or a line height that is no number, an empty one among them", () => {
+    const doc = parse(
+      "---\ntypography:\n  body:\n    fontWeight: ''\n    lineHeight: '0x10'\n---\n"
+    );
+    const { groups, problems } = groupsOf(doc);
+    expect(groups.typography).toEqual({ body: {} });
+    expect(problems).toEqual([
+      "typography.body.fontWeight:  is not a number.",
+      "typography.body.lineHeight: 0x10 is neither a number nor a length.",
+    ]);
+  });
 });
 
 describe("documentPathOf", () => {

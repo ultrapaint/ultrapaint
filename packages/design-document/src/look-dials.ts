@@ -38,14 +38,14 @@ export interface LookDials {
 }
 
 /** Lucide's stroke on its 24px grid, for each weight the page offers. */
-export const ICON_STROKES: Record<IconStroke, number> = {
+const ICON_STROKES: Record<IconStroke, number> = {
   bold: 2.5,
   light: 1.5,
   regular: 2,
 };
 
 /** A typeface the look page offers: its stack, and the stylesheet that loads it. */
-export interface Typeface {
+interface Typeface {
   readonly name: string;
   readonly source: string;
   readonly stack: string;
@@ -70,7 +70,7 @@ export const TYPEFACES: readonly Typeface[] = [
   typeface("Nunito"),
 ];
 
-export interface LookPreset {
+interface LookPreset {
   readonly dials: LookDials;
   readonly name: string;
 }
@@ -348,7 +348,7 @@ const LEADING = [
 ];
 
 /** The typeface the dials name, Inter when they name none the page offers. */
-export const typefaceOf = (dials: LookDials): Typeface =>
+const typefaceOf = (dials: LookDials): Typeface =>
   TYPEFACES.find((t) => t.name === dials.typeface) ??
   (TYPEFACES[0] as Typeface);
 

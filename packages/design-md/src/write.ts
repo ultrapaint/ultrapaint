@@ -90,15 +90,17 @@ const writeGroup = (
     return;
   }
   const map = doc.get(group) as YAMLMap;
+  // By the key's own node: YAML reads `2:` as a number, which the string "2" does not find.
   for (const pair of [...map.items]) {
     const key = keyOf(pair.key);
     if (key !== null && !(key in wanted)) {
-      map.delete(key);
+      map.delete(pair.key);
     }
   }
   for (const [key, value] of Object.entries(wanted)) {
     if (!same(current[key], value)) {
-      map.set(key, doc.createNode(value));
+      const pair = map.items.find((p) => keyOf(p.key) === key);
+      map.set(pair?.key ?? key, doc.createNode(value));
     }
   }
 };
@@ -219,9 +221,11 @@ export const withSection = (
     (s) => s.section === name || s.heading === name
   );
   if (found) {
-    const headingEnd = text.indexOf("\n", found.start) + 1;
+    const newline = text.indexOf("\n", found.start);
+    // A heading that ends the file without a line break gets one.
+    const head = newline < 0 ? `${text}\n` : text.slice(0, newline + 1);
     const next = found.end < text.length ? "\n" : "";
-    return `${text.slice(0, headingEnd)}\n${block}${next}${text.slice(found.end)}`;
+    return `${head}\n${block}${next}${text.slice(found.end)}`;
   }
   const order = SECTIONS.findIndex((s) => s.name === name);
   const after = doc.sections.find((s) => {

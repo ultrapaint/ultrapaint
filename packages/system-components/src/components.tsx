@@ -24,7 +24,7 @@ import { createPortal } from "react-dom";
 import { useComponentFrame, useOverlayOpen } from "./frame.ts";
 
 /** An item of a Select or a Menu: its label, and the picture a template may show (ADR 0041). */
-export interface ListItem {
+interface ListItem {
   readonly image?: string | undefined;
   readonly label: string;
 }
@@ -114,7 +114,7 @@ const usePortal = () => useComponentFrame().container ?? undefined;
 
 /* ---------------- Inline ---------------- */
 
-export function Button(props: SystemComponentProps) {
+function Button(props: SystemComponentProps) {
   const loading = bool(props.loading);
   return (
     <button
@@ -135,7 +135,7 @@ export function Button(props: SystemComponentProps) {
   );
 }
 
-export function Badge(props: SystemComponentProps) {
+function Badge(props: SystemComponentProps) {
   return (
     <span
       {...marksOf(props)}
@@ -151,7 +151,7 @@ export function Badge(props: SystemComponentProps) {
 }
 
 /** The button's spinner on its own. */
-export function Spinner(props: SystemComponentProps) {
+function Spinner(props: SystemComponentProps) {
   return (
     <span
       aria-label="Loading"
@@ -185,7 +185,7 @@ function SystemAvatar(props: SystemComponentProps) {
   );
 }
 
-export function Card(props: SystemComponentProps) {
+function Card(props: SystemComponentProps) {
   const title = str(props.title);
   const description = str(props.description);
   const header = props.slots?.["card-header"];
@@ -241,7 +241,7 @@ const Label = ({ text }: { readonly text: string }) =>
  * A text field. Its icon (`input-icon`) is drawn over the start of the input's own box, which
  * keeps its border and its states, the text starting after it.
  */
-export function Input(props: SystemComponentProps) {
+function Input(props: SystemComponentProps) {
   const icon = props.slots?.["input-icon"];
   const disabled = bool(props.disabled);
   const input = (
@@ -280,7 +280,7 @@ export function Input(props: SystemComponentProps) {
   );
 }
 
-export function Textarea(props: SystemComponentProps) {
+function Textarea(props: SystemComponentProps) {
   const rows = typeof props.rows === "number" ? props.rows : 3;
   return (
     <label
@@ -472,7 +472,7 @@ function SystemSelect(props: SystemComponentProps) {
   );
 }
 
-export function SystemMenu(props: SystemComponentProps) {
+function SystemMenu(props: SystemComponentProps) {
   const entries = items(props.items);
   const { drawItem } = props;
   const container = usePortal();
@@ -622,7 +622,7 @@ function SystemTooltip(props: SystemComponentProps) {
  * A notification in the frame's corner. It has no trigger: a design shows it (`open`), as the
  * state of a page after something happened.
  */
-export function Toast(props: SystemComponentProps) {
+function Toast(props: SystemComponentProps) {
   const { container } = useComponentFrame();
   const { open } = useOverlayOpen(props.open as boolean | undefined);
   if (!(open && container)) {

@@ -23,8 +23,6 @@ import {
   type Comparable,
   comparable,
   formatNumber,
-  parseLength,
-  printLength,
   ROOT_PX,
   sameAs,
   toPx,
@@ -82,18 +80,6 @@ export const spacingStepAt = (px: number, basePx: number): number | null => {
   const step = px / basePx;
   const half = Math.round(step * 2) / 2;
   return Math.abs(half - step) < 0.001 ? half : null;
-};
-
-/**
- * A step's length in the base's own unit, 9 steps of `0.25rem` → `2.25rem`; the default's when
- * there is no base, null when the base is no length.
- */
-export const spacingLength = (
-  base: string | null | undefined,
-  step: number
-): string | null => {
-  const length = parseLength(base || DEFAULT_SPACING_BASE);
-  return length && printLength({ ...length, value: length.value * step });
 };
 
 /** What a font size's line height is called beside it: `text-sm--line-height`. */

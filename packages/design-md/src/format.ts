@@ -7,9 +7,6 @@
 /** The version of the format this package writes and reads. */
 export const FORMAT_VERSION = "alpha";
 
-/** The file's name, at the root of the repository. */
-export const DESIGN_MD_FILE = "DESIGN.md";
-
 /**
  * The body's sections in the order the format gives them, with the headings that also name them,
  * and Content, the product's choices for its words, added before Do's and Don'ts (ADR 0067): the

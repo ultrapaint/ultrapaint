@@ -1,8 +1,9 @@
 /**
  * The design system as the tool knows it: `design-system.json` at the root of the designs
  * directory, written by the `/init` agent (or by the fixed-rule scan) and read by the inspector,
- * the Design system panel, the preview and every agent briefing. It holds every token's value
- * (ADR 0028); the code, Figma and DESIGN.md are compared with it. A token's name is the one pages
+ * the Design system panel, the preview and every agent briefing. Every token's value is in
+ * `design.tokens.json` beside it and laid over it when it is read (ADR 0035); the code, Figma and
+ * DESIGN.md are compared with it. A token's name is the one pages
  * write without the `$` (`color-primary`); the style system maps it to its own
  * (`--color-primary` in Tailwind v4).
  */

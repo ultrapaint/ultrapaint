@@ -14,7 +14,6 @@ import {
   SPACING_STEPS,
   shortName,
   spacingBasePx,
-  spacingLength,
   spacingStepAt,
   spacingStepName,
   spacingStepOf,
@@ -353,13 +352,6 @@ describe("the spacing scale", () => {
     [16.0004, 4, 4],
   ] as const)("finds %spx on a %spx base at the step %s", (px, base, step) => {
     expect(spacingStepAt(px, base)).toBe(step);
-  });
-
-  it("gives a step's length in the base's own unit", () => {
-    expect(spacingLength("0.25rem", 9)).toBe("2.25rem");
-    expect(spacingLength("4px", 2.5)).toBe("10px");
-    expect(spacingLength(undefined, 4)).toBe("1rem");
-    expect(spacingLength("var(--x)", 4)).toBeNull();
   });
 });
 

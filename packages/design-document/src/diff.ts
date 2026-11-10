@@ -14,14 +14,14 @@ import {
 } from "./tree.ts";
 
 /** A node as the diff names it: its id, what it is, and what the layers panel calls it. */
-export interface NodeRef {
+interface NodeRef {
   readonly id: string;
   readonly label: string;
   readonly type: DesignNode["type"];
 }
 
 /** Where a node sits: its parent's id, null for the root, and its index among the children. */
-export interface Place {
+interface Place {
   readonly index: number;
   readonly parent: string | null;
 }
@@ -50,7 +50,7 @@ interface MovedNode extends NodeRef {
 }
 
 /** A node whose own fields changed, its children aside. */
-export interface ChangedNode extends NodeRef {
+interface ChangedNode extends NodeRef {
   readonly fields: readonly FieldChange[];
 }
 

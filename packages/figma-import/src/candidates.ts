@@ -9,7 +9,7 @@ const CAMEL_RE = /([a-z0-9])([A-Z])/g;
 const NON_WORD_RE = /[^a-z0-9 ]/g;
 
 /** Words of a name, lower case: `icon/ArrowLeft` → `["icon", "arrow", "left"]`. */
-export const wordsOf = (name: string): string[] =>
+const wordsOf = (name: string): string[] =>
   name
     .replace(CAMEL_RE, "$1 $2")
     .toLowerCase()

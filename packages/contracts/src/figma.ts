@@ -13,7 +13,10 @@ const PropRule = Schema.Struct({
   prop: Schema.optional(Schema.String),
   /** The property's value becomes the instance's text instead of a prop. */
   text: Schema.optional(Schema.Boolean),
-  /** Figma value → prop value; a value not listed is passed on as it is when `prop` is set. */
+  /**
+   * Figma value → prop value; a value not listed sets nothing, and the conversion warns of it.
+   * Without `values` the Figma value is passed on as it is when `prop` is set.
+   */
   values: Schema.optional(Schema.Record(Schema.String, Json)),
 });
 

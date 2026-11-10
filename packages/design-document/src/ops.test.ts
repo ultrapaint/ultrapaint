@@ -160,6 +160,23 @@ describe("applyOps", () => {
     ).toThrow(DocumentOpError);
   });
 
+  it("takes a node named twice as named once, replacing or wrapping it", () => {
+    const replaced = applyOps(
+      page(),
+      [{ ids: ["a", "a"], node: text("x"), op: "replace" }],
+      options()
+    );
+    expect(ids(findNode(replaced.root, "row"))).toEqual(["x", "b", "c"]);
+    const wrapped = applyOps(
+      page(),
+      [{ ids: ["a", "a"], op: "wrap", type: "column" }],
+      options()
+    );
+    const column = wrapped.created[0] as string;
+    expect(ids(findNode(wrapped.root, "row"))).toEqual([column, "b", "c"]);
+    expect(ids(findNode(wrapped.root, column))).toEqual(["a"]);
+  });
+
   it("replaces a node on the canvas at its position, unless the node gives its own", () => {
     const canvas = canvasRoot([{ ...text("free"), x: 10, y: 20 }]);
     const opts = { canvas: true, next: makeIdGenerator() };
@@ -401,5 +418,25 @@ describe("touchedBy", () => {
       next: () => "x_1",
     });
     expect(touchedBy(ops, [], root).sort()).toEqual(["a", "c"]);
+  });
+
+  it("names an inserted node by the id it got, not the node that had its id", () => {
+    const before: DesignNode = {
+      children: [{ id: "a", role: "paragraph", text: "A", type: "text" }],
+      id: "root",
+      type: "page",
+    };
+    const ops: DocOp[] = [
+      {
+        node: { id: "a", role: "paragraph", text: "New", type: "text" },
+        op: "insert",
+        parent: null,
+      },
+    ];
+    const { created, root } = applyOps(before, ops, {
+      canvas: false,
+      next: () => "x_1",
+    });
+    expect(touchedBy(ops, created, root)).toEqual(["x_1"]);
   });
 });

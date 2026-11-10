@@ -77,7 +77,7 @@ interface ApplyOptions {
   readonly next: IdGenerator;
 }
 
-export interface Applied {
+interface Applied {
   /** Ids of the nodes the operations created: inserted, duplicated, wrapped. */
   readonly created: string[];
   readonly root: DesignNode;
@@ -203,7 +203,9 @@ export const applyOps = (
   };
 
   const replaceOp = (op: Extract<DocOp, { op: "replace" }>) => {
-    const found = op.ids.map(locate);
+    // Each node once: an id named twice would be taken out twice.
+    const ids = [...new Set(op.ids)];
+    const found = ids.map(locate);
     const [first] = found;
     if (!first || found.some((f) => f.parent !== first.parent)) {
       return fail(
@@ -213,7 +215,7 @@ export const applyOps = (
     const { node: was, parent, siblings } = first;
     // Where the first of them was, counting the siblings left before it.
     const at = Math.min(...found.map((f) => f.index));
-    for (const id of op.ids) {
+    for (const id of ids) {
       siblings.splice(
         siblings.findIndex((c) => c.id === id),
         1
@@ -314,7 +316,8 @@ export const applyOps = (
   };
 
   const wrapOp = (op: Extract<DocOp, { op: "wrap" }>) => {
-    const located = op.ids.map(locate);
+    // Each node once: an id named twice would be wrapped twice.
+    const located = [...new Set(op.ids)].map(locate);
     const [first] = located;
     if (!first) {
       return;
@@ -433,8 +436,6 @@ export const touchedBy = (
   for (const op of ops) {
     if (op.op === "update" || op.op === "setProps" || op.op === "move") {
       ids.add(op.id);
-    } else if (op.op === "insert") {
-      ids.add(op.node.id);
     }
   }
   const present = idsOf(after);

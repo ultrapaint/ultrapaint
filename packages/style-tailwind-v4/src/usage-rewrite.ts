@@ -298,5 +298,5 @@ const rewriter: UsageReader["rewriter"] = (ctx, mapping) => {
   };
 };
 
-/** What the server reaches of the code's usage, through the `Framework` interface. */
+/** What the server reaches of the code's usage, through the `StyleSystem` interface. */
 export const usage: UsageReader = { ...scanning, rewriter, suggest };

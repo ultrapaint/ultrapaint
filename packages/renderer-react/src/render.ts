@@ -346,7 +346,6 @@ const marksOf = (scope: Scope, node: InstanceNode) => ({
   [scope.nodeAttribute]: node.id,
   [COMPONENT_ATTRIBUTE]: node.component,
   [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
-  "data-ed-instance": node.component,
 });
 
 /**
@@ -456,8 +455,6 @@ const IsolatedView = ({
           [NODE_ATTRIBUTE]: tree.id,
           [COMPONENT_ATTRIBUTE]: node.component,
           [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
-          "data-ed-instance": node.component,
-          "data-ed-isolated": "",
         },
         style: {
           ...own,

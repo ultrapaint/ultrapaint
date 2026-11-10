@@ -20,6 +20,7 @@ import type {
   ComponentProperty,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import { layOver } from "./breakpoints.ts";
 import { type IdGenerator, idPrefix } from "./ids.ts";
 import { fillSlots } from "./slots.ts";
 import { childrenOf } from "./tree.ts";
@@ -54,17 +55,6 @@ const chosenKeys = (
       ? [variantKey(p.name, value)]
       : [];
   });
-
-/** A node's fields with an override's over them; an instance's props are laid over its own. */
-const layOver = (into: Fields, over: Fields) => {
-  for (const [key, value] of Object.entries(over)) {
-    if (key === "props" && value && typeof value === "object") {
-      into.props = { ...(into.props as Fields | undefined), ...value };
-    } else if (value !== undefined) {
-      into[key] = value;
-    }
-  }
-};
 
 /** A node with the chosen members' overrides laid over it, and no variant's left in its `at`. */
 const withVariants = (node: DesignNode, chosen: readonly string[]): Fields => {
@@ -124,7 +114,7 @@ export const componentSlotOf = (slot: AppSlot): ComponentSlot => ({
 });
 
 /** What drawing an instance comes to. */
-export interface Expanded {
+interface Expanded {
   /** The ids of the instance's own children put in its slots: the page's nodes, not the component's. */
   readonly filled: ReadonlySet<string>;
   readonly tree: DesignNode;

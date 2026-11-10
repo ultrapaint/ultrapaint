@@ -5,7 +5,8 @@ export type NonEmptyString = typeof NonEmptyString.Type;
 
 /** A path relative to the target repository root, posix separators. */
 export const RepoRelativePath = Schema.String.check(
-  Schema.isPattern(/^(?!\/)(?!.*\.\.)[^\0]*$/)
+  // `s`: a `..` after a line break is still one.
+  Schema.isPattern(/^(?!\/)(?!.*\.\.)[^\0]*$/s)
 );
 export type RepoRelativePath = typeof RepoRelativePath.Type;
 

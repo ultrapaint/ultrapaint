@@ -55,6 +55,11 @@ describe("contracts", () => {
       { ids: ["a", "b"], op: "wrap", type: "row" },
       { id: "r1", op: "unwrap" },
       { id: "r1", op: "duplicate" },
+      {
+        ids: ["a", "b"],
+        node: { id: "t2", role: "paragraph", text: "Hi", type: "text" },
+        op: "replace",
+      },
     ];
     for (const op of ops) {
       expect(overTheWire(DocOp, op)).toEqual(op);

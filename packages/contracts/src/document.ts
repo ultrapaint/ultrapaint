@@ -476,8 +476,9 @@ export const DocOp = Schema.Union([
     parent: Schema.NullOr(Schema.String),
   }),
   /**
-   * Sets fields of the node; `null` removes one. `id`, `type` and `children` are not fields.
-   * With `at`, they are set from that breakpoint on (ADR 0036), in the node's `at`.
+   * Sets fields of the node; `null` removes one. `id` and `children` are not fields, and `type`
+   * only turns a group, a row or a column into another of the three. With `at`, they are set from
+   * that breakpoint on (ADR 0036), in the node's `at`.
    */
   Schema.Struct({
     at: Schema.optional(BreakpointName),

@@ -35,10 +35,6 @@ const pointerEventsSheet = () => {
 };
 
 /**
- * Runs the lookup with the page's own defences down. Both changes are undone before anything
- * else can observe them: nothing here yields, and neither affects what is painted.
- */
-/**
  * Where a lookup happens: a document, or a frame's shadow root in the editor's page,
  * whose points are the screen's and whose size is the frame's.
  */
@@ -54,7 +50,11 @@ const documentScope: HitScope = {
   viewport: () => ({ height: window.innerHeight, width: window.innerWidth }),
 };
 
-export const unblocked = <T>(scope: HitScope, read: () => T): T => {
+/**
+ * Runs the lookup with the page's own defences down. Both changes are undone before anything
+ * else can observe them: nothing here yields, and neither affects what is painted.
+ */
+const unblocked = <T>(scope: HitScope, read: () => T): T => {
   const { root } = scope;
   const inert = Array.from(root.querySelectorAll(`[${INERT}]`));
   for (const el of inert) {

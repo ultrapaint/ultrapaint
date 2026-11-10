@@ -4,7 +4,7 @@
  * `color-primary`, `rounded.md` is `radius-md`, `spacing.base` is `spacing`.
  */
 import { SPACING_BASE, tokenPrefix } from "@ultrapaint/contracts/token-table";
-import { isColor } from "@ultrapaint/contracts/token-value";
+import { isColor, parseNumber } from "@ultrapaint/contracts/token-value";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {
   MIRRORED_GROUPS,
@@ -42,8 +42,9 @@ const weightOf = (
   if (typeof weight !== "number" && typeof weight !== "string") {
     return;
   }
-  const n = Number(weight);
-  if (Number.isFinite(n)) {
+  // As CSS writes a number: `Number` would take "" for 0 and "0x10" for 16.
+  const n = typeof weight === "number" ? weight : parseNumber(weight);
+  if (n !== null && Number.isFinite(n)) {
     return n;
   }
   problems.push(`typography.${key}.fontWeight: ${weight} is not a number.`);
@@ -64,8 +65,9 @@ const lineHeightOf = (
   if (isDimension(leading)) {
     return leading;
   }
-  if (Number.isFinite(Number(leading))) {
-    return Number(leading);
+  const n = parseNumber(leading);
+  if (n !== null && Number.isFinite(n)) {
+    return n;
   }
   problems.push(
     `typography.${key}.lineHeight: ${leading} is neither a number nor a length.`

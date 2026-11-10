@@ -61,7 +61,6 @@ export const CreateDesignsResult = Schema.Struct({
 });
 export type CreateDesignsResult = typeof CreateDesignsResult.Type;
 
-/** A new application, written where the repository has none (ADR 0025). */
 /**
  * What a new application starts with: `starter`, a component for each system component; `blank`, none,
  * and a theme that declares nothing (PLAN-desktop D11).
@@ -69,6 +68,7 @@ export type CreateDesignsResult = typeof CreateDesignsResult.Type;
 export const ScaffoldTemplate = Schema.Literals(["starter", "blank"]);
 export type ScaffoldTemplate = typeof ScaffoldTemplate.Type;
 
+/** A new application, written where the repository has none (ADR 0025). */
 export const ScaffoldInput = Schema.Struct({
   /** Where the pages go, repo-relative; `docs/designs` when absent. */
   designsDir: Schema.optional(RepoRelativePath),

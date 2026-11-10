@@ -51,7 +51,6 @@ type StreamCall = (
 interface ConnectionOptions {
   onState?: (state: ConnectionState) => void;
   url: string;
-  WebSocketImpl?: typeof WebSocket;
 }
 
 const isWireError = (
@@ -80,7 +79,7 @@ interface SessionHooks {
 /** One socket, from connect to disconnect. Succeeds with whether it ever opened. */
 const runSession = (options: ConnectionOptions, hooks: SessionHooks) =>
   Effect.gen(function* () {
-    const { url, WebSocketImpl } = options;
+    const { url } = options;
     const connected = yield* Deferred.make<void>();
     const disconnected = yield* Deferred.make<void>();
     const protocol = Layer.effect(
@@ -92,14 +91,7 @@ const runSession = (options: ConnectionOptions, hooks: SessionHooks) =>
       })
     ).pipe(
       Layer.provide(Socket.layerWebSocket(url)),
-      Layer.provide(
-        WebSocketImpl
-          ? Layer.succeed(
-              Socket.WebSocketConstructor,
-              (target) => new WebSocketImpl(target)
-            )
-          : Socket.layerWebSocketConstructorGlobal
-      ),
+      Layer.provide(Socket.layerWebSocketConstructorGlobal),
       Layer.provide(RpcSerialization.layerJson),
       Layer.provide(
         Layer.succeed(RpcClient.ConnectionHooks, {

@@ -21,7 +21,8 @@ export const codex: BuiltInAgent<"codex"> = {
     entry: "dist/index.js",
     external: ["@openai/codex-*"],
     package: "@agentclientprotocol/codex-acp",
-    // 1.1.14 is the first on a Codex that can speak MCP 2026-07-28.
+    // Every version in the range is on a Codex that can speak MCP 2026-07-28, as 1.1.14 and
+    // later are.
     range: "^2.1.1",
   },
   executable: {

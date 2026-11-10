@@ -194,7 +194,7 @@ const html = (name: string) => `<!doctype html>
 /**
  * The versions ultrapaint itself is built and tested with. A blank application leaves out
  * Base UI, which only the starter's components use; it keeps what a component written the
- * shadcn way needs (ADR 0029), for the first one implemented.
+ * shadcn way needs, for the first one implemented.
  */
 const dependenciesOf = (template: ScaffoldTemplate) => ({
   ...(template === "starter" && { "@base-ui/react": "^1.8.0" }),
@@ -240,7 +240,7 @@ const packageNameOf = (name: string) =>
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "") || "app";
 
-/** A new application to start from, for a repository that has none (phase 6 of the sync). */
+/** A new application to start from, for a repository that has none (ADR 0025). */
 export const scaffold = ({
   dir,
   name,

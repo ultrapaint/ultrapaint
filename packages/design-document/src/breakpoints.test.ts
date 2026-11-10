@@ -168,6 +168,16 @@ describe("writing at a breakpoint", () => {
     ).toThrow("row or a column");
   });
 
+  it("refuses a slot at a breakpoint: a child fills one part of its parent at every width", () => {
+    expect(() =>
+      applyOps(
+        page,
+        [{ at: "md", id: "plain", op: "update", set: { slot: "footer" } }],
+        options()
+      )
+    ).toThrow("slot is the same at every breakpoint");
+  });
+
   it("sets an instance's props from a breakpoint on", () => {
     const withButton: PageNode = {
       children: [

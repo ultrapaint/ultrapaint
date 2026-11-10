@@ -24,7 +24,7 @@ export const formatNodeRef = (ref: NodeRef): string =>
   `${ref.canvas ? `${ref.canvas}:` : ""}${ref.page ?? CANVAS}#${ref.nodeId}`;
 
 /** What a link to the editor names: a page (its URL or its id), maybe one node of it. */
-export interface EditorLink {
+interface EditorLink {
   readonly canvas?: string;
   readonly nodeId?: string;
   /** The page's URL or id; null for the canvas beside the pages, which a node's link says. */

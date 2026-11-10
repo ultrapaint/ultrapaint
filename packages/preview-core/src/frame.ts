@@ -43,8 +43,6 @@ const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
 /** A frame's host once its page has drawn: what it shows is the page's, not a blank. */
 const DRAWN_ATTRIBUTE = "data-ed-drawn";
 const INERT = "inert";
-/** On a frame's body while it runs. */
-const LIVE = "data-ed-live";
 
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
 const SHARP_CROP_WIDTH = 800;
@@ -406,8 +404,6 @@ const mountFrame = (
     } else {
       body.setAttribute(INERT, "");
     }
-    // What a pointer does shows only in a frame that runs (the system components' look, ADR 0040).
-    body.toggleAttribute(LIVE, shown.interactive);
   };
 
   const reportPress = (e: Event) => {

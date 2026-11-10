@@ -74,13 +74,13 @@ const LENGTH_UNITS = [
 ] as const;
 type LengthUnit = (typeof LENGTH_UNITS)[number];
 
-export interface Length {
+interface Length {
   readonly kind: "length";
   readonly unit: LengthUnit;
   readonly value: number;
 }
 
-export interface Duration {
+interface Duration {
   readonly kind: "duration";
   readonly unit: "ms" | "s";
   readonly value: number;

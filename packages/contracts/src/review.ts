@@ -70,7 +70,7 @@ export const CATEGORY_FILES: Readonly<Record<Category, string>> = {
 };
 
 /** Scored on every section: every screen has them. The others, where the section has them. */
-export const ALWAYS_SCORED: readonly Category[] = [
+const ALWAYS_SCORED: readonly Category[] = [
   "hierarchy",
   "restraint",
   "layout",
@@ -84,7 +84,7 @@ export const Severity = Schema.Literals(SEVERITIES);
 export type Severity = typeof Severity.Type;
 
 /** What a finding of each severity takes off its category. */
-export const PENALTY: Readonly<Record<Severity, number>> = {
+const PENALTY: Readonly<Record<Severity, number>> = {
   blocker: 40,
   major: 15,
   minor: 5,
@@ -92,7 +92,7 @@ export const PENALTY: Readonly<Record<Severity, number>> = {
 };
 
 /** The highest overall a section with a blocker can have. */
-export const BLOCKER_CAP = 60;
+const BLOCKER_CAP = 60;
 
 /** One problem a reviewer found in a section. */
 export const Finding = Schema.Struct({
@@ -126,7 +126,7 @@ export interface Scored {
 }
 
 /** A reviewer that gave no review: its score is not known, and none is made up. */
-export interface NoScore {
+interface NoScore {
   readonly kind: "none";
   readonly reason: string;
 }
@@ -243,7 +243,7 @@ export type Goal = typeof Goal.Type;
 export const MAX_ROUNDS = 2;
 
 /** Fewer points than this over this many rounds is no gain. */
-export const PLATEAU = { points: 2, rounds: 2 } as const;
+const PLATEAU = { points: 2, rounds: 2 } as const;
 
 /** One reviewer in one round: its score of the page and whether it signed off every section. */
 export interface ReviewerRound {
@@ -299,7 +299,7 @@ const unmet = (
 };
 
 /** A round's progress: the mean overall of the reviewers that scored it. */
-export const progressOf = (round: Round): number | undefined => {
+const progressOf = (round: Round): number | undefined => {
   const overalls = Object.values(round.reviewers).flatMap((r) =>
     r.score.kind === "scored" ? [r.score.overall] : []
   );
@@ -307,7 +307,7 @@ export const progressOf = (round: Round): number | undefined => {
 };
 
 /** The round with the best progress, the later of a tie; the first when none scored. */
-export const bestRoundOf = (rounds: readonly Round[]): number => {
+const bestRoundOf = (rounds: readonly Round[]): number => {
   let best = 0;
   let bestProgress = Number.NEGATIVE_INFINITY;
   rounds.forEach((round, i) => {

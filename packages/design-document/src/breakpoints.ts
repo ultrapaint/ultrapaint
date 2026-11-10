@@ -70,8 +70,11 @@ export const upTo = (
 
 type Fields = Record<string, unknown>;
 
-/** A node's fields with a breakpoint's over them; an instance's props are laid over its own. */
-const layOver = (into: Fields, over: Fields) => {
+/**
+ * A node's fields with a breakpoint's or a variant's over them; an instance's props are laid over
+ * its own.
+ */
+export const layOver = (into: Fields, over: Fields) => {
   for (const [key, value] of Object.entries(over)) {
     if (key === "props" && value && typeof value === "object") {
       into.props = { ...(into.props as Fields | undefined), ...value };
@@ -150,11 +153,6 @@ export const resolveAt = (
     breakpointAt(breakpoints, width)?.name ?? null
   );
 
-/** Whether anything in the tree differs at some breakpoint. */
-const hasOverrides = (node: DesignNode): boolean =>
-  (node.at !== undefined && Object.keys(node.at).length > 0) ||
-  childrenOf(node).some(hasOverrides);
-
 /** The breakpoints the tree sets anything at, smallest first: what its code has prefixes for. */
 export const breakpointsUsed = (
   node: DesignNode,
@@ -219,6 +217,7 @@ export const FIXED_FIELDS: ReadonlySet<string> = new Set([
   "locked",
   "name",
   "role",
+  "slot",
   "x",
   "y",
 ]);

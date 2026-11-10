@@ -128,7 +128,7 @@ const fallbacksOf = ({ state, variant }: Place): Place[] => {
  * A part's style as the fields the tab shows, one value each: a border's colour and width apart,
  * padding as one value when it is the same on every side and as each side.
  */
-export const fieldsOf = (style: PartStyle): Record<string, JsonValue> => {
+const fieldsOf = (style: PartStyle): Record<string, JsonValue> => {
   const { border, padding, ...rest } = style;
   const out: Record<string, JsonValue> = { ...rest };
   if (border?.color !== undefined) {
