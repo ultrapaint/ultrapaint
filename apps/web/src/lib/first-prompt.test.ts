@@ -22,10 +22,8 @@ const openedWith = (search: string) => {
   location.href = `http://127.0.0.1:4770/${search}`;
 };
 
-const withPrompt = (start: object, extra = "") =>
-  openedWith(
-    `?first-prompt=${encodeURIComponent(JSON.stringify(start))}${extra}`
-  );
+const withPrompt = (start: object) =>
+  openedWith(`?first-prompt=${encodeURIComponent(JSON.stringify(start))}`);
 
 const thread: Thread = {
   agentId: "claude-code",
@@ -65,15 +63,12 @@ afterEach(() => {
 
 describe("the start screen's prompt", () => {
   it("is sent in a new chat with the agent and model chosen, and taken off the address", async () => {
-    withPrompt(
-      {
-        agentId: "claude-code",
-        look: "agent",
-        model: "opus",
-        prompt: "A habit tracker",
-      },
-      "&new-design=blank"
-    );
+    withPrompt({
+      agentId: "claude-code",
+      look: "agent",
+      model: "opus",
+      prompt: "A habit tracker",
+    });
     answerThreads();
     await sendFirstPrompt();
     expect(call("threads.create")).toEqual({ agentId: "claude-code" });

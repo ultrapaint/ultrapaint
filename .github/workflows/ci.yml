@@ -1,4 +1,7 @@
-# Lints, typechecks and tests every push to main and every pull request against it.
+# Lints, typechecks and tests every push to main and every pull request against it, then builds
+# what a release builds short of the installers: the command's package and the desktop app as it
+# is packaged. The release tags before the desktop app is built (release.yml), so a bundling
+# break is found here, not on a tag.
 name: CI
 
 on:
@@ -35,3 +38,12 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Pack the command
+        run: pnpm pack:local
+
+      # `pnpm desktop:build` without electron-builder: the app's code, the adapters, the editor
+      # and the server, bundled as the installers hold them. With `run`: `pnpm stage` alone is
+      # a command of pnpm's own.
+      - name: Stage the desktop app
+        run: pnpm -F @ultrapaint/desktop run stage

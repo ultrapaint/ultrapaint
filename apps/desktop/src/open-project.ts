@@ -13,6 +13,7 @@ import {
   Deferred,
   Effect,
   Exit,
+  FileSystem,
   Layer,
   Option,
   Path,
@@ -20,7 +21,12 @@ import {
   Semaphore,
 } from "effect";
 import { Agents } from "./agents.ts";
-import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
+import {
+  ProjectOpen,
+  type ServerStartError,
+  StoreError,
+  type UnknownProject,
+} from "./errors.ts";
 import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import {
@@ -105,7 +111,7 @@ export class OpenProject extends Context.Service<
     readonly openFolder: (
       folder: string,
       name?: string,
-      /** For the editor, on its address: `new-design` for a design just written. */
+      /** For the editor, on its address: the start screen's prompt. */
       query?: Readonly<Record<string, string>>
     ) => Effect.Effect<
       { readonly opened: boolean; readonly project: Project },
@@ -119,6 +125,14 @@ export class OpenProject extends Context.Service<
     readonly open: (
       id: string
     ) => Effect.Effect<void, StoreError | UnknownProject | ServerStartError>;
+    /**
+     * Takes a project off the list, with the unsaved session the app kept for it; its folder,
+     * here or on another machine, is left as it is. Nothing when it is not in the list. The
+     * project open, opening or starting again stays: `ProjectOpen`.
+     */
+    readonly remove: (
+      id: string
+    ) => Effect.Effect<void, StoreError | ProjectOpen>;
     /**
      * Starts the open project's server again, so that it takes up a change to the agents; the
      * editor comes back where it was. Asks first when agents are at work; nothing changes when
@@ -135,12 +149,13 @@ export class OpenProject extends Context.Service<
     /** Stops the project opening, if one is, and shows the list in its place. */
     readonly stopOpening: Effect.Effect<void>;
     /**
-     * Stops the open project's server, as the app quits; a project still opening is given up
-     * first, so that the quit does not wait for it. With `ask`, an agent at work is the
-     * user's to stop: false when they would rather it went on, and nothing is stopped; a second
-     * stop while the question is on screen asks nothing more and has its answer. Without, a
-     * signal's: a question on screen (a quit's, a switch's or a restart's) is answered no, and
-     * any asked after it, and the server stops at once.
+     * Stops the open project's server, as the app quits; a project still opening or starting
+     * again is given up first, and none begins to open meanwhile, so that the quit waits for no
+     * launch. With `ask`, an agent at work is the user's to stop: false when they would rather
+     * it went on, and nothing is stopped; a second stop while the question is on screen asks
+     * nothing more and has its answer. Without, a signal's: a question on screen (a quit's, a
+     * switch's or a restart's) is answered no, and any asked after it, and the server stops at
+     * once.
      */
     readonly stop: (options: {
       readonly ask: boolean;
@@ -155,7 +170,11 @@ export class OpenProject extends Context.Service<
         const store = yield* ProjectStore;
         const servers = yield* ProjectServer;
         const shell = yield* Shell;
+        const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
+        // Where each project's unsaved session is kept, by its id: the app's to remove, with
+        // the project.
+        const sessions = path.join(dataDir, "sessions");
         // The terminal's PATH, so that a new application's install finds the user's Node and
         // agents their tools.
         const { env } = yield* LoginShell;
@@ -165,13 +184,17 @@ export class OpenProject extends Context.Service<
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
         /**
-         * The project opening and how to stop it: for the list, when the user asks, for
-         * another project picked meanwhile, or as the app quits.
+         * The launch under way and how to stop it. `shown` is a project the window says is
+         * opening, stopped for the list, when the user asks, for another project picked
+         * meanwhile, or as the app quits; not one starting again, which only a quit stops.
          */
-        let opening: {
+        let launching: {
           readonly id: string;
+          readonly shown: boolean;
           readonly stop: Deferred.Deferred<StopReason>;
         } | null = null;
+        // The quits waiting for the switch: a launch that would begin meanwhile does not.
+        let quits = 0;
         // Done once a signal stops the app: no question is answered yes after it.
         const signalled = yield* Deferred.make<void>();
         // The quit being asked, whose answer a second close or Cmd-Q meanwhile waits for.
@@ -266,7 +289,7 @@ export class OpenProject extends Context.Service<
                       ...env,
                       ULTRAPAINT_AGENT_RUNTIME: JSON.stringify(runtime),
                     },
-                    sessionDir: path.join(dataDir, "sessions", project.id),
+                    sessionDir: path.join(sessions, project.id),
                   });
                 })
           ).pipe(
@@ -289,6 +312,34 @@ export class OpenProject extends Context.Service<
           );
 
         /**
+         * Runs a launch that can be stopped: why, when it was. Stopped, the launch is
+         * interrupted: its scope closes, and the connection with it. With a quit waiting for
+         * the switch it does not begin: the quit would wait for the launch too.
+         */
+        const stoppable = Effect.fnUntraced(function* <E>(
+          { id, shown }: { readonly id: string; readonly shown: boolean },
+          launched: Effect.Effect<void, E>
+        ) {
+          if (quits > 0) {
+            return Option.some<StopReason>("quit");
+          }
+          const stop = yield* Deferred.make<StopReason>();
+          launching = { id, shown, stop };
+          return yield* Effect.raceFirst(
+            Effect.as(launched, Option.none<StopReason>()),
+            Effect.map(Deferred.await(stop), Option.some)
+          ).pipe(
+            Effect.ensuring(
+              Effect.sync(() => {
+                if (launching?.stop === stop) {
+                  launching = null;
+                }
+              })
+            )
+          );
+        });
+
+        /**
          * Launches `project`, the window saying so meanwhile; false when it was stopped first,
          * for the list (shown then), for another project or for a quit.
          */
@@ -296,24 +347,15 @@ export class OpenProject extends Context.Service<
           project: Project,
           query?: Readonly<Record<string, string>>
         ) {
-          const stop = yield* Deferred.make<StopReason>();
-          opening = { id: project.id, stop };
-          yield* shell.show({
-            _tag: "Opening",
-            detail: projectDetail(project),
-            name: project.name,
-          });
-          // Stopped, the launch is interrupted: its scope closes, and the connection with it.
-          const stopped = yield* Effect.raceFirst(
-            Effect.as(launch(project, { query }), Option.none()),
-            Effect.map(Deferred.await(stop), Option.some)
-          ).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (opening?.stop === stop) {
-                  opening = null;
-                }
-              })
+          const stopped = yield* stoppable(
+            { id: project.id, shown: true },
+            Effect.andThen(
+              shell.show({
+                _tag: "Opening",
+                detail: projectDetail(project),
+                name: project.name,
+              }),
+              launch(project, { query })
             )
           );
           if (Option.isSome(stopped) && stopped.value === "list") {
@@ -322,11 +364,14 @@ export class OpenProject extends Context.Service<
           return Option.isNone(stopped);
         });
 
-        /** Stops the project opening, for `reason`; nothing when none is. */
-        const stopOpening = (reason: StopReason) =>
+        /**
+         * Stops the project opening, for `reason`, and for a quit a project starting again
+         * too; nothing when none is.
+         */
+        const stopLaunch = (reason: StopReason) =>
           Effect.suspend(() =>
-            opening
-              ? Effect.asVoid(Deferred.succeed(opening.stop, reason))
+            launching && (reason === "quit" || launching.shown)
+              ? Effect.asVoid(Deferred.succeed(launching.stop, reason))
               : Effect.void
           );
 
@@ -339,7 +384,7 @@ export class OpenProject extends Context.Service<
           query?: Readonly<Record<string, string>>
         ) =>
           Effect.andThen(
-            stopOpening("switch"),
+            stopLaunch("switch"),
             switching.withPermits(1)(
               Effect.flatMap(release("switch", true), (released) =>
                 released
@@ -380,6 +425,56 @@ export class OpenProject extends Context.Service<
           return { opened: yield* openProject(project), project };
         });
 
+        const remove = Effect.fn("OpenProject.remove")(function* (id: string) {
+          const found = yield* Effect.catchTag(
+            Effect.asSome(store.get(id)),
+            "UnknownProject",
+            () => Effect.succeedNone
+          );
+          if (Option.isNone(found)) {
+            return;
+          }
+          if (open?.project.id === id || launching?.id === id) {
+            return yield* new ProjectOpen({ name: found.value.name });
+          }
+          yield* store.remove(id);
+          // Its session alone, a directory of its own among the sessions: an id that names
+          // another place deletes nothing.
+          const session = path.join(sessions, id);
+          if (path.dirname(session) === sessions) {
+            yield* fs.remove(session, { force: true, recursive: true }).pipe(
+              Effect.mapError(
+                (error) =>
+                  new StoreError({
+                    message: `${found.value.name} is off the list, but its unsaved session could not be deleted from ${session}: ${error.message}`,
+                  })
+              )
+            );
+          }
+        });
+
+        /**
+         * Lets go of the open project for a quit, which waits for no launch: the one under way
+         * is given up, and none begins while the quit waits for the switch.
+         */
+        const releaseToQuit = (ask: boolean) =>
+          Effect.suspend(() => {
+            let waiting = true;
+            quits += 1;
+            const waited = Effect.sync(() => {
+              if (waiting) {
+                waiting = false;
+                quits -= 1;
+              }
+            });
+            return Effect.andThen(
+              stopLaunch("quit"),
+              switching.withPermits(1)(
+                Effect.andThen(waited, release("quit", ask))
+              )
+            ).pipe(Effect.ensuring(waited));
+          });
+
         /** A quit the user is asked about; a second one meanwhile has the first's answer. */
         const askToQuit = Effect.suspend(() => {
           if (quitAsked) {
@@ -387,19 +482,16 @@ export class OpenProject extends Context.Service<
           }
           const asked = Deferred.makeUnsafe<boolean>();
           quitAsked = asked;
-          return Effect.onExit(
-            switching.withPermits(1)(release("quit", true)),
-            (exit) => {
-              quitAsked = null;
-              return Deferred.done(asked, exit);
-            }
-          );
+          return Effect.onExit(releaseToQuit(true), (exit) => {
+            quitAsked = null;
+            return Deferred.done(asked, exit);
+          });
         });
 
         /** A signal's quit: a question on screen is answered no, then the server stops. */
         const stopAtOnce = Effect.andThen(
           Deferred.succeed(signalled, undefined),
-          switching.withPermits(1)(release("quit", false))
+          releaseToQuit(false)
         );
 
         return OpenProject.of({
@@ -419,11 +511,12 @@ export class OpenProject extends Context.Service<
               if (open?.project.id === id) {
                 return showEditor(open.server);
               }
-              return opening?.id === id
+              return launching?.shown && launching.id === id
                 ? Effect.void
                 : Effect.asVoid(openProject(project));
             }),
           openFolder,
+          remove,
           restart: switching.withPermits(1)(
             Effect.gen(function* () {
               const was = open;
@@ -431,7 +524,13 @@ export class OpenProject extends Context.Service<
                 return;
               }
               if (yield* release("restart", true)) {
-                yield* showFailure(launch(was.project, { keepLocation: true }));
+                // Given up for a quit, there is nothing to show: the app is going.
+                yield* showFailure(
+                  stoppable(
+                    { id: was.project.id, shown: false },
+                    launch(was.project, { keepLocation: true })
+                  )
+                );
               }
             })
           ),
@@ -450,10 +549,8 @@ export class OpenProject extends Context.Service<
             // A project that cannot start leaves the window on the welcome page, saying why.
             yield* Effect.ignore(openProject(last.value));
           }),
-          // The opening holds the switch a quit waits for: given up first, the quit goes on.
-          stop: ({ ask }) =>
-            Effect.andThen(stopOpening("quit"), ask ? askToQuit : stopAtOnce),
-          stopOpening: stopOpening("list"),
+          stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
+          stopOpening: stopLaunch("list"),
         });
       })
     );

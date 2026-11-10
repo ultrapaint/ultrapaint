@@ -3,7 +3,9 @@
  * release for this machine (`agent-releases.ts`), checked by its size and SHA-256 before anything
  * of it is kept, into the app's data directory and nowhere else. Never the user's own `claude`
  * or `codex`, nor where those keep their settings: what is downloaded here is the app's, and is
- * used only where no agent is installed.
+ * used only where no agent is installed. The app pins the release it was built with: once a newer
+ * app pins another, the one downloaded before counts as not installed, and downloading again
+ * puts the pinned one in its place.
  */
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -92,7 +94,10 @@ export class AgentDownloads extends Context.Service<
   {
     /** Downloads and installs the agent's release; the executable installed. */
     readonly download: (id: string) => Effect.Effect<string, DownloadError>;
-    /** The executable of the agent downloaded before, if it still runs. */
+    /**
+     * The executable of the agent downloaded before, if it is the release pinned now and still
+     * runs.
+     */
     readonly installed: (id: string) => Effect.Effect<Option.Option<string>>;
     /** What can be downloaded of the agent on this machine. */
     readonly offer: (id: string) => Option.Option<AgentRelease>;
@@ -137,6 +142,13 @@ export class AgentDownloads extends Context.Service<
             .readFileString(path.join(dir, id, INSTALLED_FILE))
             .pipe(Effect.flatMap(decodeInstalled), Effect.option);
           if (Option.isNone(record)) {
+            return Option.none<string>();
+          }
+          // Another version than the one pinned, which the adapter bundled now was built
+          // against: missing, until the pinned one is downloaded. With no release for this
+          // machine there is none to download, and what is there stays.
+          const pinned = releases[id]?.version;
+          if (pinned !== undefined && record.value.version !== pinned) {
             return Option.none<string>();
           }
           const executable = path.join(dir, id, record.value.executable);
@@ -337,6 +349,19 @@ export class AgentDownloads extends Context.Service<
             path.join(agentDir, INSTALLED_FILE),
             `${record}\n`
           );
+          // What an earlier version left: the record names this one alone.
+          const kept = new Set([
+            release.version,
+            INSTALLED_FILE,
+            path.basename(staging),
+          ]);
+          for (const entry of yield* fs.readDirectory(agentDir)) {
+            if (!kept.has(entry)) {
+              yield* Effect.ignore(
+                fs.remove(path.join(agentDir, entry), { recursive: true })
+              );
+            }
+          }
           return path.join(final, executable);
         }, Effect.scoped);
 
@@ -352,7 +377,8 @@ export class AgentDownloads extends Context.Service<
           const lock = yield* lockOf(id);
           return yield* lock.withPermits(1)(
             Effect.gen(function* () {
-              // Asked twice: the second finds what the first installed.
+              // Asked twice: the second finds what the first installed. A version the app no
+              // longer pins is not found, and is replaced.
               const done = yield* installed(id);
               if (Option.isSome(done)) {
                 return done.value;

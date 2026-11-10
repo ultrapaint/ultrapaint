@@ -1,9 +1,9 @@
 /**
- * A design from nothing (PLAN-desktop D11): the New design dialog's name, folder, template, code
- * location and git setting, written by the server's own `ultrapaint new`, the command's code
- * path, run as the project's server is (Electron's binary as Node, the login shell's PATH, so the
- * user's Node and pnpm or npm install it). Each line it prints is a step for the dialog; once it
- * is written, the folder joins the project list and opens in place of the open project.
+ * A design from nothing (PLAN-desktop D11), as the start screen asks for it (ADR 0062): written
+ * by the server's own `ultrapaint new`, the command's code path, run as the project's server is
+ * (Electron's binary as Node, the login shell's PATH, so the user's Node and pnpm or npm install
+ * it). Each line it prints is a step the start screen shows; once it is written, the folder joins
+ * the project list and opens in place of the open project.
  */
 import { NewDesignProgressLine } from "@ultrapaint/contracts/new-design";
 import {
@@ -29,9 +29,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { type ServerLaunch, serverEnv } from "./project-server.ts";
-
-/** What the editor is opened with to know the design is new (`apps/web/src/lib/new-design.ts`). */
-export const NEW_DESIGN_PARAM = "new-design";
 
 /** Where new designs go unless the user picks another folder: `~/Ultrapaint`. */
 export const DESIGNS_HOME = "Ultrapaint";
@@ -66,12 +63,6 @@ export class NewDesigns extends Context.Service<
      * or `<name> 2`, `<name> 3`… when that is there already.
      */
     readonly folderFor: (name: string) => Effect.Effect<string>;
-    /** Adds a design whose writing stopped to the list, and opens it as it is. */
-    readonly open: (
-      folder: string,
-      name: string,
-      template: NewDesignInput["template"]
-    ) => Effect.Effect<NewDesignOutcome>;
   }
 >()("ultrapaint/desktop/NewDesigns") {
   /** `home` is the user's home directory; `launch` starts the server, as for a project. */
@@ -209,21 +200,17 @@ export class NewDesigns extends Context.Service<
 
         /**
          * Adds it to the list and opens it, reporting the app's own last step. The editor is
-         * told it is a new design, and given the start screen's prompt to send (ADR 0062).
+         * given the start screen's prompt to send (ADR 0062).
          */
         const open = Effect.fn("NewDesigns.open")(function* (
           folder: string,
           name: string,
-          template: NewDesignInput["template"],
           report: (update: NewDesignUpdate) => Effect.Effect<void>,
           start?: FirstPrompt
         ) {
           yield* report({ state: "active", step: "open" });
           return yield* projects
-            .openFolder(folder, name, {
-              [NEW_DESIGN_PARAM]: template,
-              ...firstPromptQuery(start),
-            })
+            .openFolder(folder, name, firstPromptQuery(start))
             .pipe(
               Effect.flatMap(({ opened }) =>
                 Effect.as(
@@ -275,14 +262,11 @@ export class NewDesigns extends Context.Service<
                 : yield* open(
                     request.folder,
                     request.name,
-                    request.template,
                     report,
                     request.start
                   );
             }),
           folderFor,
-          open: (folder, name, template) =>
-            open(folder, name, template, () => Effect.void),
         });
       })
     );

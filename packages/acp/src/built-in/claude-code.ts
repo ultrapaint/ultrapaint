@@ -36,8 +36,9 @@ export const claudeCode: BuiltInAgent<"claude-code"> = {
     external: ["@anthropic-ai/claude-agent-sdk-*"],
     package: "@agentclientprotocol/claude-agent-acp",
     // Every version in the range speaks MCP 2026-07-28 by default, as 0.79 and later do
-    // (ADR 0022); npx fetches one when the cache is older.
-    range: "^0.85.0",
+    // (ADR 0022); npx fetches one when the cache is older. On 0.x a caret takes one minor
+    // only: the one the desktop app bundles, so that the command runs what the app does.
+    range: "^0.95.0",
   },
   apiKeyEnv: "ANTHROPIC_API_KEY",
   env: {

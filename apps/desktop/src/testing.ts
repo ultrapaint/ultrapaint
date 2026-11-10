@@ -19,9 +19,16 @@ export interface Recorded {
   /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
+  /**
+   * Folders whose server, at its next start, never says where it listens: the start is
+   * recorded as a connection, and given up when what waits for it is stopped.
+   */
+  stalled: string[];
   /** What the window was told the app is doing, `null` once it is done. */
   statuses: (ShellStatus | null)[];
   views: View[];
+  /** Told when an event or a question is recorded: what `until` waits on. */
+  readonly watchers: Set<() => void>;
   /** How many agents each folder's server says are at work. */
   working: Record<string, number>;
 }
@@ -32,10 +39,46 @@ export const makeRecorded = (): Recorded => ({
   pickers: [],
   picks: [],
   questions: [],
+  stalled: [],
   statuses: [],
   views: [],
+  watchers: new Set(),
   working: {},
 });
+
+const tellWatchers = (recorded: Recorded) => {
+  for (const watcher of [...recorded.watchers]) {
+    watcher();
+  }
+};
+
+const recordEvent = (recorded: Recorded, event: string) => {
+  recorded.events.push(event);
+  tellWatchers(recorded);
+};
+
+/**
+ * Waits until the events and questions recorded are as `seen` says: now, or once a fake records
+ * the one that makes them so.
+ */
+export const until = (
+  recorded: Recorded,
+  seen: (recorded: Recorded) => boolean
+) =>
+  Effect.callback<void>((resume) => {
+    if (seen(recorded)) {
+      resume(Effect.void);
+      return;
+    }
+    const watcher = () => {
+      if (seen(recorded)) {
+        recorded.watchers.delete(watcher);
+        resume(Effect.void);
+      }
+    };
+    recorded.watchers.add(watcher);
+    return Effect.sync(() => recorded.watchers.delete(watcher));
+  });
 
 export const fakeShell = (recorded: Recorded) =>
   Layer.succeed(
@@ -44,6 +87,7 @@ export const fakeShell = (recorded: Recorded) =>
       confirm: ({ message }) =>
         Effect.suspend(() => {
           recorded.questions.push(message);
+          tellWatchers(recorded);
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
@@ -64,7 +108,8 @@ export const fakeShell = (recorded: Recorded) =>
 
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
- * named `broken` does not start, and one named `attached` has a server running already.
+ * named `broken` does not start, one named `attached` has a server running already, and one
+ * in `stalled` never says where it listens, once.
  */
 export const fakeServers = (recorded: Recorded) =>
   Layer.succeed(
@@ -76,11 +121,20 @@ export const fakeServers = (recorded: Recorded) =>
           if (name === "broken") {
             return yield* new ServerStartError({ message: "it broke" });
           }
+          const stalled = recorded.stalled.indexOf(name);
+          if (stalled !== -1) {
+            recorded.stalled.splice(stalled, 1);
+            recordEvent(recorded, `connect ${name}`);
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => recordEvent(recorded, `give up ${name}`))
+            );
+            return yield* Effect.never;
+          }
           const attached = name === "attached";
-          recorded.events.push(`${attached ? "attach" : "start"} ${name}`);
+          recordEvent(recorded, `${attached ? "attach" : "start"} ${name}`);
           if (!attached) {
             yield* Effect.addFinalizer(() =>
-              Effect.sync(() => recorded.events.push(`stop ${name}`))
+              Effect.sync(() => recordEvent(recorded, `stop ${name}`))
             );
           }
           return {
@@ -106,9 +160,9 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
         Effect.gen(function* () {
           if (project.host === "silent") {
             const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
-            recorded.events.push(`connect ${name}`);
+            recordEvent(recorded, `connect ${name}`);
             yield* Effect.addFinalizer(() =>
-              Effect.sync(() => recorded.events.push(`give up ${name}`))
+              Effect.sync(() => recordEvent(recorded, `give up ${name}`))
             );
             return yield* Effect.never;
           }
@@ -118,9 +172,9 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             });
           }
           const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
-          recorded.events.push(`start ${name}`);
+          recordEvent(recorded, `start ${name}`);
           yield* Effect.addFinalizer(() =>
-            Effect.sync(() => recorded.events.push(`stop ${name}`))
+            Effect.sync(() => recordEvent(recorded, `stop ${name}`))
           );
           return {
             attached: false,

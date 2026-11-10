@@ -101,7 +101,7 @@ describe("the built-in agents", () => {
   it("are launched through npx by the command, as they were before the descriptors", () => {
     const [claude, codex] = builtInLaunches;
     expect(claude).toMatchObject({
-      args: ["-y", "@agentclientprotocol/claude-agent-acp@^0.85.0"],
+      args: ["-y", "@agentclientprotocol/claude-agent-acp@^0.95.0"],
       builtIn: true,
       command: "npx",
       env: { CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR: "1" },

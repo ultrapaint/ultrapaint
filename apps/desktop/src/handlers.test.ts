@@ -70,7 +70,6 @@ const withHandlers = <A, E>(
               failed: { message: request.name, step: "install" },
             }),
           folderFor: (name) => Effect.succeed(`/home/u/Ultrapaint/${name}`),
-          open: () => Effect.succeed({}),
         })
       ),
       Layer.succeed(
@@ -146,6 +145,35 @@ describe("the bridge's handlers", () => {
             }),
             {}
           );
+        })
+      )
+  );
+
+  it.effect(
+    "remove a project from the list, and say why the open one stays",
+    () =>
+      withHandlers((handlers) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const shop = yield* store.add("/work/shop");
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          yield* handlers["projects.open"](shop.id);
+          yield* handlers["projects.remove"](site.id);
+          assert.deepStrictEqual(
+            (yield* handlers["projects.list"]()).map((p) => p.name),
+            ["shop"]
+          );
+          const refused = yield* Effect.flip(
+            handlers["projects.remove"](shop.id)
+          );
+          assert.strictEqual(
+            refused.message,
+            "shop is open. Open another project, then remove it from the list."
+          );
+          assert.strictEqual(yield* handlers["projects.current"](), shop.id);
         })
       )
   );

@@ -486,9 +486,14 @@ export const main = (args: readonly string[]): void => {
       // No browser to open is no reason to stop: the address is printed above.
       yield* Effect.ignore(run(command, rest, root));
     }).pipe(
-      // Said once; the processes' own output says why.
+      // Said once; the processes' own output says why. A build is waited for by its ready line,
+      // and has no address before it: port 0 is the server's to pick.
       Effect.catch(() =>
-        say(`[ultrapaint] ${where.editorUrl} did not answer in two minutes`)
+        say(
+          dev
+            ? `[ultrapaint] ${where.editorUrl} did not answer in two minutes`
+            : "[ultrapaint] the server did not say where it listens in two minutes"
+        )
       )
     );
 

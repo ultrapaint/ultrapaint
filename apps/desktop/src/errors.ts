@@ -22,6 +22,16 @@ export class UnknownProject extends Schema.TaggedError<UnknownProject>()(
   }
 }
 
+/** A project that cannot be taken off the list while it is open, or opening. */
+export class ProjectOpen extends Schema.TaggedError<ProjectOpen>()(
+  "ProjectOpen",
+  { name: Schema.String }
+) {
+  override get message() {
+    return `${this.name} is open. Open another project, then remove it from the list.`;
+  }
+}
+
 /** The page called a capability of the shell bridge with what its input does not take. */
 export class BridgeInputError extends Schema.TaggedError<BridgeInputError>()(
   "BridgeInputError",

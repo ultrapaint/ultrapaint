@@ -150,6 +150,11 @@ export class ProjectStore extends Context.Service<
     readonly list: Effect.Effect<readonly Project[], StoreError>;
     /** Notes that the project was opened now. */
     readonly opened: (id: string) => Effect.Effect<void, StoreError>;
+    /**
+     * Takes the project off the list; nothing when it is not there. The list alone: what the
+     * app keeps for the project besides is `OpenProject.remove`'s, and its folder no one's.
+     */
+    readonly remove: (id: string) => Effect.Effect<void, StoreError>;
   }
 >()("ultrapaint/desktop/ProjectStore") {
   /** The list in `dir`, the app's data directory. */
@@ -267,6 +272,13 @@ export class ProjectStore extends Context.Service<
           );
         }, lock.withPermits(1));
 
+        const remove = Effect.fn("ProjectStore.remove")(function* (id: string) {
+          const projects = yield* read;
+          if (projects.some((p) => p.id === id)) {
+            yield* write(projects.filter((p) => p.id !== id));
+          }
+        }, lock.withPermits(1));
+
         return ProjectStore.of({
           add,
           addRemote,
@@ -280,6 +292,7 @@ export class ProjectStore extends Context.Service<
             [...projects].sort((a, b) => a.name.localeCompare(b.name))
           ),
           opened,
+          remove,
         });
       })
     );

@@ -149,7 +149,7 @@ export const FolderKind = Schema.Struct({
 });
 export type FolderKind = typeof FolderKind.Type;
 
-/** A design from nothing (PLAN-desktop D11), as the dialog asks for it. */
+/** A design from nothing (PLAN-desktop D11), as the start screen asks for it (ADR 0062). */
 export const NewDesignInput = Schema.Struct({
   /** Where the application's code goes: `app/` beside the designs, or the folder's root. */
   code: CodeLocation,
@@ -308,11 +308,6 @@ export const SHELL_BRIDGE = {
    * `~/Ultrapaint`, numbered when one is there already.
    */
   "newDesign.folderFor": invoke([Schema.String], Schema.String),
-  /** Opens a design whose writing stopped part of the way, as it is: its folder, name, template. */
-  "newDesign.open": invoke(
-    [Schema.String, Schema.String, ScaffoldTemplate],
-    NewDesignOutcome
-  ),
   /** What the shell found missing on this machine. */
   notices: invoke([], Schema.Array(ShellNotice), LOCAL),
   /** A native folder picker; null when it is cancelled. */
@@ -356,6 +351,11 @@ export const SHELL_BRIDGE = {
     [Schema.String, Schema.optional(FirstPrompt)],
     Schema.Void
   ),
+  /**
+   * Takes a project off the list, with the unsaved session the shell kept for it; its folder is
+   * left as it is. The open project stays, and the call fails saying so.
+   */
+  "projects.remove": invoke([Schema.String], Schema.Void),
   /**
    * Shows the start screen in place of the open project's editor, which stays open behind it:
    * `open` with its id goes back to it.

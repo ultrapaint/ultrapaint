@@ -45,12 +45,16 @@ const BINARY = new TextEncoder().encode(
 );
 const ZST = new Uint8Array(zstdCompressSync(BINARY));
 
-const claudeRelease = (url: string, zstSha = sha256(ZST)): AgentRelease => ({
+const claudeRelease = (
+  url: string,
+  zstSha = sha256(ZST),
+  version = "9.9.9"
+): AgentRelease => ({
   kind: "zst-binary",
   sha256: sha256(BINARY),
   size: BINARY.length,
   url: `${url}/claude.zst`,
-  version: "9.9.9",
+  version,
   zstSha256: zstSha,
   zstSize: ZST.length,
 });
@@ -125,6 +129,43 @@ describe("AgentDownloads", () => {
           ["9.9.9", "installed.json"]
         );
         assert.isTrue(Option.isNone(yield* downloads.progress("claude-code")));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "counts a version the app no longer pins as not installed, and replaces it with the pinned one",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const server = yield* serve({ "/claude.zst": ZST });
+        const before = yield* Effect.provide(
+          AgentDownloads,
+          downloadsIn(dir, { "claude-code": claudeRelease(server.url) })
+        );
+        yield* before.download("claude-code");
+        // The app, updated: it pins the next version.
+        const after = yield* Effect.provide(
+          AgentDownloads,
+          downloadsIn(dir, {
+            "claude-code": claudeRelease(server.url, sha256(ZST), "9.9.10"),
+          })
+        );
+        assert.isTrue(Option.isNone(yield* after.installed("claude-code")));
+        const executable = yield* after.download("claude-code");
+        assert.strictEqual(
+          executable,
+          path.join(dir, "claude-code", "9.9.10", "claude")
+        );
+        assert.deepStrictEqual(
+          yield* after.installed("claude-code"),
+          Option.some(executable)
+        );
+        // The version it replaces goes with it.
+        assert.deepStrictEqual(
+          (yield* fs.readDirectory(path.join(dir, "claude-code"))).sort(),
+          ["9.9.10", "installed.json"]
+        );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 

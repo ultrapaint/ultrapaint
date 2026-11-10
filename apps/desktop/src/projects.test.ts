@@ -76,6 +76,39 @@ describe("ProjectStore", () => {
     )
   );
 
+  it.effect(
+    "takes a project off the list and leaves the others; one not there changes nothing",
+    () =>
+      inTemp((dir) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const fs = yield* FileSystem.FileSystem;
+          const shop = yield* store.add("/work/shop");
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          yield* store.remove(shop.id);
+          const file = path.join(dir, PROJECTS_FILE);
+          const written = yield* fs.readFileString(file);
+          yield* store.remove(shop.id);
+          yield* store.remove("nope");
+          assert.strictEqual(yield* fs.readFileString(file), written);
+          // Read again from the file, as the next start of the app does.
+          const reread = yield* Effect.provide(
+            ProjectStore.use((s) => s.list),
+            ProjectStore.layer(dir)
+          );
+          assert.deepStrictEqual(
+            reread.map((p) => p.id),
+            [site.id]
+          );
+          const gone = yield* Effect.flip(store.get(shop.id));
+          assert.strictEqual(gone._tag, "UnknownProject");
+        })
+      )
+  );
+
   it.effect("does not replace a list it cannot read with an empty one", () =>
     inTemp((dir) =>
       Effect.gen(function* () {

@@ -1,7 +1,7 @@
+import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
-import { TestClock } from "effect/testing";
 import { Agents, makeRuntime } from "./agents.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
@@ -12,10 +12,15 @@ import {
   fakeShell,
   makeRecorded,
   type Recorded,
+  until,
 } from "./testing.ts";
 
 const withApp = <A, E>(
-  body: (recorded: Recorded) => Effect.Effect<A, E, OpenProject | ProjectStore>
+  body: (
+    recorded: Recorded,
+    /** The app's data directory. */
+    dir: string
+  ) => Effect.Effect<A, E, OpenProject | ProjectStore | FileSystem.FileSystem>
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -36,47 +41,24 @@ const withApp = <A, E>(
       Layer.provideMerge(fakeRemoteProjects(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );
-    return yield* body(recorded).pipe(Effect.provide(app));
+    return yield* body(recorded, dir).pipe(Effect.provide(app));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 /**
- * A stop that should wait for nothing: it is given a second of the test clock, a tenth at a
- * time; none when it was still waiting then.
+ * A signal's stop (SIGINT, SIGTERM), which waits for no answer. Nothing moves the test clock
+ * here: a stop that waited for a server's time to run out would not return.
  */
-const stopWithin = Effect.fnUntraced(function* (
-  open: OpenProject["Service"],
-  ask: boolean
-) {
-  const stopping = yield* Effect.forkChild(
-    Effect.timeoutOption(open.stop({ ask }), "1 second"),
-    { startImmediately: true }
+const signal = (open: OpenProject["Service"]) => open.stop({ ask: false });
+
+/** Waits until a question is on screen. */
+const asked = (recorded: Recorded) =>
+  until(recorded, ({ questions }) => questions.length > 0);
+
+/** Waits until a server that does not answer is being waited for. */
+const connected = (recorded: Recorded) =>
+  until(recorded, ({ events }) =>
+    events.some((event) => event.startsWith("connect "))
   );
-  for (let tenth = 0; tenth < 10; tenth += 1) {
-    yield* TestClock.adjust("100 millis");
-  }
-  return yield* Fiber.join(stopping);
-});
-
-/** A signal's stop (SIGINT, SIGTERM), which waits for no answer. */
-const signal = (open: OpenProject["Service"]) => stopWithin(open, false);
-
-/** Lets the fibers forked run until a question is on screen (the store reads files first). */
-const asked = Effect.fnUntraced(function* (recorded: Recorded) {
-  while (recorded.questions.length === 0) {
-    yield* Effect.promise(
-      () => new Promise<void>((resolve) => setImmediate(resolve))
-    );
-  }
-});
-
-/** Lets the fibers forked run until a project's connection is on its way. */
-const connected = Effect.fnUntraced(function* (recorded: Recorded) {
-  while (!recorded.events.some((event) => event.startsWith("connect "))) {
-    yield* Effect.promise(
-      () => new Promise<void>((resolve) => setImmediate(resolve))
-    );
-  }
-});
 
 describe("OpenProject", () => {
   it.effect("asks for a first project when there is none", () =>
@@ -196,7 +178,7 @@ describe("OpenProject", () => {
           // Quitting asks the same; a signal then stops without asking.
           recorded.answers.push(false);
           assert.isFalse(yield* open.stop({ ask: true }));
-          assert.deepStrictEqual(yield* signal(open), Option.some(true));
+          assert.isTrue(yield* signal(open));
           assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
           assert.strictEqual(recorded.questions.length, 2);
         })
@@ -257,7 +239,7 @@ describe("OpenProject", () => {
           assert.deepStrictEqual(recorded.questions, [
             "An agent is working in busy",
           ]);
-          assert.deepStrictEqual(yield* signal(open), Option.some(true));
+          assert.isTrue(yield* signal(open));
           assert.isFalse(yield* Fiber.join(closing));
           assert.isFalse(yield* Fiber.join(quitting));
           assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
@@ -284,7 +266,7 @@ describe("OpenProject", () => {
           assert.deepStrictEqual(recorded.questions, [
             "2 agents are working in busy",
           ]);
-          assert.deepStrictEqual(yield* signal(open), Option.some(true));
+          assert.isTrue(yield* signal(open));
           yield* Fiber.join(switching);
           assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
           assert.isTrue(Option.isNone(yield* open.current));
@@ -445,10 +427,7 @@ describe("OpenProject", () => {
               startImmediately: true,
             });
             yield* connected(recorded);
-            assert.deepStrictEqual(
-              yield* stopWithin(open, ask),
-              Option.some(true)
-            );
+            assert.isTrue(yield* open.stop({ ask }));
             yield* Fiber.join(opening);
             assert.deepStrictEqual(recorded.events, [
               "connect silent:srv",
@@ -464,6 +443,159 @@ describe("OpenProject", () => {
         )
     );
   }
+
+  it.effect(
+    "removes a project from the list with the session kept for it, a remote one too, and leaves its folder",
+    () =>
+      withApp((_recorded, dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const folder = path.join(dir, "work", "shop");
+          yield* fs.makeDirectory(folder, { recursive: true });
+          yield* fs.writeFileString(path.join(folder, "page.tsx"), "");
+          const shop = yield* store.add(folder);
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          const kept = yield* store.add("/work/kept");
+          // As their servers left them: an unsaved session each.
+          const sessionOf = (id: string) => path.join(dir, "sessions", id);
+          for (const { id } of [shop, site, kept]) {
+            yield* fs.makeDirectory(sessionOf(id), { recursive: true });
+            yield* fs.writeFileString(
+              path.join(sessionOf(id), "state.json"),
+              "{}"
+            );
+          }
+          yield* open.remove(shop.id);
+          yield* open.remove(site.id);
+          // Removed already, or never there: nothing to do.
+          yield* open.remove(shop.id);
+          assert.deepStrictEqual(
+            (yield* store.list).map((p) => p.id),
+            [kept.id]
+          );
+          assert.deepStrictEqual(
+            yield* fs.readDirectory(path.join(dir, "sessions")),
+            [kept.id]
+          );
+          assert.deepStrictEqual(yield* fs.readDirectory(folder), ["page.tsx"]);
+        })
+      )
+  );
+
+  it.effect(
+    "keeps the open project, and the one opening, on the list when asked to remove them",
+    () =>
+      withApp((recorded, dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const shop = yield* store.add("/work/shop");
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          const session = path.join(dir, "sessions", shop.id);
+          yield* fs.makeDirectory(session, { recursive: true });
+          yield* open.open(shop.id);
+          const refused = yield* Effect.flip(open.remove(shop.id));
+          assert.strictEqual(refused._tag, "ProjectOpen");
+          assert.include(refused.message, "shop is open");
+          // Behind the start screen it is open still.
+          yield* open.showStart;
+          assert.strictEqual(
+            (yield* Effect.flip(open.remove(shop.id)))._tag,
+            "ProjectOpen"
+          );
+          const opening = yield* Effect.forkChild(open.open(off.id), {
+            startImmediately: true,
+          });
+          yield* connected(recorded);
+          assert.strictEqual(
+            (yield* Effect.flip(open.remove(off.id)))._tag,
+            "ProjectOpen"
+          );
+          yield* open.stopOpening;
+          yield* Fiber.join(opening);
+          assert.deepStrictEqual(
+            (yield* store.list).map((p) => p.id).sort(),
+            [shop.id, off.id].sort()
+          );
+          assert.isTrue(yield* fs.exists(session));
+        })
+      )
+  );
+
+  for (const [quit, ask] of [
+    ["a signal", false],
+    ["closing the window", true],
+  ] as const) {
+    it.effect(
+      `${quit} gives up the project starting again, and waits for it no longer`,
+      () =>
+        withApp((recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProject;
+            const shop = yield* store.add("/work/shop");
+            yield* open.open(shop.id);
+            recorded.stalled.push("shop");
+            const restarting = yield* Effect.forkChild(open.restart, {
+              startImmediately: true,
+            });
+            yield* connected(recorded);
+            assert.isTrue(yield* open.stop({ ask }));
+            yield* Fiber.join(restarting);
+            assert.deepStrictEqual(recorded.events, [
+              "start shop",
+              "stop shop",
+              "connect shop",
+              "give up shop",
+            ]);
+            assert.deepStrictEqual(recorded.questions, []);
+            assert.isTrue(Option.isNone(yield* open.current));
+          })
+        )
+    );
+  }
+
+  it.effect(
+    "a quit while a switch's question is on screen does not wait for the next project once that one is answered yes",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          yield* open.open(busy.id);
+          recorded.working.busy = 1;
+          const answer = yield* Deferred.make<boolean>();
+          recorded.answers.push(Deferred.await(answer));
+          const switching = yield* Effect.forkChild(open.open(off.id));
+          yield* asked(recorded);
+          const closing = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          yield* Deferred.succeed(answer, true);
+          assert.isTrue(yield* Fiber.join(closing));
+          yield* Fiber.join(switching);
+          // The agents were the switch's to stop; the machine that does not answer is never
+          // asked, and the window goes as it is.
+          assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in busy",
+          ]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/busy",
+          });
+          assert.isTrue(Option.isNone(yield* open.current));
+        })
+      )
+  );
 
   it.effect(
     "a quit while a switch's question is on screen asks its own once that one is answered",

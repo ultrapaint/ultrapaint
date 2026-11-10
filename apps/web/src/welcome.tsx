@@ -12,6 +12,7 @@ import {
   ArrowUp,
   ChevronDown,
   CircleAlert,
+  Ellipsis,
   Folder,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -431,9 +432,64 @@ const OpenProject = ({ onProblem }: { onProblem: (m: string) => void }) => {
   );
 };
 
+/**
+ * A project of the list: the row opens it, and its menu takes it off the list. The one open
+ * behind this page stays on it.
+ */
+const ProjectRow = ({
+  isOpen,
+  onOpen,
+  onRemove,
+  project,
+}: {
+  isOpen: boolean;
+  onOpen: () => void;
+  onRemove: () => void;
+  project: PlatformProject;
+}) => (
+  <li className="flex items-center gap-1 pr-1.5 transition-colors duration-100 hover:bg-accent has-focus-visible:bg-accent">
+    <button
+      className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      onClick={onOpen}
+      type="button"
+    >
+      <span className="truncate font-body-medium">{project.name}</span>
+      {project.detail ? (
+        <span
+          className="truncate font-body-small text-muted-foreground"
+          title={project.detail}
+        >
+          {project.detail}
+        </span>
+      ) : null}
+    </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={`Actions for ${project.name}`}
+            className="shrink-0 text-muted-foreground"
+            size="icon"
+            variant="ghost"
+          >
+            <Ellipsis />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem disabled={isOpen} onClick={onRemove}>
+          Remove from list
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </li>
+);
+
 const Welcome = () => {
   const { projects } = platform();
   const [list, setList] = useState<readonly PlatformProject[]>([]);
+  // The project open behind this page, which stays on the list.
+  const [current, setCurrent] = useState<string | null>(null);
   const query = new URLSearchParams(window.location.search);
   // Why the last project could not be opened, as the app says it.
   const [problem, setProblem] = useState(() => query.get("problem"));
@@ -451,7 +507,17 @@ const Welcome = () => {
       ?.list()
       .then(setList)
       .catch((error: unknown) => setProblem(messageOf(error)));
+    projects
+      ?.current()
+      .then(setCurrent)
+      .catch((error: unknown) => setProblem(messageOf(error)));
   }, [projects]);
+
+  const remove = (id: string) =>
+    projects
+      ?.remove(id)
+      .then(() => setList((shown) => shown.filter((p) => p.id !== id)))
+      .catch(say);
 
   const goBack = () =>
     projects
@@ -534,25 +600,13 @@ const Welcome = () => {
         {list.length > 0 ? (
           <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
             {list.map((project) => (
-              <li key={project.id}>
-                <button
-                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() => projects?.open(project.id).catch(say)}
-                  type="button"
-                >
-                  <span className="truncate font-body-medium">
-                    {project.name}
-                  </span>
-                  {project.detail ? (
-                    <span
-                      className="truncate font-body-small text-muted-foreground"
-                      title={project.detail}
-                    >
-                      {project.detail}
-                    </span>
-                  ) : null}
-                </button>
-              </li>
+              <ProjectRow
+                isOpen={project.id === current}
+                key={project.id}
+                onOpen={() => projects?.open(project.id).catch(say)}
+                onRemove={() => remove(project.id)}
+                project={project}
+              />
             ))}
           </ul>
         ) : (

@@ -1,8 +1,7 @@
 /**
  * The start screen's prompt (ADR 0062), sent in the project's first chat once it opens. The
- * desktop app opens the project with it on the editor's address (`first-prompt`), and with
- * `new-design` when it has just written the project; both are taken off it, so a reload sends
- * nothing again.
+ * desktop app opens the project with it on the editor's address (`first-prompt`); it is taken
+ * off it, so a reload sends nothing again.
  */
 import {
   FIRST_PROMPT_PARAM,
@@ -17,22 +16,18 @@ import { api } from "../state/connection.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError } from "../state/project.ts";
 
-/** What the desktop app adds for a project it has just written. */
-const NEW_DESIGN_PARAM = "new-design";
-
 const decode = Schema.decodeUnknownOption(Schema.fromJsonString(FirstPrompt));
 
-/** The prompt the editor was opened with, taken off the address with the new design's mark. */
+/** The prompt the editor was opened with, taken off the address. */
 export const takeFirstPrompt = (): FirstPrompt | null => {
   const url = new URL(window.location.href);
   const raw = url.searchParams.get(FIRST_PROMPT_PARAM);
-  if (raw === null && !url.searchParams.has(NEW_DESIGN_PARAM)) {
+  if (raw === null) {
     return null;
   }
   url.searchParams.delete(FIRST_PROMPT_PARAM);
-  url.searchParams.delete(NEW_DESIGN_PARAM);
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-  return raw === null ? null : Option.getOrNull(decode(raw));
+  return Option.getOrNull(decode(raw));
 };
 
 /**

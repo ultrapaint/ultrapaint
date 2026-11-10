@@ -18,6 +18,7 @@ setPlatform({
       : Promise.resolve("/home/me/shop");
   },
   projects: {
+    current: () => Promise.resolve(null),
     inspect: () => Promise.resolve({ kind: "project", name: "Shop" }),
     list: () => Promise.resolve([]),
     openFolder: () => Promise.reject(new Error("Its server did not start")),

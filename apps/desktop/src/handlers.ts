@@ -136,8 +136,6 @@ export const bridgeHandlers = (
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),
   "newDesign.folderFor": (name) => NewDesigns.use((n) => n.folderFor(name)),
-  "newDesign.open": (folder, name, template) =>
-    NewDesigns.use((n) => n.open(folder, name, template)),
   notices: () => Notices.use((n) => n.list),
   pickFolder: (picker) =>
     Effect.map(
@@ -186,6 +184,7 @@ export const bridgeHandlers = (
         o.openFolder(folder, undefined, firstPromptQuery(start))
       )
     ),
+  "projects.remove": (id) => OpenProject.use((o) => o.remove(id)),
   "projects.showStart": () => OpenProject.use((o) => o.showStart),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
   "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),

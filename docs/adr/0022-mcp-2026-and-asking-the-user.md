@@ -31,7 +31,9 @@ is dropped. Both built-in agents negotiate 2026-07-28, checked with real session
 (`apps/server/spike/mcp-agents.ts`, which the server's "MCP: thread … speaks …" log line serves):
 
 - Claude Code from `@agentclientprotocol/claude-agent-acp` 0.79, whose bundled Claude Code turned
-  it on by default; the built-in configuration asks for `^0.85.0`.
+  it on by default; the built-in configuration asks for `^0.85.0`. (Since 2026-11-10 it asks
+  for `^0.95.0`, the version the desktop app bundles; a test in the desktop app holds each
+  bundled adapter inside the range the command asks npx for.)
 - Codex only behind its `mcp_2026_07_28` flag, off by default and marked under development.
   codex-acp merges the `CODEX_CONFIG` environment variable into every session's configuration,
   and the built-in configuration sets the flag there. Without it Codex asks for 2025-06-18, which
