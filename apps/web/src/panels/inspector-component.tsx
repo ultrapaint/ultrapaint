@@ -10,6 +10,7 @@ import { metaOf, type PropMeta } from "@ultrapaint/contracts/catalogue";
 import type {
   AppComponentFile,
   ComponentChange,
+  ComponentFile,
   ComponentProperty,
   PropertyKind,
   PropertyTarget,
@@ -45,17 +46,20 @@ import { reportError } from "../state/project.ts";
 import { Row, Section } from "./inspector-fields.tsx";
 
 /**
- * Changes the component's file on the server, as it is there now (ADR 0042); what the server
- * refuses is said.
+ * Changes a component's file on the server, an app component's or a system component's, on the
+ * file as it is there now (ADR 0042), so a change made meanwhile stays; what the server refuses is
+ * said. True when it went through.
  */
 export const changeFile = async (
-  file: AppComponentFile,
+  file: Pick<ComponentFile, "name">,
   change: ComponentChange
-) => {
+): Promise<boolean> => {
   try {
     await api().request("components.change", { change, name: file.name });
+    return true;
   } catch (error) {
     reportError(error);
+    return false;
   }
 };
 
@@ -192,17 +196,21 @@ export const PropertyRow = ({
   property: ComponentProperty;
 }) => {
   const [name, setName] = useState(property.name);
-  const rename = () => {
+  const rename = async () => {
     const trimmed = name.trim();
     if (trimmed === "" || trimmed === property.name) {
       setName(property.name);
       return;
     }
-    changeFile(file, {
+    const renamed = await changeFile(file, {
       name: property.name,
       op: "renameProperty",
       to: trimmed,
     });
+    // Refused, as another property's name is: the field says what this one is still called.
+    if (!renamed) {
+      setName(property.name);
+    }
   };
   return (
     <div className="flex flex-col gap-1 rounded-lg border p-1.5">
@@ -214,7 +222,7 @@ export const PropertyRow = ({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              rename();
+              e.currentTarget.blur();
             }
           }}
           value={name}

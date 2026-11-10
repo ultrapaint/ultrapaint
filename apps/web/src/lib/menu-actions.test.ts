@@ -666,6 +666,41 @@ describe("a page's menu", () => {
   });
 });
 
+describe("a view of a page (ADR 0036)", () => {
+  const view: MenuTarget = {
+    at: { x: 30, y: 60 },
+    kind: "page",
+    pageId: TABLET,
+  };
+
+  it("opens the page's menu", () => {
+    expect(labels(menuFor(view) ?? undefined)).toEqual(
+      labels(menuFor({ ...view, pageId: HOME }) ?? undefined)
+    );
+    expect(menuFor(view)).not.toBeNull();
+  });
+
+  it("acts on its page", async () => {
+    await choose(view, { kind: "duplicate" });
+    expect(sent("pages.duplicate")).toEqual([{ id: HOME }]);
+  });
+
+  it("takes a comment for its page, where it was clicked", async () => {
+    await choose(view, { kind: "comment" });
+    expect(useComments.getState().draft).toMatchObject({
+      pageId: HOME,
+      x: 30,
+      y: 60,
+    });
+    // On a node of the view, too.
+    await choose(nodeAt(TABLET, "title"), { kind: "comment" });
+    expect(useComments.getState().draft).toMatchObject({
+      nodeId: "title",
+      pageId: HOME,
+    });
+  });
+});
+
 describe("the canvas's menu", () => {
   const canvas: MenuTarget = { at: { x: 100, y: 100 }, kind: "canvas" };
 

@@ -73,6 +73,7 @@ const dropTitleOn = (over: LayerItem, y: number) => {
   );
   const dragging: Dragging = {
     drag: dragged,
+    onCanvas: true,
     onDrop,
     setDrag: () => undefined,
   };

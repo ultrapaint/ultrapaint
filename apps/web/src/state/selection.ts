@@ -21,6 +21,7 @@ import {
   drawnRootOf,
   editedAtOf,
   nodeIn,
+  pathIn,
   rootOfFrame,
   useDocuments,
 } from "./documents.ts";
@@ -406,4 +407,33 @@ export const useInspected = (): Inspected | null => {
     useShallow((s) => inspectedNodes(picked, s.docs, canvas, breakpoints, at))
   );
   return inspectedOf(frame, nodes);
+};
+
+/**
+ * Whether the nodes selected are siblings, as wrapping them together needs: each inside the same
+ * node, none a frame's root or gone.
+ */
+const selectedAreSiblings = (
+  { also, selection }: Picked,
+  docs: Seen["docs"],
+  canvas: string | null
+): boolean => {
+  const targets = selection ? [selection, ...also] : [];
+  const parents = new Set(
+    targets.map((t) => pathIn(docs, canvas, t.frame, t.nodeId)?.at(-2)?.id)
+  );
+  const [parent] = parents;
+  return parents.size === 1 && parent !== undefined;
+};
+
+/**
+ * `selectedAreSiblings` for a component: it follows the selection and the documents, where a
+ * node moved to another parent changes the answer.
+ */
+export const useSelectedAreSiblings = (): boolean => {
+  const picked = useEditor(
+    useShallow((s) => ({ also: s.also, selection: s.selection }))
+  );
+  const canvas = useEditor((s) => s.canvas);
+  return useDocuments((s) => selectedAreSiblings(picked, s.docs, canvas));
 };

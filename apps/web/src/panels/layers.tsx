@@ -431,7 +431,7 @@ export const Layers = () => {
   const listed = useListWindow(listRef);
   // The tree is built again only when the documents change: a canvas holds thousands of layers,
   // and a selection or a fold changes none of them.
-  const { heading, items, nodes } = useMemo(() => {
+  const { heading, items, nodes, onCanvas } = useMemo(() => {
     const tree = boardTree(board, docs);
     return layerScope({
       canvasNodes: canvasNodes(docs, canvas).map((node) => ({
@@ -566,7 +566,8 @@ export const Layers = () => {
 
   /** Moves the dragged row where it is dropped (`dropOf`). */
   const onDrop = async (over: LayerItem, position: DropPosition) => {
-    const place = drag && dropOf(items, drag, over, position, rowFrame);
+    const place =
+      drag && dropOf(items, drag, over, position, rowFrame, onCanvas);
     if (drag?.node && place) {
       await moveNode({ frame: drag.frame, nodeId: drag.node.id }, place);
     }
@@ -643,6 +644,7 @@ export const Layers = () => {
   const shared: Shared = {
     drag,
     endRename,
+    onCanvas,
     onDrop,
     onProblemHeight: (page, height) =>
       setProblemHeights((all) =>

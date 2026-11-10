@@ -125,12 +125,21 @@ const draw = async (thread: Thread) => {
   if (!source || drawnFrom.get(thread.id) === source.from) {
     return;
   }
+  // Said before it is drawn, so a refresh begun meanwhile does not draw it too.
   drawnFrom.set(thread.id, source.from);
-  const shot = await drawSpecimen(
-    source.root,
-    useDesignSystem.getState().designSystem,
-    source.options
-  );
+  let shot: string | null = null;
+  try {
+    shot = await drawSpecimen(
+      source.root,
+      useDesignSystem.getState().designSystem,
+      source.options
+    );
+  } finally {
+    // Not drawn (the frame took too long, or threw): the next refresh draws it, this one not again.
+    if (!shot && drawnFrom.get(thread.id) === source.from) {
+      drawnFrom.delete(thread.id);
+    }
+  }
   if (!shot) {
     return;
   }
@@ -152,7 +161,8 @@ const draw = async (thread: Thread) => {
 export const refreshPreviews = async (threads: readonly Thread[]) => {
   await loadStored();
   for (const thread of threads) {
+    // One thread's picture that cannot be drawn does not keep the others from theirs.
     // biome-ignore lint/performance/noAwaitInLoops: one at a time, as the frame that draws them draws one thing.
-    await draw(thread);
+    await draw(thread).catch(() => undefined);
   }
 };

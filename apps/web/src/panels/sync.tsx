@@ -155,15 +155,14 @@ const SettingsStep = (props: StepProps) => (
   </SyncCard>
 );
 
-const DocumentStep = (props: StepProps) => (
+const DocumentStep = ({ plan, ...props }: StepProps & { plan: SyncPlan }) => (
   <SyncCard {...props}>
     {props.step.state === "done" ? null : (
       <div className="flex flex-wrap gap-1.5">
         <MainButton onClick={placeDocument}>
           <FileText />
-          {props.step.title.startsWith("Move")
-            ? "Move DESIGN.md"
-            : "Write DESIGN.md"}
+          {/* In the designs directory still: it moves to the root (ADR 0027). */}
+          {plan.facts.designMd?.legacy ? "Move DESIGN.md" : "Write DESIGN.md"}
         </MainButton>
       </div>
     )}
@@ -249,7 +248,7 @@ const PlanStep = ({
     return <DescribeStep {...props} />;
   }
   if (step.kind === "design-md") {
-    return <DocumentStep {...props} />;
+    return <DocumentStep {...props} plan={plan} />;
   }
   if (step.kind === "import-frames") {
     return <FramesStep {...props} plan={plan} />;

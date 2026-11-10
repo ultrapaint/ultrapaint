@@ -4,17 +4,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { initialsOf } from "../lib/initials.ts";
 import { useProject } from "../state/project.ts";
-
-const SPACES_RE = /\s+/;
-
-/** Up to two letters of a name: the first of its first and last words. */
-const initialsOf = (name: string): string => {
-  const words = name.trim().split(SPACES_RE).filter(Boolean);
-  const first = words[0]?.[0] ?? "";
-  const last = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";
-  return (first + last).toUpperCase();
-};
 
 /**
  * Who the user is, as git says in this repository, or the display name of their profile when
@@ -29,7 +20,10 @@ export const GitUserButton = () => {
   if (!name) {
     return null;
   }
-  const initials = initialsOf(fullName ?? "") || name[0]?.toUpperCase();
+  // The initials their comments are signed with; with no name, the email's first letter.
+  const initials = fullName?.trim()
+    ? initialsOf(fullName)
+    : name[0]?.toUpperCase();
   return (
     <Popover>
       <PopoverTrigger

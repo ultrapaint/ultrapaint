@@ -165,14 +165,17 @@ const SystemBody = ({
       </PanelEmpty>
     );
   }
+  // Each is keyed by what is picked: another pick starts it again, so the token being added and
+  // the ramp proposed go with the pick they were for. A name is typed and then committed, on
+  // leaving its field, so the key never changes under a field being typed in.
   if (picked?.kind === "token") {
-    return <TokenInspector ds={ds} name={picked.name} />;
+    return <TokenInspector ds={ds} key={picked.name} name={picked.name} />;
   }
   if (picked?.kind === "group") {
-    return <GroupInspector ds={ds} name={picked.name} />;
+    return <GroupInspector ds={ds} key={picked.name} name={picked.name} />;
   }
   if (picked?.kind === "style") {
-    return <TextStyleInspector ds={ds} name={picked.name} />;
+    return <TextStyleInspector ds={ds} key={picked.name} name={picked.name} />;
   }
   return (
     <>

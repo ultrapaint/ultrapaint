@@ -170,6 +170,7 @@ const ChosenRow = ({
   onEffort,
   onMove,
   onRemove,
+  onDragEnd,
   onDragStart,
   onDrop,
 }: {
@@ -181,6 +182,8 @@ const ChosenRow = ({
   onEffort: (effort: string) => void;
   onMove: (step: -1 | 1) => void;
   onRemove: () => void;
+  /** The drag is over, wherever it was let go. */
+  onDragEnd: () => void;
   onDragStart: () => void;
   onDrop: () => void;
 }) => {
@@ -202,7 +205,12 @@ const ChosenRow = ({
         aria-label={`Move ${name}`}
         className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         draggable
-        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", name);
+          onDragStart();
+        }}
         onKeyDown={onKeyDown}
         type="button"
       >
@@ -315,6 +323,7 @@ const ReviewModelsPicker = ({
                     key={`${m.agentId}:${m.model}`}
                     model={m}
                     name={names[i] ?? m.model}
+                    onDragEnd={() => setDragged(null)}
                     onDragStart={() => setDragged(i)}
                     onDrop={() => {
                       if (dragged !== null) {
@@ -515,8 +524,12 @@ export const ReviewGroup = ({
   review: ReviewSettings | undefined;
 }) => {
   const level = levelOf(review);
-  // Custom shows its rows when chosen, before any of them is changed.
-  const [customOpen, setCustomOpen] = useState(false);
+  // Custom shows its rows when chosen, before any of them is changed, and keeps them once the
+  // settings are Custom's, while a row is set to what a named level has: until a level is pressed.
+  const [customOpen, setCustomOpen] = useState(level === "custom");
+  if (level === "custom" && !customOpen) {
+    setCustomOpen(true);
+  }
   const shown = level === "custom" || customOpen ? "custom" : level;
   const merged = reviewSettingsOf(review);
   const set = (change: ReviewSettings) =>

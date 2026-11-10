@@ -58,6 +58,10 @@ export const GuidelineEditor = ({
       await useDesignSystem.getState().load();
     } catch (error) {
       reportError(error);
+      // Not saved: what was typed stays in the field and on the board, and is sent again when
+      // the field is next left.
+      typing.current ??= text;
+      return;
     }
     setTyped(null);
     setGuideDraft(null);

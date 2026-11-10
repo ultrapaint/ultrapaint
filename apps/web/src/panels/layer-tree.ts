@@ -65,7 +65,9 @@ export const looseItem = (frame: string, node: DesignNode): LayerItem =>
  * What Layers lists, and the heading over its first node: an app component edited in place, its
  * tree alone (the rest of the canvas being out of reach); on an app component's board (ADR 0045),
  * its tree; else the canvas's pages, each with its nodes, then the nodes beside the pages.
- * `nodes` are the top nodes listed under the heading.
+ * `nodes` are the top nodes listed under the heading; `onCanvas` says whether the top rows are the
+ * canvas's, where a layer can land beside them, or the root of a tree listed alone, which has
+ * nothing beside it.
  */
 export const layerScope = ({
   canvasNodes,
@@ -95,12 +97,14 @@ export const layerScope = ({
   readonly heading: string;
   readonly items: readonly LayerItem[];
   readonly nodes: readonly DesignNode[];
+  readonly onCanvas: boolean;
 } => {
   if (edited?.root) {
     return {
       heading: `Editing ${edited.component}`,
       items: [looseItem(edited.frame, edited.root)],
       nodes: [edited.root],
+      onCanvas: false,
     };
   }
   if (tree) {
@@ -108,6 +112,7 @@ export const layerScope = ({
       heading: tree.name,
       items: [looseItem(tree.frame, tree.root)],
       nodes: [tree.root],
+      onCanvas: false,
     };
   }
   return {
@@ -117,6 +122,7 @@ export const layerScope = ({
       ...canvasNodes.map(({ frame, node }) => looseItem(frame, node)),
     ],
     nodes: canvasNodes.map(({ node }) => node),
+    onCanvas: true,
   };
 };
 
@@ -450,7 +456,8 @@ export type DropPosition = "before" | "inside" | "after";
 
 /**
  * Whether a dragged row may land on another: a node's row, onto a page or another node's row,
- * not onto itself or anything inside it.
+ * not onto itself or anything inside it. An id names a node within its frame: a page's copy keeps
+ * the ids of the page.
  */
 const mayDrop = (dragged: LayerItem, over: LayerItem) => {
   const { node } = dragged;
@@ -461,22 +468,29 @@ const mayDrop = (dragged: LayerItem, over: LayerItem) => {
     return true;
   }
   return !(
-    node.id === over.node.id ||
-    (dragged.frame === over.frame && findPath(node, over.node.id) !== null)
+    dragged.frame === over.frame && findPath(node, over.node.id) !== null
   );
 };
+
+/**
+ * Whether a row has nothing beside it to land on: the root of a tree listed alone, whose top is
+ * not the canvas's (`onCanvas`).
+ */
+const standsAlone = (over: LayerItem, onCanvas: boolean) =>
+  !(onCanvas || over.page) && over.parent === null;
 
 /**
  * Where a dragged row would land on another, the pointer `y` of the way down it (0 at its top, 1
  * at its bottom): inside a node that `holds` children while over the middle of its row, else
  * before or after it by the half the pointer is over; inside a page wherever over its row. Null
- * where it may not land.
+ * where it may not land: beside the root of a tree listed alone too (`onCanvas` false).
  */
 export const dropPositionAt = (
   dragged: LayerItem,
   over: LayerItem,
   y: number,
-  holds: (node: DesignNode) => boolean
+  holds: (node: DesignNode) => boolean,
+  onCanvas = true
 ): DropPosition | null => {
   if (!(mayDrop(dragged, over) && over.node)) {
     return null;
@@ -484,13 +498,19 @@ export const dropPositionAt = (
   if (over.page || (holds(over.node) && y > 0.3 && y < 0.7)) {
     return "inside";
   }
+  if (standsAlone(over, onCanvas)) {
+    return null;
+  }
   return y <= 0.5 ? "before" : "after";
 };
 
-/** Where among its siblings a dropped layer goes, the dragged one left out. */
+/**
+ * Where among its siblings a dropped layer goes, the dragged one left out when it is one of
+ * them (`among`, its id).
+ */
 const dropIndex = (
   siblings: readonly DesignNode[],
-  dragged: string,
+  among: string | null,
   over: string,
   position: DropPosition
 ) => {
@@ -498,7 +518,7 @@ const dropIndex = (
     return 0;
   }
   const at = siblings
-    .filter((c) => c.id !== dragged)
+    .filter((c) => c.id !== among)
     .findIndex((c) => c.id === over);
   return position === "before" ? at : at + 1;
 };
@@ -512,30 +532,35 @@ const BELOW = 40;
  * node on the canvas it goes onto the canvas, at that place among its nodes; one that was not on
  * the canvas's top level, which has no point there, lands just below that node. `editedIn` names
  * the frame an edit to a row's node is made in: a page's row stands for every view of it
- * (ADR 0036). Null where the row may not land.
+ * (ADR 0036). Null where the row may not land: beside a page's row, or beside the root of a tree
+ * listed alone (`onCanvas` false), which the canvas is out of reach of.
  */
 export const dropOf = (
   items: readonly LayerItem[],
   dragged: LayerItem,
   over: LayerItem,
   position: DropPosition,
-  editedIn: (frame: string) => string = (frame) => frame
+  editedIn: (frame: string) => string = (frame) => frame,
+  onCanvas = true
 ): Place | null => {
   const { node } = dragged;
   const target = over.node;
   if (
     !(mayDrop(dragged, over) && node && target) ||
-    (over.page && position !== "inside")
+    ((over.page || standsAlone(over, onCanvas)) && position !== "inside")
   ) {
     return null;
   }
   const into = position === "inside" ? target : over.parent;
-  const onCanvas = items.flatMap((item) =>
+  const beside = items.flatMap((item) =>
     item.page || !item.node ? [] : [item.node]
   );
+  // The dragged one is among them only inside the frame it is from, or on the canvas's top
+  // already: the same id in another frame is another node.
+  const among = into ? dragged.frame === over.frame : dragged.parent === null;
   const index = dropIndex(
-    into ? childrenOf(into) : onCanvas,
-    node.id,
+    into ? childrenOf(into) : beside,
+    among ? node.id : null,
     target.id,
     position
   );

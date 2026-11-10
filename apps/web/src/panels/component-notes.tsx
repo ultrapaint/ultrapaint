@@ -15,8 +15,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { IconButton } from "../components/icon-button.tsx";
-import { api } from "../state/connection.ts";
-import { reportError } from "../state/project.ts";
+import { changeFile } from "./inspector-component.tsx";
 
 /**
  * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,
@@ -37,30 +36,17 @@ export const Notes = ({
     if (text.trim() === "") {
       return;
     }
-    try {
-      await api().request("components.change", {
-        change: {
-          op: "addNote",
-          ...(slot !== ROOT_SLOT && { slot }),
-          text: text.trim(),
-        },
-        name: component.name,
-      });
+    const added = await changeFile(component, {
+      op: "addNote",
+      ...(slot !== ROOT_SLOT && { slot }),
+      text: text.trim(),
+    });
+    if (added) {
       setText("");
-    } catch (error) {
-      reportError(error);
     }
   };
-  const remove = async (id: string) => {
-    try {
-      await api().request("components.change", {
-        change: { id, op: "removeNote" },
-        name: component.name,
-      });
-    } catch (error) {
-      reportError(error);
-    }
-  };
+  const remove = (id: string) =>
+    changeFile(component, { id, op: "removeNote" });
   const partOf = (name: string | undefined) =>
     parts.find((s) => s.name === name)?.label ?? name;
   const choices = [

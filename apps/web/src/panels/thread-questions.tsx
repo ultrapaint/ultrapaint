@@ -54,7 +54,7 @@ import {
 } from "../state/answers.ts";
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
-import { isSendKey, type SendKey } from "../state/send-key.ts";
+import { isSendKey, type SendKey, useSendKey } from "../state/send-key.ts";
 
 type PermissionItem = Extract<ThreadItem, { kind: "permission" }>;
 
@@ -550,12 +550,17 @@ export const AnswerButtons = ({
           {last ? "Send answers" : "Next"}
         </TooltipTrigger>
         <TooltipContent>
-          {last ? "Send answers" : "Next question"}{" "}
-          <Kbd>{chordLabel("mod+enter")}</Kbd>
+          {last ? "Send answers" : "Next question"} <SendKeyHint />
         </TooltipContent>
       </Tooltip>
     </>
   );
+};
+
+/** The send key in force, beside what it sends in a tooltip. */
+export const SendKeyHint = () => {
+  const sendKey = useSendKey((s) => s.sendKey);
+  return <Kbd>{chordLabel(sendKey === "enter" ? "enter" : "mod+enter")}</Kbd>;
 };
 
 /** Stops the agent's turn: a square, as a media player's, round like the send button. */

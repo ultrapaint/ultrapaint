@@ -55,9 +55,10 @@ import { reportError, useProject } from "../state/project.ts";
 import { follow } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
-/** An added or removed line: one `+` or `-`, not the `+++` and `---` that name the files. */
-const ADDED_RE = /^\+(?!\+\+)/;
-const REMOVED_RE = /^-(?!--)/;
+/** Where the lines that name a diff's files end: its `+++ b/…`, or git's first range after it. */
+const FILES_NAMED_RE = /^(\+\+\+ |@@)/;
+/** A line among a file's changes: added, removed, context, a range, or git's note on the last. */
+const CHANGE_LINE_RE = /^[-+ @\\]/;
 const TRAILING_NEWLINE_RE = /\n$/;
 const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
 
@@ -164,6 +165,12 @@ export const changedSince = (count: number, point: Point) =>
 export const gitSaid = (message: string) =>
   message.replace(GIT_EXITED_RE, "").trim() || message;
 
+/**
+ * The history, read: a list that cannot be read says so in its own section, with the way to read
+ * it again (`load` reports the failure too).
+ */
+const readHistory = () => useKept.getState().load();
+
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
   // Without git, or in a folder that is no repository, the panel has its history only.
@@ -179,12 +186,13 @@ export const Changes = () => {
   const repoPath = useProject((s) => s.info.repoPath);
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [gitFailed, setGitFailed] = useState(false);
-  const [historyFailed, setHistoryFailed] = useState(false);
   const [open, setOpen] = useState<OpenDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const checkpoints = useKept((s) => s.checkpoints);
+  const checkpointsFailed = useKept((s) => s.checkpointsFailed);
   const snapshots = useKept((s) => s.snapshots);
+  const snapshotsFailed = useKept((s) => s.snapshotsFailed);
   const [busy, setBusy] = useState(false);
   // Commit pressed before it could commit: the bar says what is missing until it is there.
   const [asked, setAsked] = useState(false);
@@ -205,20 +213,7 @@ export const Changes = () => {
     );
   });
 
-  /** The history, read; a read that fails says so in the panel, with the way to read it again. */
-  const readHistory = () =>
-    useKept
-      .getState()
-      .load()
-      // `load` reports its own failure; the lists still unread are what says it failed.
-      .then(() => setHistoryFailed(useKept.getState().snapshots === null));
-  const retryHistory = () => {
-    setHistoryFailed(false);
-    readHistory();
-  };
-
   // The history, read as the panel opens on a repository and followed from then on.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: read again only for another folder.
   useEffect(() => {
     if (configured && repoPath !== undefined) {
       readHistory();
@@ -395,20 +390,17 @@ export const Changes = () => {
           title="Other files"
         />
         <Snapshots
-          failed={historyFailed}
-          onRetry={retryHistory}
+          failed={snapshotsFailed}
+          onRetry={readHistory}
           onShowSince={showSince}
           snapshots={snapshots}
         />
-        {/* One read brings both lists: its failure is said once, under Snapshots. */}
-        {historyFailed && checkpoints === null ? null : (
-          <Checkpoints
-            checkpoints={checkpoints}
-            failed={historyFailed}
-            onRetry={retryHistory}
-            onShowSince={showSince}
-          />
-        )}
+        <Checkpoints
+          checkpoints={checkpoints}
+          failed={checkpointsFailed}
+          onRetry={readHistory}
+          onShowSince={showSince}
+        />
       </div>
     </div>
   );
@@ -1081,28 +1073,49 @@ const FileRow = ({
   );
 };
 
+/** What a line of a diff is: what is drawn as context includes the lines that name the files. */
+type LineKind = "added" | "removed" | "context";
+
 /**
  * Added lines are raised in the foreground over the muted context; removed ones are deleting, in
  * the destructive red on its tint.
  */
-const lineClass = (line: string) => {
-  if (ADDED_RE.test(line)) {
-    return "bg-accent text-foreground";
-  }
-  if (REMOVED_RE.test(line)) {
-    return "bg-destructive/10 text-destructive";
-  }
-  return "text-muted-foreground";
+const LINE_CLASS: Record<LineKind, string> = {
+  added: "bg-accent text-foreground",
+  context: "text-muted-foreground",
+  removed: "bg-destructive/10 text-destructive",
 };
 
-/** Splits a diff into lines keyed by their character offset in the text. */
-const diffLines = (diff: string) => {
+const changeKind = (text: string): LineKind => {
+  if (text.startsWith("+")) {
+    return "added";
+  }
+  return text.startsWith("-") ? "removed" : "context";
+};
+
+/**
+ * Splits a diff into lines keyed by their character offset in the text, each with what it is.
+ * The lines that name a file (`--- a/…` and `+++ b/…`, with git's `diff --git` and `index`
+ * before them) are told by where they are, before the file's changes; from there a line is what
+ * its first character says, so a removed `---` (`----`) or an added `++i;` (`+++i;`) is a
+ * change. Git's diff of several files names each before its own changes.
+ */
+export const diffLines = (diff: string) => {
   let offset = 0;
+  let naming = true;
   return diff
     .replace(TRAILING_NEWLINE_RE, "")
     .split("\n")
     .map((text) => {
-      const line = { offset, text };
+      let kind: LineKind = "context";
+      if (naming) {
+        naming = !FILES_NAMED_RE.test(text);
+      } else if (text === "" || CHANGE_LINE_RE.test(text)) {
+        kind = changeKind(text);
+      } else {
+        naming = true;
+      }
+      const line = { kind, offset, text };
       offset += text.length + 1;
       return line;
     });
@@ -1133,8 +1146,8 @@ const DiffView = ({
           </div>
         ) : null}
         <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
-          {diffLines(d.diff).map(({ offset, text: line }) => (
-            <div className={lineClass(line)} key={offset}>
+          {diffLines(d.diff).map(({ kind, offset, text: line }) => (
+            <div className={LINE_CLASS[kind]} key={offset}>
               {line || " "}
             </div>
           ))}

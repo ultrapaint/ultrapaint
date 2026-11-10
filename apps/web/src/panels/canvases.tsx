@@ -148,10 +148,15 @@ const CanvasRow = ({
   onDragOver: (e: DragEvent) => void;
 }) => {
   const [renaming, setRenaming] = useState(false);
+  // Its pages as the Pages panel lists them: a page's variants and states are not pages.
   const count = useProject(
     (s) =>
-      s.pages.filter((p) => p.canvas === canvas.id && p.variant === undefined)
-        .length
+      s.pages.filter(
+        (p) =>
+          p.canvas === canvas.id &&
+          p.variant === undefined &&
+          p.state === undefined
+      ).length
   );
   const menu = (e: MouseEvent) => {
     e.preventDefault();

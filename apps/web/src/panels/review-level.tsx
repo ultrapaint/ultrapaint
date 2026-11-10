@@ -147,7 +147,7 @@ const LevelSlider = ({
             className={cn(
               "h-6 rounded-sm font-body-small outline-none transition-colors duration-100 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
               i === at
-                ? "font-body-medium text-foreground"
+                ? "font-body-small-medium text-foreground"
                 : "text-muted-foreground"
             )}
             key={name}

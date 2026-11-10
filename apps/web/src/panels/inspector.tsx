@@ -43,8 +43,6 @@ import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import {
-  allSelected,
-  areSiblings,
   deleteSelection,
   duplicateSelection,
   setHidden,
@@ -76,7 +74,7 @@ import {
 import { setPreset } from "../state/page-layout.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { useInspected } from "../state/selection.ts";
+import { useInspected, useSelectedAreSiblings } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
 import { BreakpointSection } from "./inspector-breakpoints.tsx";
@@ -296,7 +294,8 @@ const Header = ({
   }
   const hidden = nodes.every((n) => n.hidden === true);
   // Several nodes go into one container only from one parent.
-  const wrappable = !several || areSiblings(allSelected());
+  const siblings = useSelectedAreSiblings();
+  const wrappable = !several || siblings;
   const wrapTip = (tip: string) =>
     wrappable ? tip : "Only siblings can be wrapped together";
   return (

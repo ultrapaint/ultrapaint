@@ -104,6 +104,7 @@ describe("what the panel lists", () => {
       "node:note#note",
     ]);
     expect(listed.nodes).toEqual([note]);
+    expect(listed.onCanvas).toBe(true);
   });
 
   it("is the tree of an app component edited in place, alone, once it is read", () => {
@@ -111,6 +112,7 @@ describe("what the panel lists", () => {
     expect(scope({ edited })).toMatchObject({
       heading: "Editing Promo",
       items: [{ frame: page.id, key: "home#promo-root" }],
+      onCanvas: false,
     });
     // Its tree not read yet: the canvas as it is.
     expect(scope({ edited: { ...edited, root: null } }).heading).toBe(
@@ -126,6 +128,7 @@ describe("what the panel lists", () => {
       heading: "Promo",
       items: [{ frame: board, key: `${board}#promo-root` }],
       nodes: [promo],
+      onCanvas: false,
     });
   });
 });
@@ -490,6 +493,76 @@ describe("dropping a layer", () => {
     expect(
       dropOf(tree, row("node:card#caption"), row("node:note#note"), "before")
     ).toEqual({ at: { x: 100, y: 240 }, index: 0, kind: "canvas" });
+  });
+
+  describe("in a tree listed alone, an app component's", () => {
+    /** Promo's tree as its board lists it: a sale line and a box under its root. */
+    const board = "board:library/Promo/component";
+    const alone: LayerItem[] = [
+      looseItem(
+        board,
+        column("promo-root", [text("sale", "Sale"), column("box", [])])
+      ),
+    ];
+    const at = (key: string) => findItem(alone, `${board}#${key}`) as LayerItem;
+
+    it("lands inside the root, never beside it: the canvas is out of reach", () => {
+      expect(
+        [0.1, 0.3, 0.5, 0.7, 0.9].map((y) =>
+          dropPositionAt(at("sale"), at("promo-root"), y, holds, false)
+        )
+      ).toEqual([null, null, "inside", null, null]);
+      const drop = (position: DropPosition) =>
+        dropOf(alone, at("sale"), at("promo-root"), position, undefined, false);
+      expect(drop("before")).toBeNull();
+      expect(drop("after")).toBeNull();
+      expect(drop("inside")).toEqual({
+        frame: board,
+        index: 0,
+        kind: "into",
+        parent: "promo-root",
+      });
+    });
+
+    it("lands beside the rows under the root as anywhere else", () => {
+      expect(dropPositionAt(at("sale"), at("box"), 0.9, holds, false)).toBe(
+        "after"
+      );
+      expect(
+        dropOf(alone, at("sale"), at("box"), "after", undefined, false)
+      ).toEqual({ frame: board, index: 1, kind: "into", parent: "promo-root" });
+    });
+  });
+
+  describe("between a page and its copy, which keeps the ids", () => {
+    const copy: Page = { ...page, id: "copy", name: "Home copy" };
+    const both: LayerItem[] = [pageItem(page, root), pageItem(copy, root)];
+    const at = (key: string) => findItem(both, key) as LayerItem;
+
+    it("takes a layer onto the copy's layer of the same id", () => {
+      expect(
+        [0.1, 0.5, 0.9].map((y) =>
+          dropPositionAt(at("home#hero"), at("copy#hero"), y, holds)
+        )
+      ).toEqual(["before", "inside", "after"]);
+      expect(dropOf(both, at("home#hero"), at("copy#hero"), "before")).toEqual({
+        frame: "copy",
+        index: 0,
+        kind: "into",
+        parent: "root",
+      });
+    });
+
+    it("counts the copy's own layer of that id among the siblings", () => {
+      expect(dropOf(both, at("home#hero"), at("copy#footer"), "after")).toEqual(
+        {
+          frame: "copy",
+          index: 2,
+          kind: "into",
+          parent: "root",
+        }
+      );
+    });
   });
 });
 

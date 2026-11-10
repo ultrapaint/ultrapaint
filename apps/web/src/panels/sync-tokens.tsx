@@ -452,6 +452,71 @@ const applyLabel = (
   return `Take ${plural(writes, "token")} into ${target}`;
 };
 
+/**
+ * A source's tokens against the design's, read again whenever the plan moves (a new import, the
+ * design system, the code or the document changed). An answer to a read that is no longer the
+ * last is dropped; a read that fails with nothing read before it says so, and `retry` reads again.
+ */
+export const useComparison = (plan: SyncPlan, source: TokenSourceKind) => {
+  const [comparison, setComparison] = useState<TokenComparison | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [asked, setAsked] = useState(0);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Try again asks once more.
+  useEffect(() => {
+    if (plan.at <= 0) {
+      return;
+    }
+    let live = true;
+    api()
+      .request("sync.tokens", { source })
+      .then(
+        (read) => {
+          if (live) {
+            setComparison(read);
+            setFailed(false);
+          }
+        },
+        (error: unknown) => {
+          if (live) {
+            setFailed(true);
+            reportError(error);
+          }
+        }
+      );
+    return () => {
+      live = false;
+    };
+  }, [plan.at, source, asked]);
+
+  const retry = () => {
+    setFailed(false);
+    setAsked((n) => n + 1);
+  };
+  return { comparison, failed, retry };
+};
+
+/** A comparison on its way, or one whose read failed: said in place, with the way to read again. */
+export const Unread = ({
+  failed,
+  onRetry,
+}: {
+  failed: boolean;
+  onRetry: () => void;
+}) =>
+  failed ? (
+    <div className="flex items-center justify-between gap-2">
+      <span className="truncate font-body-small text-muted-foreground">
+        The tokens didn’t load
+      </span>
+      <Button onClick={onRetry} size="sm" variant="ghost">
+        Try again
+      </Button>
+    </div>
+  ) : (
+    <Spinner />
+  );
+
 export const TokensStep = ({
   plan,
   source,
@@ -459,23 +524,13 @@ export const TokensStep = ({
   plan: SyncPlan;
   source: TokenSourceKind;
 }) => {
-  const [comparison, setComparison] = useState<TokenComparison | null>(null);
+  const { comparison, failed, retry } = useComparison(plan, source);
   const [picks, setPicks] = useState<Picks>({});
   const [busy, setBusy] = useState(false);
   const main = useStepVariant();
 
-  // Read again whenever the plan moves: a new import, the code or the document changed.
-  useEffect(() => {
-    if (plan.at > 0) {
-      api()
-        .request("sync.tokens", { source })
-        .then(setComparison)
-        .catch(reportError);
-    }
-  }, [plan.at, source]);
-
   if (!comparison) {
-    return <Spinner />;
+    return <Unread failed={failed} onRetry={retry} />;
   }
   const label = LABEL[source];
   // Figma's tokens go into the code while there is no design system to take them (ADR 0028).

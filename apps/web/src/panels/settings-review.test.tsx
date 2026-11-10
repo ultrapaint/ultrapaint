@@ -92,4 +92,72 @@ describe("Settings › Agents › Review", () => {
     expect(pressed()).toContain("Custom");
     expect(pressed()).toContain("A score");
   });
+
+  it("keeps a saved Custom's rows while one is set to what a named level has", () => {
+    // Everyone looks each round and the round's reviewer approves: no named level.
+    render({ approval: "one", eachRound: "all" });
+    expect(pressed()).toContain("Custom");
+    act(() => level("One")?.click());
+    // Quick's own settings now, and still Custom's rows to go on choosing with.
+    expect(saved.at(-1)).toEqual({ approval: "one", eachRound: "one" });
+    render(saved.at(-1));
+    expect(pressed()).toContain("Custom");
+    expect(rows()).toEqual([
+      "Level",
+      "Review models",
+      "Each round",
+      "Approval",
+      "Goal",
+    ]);
+    // A level pressed puts them away.
+    act(() => level("Quick")?.click());
+    render(saved.at(-1));
+    expect(pressed()).toEqual(["Quick"]);
+    expect(rows()).toEqual(["Level", "Review models"]);
+  });
+
+  it("moves nothing on a drop after a drag let go outside the list", () => {
+    render({
+      reviewModels: [
+        { agentId: "claude", model: "opus" },
+        { agentId: "codex", model: "sol" },
+      ],
+    });
+    act(() =>
+      container
+        .querySelector<HTMLElement>("button[aria-label^='Review models']")
+        ?.click()
+    );
+    const handle = (name: string) =>
+      document.body.querySelector<HTMLElement>(
+        `button[aria-label='Move ${name}']`
+      );
+    const drag = (type: string, target: Element | null | undefined) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      const data = new Map<string, string>();
+      Object.assign(event, {
+        dataTransfer: {
+          effectAllowed: "uninitialized",
+          setData: (format: string, value: string) => data.set(format, value),
+        },
+      });
+      act(() => {
+        target?.dispatchEvent(event);
+      });
+      return { data, event };
+    };
+    const picked = drag("dragstart", handle("opus"));
+    // What the browser carries, so the drag starts in every browser.
+    expect(picked.data.get("text/plain")).toBe("opus");
+    drag("dragend", handle("opus"));
+    drag("drop", handle("sol")?.closest("li"));
+    expect(saved).toEqual([]);
+
+    drag("dragstart", handle("opus"));
+    drag("drop", handle("sol")?.closest("li"));
+    expect(saved.at(-1)?.reviewModels?.map((m) => m.model)).toEqual([
+      "sol",
+      "opus",
+    ]);
+  });
 });

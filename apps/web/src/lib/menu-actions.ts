@@ -32,6 +32,7 @@ import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import {
   frameRefOf,
   hasPrototypeLinks,
+  ownFrameOf,
   takesComments,
 } from "../state/frame-ref.ts";
 import { useImplementation } from "../state/implementation.ts";
@@ -206,8 +207,14 @@ const nodeMenu = (target: Selection) => {
   });
 };
 
+/**
+ * The page a page's menu is about. A view of a page is the page (ADR 0036): right-clicked, its
+ * title and its ground open the page's menu, which acts on the page.
+ */
+const pageOfTarget = (pageId: string) => pageById(ownFrameOf(pageId));
+
 const pageMenu = (pageId: string) => {
-  const page = pageById(pageId);
+  const page = pageOfTarget(pageId);
   if (!page) {
     return null;
   }
@@ -492,7 +499,7 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
 };
 
 const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
-  const page = pageById(target.pageId);
+  const page = pageOfTarget(target.pageId);
   if (!page) {
     return;
   }

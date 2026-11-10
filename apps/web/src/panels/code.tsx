@@ -174,7 +174,7 @@ const useSubject = () => {
 
 /**
  * The code the server writes for a node, through the project's style system; the last one
- * written stays on screen while the next is on its way.
+ * written stays on screen while the next is on its way, and goes when the next cannot be written.
  */
 const useWritten = (request: {
   readonly component: string | undefined;
@@ -207,6 +207,8 @@ const useWritten = (request: {
       })
       .catch(() => {
         if (live) {
+          // The last one written is another node's, or this one's as it was.
+          setCode(null);
           setFailed(true);
         }
       });

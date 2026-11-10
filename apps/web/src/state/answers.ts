@@ -62,6 +62,22 @@ export const setStep = (item: QuestionItem, step: number) =>
     step: Math.max(0, Math.min(step, item.questions.length - 1)),
   }));
 
+/**
+ * What was being given to these cards is let go of: they are answered or declined, or their
+ * thread is gone.
+ */
+export const forgetAnswers = (itemIds: readonly string[]) =>
+  useAnswers.setState((s) => {
+    if (!itemIds.some((id) => Object.hasOwn(s.drafts, id))) {
+      return s;
+    }
+    const drafts = { ...s.drafts };
+    for (const id of itemIds) {
+      delete drafts[id];
+    }
+    return { drafts };
+  });
+
 const run = async (itemId: string, request: () => Promise<unknown>) => {
   update(itemId, (d) => ({ ...d, busy: true }));
   try {
@@ -69,7 +85,10 @@ const run = async (itemId: string, request: () => Promise<unknown>) => {
   } catch (error) {
     reportError(error);
   }
-  update(itemId, (d) => ({ ...d, busy: false }));
+  // The card may be answered and forgotten by now: nothing is kept of it again.
+  if (Object.hasOwn(useAnswers.getState().drafts, itemId)) {
+    update(itemId, (d) => ({ ...d, busy: false }));
+  }
 };
 
 export const sendAnswers = (item: QuestionItem, threadId: string) => {

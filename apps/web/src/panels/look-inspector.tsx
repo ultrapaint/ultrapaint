@@ -14,7 +14,6 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   COMPONENT_STATES,
-  type ComponentChange,
   type ComponentState,
   type LookPlace,
   type PartStyle,
@@ -51,6 +50,7 @@ import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
 import { cellId, placeOfCell } from "../boards/pick.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import type { StyleOption } from "../components/style-combobox.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
 import { nodesOf } from "../lib/node-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
@@ -73,21 +73,9 @@ import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
+import { OPACITY_OPTIONS, opacityOf } from "./inspector-appearance.tsx";
+import { changeFile } from "./inspector-component.tsx";
 import { Row, Section } from "./inspector-fields.tsx";
-
-/**
- * Changes a component's file on the server, on the file as it is there, so a change made meanwhile
- * stays; what the server refuses is said. True when it went through.
- */
-const change = async (name: string, made: ComponentChange) => {
-  try {
-    await api().request("components.change", { change: made, name });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
-};
 
 /** A system component's parts, the root first, as the catalogue names them. */
 const partsOf = (name: string) =>
@@ -136,7 +124,8 @@ const Field = ({
   /** One of two sharing a row: where a value comes from is left to its tooltip. */
   half?: boolean;
   inherited?: Inherited | undefined;
-  kind: FieldTokenKind | "opacity";
+  /** The tokens it offers; an opacity offers its own steps, an order none. */
+  kind: FieldTokenKind | "opacity" | "order";
   /** What it sets, for its tooltip and a screen reader: "Border width". */
   label: string;
   /** A letter in the field before the value, for a side of the padding: "T". */
@@ -146,7 +135,15 @@ const Field = ({
   onPreview?: ((value: JsonValue | undefined) => void) | undefined;
   value: JsonValue | undefined;
 }) => {
-  const options = useTokenOptions(kind === "opacity" ? "spacing" : kind);
+  const tokens = useTokenOptions(
+    kind === "opacity" || kind === "order" ? "spacing" : kind
+  );
+  let options: readonly StyleOption[] = tokens;
+  if (kind === "opacity") {
+    options = OPACITY_OPTIONS;
+  } else if (kind === "order") {
+    options = [];
+  }
   const color = useColorOf(value ?? inherited?.value);
   let leading: React.ReactNode;
   if (kind === "color") {
@@ -168,7 +165,7 @@ const Field = ({
       className="min-w-0 flex-1"
       onChange={onChange}
       {...(onPreview && { onPreview })}
-      options={kind === "opacity" ? [] : options}
+      options={options}
       placeholder={inherited ? displayOf(inherited.value) : "Not set"}
       title={
         inherited && value === undefined
@@ -294,18 +291,16 @@ const SlotFields = ({
     field((value) => withField(style, key, value));
   const border = (key: "color" | "width") =>
     field((value) => withBorder(style, key, value));
-  const number = (key: "opacity" | "order") =>
-    field((value) => {
-      const n =
-        typeof value === "string" && value !== "" ? Number(value) : value;
-      return withField(
-        style,
-        key,
-        key === "opacity" && typeof n === "number"
-          ? Math.min(1, Math.max(0, n))
-          : n
-      );
-    });
+  const opacity = field((value) =>
+    withField(style, "opacity", opacityOf(value))
+  );
+  const order = field((value) =>
+    withField(
+      style,
+      "order",
+      typeof value === "string" && value !== "" ? Number(value) : value
+    )
+  );
   const side = (which: Side) => field((value) => withSide(style, which, value));
   return (
     <>
@@ -361,7 +356,7 @@ const SlotFields = ({
             kind="opacity"
             label="Opacity"
             value={style.opacity}
-            {...number("opacity")}
+            {...opacity}
           />
         </Row>
       </Section>
@@ -493,10 +488,10 @@ const SlotFields = ({
         <Row label="Order">
           <Field
             inherited={inherited.order}
-            kind="opacity"
+            kind="order"
             label="Order"
             value={style.order}
-            {...number("order")}
+            {...order}
           />
         </Row>
       </Section>
@@ -545,16 +540,16 @@ const LookExtras = ({ file }: { file: SystemComponentFile }) => {
   const holding = meta.slots.filter((s) => s.holds !== undefined);
   const hidden = new Set(file.hidden ?? []);
   const show = (part: string, shown: boolean) =>
-    change(file.name, { hidden: !shown, op: "setHidden", part });
+    changeFile(file, { hidden: !shown, op: "setHidden", part });
   const setContent = (slot: string, nodes: readonly DesignNode[]) =>
-    change(file.name, { nodes, op: "setContent", slot });
+    changeFile(file, { nodes, op: "setContent", slot });
   const setItem = (tree: DesignNode | null) => {
     if (!tree) {
-      return change(file.name, { item: null, op: "setItem" });
+      return changeFile(file, { item: null, op: "setItem" });
     }
     const label = firstOf(tree, "text");
     const image = firstOf(tree, "image");
-    return change(file.name, {
+    return changeFile(file, {
       item: {
         tree,
         ...(label !== undefined && { label }),

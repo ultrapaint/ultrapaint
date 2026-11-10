@@ -8,6 +8,7 @@
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { themesOf, valueInTheme } from "@ultrapaint/contracts/themes";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toPx } from "@ultrapaint/contracts/token-value";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
@@ -29,15 +30,32 @@ export const found = (token: { name: string; value: string }, q: string) =>
   token.name.toLowerCase().includes(q) ||
   token.value.toLowerCase().includes(q);
 
+/**
+ * Whether a search (lower-cased) finds a colour: by its name, or by its value in any theme, as
+ * it is written (`var(--color-blue-500)`) or followed to the colour it comes to. One rule for
+ * the list's count and for Color's boards, so every theme's board shows the colours counted.
+ */
+export const colorFound = (ds: DesignSystem, name: string, q: string) =>
+  !q ||
+  name.toLowerCase().includes(q) ||
+  themesOf(ds).some((theme) =>
+    [
+      valueInTheme(ds, name, theme),
+      valueInTheme(ds, name, theme, { follow: true }),
+    ].some((value) => value?.toLowerCase().includes(q))
+  );
+
 /** The design system's tokens of a kind, or of several, that a search finds, in its order. */
 export const tokensFound = (
   ds: DesignSystem,
   kinds: TokenKind | readonly TokenKind[],
   q: string
 ): Token[] =>
-  (typeof kinds === "string" ? [kinds] : kinds)
-    .flatMap((kind) => tokensOfKind(ds, kind))
-    .filter((t) => found(t, q));
+  (typeof kinds === "string" ? [kinds] : kinds).flatMap((kind) =>
+    tokensOfKind(ds, kind).filter((t) =>
+      kind === "color" ? colorFound(ds, t.name, q) : found(t, q)
+    )
+  );
 
 /** The editor's face, which the boards' documentation is set in (the editor loads it). */
 export const UI_FONT =

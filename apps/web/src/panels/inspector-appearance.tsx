@@ -24,12 +24,25 @@ import {
   useReveal,
 } from "./inspector-fields.tsx";
 
-const OPACITY_OPTIONS: StyleOption[] = [1, 0.9, 0.75, 0.5, 0.25, 0.1, 0].map(
-  (o) => ({
-    label: `${Math.round(o * 100)}%`,
-    value: String(o),
-  })
-);
+/** The opacities an opacity field offers, a node's and a component's look's alike. */
+export const OPACITY_OPTIONS: readonly StyleOption[] = [
+  1, 0.9, 0.75, 0.5, 0.25, 0.1, 0,
+].map((o) => ({
+  label: `${Math.round(o * 100)}%`,
+  value: String(o),
+}));
+
+/**
+ * An opacity as its field gives it, picked or typed, from 0 to 1: a number above 1 is a
+ * percentage, `50` half. Null for a field cleared, or for what is no number.
+ */
+export const opacityOf = (value: JsonValue): number | null => {
+  const n =
+    typeof value === "number" ? value : Number.parseFloat(String(value));
+  return value === null || !Number.isFinite(n)
+    ? null
+    : Math.min(1, Math.max(0, n > 1 ? n / 100 : n));
+};
 
 /** A border with one of its fields set, or taken off with `null`; none when nothing is left. */
 const withBorder = (
@@ -51,15 +64,7 @@ const LookSection = ({ nodes }: { nodes: readonly DesignNode[] }) => (
   <Section title="Appearance">
     <Row label="Opacity">
       <ValueField
-        onChange={(v) => {
-          const n = typeof v === "number" ? v : Number.parseFloat(String(v));
-          set(
-            "opacity",
-            v === null || !Number.isFinite(n)
-              ? null
-              : Math.min(1, Math.max(0, n > 1 ? n / 100 : n))
-          );
-        }}
+        onChange={(v) => set("opacity", opacityOf(v))}
         options={OPACITY_OPTIONS}
         {...shownAs(
           sharedOf(nodes, (n) => n.opacity),

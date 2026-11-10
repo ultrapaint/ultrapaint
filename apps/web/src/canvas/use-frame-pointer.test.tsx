@@ -4,8 +4,10 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useComments } from "../state/comments.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { viewFrameOf } from "../state/frame-ref.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
@@ -33,6 +35,8 @@ vi.mock("./editor-frame.ts", () => ({
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const HOME = "home.page.json";
+/** A view of the home page: the page drawn again at another width (ADR 0036). */
+const TABLET = viewFrameOf(HOME, "tablet");
 const root: DesignNode = {
   children: [
     { id: "t1", role: "paragraph", text: "Hi", type: "text" },
@@ -47,11 +51,17 @@ type Handlers = ReturnType<typeof useFramePointer>;
 let handlers: Handlers | null = null;
 
 /** Hands on the handlers of each render, as the frame would use them. */
-const Probe = ({ report }: { report: (h: Handlers) => void }) => {
+const Probe = ({
+  frameId = HOME,
+  report,
+}: {
+  frameId?: string;
+  report: (h: Handlers) => void;
+}) => {
   const latest = useFramePointer({
     canvas: "main",
     frame: { x: 0, y: 0 },
-    frameId: HOME,
+    frameId,
     root,
   });
   useEffect(() => report(latest));
@@ -182,6 +192,30 @@ describe("a marquee", () => {
     expect(useEditor.getState().selection).toEqual({
       frame: HOME,
       nodeId: "t2",
+    });
+  });
+});
+
+describe("the comment tool", () => {
+  it("on a view of a page, starts the page's comment on what was clicked", () => {
+    useComments.setState({ comments: [], draft: null, visible: true });
+    act(() =>
+      mounted.render(
+        <Probe
+          frameId={TABLET}
+          report={(h) => {
+            handlers = h;
+          }}
+        />
+      )
+    );
+    current().onPlaceComment(pointerAt(30.4, 40.6));
+    expect(useComments.getState().draft).toEqual({
+      element: "Hi",
+      nodeId: "t1",
+      pageId: HOME,
+      x: 30,
+      y: 41,
     });
   });
 });

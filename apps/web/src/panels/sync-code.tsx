@@ -7,24 +7,27 @@
  */
 import type {
   SyncPlan,
-  TokenComparison,
   TokenDecision,
   TokenDiff,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
 import { Check, Wand2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
-import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useStepVariant } from "./design-system-setup.tsx";
-import { applyPicks, Conflicts } from "./sync-tokens.tsx";
+import {
+  applyPicks,
+  Conflicts,
+  Unread,
+  useComparison,
+} from "./sync-tokens.tsx";
 
 type Picks = Readonly<Record<string, TokenDecision["take"]>>;
 
@@ -111,23 +114,13 @@ const AutoExport = () => {
 };
 
 export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
-  const [comparison, setComparison] = useState<TokenComparison | null>(null);
+  const { comparison, failed, retry } = useComparison(plan, "code");
   const [picks, setPicks] = useState<Picks>({});
   const [busy, setBusy] = useState<"export" | "import" | "both" | null>(null);
   const main = useStepVariant();
 
-  // Read again whenever the plan moves: the design system or a stylesheet changed.
-  useEffect(() => {
-    if (plan.at > 0) {
-      api()
-        .request("sync.tokens", { source: "code" })
-        .then(setComparison)
-        .catch(reportError);
-    }
-  }, [plan.at]);
-
   if (!comparison) {
-    return <Spinner />;
+    return <Unread failed={failed} onRetry={retry} />;
   }
   const by = (outcome: TokenDiff["outcome"]) =>
     comparison.diffs.filter((d) => d.outcome === outcome);

@@ -215,19 +215,28 @@ export const moveCanvas = (canvas: Canvas, by: number) => {
   reorderCanvases(order);
 };
 
-/** The list in this order, shown at once and saved. */
+/**
+ * The list in this order, shown at once and saved. Refused, it goes back to the order it had,
+ * which is the server's, unless the list was told again or moved again meanwhile.
+ */
 export const reorderCanvases = (order: readonly string[]) => {
   if (!ensureEditable()) {
     return;
   }
   const { canvases } = useProject.getState();
   const rank = new Map(order.map((id, i) => [id, i]));
-  useProject.setState({
-    canvases: [...canvases].sort(
-      (a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
-    ),
-  });
-  api().request("canvases.reorder", { order }).catch(reportError);
+  const shown = [...canvases].sort(
+    (a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
+  );
+  useProject.setState({ canvases: shown });
+  api()
+    .request("canvases.reorder", { order })
+    .catch((error: unknown) => {
+      if (useProject.getState().canvases === shown) {
+        useProject.setState({ canvases });
+      }
+      reportError(error);
+    });
 };
 
 /**

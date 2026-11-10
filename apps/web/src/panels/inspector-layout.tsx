@@ -22,7 +22,7 @@ import {
   StretchHorizontal,
   StretchVertical,
 } from "lucide-react";
-import { type SyntheticEvent, useState } from "react";
+import type { SyntheticEvent } from "react";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -358,6 +358,9 @@ const FOUR: readonly Part[] = [
   { key: "left", name: "left", sides: ["left"] },
 ];
 
+/** No field picked. */
+const NO_PARTS: readonly string[] = [];
+
 const TITLES: Record<SpacingField, string> = {
   margin: "Margin",
   padding: "Padding",
@@ -396,14 +399,16 @@ const SidesRows = ({
 }) => {
   const spacing = useTokenOptions("spacing");
   const values = nodes.map((n) => fieldOf(n, field));
-  const [picked, setPicked] = useState<readonly string[]>([]);
+  // The fields picked are the selection's: other nodes selected start with none.
+  const [pick, setPick] = useDraft<readonly string[]>();
+  const picked = pick ?? NO_PARTS;
   const parts = four ? FOUR : AXES;
   const title = TITLES[field];
   const onPick = (part: Part) => (value: JsonValue) => {
     const chosen = picked.includes(part.key)
       ? parts.filter((p) => picked.includes(p.key))
       : [part];
-    setPicked([]);
+    setPick(null);
     write(
       field,
       chosen.flatMap((p) => p.sides),
@@ -418,10 +423,10 @@ const SidesRows = ({
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "pointerdown") {
-      setPicked((p) =>
-        p.includes(part.key)
-          ? p.filter((k) => k !== part.key)
-          : [...p, part.key]
+      setPick(
+        picked.includes(part.key)
+          ? picked.filter((k) => k !== part.key)
+          : [...picked, part.key]
       );
     }
   };

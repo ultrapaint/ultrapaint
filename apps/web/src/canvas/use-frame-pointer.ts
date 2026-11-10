@@ -5,18 +5,13 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
-import {
-  childrenOf,
-  isContainer,
-  nodeLabel,
-} from "@ultrapaint/design-document/tree";
+import { childrenOf, isContainer } from "@ultrapaint/design-document/tree";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useRef,
   useState,
 } from "react";
-import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -32,6 +27,7 @@ import {
   toggleSelected,
 } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
+import { placeComment } from "./comments.tsx";
 import {
   beginDrag,
   cancelDrag,
@@ -438,23 +434,7 @@ export const useFramePointer = ({
     if (kind !== "page") {
       return;
     }
-    const { x, y } = toFrame(e);
-    const comments = useComments.getState();
-    if (!comments.visible) {
-      comments.toggleVisible();
-    }
-    const id = frameOf(frameId).hitTest(x, y).at(-1);
-    const node = id
-      ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
-      : null;
-    const pinned = node && node.type !== "page" ? node : null;
-    comments.setDraft({
-      element: pinned ? nodeLabel(pinned) : null,
-      nodeId: pinned?.id ?? null,
-      pageId: frameId,
-      x,
-      y,
-    });
+    placeComment(frameId, frameId, toFrame(e));
   };
 
   /**

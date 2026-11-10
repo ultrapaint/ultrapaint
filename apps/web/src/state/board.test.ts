@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
 import {
   boardTree,
+  fitBoardsWhenLaidOut,
   followBoardHistory,
   leaveBoard,
   openBoard,
@@ -69,6 +70,33 @@ beforeEach(() => {
   useDocuments.setState({ canvas: "", docs: { [HOME]: home } });
   fakeBrowser.visit("/?canvas=main");
   measureViewportWith(() => ({ height: 800, width: 1000, x: 300 }));
+});
+
+describe("fitBoardsWhenLaidOut", () => {
+  /** A board 3000 wide, its size known as it is laid out: wider than the 1000 between the panels. */
+  const drawn = (id: string) => {
+    setBoardSize(id, { height: 200, width: 3000 });
+    showBoards([id], "column");
+  };
+
+  it("fits the item's boards once they are laid out, wherever the camera went meanwhile", () => {
+    openBoard({ item: "look", view: "system" });
+    fitBoardsWhenLaidOut();
+    setView({ x: 10 });
+    drawn("board:system/look/samples");
+    expect(useEditor.getState().view.zoom).toBeCloseTo((1000 - 64) / 3000);
+  });
+
+  it("fits nothing once the item it was asked for is left", () => {
+    openBoard({ item: "look", view: "system" });
+    fitBoardsWhenLaidOut();
+    leaveBoard("none");
+    // Another board view, its camera moved before its boards are measured: it stays there.
+    openBoard({ item: "Plan", view: "library" });
+    setView({ x: 10 });
+    drawn("board:library/Plan/a");
+    expect(useEditor.getState().view).toMatchObject({ x: 10, zoom: 1 });
+  });
 });
 
 describe("openBoard", () => {

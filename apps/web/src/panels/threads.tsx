@@ -26,6 +26,7 @@ import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
+import { PanelLoading } from "../components/splash.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
 import { roundsByPlan, stoppedRuns } from "../lib/design-run.ts";
 import { toggleFollowing } from "../lib/thread-actions.ts";
@@ -55,6 +56,9 @@ export const Threads = () => {
     (s) => s.threads.find((t) => t.id === s.current) ?? null
   );
   const items = useAgents((s) => (thread ? s.items[thread.id] : undefined));
+  const readFailed = useAgents(
+    (s) => thread !== null && s.readFailed[thread.id] === true
+  );
 
   useEffect(() => {
     if (!configured) {
@@ -76,7 +80,16 @@ export const Threads = () => {
         <ScopeBar thread={thread} />
       </div>
       <SetupStepBar threadId={thread.id} />
-      <ThreadView items={items ?? []} thread={thread} />
+      {/* A chat still being read is not an empty one: its starters are a new chat's alone. */}
+      {items === undefined ? (
+        <Unread
+          failed={readFailed}
+          onRetry={() => useAgents.getState().open(thread.id)}
+        />
+      ) : (
+        <ThreadView items={items} thread={thread} />
+      )}
+      <Composer key={`composer:${thread.id}`} thread={thread} />
     </div>
   );
 };
@@ -224,6 +237,33 @@ const useRunContext = (
   }, [items, project, thread.id, thread.review, thread.status]);
 };
 
+/**
+ * In the transcript's place while nothing is held of it: it is being read, or its read failed,
+ * which is said there with the way to read it again.
+ */
+const Unread = ({
+  failed,
+  onRetry,
+}: {
+  failed: boolean;
+  onRetry: () => void;
+}) => (
+  <div className="min-h-0 flex-1">
+    {failed ? (
+      <div className="mx-3 mt-3 flex h-7 items-center justify-between gap-2">
+        <span className="truncate font-body-small text-muted-foreground">
+          The chat didn’t load
+        </span>
+        <Button onClick={onRetry} size="sm" variant="ghost">
+          Try again
+        </Button>
+      </div>
+    ) : (
+      <PanelLoading />
+    )}
+  </div>
+);
+
 const ThreadView = ({
   thread,
   items,
@@ -315,7 +355,6 @@ const ThreadView = ({
           </RunContextValue.Provider>
         </MessageScrollerProvider>
       )}
-      <Composer key={`composer:${thread.id}`} thread={thread} />
     </>
   );
 };

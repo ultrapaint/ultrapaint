@@ -10,7 +10,7 @@ import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
-import { select } from "../state/selection.ts";
+import { select, toggleSelected } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Inspector } from "./inspector.tsx";
 
@@ -30,10 +30,19 @@ const PROMO_BOARD = "board:library/Promo/component";
 const text = (id: string): DesignNode =>
   ({ id, role: "paragraph", text: id, type: "text" }) as DesignNode;
 
+/** A title and a lede side by side, and a caption inside a card of its own. */
 const home: DocumentState = {
   doc: HOME,
   hash: `${HOME}@0`,
-  root: { children: [text("title")], id: "home", type: "page" } as DesignNode,
+  root: {
+    children: [
+      text("title"),
+      text("lede"),
+      { children: [text("caption")], id: "card", type: "column" },
+    ],
+    id: "home",
+    type: "page",
+  } as DesignNode,
 };
 
 const initialEditor = useEditor.getState();
@@ -106,5 +115,51 @@ describe("the inspector's sections", () => {
     expect(useEditor.getState().selection?.nodeId).toBe("sale");
     expect(container.textContent).toContain("sale");
     expect(container.textContent).not.toContain("Prototype");
+  });
+});
+
+/** The three Wrap buttons, by their name: "Wrap in a row", or why they cannot wrap. */
+const WRAP = /wrap/i;
+
+describe("the inspector's wrap actions", () => {
+  const wrapButtons = () =>
+    [...container.querySelectorAll("button")].filter((b) =>
+      WRAP.test(b.getAttribute("aria-label") ?? "")
+    );
+  const disabled = () => wrapButtons().map((b) => b.disabled);
+
+  it("follow the selection from siblings to nodes of two parents and back", () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    act(() => toggleSelected({ frame: HOME, nodeId: "lede" }));
+    expect(disabled()).toEqual([false, false, false]);
+    act(() => toggleSelected({ frame: HOME, nodeId: "caption" }));
+    expect(disabled()).toEqual([true, true, true]);
+    act(() => toggleSelected({ frame: HOME, nodeId: "caption" }));
+    expect(disabled()).toEqual([false, false, false]);
+  });
+});
+
+describe("the inspector's spacing fields", () => {
+  /** ⌘-click on a field, which picks it to be set with the others picked. */
+  const pickField = (title: string) => {
+    const target = container.querySelector(`[title="${title}"]`);
+    if (!target) {
+      throw new Error(`no field ${title}`);
+    }
+    act(() => {
+      target.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, metaKey: true })
+      );
+    });
+  };
+  const picked = () => container.querySelectorAll("[data-picked]").length;
+
+  it("picked for one node are not picked for the next one selected", () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    pickField("Padding, left and right");
+    pickField("Padding, top and bottom");
+    expect(picked()).toBe(2);
+    act(() => select({ frame: HOME, nodeId: "lede" }));
+    expect(picked()).toBe(0);
   });
 });

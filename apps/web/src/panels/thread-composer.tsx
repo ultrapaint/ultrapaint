@@ -46,7 +46,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Kbd } from "@/components/ui/kbd";
 import {
   Tooltip,
   TooltipContent,
@@ -63,7 +62,6 @@ import { useBoardChip } from "../lib/add-to-chat.ts";
 import { attachFiles, pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import { importFigma } from "../lib/import-figma.ts";
-import { chordLabel } from "../lib/keys.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -96,6 +94,7 @@ import {
   AnswerField,
   OpenQuestion,
   onAnswerKey,
+  SendKeyHint,
   StopButton,
   useAnswering,
 } from "./thread-questions.tsx";
@@ -644,7 +643,7 @@ const SendButtons = ({
             {running ? <ListPlus /> : <ArrowUp />}
           </TooltipTrigger>
           <TooltipContent>
-            {label} <Kbd>{chordLabel("mod+enter")}</Kbd>
+            {label} <SendKeyHint />
           </TooltipContent>
         </Tooltip>
       )}

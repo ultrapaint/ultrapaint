@@ -128,11 +128,13 @@ const AlreadyAProject = ({
   folder,
   onChooseAnother,
   onClose,
+  onProblem,
   start,
 }: {
   folder: { readonly name: string; readonly path: string } | null;
   onChooseAnother: () => void;
   onClose: () => void;
+  onProblem: (m: string) => void;
   /** What was written: sent in a new chat there once it opens. */
   start: FirstPrompt | null;
 }) => {
@@ -166,7 +168,7 @@ const AlreadyAProject = ({
               if (folder) {
                 projects
                   ?.openFolder(folder.path, start ?? undefined)
-                  .catch(() => undefined);
+                  .catch((error: unknown) => onProblem(messageOf(error)));
               }
               onClose();
             }}
@@ -197,22 +199,27 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
     readonly path: string;
   } | null>(null);
 
+  /** A folder picked for the project; one that cannot be picked or looked into is said on the page. */
   const chooseFolder = async () => {
-    const folder = await pickFolder?.({ title: "Where the project goes" });
-    if (!(folder && projects)) {
-      return;
+    try {
+      const folder = await pickFolder?.({ title: "Where the project goes" });
+      if (!(folder && projects)) {
+        return;
+      }
+      const found = await projects.inspect(folder);
+      if (found.kind === "project") {
+        setProject({ name: found.name, path: folder });
+        return;
+      }
+      setWhere({
+        empty: found.kind === "empty",
+        folder,
+        kind: "chosen",
+        name: found.name,
+      });
+    } catch (error) {
+      onProblem(messageOf(error));
     }
-    const found = await projects.inspect(folder);
-    if (found.kind === "project") {
-      setProject({ name: found.name, path: folder });
-      return;
-    }
-    setWhere({
-      empty: found.kind === "empty",
-      folder,
-      kind: "chosen",
-      name: found.name,
-    });
   };
 
   /** What the prompt starts with: its text, who picks the look, the agent and model. */
@@ -380,9 +387,10 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
         folder={project}
         onChooseAnother={() => {
           setProject(null);
-          chooseFolder().catch((error: unknown) => onProblem(messageOf(error)));
+          chooseFolder();
         }}
         onClose={() => setProject(null)}
+        onProblem={onProblem}
         start={text.trim() ? startOf(text.trim()) : null}
       />
     </div>

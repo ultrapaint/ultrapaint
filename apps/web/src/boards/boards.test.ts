@@ -226,6 +226,38 @@ describe("Design system's boards", () => {
     ).toEqual([["color-foreground", "color-background"]]);
   });
 
+  it("finds a colour by its name or its value in any theme, the list counting what every board draws", () => {
+    const drawn = (query: string) =>
+      systemBoards("color", themed, null, query).boards.map((b) =>
+        ids(b.root)
+          .filter((id) => id.startsWith("token:"))
+          .map((id) => id.slice("token:".length))
+      );
+    const counted = (query: string) =>
+      foundationsOf(themed, query).find((f) => f.id === "color")?.count;
+    // The ramp by its names, and the colour whose value names a shade of it.
+    const blue = [
+      "color-blue-50",
+      "color-blue-500",
+      "color-blue-950",
+      "color-primary",
+    ];
+    expect(drawn("blue")).toEqual([blue, blue]);
+    expect(counted("blue")).toBe(4);
+    // What a value that names another comes to.
+    expect(drawn("#3b82f6")).toEqual([
+      ["color-blue-500", "color-primary"],
+      ["color-blue-500", "color-primary"],
+    ]);
+    expect(counted("#3b82f6")).toBe(2);
+    // A value only the dark theme has.
+    expect(drawn("a3a3a3")).toEqual([
+      ["color-muted-foreground"],
+      ["color-muted-foreground"],
+    ]);
+    expect(counted("a3a3a3")).toBe(1);
+  });
+
   it("draws the default look's palette, light and dark, without a design system", () => {
     const { boards } = systemBoards("color", null, null);
     expect(boards.map((b) => b.theme)).toEqual(["light", "dark"]);

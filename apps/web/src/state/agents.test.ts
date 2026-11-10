@@ -1,4 +1,5 @@
 import "../testing/fake-browser.ts";
+import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -11,6 +12,8 @@ import {
   terminalKey,
   useAgents,
 } from "./agents.ts";
+import { pick, sendAnswers, useAnswers } from "./answers.ts";
+import { addChip, useAttachments } from "./attachments.ts";
 import { followServer } from "./server-data.ts";
 
 vi.mock(
@@ -35,11 +38,34 @@ const said = (id: string, text: string): ThreadItem => ({
   text,
 });
 
+type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
+
+/** A card asking one question, not yet answered. */
+const asked = (id: string): QuestionItem => ({
+  answers: null,
+  at: 1,
+  id,
+  kind: "question",
+  questions: [
+    {
+      id: "tone",
+      options: [
+        { id: "calm", label: "Calm" },
+        { id: "loud", label: "Loud" },
+      ],
+      question: "Which tone?",
+    },
+  ],
+});
+
 const initial = useAgents.getState();
 
 beforeEach(() => {
   fakeApi.reset();
   useAgents.setState(initial, true);
+  useAnswers.setState({ drafts: {} });
+  useAttachments.setState({ byThread: {} });
+  localStorage.clear();
   return followServer({ report: () => undefined });
 });
 
@@ -241,5 +267,106 @@ describe("the agent events", () => {
     expect(s.terminals).toEqual({ [terminalKey("u", "1")]: "kept" });
     expect(s.working).toEqual({});
     expect(s.focused).toEqual({ u: "p" });
+  });
+
+  it("forgets a removed thread's chips, when it was looked at, and the answers it was being given", async () => {
+    fakeApi.respond("threads.items", () => []);
+    const card = asked("q1");
+    const other = asked("q2");
+    useAgents.setState({
+      items: { t: [card], u: [other] },
+      threads: [thread("t"), thread("u")],
+    });
+    await useAgents.getState().open("t");
+    await useAgents.getState().open("u");
+    useAgents.setState({ items: { t: [card], u: [other] } });
+    const chip = (pageId: string) =>
+      ({
+        file: `designs/${pageId}`,
+        kind: "page",
+        name: pageId,
+        pageId,
+      }) as const;
+    addChip("t", chip("home"));
+    addChip("u", chip("about"));
+    pick("q1", card.questions[0] as QuestionItem["questions"][number], "calm");
+    pick("q2", other.questions[0] as QuestionItem["questions"][number], "loud");
+    fakeApi.emit("agent", { threadId: "t", type: "removed" });
+    expect(Object.keys(useAgents.getState().seen)).toEqual(["u"]);
+    expect(
+      Object.keys(
+        JSON.parse(localStorage.getItem("ultrapaint:threads-seen") ?? "")
+      )
+    ).toEqual(["u"]);
+    expect(Object.keys(useAttachments.getState().byThread)).toEqual(["u"]);
+    expect(Object.keys(useAnswers.getState().drafts)).toEqual(["q2"]);
+  });
+
+  it("forgets the answers given to a card once it is answered, told before the request is", async () => {
+    const card = asked("q1");
+    const question = card.questions[0] as QuestionItem["questions"][number];
+    useAgents.setState({ items: { t: [card] }, threads: [thread("t")] });
+    fakeApi.respond("threads.answer", ({ answers, itemId }) => {
+      fakeApi.emit("agent", {
+        item: { ...card, answers, id: itemId },
+        threadId: "t",
+        type: "itemUpdate",
+      });
+    });
+    pick("q1", question, "calm");
+    await sendAnswers(card, "t");
+    expect(useAnswers.getState().drafts).toEqual({});
+  });
+
+  it("forgets the answers given to a card that was declined", () => {
+    const card = asked("q1");
+    useAgents.setState({ items: { t: [card] }, threads: [thread("t")] });
+    pick("q1", card.questions[0] as QuestionItem["questions"][number], "calm");
+    fakeApi.emit("agent", {
+      item: { ...card, outcome: "declined" },
+      threadId: "t",
+      type: "itemUpdate",
+    });
+    expect(useAnswers.getState().drafts).toEqual({});
+  });
+});
+
+describe("a thread opened", () => {
+  it("holds nothing of its transcript until it is read: not an empty one", async () => {
+    let answer: (items: readonly ThreadItem[]) => void = () => undefined;
+    fakeApi.respond(
+      "threads.items",
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        })
+    );
+    useAgents.setState({ threads: [thread("t")] });
+    const opened = useAgents.getState().open("t");
+    expect(useAgents.getState()).toMatchObject({
+      current: "t",
+      view: "thread",
+    });
+    expect(useAgents.getState().items.t).toBeUndefined();
+    answer([]);
+    await opened;
+    expect(useAgents.getState().items.t).toEqual([]);
+    expect(useAgents.getState().readFailed).toEqual({});
+  });
+
+  it("says its transcript could not be read, until it is", async () => {
+    fakeApi.respond("threads.items", () =>
+      Promise.reject(new RequestError("internal", "the file is gone"))
+    );
+    useAgents.setState({ threads: [thread("t")] });
+    await useAgents.getState().open("t");
+    expect(useAgents.getState().readFailed).toEqual({ t: true });
+    expect(useAgents.getState().items.t).toBeUndefined();
+    // Asked again, it is being read: not failed while it is, nor once it is read.
+    fakeApi.respond("threads.items", () => [said("1", "Hello")]);
+    const again = useAgents.getState().open("t");
+    expect(useAgents.getState().readFailed).toEqual({});
+    await again;
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
   });
 });

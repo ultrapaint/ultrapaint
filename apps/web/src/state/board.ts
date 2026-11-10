@@ -350,6 +350,17 @@ export const leaveBoard = (history: History = "push") => {
 };
 
 /**
+ * What the page canvas was left with is put through `keep` while a board view is open: the page
+ * list changed under it, and what went is not handed back on leaving.
+ */
+export const keepOfPageSelection = (keep: (picked: Picked) => Picked) => {
+  const { left } = useBoard.getState();
+  if (left) {
+    useBoard.setState({ left: { ...left, picked: keep(left.picked) } });
+  }
+};
+
+/**
  * What is selected on the page canvas: what the page was left with while a board view is open
  * (a look takes its content from it), the selection itself otherwise; the node the inspector shows
  * first.
@@ -468,11 +479,22 @@ const fitFirstView = () => {
   }
 };
 
+/** Stops the fit that waits for its item's boards to be laid out; null when none does. */
+let stopWaitingFit: (() => void) | null = null;
+
 /**
  * Fits the open item's boards between the panels once they are laid out, whatever the camera did
- * meanwhile: the look page's samples, opened as the editor loads.
+ * meanwhile: the look page's samples, opened as the editor loads. The fit is that item's: one
+ * left before its boards were laid out is not fitted, nor is what is opened after it. Asked for
+ * again, the fit that waited gives way.
  */
 export const fitBoardsWhenLaidOut = () => {
+  stopWaitingFit?.();
+  const { open } = useBoard.getState();
+  if (!open) {
+    return;
+  }
+  const key = boardKey(open);
   const fitNow = () => {
     const frames = Object.values(useBoard.getState().frames);
     if (frames.length === 0) {
@@ -485,10 +507,15 @@ export const fitBoardsWhenLaidOut = () => {
     return;
   }
   const stop = useBoard.subscribe((now, before) => {
-    if (now.frames !== before.frames && fitNow()) {
-      stop();
+    const left = !(now.open && boardKey(now.open) === key);
+    if (left || (now.frames !== before.frames && fitNow())) {
+      stopWaitingFit?.();
     }
   });
+  stopWaitingFit = () => {
+    stop();
+    stopWaitingFit = null;
+  };
 };
 
 /** A guideline's text drawn on its board as it is typed; null once it is saved or let go. */

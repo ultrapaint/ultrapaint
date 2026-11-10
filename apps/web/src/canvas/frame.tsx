@@ -147,7 +147,7 @@ export const Frame = memo(
     const held = useEditor((s) => s.held[frameId]);
     const holdsCard = useComments(
       (s) =>
-        s.draft?.pageId === frameId ||
+        s.draft?.pageId === ownFrameOf(frameId) ||
         (s.open !== null &&
           page !== undefined &&
           s.comments.some((c) => c.id === s.open && c.page === page.path))

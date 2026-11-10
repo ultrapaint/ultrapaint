@@ -21,6 +21,7 @@ import { shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import {
   code,
+  colorFound,
   label,
   nameText,
   RULE,
@@ -333,7 +334,8 @@ const themeBoard = (
 
 /**
  * Color's boards: one per theme of the design system, side by side, each drawn in its theme. A
- * search keeps the colours whose name or value has it.
+ * search keeps the colours whose name or value has it, in whichever theme: the same colours on
+ * every board, as many as the list counts (`colorFound`).
  */
 export const colorBoards = (ds: DesignSystem, q: string): Boards => {
   const themes = themesOf(ds);
@@ -347,15 +349,7 @@ export const colorBoards = (ds: DesignSystem, q: string): Boards => {
       .map((group) => ({
         group,
         names: group.tokens
-          .filter((t) => {
-            const value =
-              valueInTheme(ds, t.name, theme, { follow: true }) ?? "";
-            return (
-              !q ||
-              t.name.toLowerCase().includes(q) ||
-              value.toLowerCase().includes(q)
-            );
-          })
+          .filter((t) => colorFound(ds, t.name, q))
           .map((t) => t.name),
       }))
       .filter((g) => g.names.length > 0 || (!q && g.group.tokens.length === 0));

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   changedSince,
   commitBlocked,
+  diffLines,
   gitSaid,
   groupTicked,
   sharedFolder,
@@ -100,5 +101,59 @@ describe("what git said when a command failed", () => {
       )
     ).toBe("Author identity unknown\n*** Please tell me who you are.");
     expect(gitSaid("Writing to git is off")).toBe("Writing to git is off");
+  });
+});
+
+describe("a diff's lines", () => {
+  const drawn = (diff: string) =>
+    diffLines(diff).map((line) => `${line.kind}|${line.text}`);
+
+  it("are changes by their first character, whatever the line itself starts with", () => {
+    // A snapshot's or a checkpoint's diff: the two lines that name the file, then its lines.
+    const diff = [
+      "--- a/notes.md",
+      "+++ b/notes.md",
+      " Title",
+      "----",
+      "--- a/quoted",
+      "+++i;",
+      "+++ b/quoted",
+      "",
+    ].join("\n");
+    expect(drawn(diff)).toEqual([
+      "context|--- a/notes.md",
+      "context|+++ b/notes.md",
+      "context| Title",
+      "removed|----",
+      "removed|--- a/quoted",
+      "added|+++i;",
+      "added|+++ b/quoted",
+    ]);
+  });
+
+  it("names each file of git's diff before its own changes", () => {
+    const diff = [
+      "diff --git a/one.md b/one.md",
+      "index bdad409..422c2b7 100644",
+      "--- a/one.md",
+      "+++ b/one.md",
+      "@@ -1,3 +1,2 @@",
+      " a",
+      "----",
+      "\\ No newline at end of file",
+      "diff --git a/two.c b/two.c",
+      "index c4f6559..c080028 100644",
+      "--- a/two.c",
+      "+++ b/two.c",
+      "@@ -1,2 +1,3 @@",
+      " ++i;",
+      "+++j;",
+      "",
+    ].join("\n");
+    expect(
+      diffLines(diff)
+        .filter((line) => line.kind !== "context")
+        .map((line) => `${line.kind}|${line.text}`)
+    ).toEqual(["removed|----", "added|+++j;"]);
   });
 });

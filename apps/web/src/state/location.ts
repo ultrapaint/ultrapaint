@@ -26,8 +26,8 @@ import {
   normaliseRoute,
   pagesInVariant,
 } from "@ultrapaint/shared/route";
-import { leaveBoard, useBoard } from "./board.ts";
-import { useDocuments } from "./documents.ts";
+import { keepOfPageSelection, leaveBoard, useBoard } from "./board.ts";
+import { nodeIn, useDocuments } from "./documents.ts";
 import {
   type EditorState,
   pagesOfCanvas,
@@ -45,6 +45,7 @@ import {
   writeMode,
   writeUrl,
 } from "./url.ts";
+import { type Picked, stillThere } from "./workspace-memory.ts";
 
 /**
  * Where to go: a canvas, opened (its layout read again when it is the one open), and on it a page
@@ -202,7 +203,54 @@ const landingPlace = (canvas: string, to: GoTo): Place => {
   return { activePage: shown, route: landing, variant };
 };
 
-const openCanvas = async (canvas: string, to: GoTo, board: BoardWay) => {
+/**
+ * What can still be found on a canvas once its page list changed: a page of the list, and a node
+ * of a frame that is still there. A page's document may outlast the page in the list, so a node
+ * of a page that went is gone with it; what is picked on a board is the board view's own.
+ */
+const foundOn = (canvas: string): Parameters<typeof stillThere>[1] => {
+  const pages = pagesOfCanvas(canvas);
+  const { docs } = useDocuments.getState();
+  const page = (id: string) => pages.some((p) => p.id === id);
+  return {
+    node: (s) => {
+      const ref = frameRefOf(s.frame);
+      if (ref.kind === "board") {
+        return true;
+      }
+      const of = pageOfRef(ref);
+      return (
+        (of === null || page(of)) &&
+        nodeIn(docs, canvas, s.frame, s.nodeId) !== null
+      );
+    },
+    page,
+  };
+};
+
+/**
+ * What a canvas opened again keeps: what is still there of the selection, on the canvas and in
+ * what a board view open put aside of it, and where its nodes were measured, which a frame that
+ * stays says again only when they move.
+ */
+const stillPicked = (canvas: string): Partial<EditorState> => {
+  const exists = foundOn(canvas);
+  keepOfPageSelection((left) => stillThere(left, exists));
+  const { also, rects, selectedPage, selection } = useEditor.getState();
+  const picked: Picked = { also, selectedPage, selection };
+  return { ...stillThere(picked, exists), hover: null, rects };
+};
+
+/**
+ * Opens a canvas at a place. `catchingUp` is the open canvas opened again for its frames, the
+ * page list having changed: nowhere the user went, so the selection that is still there stays.
+ */
+const openCanvas = async (
+  canvas: string,
+  to: GoTo,
+  board: BoardWay,
+  catchingUp = false
+) => {
   opening += 1;
   const asked = opening;
   try {
@@ -217,7 +265,11 @@ const openCanvas = async (canvas: string, to: GoTo, board: BoardWay) => {
     arrive(
       landingPlace(canvas, to),
       "replace",
-      { ...openedCanvas(canvas, layout), ...unpicked, canvas },
+      {
+        ...openedCanvas(canvas, layout),
+        ...(catchingUp ? stillPicked(canvas) : unpicked),
+        canvas,
+      },
       board
     );
     localStorage.setItem(REMEMBERED, canvas);
@@ -316,8 +368,14 @@ export const followFrame = (frame: string) => {
     if (now.activePage !== page.id || now.route !== null) {
       arrive({ activePage: page.id, route: null, variant }, "replace");
     }
-  } else if (page.route !== now.route || variant !== now.variant) {
-    arrive({ activePage: page.id, route: page.route, variant }, "replace");
+    return;
+  }
+  // On the page already: it stays at the URL it was reached with (`/invoices/42` of a page
+  // serving `/invoices/:id`), as a move to it does.
+  const route =
+    now.activePage === page.id && now.route !== null ? now.route : page.route;
+  if (route !== now.route || variant !== now.variant) {
+    arrive({ activePage: page.id, route, variant }, "replace");
   }
 };
 
@@ -347,12 +405,13 @@ export const pagesChanged = () => {
     pages.some((p) => !frames[p.id]) ||
     framed.some((id) => !pages.some((p) => p.id === id))
   ) {
-    goTo({
+    // The editor went nowhere: a board view open stays, and so does what is still selected.
+    openCanvas(
       canvas,
-      page: now.activePage,
-      route: now.route,
-      variant: now.variant,
-    });
+      { page: now.activePage, route: now.route, variant: now.variant },
+      "keep",
+      true
+    );
     return;
   }
   if (now.route === null) {
@@ -415,8 +474,13 @@ export const openStartCanvas = (): boolean => {
 const wentTo = (url: UrlRead) => {
   // The board view the entry names is the board view's to open (`followBoardHistory`).
   const keepBoard = url.board !== null;
-  if (url.canvas !== null && url.canvas !== useEditor.getState().canvas) {
-    goTo({ ...url, canvas: url.canvas }, { keepBoard });
+  // The designs directory's own canvas is named "", which the URL leaves out: an entry without
+  // a canvas is one of that canvas, when there is one (`openStartCanvas`).
+  const canvas =
+    url.canvas ??
+    (useProject.getState().canvases.some((c) => c.id === "") ? "" : null);
+  if (canvas !== null && canvas !== useEditor.getState().canvas) {
+    goTo({ ...url, canvas }, { keepBoard });
     return;
   }
   goTo(

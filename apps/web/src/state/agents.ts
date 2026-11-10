@@ -9,7 +9,10 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { create } from "zustand";
+import { isOpenQuestion } from "../lib/answers.ts";
 import { threadView } from "../lib/thread-view.ts";
+import { forgetAnswers } from "./answers.ts";
+import { dropChips } from "./attachments.ts";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
@@ -29,6 +32,11 @@ interface AgentsStore {
   items: Record<string, readonly ThreadItem[]>;
   load: () => Promise<void>;
   open: (threadId: string | null) => Promise<void>;
+  /**
+   * The threads opened whose transcript could not be read, until it is: with none held of it, the
+   * chat says so in its place rather than draw a chat nothing was said in.
+   */
+  readFailed: Record<string, true>;
   /** When each thread was last looked at, so the list can say which ones have news. */
   seen: Record<string, number>;
   setFollowing: (threadId: string | null) => void;
@@ -144,18 +152,45 @@ export const editedWork = (
   };
 };
 
-/** Everything kept of a thread that is gone: its transcript, its terminals, its work. */
+/**
+ * Everything kept of a thread that is gone: its transcript and whether it was read, its
+ * terminals, its work, and when it was last looked at.
+ */
 const withoutThread = (s: AgentsStore, threadId: string) => {
   const { [threadId]: _items, ...items } = s.items;
   const { [threadId]: _work, ...working } = s.working;
   const { [threadId]: _focus, ...focused } = s.focused;
+  const { [threadId]: _seen, ...seen } = s.seen;
+  const { [threadId]: _failed, ...readFailed } = s.readFailed;
   const prefix = terminalKey(threadId, "");
   const terminals = Object.fromEntries(
     Object.entries(s.terminals).filter(([key]) => !key.startsWith(prefix))
   );
   clearTimeout(doneTimers.get(threadId));
   doneTimers.delete(threadId);
-  return { focused, items, terminals, working };
+  return { focused, items, readFailed, seen, terminals, working };
+};
+
+/**
+ * What other stores keep of a thread that is gone: the chips its next prompt would have taken,
+ * and the answers being given to its cards.
+ */
+const forgetThread = (threadId: string) => {
+  const items = useAgents.getState().items[threadId] ?? [];
+  dropChips(threadId);
+  forgetAnswers(items.flatMap((i) => (i.kind === "question" ? [i.id] : [])));
+};
+
+/** The threads whose transcript could not be read, one of them read now or being read again. */
+const nowRead = (
+  failed: AgentsStore["readFailed"],
+  threadId: string
+): AgentsStore["readFailed"] => {
+  if (!failed[threadId]) {
+    return failed;
+  }
+  const { [threadId]: _read, ...rest } = failed;
+  return rest;
 };
 
 /** A terminal id is the agent session's; the thread makes it the editor's. */
@@ -184,15 +219,22 @@ export const useAgents = create<AgentsStore>((set) => ({
       const thread = s.threads.find((t) => t.id === threadId);
       const seen = { ...s.seen, [threadId]: thread?.updatedAt ?? Date.now() };
       writeSeen(seen);
-      return { current: threadId, seen, view: "thread" };
+      return {
+        current: threadId,
+        readFailed: nowRead(s.readFailed, threadId),
+        seen,
+        view: "thread",
+      };
     });
     try {
       const items = await api().request("threads.items", { threadId });
       set((s) => ({ items: { ...s.items, [threadId]: items } }));
     } catch (error) {
       reportError(error);
+      set((s) => ({ readFailed: { ...s.readFailed, [threadId]: true } }));
     }
   },
+  readFailed: {},
   seen: readSeen(),
   setFollowing: (threadId) => set({ following: threadId }),
   show: (thread) =>
@@ -262,6 +304,10 @@ const takeAgentEvent = (ev: AgentEvent) => {
       };
     });
   } else if (ev.type === "itemUpdate") {
+    // A card answered or declined is asked no more: what was being given to it is let go of.
+    if (ev.item.kind === "question" && !isOpenQuestion(ev.item)) {
+      forgetAnswers([ev.item.id]);
+    }
     set((s) => {
       const items = (s.items[ev.threadId] ?? []).map((i) =>
         i.id === ev.item.id ? ev.item : i
@@ -272,11 +318,16 @@ const takeAgentEvent = (ev: AgentEvent) => {
       };
     });
   } else if (ev.type === "removed") {
+    forgetThread(ev.threadId);
     set((s) => {
       const threads = s.threads.filter((t) => t.id !== ev.threadId);
       const gone = s.current === ev.threadId;
+      const left = withoutThread(s, ev.threadId);
+      if (Object.hasOwn(s.seen, ev.threadId)) {
+        writeSeen(left.seen);
+      }
       return {
-        ...withoutThread(s, ev.threadId),
+        ...left,
         current: gone ? null : s.current,
         following: s.following === ev.threadId ? null : s.following,
         threads,
@@ -306,7 +357,10 @@ const agentsData = follow({
     useAgents.setState((s) => ({
       agents,
       threads,
-      ...(items && { items: { ...s.items, [items.threadId]: items.items } }),
+      ...(items && {
+        items: { ...s.items, [items.threadId]: items.items },
+        readFailed: nowRead(s.readFailed, items.threadId),
+      }),
     })),
   on: {
     agent: takeAgentEvent,

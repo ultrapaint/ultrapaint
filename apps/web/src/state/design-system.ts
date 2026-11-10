@@ -56,8 +56,11 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
 let saved: DesignSystem | null = null;
 /** The operations of a field being typed in, laid over `saved`; null when none is. */
 let draft: readonly DesignSystemEdit[] | null = null;
-/** A draft committed: the next design system the server sends replaces it. */
-let settling = false;
+/**
+ * The operations committed and saved: the next design system the server sends has them, and
+ * takes the draft's place while the draft is still those, not a field typed in since.
+ */
+let settling: readonly DesignSystemEdit[] | null = null;
 
 /** `saved` with the draft laid over it; as it is while the draft does not fit (a value half typed). */
 const drawn = (): DesignSystem | null => {
@@ -73,8 +76,10 @@ const drawn = (): DesignSystem | null => {
 const take = (state: DesignSystemState) => {
   saved = state.designSystem;
   if (settling) {
-    settling = false;
-    draft = null;
+    if (draft === settling) {
+      draft = null;
+    }
+    settling = null;
   }
   useDesignSystem.setState({
     ...state,
@@ -99,13 +104,14 @@ const designSystemData = follow({
  */
 export const draftEdits = (ops: readonly DesignSystemEdit[] | null) => {
   draft = ops && ops.length > 0 ? ops : null;
-  settling = false;
+  settling = null;
   useDesignSystem.setState({ designSystem: drawn() });
 };
 
 /**
  * Sends `ops` as one `designSystem.edit`, one undo step, drawn meanwhile as the draft is: the
- * draft gives way to the design system the server sends back, or at once when it is refused.
+ * draft gives way to the design system the server sends back, or at once when it is refused,
+ * unless another took its place meanwhile.
  */
 export const commitEdits = async (
   ops: readonly DesignSystemEdit[],
@@ -122,12 +128,16 @@ export const commitEdits = async (
       ops,
       ...(label !== undefined && { label }),
     });
-    settling = true;
+    settling = ops;
     // What the server sends back takes the draft's place; asked for, so it never waits.
     designSystemData.read().catch(reportError);
     return true;
   } catch (error) {
-    draftEdits(null);
+    // A field typed in, or another commit made, while this one was on its way is not this one's
+    // to take away.
+    if (draft === ops) {
+      draftEdits(null);
+    }
     reportError(error);
     return false;
   }

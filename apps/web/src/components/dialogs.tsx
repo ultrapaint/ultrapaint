@@ -73,23 +73,41 @@ const useDialogs = create<{ request: Request | null; open: boolean }>(() => ({
   request: null,
 }));
 
+/**
+ * There is one dialog at a time: one asked for while another is open takes its place, and the
+ * one open is answered as dismissed, so whoever waits for it goes on.
+ */
+const dismissOpen = () => {
+  const { open, request } = useDialogs.getState();
+  if (!(open && request)) {
+    return;
+  }
+  if (request.kind === "confirm") {
+    request.resolve(false);
+  } else {
+    request.resolve(null);
+  }
+};
+
 /** Promise-based replacement for `window.confirm`, rendered by `<DialogHost />`. */
 export const confirmDialog = (options: ConfirmOptions) =>
-  new Promise<boolean>((resolve) =>
+  new Promise<boolean>((resolve) => {
+    dismissOpen();
     useDialogs.setState({
       open: true,
       request: { id: takeId(), kind: "confirm", resolve, ...options },
-    })
-  );
+    });
+  });
 
 /** Promise-based replacement for `window.prompt`; resolves to null when dismissed. */
 export const promptDialog = (options: PromptOptions) =>
-  new Promise<string | null>((resolve) =>
+  new Promise<string | null>((resolve) => {
+    dismissOpen();
     useDialogs.setState({
       open: true,
       request: { id: takeId(), kind: "prompt", resolve, ...options },
-    })
-  );
+    });
+  });
 
 const settleConfirm = (ok: boolean) => {
   const { open, request } = useDialogs.getState();

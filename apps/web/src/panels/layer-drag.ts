@@ -45,6 +45,8 @@ export const useDropHere = (key: string) =>
 /** What the rows share while one is dragged: the row picked up, and what a drop on a row does. */
 export interface Dragging {
   drag: LayerItem | null;
+  /** Whether the top rows are the canvas's, where a layer lands beside them (`layerScope`). */
+  onCanvas: boolean;
   onDrop: (over: LayerItem, position: DropPosition) => Promise<void>;
   setDrag: (item: LayerItem | null) => void;
 }
@@ -58,7 +60,13 @@ export const rowDrop = (item: LayerItem, dragging: Dragging) => {
     }
     const r = e.currentTarget.getBoundingClientRect();
     const y = (e.clientY - r.top) / r.height;
-    const position = dropPositionAt(dragging.drag, item, y, holdsChildren);
+    const position = dropPositionAt(
+      dragging.drag,
+      item,
+      y,
+      holdsChildren,
+      dragging.onCanvas
+    );
     if (position) {
       e.preventDefault();
       setDropTarget({ key, position });

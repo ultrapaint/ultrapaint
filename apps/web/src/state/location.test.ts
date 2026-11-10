@@ -12,6 +12,7 @@ import {
   openBoardInUrl,
   useBoard,
 } from "./board.ts";
+import { useDocuments } from "./documents.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
 import {
   followHistory,
@@ -118,6 +119,7 @@ beforeEach(() => {
     pages: [...mainPages, about],
   });
   useEditor.setState(initial, true);
+  useDocuments.setState({ canvas: null, docs: {}, loaded: false });
   localStorage.clear();
   fakeBrowser.visit("/");
   stopFollowing = followHistory();
@@ -127,6 +129,30 @@ afterEach(() => {
   vi.useRealTimers();
   stopFollowing();
 });
+
+/**
+ * The documents of these pages of the canvas open, each holding the text `a`, once the canvas's
+ * own are read: what is selected in them is found there.
+ */
+const withNodes = async (...pages: string[]) => {
+  await until(useDocuments, (s) => s.loaded);
+  useDocuments.setState({
+    docs: Object.fromEntries(
+      pages.map((doc) => [
+        doc,
+        {
+          doc,
+          hash: `${doc}@0`,
+          root: {
+            children: [{ id: "a", role: "paragraph", text: "a", type: "text" }],
+            id: `${doc}-root`,
+            type: "page",
+          },
+        },
+      ])
+    ),
+  });
+};
 
 /** Starts on the canvas main, at its home, with the history holding that one entry. */
 const startOnMain = async () => {
@@ -454,6 +480,40 @@ describe("a board view (ADR 0045)", () => {
     expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
     expect(readUrl().board).toEqual({ item: "color", view: "system" });
   });
+
+  it("is kept when a page comes, with what the page canvas was left with", async () => {
+    await withNodes(pricing.id, draft.id);
+    select({ frame: pricing.id, nodeId: "a" });
+    openBoard({ item: "color", view: "system" });
+    useProject.setState({
+      pages: [...mainPages, page("faq.page.json", { route: "/faq" }), about],
+    });
+    const { frames } = useEditor.getState();
+    pagesChanged();
+    await reopened(frames);
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    expect(readUrl().board).toEqual({ item: "color", view: "system" });
+    leaveBoard("none");
+    expect(useEditor.getState().selection).toEqual({
+      frame: pricing.id,
+      nodeId: "a",
+    });
+  });
+
+  it("hands back no selection in a page that went while it was open", async () => {
+    await withNodes(pricing.id, draft.id);
+    select({ frame: draft.id, nodeId: "a" });
+    openBoard({ item: "color", view: "system" });
+    useProject.setState({
+      pages: mainPages.filter((p) => p.id !== draft.id).concat(about),
+    });
+    const { frames } = useEditor.getState();
+    pagesChanged();
+    await reopened(frames);
+    expect(useBoard.getState().open).toEqual({ item: "color", view: "system" });
+    leaveBoard("none");
+    expect(useEditor.getState().selection).toBeNull();
+  });
 });
 
 describe("back and forward", () => {
@@ -514,6 +574,31 @@ describe("back and forward", () => {
     expect(outOfStep()).toEqual([]);
   });
 
+  it("open the designs directory's own canvas for an entry that names none", async () => {
+    // The designs directory's own canvas is named "", which the URL leaves out.
+    const root = page("index.page.json", { route: "/" }, "");
+    const docs = page("docs.page.json", { route: "/docs" }, "");
+    useProject.setState({
+      canvases: [
+        { home: "/", id: "", name: "App", variants: [] },
+        { home: "/about", id: "other", name: "Other", variants: [] },
+      ],
+      pages: [root, docs, about],
+    });
+    await goTo({ canvas: "" });
+    fakeBrowser.visit(`${window.location.pathname}${window.location.search}`);
+    goTo({ route: "/docs" });
+    // In the entry's place: the one before it is still the home of the canvas left.
+    await goTo({ canvas: "other" });
+    expect(fakeBrowser.history()).toMatchObject({ at: 1, entries: ["/", {}] });
+    expect(at()).toMatchObject({ activePage: about.id, canvas: "other" });
+
+    window.history.back();
+    await opened("");
+    expect(at()).toMatchObject({ activePage: root.id, canvas: "", route: "/" });
+    expect(outOfStep()).toEqual([]);
+  });
+
   it("keep the workspace", () => {
     goTo({ route: "/pricing" });
     useEditor.getState().setWorkspace("prototype");
@@ -554,6 +639,20 @@ describe("followFrame", () => {
     expect(outOfStep()).toEqual([]);
   });
 
+  it("stays at the URL a page was reached with, its route taking parameters", () => {
+    const invoice = page("invoice.page.json", { route: "/invoices/:id" });
+    useProject.setState({ pages: [...mainPages, invoice, about] });
+    goTo({ route: "/invoices/42" });
+    expect(at()).toMatchObject({ activePage: invoice.id });
+    select({ frame: invoice.id, nodeId: "x" });
+    expect(at()).toMatchObject({
+      activePage: invoice.id,
+      route: "/invoices/42",
+    });
+    expect(readUrl().route).toBe("/invoices/42");
+    expect(outOfStep()).toEqual([]);
+  });
+
   it("stays where it is for a node on the canvas", () => {
     goTo({ route: "/pricing" });
     select({ frame: "node:n1", nodeId: "n1" });
@@ -591,6 +690,37 @@ describe("pagesChanged", () => {
       activePage: boldPricing.id,
       variant: "bold",
     });
+    expect(outOfStep()).toEqual([]);
+  });
+
+  it("keeps what is selected when a page comes, where it was measured", async () => {
+    await withNodes(pricing.id);
+    select({ frame: pricing.id, nodeId: "a" });
+    const rects = { [pricing.id]: { a: { height: 1, width: 1, x: 0, y: 0 } } };
+    useEditor.setState({ rects });
+    useProject.setState({
+      pages: [...mainPages, page("faq.page.json", { route: "/faq" }), about],
+    });
+    const { frames } = useEditor.getState();
+    pagesChanged();
+    await reopened(frames);
+    expect(useEditor.getState()).toMatchObject({
+      rects,
+      selection: { frame: pricing.id, nodeId: "a" },
+    });
+    expect(outOfStep()).toEqual([]);
+  });
+
+  it("lets go of what is selected in a page that went, its document still held", async () => {
+    await withNodes(pricing.id, draft.id);
+    select({ frame: draft.id, nodeId: "a" });
+    useProject.setState({
+      pages: mainPages.filter((p) => p.id !== draft.id).concat(about),
+    });
+    const { frames } = useEditor.getState();
+    pagesChanged();
+    await reopened(frames);
+    expect(useEditor.getState().selection).toBeNull();
     expect(outOfStep()).toEqual([]);
   });
 

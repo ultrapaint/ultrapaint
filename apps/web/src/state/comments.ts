@@ -13,6 +13,7 @@ import { setView, viewportSize } from "./camera.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
+import { ownFrameOf } from "./frame-ref.ts";
 import { goTo } from "./location.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
@@ -179,10 +180,12 @@ const showComments = () => {
 
 /**
  * Starts writing a comment at a point of a page, pinned on `node` when it is one of the page's
- * elements. Returns the draft, which a later call replaces.
+ * elements. `frame` is the page's own frame or a view of it (ADR 0036): the draft is the page's
+ * either way, drawn in its frame and each of its views as a posted comment is. Returns the
+ * draft, which a later call replaces.
  */
 export const startComment = (
-  pageId: string,
+  frame: string,
   at: { x: number; y: number },
   node?: DesignNode | null
 ): CommentDraft => {
@@ -191,7 +194,7 @@ export const startComment = (
   const draft = {
     element: pinned ? nodeLabel(pinned) : null,
     nodeId: pinned?.id ?? null,
-    pageId,
+    pageId: ownFrameOf(frame),
     x: Math.round(at.x),
     y: Math.round(at.y),
   };

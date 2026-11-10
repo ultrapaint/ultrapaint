@@ -159,6 +159,16 @@ export const clearChips = (threadId: string, sent: readonly Chip[]) =>
     };
   });
 
+/** Takes off every chip of a thread that is gone: no prompt of it is left to send them with. */
+export const dropChips = (threadId: string) =>
+  useAttachments.setState((s) => {
+    if (!Object.hasOwn(s.byThread, threadId)) {
+      return s;
+    }
+    const { [threadId]: _gone, ...byThread } = s.byThread;
+    return { byThread };
+  });
+
 /** A canvas's own file, which holds its nodes beside the pages: its `canvas.json`. */
 const canvasFileOf = (designsDir: string, canvas: string) =>
   `${designsDir}/${canvas ? `${canvas}/` : ""}canvas.json`;

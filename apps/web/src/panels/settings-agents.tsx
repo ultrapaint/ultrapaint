@@ -18,7 +18,7 @@ import {
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { Check, Copy } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -265,6 +265,8 @@ export const ChatDefaultsGroup = () => {
   const machine = useMachineAgents((s) => s.agents);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
   const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
+  /** The defaults the server holds: what a save that fails goes back to. */
+  const stored = useRef<ChatDefaults | null>(null);
   /** Why the chosen agent could not list its models, once it has been asked. */
   const [unlisted, setUnlisted] = useState<Record<string, string>>({});
   // The agents are the chat's list; what each offers and the defaults are this form's own.
@@ -274,9 +276,10 @@ export const ChatDefaultsGroup = () => {
       api().request("agents.options", undefined),
       api().request("chat.defaults", undefined),
     ])
-      .then(([options, stored]) => {
+      .then(([options, read]) => {
         setKnown(options);
-        setDefaults(stored);
+        stored.current = read;
+        setDefaults(read);
       })
       .catch(reportError);
   }, []);
@@ -322,7 +325,16 @@ export const ChatDefaultsGroup = () => {
   const modes = listed?.modes ?? [];
   const save = (next: ChatDefaults) => {
     setDefaults(next);
-    api().request("chat.setDefaults", next).catch(reportError);
+    api()
+      .request("chat.setDefaults", next)
+      .then(() => {
+        stored.current = next;
+      })
+      .catch((error: unknown) => {
+        // The server kept what it had: the form shows that again, unless picked anew since.
+        setDefaults((now) => (now === next ? stored.current : now));
+        reportError(error);
+      });
   };
   // Another agent's models, efforts and modes are its own: they start from its defaults.
   const onAgent = (id: string) => save({ agentId: id });

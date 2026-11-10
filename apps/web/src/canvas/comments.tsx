@@ -30,6 +30,7 @@ import { cn } from "@/lib/cn";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { initialsOf } from "../lib/initials.ts";
 import {
   deleteComment,
   deleteReply,
@@ -50,20 +51,6 @@ import { SendToAgent } from "./send-to-agent.tsx";
 const PIN_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M3 21V12a9 9 0 1 1 9 9Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 export const commentCursor = `url("data:image/svg+xml,${encodeURIComponent(PIN_SVG)}") 3 21, crosshair`;
-
-const WORDS_RE = /\s+/;
-
-/** "AN" for Alessandro Narciso, "C" for Claude: the first letters of a name's first two words. */
-export const initialsOf = (author: string | null) => {
-  const words = (author ?? "").trim().split(WORDS_RE).filter(Boolean);
-  return (
-    words
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase() || "?"
-  );
-};
 
 /** A tick once resolved, a cog on a behaviour note, else the author's initials. */
 const AvatarMark = ({
@@ -144,7 +131,7 @@ export const relativeTime = (at: number, now = Date.now()) => {
 
 /**
  * Starts a comment where a page was clicked, pinned on the innermost element there. `frame` is
- * the preview the page is drawn in.
+ * the preview the page is drawn in; `pageId` the page, or the view of it clicked on the canvas.
  */
 export const placeComment = (
   frame: string,
