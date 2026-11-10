@@ -11,7 +11,13 @@ import {
   visibilityOf,
 } from "@ultrapaint/design-document/breakpoints";
 import { X } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { IconButton } from "../components/icon-button.tsx";
 import {
   OptionSelect,
   type SelectOption,
@@ -167,40 +173,45 @@ export const BreakpointSection = ({
       )}
       {used.map((b) => (
         <Row key={b.name} label={b.name}>
-          <div
-            className={cn(
-              "flex min-w-0 flex-wrap gap-1 py-0.5",
-              !holding.has(b.name) && "opacity-50"
-            )}
-            title={
-              holding.has(b.name)
-                ? `Set from ${b.name} (${b.min}px) up`
-                : `Set from ${b.name} (${b.min}px) up, wider than this view`
-            }
-          >
-            {fieldsAt(own, b.name).map((field) => (
-              <span
-                className={cn(
-                  "flex h-6 items-center gap-0.5 rounded-md bg-muted pr-0.5 pl-2 font-code",
-                  b.name === shown && "bg-accent text-foreground"
-                )}
-                key={field}
-              >
-                {field}
-                <button
-                  aria-label={`Reset ${field} at ${b.name}`}
-                  className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  onClick={() =>
-                    resetAt({ frame, nodeId: own.id }, b.name, field)
-                  }
-                  title={`Reset ${field} at ${b.name}`}
-                  type="button"
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <div
+                  className={cn(
+                    "flex min-w-0 flex-wrap gap-1 py-0.5",
+                    !holding.has(b.name) && "opacity-50"
+                  )}
+                />
+              }
+            >
+              {fieldsAt(own, b.name).map((field) => (
+                <span
+                  className={cn(
+                    "flex h-6 items-center gap-0.5 rounded-md bg-muted pr-0.5 pl-2 font-code",
+                    b.name === shown && "bg-accent text-foreground"
+                  )}
+                  key={field}
                 >
-                  <X className="size-3.5" />
-                </button>
-              </span>
-            ))}
-          </div>
+                  {field}
+                  <IconButton
+                    className="text-muted-foreground"
+                    onClick={() =>
+                      resetAt({ frame, nodeId: own.id }, b.name, field)
+                    }
+                    size="icon-xs"
+                    tooltip={`Reset ${field} at ${b.name}`}
+                  >
+                    <X className="size-3.5" />
+                  </IconButton>
+                </span>
+              ))}
+            </TooltipTrigger>
+            <TooltipContent>
+              {holding.has(b.name)
+                ? `Set from ${b.name} (${b.min}px) up`
+                : `Set from ${b.name} (${b.min}px) up, wider than this view`}
+            </TooltipContent>
+          </Tooltip>
         </Row>
       ))}
       <Row label="Shown at">

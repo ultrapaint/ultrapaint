@@ -25,6 +25,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { insertNodesAt } from "../lib/node-actions.ts";
 import { useComponents } from "../state/components.ts";
 import { select } from "../state/selection.ts";
@@ -94,25 +99,43 @@ export const SlotsSection = ({
         return (
           <Row key={slot.name} label={slot.label}>
             <div className="flex min-w-0 flex-1 items-center gap-1">
-              <button
-                className="h-7 min-w-0 flex-1 truncate rounded-md px-2 text-left font-body transition-colors hover:bg-accent disabled:text-muted-foreground disabled:hover:bg-transparent"
-                disabled={!first}
-                onClick={() => first && select({ frame, nodeId: first.id })}
-                title={first ? "Select what fills it" : undefined}
-                type="button"
-              >
-                {filling.length === 0
-                  ? "Empty"
-                  : `${filling.length} layer${filling.length === 1 ? "" : "s"}${slot.holds === "default" ? " · default" : ""}`}
-              </button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  aria-label={`Add to the ${slot.label.toLowerCase()}`}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-expanded:bg-accent aria-expanded:text-foreground"
-                  title={`Add to the ${slot.label.toLowerCase()}`}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      className="h-7 min-w-0 flex-1 truncate rounded-md px-2 text-left font-body transition-colors hover:bg-accent disabled:text-muted-foreground disabled:hover:bg-transparent"
+                      disabled={!first}
+                      onClick={() =>
+                        first && select({ frame, nodeId: first.id })
+                      }
+                      type="button"
+                    />
+                  }
                 >
-                  <Plus className="size-4" />
-                </DropdownMenuTrigger>
+                  {filling.length === 0
+                    ? "Empty"
+                    : `${filling.length} layer${filling.length === 1 ? "" : "s"}${slot.holds === "default" ? " · default" : ""}`}
+                </TooltipTrigger>
+                {first ? (
+                  <TooltipContent>Select what fills it</TooltipContent>
+                ) : null}
+              </Tooltip>
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <DropdownMenuTrigger
+                        aria-label={`Add to the ${slot.label.toLowerCase()}`}
+                        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-expanded:bg-accent aria-expanded:text-foreground"
+                      />
+                    }
+                  >
+                    <Plus className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Add to the {slot.label.toLowerCase()}
+                  </TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="end">
                   {ADDITIONS.map((addition) => (
                     <DropdownMenuItem

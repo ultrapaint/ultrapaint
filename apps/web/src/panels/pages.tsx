@@ -1,7 +1,13 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { Files, TriangleAlert } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { NO_URL_HINT } from "../lib/page-actions.ts";
@@ -92,13 +98,19 @@ export const Pages = () => {
       <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
         <h2 className="flex-1 truncate font-heading-xsmall">Pages</h2>
         {unreachable > 0 ? (
-          <span
-            className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground"
-            title={`${unreachable === 1 ? "A page has" : `${unreachable} pages have`} no URL: no link of the prototype leads to ${unreachable === 1 ? "it" : "them"}`}
-          >
-            <TriangleAlert className="size-3.5 text-warning" />
-            {unreachable} without a URL
-          </span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground" />
+              }
+            >
+              <TriangleAlert className="size-3.5 text-warning" />
+              {unreachable} without a URL
+            </TooltipTrigger>
+            <TooltipContent>
+              {`${unreachable === 1 ? "A page has" : `${unreachable} pages have`} no URL: no link of the prototype leads to ${unreachable === 1 ? "it" : "them"}`}
+            </TooltipContent>
+          </Tooltip>
         ) : null}
       </div>
       {entries.length === 0 ? (
@@ -139,21 +151,27 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
         className={rowClass(active)}
         onClick={() => openPage(page)}
         style={{ paddingLeft: 8 }}
-        title={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
         type="button"
       >
-        <span className="min-w-0 flex-1 truncate font-body-medium">
+        <CutText
+          className="min-w-0 flex-1 truncate font-body-medium"
+          tip={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
+        >
           {page.name}
-        </span>
+        </CutText>
         <StatusDot target={page.id} />
         {page.route === undefined ? (
-          <span
-            className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground"
-            title={NO_URL_HINT}
-          >
-            <TriangleAlert className="size-3.5 text-warning" />
-            No URL
-          </span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground" />
+              }
+            >
+              <TriangleAlert className="size-3.5 text-warning" />
+              No URL
+            </TooltipTrigger>
+            <TooltipContent>{NO_URL_HINT}</TooltipContent>
+          </Tooltip>
         ) : (
           <span className="min-w-0 max-w-[55%] shrink-0 truncate font-code text-muted-foreground">
             {page.route}
@@ -184,10 +202,18 @@ const StatusDot = ({ target }: { target: string }) => {
         ready: "bg-primary",
       }[item.status];
   return (
-    <span
-      className={cn("size-1.5 shrink-0 rounded-full", color)}
-      title={statusLabel(item)}
-    />
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            aria-label={statusLabel(item)}
+            className={cn("size-1.5 shrink-0 rounded-full", color)}
+            role="img"
+          />
+        }
+      />
+      <TooltipContent>{statusLabel(item)}</TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -198,26 +224,32 @@ const StatusDot = ({ target }: { target: string }) => {
 const VariantRow = ({ page }: { page: Page }) => {
   const active = useEditor((s) => s.activePage === page.id);
   return (
-    <button
-      aria-current={active ? "page" : undefined}
-      className={rowClass(active)}
-      onClick={() => openPage(page)}
-      style={{ paddingLeft: 24 }}
-      title={
-        page.state === undefined
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-current={active ? "page" : undefined}
+            className={rowClass(active)}
+            onClick={() => openPage(page)}
+            style={{ paddingLeft: 24 }}
+            type="button"
+          />
+        }
+      >
+        {/* Under its page, named by what it is: a variant, or a state of the page. */}
+        <span className="min-w-0 flex-1 truncate">
+          {page.variant ?? page.state}
+        </span>
+        <StatusDot target={page.id} />
+        <span className="shrink-0 font-body-small text-muted-foreground">
+          {page.state === undefined ? "Variant" : "State"}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {page.state === undefined
           ? `${page.name} in the ${page.variant} variant`
-          : `${page.name} when it is ${page.state}`
-      }
-      type="button"
-    >
-      {/* Under its page, named by what it is: a variant, or a state of the page. */}
-      <span className="min-w-0 flex-1 truncate">
-        {page.variant ?? page.state}
-      </span>
-      <StatusDot target={page.id} />
-      <span className="shrink-0 font-body-small text-muted-foreground">
-        {page.state === undefined ? "Variant" : "State"}
-      </span>
-    </button>
+          : `${page.name} when it is ${page.state}`}
+      </TooltipContent>
+    </Tooltip>
   );
 };

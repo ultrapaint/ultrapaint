@@ -18,6 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { describeLink } from "../lib/links.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
@@ -49,21 +54,25 @@ const TagName = ({ inChat, node }: { inChat: boolean; node: DesignNode }) => {
     <>
       <span className="truncate">{nodeLabel(node)}</span>
       {linked ? (
-        <span
-          className="flex min-w-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85"
-          title={
-            linked.broken
-              ? "Leads to a page that is not there"
-              : "Where it leads in the prototype"
-          }
-        >
-          <Link2 className="size-2.5 shrink-0" />
-          <span
-            className={linked.broken ? "truncate line-through" : "truncate"}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className="flex min-w-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85" />
+            }
           >
-            {linked.label}
-          </span>
-        </span>
+            <Link2 className="size-2.5 shrink-0" />
+            <span
+              className={linked.broken ? "truncate line-through" : "truncate"}
+            >
+              {linked.label}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {linked.broken
+              ? "Leads to a page that is not there"
+              : "Where it leads in the prototype"}
+          </TooltipContent>
+        </Tooltip>
       ) : null}
       {inChat ? (
         <span className="flex shrink-0 items-center gap-1 border-white/35 border-l pl-1 text-white/85">
@@ -129,20 +138,26 @@ export const SelectionTag = ({
       }}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <button
-              aria-label={named ? undefined : nodeLabel(node)}
-              className="flex h-5 min-w-0 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-body-small-medium text-white outline-none focus-visible:underline"
-              style={{ background: color }}
-              title={named ? undefined : nodeLabel(node)}
-              type="button"
-            />
-          }
-        >
-          <NodeIcon className="size-3 shrink-0" node={node} />
-          {named ? <TagName inChat={thread !== null} node={node} /> : null}
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    aria-label={named ? undefined : nodeLabel(node)}
+                    className="flex h-5 min-w-0 max-w-64 items-center gap-1 rounded-t-sm px-1.5 font-body-small-medium text-white outline-none focus-visible:underline"
+                    style={{ background: color }}
+                    type="button"
+                  />
+                }
+              />
+            }
+          >
+            <NodeIcon className="size-3 shrink-0" node={node} />
+            {named ? <TagName inChat={thread !== null} node={node} /> : null}
+          </TooltipTrigger>
+          {named ? null : <TooltipContent>{nodeLabel(node)}</TooltipContent>}
+        </Tooltip>
         <DropdownMenuContent align="start" className="w-56">
           {parents.length > 0 ? (
             <DropdownMenuGroup>

@@ -41,6 +41,7 @@ import {
   systemBoards,
   systemItemName,
 } from "../boards/system-boards.ts";
+import { CutText } from "../components/cut-text.tsx";
 import {
   type BoardPlace,
   openBoard,
@@ -303,12 +304,12 @@ const BoardFrame = memo(
       >
         {/* The board's own name: the item's is the panels' title already. */}
         <FrameHeader width={box.width}>
-          <span
+          <CutText
             className={cn(HEADER_NAME, "text-muted-foreground")}
-            title={`${name}: ${board.title}`}
+            tip={`${name}: ${board.title}`}
           >
             {board.title}
-          </span>
+          </CutText>
         </FrameHeader>
         <PreviewSurface
           canvas={canvas}

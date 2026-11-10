@@ -12,6 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { openChat } from "../lib/thread-actions.ts";
 import { useAgents } from "../state/agents.ts";
@@ -66,19 +71,25 @@ export const SendToAgent = ({
     : "Send to an agent";
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={label}
-            className={className}
-            size={small ? "icon-xs" : "icon-sm"}
-            title={label}
-            variant="ghost"
-          />
-        }
-      >
-        <Send />
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={label}
+                  className={className}
+                  size={small ? "icon-xs" : "icon-sm"}
+                  variant="ghost"
+                />
+              }
+            />
+          }
+        >
+          <Send />
+        </TooltipTrigger>
+        <TooltipContent>Send to an agent</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuGroup>
           <DropdownMenuLabel>

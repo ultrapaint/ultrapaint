@@ -23,6 +23,11 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
@@ -109,23 +114,25 @@ const ValueRow = ({
 }) => {
   const [where] = value.locations;
   return (
-    <li
-      className="flex flex-col gap-0.5 py-1"
-      title={value.locations.map((l) => `${l.file}:${l.line}`).join("\n")}
-    >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Swatch kind={value.kind} value={value.value} />
-        <span className="truncate font-code">{value.value}</span>
-        <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
-          {value.count}×
+    <Tooltip>
+      <TooltipTrigger render={<li className="flex flex-col gap-0.5 py-1" />}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Swatch kind={value.kind} value={value.value} />
+          <span className="truncate font-code">{value.value}</span>
+          <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
+            {value.count}×
+          </span>
         </span>
-      </span>
-      <span className="truncate font-body-small text-muted-foreground">
-        {value.status === "raw" ? "Written out" : capitalised(defaults)}
-        {noteOf(value)}
-        {where ? ` · ${where.file}:${where.line}` : ""}
-      </span>
-    </li>
+        <span className="truncate font-body-small text-muted-foreground">
+          {value.status === "raw" ? "Written out" : capitalised(defaults)}
+          {noteOf(value)}
+          {where ? ` · ${where.file}:${where.line}` : ""}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="whitespace-pre-line">
+        {value.locations.map((l) => `${l.file}:${l.line}`).join("\n")}
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -246,43 +253,47 @@ const MappingRow = ({
       ...(choice !== KEEP && choice !== "" && { target: choice }),
     });
   return (
-    <li
-      className="flex flex-col gap-1 py-1.5"
-      title={[entry.example, entry.note].filter(Boolean).join("\n")}
-    >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Swatch kind={entry.kind} value={entry.value} />
-        <span className="truncate font-code">{entry.value}</span>
-        <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
-          {entry.count}×{entry.by ? ` · ${BY[entry.by]}` : ""}
+    <Tooltip>
+      <TooltipTrigger render={<li className="flex flex-col gap-1 py-1.5" />}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Swatch kind={entry.kind} value={entry.value} />
+          <span className="truncate font-code">{entry.value}</span>
+          <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
+            {entry.count}×{entry.by ? ` · ${BY[entry.by]}` : ""}
+          </span>
         </span>
-      </span>
-      <span className="truncate font-body-small text-muted-foreground">
-        {KIND_LABELS[entry.kind]}
-        {entry.example && entry.example !== entry.value
-          ? ` · ${entry.example}`
-          : ""}
-        {entry.where ? ` · ${entry.where}` : ""}
-      </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Swatch kind={entry.kind} value={entry.target ?? ""} />
-        <NativeSelect
-          aria-label={`What ${entry.value} becomes`}
-          className="min-w-0 flex-1"
-          onChange={(e) => decide(e.target.value)}
-          size="sm"
-          value={choiceOf(entry)}
-        >
-          <NativeSelectOption value="">Undecided</NativeSelectOption>
-          <NativeSelectOption value={KEEP}>Keep as it is</NativeSelectOption>
-          {options.map((t) => (
-            <NativeSelectOption key={t} value={t}>
-              {t}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </span>
-    </li>
+        <span className="truncate font-body-small text-muted-foreground">
+          {KIND_LABELS[entry.kind]}
+          {entry.example && entry.example !== entry.value
+            ? ` · ${entry.example}`
+            : ""}
+          {entry.where ? ` · ${entry.where}` : ""}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Swatch kind={entry.kind} value={entry.target ?? ""} />
+          <NativeSelect
+            aria-label={`What ${entry.value} becomes`}
+            className="min-w-0 flex-1"
+            onChange={(e) => decide(e.target.value)}
+            size="sm"
+            value={choiceOf(entry)}
+          >
+            <NativeSelectOption value="">Undecided</NativeSelectOption>
+            <NativeSelectOption value={KEEP}>Keep as it is</NativeSelectOption>
+            {options.map((t) => (
+              <NativeSelectOption key={t} value={t}>
+                {t}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </span>
+      </TooltipTrigger>
+      {entry.example || entry.note ? (
+        <TooltipContent className="whitespace-pre-line">
+          {[entry.example, entry.note].filter(Boolean).join("\n")}
+        </TooltipContent>
+      ) : null}
+    </Tooltip>
   );
 };
 
@@ -346,39 +357,48 @@ const BATCH_STATUS: Record<MigrationBatch["status"], string> = {
 const BatchRow = ({ batch }: { batch: MigrationBatch }) => {
   const busy = useDesignSystemSetup((s) => s.busy === batch.id);
   return (
-    <li className="flex flex-col gap-1 py-1.5" title={batch.files.join("\n")}>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate font-code">{batch.dir}</span>
-        <span className="shrink-0 font-body-small text-muted-foreground">
-          {batch.files.length} {batch.files.length === 1 ? "file" : "files"}
+    <Tooltip>
+      <TooltipTrigger render={<li className="flex flex-col gap-1 py-1.5" />}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-code">{batch.dir}</span>
+          <span className="shrink-0 font-body-small text-muted-foreground">
+            {batch.files.length} {batch.files.length === 1 ? "file" : "files"}
+          </span>
+          <Badge
+            className="ml-auto"
+            variant={batch.status === "done" ? "secondary" : "outline"}
+          >
+            {batch.status === "active" ? <Spinner /> : null}
+            {BATCH_STATUS[batch.status]}
+          </Badge>
         </span>
-        <Badge
-          className="ml-auto"
-          variant={batch.status === "done" ? "secondary" : "outline"}
-        >
-          {batch.status === "active" ? <Spinner /> : null}
-          {BATCH_STATUS[batch.status]}
-        </Badge>
-      </span>
-      {batch.summary || batch.changes !== undefined ? (
-        <span className="font-body-small text-muted-foreground">
-          {batch.changes === undefined ? "" : `${batch.changes} by the rules. `}
-          {batch.summary}
-        </span>
-      ) : null}
-      {batch.status === "todo" ? null : (
-        <Button
-          className="self-start"
-          disabled={busy}
-          onClick={() => useDesignSystemSetup.getState().revertBatch(batch.id)}
-          size="sm"
-          variant="ghost"
-        >
-          {busy ? <Spinner /> : <RotateCcw />}
-          Revert
-        </Button>
-      )}
-    </li>
+        {batch.summary || batch.changes !== undefined ? (
+          <span className="font-body-small text-muted-foreground">
+            {batch.changes === undefined
+              ? ""
+              : `${batch.changes} by the rules. `}
+            {batch.summary}
+          </span>
+        ) : null}
+        {batch.status === "todo" ? null : (
+          <Button
+            className="self-start"
+            disabled={busy}
+            onClick={() =>
+              useDesignSystemSetup.getState().revertBatch(batch.id)
+            }
+            size="sm"
+            variant="ghost"
+          >
+            {busy ? <Spinner /> : <RotateCcw />}
+            Revert
+          </Button>
+        )}
+      </TooltipTrigger>
+      <TooltipContent className="whitespace-pre-line">
+        {batch.files.join("\n")}
+      </TooltipContent>
+    </Tooltip>
   );
 };
 

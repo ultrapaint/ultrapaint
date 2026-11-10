@@ -65,7 +65,7 @@ export const FOUNDATIONS: readonly {
   readonly kinds: readonly TokenKind[];
   readonly name: string;
 }[] = [
-  { id: "color", kinds: ["color"], name: "Color" },
+  { id: "color", kinds: ["color"], name: "Colour" },
   {
     id: "typography",
     kinds: ["font", "fontSize", "fontWeight", "leading", "tracking"],

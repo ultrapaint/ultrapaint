@@ -9,7 +9,13 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "./cut-text.tsx";
 
 export interface StyleOption {
   /** Muted text after the label, e.g. the size the step resolves to. */
@@ -26,10 +32,35 @@ interface Item extends StyleOption {
 }
 
 const ArbitraryDot = ({ className }: { className?: string }) => (
-  <span
-    className={cn("size-1.5 shrink-0 rounded-full bg-warning", className)}
-    title="Outside the design system"
-  />
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <span
+          aria-label="Outside the design system"
+          className={cn("size-1.5 shrink-0 rounded-full bg-warning", className)}
+          role="img"
+        />
+      }
+    />
+    <TooltipContent>Outside the design system</TooltipContent>
+  </Tooltip>
+);
+
+/**
+ * The field's group, named by its title, which the system tooltip shows over it. The tooltip is
+ * there with or without a title, so a title that comes or goes never mounts the field again.
+ */
+const NamedGroup = ({
+  children,
+  title,
+}: {
+  children: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
+  title: string | undefined;
+}) => (
+  <Tooltip>
+    <TooltipTrigger render={children} />
+    {title ? <TooltipContent>{title}</TooltipContent> : null}
+  </Tooltip>
 );
 
 /** What an empty list says: what to type, or that what was typed is no value. */
@@ -69,6 +100,7 @@ interface StyleComboboxProps {
   options: readonly StyleOption[];
   /** Whether a value is outside the design system, marked so; none is when it is left out. */
   outside?: (value: string) => boolean;
+  /** The field's name, shown in the system tooltip over it. */
   title?: string;
 }
 
@@ -121,51 +153,50 @@ const IdleCombobox = ({
     }
   };
   return (
-    <InputGroup
-      className={cn("min-w-0 flex-1", className)}
-      data-disabled={disabled}
-      title={title}
-    >
-      {leading ? (
-        <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
-          {leading}
-        </InputGroupAddon>
-      ) : null}
-      <input
-        aria-expanded={false}
-        aria-haspopup="listbox"
-        className={INPUT_CLASS}
-        data-slot="input-group-control"
-        disabled={disabled}
-        onFocus={() => onActivate("focus")}
-        onPointerDown={open}
-        placeholder={selected?.label ?? display}
-        readOnly
-        role="combobox"
-        value={selected?.label ?? display}
-      />
-      <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
-        {hint && !selected ? (
-          <span
-            className="min-w-0 max-w-24 truncate font-body-small"
-            title={hint}
-          >
-            {hint}
-          </span>
+    <NamedGroup title={title}>
+      <InputGroup
+        aria-label={title}
+        className={cn("min-w-0 flex-1", className)}
+        data-disabled={disabled}
+      >
+        {leading ? (
+          <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
+            {leading}
+          </InputGroupAddon>
         ) : null}
-        {current && outside?.(current) ? <ArbitraryDot /> : null}
-        <button
-          aria-label="Open"
-          className={TRIGGER_CLASS}
+        <input
+          aria-expanded={false}
+          aria-haspopup="listbox"
+          className={INPUT_CLASS}
+          data-slot="input-group-control"
           disabled={disabled}
+          onFocus={() => onActivate("focus")}
           onPointerDown={open}
-          tabIndex={-1}
-          type="button"
-        >
-          <ChevronDownIcon className="size-3" />
-        </button>
-      </InputGroupAddon>
-    </InputGroup>
+          placeholder={selected?.label ?? display}
+          readOnly
+          role="combobox"
+          value={selected?.label ?? display}
+        />
+        <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
+          {hint && !selected ? (
+            <CutText className="min-w-0 max-w-24 truncate font-body-small">
+              {hint}
+            </CutText>
+          ) : null}
+          {current && outside?.(current) ? <ArbitraryDot /> : null}
+          <button
+            aria-label="Open"
+            className={TRIGGER_CLASS}
+            disabled={disabled}
+            onPointerDown={open}
+            tabIndex={-1}
+            type="button"
+          >
+            <ChevronDownIcon className="size-3" />
+          </button>
+        </InputGroupAddon>
+      </InputGroup>
+    </NamedGroup>
   );
 };
 
@@ -250,41 +281,43 @@ const ActiveCombobox = ({
       open={open}
       value={selected}
     >
-      <InputGroup
-        className={cn("min-w-0 flex-1", className)}
-        data-disabled={disabled}
-        ref={group}
-        title={title}
-      >
-        {leading ? (
-          <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
-            {leading}
-          </InputGroupAddon>
-        ) : null}
-        <ComboboxPrimitive.Input
-          className={INPUT_CLASS}
-          data-slot="input-group-control"
-          onFocus={selectAll}
-          placeholder={selected?.label ?? display}
-        />
-        <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-1">
-          {hint && !selected ? (
-            <span
-              className="min-w-0 max-w-24 truncate font-body-small"
-              title={hint}
-            >
-              {hint}
-            </span>
+      <NamedGroup title={title}>
+        <InputGroup
+          aria-label={title}
+          className={cn("min-w-0 flex-1", className)}
+          data-disabled={disabled}
+          ref={group}
+        >
+          {leading ? (
+            <InputGroupAddon className="py-0 pr-0 pl-2 font-body">
+              {leading}
+            </InputGroupAddon>
           ) : null}
-          {arbitrary ? <ArbitraryDot /> : null}
-          <ComboboxPrimitive.Trigger
-            className={TRIGGER_CLASS}
-            disabled={disabled}
+          <ComboboxPrimitive.Input
+            className={INPUT_CLASS}
+            data-slot="input-group-control"
+            onFocus={selectAll}
+            placeholder={selected?.label ?? display}
+          />
+          <InputGroupAddon
+            align="inline-end"
+            className="min-w-0 gap-1 py-0 pr-1"
           >
-            <ChevronDownIcon className="size-3" />
-          </ComboboxPrimitive.Trigger>
-        </InputGroupAddon>
-      </InputGroup>
+            {hint && !selected ? (
+              <CutText className="min-w-0 max-w-24 truncate font-body-small">
+                {hint}
+              </CutText>
+            ) : null}
+            {arbitrary ? <ArbitraryDot /> : null}
+            <ComboboxPrimitive.Trigger
+              className={TRIGGER_CLASS}
+              disabled={disabled}
+            >
+              <ChevronDownIcon className="size-3" />
+            </ComboboxPrimitive.Trigger>
+          </InputGroupAddon>
+        </InputGroup>
+      </NamedGroup>
       <ComboboxContent className="w-auto min-w-[max(10rem,var(--anchor-width))]">
         <ComboboxEmpty>{emptyText(custom !== undefined, q)}</ComboboxEmpty>
         <ComboboxList>

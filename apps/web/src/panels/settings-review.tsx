@@ -500,6 +500,7 @@ const GoalRow = ({
           />
         )}
         <Segmented
+          aria-label="Goal"
           onChange={(v) =>
             onChange(v === "score" ? Number(draft) || 90 : undefined)
           }
@@ -562,6 +563,7 @@ export const ReviewGroup = ({
         title="Level"
       >
         <Segmented
+          aria-label="Level"
           className="@xl:w-auto"
           onChange={onLevel}
           options={[...REVIEW_LEVELS, "custom" as const].map((value) => ({
@@ -586,6 +588,7 @@ export const ReviewGroup = ({
         <>
           <Row title="Each round">
             <Segmented
+              aria-label="Each round"
               className="@xl:w-auto"
               onChange={(next) => set({ eachRound: next, on: true })}
               options={EACH_ROUND.map((value) => ({

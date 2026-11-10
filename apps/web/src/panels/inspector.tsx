@@ -36,7 +36,13 @@ import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { LinkField } from "../components/link-field.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -305,9 +311,9 @@ const Header = ({
           {title === null ? (
             <NameInput node={node} />
           ) : (
-            <div className="truncate font-heading-xsmall" title={title}>
+            <CutText className="block truncate font-heading-xsmall">
               {title}
-            </div>
+            </CutText>
           )}
         </div>
         <div className="-mr-1 flex shrink-0 items-center gap-0.5">
@@ -396,23 +402,29 @@ const PageSection = ({ frame }: { frame: string }) => {
     <>
       <Section title="Page">
         <Row label="URL">
-          <button
-            className={cn(
-              "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
-              page.route === undefined
-                ? "font-body text-muted-foreground"
-                : "font-code"
-            )}
-            onClick={() => editPageUrl(page)}
-            title={
-              page.route === undefined
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className={cn(
+                    "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
+                    page.route === undefined
+                      ? "font-body text-muted-foreground"
+                      : "font-code"
+                  )}
+                  onClick={() => editPageUrl(page)}
+                  type="button"
+                />
+              }
+            >
+              {page.route ?? "None"}
+            </TooltipTrigger>
+            <TooltipContent>
+              {page.route === undefined
                 ? "No link or prototype reaches it"
-                : "Change the URL"
-            }
-            type="button"
-          >
-            {page.route ?? "None"}
-          </button>
+                : "Change the URL"}
+            </TooltipContent>
+          </Tooltip>
         </Row>
         <Row label="Viewport">
           <OptionSelect
@@ -475,28 +487,22 @@ const CodeLink = ({ page }: { page: Page }) => {
   return (
     <Section title="Code">
       <Row label="Status">
-        <span
-          className="flex min-w-0 items-center gap-1.5 font-body"
-          title={item?.files.join("\n")}
-        >
+        <span className="flex min-w-0 items-center gap-1.5 font-body">
           {behind ? (
             <span className="size-1.5 shrink-0 rounded-full bg-warning" />
           ) : null}
-          <span className={cn("truncate", draft && "text-muted-foreground")}>
+          <CutText className={cn("truncate", draft && "text-muted-foreground")}>
             {item && item.status !== "draft"
               ? statusLabel(item)
               : "Not implemented"}
-          </span>
+          </CutText>
         </span>
       </Row>
       {bound && item ? (
         <Row label="Files">
-          <span
-            className="truncate font-code text-muted-foreground"
-            title={item.files.join("\n")}
-          >
+          <CutText className="truncate font-code text-muted-foreground">
             {item.files.join(", ")}
-          </span>
+          </CutText>
         </Row>
       ) : null}
       {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
@@ -585,12 +591,9 @@ const InstanceSection = ({
         title={
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="truncate">{node.component}</span>
-            <span
-              className="truncate font-code text-muted-foreground"
-              title={node.from}
-            >
+            <CutText className="truncate font-code text-muted-foreground">
               {node.from}
-            </span>
+            </CutText>
           </span>
         }
       >

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
+import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelLoading } from "../components/splash.tsx";
@@ -112,7 +113,7 @@ const ThreadHeader = ({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the header's menu is the thread's; its buttons raise it from the keyboard.
     <div
-      className="flex h-12 shrink-0 items-center gap-1 pr-2 pl-1.5"
+      className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-1.5"
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
@@ -124,8 +125,8 @@ const ThreadHeader = ({
         <ChevronLeft />
       </IconButton>
       <div className="flex min-w-0 flex-1 flex-col">
-        <h2 className="truncate font-heading-xsmall" title={thread.title}>
-          {thread.title}
+        <h2 className="truncate font-heading-xsmall">
+          <CutText className="block truncate">{thread.title}</CutText>
         </h2>
         <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
@@ -142,23 +143,29 @@ const ThreadHeader = ({
         </span>
       </div>
       {worked ? (
-        <Button
-          aria-pressed={following}
-          className={cn(
-            "text-muted-foreground",
-            following && "bg-accent text-foreground"
-          )}
-          onClick={() => toggleFollowing(thread.id)}
-          size="sm"
-          title={
-            following
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-pressed={following}
+                className={cn(
+                  "text-muted-foreground",
+                  following && "bg-accent text-foreground"
+                )}
+                onClick={() => toggleFollowing(thread.id)}
+                size="sm"
+                variant="ghost"
+              />
+            }
+          >
+            Follow
+          </TooltipTrigger>
+          <TooltipContent>
+            {following
               ? "Stop following the agent on the canvas"
-              : "Follow the agent on the canvas"
-          }
-          variant="ghost"
-        >
-          Follow
-        </Button>
+              : "Follow the agent on the canvas"}
+          </TooltipContent>
+        </Tooltip>
       ) : null}
       <IconButton
         onClick={(e) => openMenuAt(e, { kind: "thread", threadId: thread.id })}
@@ -190,12 +197,12 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
     <div className="flex items-center gap-2.5 px-3 pb-2">
       <ScopePicture className="size-8" thread={thread} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-body-medium" title={scope.name}>
+        <CutText className="truncate font-body-medium" tip={scope.name}>
           {scope.name}
           {more ? (
             <span className="text-muted-foreground"> and {more} more</span>
           ) : null}
-        </span>
+        </CutText>
         <span className="truncate font-body-small text-muted-foreground">
           {where}
         </span>

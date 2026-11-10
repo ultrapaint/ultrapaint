@@ -60,15 +60,20 @@ const ProjectName = () => {
     );
   }
   return (
-    <div className="flex min-w-0 flex-col justify-center" title={info.repoPath}>
-      <span className="truncate font-heading-xsmall">{info.name}</span>
-      {info.branch ? (
-        <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground">
-          <GitBranch className="size-3 shrink-0" />
-          <span className="truncate">{info.branch}</span>
-        </span>
-      ) : null}
-    </div>
+    <Tooltip>
+      <TooltipTrigger
+        render={<div className="flex min-w-0 flex-col justify-center" />}
+      >
+        <span className="truncate font-heading-xsmall">{info.name}</span>
+        {info.branch ? (
+          <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground">
+            <GitBranch className="size-3 shrink-0" />
+            <span className="truncate">{info.branch}</span>
+          </span>
+        ) : null}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{info.repoPath}</TooltipContent>
+    </Tooltip>
   );
 };
 

@@ -83,7 +83,7 @@ const ids = (node: DesignNode): string[] => [
 describe("Design system's list", () => {
   it("has the foundations the design system has data for, with their counts", () => {
     expect(foundationsOf(ds)).toEqual([
-      { count: 3, id: "color", name: "Color" },
+      { count: 3, id: "color", name: "Colour" },
       { count: 2, id: "typography", name: "Typography" },
       { count: 0, id: "spacing", name: "Spacing" },
       { count: 1, id: "radius", name: "Radius" },
@@ -92,7 +92,7 @@ describe("Design system's list", () => {
 
   it("keeps what a search finds tokens in", () => {
     expect(foundationsOf(ds, "primary")).toEqual([
-      { count: 2, id: "color", name: "Color" },
+      { count: 2, id: "color", name: "Colour" },
     ]);
   });
 

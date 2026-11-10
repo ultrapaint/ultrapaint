@@ -142,7 +142,7 @@ describe("the inspector's wrap actions", () => {
 describe("the inspector's spacing fields", () => {
   /** ⌘-click on a field, which picks it to be set with the others picked. */
   const pickField = (title: string) => {
-    const target = container.querySelector(`[title="${title}"]`);
+    const target = container.querySelector(`[aria-label="${title}"]`);
     if (!target) {
       throw new Error(`no field ${title}`);
     }

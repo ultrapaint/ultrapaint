@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -305,7 +306,12 @@ export const SyncView = ({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 flex-col border-b pb-3">
-        <div className="flex h-11 items-center gap-1 px-3">
+        <div
+          className={cn(
+            "flex h-11 items-center gap-1 pr-3",
+            onBack ? "pl-3" : "pl-4"
+          )}
+        >
           {onBack ? (
             <IconButton
               className="-ml-1.5"

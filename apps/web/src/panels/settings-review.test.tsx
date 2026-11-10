@@ -98,6 +98,15 @@ describe("Settings › Agents › Review", () => {
     expect(pressed()).toContain("A score");
   });
 
+  it("names each row's choices by the row", () => {
+    render(undefined);
+    act(() => level("Custom")?.click());
+    const groups = [...container.querySelectorAll('[role="group"]')].map((g) =>
+      g.getAttribute("aria-label")
+    );
+    expect(groups).toEqual(["Level", "Each round", "Goal"]);
+  });
+
   it("keeps a saved Custom's rows while one is set to what a named level has", () => {
     // Everyone looks each round and the round's reviewer approves: no named level.
     render({ approval: "one", eachRound: "all" });

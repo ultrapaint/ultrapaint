@@ -19,6 +19,11 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { OVERVIEW } from "../boards/library-boards.ts";
 import {
   beginDrag,
@@ -27,6 +32,7 @@ import {
   useDrag,
 } from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
+import { CutText } from "../components/cut-text.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
@@ -95,15 +101,36 @@ const OpenBoard = ({ name }: { name: string }) => (
   </IconButton>
 );
 
+/**
+ * A component's name in the Library: its description in the tooltip when it has one, otherwise its
+ * whole name when it is cut short.
+ */
+const ComponentName = ({
+  className,
+  component: c,
+}: {
+  className: string;
+  component: ComponentMeta;
+}) =>
+  c.description ? (
+    <Tooltip>
+      <TooltipTrigger render={<span className={className} />}>
+        {c.name}
+      </TooltipTrigger>
+      <TooltipContent>{c.description}</TooltipContent>
+    </Tooltip>
+  ) : (
+    <CutText className={className}>{c.name}</CutText>
+  );
+
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
   <div className="group/item mx-2 flex h-7 items-center rounded-md pr-0.5 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
       className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body-medium outline-none"
-      title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
-      <span className="truncate">{c.name}</span>
+      <ComponentName className="truncate" component={c} />
     </button>
     <OpenBoard name={c.name} />
   </div>
@@ -174,17 +201,18 @@ const GridItem = ({
 }) => (
   <div className="group/item flex min-w-0 flex-col gap-0.5 rounded-lg p-1 transition-colors hover:bg-accent has-focus-visible:bg-accent">
     <button
+      aria-label={c.name}
       className="flex h-20 items-center justify-center overflow-hidden rounded-md bg-white p-2 outline-none ring-1 ring-border ring-inset"
-      title={c.description ?? c.name}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
       <Thumbnail name={c.name} src={thumbnail} />
     </button>
     <div className="flex h-6 items-center pl-1">
-      <span className="min-w-0 flex-1 truncate font-body-medium" title={c.name}>
-        {c.name}
-      </span>
+      <ComponentName
+        className="min-w-0 flex-1 truncate font-body-medium"
+        component={c}
+      />
       <OpenBoard name={c.name} />
     </div>
   </div>
@@ -454,18 +482,15 @@ const NavRow = ({
   children,
   item,
   lit,
-  title,
 }: {
   children: React.ReactNode;
   item: string;
   lit: boolean;
-  title?: string;
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
     className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item, view: "library" })}
-    title={title}
     type="button"
   >
     {children}
@@ -500,13 +525,8 @@ const LibraryNav = ({ open }: { open: string }) => {
             <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
               {section.items.map((c) => (
-                <NavRow
-                  item={c.name}
-                  key={c.name}
-                  lit={open === c.name}
-                  title={c.description ?? c.name}
-                >
-                  <span className="truncate">{c.name}</span>
+                <NavRow item={c.name} key={c.name} lit={open === c.name}>
+                  <ComponentName className="truncate" component={c} />
                 </NavRow>
               ))}
             </section>

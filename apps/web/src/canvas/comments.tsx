@@ -26,7 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -328,14 +334,11 @@ const Card = ({ comment }: { comment: Comment }) => {
           comment={{ author: comment.author, kind: comment.kind }}
         />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span
-            className="truncate font-body-medium"
-            title={comment.author ?? ""}
-          >
+          <CutText className="truncate font-body-medium">
             {comment.kind === "behaviour"
               ? "Behaviour note"
               : (comment.author ?? "Someone")}
-          </span>
+          </CutText>
           <span className="shrink-0 font-body-small text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
@@ -350,18 +353,24 @@ const Card = ({ comment }: { comment: Comment }) => {
             {comment.resolved ? <Undo2 /> : <CircleCheck />}
           </IconButton>
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  aria-label="More"
-                  size="icon-sm"
-                  title="More"
-                  variant="ghost"
-                />
-              }
-            >
-              <Ellipsis />
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        aria-label="More"
+                        size="icon-sm"
+                        variant="ghost"
+                      />
+                    }
+                  />
+                }
+              >
+                <Ellipsis />
+              </TooltipTrigger>
+              <TooltipContent>More</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-40">
               <DropdownMenuItem onClick={() => setEditing(true)}>
                 <Pencil />

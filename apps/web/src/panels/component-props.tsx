@@ -9,6 +9,11 @@ import type { InstanceNode } from "@ultrapaint/contracts/document";
 import type * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { OptionSelect } from "../components/option-select.tsx";
 import { useComponents } from "../state/components.ts";
 import { Row, Section, useDraft } from "./inspector-fields.tsx";
@@ -283,12 +288,14 @@ const PropControl = ({
       shown = MIXED;
     }
     return (
-      <span
-        className="truncate font-code text-muted-foreground"
-        title={meta && typeText(meta.type)}
-      >
-        {shown}
-      </span>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="truncate font-code text-muted-foreground" />}
+        >
+          {shown}
+        </TooltipTrigger>
+        {meta ? <TooltipContent>{typeText(meta.type)}</TooltipContent> : null}
+      </Tooltip>
     );
   }
   return (

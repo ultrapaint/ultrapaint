@@ -32,12 +32,18 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import {
   foundationsOf,
   guidelinesOf,
   type SystemItem,
 } from "../boards/system-boards.ts";
+import { CutText } from "../components/cut-text.tsx";
 import { FileProblem } from "../components/file-problem.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
@@ -191,10 +197,9 @@ const ItemRow = ({ item, open }: { item: SystemItem; open: boolean }) => (
     aria-current={open ? "page" : undefined}
     className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item: item.id, view: "system" })}
-    title={item.name}
     type="button"
   >
-    <span className="truncate">{item.name}</span>
+    <CutText className="truncate">{item.name}</CutText>
     {item.count > 0 ? (
       <span className="ml-auto font-body-small-medium text-muted-foreground tabular-nums">
         {item.count}
@@ -233,20 +238,31 @@ const SyncWaiting = () => {
     return null;
   }
   return (
-    <button
-      className="mx-2 mb-1 flex min-h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 py-1 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
-      onClick={showSetup}
-      title={waiting.detail}
-      type="button"
-    >
-      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-warning" />
-      <span className="min-w-0 flex-1 truncate font-body-small">
-        {waiting.title}
-      </span>
-      <span className="shrink-0 font-body-small text-muted-foreground">
-        Review
-      </span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            className="mx-2 mb-1 flex min-h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 py-1 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+            onClick={showSetup}
+            type="button"
+          />
+        }
+      >
+        <span
+          aria-hidden
+          className="size-1.5 shrink-0 rounded-full bg-warning"
+        />
+        <span className="min-w-0 flex-1 truncate font-body-small">
+          {waiting.title}
+        </span>
+        <span className="shrink-0 font-body-small text-muted-foreground">
+          Review
+        </span>
+      </TooltipTrigger>
+      {waiting.detail ? (
+        <TooltipContent side="right">{waiting.detail}</TooltipContent>
+      ) : null}
+    </Tooltip>
   );
 };
 
@@ -322,7 +338,7 @@ export const DesignSystemList = () => {
   // `design-system.json` is there and does not read: not a project with no design system, whose
   // foundations listed are the default look's.
   const unread = !designSystem && problem !== undefined;
-  // Nothing is listed until the design system is read: the neutral Color would show meanwhile.
+  // Nothing is listed until the design system is read: the neutral Colour would show meanwhile.
   const foundations =
     loaded && !unread ? foundationsOf(designSystem, query) : [];
   const guidelines = loaded ? guidelinesOf(document, query) : [];

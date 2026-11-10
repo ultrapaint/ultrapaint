@@ -259,7 +259,7 @@ export const CodePanel = () => {
   }
   return (
     <div className="flex flex-col pb-2">
-      <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-4">
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="truncate font-heading-xsmall">
             {nodeLabel(node)}

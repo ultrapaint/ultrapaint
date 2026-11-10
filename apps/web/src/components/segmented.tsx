@@ -12,12 +12,15 @@ import { cn } from "@/lib/cn";
  * draw theirs. An option drawn as an icon is named by its `title`, which its tooltip shows.
  */
 export const Segmented = <T extends string>({
+  "aria-label": ariaLabel,
   value,
   onChange,
   options,
   className,
   disabled,
 }: {
+  /** The group's name where no label names it: a settings row's title. */
+  "aria-label"?: string;
   value: T | null;
   onChange: (v: T) => void;
   options: { value: T; label: React.ReactNode; title?: string }[];
@@ -33,6 +36,7 @@ export const Segmented = <T extends string>({
   };
   return (
     <ToggleGroup
+      aria-label={ariaLabel}
       className={cn(
         "h-7 w-full min-w-0 gap-0.5 rounded-md bg-muted p-0.5",
         className

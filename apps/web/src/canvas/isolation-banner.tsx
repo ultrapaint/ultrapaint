@@ -4,6 +4,12 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { CutText } from "../components/cut-text.tsx";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import {
@@ -37,44 +43,53 @@ export const IsolationBanner = () => {
       icon={<Component className="text-component" />}
       label={`Editing ${file.name}`}
     >
-      <span className="min-w-0 truncate font-body-small text-muted-foreground">
+      <CutText
+        className="min-w-0 truncate font-body-small text-muted-foreground"
+        tip={file.name}
+      >
         Editing{" "}
-        <span className="font-body-medium text-foreground" title={file.name}>
-          {file.name}
-        </span>{" "}
-        · every instance follows
-      </span>
+        <span className="font-body-medium text-foreground">{file.name}</span> ·
+        every instance follows
+      </CutText>
       {onBoard && isolated.variant ? (
         <span className="shrink-0 font-code text-muted-foreground">
           {isolated.variant.property}={isolated.variant.member}
         </span>
       ) : null}
       {choices.length > 0 && !onBoard ? (
-        <NativeSelect
-          aria-label="Edits land on"
-          className="shrink-0 [&>select]:bg-transparent [&>select]:font-body-medium [&>select]:hover:border-transparent [&>select]:hover:bg-accent"
-          onChange={(e) => {
-            const [property, member] = e.target.value.split("\n");
-            editVariant(
-              property && member !== undefined ? { member, property } : null
-            );
-          }}
-          size="sm"
-          title="Edits land on the component’s own fields, or on one member of a choice"
-          value={current}
-        >
-          <NativeSelectOption value="">All variants</NativeSelectOption>
-          {choices.flatMap((p) =>
-            (p.members ?? []).map((m) => (
-              <NativeSelectOption
-                key={`${p.name}\n${m}`}
-                value={`${p.name}\n${m}`}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <NativeSelect
+                aria-label="Edits land on"
+                className="shrink-0 [&>select]:bg-transparent [&>select]:font-body-medium [&>select]:hover:border-transparent [&>select]:hover:bg-accent"
+                onChange={(e) => {
+                  const [property, member] = e.target.value.split("\n");
+                  editVariant(
+                    property && member !== undefined
+                      ? { member, property }
+                      : null
+                  );
+                }}
+                size="sm"
+                value={current}
               >
-                {p.name}: {m}
-              </NativeSelectOption>
-            ))
-          )}
-        </NativeSelect>
+                <NativeSelectOption value="">All variants</NativeSelectOption>
+                {choices.flatMap((p) =>
+                  (p.members ?? []).map((m) => (
+                    <NativeSelectOption
+                      key={`${p.name}\n${m}`}
+                      value={`${p.name}\n${m}`}
+                    >
+                      {p.name}: {m}
+                    </NativeSelectOption>
+                  ))
+                )}
+              </NativeSelect>
+            }
+          />
+          <TooltipContent>Edits land on</TooltipContent>
+        </Tooltip>
       ) : null}
       <Button className="shrink-0" onClick={leaveIsolation} size="sm">
         Done

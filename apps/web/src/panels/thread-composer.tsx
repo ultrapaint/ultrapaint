@@ -55,6 +55,7 @@ import { cn } from "@/lib/cn";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
+import { CutText } from "../components/cut-text.tsx";
 import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { ImageThumb } from "../components/image-thumb.tsx";
@@ -581,7 +582,7 @@ const QueuedPrompts = ({
             className="group/queued -mx-1.5 flex items-start gap-1 rounded-md py-1 pl-1.5 hover:bg-accent"
             key={q.id}
           >
-            <span className="min-w-0 flex-1 truncate font-body" title={q.text}>
+            <CutText className="min-w-0 flex-1 truncate font-body" tip={q.text}>
               {q.text}
               {q.attachments.length > 0 ? (
                 <span className="text-muted-foreground">
@@ -589,7 +590,7 @@ const QueuedPrompts = ({
                   · {q.attachments.length} attached
                 </span>
               ) : null}
-            </span>
+            </CutText>
             <span className="flex shrink-0 items-center pr-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover/queued:opacity-100">
               <IconButton
                 onClick={() => edit(q.id)}

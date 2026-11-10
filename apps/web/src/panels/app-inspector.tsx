@@ -22,6 +22,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   APP_DEFAULT_BOARD,
   type AppVariant,
   appBoardName,
@@ -168,22 +173,28 @@ const VariantRow = ({
       )
     : 0;
   return (
-    <button
-      aria-current={editing ? "true" : undefined}
-      className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 aria-[current=true]:bg-accent"
-      onClick={() =>
-        isolate(frame, inPlace.instance, { variant: inPlace.variant })
-      }
-      title={`Edit ${file.name} in place on ${name}`}
-      type="button"
-    >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
-        {inPlace.variant
-          ? `${overrides} ${overrides === 1 ? "override" : "overrides"}`
-          : "Base"}
-      </span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-current={editing ? "true" : undefined}
+            className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 aria-[current=true]:bg-accent"
+            onClick={() =>
+              isolate(frame, inPlace.instance, { variant: inPlace.variant })
+            }
+            type="button"
+          />
+        }
+      >
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
+          {inPlace.variant
+            ? `${overrides} ${overrides === 1 ? "override" : "overrides"}`
+            : "Base"}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>Edit in place</TooltipContent>
+    </Tooltip>
   );
 };
 

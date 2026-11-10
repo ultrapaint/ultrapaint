@@ -1,5 +1,6 @@
 import { History } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CutText } from "../components/cut-text.tsx";
 import { closeSnapshot, restoreSnapshot } from "../lib/snapshot-actions.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 import { Banner } from "./banner.tsx";
@@ -24,9 +25,9 @@ export const SnapshotBanner = () => {
       icon={<History className="text-warning" />}
       label={`Snapshot ${snapshot.name}, read only`}
     >
-      <span className="min-w-0 truncate font-body-medium" title={snapshot.name}>
+      <CutText className="min-w-0 truncate font-body-medium">
         {snapshot.name}
-      </span>
+      </CutText>
       <span className="shrink-0 font-body-small text-muted-foreground">
         {when.format(snapshot.at)} · Read only
       </span>

@@ -26,6 +26,7 @@ import {
 } from "../lib/commands.ts";
 import type { LeftTab } from "../state/editor.ts";
 import { COMMAND_ICONS, Glyph, iconOf } from "./context-menu-host.tsx";
+import { CutText } from "./cut-text.tsx";
 import { railItems } from "./rail.tsx";
 
 /** A key on a row or in the legend: a cap with a hairline, which holds on a filled row too. */
@@ -109,9 +110,7 @@ const Row = ({
       >
         {icon ? <Glyph icon={icon} /> : null}
       </span>
-      <span className="min-w-0 flex-1 truncate" title={command.title}>
-        {command.title}
-      </span>
+      <CutText className="min-w-0 flex-1 truncate">{command.title}</CutText>
       {command.detail ? (
         <span className="max-w-40 shrink-0 truncate font-body-small text-muted-foreground">
           {command.detail}

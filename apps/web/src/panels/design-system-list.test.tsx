@@ -56,11 +56,11 @@ const listOf = async (state: DesignSystemState) => {
 const problem = () => container.querySelector('[role="alert"]')?.textContent;
 const defaultLook = () =>
   container.querySelector('[aria-label="Default look"]');
-/** The foundations and guidelines listed, by name. */
+/** The foundations and guidelines listed, by name: a row's name leads it, before its count. */
 const rows = () =>
-  [...container.querySelectorAll("button[title]")].map((b) =>
-    b.getAttribute("title")
-  );
+  [...container.querySelectorAll("button")]
+    .map((b) => b.firstElementChild?.textContent ?? "")
+    .filter((name) => name !== "");
 
 beforeEach(() => {
   fakeApi.reset();
@@ -113,7 +113,7 @@ describe("Foundations › a file of the design system that does not read", () =>
     }));
     await act(() => useDesignSystem.getState().load());
     expect(problem()).toBeUndefined();
-    expect(rows()).toContain("Color");
+    expect(rows()).toContain("Colour");
   });
 
   it("says design.tokens.json does not read over the foundations, which stay listed", async () => {
@@ -127,7 +127,7 @@ describe("Foundations › a file of the design system that does not read", () =>
         "not JSON: Expected property name or '}' in JSON at position 1 (line 1 column 2)" +
         "Fix it in docs/designs/design.tokens.json: the values are design-system.json’s and the code’s until then."
     );
-    expect(rows()).toContain("Color");
+    expect(rows()).toContain("Colour");
   });
 
   it("keeps a reason it does not know as the server wrote it", async () => {
@@ -145,14 +145,14 @@ describe("Foundations › files that read", () => {
     await listOf({ designSystem: null, document: null });
     expect(problem()).toBeUndefined();
     expect(defaultLook()?.textContent).toContain("Ultrapaint’s default look");
-    expect(rows()).toContain("Color");
+    expect(rows()).toContain("Colour");
   });
 
   it("lists the design system's own foundations, and nothing else, when it has one", async () => {
     await listOf({ designSystem: own, document: null });
     expect(problem()).toBeUndefined();
     expect(defaultLook()).toBeNull();
-    expect(rows()).toContain("Color");
+    expect(rows()).toContain("Colour");
     expect(container.querySelector("ul")).toBeNull();
   });
 

@@ -20,6 +20,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import {
@@ -201,18 +206,26 @@ const CanvasRow = ({
           value={canvas.name}
         />
       ) : (
-        <button
-          className={cn(
-            "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
-            current && "font-body-medium"
-          )}
-          onClick={open}
-          onDoubleClick={() => setRenaming(true)}
-          title={canvas.id === "" ? "The designs directory" : canvas.id}
-          type="button"
-        >
-          <span className="truncate">{canvas.name}</span>
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                className={cn(
+                  "flex h-full min-w-0 flex-1 items-center truncate text-left outline-none",
+                  current && "font-body-medium"
+                )}
+                onClick={open}
+                onDoubleClick={() => setRenaming(true)}
+                type="button"
+              />
+            }
+          >
+            <span className="truncate">{canvas.name}</span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {canvas.id === "" ? "The designs directory" : canvas.id}
+          </TooltipContent>
+        </Tooltip>
       )}
       {renaming ? null : (
         <>
@@ -284,15 +297,23 @@ const CanvasPickerPopover = ({
         <Plus />
         New canvas
       </button>
-      <button
-        className={MENU_ROW}
-        onClick={pickFigmaFile}
-        title="An agent turns the frames of a .fig file into pages of this canvas"
-        type="button"
-      >
-        <FileUp />
-        Import a Figma file…
-      </button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              className={MENU_ROW}
+              onClick={pickFigmaFile}
+              type="button"
+            />
+          }
+        >
+          <FileUp />
+          Import a Figma file…
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          An agent turns the frames of a .fig file into pages of this canvas
+        </TooltipContent>
+      </Tooltip>
     </PopoverContent>
   </Popover>
 );

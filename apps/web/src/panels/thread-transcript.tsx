@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { isOpenQuestion } from "../lib/answers.ts";
 import { isRunPlan } from "../lib/design-run.ts";
@@ -320,9 +321,7 @@ const DiffContentView = ({
   return (
     <div>
       <div className="flex items-center gap-2 px-2.5 font-body-small text-muted-foreground">
-        <span className="min-w-0 truncate" title={content.path}>
-          {content.path}
-        </span>
+        <CutText className="min-w-0 truncate">{content.path}</CutText>
         <span className="ml-auto shrink-0 text-success tabular-nums">
           +{added}
         </span>
@@ -503,9 +502,9 @@ const Item = ({
             {item.attachments.length > 0 && (
               <span className="flex min-w-0 items-center justify-end gap-1 font-body-small text-muted-foreground">
                 <Paperclip className="size-3 shrink-0" />
-                <span className="truncate" title={item.attachments.join(", ")}>
+                <CutText className="truncate">
                   {item.attachments.join(", ")}
-                </span>
+                </CutText>
               </span>
             )}
           </MessageContent>

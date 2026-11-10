@@ -29,6 +29,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import { CutText } from "../components/cut-text.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { startTask } from "../lib/start-thread.ts";
@@ -162,19 +163,16 @@ const MatchRow = ({
   };
   return (
     <li className="flex flex-col gap-1 py-1.5">
-      <span
-        className="flex min-w-0 items-center gap-1.5"
-        title={token.variable}
-      >
+      <span className="flex min-w-0 items-center gap-1.5">
         <Value kind={token.kind} value={token.source ?? ""} />
         <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
           {token.by ? BY[token.by] : ""}
         </span>
       </span>
-      <span className="truncate font-body-small text-muted-foreground">
+      <CutText className="truncate font-body-small text-muted-foreground">
         {token.variable}
         {token.alias ? ` → ${token.alias}` : ""}
-      </span>
+      </CutText>
       <NativeSelect
         aria-label={`What ${token.variable} is in ${target}`}
         className="min-w-0"
@@ -380,9 +378,9 @@ export const Conflicts = ({
       <ul className="flex flex-col">
         {conflicts.map((d) => (
           <li className="flex flex-col gap-1 py-1.5" key={keyOf(d)}>
-            <span className="truncate font-body-medium" title={d.variable}>
+            <CutText className="truncate font-body-medium">
               {labelOf(d)}
-            </span>
+            </CutText>
             <Segmented
               onChange={(take) => onPick({ ...picks, [keyOf(d)]: take })}
               options={[

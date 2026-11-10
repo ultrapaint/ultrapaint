@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import {
   type FocusEvent,
-  type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
@@ -52,6 +51,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { FileProblem } from "../components/file-problem.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
@@ -741,32 +741,6 @@ interface Shared extends Dragging {
 }
 
 /**
- * Text that shows its whole self in a tooltip when it is cut short, and only then: whether it is
- * cut is read as the pointer comes onto it.
- */
-const CutText = ({
-  tip,
-  ...props
-}: HTMLAttributes<HTMLSpanElement> & { tip: ReactNode }) => {
-  const [cut, setCut] = useState(false);
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            {...props}
-            onPointerEnter={(e) =>
-              setCut(e.currentTarget.scrollWidth > e.currentTarget.clientWidth)
-            }
-          />
-        }
-      />
-      {cut ? <TooltipContent>{tip}</TooltipContent> : null}
-    </Tooltip>
-  );
-};
-
-/**
  * A row's name, or the field its new name is typed into. The field opens with the name selected,
  * as a rename does in Figma, its text where the name was and in the name's weight; Enter keeps
  * what is typed, Escape or a click elsewhere drops it.
@@ -817,7 +791,6 @@ const RowName = ({
         e.stopPropagation();
         shared.setRenaming(item.key);
       }}
-      tip={label}
     >
       {label}
     </CutText>

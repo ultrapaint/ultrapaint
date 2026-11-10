@@ -28,8 +28,14 @@ import { Component, File, Palette, Type } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
+import { CutText } from "../components/cut-text.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import {
   ownValueIn,
@@ -120,21 +126,30 @@ const ThemeValue = ({
   return (
     <Row label={theme.charAt(0).toUpperCase() + theme.slice(1)}>
       {isColor ? (
-        <label
+        // The picker covers the swatch: a click anywhere on it opens the picker.
+        <span
           className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-input)] focus-within:ring-2 focus-within:ring-ring/25"
           style={{ background: shown || fallback }}
-          title={`Pick ${name} in ${theme}`}
         >
-          <input
-            aria-label={`${name} in ${theme}`}
-            className="absolute inset-0 cursor-pointer opacity-0"
-            // Drawn as it is dragged; committed once the picker is left.
-            onBlur={commit}
-            onChange={(e) => type(e.target.value)}
-            type="color"
-            value={pickerHex(shown || fallback)}
-          />
-        </label>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <input
+                  aria-label={`${name} in ${theme}`}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  // Drawn as it is dragged; committed once the picker is left.
+                  onBlur={commit}
+                  onChange={(e) => type(e.target.value)}
+                  type="color"
+                  value={pickerHex(shown || fallback)}
+                />
+              }
+            />
+            <TooltipContent>
+              Pick {name} in {theme}
+            </TooltipContent>
+          </Tooltip>
+        </span>
       ) : null}
       <Input
         aria-label={`${name}'s value in ${theme}`}
@@ -209,9 +224,7 @@ export const UsesSection = ({
           {use.kind === "page" ? <File /> : null}
           {use.kind === "component" ? <Component /> : null}
           {use.kind === "style" ? <Type /> : null}
-          <span className="min-w-0 flex-1 truncate" title={use.name}>
-            {use.name}
-          </span>
+          <CutText className="min-w-0 flex-1 truncate">{use.name}</CutText>
           <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
             {count(use)}
           </span>
@@ -318,12 +331,19 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
                 </span>
                 <div className="flex gap-0.5">
                   {made.shades.map((shade) => (
-                    <span
-                      className="h-5 flex-1 rounded-sm"
-                      key={shade.step}
-                      style={{ background: shade.values[theme] }}
-                      title={`${shade.name}: ${shade.values[theme]}`}
-                    />
+                    <Tooltip key={shade.step}>
+                      <TooltipTrigger
+                        render={
+                          <span
+                            className="h-5 flex-1 rounded-sm"
+                            style={{ background: shade.values[theme] }}
+                          />
+                        }
+                      />
+                      <TooltipContent>
+                        {shade.name}: {shade.values[theme]}
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -665,7 +685,7 @@ export const tokenKindLabel = (name: string) => {
   const known: Partial<Record<string, string>> = {
     borderWidth: "Border width",
     breakpoint: "Breakpoint",
-    color: "Color",
+    color: "Colour",
     container: "Container",
     duration: "Duration",
     easing: "Easing",

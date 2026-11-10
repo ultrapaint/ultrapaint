@@ -1,4 +1,9 @@
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useConnection } from "../state/connection.ts";
 import { useShellStatus } from "../state/shell-status.ts";
 import { Banner } from "./banner.tsx";
@@ -25,9 +30,14 @@ export const CanvasStatus = () => {
       icon={<Spinner className="text-muted-foreground" />}
       label={message}
     >
-      <span className="truncate pr-1.5 font-body-small" title={shell?.detail}>
-        {message}
-      </span>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="truncate pr-1.5 font-body-small" />}
+        >
+          {message}
+        </TooltipTrigger>
+        {shell?.detail ? <TooltipContent>{shell.detail}</TooltipContent> : null}
+      </Tooltip>
     </Banner>
   );
 };

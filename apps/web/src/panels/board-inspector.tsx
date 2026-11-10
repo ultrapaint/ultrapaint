@@ -25,6 +25,7 @@ import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
 import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
+import { CutText } from "../components/cut-text.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
@@ -267,9 +268,8 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
               "min-w-0 shrink truncate",
               picked?.kind === "token" ? "font-code" : "font-heading-xsmall"
             )}
-            title={title}
           >
-            {title}
+            <CutText className="block truncate">{title}</CutText>
           </h2>
           <span className="min-w-0 flex-1 truncate font-body-small text-muted-foreground">
             {subtitle}

@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
+import { CutText } from "./cut-text.tsx";
 
 export interface SelectOption {
   /** Muted second line in the list, e.g. the class the option writes. */
@@ -94,12 +95,9 @@ export const OptionSelect = ({
           }
         </SelectValue>
         {hint ? (
-          <span
-            className="min-w-0 max-w-[55%] shrink truncate font-code text-muted-foreground"
-            title={hint}
-          >
+          <CutText className="min-w-0 max-w-[55%] shrink truncate font-code text-muted-foreground">
             {hint}
-          </span>
+          </CutText>
         ) : null}
       </SelectTrigger>
       <SelectContent className="w-auto min-w-[max(8rem,var(--anchor-width))]">

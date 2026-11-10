@@ -6,6 +6,7 @@ import { createContext, type ReactNode, useContext, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import {
@@ -97,12 +98,9 @@ export const Row = ({
   label?: string;
 }) => (
   <div className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2">
-    <span
-      className="truncate font-body-small text-muted-foreground"
-      title={label}
-    >
+    <CutText className="truncate font-body-small text-muted-foreground">
       {label}
-    </span>
+    </CutText>
     <div className="flex min-w-0 items-center gap-2">{children}</div>
   </div>
 );

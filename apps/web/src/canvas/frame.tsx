@@ -15,7 +15,14 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutText } from "../components/cut-text.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
@@ -478,23 +485,26 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   const name = breakpoint ?? "base";
   return (
     <>
-      <span
-        className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small-medium text-muted-foreground"
-        title={`Breakpoint ${name}: edits here land at ${name}`}
-      >
-        {name}
-      </span>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small-medium text-muted-foreground" />
+          }
+        >
+          {name}
+        </TooltipTrigger>
+        <TooltipContent>Breakpoint {name}</TooltipContent>
+      </Tooltip>
       {isView ? (
-        <button
-          aria-label="Remove view"
-          className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-[color,background-color,opacity] hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/frame:opacity-100"
+        <IconButton
+          className="text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover/frame:opacity-100"
           onClick={() => removeView(frameId)}
           onPointerDown={(e) => e.stopPropagation()}
-          title="Remove view"
-          type="button"
+          size="icon-xs"
+          tooltip="Remove view"
         >
           <X className="size-3.5" />
-        </button>
+        </IconButton>
       ) : null}
     </>
   );
@@ -680,10 +690,9 @@ const FrameChrome = ({
           onPointerDown={(e) => onDragStart(e, frameId, "move")}
           onPointerEnter={() => setTitleHover(true)}
           onPointerLeave={() => setTitleHover(false)}
-          title={name}
           type="button"
         >
-          {name}
+          <CutText className="block truncate">{name}</CutText>
         </button>
         {isNode ? null : (
           <span className="text-muted-foreground/70 tabular-nums">

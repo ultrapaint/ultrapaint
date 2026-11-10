@@ -46,6 +46,11 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
 import { cellId, placeOfCell } from "../boards/pick.ts";
 import { IconButton } from "../components/icon-button.tsx";
@@ -219,21 +224,31 @@ const Choice = ({
   options: readonly string[];
   value: string | undefined;
 }) => (
-  <NativeSelect
-    aria-label={label}
-    className="min-w-0 flex-1"
-    onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
-    size="sm"
-    title={label}
-    value={value ?? ""}
-  >
-    <NativeSelectOption value="">{inheritedText(inherited)}</NativeSelectOption>
-    {options.map((o) => (
-      <NativeSelectOption key={o} value={o}>
-        {o}
-      </NativeSelectOption>
-    ))}
-  </NativeSelect>
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <NativeSelect
+          aria-label={label}
+          className="min-w-0 flex-1"
+          onChange={(e) =>
+            onChange(e.target.value === "" ? null : e.target.value)
+          }
+          size="sm"
+          value={value ?? ""}
+        >
+          <NativeSelectOption value="">
+            {inheritedText(inherited)}
+          </NativeSelectOption>
+          {options.map((o) => (
+            <NativeSelectOption key={o} value={o}>
+              {o}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      }
+    />
+    <TooltipContent>{label}</TooltipContent>
+  </Tooltip>
 );
 
 /** A style with one field set, or taken off when the value is empty. */

@@ -9,6 +9,11 @@ import { findNode, findPath } from "@ultrapaint/design-document/tree";
 import { Check } from "lucide-react";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -113,24 +118,30 @@ const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
     );
   }
   return (
-    <button
-      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-sm bg-agent px-1.5 font-body-small-medium text-agent-foreground outline-none focus-visible:underline"
-      onClick={() => showLeftPanel({ chat: threadId })}
-      onContextMenu={(e) => openMenuAt(e, { kind: "thread", threadId })}
-      style={{
-        bottom: "100%",
-        transform: `translate(${screenPx(-1)}, ${screenPx(-1)}) ${UNZOOM}`,
-        transformOrigin: "bottom left",
-      }}
-      title={thread?.title}
-      type="button"
-    >
-      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-white">
-        <AgentIcon agentId={thread?.agentId ?? ""} className="size-2.5" />
-      </span>
-      <span className="truncate">{agent?.name ?? "Agent"}</span>
-      {detail}
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-sm bg-agent px-1.5 font-body-small-medium text-agent-foreground outline-none focus-visible:underline"
+            onClick={() => showLeftPanel({ chat: threadId })}
+            onContextMenu={(e) => openMenuAt(e, { kind: "thread", threadId })}
+            style={{
+              bottom: "100%",
+              transform: `translate(${screenPx(-1)}, ${screenPx(-1)}) ${UNZOOM}`,
+              transformOrigin: "bottom left",
+            }}
+            type="button"
+          />
+        }
+      >
+        <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-white">
+          <AgentIcon agentId={thread?.agentId ?? ""} className="size-2.5" />
+        </span>
+        <span className="truncate">{agent?.name ?? "Agent"}</span>
+        {detail}
+      </TooltipTrigger>
+      {thread?.title ? <TooltipContent>{thread.title}</TooltipContent> : null}
+    </Tooltip>
   );
 };
 

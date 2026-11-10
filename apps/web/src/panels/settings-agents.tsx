@@ -22,6 +22,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -130,9 +136,7 @@ const SkillRow = ({
     <Row
       description={
         <>
-          <span className="line-clamp-2" title={skill.summary}>
-            {skill.summary}
-          </span>
+          <CutText className="line-clamp-2">{skill.summary}</CutText>
           {skill.file ? (
             <span className="mt-0.5 block">{skill.file}</span>
           ) : null}
@@ -393,6 +397,7 @@ export const ChatDefaultsGroup = () => {
       {efforts.length > 0 ? (
         <Row title="Effort">
           <Segmented
+            aria-label="Effort"
             className="@xl:w-auto"
             onChange={(value) => save({ ...kept, effort: value })}
             options={efforts.map((e) => ({ label: e.name, value: e.value }))}
@@ -498,9 +503,7 @@ const MachineAgentRow = ({
       description={
         <>
           {agent.executable ? (
-            <span className="block truncate" title={foundAt(agent)}>
-              {foundAt(agent)}
-            </span>
+            <CutText className="block truncate">{foundAt(agent)}</CutText>
           ) : null}
           {agent.detail ? <span className="block">{agent.detail}</span> : null}
           {progress?.phase === "failed" ? (
@@ -574,15 +577,21 @@ const MachineAgentRow = ({
               Use PATH
             </Button>
           ) : null}
-          <Button
-            disabled={busy}
-            onClick={() => change(() => setup.choosePath(agent.id))}
-            size="sm"
-            title={`Choose the ${agent.name} executable`}
-            variant="outline"
-          >
-            Choose…
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  disabled={busy}
+                  onClick={() => change(() => setup.choosePath(agent.id))}
+                  size="sm"
+                  variant="outline"
+                />
+              }
+            >
+              Choose…
+            </TooltipTrigger>
+            <TooltipContent>Choose the {agent.name} executable</TooltipContent>
+          </Tooltip>
         </div>
         {offersKey ? (
           <ApiKeyField

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { CutText } from "../components/cut-text.tsx";
 import { save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -36,9 +37,9 @@ const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
 /** A token, its value on each side. */
 const Row = ({ diff }: { diff: TokenDiff }) => (
   <li className="flex min-w-0 items-center gap-1.5 py-0.5">
-    <span className="truncate font-code" title={diff.name}>
+    <CutText className="truncate font-code">
       {diff.theme ? `${diff.name} (${diff.theme})` : diff.name}
-    </span>
+    </CutText>
     <span className="ml-auto flex shrink-0 items-center gap-1 font-code text-muted-foreground">
       {[diff.source ?? "none", diff.design ?? "none"].map((value, i) => (
         <span

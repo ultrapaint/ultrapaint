@@ -95,6 +95,7 @@ export const ValueField = ({
   /** Whether a typed value may be used; pixels and tokens always may. */
   accept?: (query: string) => boolean;
   className?: string;
+  /** The field's name, shown in the system tooltip over it. */
   title?: string;
 }) => {
   const current = optionOf(value);

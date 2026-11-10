@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
+import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { createThread, startTask } from "../lib/start-thread.ts";
@@ -166,15 +167,14 @@ const ThreadRow = ({
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
-      title={thread.title}
       type="button"
     >
       <ScopePicture thread={thread} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate font-body-medium text-foreground">
+          <CutText className="min-w-0 flex-1 truncate font-body-medium text-foreground">
             {thread.title}
-          </span>
+          </CutText>
           {/* What an agent did since the thread was last opened; a working one says so itself. */}
           {unread && label === null ? (
             <span
