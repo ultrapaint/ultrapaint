@@ -169,7 +169,7 @@ const useSubject = () => {
     return null;
   }
   const parent = path?.at(-2);
-  return { node, parent, route } as const;
+  return { canvas, node, parent, route } as const;
 };
 
 /**
@@ -177,17 +177,21 @@ const useSubject = () => {
  * written stays on screen while the next is on its way, and goes when the next cannot be written.
  */
 const useWritten = (request: {
+  /** The canvas the node is in: a link to one of its pages is written as the page's URL. */
+  readonly canvas: string | null;
   readonly component: string | undefined;
   readonly node: DesignNode | undefined;
   readonly parent: ParentLayout;
 }) => {
-  const { component, node, parent } = request;
-  // A token's value changed: its class may be another; a component's file, its slots' layout.
+  const { canvas, component, node, parent } = request;
+  // A token's value changed: its class may be another; a component's file, its slots' layout;
+  // a page's URL, the link to it.
   const designSystem = useDesignSystem((s) => s.designSystem);
   const components = useComponents((s) => s.components);
+  const pages = useProject((s) => s.pages);
   const [code, setCode] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the server writes with the design system it holds, so a change to it writes the code again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the server writes with the design system and the pages it holds, so a change to them writes the code again.
   useEffect(() => {
     if (!node) {
       return;
@@ -195,6 +199,7 @@ const useWritten = (request: {
     let live = true;
     api()
       .request("code.write", {
+        ...(canvas !== null && { canvas }),
         ...(component !== undefined && { component }),
         node,
         parent,
@@ -215,7 +220,7 @@ const useWritten = (request: {
     return () => {
       live = false;
     };
-  }, [component, node, parent, designSystem, components]);
+  }, [canvas, component, node, parent, designSystem, components, pages]);
   return { code, failed };
 };
 
@@ -237,6 +242,7 @@ export const CodePanel = () => {
     parentLayout = layoutOf(parent);
   }
   const { code, failed } = useWritten({
+    canvas: subject?.canvas ?? null,
     component,
     node,
     parent: parentLayout,

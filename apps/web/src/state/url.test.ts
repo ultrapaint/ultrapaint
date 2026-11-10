@@ -55,6 +55,39 @@ describe("a board view in the URL", () => {
   });
 });
 
+describe("a link to a page or a node", () => {
+  it("says the variant of a variant's page beside its route, as the editor's own URL does", () => {
+    const link = linkToNode({
+      canvas: "main",
+      nodeId: "hero",
+      route: "/pricing",
+      variant: "bold",
+    });
+    fakeBrowser.visit(link.slice(new URL(link).origin.length));
+    expect(readUrl()).toMatchObject({
+      canvas: "main",
+      node: "hero",
+      route: "/pricing",
+      variant: "bold",
+    });
+  });
+
+  it("says no variant for a base page, nor for a page named by its id", () => {
+    const base = new URL(linkToNode({ canvas: "main", route: "/pricing" }));
+    expect(base.searchParams.has("variant")).toBe(false);
+    const byId = new URL(
+      linkToNode({
+        canvas: "main",
+        page: "main/draft@bold.page.json",
+        route: null,
+        variant: "bold",
+      })
+    );
+    expect(byId.searchParams.get("page")).toBe("main/draft@bold.page.json");
+    expect(byId.searchParams.has("variant")).toBe(false);
+  });
+});
+
 describe("tidyUrl", () => {
   it("drops what is empty or at its default, and keeps a parameter it has no table for", () => {
     fakeBrowser.visit("/?canvas=main&route=/&mode=vibe&variant=&constructor=x");

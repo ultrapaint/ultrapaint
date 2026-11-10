@@ -7,6 +7,7 @@ import {
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
+import type { Page } from "@ultrapaint/contracts/pages";
 import { tokenChangesBetween } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
@@ -19,6 +20,7 @@ import {
   applyEdits,
   editLabel,
 } from "@ultrapaint/design-document/design-system-edits";
+import { linkTargetOf, pageOfLink } from "@ultrapaint/shared/link";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
@@ -41,8 +43,18 @@ import {
 import { DESIGN_TOKENS_FILE } from "./dtcg.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { FigmaBaseline } from "./figma-baseline.ts";
+import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
+
+/**
+ * The `href` a link is written with among its canvas's pages: a page named by its file is the URL
+ * it serves. A page that serves none, a file no page has and every other link stay as written.
+ */
+const hrefOf = (pages: readonly Page[], link: string): string =>
+  linkTargetOf(link)?.kind === "page"
+    ? (pageOfLink(pages, link)?.route ?? link)
+    : link;
 
 /**
  * The design system as the project records it: `design-system.json` at the root of the designs
@@ -88,10 +100,14 @@ export class DesignSystemService extends Context.Service<
     /**
      * A node of the designs as the application's code writes it: the markup the design
      * document's, the classes the style system's (ADR 0024), at the design system's breakpoints.
+     * A link to a page of `canvas`, the one the node is in, is the URL that page serves (ADR
+     * 0021); a page that serves none keeps its file, and so does every link without a canvas.
      */
     readonly codeOf: (
       node: DesignNode,
-      options: Omit<CodeOptions, "breakpoints" | "catalogue">
+      options: Omit<CodeOptions, "breakpoints" | "catalogue" | "hrefOf"> & {
+        readonly canvas?: string | undefined;
+      }
     ) => Effect.Effect<string>;
     /**
      * One side's baseline in `design-system.json` moved, outside the undo history (ADR 0025,
@@ -146,6 +162,7 @@ export class DesignSystemService extends Context.Service<
       const styleSystem = yield* ProjectStyleSystem;
       // The Code tab lays an instance's children out as the components' slots do (ADR 0042).
       const { catalogue } = yield* ComponentService;
+      const pages = yield* PagesService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -454,16 +471,25 @@ export class DesignSystemService extends Context.Service<
       );
 
       return DesignSystemService.of({
-        codeOf: (node, options) =>
+        codeOf: (node, { canvas, ...options }) =>
           Effect.map(
-            Effect.all([get, catalogue]),
-            ([{ designSystem: ds }, components]) =>
+            Effect.all([
+              get,
+              catalogue,
+              canvas === undefined
+                ? Effect.succeed([])
+                : Effect.map(pages.list, (all) =>
+                    all.pages.filter((p) => p.canvas === canvas)
+                  ),
+            ]),
+            ([{ designSystem: ds }, components, inCanvas]) =>
               toCode(node, styleSystem.nodeClasses(ds), {
                 componentsFrom: componentsImportBase(paths.settings),
                 ...options,
                 breakpoints: breakpointsOf(ds),
                 catalogue: components,
                 designSystem: ds,
+                hrefOf: (link) => hrefOf(inCanvas, link),
               })
           ),
         detect,

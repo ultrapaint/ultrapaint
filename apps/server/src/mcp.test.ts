@@ -1247,6 +1247,34 @@ describe("where a tool works, named by a node reference (ADR 0018)", () => {
     })
   );
 
+  inAProject(
+    "works on a variant's page named by the editor's link or by its file, the URL alone still naming the base page",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.flatMap(OpenProject, (project) =>
+          project.use(
+            Effect.flatMap(PagesService, (p) =>
+              p.createVariant("home.page.json", "bold")
+            )
+          )
+        );
+        yield* tool("apply_operations", {
+          ops: [{ id: "heading", op: "update", set: { text: "Bold" } }],
+          route: "http://localhost:4643/?route=/home&variant=bold&node=heading",
+        });
+        const textAt = (route: string) =>
+          Effect.map(
+            tool("read_page", { route }),
+            ({ document }) => (document as { text: string }).text
+          );
+        assert.strictEqual(
+          yield* textAt("home@bold.page.json#heading"),
+          "Bold"
+        );
+        assert.notStrictEqual(yield* textAt("/home#heading"), "Bold");
+      })
+  );
+
   inAProject("shows the nodes a reference names, in focus", () =>
     Effect.gen(function* () {
       const events = yield* EventBus;

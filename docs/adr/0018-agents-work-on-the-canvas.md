@@ -3,7 +3,11 @@
 Status: accepted, 2026-09-29. Extends 0014 and 0015. Amended 2026-10-26 by
 [0031](0031-the-desktop-app.md): without a name from git, the avatar is the display name in
 Settings. Amended 2026-10-26 by [0032](0032-floating-cards-one-canvas-workspace.md): Vibe and
-Design are one workspace, and the toolbar is over every selection on the canvas.
+Design are one workspace, and the toolbar is over every selection on the canvas. Amended
+2026-11-10: a link to a variant's page or to a node of it says the variant
+(`?route=/orders&variant=bold&node=c_8x2k1q`), read as the page the router serves there, and the
+reference copied for it names the variant's file (`orders@bold.page.json#c_8x2k1q`), a URL alone
+still naming the base page (0019).
 
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.

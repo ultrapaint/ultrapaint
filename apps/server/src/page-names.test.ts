@@ -74,6 +74,28 @@ describe("pageNamed", () => {
   });
 });
 
+describe("pageNamed, in a variant an editor link says", () => {
+  const pages = [home, bold, orders, pricing];
+  const drawn = (name: string, variant: string, canvas?: string) => {
+    const named = pageNamed(pages, name, canvas, variant);
+    return named._tag === "Found" ? named.page.id : named;
+  };
+
+  it("names by URL the variant's page, and the base page where the variant has none", () => {
+    expect(drawn("/", "bold", "")).toBe(bold.id);
+    expect(drawn("/orders", "bold")).toBe(orders.id);
+    expect(drawn("/", "gone", "")).toBe(home.id);
+  });
+
+  it("names one page a canvas, the variant's in the canvas that has it", () => {
+    expect(drawn("/", "bold")).toEqual({
+      _tag: "Ambiguous",
+      canvases: ["", "marketing"],
+    });
+    expect(drawn("/", "bold", "marketing")).toBe(pricing.id);
+  });
+});
+
 describe("designTargetNamed", () => {
   const marketing = page("marketing", "pricing.page.json", {
     route: "/pricing",
@@ -186,6 +208,33 @@ describe("pageTargetNamed", () => {
     ["marketing:/nowhere", { _tag: "Missing", route: "/nowhere" }],
   ] as const)("names %j as %j", (name, expected) => {
     expect(pageTargetNamed(pages, name)).toEqual(expected);
+  });
+
+  it("names a variant's page by the link the editor copies and by the reference, which says its file", () => {
+    const all = [...pages, bold];
+    expect(
+      pageTargetNamed(all, "http://localhost:4643/?route=/&variant=bold")
+    ).toEqual({ _tag: "Page", page: bold });
+    expect(
+      pageTargetNamed(
+        all,
+        "http://localhost:4643/?route=/&variant=bold&node=c_1"
+      )
+    ).toEqual({ _tag: "Page", nodeId: "c_1", page: bold });
+    expect(pageTargetNamed(all, "home@bold.page.json#c_1")).toEqual({
+      _tag: "Page",
+      nodeId: "c_1",
+      page: bold,
+    });
+    // The URL alone is the base page's, in a link and in a reference.
+    expect(
+      pageTargetNamed(all, "http://localhost:4643/?route=/&node=c_1")
+    ).toEqual({ _tag: "Page", nodeId: "c_1", page: home });
+    expect(pageTargetNamed(all, "/#c_1")).toEqual({
+      _tag: "Page",
+      nodeId: "c_1",
+      page: home,
+    });
   });
 
   it("names a page of a canvas inside another, by its URL, its file or one of its nodes", () => {

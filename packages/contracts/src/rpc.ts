@@ -735,11 +735,14 @@ const requestRpcs = [
    * A node of a design as code, everything under it included (the inspector's Code tab): JSX
    * with the repository's components, its look in the classes of the project's style system
    * (ADR 0024). `parent` is how its parent lays it out; `component` names a page's function.
-   * An instance's children are laid out as the catalogue's slots say (ADR 0042).
+   * An instance's children are laid out as the catalogue's slots say (ADR 0042). `canvas` is the
+   * one the node is in: a link to one of its pages is written as the URL the page serves, and as
+   * the page's file when it serves none. Left out, a link is written as it is.
    */
   Rpc.make("code.write", {
     error: NotConfigured,
     payload: {
+      canvas: Schema.optional(CanvasId),
       component: Schema.optional(Schema.String),
       node: DesignNode,
       parent: Schema.optional(

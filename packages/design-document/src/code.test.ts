@@ -154,6 +154,40 @@ describe("a tinted image", () => {
   });
 });
 
+describe("a link", () => {
+  const nav: DesignNode = {
+    children: [
+      {
+        id: "t",
+        link: "pricing.page.json",
+        role: "paragraph",
+        text: "Pricing",
+        type: "text",
+      },
+    ],
+    id: "nav",
+    link: "draft.page.json",
+    type: "row",
+  };
+  const none: ClassWriter = { classes: () => [] };
+
+  it("is written with the href its caller gives it, on a text's anchor and on a container that is one", () => {
+    const hrefOf = (link: string) =>
+      link === "pricing.page.json" ? "/pricing" : link;
+    expect(toCode(nav, none, { hrefOf })).toBe(
+      `<a href="draft.page.json">
+  <a href="/pricing">
+    <p>Pricing</p>
+  </a>
+</a>`
+    );
+  });
+
+  it("is written as it is when nothing says where it leads", () => {
+    expect(toCode(nav, none)).toContain('href="pricing.page.json"');
+  });
+});
+
 describe("pageComponentName", () => {
   it("names a page after its route", () => {
     expect(pageComponentName("/")).toBe("HomePage");

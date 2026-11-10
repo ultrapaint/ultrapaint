@@ -7,6 +7,9 @@
 - `docs/adr/`: the decisions, indexed in `docs/adr/README.md`. Read the ADRs behind a behaviour
   before changing it, and record a new decision as the next ADR.
 - `docs/TESTING.md`: how tests are written. Read it before writing one.
+- `.agents/skills/`: the vendored skills of `skills-lock.json`, used as they are and never edited.
+  Where one asks for a setup or a form this repository does not have (an issue tracker document,
+  its own glossary or ADR format), this file, `GLOSSARY.md` and the existing ADRs give the form.
 - `skills/ultrapaint/`: the design skill agents are told. Its `README.md` says how it is built
   into the server; a change to it starts from a gap in `evals/gaps/`.
 - `evals/gaps/`: the design skill's known gaps, one file each, with their status and the lab's
@@ -17,8 +20,8 @@
 - Several decisions to ask the person: write them as a deck and serve it with `pnpm evals decide`
   (`evals/README.md`, "Decisions").
 - A link the editor copies (`…?canvas=redesign&route=/vibe&node=c_1`, `page=` for a page without
-  a URL) names node `c_1` of that page, in `docs/designs/<canvas>/`; the editor's MCP tools take
-  it as they take `/vibe#c_1`.
+  a URL, `variant=bold` for the page's file `vibe@bold.page.json`) names node `c_1` of that page,
+  in `docs/designs/<canvas>/`; the editor's MCP tools take it as they take `/vibe#c_1`.
 
 Nothing prompts the person's agents on its own: an agent works only on a prompt they sent and
 the run it starts (ADR 0074). What the editor would have an agent do, it drafts in a new chat's

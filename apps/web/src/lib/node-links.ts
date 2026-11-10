@@ -19,7 +19,7 @@ const pageOfSelection = (target: Selection): Page | undefined => {
 
 /**
  * Where a node of a frame is: its page's route, or the canvas beside the pages; and which canvas,
- * when there are several.
+ * when there are several. A variant's page is named by its file: its route names its base page.
  */
 const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
   const page = pageOfSelection(target);
@@ -29,7 +29,7 @@ const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
     canvas,
     nodeId: target.nodeId,
     // A page without a URL is named by its file inside the canvas.
-    page: page ? (page.route ?? page.path) : null,
+    page: page ? ((page.variant ? undefined : page.route) ?? page.path) : null,
   };
 };
 
@@ -58,6 +58,7 @@ export const copyPageLink = (page: Page) =>
       canvas: page.canvas,
       page: page.route === undefined ? page.id : null,
       route: page.route ?? null,
+      variant: page.variant,
     })
   );
 
@@ -85,6 +86,7 @@ export const copyNodeLink = async (target: Selection) => {
       nodeId: target.nodeId,
       page: page?.route === undefined ? (page?.id ?? null) : null,
       route: page?.route ?? null,
+      variant: page?.variant,
     })
   );
 };

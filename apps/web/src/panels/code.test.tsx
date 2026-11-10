@@ -80,4 +80,12 @@ describe("the code of the node selected", () => {
     expect(container.textContent).toContain("Couldn’t write the code");
     expect(container.textContent).not.toContain("the title's code");
   });
+
+  it("is asked for in its canvas, whose pages its links lead to", async () => {
+    await selectAndRead("title", 1);
+    expect(fakeApi.calls.at(-1)).toMatchObject({
+      input: { canvas: "main", node: { id: "title" } },
+      method: "code.write",
+    });
+  });
 });

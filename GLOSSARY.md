@@ -276,8 +276,10 @@ refactor and the board view left.
   canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
   (`where`).
 - **Editor link**: the editor's URL to a page or to a node of it (`…?canvas=redesign&route=/vibe&node=c_1`,
-  `page=` for a page without a URL), which the editor copies (`linkToNode`) and opens on it, and
-  which agents take wherever a node reference is taken (shared's `parseEditorLink`).
+  `page=` for a page without a URL, `variant=` for a variant's page), which the editor copies
+  (`linkToNode`) and opens on it, and which agents take wherever a node reference is taken
+  (shared's `parseEditorLink`). A node reference names a variant's page by its file
+  (`vibe@bold.page.json#c_1`): a URL alone names the base page (`pageNamed`).
 - **Tool kind**: whether an MCP tool reads, edits or takes something away, and whether doing it
   twice is doing it once (`doing`), which sets its hints; the editor is a closed world. A tool
   answered with a picture or a form is a **raw tool** (`rawTool`), decoded and failed the same

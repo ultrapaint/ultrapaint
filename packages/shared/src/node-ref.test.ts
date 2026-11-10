@@ -144,6 +144,25 @@ describe("editor links", () => {
     ).toEqual({ canvas: "samples", page: "/pricing" });
   });
 
+  it("say the variant of a variant's page, which a node's reference leaves to the link", () => {
+    const link =
+      "http://localhost:4643/?canvas=samples&route=/pricing&variant=bold&node=c_1";
+    expect(parseEditorLink(link)).toEqual({
+      canvas: "samples",
+      nodeId: "c_1",
+      page: "/pricing",
+      variant: "bold",
+    });
+    expect(parseNodeRef(link)).toEqual({
+      canvas: "samples",
+      nodeId: "c_1",
+      page: "/pricing",
+    });
+    expect(
+      parseEditorLink("http://localhost:4643/?route=/pricing&variant=")
+    ).toEqual({ page: "/pricing" });
+  });
+
   it("are not read out of anything else", () => {
     expect(parseEditorLink("/pricing")).toBeNull();
     expect(parseEditorLink("http://localhost:4643/?canvas=samples")).toBeNull();

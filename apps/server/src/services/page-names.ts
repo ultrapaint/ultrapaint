@@ -6,7 +6,9 @@
  *
  * - A URL names the base page that serves it in its canvas's prototype: not a variant's page,
  *   which serves the same URL and is named by its file, and not a state's page, which serves
- *   none (`orders@empty.page.json`, ADR 0030).
+ *   none (`orders@empty.page.json`, ADR 0030). Only a link the editor copies says a variant
+ *   beside the URL (`variant=bold`): it names the page the router serves there, the variant's
+ *   own or, when it has none, the base page.
  * - Anything else is a page's id, its file (repository-relative) or its path inside its canvas,
  *   whatever the page: a variant's and a state's included.
  * - Nothing names the only page there is.
@@ -43,20 +45,31 @@ type PageNamed<T> =
 export const pageNamed = <T extends NamedPage>(
   pages: readonly T[],
   name: string,
-  canvas?: string
+  canvas?: string,
+  variant?: string
 ): PageNamed<T> => {
   const where = name.trim();
   const route = where.startsWith("/") ? normaliseRoute(where) : null;
   const inCanvas = pages.filter(
     (p) => canvas === undefined || p.canvas === canvas
   );
+  /** Whether a page serves the URL drawn for `drawn`: a variant, or the base. */
+  const serves = (p: T, drawn: string | undefined) =>
+    p.route === route && p.variant === drawn && p.state === undefined;
   const found = inCanvas.filter((p) => {
     if (where === "") {
       return inCanvas.length === 1;
     }
-    return route === null
-      ? p.id === where || p.file === where || p.path === where
-      : p.route === route && p.variant === undefined && p.state === undefined;
+    if (route === null) {
+      return p.id === where || p.file === where || p.path === where;
+    }
+    // In a variant, the base page serves the URL only where the variant has no page for it.
+    return (
+      serves(p, variant) ||
+      (variant !== undefined &&
+        serves(p, undefined) &&
+        !inCanvas.some((q) => q.canvas === p.canvas && serves(q, variant)))
+    );
   });
   const [only] = found;
   if (only && found.length === 1) {
@@ -96,7 +109,8 @@ type PageTargetNamed<P> =
 /**
  * Which page a name means, as an agent writes it: by `pageNamed`'s rule, a canvas written first
  * included (`marketing:/pricing`), and a node reference (`/orders#c_8`) names its page and keeps
- * its node; a link the editor copies, to a page or to a node, is read as either. The canvas given narrows the pages, over one the name says.
+ * its node; a link the editor copies, to a page or to a node, is read as either, in the variant
+ * it says. The canvas given narrows the pages, over one the name says.
  */
 export const pageTargetNamed = <P extends NamedPage>(
   pages: readonly P[],
@@ -110,14 +124,15 @@ export const pageTargetNamed = <P extends NamedPage>(
       ? { _tag: "Loose", nodeId: ref.nodeId }
       : { _tag: "Loose", canvas: ref.canvas, nodeId: ref.nodeId };
   }
-  // A link the editor copies to a page names it by its URL or id, in its canvas.
-  const link = ref ? null : parseEditorLink(where);
+  // A link the editor copies names a page by its URL or id, in its canvas and its variant.
+  const link = parseEditorLink(where);
   const inCanvas = ref || link ? null : IN_CANVAS_RE.exec(where);
   const page = ref?.page ?? link?.page ?? inCanvas?.[2] ?? where;
   const found = pageNamed(
     pages,
     page,
-    canvas ?? ref?.canvas ?? link?.canvas ?? inCanvas?.[1]
+    canvas ?? ref?.canvas ?? link?.canvas ?? inCanvas?.[1],
+    link?.variant
   );
   if (found._tag !== "Found") {
     return found;

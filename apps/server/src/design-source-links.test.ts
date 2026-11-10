@@ -547,4 +547,64 @@ describe("bringing the code up to the design, and existing projects in (ADR 0028
         assert.include(code, "<p>Hi</p>");
       })
   );
+
+  inProject.effect(
+    "writes a link to a page as the URL the page serves in the node's canvas, and as its file when it serves none",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const pricing = yield* client["pages.create"]({
+          canvas: "",
+          name: "Pricing",
+          route: "/pricing",
+        });
+        yield* client["pages.create"]({ canvas: "", name: "Draft" });
+        // The same file in another canvas, serving another URL.
+        const [copy] = yield* client["pages.copyTo"]({
+          ids: [pricing.id],
+          move: false,
+          target: { name: "Redesign" },
+        });
+        assert.strictEqual(copy?.path, pricing.path);
+        yield* client["pages.setRoute"]({
+          id: copy?.id ?? "",
+          route: "/plans",
+        });
+        const link = (id: string, to: string) =>
+          ({
+            id,
+            link: to,
+            role: "paragraph",
+            text: id,
+            type: "text",
+          }) as const;
+        const node = {
+          children: [
+            link("a", "pricing.page.json"),
+            link("b", "draft.page.json"),
+            link("c", "gone.page.json"),
+            link("d", "/pricing/annual"),
+          ],
+          id: "nav",
+          type: "row",
+        } as const;
+        const hrefs = (code: string) =>
+          [...code.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
+
+        const here = yield* client["code.write"]({ canvas: "", node });
+        assert.deepStrictEqual(hrefs(here.code), [
+          "/pricing",
+          "draft.page.json",
+          "gone.page.json",
+          "/pricing/annual",
+        ]);
+        const there = yield* client["code.write"]({
+          canvas: copy?.canvas ?? "",
+          node,
+        });
+        assert.strictEqual(hrefs(there.code)[0], "/plans");
+        const nowhere = yield* client["code.write"]({ node });
+        assert.strictEqual(hrefs(nowhere.code)[0], "pricing.page.json");
+      })
+  );
 });

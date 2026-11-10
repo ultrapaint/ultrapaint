@@ -109,8 +109,9 @@ export const clearNodeParam = () =>
 /**
  * A link to a page or a node of it, as the editor's own URL: its canvas, its page's route (`/`
  * written too, so a node of the home page is not one beside the pages) or the page itself when it
- * has none (neither for a node on the canvas beside the pages), and the node, which the editor
- * selects and brings into view. A board view open is no part of it: the link leads to the page.
+ * has none (neither for a node on the canvas beside the pages), the variant when the page is a
+ * variant's, whose route is its base page's, and the node, which the editor selects and brings
+ * into view. A board view open is no part of it: the link leads to the page.
  * Agents take it as they take a node reference (`parseEditorLink`), inside the editor or outside.
  */
 export const linkToNode = (target: {
@@ -118,6 +119,7 @@ export const linkToNode = (target: {
   page?: string | null;
   route: string | null;
   canvas: string;
+  variant?: string | undefined;
 }): string => {
   const url = new URL(window.location.href);
   const params = new URLSearchParams();
@@ -127,6 +129,10 @@ export const linkToNode = (target: {
   }
   if (target.route) {
     params.set("route", target.route);
+    // A page named by its id is the variant's own file already.
+    if (target.variant) {
+      params.set("variant", target.variant);
+    }
   } else if (!target.route && target.page) {
     params.set("page", target.page);
   }
