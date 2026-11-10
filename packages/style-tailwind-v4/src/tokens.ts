@@ -12,7 +12,11 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { tokenKindOf } from "@ultrapaint/contracts/token-table";
+import {
+  nameOfVariable,
+  tokenKindOf,
+  variableOf,
+} from "@ultrapaint/contracts/token-table";
 import { resolveVars } from "@ultrapaint/contracts/token-value";
 import type {
   FileEdit,
@@ -268,7 +272,8 @@ const tokenNameOf = (variable: string): string | null => {
   if (name.includes("--") || name.includes("*") || name === "") {
     return null;
   }
-  return name;
+  // `--spacing-1_5` is the step `spacing-1.5`, as Tailwind writes it.
+  return nameOfVariable(variable);
 };
 
 /** The declarations of the stylesheets, sorted into what reading and writing need. */
@@ -299,7 +304,7 @@ const takeTheme = (out: Declared, decl: Declaration) => {
   }
   // As Tailwind reads it: the tokens declared so far that it covers are gone too.
   for (const declared of [...out.declared.keys()]) {
-    if (resetCovers(decl.name, `--${declared}`)) {
+    if (resetCovers(decl.name, variableOf(declared))) {
       out.declared.delete(declared);
     }
   }
@@ -489,7 +494,7 @@ export const read = (ctx: DesignSystemContext): Reading => {
     ...declared,
     files: found.files,
     lineHeightOf: (name) => {
-      const variable = `--${name}--line-height`;
+      const variable = `${variableOf(name)}--line-height`;
       const raw =
         declared.companions.get(variable)?.value ??
         defaultVariables.get(variable);
@@ -648,9 +653,11 @@ export const writeTokens = (
     const decl = reading.declared.get(change.name);
     const alias = decl ? aliasOf(decl.value) : undefined;
     const variable =
-      alias && reading.scoped.get("")?.has(alias) ? alias : `--${change.name}`;
+      alias && reading.scoped.get("")?.has(alias)
+        ? alias
+        : variableOf(change.name);
     const target =
-      theme === "" && variable === `--${change.name}`
+      theme === "" && variable === variableOf(change.name)
         ? decl
         : reading.scoped.get(theme)?.get(variable);
     return { decl, target, theme, variable };

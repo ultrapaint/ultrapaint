@@ -10,6 +10,7 @@ import type {
 import {
   type ListedToken,
   nameOfShort,
+  nameOfVariable,
   spacingStepOf,
   tokenPrefix,
   tokensByValue,
@@ -173,7 +174,7 @@ const fromVar = (
 /** The custom property an arbitrary value is, when it is nothing but `var(--name)`. */
 const wholeVar = (inside: string) => {
   const match: RegExpExecArray | null = WHOLE_VAR_RE.exec(inside);
-  return match?.[1] ?? null;
+  return match?.[1] === undefined ? null : nameOfVariable(match[1]);
 };
 
 /** `calc(…)`, `var(--a) * 2`, `--spacing(3)`: worked out, not written out. */

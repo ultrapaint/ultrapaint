@@ -19,6 +19,7 @@ import {
   lineHeightName,
   spacingBasePx,
   spacingStepAt,
+  variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import {
@@ -69,7 +70,7 @@ const cssOf = (value: DeclaredValue): string => {
   if (typeof value === "number") {
     return `${value}px`;
   }
-  return isToken(value) ? `var(--${tokenName(value)})` : value;
+  return isToken(value) ? `var(${variableOf(tokenName(value))})` : value;
 };
 
 /** A declaration no utility says, as Tailwind's arbitrary property: `[mask-size:100%_100%]`. */

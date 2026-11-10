@@ -11,6 +11,7 @@ import {
   listedTokens,
   mapTokenRecords,
   nameOfShort,
+  nameOfVariable,
   removeTokens,
   SPACING_BASE,
   SPACING_STEPS,
@@ -27,6 +28,7 @@ import {
   tokenPrefix,
   tokensByValue,
   tokensOfKind,
+  variableOf,
   withEmptyValues,
   withTokenChanges,
 } from "./token-table.ts";
@@ -339,7 +341,7 @@ describe("reading a kind", () => {
       "color-primary",
       "text-2xl",
       "color-Brand_1",
-      "spacing-1_5",
+      "spacing-1.5",
       "default-transition-duration",
       SPACING_BASE,
     ]) {
@@ -347,7 +349,9 @@ describe("reading a kind", () => {
     }
     for (const name of [
       "Brand Blue",
-      "spacing-1.5",
+      "spacing-1_5",
+      "spacing-1.",
+      "color.primary",
       "text-sm--line-height",
       "color-",
       "-color",
@@ -355,6 +359,14 @@ describe("reading a kind", () => {
       "",
     ]) {
       expect(isTokenName(name), name).toBe(false);
+    }
+  });
+
+  it("writes a step's dot as Tailwind does, and reads it back", () => {
+    expect(variableOf("spacing-1.5")).toBe("--spacing-1_5");
+    expect(variableOf("color-Brand_1")).toBe("--color-Brand_1");
+    for (const name of ["spacing-1.5", "spacing-0.25", "color-Brand_1"]) {
+      expect(nameOfVariable(variableOf(name))).toBe(name);
     }
   });
 

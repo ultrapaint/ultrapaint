@@ -197,18 +197,35 @@ export const nameOfShort = (kind: TokenKind, short: string): string => {
 };
 
 const TOKEN_NAME_RE = /^[a-z][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)*$/;
+/** A dot between two digits, `1.5`: a step, which the stylesheet writes as `1_5`. */
+const STEP_DOT_RE = /(\d)\.(?=\d)/g;
+/** An underscore between two digits, `1_5`: the stylesheet's way of writing the dot of a step. */
+const STEP_UNDERSCORE_RE = /(\d)_(?=\d)/g;
+const DIGITS_UNDERSCORE_RE = /\d_\d/;
+const VARIABLE_DASHES_RE = /^--/;
 
 /** What a token's name is made of, as a problem says it. */
 export const TOKEN_NAME_SHAPE =
-  "letters, digits and _, in words joined by one dash (color-primary)";
+  "letters, digits and _ in words joined by one dash, a dot only between digits (color-primary, spacing-1.5)";
 
 /**
- * Whether a name can be a token's: one a stylesheet declares as `--name` and reads back as that
- * token, so a name added in the editor or matched in Sync is one the code and the tokens file
- * hold too. A dot is not CSS there (Tailwind writes the step `1.5` as `1_5`), and `--` starts
- * what belongs to a token (`text-sm--line-height`). Its kind is `tokenKindOf`'s to say.
+ * Whether a name can be a token's: one a stylesheet declares as a variable (`variableOf`) and reads
+ * back as that token, so a name added in the editor or matched in Sync is one the code and the
+ * tokens file hold too. A dot stands only between digits, `spacing-1.5`, and is written `1_5` as
+ * Tailwind writes it, so `_` between digits is the dot's and not a name's own. `--` starts what
+ * belongs to a token (`text-sm--line-height`). Its kind is `tokenKindOf`'s to say.
  */
-export const isTokenName = (name: string): boolean => TOKEN_NAME_RE.test(name);
+export const isTokenName = (name: string): boolean =>
+  !DIGITS_UNDERSCORE_RE.test(name) &&
+  TOKEN_NAME_RE.test(name.replace(STEP_DOT_RE, "$1"));
+
+/** The custom property a token is: `color-primary` → `--color-primary`, `spacing-1.5` → `--spacing-1_5`. */
+export const variableOf = (name: string): string =>
+  `--${name.replace(STEP_DOT_RE, "$1_")}`;
+
+/** The token a custom property is, `variableOf` the other way: `--spacing-1_5` → `spacing-1.5`. */
+export const nameOfVariable = (variable: string): string =>
+  variable.replace(VARIABLE_DASHES_RE, "").replace(STEP_UNDERSCORE_RE, "$1.");
 
 /** A token as a list holds it: a font size has its line height, a font where it is loaded from. */
 export type ListedToken = Token &

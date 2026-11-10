@@ -22,6 +22,7 @@ import {
 } from "@ultrapaint/contracts/token-naming";
 import {
   allTokens,
+  nameOfVariable,
   TOKEN_TABLE,
   tokenKindOf,
   tokenPrefix,
@@ -276,7 +277,9 @@ const encode = (
   refs: ReadonlyMap<string, string>
 ): Encoded | undefined => {
   const found: RegExpExecArray | null = VAR_RE.exec(css);
-  const ref = refs.get(found?.[1] ?? "");
+  const ref = refs.get(
+    found?.[1] === undefined ? "" : nameOfVariable(found[1])
+  );
   if (ref !== undefined) {
     return { value: `{${ref}}` };
   }

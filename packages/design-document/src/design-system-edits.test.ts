@@ -189,18 +189,22 @@ describe("applyEdits", () => {
   });
 
   it("refuses a name no stylesheet could declare as one token", () => {
-    for (const name of ["color-a.b", "color-a--b", "color-"]) {
+    for (const name of ["color-a.b", "spacing-1_5", "color-a--b", "color-"]) {
       expect(
         applyEdits(ds, [{ name, op: "addToken", value: "red" }]),
         name
       ).toEqual({
-        problem: `addToken ${name}: a token's name is letters, digits and _, in words joined by one dash (color-primary)`,
+        problem: `addToken ${name}: a token's name is letters, digits and _ in words joined by one dash, a dot only between digits (color-primary, spacing-1.5)`,
       });
     }
     const added = ok(
       applyEdits(ds, [{ name: "color-Brand_1", op: "addToken", value: "red" }])
     );
     expect(tokenOf(added, "color-Brand_1")?.value).toBe("red");
+    const step = ok(
+      applyEdits(ds, [{ name: "spacing-1.5", op: "addToken", value: "6px" }])
+    );
+    expect(tokenOf(step, "spacing-1.5")?.value).toBe("6px");
   });
 
   it("takes a token out, never the spacing base", () => {

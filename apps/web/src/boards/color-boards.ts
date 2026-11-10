@@ -11,7 +11,7 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { themesOf, valueInTheme } from "@ultrapaint/contracts/themes";
-import { shortName } from "@ultrapaint/contracts/token-table";
+import { nameOfVariable, shortName } from "@ultrapaint/contracts/token-table";
 import {
   contrastRatio,
   hexOf,
@@ -52,7 +52,7 @@ const shownValue = (ds: DesignSystem, name: string, theme: string): string => {
   const own = valueInTheme(ds, name, theme)?.trim() ?? "";
   if (REFERENCE.test(own)) {
     // `var(--color-blue-500)`: the name between `var(--` and `)`.
-    return `→ ${shortName(own.slice("var(--".length, -1))}`;
+    return `→ ${shortName(nameOfVariable(own.slice("var(".length, -1)))}`;
   }
   const followed = valueInTheme(ds, name, theme, { follow: true });
   const color = followed ? parseColor(followed) : null;

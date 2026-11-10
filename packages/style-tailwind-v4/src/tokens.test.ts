@@ -186,6 +186,8 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(names.filter((name) => byName(ctx, name) !== undefined)).toEqual(
       names.filter(isTokenName)
     );
+    // A step's dot is written as Tailwind writes it.
+    expect(edits[0]?.text).toContain("--spacing-1_5: #f59e0b;");
   });
 
   it("takes the last of two changes to one value, whether to the token or the variable it names", () => {

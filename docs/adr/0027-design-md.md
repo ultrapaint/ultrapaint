@@ -7,7 +7,9 @@ Plan: `docs/plans/done/PLAN-design-md.md`.
 > digits and `_` in words joined by one dash, starting lower case, which is what the stylesheet
 > reads back, so every name the editor adds is one Sync can match. The mirror holds every
 > colour the token table knows (0037): a detailed system's colours are keyed by their whole
-> name (`colors.text-color-subtle`), a simple system's as before.
+> name (`colors.text-color-subtle`), a simple system's as before. Later the same day: a dot
+> stands between two digits (`spacing-1.5`), and the stylesheet's variable writes it as Tailwind
+> does, `--spacing-1_5` (`variableOf`, `nameOfVariable`), so `_` between digits is the dot's.
 
 > Amended by [0067](0067-the-words-are-a-part-of-their-own.md), 2026-11-06: a Content section, the
 > product's choices for its words, is added before Do's and Don'ts.

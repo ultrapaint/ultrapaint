@@ -6,7 +6,7 @@
  * wherever a value is shown, drawn or edited.
  */
 import type { DesignSystem } from "./design-system.ts";
-import { tokenOf } from "./token-table.ts";
+import { nameOfVariable, tokenOf, variableOf } from "./token-table.ts";
 import { resolveVars } from "./token-value.ts";
 
 /** The theme a design system that names none has its values in. */
@@ -22,7 +22,7 @@ export const defaultTheme = (ds: DesignSystem): string =>
 
 /** A value that names another token as a page does, `$color-blue-600`, as the variable it is. */
 const asVar = (value: string) =>
-  value.startsWith("$") ? `var(--${value.slice(1)})` : value;
+  value.startsWith("$") ? `var(${variableOf(value.slice(1))})` : value;
 
 /**
  * A token's value in a theme, the default theme's where it has none of its own; undefined for a
@@ -50,8 +50,8 @@ export const valueInTheme = (
   if (value === undefined || !options.follow) {
     return value;
   }
-  return resolveVars(`var(--${name})`, (variable) => {
-    const found = own(variable.slice(2));
+  return resolveVars(`var(${variableOf(name)})`, (variable) => {
+    const found = own(nameOfVariable(variable));
     return found === undefined ? undefined : asVar(found.trim());
   });
 };

@@ -7,7 +7,12 @@ import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { PageNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { describe, expect, it } from "vitest";
-import { designTokenCss, tokensIn, tokensUsed } from "./tokens.ts";
+import {
+  designTokenCss,
+  makeTokenResolver,
+  tokensIn,
+  tokensUsed,
+} from "./tokens.ts";
 
 describe("the tokens a design relies on", () => {
   it("finds every token a value names, however deep, and the spacing behind a step", () => {
@@ -116,6 +121,20 @@ describe("the design's tokens as CSS", () => {
         ":host {\n  --spacing: 0.25rem;\n  --color-primary: #2563eb;\n  --color-bg: #fff;\n  --radius-md: 0.5rem;\n}",
         '.dark, [data-theme~="dark"] {\n  --color-primary: #2563eb;\n  --color-bg: #000;\n}',
       ].join("\n\n")
+    );
+  });
+
+  it("draws a step named with a dot as the variable Tailwind declares for it", () => {
+    const ds = {
+      ...emptyDesignSystem(),
+      spacing: {
+        base: "0.25rem",
+        tokens: [{ name: "spacing-1.5", value: "0.375rem" }],
+      },
+    };
+    expect(designTokenCss(ds)).toContain("  --spacing-1_5: 0.375rem;");
+    expect(makeTokenResolver(ds).css("$spacing-1.5")).toBe(
+      "var(--spacing-1_5, 0.375rem)"
     );
   });
 });

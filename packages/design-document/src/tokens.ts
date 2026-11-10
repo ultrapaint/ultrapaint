@@ -21,6 +21,7 @@ import {
   SPACING_BASE,
   spacingStepOf,
   tokenKindOf,
+  variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { childrenOf } from "./tree.ts";
 
@@ -67,8 +68,8 @@ export const makeTokenResolver = (
   const variable = (name: string) => {
     const fallback = values.get(name);
     return fallback === undefined
-      ? `var(--${name})`
-      : `var(--${name}, ${fallback})`;
+      ? `var(${variableOf(name)})`
+      : `var(${variableOf(name)}, ${fallback})`;
   };
   const css = (value: string | number): string => {
     if (typeof value === "number") {
@@ -176,7 +177,7 @@ const roleAliases = (ds: DesignSystem, names: ReadonlySet<string>) =>
   ds.tokenPreset === "detailed"
     ? Object.entries(DETAILED_ROLES).flatMap(([role, token]) =>
         names.has(token) && !names.has(role)
-          ? [`  --${role}: var(--${token});`]
+          ? [`  ${variableOf(role)}: var(${variableOf(token)});`]
           : []
       )
     : [];
@@ -198,10 +199,10 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
   const aliases = roleAliases(ds, names);
   const base: string[] = [];
   for (const token of tokens) {
-    base.push(`  --${token.name}: ${token.value};`);
+    base.push(`  ${variableOf(token.name)}: ${token.value};`);
     const { lineHeight } = token as { lineHeight?: string };
     if (lineHeight) {
-      base.push(`  --${lineHeightName(token.name)}: ${lineHeight};`);
+      base.push(`  ${variableOf(lineHeightName(token.name))}: ${lineHeight};`);
     }
   }
   base.push(...aliases);
@@ -220,7 +221,7 @@ export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
     const declarations = tokens.flatMap((t) => {
       const own = t.values?.[theme];
       return own !== undefined || tokenKindOf(t.name) === "color"
-        ? [`  --${t.name}: ${own ?? t.value};`]
+        ? [`  ${variableOf(t.name)}: ${own ?? t.value};`]
         : [];
     });
     return `${themeSelector(theme)} {\n${[...declarations, ...aliases].join("\n")}\n}`;

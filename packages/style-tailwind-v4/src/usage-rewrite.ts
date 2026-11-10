@@ -22,6 +22,7 @@ import {
   tokenPrefix,
   tokensByValue,
   type ValueLookup,
+  variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { toPx } from "@ultrapaint/contracts/token-value";
 import type {
@@ -178,7 +179,8 @@ const cssValue = (
   if (step !== null && where === "inline") {
     return `calc(var(--spacing) * ${negative ? "-" : ""}${step})`;
   }
-  const css = step === null ? `var(--${target})` : `--spacing(${step})`;
+  const css =
+    step === null ? `var(${variableOf(target)})` : `--spacing(${step})`;
   return negative ? `calc(${css} * -1)` : css;
 };
 

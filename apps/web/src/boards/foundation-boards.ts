@@ -17,6 +17,7 @@ import {
   shortName,
   spacingBasePx,
   tokenOf,
+  variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toMs, toPx } from "@ultrapaint/contracts/token-value";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
@@ -479,15 +480,15 @@ const motionCss = (
     `@keyframes ed-board-move { from { translate: 0 0; } to { translate: ${TRACK - DOT}px 0; } }`,
     ...easings.map(
       (t) =>
-        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move 1.5s var(--${t.name}, ${t.value}) infinite alternate; }`
+        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move 1.5s var(${variableOf(t.name)}, ${t.value}) infinite alternate; }`
     ),
     ...durations.map(
       (t) =>
-        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move var(--${t.name}, ${t.value}) ease-in-out infinite alternate; }`
+        `${nodeCss(`dot:${t.name}`)} { animation: ed-board-move var(${variableOf(t.name)}, ${t.value}) ease-in-out infinite alternate; }`
     ),
     ...animations.map(
       (t) =>
-        `${nodeCss(`anim:${t.name}`)} { animation: var(--${t.name}, ${t.value}); }`
+        `${nodeCss(`anim:${t.name}`)} { animation: var(${variableOf(t.name)}, ${t.value}); }`
     ),
     `@media (prefers-reduced-motion: reduce) { ${nodeCss("dot:", "^=")}, ${nodeCss("anim:", "^=")} { animation: none; } }`,
   ].join("\n");
