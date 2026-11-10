@@ -36,9 +36,10 @@ pnpm install:cli
 ```
 
 `pnpm install:cli` links the `ultrapaint` command into `~/.local/bin`; make sure that directory
-is on your `PATH`. On Windows, or to skip the link, run `pnpm start` from the checkout instead.
-The first start builds the editor, which takes a few seconds. To update, pull and install again:
-`git pull && pnpm install`.
+is on your `PATH`. To do without the link, run the checkout's `scripts/cli.ts` with Node from the
+repository you want to design in (`node ~/ultrapaint/scripts/cli.ts`). `pnpm start` runs the same
+file, but from the checkout, so it opens the checkout itself. The first start builds the editor,
+which takes a few seconds. To update, pull and install again: `git pull && pnpm install`.
 
 ## Starting it
 
@@ -69,8 +70,8 @@ reference; the flags you are most likely to want:
 ## As a devDependency of your project
 
 A project can depend on the checkout instead, so the command is pinned to it and everyone on
-the project runs the same one. Nothing is published: the dependency is a link to the checkout
-on disk, and it follows every change made there.
+the project runs the same one. The dependency is a link to the checkout on disk, and it follows
+every change made there.
 
 ```bash
 cd ~/code/your-repo
@@ -85,8 +86,7 @@ does:
 ```
 
 The checkout has to be installed (`pnpm install` in it) for the link to work, and the link is
-a path on disk, so everyone on the project needs the checkout at that relative path. When there
-are packaged releases the link becomes a version.
+a path on disk, so everyone on the project needs the checkout at that relative path.
 
 The link follows the checkout: the server runs from its sources on every start, and only the
 editor is a build, made once. While changing Ultrapaint itself, start it with `--dev` instead

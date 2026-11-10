@@ -2,9 +2,9 @@
 
 `ultrapaint --host <address>` listens on that address instead of loopback: this machine's
 address on a private network such as Tailscale, or `0.0.0.0` for every interface. The command
-prints the addresses the editor is reachable at, and the preview is served on the same address.
-`--dev` stays on loopback as well; with `--host` the editor's dev server listens on that address
-too.
+prints the addresses the editor is reachable at. The editor and its backend are served on that
+one port. `--dev` stays on loopback as well; with `--host` the editor's dev server listens on
+that address too.
 
 The server answers only requests that name it by one of its own names, so that a website you
 have open cannot reach it by pointing its own name at your machine. Those are the address it

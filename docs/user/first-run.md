@@ -1,29 +1,44 @@
 # First run
 
-Start `ultrapaint` inside a repository and the setup looks at it for you: it asks only where
-the designs go (`docs/designs` unless you already have one) and which stylesheet sets up your
-design system, and proposes both. Where your application and its components are is filled in
-quietly, as hints for the agents that implement (Settings → Repository → Implementation).
-Confirm or change the proposals, and the canvas opens with **Sync**, which takes you on from
-there. A repository with no React
-application gets **Start a new application here** instead.
+Start `ultrapaint` inside a repository that has no configuration file, and it reads the
+repository for its settings: where the designs go (`docs/designs` unless you already have a
+designs directory; it is made empty when the folder holds an application and none), which
+stylesheet sets up your design system, and where your application is. The editor opens with
+those settings in force, but nothing is saved yet.
 
-Only Tailwind v4 is read today: the tokens are its `@theme`. The setup says so when the
-stylesheets set up Tailwind v3 or no Tailwind at all. Styling is a separate adapter from the
-framework, so StyleX or Emotion would be another one, not a rewrite
-([ADR 0024](../adr/0024-style-systems.md)). Yarn Plug'n'Play is not supported.
+Nothing starts on its own after that. While the settings are detected and not saved, **Agents**, on
+the rail, says so and offers **Set up** followed by the folder's name, and a new chat lists the same
+row first. It puts `/setup` in a new chat's composer; you send it. The agent checks what detection
+found against your code, saves it to `ultrapaint.config.json` with the designs directory, changes no
+file of your code, and tells you in a few lines what it found. You can also design straight away and
+save later.
+
+When the repository cannot be read for settings, the panels say **No folder open**: **Choose a
+folder…** opens **Settings** › **Repository**, where **Detect from the repository** fills in the
+fields from what it finds.
+
+Only Tailwind v4 is read today: the tokens are its `@theme`. Settings says so under
+**Stylesheets** when it cannot read yours. Styling is a separate adapter from the framework, so
+StyleX or Emotion would be another one, not a rewrite ([ADR 0024](../adr/0024-style-systems.md)).
 
 Nothing is installed for the designs, and none of your code runs: the canvas draws the editor's
-own system components in your design system's tokens.
+own system components in your design system's tokens. A project with no design system of its own
+is drawn in Ultrapaint's default look until you make one ([The design system](design-system.md)).
 
-Started like this, without a configuration file, the top bar says **Not saved**: your settings
-and agent threads go away when the tool stops. Click it to save an `ultrapaint.config.json` in
-the repository. The file holds no path of your machine and is meant to be committed, so the next
-person only runs `ultrapaint`. A configuration file that appears while the tool runs (a
-teammate's pull, one you wrote) is taken at once, without a restart. A file still called
-`ultrapaint.json`, its earlier name, is read too, and **Settings** renames it.
+## Saving the settings
 
-| Started with | Settings | Agent threads, checkpoints, caches |
+Started without a configuration file, the editor shows a ⚠ beside the project's name: your
+settings and chats go away when the tool stops. Click it to open **Save configuration**, which
+writes `ultrapaint.config.json` in the repository (the field says where; you can change it). The
+file holds no path of your machine and is meant to be committed, so the next person only runs
+`ultrapaint`. **Settings** offers the same as **Save to file…** in its footer, and **Apply** to
+use your changes until the tool stops.
+
+A configuration file that appears while the tool runs (a teammate's pull, one you wrote) is taken
+at once, without a restart. A file still called `ultrapaint.json`, its earlier name, is read too;
+the footer of **Settings** then offers **Rename to ultrapaint.config.json**.
+
+| Started with | Settings | Chats, checkpoints, caches |
 |---|---|---|
 | an `ultrapaint.config.json` (or `ultrapaint.json`) found from the working directory up, or `--config <file>` | that file | `.ultrapaint/` next to it, git-ignored |
 | neither | not saved until you save a configuration | a temporary directory |
