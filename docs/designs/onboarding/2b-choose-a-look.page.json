@@ -1,464 +1,462 @@
 {
-  "root": {"type": "page", "id": "root", "fill": "oklch(0.99 0.001 80)", "gap": 0, "children": [
-    {"type": "row", "id": "r_aritr5", "name": "Choose a look", "gap": 0, "height": 900, "width": "fill", "children": [
-      {"type": "column", "id": "c_a3cb82", "name": "Look sidebar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "0 1px 0 0"}, "fill": "oklch(0.995 0.001 80)", "gap": 0, "height": "fill", "width": 380, "children": [
-        {"type": "row", "id": "r_dbjqo9", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 20, "right": 16, "top": 14}, "width": "fill", "children": [
-          {"type": "row", "id": "r_sxq5nq", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 20, "radius": 5, "width": 20, "children": [
-            {"type": "text", "id": "t_kded5p", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
+  "root": {"type": "page", "id": "root", "direction": "row", "fill": "oklch(0.99 0.001 80)", "gap": 0, "children": [
+    {"type": "column", "id": "c_a3cb82", "name": "Look sidebar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "0 1px 0 0"}, "fill": "oklch(0.995 0.001 80)", "gap": 0, "height": "fill", "width": 380, "children": [
+      {"type": "row", "id": "r_dbjqo9", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 20, "right": 16, "top": 14}, "width": "fill", "children": [
+        {"type": "row", "id": "r_sxq5nq", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 20, "radius": 5, "width": 20, "children": [
+          {"type": "text", "id": "t_kded5p", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
+        ]},
+        {"type": "text", "id": "t_x44el5", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "habit-tracker", "weight": 500},
+        {"type": "row", "id": "r_w6134l", "width": "fill", "children": []},
+        {"type": "row", "id": "r_bcp4yf", "name": "Button · x", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+          {"type": "image", "id": "img_ar0zmp", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+        ]}
+      ]},
+      {"type": "column", "id": "c_259z13", "gap": 2, "padding": {"bottom": 12, "left": 20, "right": 20, "top": 6}, "children": [
+        {"type": "text", "id": "t_rvvig2", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 16, "text": "Choose a look"},
+        {"type": "text", "id": "t_r5zwsw", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "The first screen is drawn in it. Change it any time."}
+      ]},
+      {"type": "column", "id": "c_5wi52k", "gap": 10, "height": "fill", "padding": {"bottom": 8, "left": 20, "right": 20}, "width": "fill", "children": [
+        {"type": "column", "id": "c_ez5sxm", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_8csy8h", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_j4vtug", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Start from", "weight": 600}
           ]},
-          {"type": "text", "id": "t_x44el5", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "habit-tracker", "weight": 500},
-          {"type": "row", "id": "r_w6134l", "width": "fill", "children": []},
-          {"type": "row", "id": "r_bcp4yf", "name": "Button · x", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-            {"type": "image", "id": "img_ar0zmp", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+          {"type": "row", "id": "r_9h07te", "gap": 6, "width": "fill", "wrap": true, "children": [
+            {"type": "row", "id": "r_z1uzpg", "border": {"color": "oklch(0.21 0.006 60)", "style": "solid", "width": 2}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+              {"type": "row", "id": "r_5cqo97", "fill": "#1f7a52", "height": 8, "radius": 999, "width": 8, "children": []},
+              {"type": "text", "id": "t_73uc6m", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Calm", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_vxljt2", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+              {"type": "row", "id": "r_2pa1zr", "fill": "#b9532c", "height": 8, "radius": 999, "width": 8, "children": []},
+              {"type": "text", "id": "t_a93rxb", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Notebook", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_lvlsyu", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+              {"type": "row", "id": "r_kgdaf3", "fill": "#6a45f5", "height": 8, "radius": 999, "width": 8, "children": []},
+              {"type": "text", "id": "t_nrolwm", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Playful", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_2hnmbp", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+              {"type": "row", "id": "r_ylj1ne", "fill": "#18181b", "height": 8, "radius": 999, "width": 8, "children": []},
+              {"type": "text", "id": "t_vjx0lu", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Crisp", "weight": 500}
+            ]}
           ]}
         ]},
-        {"type": "column", "id": "c_259z13", "gap": 2, "padding": {"bottom": 12, "left": 20, "right": 20, "top": 6}, "children": [
-          {"type": "text", "id": "t_rvvig2", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 16, "text": "Choose a look"},
-          {"type": "text", "id": "t_r5zwsw", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "The first screen is drawn in it. Change it any time."}
-        ]},
-        {"type": "column", "id": "c_5wi52k", "gap": 10, "height": "fill", "padding": {"bottom": 8, "left": 20, "right": 20}, "width": "fill", "children": [
-          {"type": "column", "id": "c_ez5sxm", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_8csy8h", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_j4vtug", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Start from", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_9h07te", "gap": 6, "width": "fill", "wrap": true, "children": [
-              {"type": "row", "id": "r_z1uzpg", "border": {"color": "oklch(0.21 0.006 60)", "style": "solid", "width": 2}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
-                {"type": "row", "id": "r_5cqo97", "fill": "#1f7a52", "height": 8, "radius": 999, "width": 8, "children": []},
-                {"type": "text", "id": "t_73uc6m", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Calm", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_vxljt2", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
-                {"type": "row", "id": "r_2pa1zr", "fill": "#b9532c", "height": 8, "radius": 999, "width": 8, "children": []},
-                {"type": "text", "id": "t_a93rxb", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Notebook", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_lvlsyu", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
-                {"type": "row", "id": "r_kgdaf3", "fill": "#6a45f5", "height": 8, "radius": 999, "width": 8, "children": []},
-                {"type": "text", "id": "t_nrolwm", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Playful", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_2hnmbp", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
-                {"type": "row", "id": "r_ylj1ne", "fill": "#18181b", "height": 8, "radius": 999, "width": 8, "children": []},
-                {"type": "text", "id": "t_vjx0lu", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Crisp", "weight": 500}
-              ]}
-            ]}
+        {"type": "column", "id": "c_xyu88x", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_uj67rr", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_ybrnhd", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Brand colour", "weight": 600}
           ]},
-          {"type": "column", "id": "c_xyu88x", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_uj67rr", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_ybrnhd", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Brand colour", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_njrbik", "crossAlign": "center", "gap": 8, "children": [
-              {"type": "row", "id": "r_jjigy7", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#1f7a52", "height": 22, "radius": 999, "shadow": "0 0 0 2px oklch(1 0 0), 0 0 0 4px oklch(0.21 0.006 60)", "width": 22, "children": []},
-              {"type": "row", "id": "r_844ndx", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#2f62e8", "height": 22, "radius": 999, "width": 22, "children": []},
-              {"type": "row", "id": "r_w1s99p", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#5e5ce6", "height": 22, "radius": 999, "width": 22, "children": []},
-              {"type": "row", "id": "r_qllnj1", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#c2412d", "height": 22, "radius": 999, "width": 22, "children": []},
-              {"type": "row", "id": "r_48f8el", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#d08a16", "height": 22, "radius": 999, "width": 22, "children": []},
-              {"type": "row", "id": "r_bvjng3", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#1c1b1a", "height": 22, "radius": 999, "width": 22, "children": []},
-              {"type": "text", "id": "t_r2r71c", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.38, "padding": {"left": 4}, "role": "paragraph", "size": 12, "text": "#1F7A52"}
-            ]}
-          ]},
-          {"type": "column", "id": "c_f6ovae", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_vca2td", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_85zojn", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Greys", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_16vs70", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-              {"type": "row", "id": "r_qu8j8y", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                {"type": "text", "id": "t_fp8e8o", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Warm", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_rpug23", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_87torb", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Neutral", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_c5nv0r", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_ecgmk7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Cool", "weight": 500}
-              ]}
-            ]}
-          ]},
-          {"type": "column", "id": "c_8ihize", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_9rvhl9", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_prx3i3", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Corners", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_j8o3rq", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-              {"type": "row", "id": "r_qvqjgt", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_7dy8lt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Sharp", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_fhhh9s", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                {"type": "text", "id": "t_zg2fw3", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Soft", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_bxkrwo", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_5yvlfe", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Round", "weight": 500}
-              ]}
-            ]}
-          ]},
-          {"type": "column", "id": "c_jdjvm9", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_bihvce", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_0zufs0", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Density", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_fcwwlv", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-              {"type": "row", "id": "r_w1tjk7", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_h9ucel", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Compact", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_0ll41u", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                {"type": "text", "id": "t_b6s0mp", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Regular", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_l0hslf", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_b3m85h", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open", "weight": 500}
-              ]}
-            ]}
-          ]},
-          {"type": "column", "id": "c_m7dxsg", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_0vtu1p", "crossAlign": "center", "gap": 6, "children": [
-              {"type": "text", "id": "t_61lhsq", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Surfaces", "weight": 600}
-            ]},
-            {"type": "row", "id": "r_h7li94", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-              {"type": "row", "id": "r_d7pene", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_0hv1xt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Flat", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_geb8h4", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                {"type": "text", "id": "t_80dlbk", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Borders", "weight": 500}
-              ]},
-              {"type": "row", "id": "r_6l8zgl", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                {"type": "text", "id": "t_jsxafc", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Shadows", "weight": 500}
-              ]}
-            ]}
-          ]},
-          {"type": "row", "id": "r_w8n5pn", "gap": 12, "width": "fill", "children": [
-            {"type": "column", "id": "c_btop8a", "gap": 4, "width": "fill", "children": [
-              {"type": "row", "id": "r_bjgnwt", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "text", "id": "t_bafll0", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Typeface", "weight": 600}
-              ]},
-              {"type": "row", "id": "r_h2ow9c", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "padding": {"left": 10, "right": 8}, "radius": 8, "width": "fill", "children": [
-                {"type": "text", "id": "t_saickf", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Figtree"},
-                {"type": "row", "id": "r_475vak", "width": "fill", "children": []},
-                {"type": "image", "id": "img_e86pmh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
-              ]}
-            ]},
-            {"type": "column", "id": "c_0upjs7", "gap": 4, "width": "fill", "children": [
-              {"type": "row", "id": "r_si21oc", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "text", "id": "t_k3o3ff", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Icon stroke", "weight": 600}
-              ]},
-              {"type": "row", "id": "r_a98tct", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-                {"type": "row", "id": "r_hyb2ft", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                  {"type": "text", "id": "t_x0srbv", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Light", "weight": 500}
-                ]},
-                {"type": "row", "id": "r_uagnwb", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                  {"type": "text", "id": "t_n0laea", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Regular", "weight": 500}
-                ]},
-                {"type": "row", "id": "r_brhwlg", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                  {"type": "text", "id": "t_01y3zr", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Bold", "weight": 500}
-                ]}
-              ]}
-            ]}
-          ]},
-          {"type": "column", "id": "c_7hz5u1", "gap": 4, "width": "fill", "children": [
-            {"type": "row", "id": "r_iz01mu", "crossAlign": "center", "width": "fill", "children": [
-              {"type": "text", "id": "t_ii13bw", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Tokens", "weight": 600},
-              {"type": "row", "id": "r_ji3mwe", "width": "fill", "children": []},
-              {"type": "row", "id": "r_627w17", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": 176, "children": [
-                {"type": "row", "id": "r_bplvbr", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-                  {"type": "text", "id": "t_hinhi5", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Simple", "weight": 500}
-                ]},
-                {"type": "row", "id": "r_ug843r", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-                  {"type": "text", "id": "t_m6x68u", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Detailed", "weight": 500}
-                ]}
-              ]}
-            ]},
-            {"type": "text", "id": "t_q6obul", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "background, primary, muted, border… like shadcn’s"}
+          {"type": "row", "id": "r_njrbik", "crossAlign": "center", "gap": 8, "children": [
+            {"type": "row", "id": "r_jjigy7", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#1f7a52", "height": 22, "radius": 999, "shadow": "0 0 0 2px oklch(1 0 0), 0 0 0 4px oklch(0.21 0.006 60)", "width": 22, "children": []},
+            {"type": "row", "id": "r_844ndx", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#2f62e8", "height": 22, "radius": 999, "width": 22, "children": []},
+            {"type": "row", "id": "r_w1s99p", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#5e5ce6", "height": 22, "radius": 999, "width": 22, "children": []},
+            {"type": "row", "id": "r_qllnj1", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#c2412d", "height": 22, "radius": 999, "width": 22, "children": []},
+            {"type": "row", "id": "r_48f8el", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#d08a16", "height": 22, "radius": 999, "width": 22, "children": []},
+            {"type": "row", "id": "r_bvjng3", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#1c1b1a", "height": 22, "radius": 999, "width": 22, "children": []},
+            {"type": "text", "id": "t_r2r71c", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.38, "padding": {"left": 4}, "role": "paragraph", "size": 12, "text": "#1F7A52"}
           ]}
         ]},
-        {"type": "column", "id": "c_m2i3nr", "gap": 8, "padding": {"bottom": 12, "left": 16, "right": 16}, "width": "fill", "children": [
-          {"type": "text", "id": "t_qu1bf3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "padding": {"left": 4}, "role": "paragraph", "size": 13, "text": "Or describe it, give a site or a picture:"},
-          {"type": "column", "id": "c_28w7vx", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
-            {"type": "column", "id": "c_1fwogx", "minHeight": 22, "width": "fill", "children": [
-              {"type": "text", "id": "t_34mkuk", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Like linear.app, but warmer… or drop a picture"}
+        {"type": "column", "id": "c_f6ovae", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_vca2td", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_85zojn", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Greys", "weight": 600}
+          ]},
+          {"type": "row", "id": "r_16vs70", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+            {"type": "row", "id": "r_qu8j8y", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+              {"type": "text", "id": "t_fp8e8o", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Warm", "weight": 500}
             ]},
-            {"type": "row", "id": "r_vjvfc9", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
-              {"type": "row", "id": "r_y4i9ln", "name": "Button · image", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-                {"type": "image", "id": "img_6s7n38", "name": "image", "height": 16, "src": "assets/icons/image.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+            {"type": "row", "id": "r_rpug23", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_87torb", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Neutral", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_c5nv0r", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_ecgmk7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Cool", "weight": 500}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_8ihize", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_9rvhl9", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_prx3i3", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Corners", "weight": 600}
+          ]},
+          {"type": "row", "id": "r_j8o3rq", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+            {"type": "row", "id": "r_qvqjgt", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_7dy8lt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Sharp", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_fhhh9s", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+              {"type": "text", "id": "t_zg2fw3", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Soft", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_bxkrwo", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_5yvlfe", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Round", "weight": 500}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_jdjvm9", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_bihvce", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_0zufs0", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Density", "weight": 600}
+          ]},
+          {"type": "row", "id": "r_fcwwlv", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+            {"type": "row", "id": "r_w1tjk7", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_h9ucel", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Compact", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_0ll41u", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+              {"type": "text", "id": "t_b6s0mp", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Regular", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_l0hslf", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_b3m85h", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open", "weight": 500}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_m7dxsg", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_0vtu1p", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "text", "id": "t_61lhsq", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Surfaces", "weight": 600}
+          ]},
+          {"type": "row", "id": "r_h7li94", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+            {"type": "row", "id": "r_d7pene", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_0hv1xt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Flat", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_geb8h4", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+              {"type": "text", "id": "t_80dlbk", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Borders", "weight": 500}
+            ]},
+            {"type": "row", "id": "r_6l8zgl", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+              {"type": "text", "id": "t_jsxafc", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Shadows", "weight": 500}
+            ]}
+          ]}
+        ]},
+        {"type": "row", "id": "r_w8n5pn", "gap": 12, "width": "fill", "children": [
+          {"type": "column", "id": "c_btop8a", "gap": 4, "width": "fill", "children": [
+            {"type": "row", "id": "r_bjgnwt", "crossAlign": "center", "gap": 6, "children": [
+              {"type": "text", "id": "t_bafll0", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Typeface", "weight": 600}
+            ]},
+            {"type": "row", "id": "r_h2ow9c", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "padding": {"left": 10, "right": 8}, "radius": 8, "width": "fill", "children": [
+              {"type": "text", "id": "t_saickf", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Figtree"},
+              {"type": "row", "id": "r_475vak", "width": "fill", "children": []},
+              {"type": "image", "id": "img_e86pmh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            ]}
+          ]},
+          {"type": "column", "id": "c_0upjs7", "gap": 4, "width": "fill", "children": [
+            {"type": "row", "id": "r_si21oc", "crossAlign": "center", "gap": 6, "children": [
+              {"type": "text", "id": "t_k3o3ff", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Icon stroke", "weight": 600}
+            ]},
+            {"type": "row", "id": "r_a98tct", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+              {"type": "row", "id": "r_hyb2ft", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+                {"type": "text", "id": "t_x0srbv", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Light", "weight": 500}
               ]},
-              {"type": "row", "id": "r_5bkqc5", "name": "Button · globe", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-                {"type": "image", "id": "img_n3nlvi", "name": "globe", "height": 16, "src": "assets/icons/globe.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              {"type": "row", "id": "r_uagnwb", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                {"type": "text", "id": "t_n0laea", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Regular", "weight": 500}
               ]},
-              {"type": "row", "id": "r_b665y6", "width": "fill", "children": []},
-              {"type": "row", "id": "r_6qha1w", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
-                {"type": "image", "id": "img_w9onzw", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              {"type": "row", "id": "r_brhwlg", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                {"type": "text", "id": "t_01y3zr", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Bold", "weight": 500}
               ]}
             ]}
           ]}
         ]},
-        {"type": "row", "id": "r_hcrgql", "align": "end", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "1px 0 0 0"}, "gap": 8, "padding": {"bottom": 14, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-          {"type": "row", "id": "r_c64zdd", "name": "Button · Let the agent decide", "align": "center", "crossAlign": "center", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
-            {"type": "text", "id": "t_hya7rn", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Let the agent decide", "weight": 500}
+        {"type": "column", "id": "c_7hz5u1", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_iz01mu", "crossAlign": "center", "width": "fill", "children": [
+            {"type": "text", "id": "t_ii13bw", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Tokens", "weight": 600},
+            {"type": "row", "id": "r_ji3mwe", "width": "fill", "children": []},
+            {"type": "row", "id": "r_627w17", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": 176, "children": [
+              {"type": "row", "id": "r_bplvbr", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+                {"type": "text", "id": "t_hinhi5", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Simple", "weight": 500}
+              ]},
+              {"type": "row", "id": "r_ug843r", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                {"type": "text", "id": "t_m6x68u", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Detailed", "weight": 500}
+              ]}
+            ]}
           ]},
-          {"type": "row", "id": "r_tz8wr9", "name": "Button · Start designing", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
-            {"type": "text", "id": "t_f95j39", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Start designing", "weight": 500}
+          {"type": "text", "id": "t_q6obul", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "background, primary, muted, border… like shadcn’s"}
+        ]}
+      ]},
+      {"type": "column", "id": "c_m2i3nr", "gap": 8, "padding": {"bottom": 12, "left": 16, "right": 16}, "width": "fill", "children": [
+        {"type": "text", "id": "t_qu1bf3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "padding": {"left": 4}, "role": "paragraph", "size": 13, "text": "Or describe it, give a site or a picture:"},
+        {"type": "column", "id": "c_28w7vx", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
+          {"type": "column", "id": "c_1fwogx", "minHeight": 22, "width": "fill", "children": [
+            {"type": "text", "id": "t_34mkuk", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Like linear.app, but warmer… or drop a picture"}
+          ]},
+          {"type": "row", "id": "r_vjvfc9", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+            {"type": "row", "id": "r_y4i9ln", "name": "Button · image", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+              {"type": "image", "id": "img_6s7n38", "name": "image", "height": 16, "src": "assets/icons/image.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+            ]},
+            {"type": "row", "id": "r_5bkqc5", "name": "Button · globe", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+              {"type": "image", "id": "img_n3nlvi", "name": "globe", "height": 16, "src": "assets/icons/globe.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+            ]},
+            {"type": "row", "id": "r_b665y6", "width": "fill", "children": []},
+            {"type": "row", "id": "r_6qha1w", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
+              {"type": "image", "id": "img_w9onzw", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+            ]}
           ]}
         ]}
       ]},
-      {"type": "column", "id": "c_vi0gqn", "name": "Look canvas", "fill": "oklch(0.945 0.004 80)", "gap": 0, "height": "fill", "width": "fill", "children": [
-        {"type": "row", "id": "r_x73ppg", "crossAlign": "center", "gap": 8, "padding": {"left": 16, "right": 16, "top": 14}, "width": "fill", "children": [
-          {"type": "text", "id": "t_0u3ekt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Drawn for a habit tracker for students · drag to move around, scroll to zoom"},
-          {"type": "row", "id": "r_a21cjl", "width": "fill", "children": []},
-          {"type": "row", "id": "r_q9mno8", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": 168, "children": [
-            {"type": "row", "id": "r_oyb1ey", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
-              {"type": "text", "id": "t_wo543u", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "App", "weight": 500}
-            ]},
-            {"type": "row", "id": "r_nglwtn", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-              {"type": "text", "id": "t_4pmljs", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Website", "weight": 500}
+      {"type": "row", "id": "r_hcrgql", "align": "end", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "1px 0 0 0"}, "gap": 8, "padding": {"bottom": 14, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+        {"type": "row", "id": "r_c64zdd", "name": "Button · Let the agent decide", "align": "center", "crossAlign": "center", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
+          {"type": "text", "id": "t_hya7rn", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Let the agent decide", "weight": 500}
+        ]},
+        {"type": "row", "id": "r_tz8wr9", "name": "Button · Start designing", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
+          {"type": "text", "id": "t_f95j39", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Start designing", "weight": 500}
+        ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_vi0gqn", "name": "Look canvas", "fill": "oklch(0.945 0.004 80)", "gap": 0, "height": "fill", "width": "fill", "children": [
+      {"type": "row", "id": "r_x73ppg", "crossAlign": "center", "gap": 8, "padding": {"left": 16, "right": 16, "top": 14}, "width": "fill", "children": [
+        {"type": "text", "id": "t_0u3ekt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Drawn for a habit tracker for students · drag to move around, scroll to zoom"},
+        {"type": "row", "id": "r_a21cjl", "width": "fill", "children": []},
+        {"type": "row", "id": "r_q9mno8", "name": "Segmented", "fill": "oklch(0.955 0.003 80)", "gap": 2, "padding": 2, "radius": 8, "width": 168, "children": [
+          {"type": "row", "id": "r_oyb1ey", "align": "center", "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "shadow": "0 1px 2px oklch(0 0 0 / 8%)", "width": "fill", "children": [
+            {"type": "text", "id": "t_wo543u", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "App", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_nglwtn", "align": "center", "crossAlign": "center", "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "text", "id": "t_4pmljs", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Website", "weight": 500}
+          ]}
+        ]},
+        {"type": "row", "id": "r_dldhil", "name": "Button · sun", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+          {"type": "image", "id": "img_nil24v", "name": "sun", "height": 16, "src": "assets/icons/sun.svg", "tint": "oklch(0.21 0.006 60)", "width": 16}
+        ]}
+      ]},
+      {"type": "column", "id": "c_35w05f", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
+        {"type": "row", "id": "r_1auq0e", "name": "Look board · Calm", "crossAlign": "start", "gap": 24, "children": [
+          {"type": "column", "id": "c_dvyfn7", "gap": 24, "children": [
+            {"type": "column", "id": "c_t3uoc9", "name": "Today · Calm", "fill": "#f7f6f3", "gap": 0, "height": 640, "radius": 4, "width": 320, "children": [
+              {"type": "column", "id": "c_q413ut", "gap": 10, "height": "fill", "padding": {"bottom": 16, "left": 20, "right": 20, "top": 28}, "children": [
+                {"type": "text", "id": "t_nimcvt", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Thursday, 5 November"},
+                {"type": "row", "id": "r_y4cbl8", "align": "between", "crossAlign": "end", "width": "fill", "children": [
+                  {"type": "text", "id": "t_nj1pmw", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 30, "text": "Today", "tracking": "-0.02em", "weight": 600},
+                  {"type": "text", "id": "t_sql808", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "3 of 4 done"}
+                ]},
+                {"type": "row", "id": "r_ht2d7n", "fill": "#f1f0ed", "height": 6, "radius": 3, "width": "fill", "children": [
+                  {"type": "row", "id": "r_n5c097", "fill": "#1f7a52", "height": 6, "radius": 3, "width": 210, "children": []}
+                ]},
+                {"type": "row", "id": "r_eyh02q", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
+                  {"type": "image", "id": "img_ujr4gq", "name": "book-open", "height": 20, "src": "assets/icons/book-open.svg", "tint": "#6f6c69", "width": 20},
+                  {"type": "column", "id": "c_g2x1yx", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_dtnkid", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Read 20 pages", "weight": 500},
+                    {"type": "text", "id": "t_kzc9v1", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_sp1gus", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_yoklrm", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_cyz8y7", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
+                  {"type": "image", "id": "img_vmlydb", "name": "droplet", "height": 20, "src": "assets/icons/droplet.svg", "tint": "#6f6c69", "width": 20},
+                  {"type": "column", "id": "c_fjoqin", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_iwi285", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Drink 2 litres of water", "weight": 500},
+                    {"type": "text", "id": "t_j56dsy", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_ogeluc", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_3hxit0", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_1spahv", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
+                  {"type": "image", "id": "img_xsk4mf", "name": "sigma", "height": 20, "src": "assets/icons/sigma.svg", "tint": "#6f6c69", "width": 20},
+                  {"type": "column", "id": "c_vtdi6o", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_2uzgup", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Revise maths", "weight": 500},
+                    {"type": "text", "id": "t_uqgjoz", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_hr8fa5", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_bw8dbe", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_xewrvy", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
+                  {"type": "image", "id": "img_lofb6n", "name": "footprints", "height": 20, "src": "assets/icons/footprints.svg", "tint": "#6f6c69", "width": 20},
+                  {"type": "column", "id": "c_1eesjc", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_f4bg33", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Walk 30 minutes", "weight": 500},
+                    {"type": "text", "id": "t_aqemhw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Not started"}
+                  ]},
+                  {"type": "row", "id": "r_1a2in2", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1.5}, "crossAlign": "center", "fill": "#ffffff", "height": 20, "radius": 6, "width": 20, "children": []}
+                ]},
+                {"type": "row", "id": "r_g3oalx", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 44, "padding": {"left": 14, "right": 14}, "radius": 8, "width": "fill", "children": [
+                  {"type": "image", "id": "img_499ob0", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 16},
+                  {"type": "text", "id": "t_ephsv9", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Add a habit", "weight": 500}
+                ]}
+              ]},
+              {"type": "row", "id": "r_gf6abb", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "fill": "#ffffff", "padding": {"bottom": 14, "top": 10}, "width": "fill", "children": [
+                {"type": "column", "id": "c_qn02k9", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_56x61k", "name": "circle-check", "height": 22, "src": "assets/icons/circle-check.svg", "tint": "#1f7a52", "width": 22},
+                  {"type": "text", "id": "t_wd03yi", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Today", "weight": 500}
+                ]},
+                {"type": "column", "id": "c_vx4nsn", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_updpns", "name": "flame", "height": 22, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 22},
+                  {"type": "text", "id": "t_t04h3s", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Streaks", "weight": 500}
+                ]},
+                {"type": "column", "id": "c_zho77k", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_ds6afj", "name": "chart-column", "height": 22, "src": "assets/icons/chart-column.svg", "tint": "#6f6c69", "width": 22},
+                  {"type": "text", "id": "t_wgf7qz", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Review", "weight": 500}
+                ]}
+              ]}
             ]}
           ]},
-          {"type": "row", "id": "r_dldhil", "name": "Button · sun", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-            {"type": "image", "id": "img_nil24v", "name": "sun", "height": 16, "src": "assets/icons/sun.svg", "tint": "oklch(0.21 0.006 60)", "width": 16}
-          ]}
-        ]},
-        {"type": "column", "id": "c_35w05f", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-          {"type": "row", "id": "r_1auq0e", "name": "Look board · Calm", "crossAlign": "start", "gap": 24, "children": [
-            {"type": "column", "id": "c_dvyfn7", "gap": 24, "children": [
-              {"type": "column", "id": "c_t3uoc9", "name": "Today · Calm", "fill": "#f7f6f3", "gap": 0, "height": 640, "radius": 4, "width": 320, "children": [
-                {"type": "column", "id": "c_q413ut", "gap": 10, "height": "fill", "padding": {"bottom": 16, "left": 20, "right": 20, "top": 28}, "children": [
-                  {"type": "text", "id": "t_nimcvt", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Thursday, 5 November"},
-                  {"type": "row", "id": "r_y4cbl8", "align": "between", "crossAlign": "end", "width": "fill", "children": [
-                    {"type": "text", "id": "t_nj1pmw", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 30, "text": "Today", "tracking": "-0.02em", "weight": 600},
-                    {"type": "text", "id": "t_sql808", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "3 of 4 done"}
-                  ]},
-                  {"type": "row", "id": "r_ht2d7n", "fill": "#f1f0ed", "height": 6, "radius": 3, "width": "fill", "children": [
-                    {"type": "row", "id": "r_n5c097", "fill": "#1f7a52", "height": 6, "radius": 3, "width": 210, "children": []}
-                  ]},
-                  {"type": "row", "id": "r_eyh02q", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
-                    {"type": "image", "id": "img_ujr4gq", "name": "book-open", "height": 20, "src": "assets/icons/book-open.svg", "tint": "#6f6c69", "width": 20},
-                    {"type": "column", "id": "c_g2x1yx", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_dtnkid", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Read 20 pages", "weight": 500},
-                      {"type": "text", "id": "t_kzc9v1", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_sp1gus", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_yoklrm", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_cyz8y7", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
-                    {"type": "image", "id": "img_vmlydb", "name": "droplet", "height": 20, "src": "assets/icons/droplet.svg", "tint": "#6f6c69", "width": 20},
-                    {"type": "column", "id": "c_fjoqin", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_iwi285", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Drink 2 litres of water", "weight": 500},
-                      {"type": "text", "id": "t_j56dsy", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_ogeluc", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_3hxit0", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_1spahv", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
-                    {"type": "image", "id": "img_xsk4mf", "name": "sigma", "height": 20, "src": "assets/icons/sigma.svg", "tint": "#6f6c69", "width": 20},
-                    {"type": "column", "id": "c_vtdi6o", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_2uzgup", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Revise maths", "weight": 500},
-                      {"type": "text", "id": "t_uqgjoz", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_hr8fa5", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_bw8dbe", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_xewrvy", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 10, "width": "fill", "children": [
-                    {"type": "image", "id": "img_lofb6n", "name": "footprints", "height": 20, "src": "assets/icons/footprints.svg", "tint": "#6f6c69", "width": 20},
-                    {"type": "column", "id": "c_1eesjc", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_f4bg33", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Walk 30 minutes", "weight": 500},
-                      {"type": "text", "id": "t_aqemhw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Not started"}
-                    ]},
-                    {"type": "row", "id": "r_1a2in2", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1.5}, "crossAlign": "center", "fill": "#ffffff", "height": 20, "radius": 6, "width": 20, "children": []}
-                  ]},
-                  {"type": "row", "id": "r_g3oalx", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 44, "padding": {"left": 14, "right": 14}, "radius": 8, "width": "fill", "children": [
-                    {"type": "image", "id": "img_499ob0", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 16},
-                    {"type": "text", "id": "t_ephsv9", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Add a habit", "weight": 500}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_gf6abb", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "fill": "#ffffff", "padding": {"bottom": 14, "top": 10}, "width": "fill", "children": [
-                  {"type": "column", "id": "c_qn02k9", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_56x61k", "name": "circle-check", "height": 22, "src": "assets/icons/circle-check.svg", "tint": "#1f7a52", "width": 22},
-                    {"type": "text", "id": "t_wd03yi", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Today", "weight": 500}
-                  ]},
-                  {"type": "column", "id": "c_vx4nsn", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_updpns", "name": "flame", "height": 22, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 22},
-                    {"type": "text", "id": "t_t04h3s", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Streaks", "weight": 500}
-                  ]},
-                  {"type": "column", "id": "c_zho77k", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_ds6afj", "name": "chart-column", "height": 22, "src": "assets/icons/chart-column.svg", "tint": "#6f6c69", "width": 22},
-                    {"type": "text", "id": "t_wgf7qz", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Review", "weight": 500}
-                  ]}
+          {"type": "column", "id": "c_gxljuj", "gap": 24, "children": [
+            {"type": "column", "id": "c_2muys4", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "width": 320, "children": [
+              {"type": "row", "id": "r_my2eqg", "align": "between", "crossAlign": "center", "width": "fill", "children": [
+                {"type": "text", "id": "t_r7g3h8", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "This week", "weight": 600},
+                {"type": "row", "id": "r_5r8ffe", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
+                  {"type": "row", "id": "r_8ryzm5", "fill": "#1f7a52", "height": 6, "radius": 999, "width": 6, "children": []},
+                  {"type": "text", "id": "t_x4yavh", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "On track", "weight": 500}
                 ]}
+              ]},
+              {"type": "row", "id": "r_5yx56w", "crossAlign": "end", "gap": 6, "children": [
+                {"type": "text", "id": "t_3ukzm8", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.1, "role": "paragraph", "size": 34, "text": "86%", "tracking": "-0.02em", "weight": 600},
+                {"type": "text", "id": "t_i86al8", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "padding": {"bottom": 4}, "role": "paragraph", "size": 13, "text": "of habits kept"}
+              ]},
+              {"type": "row", "id": "r_83t07c", "crossAlign": "end", "gap": 10, "height": 96, "width": "fill", "children": [
+                {"type": "column", "id": "c_6rh9v4", "fill": "#e4f2ea", "height": 58, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_vdx8th", "fill": "#e4f2ea", "height": 77, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_s3xo74", "fill": "#e4f2ea", "height": 43, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_6u8m5y", "fill": "#e4f2ea", "height": 86, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_miqqtp", "fill": "#e4f2ea", "height": 67, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_x1pnwh", "fill": "#1f7a52", "height": 96, "radius": 4, "width": "fill", "children": []},
+                {"type": "column", "id": "c_1zpagu", "fill": "#e4f2ea", "height": 29, "radius": 4, "width": "fill", "children": []}
+              ]},
+              {"type": "row", "id": "r_t6ye93", "align": "between", "width": "fill", "children": [
+                {"type": "text", "id": "t_b9vu7l", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "M"},
+                {"type": "text", "id": "t_nazpbf", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "T"},
+                {"type": "text", "id": "t_nu0701", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "W"},
+                {"type": "text", "id": "t_d0bbu6", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "T"},
+                {"type": "text", "id": "t_1xn2cw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "F"},
+                {"type": "text", "id": "t_tn7hba", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "S"},
+                {"type": "text", "id": "t_et85gw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "S"}
               ]}
             ]},
-            {"type": "column", "id": "c_gxljuj", "gap": 24, "children": [
-              {"type": "column", "id": "c_2muys4", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "width": 320, "children": [
-                {"type": "row", "id": "r_my2eqg", "align": "between", "crossAlign": "center", "width": "fill", "children": [
-                  {"type": "text", "id": "t_r7g3h8", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "This week", "weight": 600},
-                  {"type": "row", "id": "r_5r8ffe", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
-                    {"type": "row", "id": "r_8ryzm5", "fill": "#1f7a52", "height": 6, "radius": 999, "width": 6, "children": []},
-                    {"type": "text", "id": "t_x4yavh", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "On track", "weight": 500}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_5yx56w", "crossAlign": "end", "gap": 6, "children": [
-                  {"type": "text", "id": "t_3ukzm8", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.1, "role": "paragraph", "size": 34, "text": "86%", "tracking": "-0.02em", "weight": 600},
-                  {"type": "text", "id": "t_i86al8", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "padding": {"bottom": 4}, "role": "paragraph", "size": 13, "text": "of habits kept"}
-                ]},
-                {"type": "row", "id": "r_83t07c", "crossAlign": "end", "gap": 10, "height": 96, "width": "fill", "children": [
-                  {"type": "column", "id": "c_6rh9v4", "fill": "#e4f2ea", "height": 58, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_vdx8th", "fill": "#e4f2ea", "height": 77, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_s3xo74", "fill": "#e4f2ea", "height": 43, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_6u8m5y", "fill": "#e4f2ea", "height": 86, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_miqqtp", "fill": "#e4f2ea", "height": 67, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_x1pnwh", "fill": "#1f7a52", "height": 96, "radius": 4, "width": "fill", "children": []},
-                  {"type": "column", "id": "c_1zpagu", "fill": "#e4f2ea", "height": 29, "radius": 4, "width": "fill", "children": []}
-                ]},
-                {"type": "row", "id": "r_t6ye93", "align": "between", "width": "fill", "children": [
-                  {"type": "text", "id": "t_b9vu7l", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "M"},
-                  {"type": "text", "id": "t_nazpbf", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "T"},
-                  {"type": "text", "id": "t_nu0701", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "W"},
-                  {"type": "text", "id": "t_d0bbu6", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "T"},
-                  {"type": "text", "id": "t_1xn2cw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "F"},
-                  {"type": "text", "id": "t_tn7hba", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "S"},
-                  {"type": "text", "id": "t_et85gw", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "S"}
+            {"type": "column", "id": "c_h3ycpo", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "width": 320, "children": [
+              {"type": "column", "id": "c_4utp9p", "gap": 2, "children": [
+                {"type": "text", "id": "t_mu8z5m", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "New habit", "weight": 600},
+                {"type": "text", "id": "t_hm3tmy", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Small and daily works best."}
+              ]},
+              {"type": "column", "id": "c_14te3n", "gap": 6, "width": "fill", "children": [
+                {"type": "text", "id": "t_i25sqo", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Name", "weight": 600},
+                {"type": "row", "id": "r_xc7z73", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "height": 38, "padding": {"left": 12}, "radius": 8, "width": "fill", "children": [
+                  {"type": "text", "id": "t_lwwls3", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Practise guitar"}
                 ]}
               ]},
-              {"type": "column", "id": "c_h3ycpo", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "width": 320, "children": [
-                {"type": "column", "id": "c_4utp9p", "gap": 2, "children": [
-                  {"type": "text", "id": "t_mu8z5m", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "New habit", "weight": 600},
-                  {"type": "text", "id": "t_hm3tmy", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Small and daily works best."}
-                ]},
-                {"type": "column", "id": "c_14te3n", "gap": 6, "width": "fill", "children": [
-                  {"type": "text", "id": "t_i25sqo", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Name", "weight": 600},
-                  {"type": "row", "id": "r_xc7z73", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "height": 38, "padding": {"left": 12}, "radius": 8, "width": "fill", "children": [
-                    {"type": "text", "id": "t_lwwls3", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Practise guitar"}
-                  ]}
-                ]},
-                {"type": "column", "id": "c_zabqyq", "gap": 6, "width": "fill", "children": [
-                  {"type": "text", "id": "t_5mbtof", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Repeat", "weight": 600},
-                  {"type": "row", "id": "r_ykpeqd", "fill": "#f1f0ed", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
-                    {"type": "row", "id": "r_r534do", "align": "center", "crossAlign": "center", "fill": "#ffffff", "height": 30, "radius": 6, "shadow": "0 1px 2px rgb(0 0 0 / 8%)", "width": "fill", "children": [
-                      {"type": "text", "id": "t_3bu95o", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Daily", "weight": 500}
-                    ]},
-                    {"type": "row", "id": "r_bfumsx", "align": "center", "crossAlign": "center", "height": 30, "radius": 6, "width": "fill", "children": [
-                      {"type": "text", "id": "t_fiwafr", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Weekdays", "weight": 500}
-                    ]},
-                    {"type": "row", "id": "r_9ehfx7", "align": "center", "crossAlign": "center", "height": 30, "radius": 6, "width": "fill", "children": [
-                      {"type": "text", "id": "t_wli7xx", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Weekly", "weight": 500}
-                    ]}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_iffx7o", "align": "between", "crossAlign": "center", "width": "fill", "children": [
-                  {"type": "column", "id": "c_l7pbl1", "gap": 0, "children": [
-                    {"type": "text", "id": "t_y43iv1", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Remind me", "weight": 500},
-                    {"type": "text", "id": "t_yd6kkb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Every day at 8 pm"}
+              {"type": "column", "id": "c_zabqyq", "gap": 6, "width": "fill", "children": [
+                {"type": "text", "id": "t_5mbtof", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Repeat", "weight": 600},
+                {"type": "row", "id": "r_ykpeqd", "fill": "#f1f0ed", "gap": 2, "padding": 2, "radius": 8, "width": "fill", "children": [
+                  {"type": "row", "id": "r_r534do", "align": "center", "crossAlign": "center", "fill": "#ffffff", "height": 30, "radius": 6, "shadow": "0 1px 2px rgb(0 0 0 / 8%)", "width": "fill", "children": [
+                    {"type": "text", "id": "t_3bu95o", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Daily", "weight": 500}
                   ]},
-                  {"type": "row", "id": "r_xn3add", "align": "end", "fill": "#1f7a52", "height": 20, "padding": 2, "radius": 999, "width": 36, "children": [
-                    {"type": "row", "id": "r_netwqb", "fill": "#ffffff", "height": 16, "radius": 999, "width": 16, "children": []}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_kul6vb", "align": "end", "gap": 8, "width": "fill", "children": [
-                  {"type": "row", "id": "r_yno25n", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_mqsn5f", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Cancel", "weight": 500}
+                  {"type": "row", "id": "r_bfumsx", "align": "center", "crossAlign": "center", "height": 30, "radius": 6, "width": "fill", "children": [
+                    {"type": "text", "id": "t_fiwafr", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Weekdays", "weight": 500}
                   ]},
-                  {"type": "row", "id": "r_a5cudl", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_lx6m1t", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Create habit", "weight": 500}
-                  ]}
-                ]}
-              ]}
-            ]},
-            {"type": "column", "id": "c_jgw0pd", "gap": 24, "children": [
-              {"type": "column", "id": "c_969xth", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 4, "padding": {"bottom": 10, "left": 20, "right": 20, "top": 18}, "radius": 14, "width": 320, "children": [
-                {"type": "row", "id": "r_ykwspq", "align": "between", "crossAlign": "center", "padding": {"bottom": 8}, "width": "fill", "children": [
-                  {"type": "text", "id": "t_j8nu2q", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Streaks", "weight": 600},
-                  {"type": "text", "id": "t_u8frtb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Best first"}
-                ]},
-                {"type": "row", "id": "r_dusp4b", "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_49pbnd", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
-                    {"type": "image", "id": "img_x0o44v", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#1f7a52", "width": 16}
-                  ]},
-                  {"type": "text", "id": "t_fwq7q5", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Drink water", "weight": 500, "width": "fill"},
-                  {"type": "text", "id": "t_z5wtff", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days"}
-                ]},
-                {"type": "row", "id": "r_qmiijm", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_m6h2zw", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
-                    {"type": "image", "id": "img_lnit3n", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
-                  ]},
-                  {"type": "text", "id": "t_1kz672", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Read 20 pages", "weight": 500, "width": "fill"},
-                  {"type": "text", "id": "t_mlq6rb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days"}
-                ]},
-                {"type": "row", "id": "r_mosws4", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_udm5w1", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
-                    {"type": "image", "id": "img_ojym3s", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
-                  ]},
-                  {"type": "text", "id": "t_n566xj", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "In bed before 11", "weight": 500, "width": "fill"},
-                  {"type": "text", "id": "t_m01vuk", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "7 days"}
-                ]},
-                {"type": "row", "id": "r_bb9xfy", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_n86a08", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
-                    {"type": "image", "id": "img_b6izqc", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
-                  ]},
-                  {"type": "text", "id": "t_40iojm", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Revise maths", "weight": 500, "width": "fill"},
-                  {"type": "text", "id": "t_df5i7n", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days"}
-                ]}
-              ]},
-              {"type": "column", "id": "c_jjqbsc", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "shadow": "0 12px 32px -8px rgb(0 0 0 / 18%)", "width": 320, "children": [
-                {"type": "column", "id": "c_cadr11", "gap": 4, "children": [
-                  {"type": "text", "id": "t_mn5d8z", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 16, "text": "Delete “Revise maths”?", "weight": 600},
-                  {"type": "text", "id": "t_2ss828", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Its 4-day streak is lost. Habits you delete can’t be brought back."}
-                ]},
-                {"type": "row", "id": "r_p342xm", "align": "end", "gap": 8, "width": "fill", "children": [
-                  {"type": "row", "id": "r_emdkh7", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_yx4vxx", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Cancel", "weight": 500}
-                  ]},
-                  {"type": "row", "id": "r_9qsgn1", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_a5ojla", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Delete", "weight": 500}
+                  {"type": "row", "id": "r_9ehfx7", "align": "center", "crossAlign": "center", "height": 30, "radius": 6, "width": "fill", "children": [
+                    {"type": "text", "id": "t_wli7xx", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Weekly", "weight": 500}
                   ]}
                 ]}
               ]},
-              {"type": "column", "id": "c_ah743p", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 16, "padding": 20, "radius": 14, "width": 320, "children": [
-                {"type": "row", "id": "r_16c3t7", "gap": 8, "wrap": true, "children": [
-                  {"type": "row", "id": "r_g6ban6", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_12hahg", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Primary", "weight": 500}
-                  ]},
-                  {"type": "row", "id": "r_haque2", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_oh7p9t", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Secondary", "weight": 500}
-                  ]},
-                  {"type": "row", "id": "r_bs344l", "crossAlign": "center", "height": 36, "padding": {"left": 10, "right": 10}, "children": [
-                    {"type": "text", "id": "t_4iekvf", "color": "#1f7a52", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Link", "weight": 500}
-                  ]}
+              {"type": "row", "id": "r_iffx7o", "align": "between", "crossAlign": "center", "width": "fill", "children": [
+                {"type": "column", "id": "c_l7pbl1", "gap": 0, "children": [
+                  {"type": "text", "id": "t_y43iv1", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Remind me", "weight": 500},
+                  {"type": "text", "id": "t_yd6kkb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Every day at 8 pm"}
                 ]},
-                {"type": "row", "id": "r_lb28m2", "gap": 8, "children": [
-                  {"type": "row", "id": "r_xfbr6m", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
-                    {"type": "row", "id": "r_teggdn", "fill": "#1f7a52", "height": 6, "radius": 999, "width": 6, "children": []},
-                    {"type": "text", "id": "t_bh4fnz", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Active", "weight": 500}
-                  ]},
-                  {"type": "row", "id": "r_ehlyzw", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
-                    {"type": "row", "id": "r_myj2do", "fill": "#d08a16", "height": 6, "radius": 999, "width": 6, "children": []},
-                    {"type": "text", "id": "t_tbi0yd", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Paused", "weight": 500}
-                  ]},
-                  {"type": "row", "id": "r_sqi675", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
-                    {"type": "row", "id": "r_6zvpl1", "fill": "#c2412d", "height": 6, "radius": 999, "width": 6, "children": []},
-                    {"type": "text", "id": "t_wnbepw", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Missed", "weight": 500}
-                  ]}
+                {"type": "row", "id": "r_xn3add", "align": "end", "fill": "#1f7a52", "height": 20, "padding": 2, "radius": 999, "width": 36, "children": [
+                  {"type": "row", "id": "r_netwqb", "fill": "#ffffff", "height": 16, "radius": 999, "width": 16, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_kul6vb", "align": "end", "gap": 8, "width": "fill", "children": [
+                {"type": "row", "id": "r_yno25n", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_mqsn5f", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Cancel", "weight": 500}
                 ]},
-                {"type": "row", "id": "r_d7wgry", "gap": 18, "children": [
-                  {"type": "image", "id": "img_sqkn7z", "name": "house", "height": 20, "src": "assets/icons/house.svg", "tint": "#1c1b1a", "width": 20},
-                  {"type": "image", "id": "img_zh1a82", "name": "search", "height": 20, "src": "assets/icons/search.svg", "tint": "#1c1b1a", "width": 20},
-                  {"type": "image", "id": "img_jfol7a", "name": "bell", "height": 20, "src": "assets/icons/bell.svg", "tint": "#1c1b1a", "width": 20},
-                  {"type": "image", "id": "img_6vz1a2", "name": "calendar", "height": 20, "src": "assets/icons/calendar.svg", "tint": "#1c1b1a", "width": 20},
-                  {"type": "image", "id": "img_d339s5", "name": "settings", "height": 20, "src": "assets/icons/settings.svg", "tint": "#1c1b1a", "width": 20},
-                  {"type": "image", "id": "img_flwd1j", "name": "user", "height": 20, "src": "assets/icons/user.svg", "tint": "#1c1b1a", "width": 20}
-                ]},
-                {"type": "row", "id": "r_4au8kz", "crossAlign": "center", "gap": 6, "children": [
-                  {"type": "row", "id": "r_4wd5s5", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#1c1b1a", "height": 28, "radius": 8, "width": 28, "children": []},
-                  {"type": "row", "id": "r_dhzj3v", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#6f6c69", "height": 28, "radius": 8, "width": 28, "children": []},
-                  {"type": "row", "id": "r_eyu5mt", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#1f7a52", "height": 28, "radius": 8, "width": 28, "children": []},
-                  {"type": "row", "id": "r_kc35y8", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#e4f2ea", "height": 28, "radius": 8, "width": 28, "children": []},
-                  {"type": "row", "id": "r_yr70sz", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#f1f0ed", "height": 28, "radius": 8, "width": 28, "children": []},
-                  {"type": "row", "id": "r_sg52nq", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#e7e5e2", "height": 28, "radius": 8, "width": 28, "children": []}
+                {"type": "row", "id": "r_a5cudl", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_lx6m1t", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Create habit", "weight": 500}
                 ]}
               ]}
             ]}
-          ]}
-        ]},
-        {"type": "row", "id": "r_c4bsz2", "align": "center", "padding": {"bottom": 12}, "width": "fill", "children": [
-          {"type": "row", "id": "r_45jlc4", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
-            {"type": "row", "id": "r_m97mc8", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_968eqt", "name": "hand", "height": 16, "src": "assets/icons/hand.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+          ]},
+          {"type": "column", "id": "c_jgw0pd", "gap": 24, "children": [
+            {"type": "column", "id": "c_969xth", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 4, "padding": {"bottom": 10, "left": 20, "right": 20, "top": 18}, "radius": 14, "width": 320, "children": [
+              {"type": "row", "id": "r_ykwspq", "align": "between", "crossAlign": "center", "padding": {"bottom": 8}, "width": "fill", "children": [
+                {"type": "text", "id": "t_j8nu2q", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Streaks", "weight": 600},
+                {"type": "text", "id": "t_u8frtb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Best first"}
+              ]},
+              {"type": "row", "id": "r_dusp4b", "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_49pbnd", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
+                  {"type": "image", "id": "img_x0o44v", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#1f7a52", "width": 16}
+                ]},
+                {"type": "text", "id": "t_fwq7q5", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Drink water", "weight": 500, "width": "fill"},
+                {"type": "text", "id": "t_z5wtff", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days"}
+              ]},
+              {"type": "row", "id": "r_qmiijm", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_m6h2zw", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
+                  {"type": "image", "id": "img_lnit3n", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
+                ]},
+                {"type": "text", "id": "t_1kz672", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Read 20 pages", "weight": 500, "width": "fill"},
+                {"type": "text", "id": "t_mlq6rb", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days"}
+              ]},
+              {"type": "row", "id": "r_mosws4", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_udm5w1", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
+                  {"type": "image", "id": "img_ojym3s", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
+                ]},
+                {"type": "text", "id": "t_n566xj", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "In bed before 11", "weight": 500, "width": "fill"},
+                {"type": "text", "id": "t_m01vuk", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "7 days"}
+              ]},
+              {"type": "row", "id": "r_bb9xfy", "border": {"color": "#e7e5e2", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_n86a08", "align": "center", "crossAlign": "center", "fill": "#f1f0ed", "height": 32, "radius": 999, "width": 32, "children": [
+                  {"type": "image", "id": "img_b6izqc", "name": "flame", "height": 16, "src": "assets/icons/flame.svg", "tint": "#6f6c69", "width": 16}
+                ]},
+                {"type": "text", "id": "t_40iojm", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Revise maths", "weight": 500, "width": "fill"},
+                {"type": "text", "id": "t_df5i7n", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days"}
+              ]}
             ]},
-            {"type": "row", "id": "r_5tq0m3", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
-              {"type": "text", "id": "t_8nldo5", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "70%", "weight": 500},
-              {"type": "image", "id": "img_oycw56", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            {"type": "column", "id": "c_jjqbsc", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 14, "padding": 20, "radius": 14, "shadow": "0 12px 32px -8px rgb(0 0 0 / 18%)", "width": 320, "children": [
+              {"type": "column", "id": "c_cadr11", "gap": 4, "children": [
+                {"type": "text", "id": "t_mn5d8z", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 16, "text": "Delete “Revise maths”?", "weight": 600},
+                {"type": "text", "id": "t_2ss828", "color": "#6f6c69", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Its 4-day streak is lost. Habits you delete can’t be brought back."}
+              ]},
+              {"type": "row", "id": "r_p342xm", "align": "end", "gap": 8, "width": "fill", "children": [
+                {"type": "row", "id": "r_emdkh7", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_yx4vxx", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Cancel", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_9qsgn1", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_a5ojla", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Delete", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_ah743p", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 16, "padding": 20, "radius": 14, "width": 320, "children": [
+              {"type": "row", "id": "r_16c3t7", "gap": 8, "wrap": true, "children": [
+                {"type": "row", "id": "r_g6ban6", "align": "center", "crossAlign": "center", "fill": "#1f7a52", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_12hahg", "color": "#ffffff", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Primary", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_haque2", "align": "center", "border": {"color": "#e7e5e2", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "height": 36, "padding": {"left": 14, "right": 14}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_oh7p9t", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Secondary", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_bs344l", "crossAlign": "center", "height": 36, "padding": {"left": 10, "right": 10}, "children": [
+                  {"type": "text", "id": "t_4iekvf", "color": "#1f7a52", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Link", "weight": 500}
+                ]}
+              ]},
+              {"type": "row", "id": "r_lb28m2", "gap": 8, "children": [
+                {"type": "row", "id": "r_xfbr6m", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
+                  {"type": "row", "id": "r_teggdn", "fill": "#1f7a52", "height": 6, "radius": 999, "width": 6, "children": []},
+                  {"type": "text", "id": "t_bh4fnz", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Active", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_ehlyzw", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
+                  {"type": "row", "id": "r_myj2do", "fill": "#d08a16", "height": 6, "radius": 999, "width": 6, "children": []},
+                  {"type": "text", "id": "t_tbi0yd", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Paused", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_sqi675", "crossAlign": "center", "fill": "#f1f0ed", "gap": 6, "height": 22, "padding": {"left": 8, "right": 8}, "radius": 8, "children": [
+                  {"type": "row", "id": "r_6zvpl1", "fill": "#c2412d", "height": 6, "radius": 999, "width": 6, "children": []},
+                  {"type": "text", "id": "t_wnbepw", "color": "#1c1b1a", "font": "'Figtree Variable', Figtree, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Missed", "weight": 500}
+                ]}
+              ]},
+              {"type": "row", "id": "r_d7wgry", "gap": 18, "children": [
+                {"type": "image", "id": "img_sqkn7z", "name": "house", "height": 20, "src": "assets/icons/house.svg", "tint": "#1c1b1a", "width": 20},
+                {"type": "image", "id": "img_zh1a82", "name": "search", "height": 20, "src": "assets/icons/search.svg", "tint": "#1c1b1a", "width": 20},
+                {"type": "image", "id": "img_jfol7a", "name": "bell", "height": 20, "src": "assets/icons/bell.svg", "tint": "#1c1b1a", "width": 20},
+                {"type": "image", "id": "img_6vz1a2", "name": "calendar", "height": 20, "src": "assets/icons/calendar.svg", "tint": "#1c1b1a", "width": 20},
+                {"type": "image", "id": "img_d339s5", "name": "settings", "height": 20, "src": "assets/icons/settings.svg", "tint": "#1c1b1a", "width": 20},
+                {"type": "image", "id": "img_flwd1j", "name": "user", "height": 20, "src": "assets/icons/user.svg", "tint": "#1c1b1a", "width": 20}
+              ]},
+              {"type": "row", "id": "r_4au8kz", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "row", "id": "r_4wd5s5", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#1c1b1a", "height": 28, "radius": 8, "width": 28, "children": []},
+                {"type": "row", "id": "r_dhzj3v", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#6f6c69", "height": 28, "radius": 8, "width": 28, "children": []},
+                {"type": "row", "id": "r_eyu5mt", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#1f7a52", "height": 28, "radius": 8, "width": 28, "children": []},
+                {"type": "row", "id": "r_kc35y8", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#e4f2ea", "height": 28, "radius": 8, "width": 28, "children": []},
+                {"type": "row", "id": "r_yr70sz", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#f1f0ed", "height": 28, "radius": 8, "width": 28, "children": []},
+                {"type": "row", "id": "r_sg52nq", "border": {"color": "rgb(0 0 0 / 8%)", "style": "solid", "width": 1}, "fill": "#e7e5e2", "height": 28, "radius": 8, "width": 28, "children": []}
+              ]}
             ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_c4bsz2", "align": "center", "padding": {"bottom": 12}, "width": "fill", "children": [
+        {"type": "row", "id": "r_45jlc4", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
+          {"type": "row", "id": "r_m97mc8", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_968eqt", "name": "hand", "height": 16, "src": "assets/icons/hand.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+          ]},
+          {"type": "row", "id": "r_5tq0m3", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
+            {"type": "text", "id": "t_8nldo5", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "70%", "weight": 500},
+            {"type": "image", "id": "img_oycw56", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
           ]}
         ]}
       ]}

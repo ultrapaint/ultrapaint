@@ -1,123 +1,121 @@
 {
-  "root": {"type": "page", "id": "root", "fill": "$color-background", "gap": 0, "children": [
-    {"type": "row", "id": "r_gy4ow2", "crossAlign": "start", "fill": "#d4d4d8", "gap": 40, "height": "fill", "padding": 40, "width": "fill", "children": [
-      {"type": "column", "id": "c_lual9d", "name": "Orders", "fill": "#fafafa", "gap": 18, "padding": 28, "width": 820, "children": [
-        {"type": "row", "id": "r_foftcm", "name": "Page header", "align": "between", "crossAlign": "center", "width": "fill", "children": [
-          {"type": "column", "id": "c_5f1ea0", "gap": 2, "children": [
-            {"type": "text", "id": "t_c2kzwi", "color": "#18181b", "role": "paragraph", "size": 22, "text": "Orders", "weight": 700},
-            {"type": "text", "id": "t_uk1a0u", "color": "#71717a", "role": "paragraph", "size": 12, "text": "131 orders this month"}
-          ]},
-          {"type": "row", "id": "r_4fracj", "crossAlign": "center", "gap": 8, "children": [
-            {"type": "row", "id": "r_5ufj3i", "name": "Export", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
-              {"type": "text", "id": "t_0lojux", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Export", "weight": 500},
-              {"type": "image", "id": "img_11n1on", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#18181b", "width": 14}
-            ]},
-            {"type": "row", "id": "r_mj9chm", "name": "New order", "crossAlign": "center", "fill": "#2563eb", "gap": 6, "link": "extra.page.json", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
-              {"type": "image", "id": "img_4l0jgd", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 14},
-              {"type": "text", "id": "t_v4quki", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "New order", "weight": 500}
-            ]}
-          ]}
+  "root": {"type": "page", "id": "root", "crossAlign": "start", "direction": "row", "fill": "#d4d4d8", "gap": 40, "padding": 40, "children": [
+    {"type": "column", "id": "c_lual9d", "name": "Orders", "fill": "#fafafa", "gap": 18, "padding": 28, "width": 820, "children": [
+      {"type": "row", "id": "r_foftcm", "name": "Page header", "align": "between", "crossAlign": "center", "width": "fill", "children": [
+        {"type": "column", "id": "c_5f1ea0", "gap": 2, "children": [
+          {"type": "text", "id": "t_c2kzwi", "color": "#18181b", "role": "paragraph", "size": 22, "text": "Orders", "weight": 700},
+          {"type": "text", "id": "t_uk1a0u", "color": "#71717a", "role": "paragraph", "size": 12, "text": "131 orders this month"}
         ]},
-        {"type": "column", "id": "c_e09cmn", "name": "Orders table", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "radius": 8, "width": "fill", "children": [
-          {"type": "row", "id": "r_u9vecm", "name": "Header row", "crossAlign": "center", "fill": "#f4f4f5", "gap": 16, "padding": {"bottom": 10, "left": 16, "right": 16, "top": 10}, "children": [
-            {"type": "text", "id": "t_oh3tdw", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Order", "weight": 600, "width": 70},
-            {"type": "text", "id": "t_a7o2n5", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Device", "weight": 600, "width": 170},
-            {"type": "text", "id": "t_z1r90a", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Qty", "weight": 600, "width": 70},
-            {"type": "text", "id": "t_af7nlp", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Customer", "weight": 600, "width": 160},
-            {"type": "text", "id": "t_n9khgn", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Status", "weight": 600, "width": 110},
-            {"type": "text", "id": "t_ow2qyq", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Date", "weight": 600, "width": 120}
+        {"type": "row", "id": "r_4fracj", "crossAlign": "center", "gap": 8, "children": [
+          {"type": "row", "id": "r_5ufj3i", "name": "Export", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+            {"type": "text", "id": "t_0lojux", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Export", "weight": 500},
+            {"type": "image", "id": "img_11n1on", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#18181b", "width": 14}
           ]},
-          {"type": "row", "id": "r_gl4vzq", "name": "Row #1042", "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_pdkcok", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1042", "width": 70},
-            {"type": "text", "id": "t_u0gre3", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_2qyjzx", "color": "#18181b", "role": "paragraph", "size": 12, "text": "3", "width": 70},
-            {"type": "text", "id": "t_63566a", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Acme Corp", "width": 160},
-            {"type": "row", "id": "r_4erak7", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_xv9xtf", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_it2gjj", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_h624j6", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 28, 2026", "width": 120}
-          ]},
-          {"type": "row", "id": "r_t342mg", "name": "Row #1041", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_ueccfa", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1041", "width": 70},
-            {"type": "text", "id": "t_6y7o7h", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_59tgbl", "color": "#18181b", "role": "paragraph", "size": 12, "text": "1", "width": 70},
-            {"type": "text", "id": "t_1l9qu8", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Globex Inc", "width": 160},
-            {"type": "row", "id": "r_1jt4xm", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_jfzqk8", "crossAlign": "center", "fill": "#dbeafe", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_ilx1vy", "color": "#1e40af", "role": "paragraph", "size": 11, "text": "Processing", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_4rhso1", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
-          ]},
-          {"type": "row", "id": "r_6guxny", "name": "Row #1040", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_pmzu1t", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1040", "width": 70},
-            {"type": "text", "id": "t_wg4h0c", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Bolt Y3 Connector", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_ux4s2w", "color": "#18181b", "role": "paragraph", "size": 12, "text": "12", "width": 70},
-            {"type": "text", "id": "t_itugrg", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Initech", "width": 160},
-            {"type": "row", "id": "r_77e65q", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_lvcth8", "crossAlign": "center", "fill": "#fef9c3", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_onhlw7", "color": "#854d0e", "role": "paragraph", "size": 11, "text": "Pending", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_om273p", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
-          ]},
-          {"type": "row", "id": "r_8d6fz2", "name": "Row #1039", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_6swoc4", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1039", "width": 70},
-            {"type": "text", "id": "t_3nt3q6", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_sxpnhc", "color": "#18181b", "role": "paragraph", "size": 12, "text": "5", "width": 70},
-            {"type": "text", "id": "t_hh7gyc", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Umbrella Co", "width": 160},
-            {"type": "row", "id": "r_gidkdm", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_mfdgww", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_gio9bp", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_k3h4i6", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 25, 2026", "width": 120}
-          ]},
-          {"type": "row", "id": "r_ywf73y", "name": "Row #1038", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_8cy2qu", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1038", "width": 70},
-            {"type": "text", "id": "t_ettih7", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Relay Module", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_nibrej", "color": "#18181b", "role": "paragraph", "size": 12, "text": "8", "width": 70},
-            {"type": "text", "id": "t_mzlorr", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Hooli", "width": 160},
-            {"type": "row", "id": "r_sgwak8", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_svssqz", "crossAlign": "center", "fill": "#fee2e2", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_tgcnfh", "color": "#991b1b", "role": "paragraph", "size": 11, "text": "Cancelled", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_ddbksw", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 24, 2026", "width": 120}
-          ]},
-          {"type": "row", "id": "r_2rjh8z", "name": "Row #1037", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-            {"type": "text", "id": "t_8nsbym", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1037", "width": 70},
-            {"type": "text", "id": "t_v9854i", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
-            {"type": "text", "id": "t_5d61zs", "color": "#18181b", "role": "paragraph", "size": 12, "text": "2", "width": 70},
-            {"type": "text", "id": "t_hm1xgf", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Stark Industries", "width": 160},
-            {"type": "row", "id": "r_52m0nu", "crossAlign": "center", "width": 110, "children": [
-              {"type": "row", "id": "r_wgl55h", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
-                {"type": "text", "id": "t_ft2wk1", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
-              ]}
-            ]},
-            {"type": "text", "id": "t_78slbf", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 22, 2026", "width": 120}
+          {"type": "row", "id": "r_mj9chm", "name": "New order", "crossAlign": "center", "fill": "#2563eb", "gap": 6, "link": "extra.page.json", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+            {"type": "image", "id": "img_4l0jgd", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 14},
+            {"type": "text", "id": "t_v4quki", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "New order", "weight": 500}
           ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_e09cmn", "name": "Orders table", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "radius": 8, "width": "fill", "children": [
+        {"type": "row", "id": "r_u9vecm", "name": "Header row", "crossAlign": "center", "fill": "#f4f4f5", "gap": 16, "padding": {"bottom": 10, "left": 16, "right": 16, "top": 10}, "children": [
+          {"type": "text", "id": "t_oh3tdw", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Order", "weight": 600, "width": 70},
+          {"type": "text", "id": "t_a7o2n5", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Device", "weight": 600, "width": 170},
+          {"type": "text", "id": "t_z1r90a", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Qty", "weight": 600, "width": 70},
+          {"type": "text", "id": "t_af7nlp", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Customer", "weight": 600, "width": 160},
+          {"type": "text", "id": "t_n9khgn", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Status", "weight": 600, "width": 110},
+          {"type": "text", "id": "t_ow2qyq", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Date", "weight": 600, "width": 120}
         ]},
-        {"type": "row", "id": "r_m4zrv5", "align": "between", "crossAlign": "center", "width": "fill", "children": [
-          {"type": "text", "id": "t_q9nnbr", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Rows per page 20 · 1–20 of 131"},
-          {"type": "row", "id": "r_p63jrd", "crossAlign": "center", "gap": 4, "children": [
-            {"type": "row", "id": "r_oe31jw", "align": "center", "crossAlign": "center", "fill": "#2563eb", "height": 26, "radius": 5, "width": 26, "children": [
-              {"type": "text", "id": "t_moxh3m", "color": "#ffffff", "role": "paragraph", "size": 11, "text": "1"}
-            ]},
-            {"type": "row", "id": "r_7af26i", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
-              {"type": "text", "id": "t_8kzb2w", "color": "#18181b", "role": "paragraph", "size": 11, "text": "2"}
-            ]},
-            {"type": "row", "id": "r_77sgjr", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
-              {"type": "text", "id": "t_42lk27", "color": "#18181b", "role": "paragraph", "size": 11, "text": "3"}
-            ]},
-            {"type": "row", "id": "r_7ph6vd", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
-              {"type": "text", "id": "t_mnhdf0", "color": "#18181b", "role": "paragraph", "size": 11, "text": "…"}
-            ]},
-            {"type": "row", "id": "r_hxpbjo", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
-              {"type": "text", "id": "t_mysmmp", "color": "#18181b", "role": "paragraph", "size": 11, "text": "7"}
+        {"type": "row", "id": "r_gl4vzq", "name": "Row #1042", "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_pdkcok", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1042", "width": 70},
+          {"type": "text", "id": "t_u0gre3", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_2qyjzx", "color": "#18181b", "role": "paragraph", "size": 12, "text": "3", "width": 70},
+          {"type": "text", "id": "t_63566a", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Acme Corp", "width": 160},
+          {"type": "row", "id": "r_4erak7", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_xv9xtf", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_it2gjj", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
             ]}
+          ]},
+          {"type": "text", "id": "t_h624j6", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 28, 2026", "width": 120}
+        ]},
+        {"type": "row", "id": "r_t342mg", "name": "Row #1041", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_ueccfa", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1041", "width": 70},
+          {"type": "text", "id": "t_6y7o7h", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_59tgbl", "color": "#18181b", "role": "paragraph", "size": 12, "text": "1", "width": 70},
+          {"type": "text", "id": "t_1l9qu8", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Globex Inc", "width": 160},
+          {"type": "row", "id": "r_1jt4xm", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_jfzqk8", "crossAlign": "center", "fill": "#dbeafe", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_ilx1vy", "color": "#1e40af", "role": "paragraph", "size": 11, "text": "Processing", "weight": 500}
+            ]}
+          ]},
+          {"type": "text", "id": "t_4rhso1", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
+        ]},
+        {"type": "row", "id": "r_6guxny", "name": "Row #1040", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_pmzu1t", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1040", "width": 70},
+          {"type": "text", "id": "t_wg4h0c", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Bolt Y3 Connector", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_ux4s2w", "color": "#18181b", "role": "paragraph", "size": 12, "text": "12", "width": 70},
+          {"type": "text", "id": "t_itugrg", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Initech", "width": 160},
+          {"type": "row", "id": "r_77e65q", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_lvcth8", "crossAlign": "center", "fill": "#fef9c3", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_onhlw7", "color": "#854d0e", "role": "paragraph", "size": 11, "text": "Pending", "weight": 500}
+            ]}
+          ]},
+          {"type": "text", "id": "t_om273p", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
+        ]},
+        {"type": "row", "id": "r_8d6fz2", "name": "Row #1039", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_6swoc4", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1039", "width": 70},
+          {"type": "text", "id": "t_3nt3q6", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_sxpnhc", "color": "#18181b", "role": "paragraph", "size": 12, "text": "5", "width": 70},
+          {"type": "text", "id": "t_hh7gyc", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Umbrella Co", "width": 160},
+          {"type": "row", "id": "r_gidkdm", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_mfdgww", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_gio9bp", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
+            ]}
+          ]},
+          {"type": "text", "id": "t_k3h4i6", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 25, 2026", "width": 120}
+        ]},
+        {"type": "row", "id": "r_ywf73y", "name": "Row #1038", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_8cy2qu", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1038", "width": 70},
+          {"type": "text", "id": "t_ettih7", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Relay Module", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_nibrej", "color": "#18181b", "role": "paragraph", "size": 12, "text": "8", "width": 70},
+          {"type": "text", "id": "t_mzlorr", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Hooli", "width": 160},
+          {"type": "row", "id": "r_sgwak8", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_svssqz", "crossAlign": "center", "fill": "#fee2e2", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_tgcnfh", "color": "#991b1b", "role": "paragraph", "size": 11, "text": "Cancelled", "weight": 500}
+            ]}
+          ]},
+          {"type": "text", "id": "t_ddbksw", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 24, 2026", "width": 120}
+        ]},
+        {"type": "row", "id": "r_2rjh8z", "name": "Row #1037", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+          {"type": "text", "id": "t_8nsbym", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1037", "width": 70},
+          {"type": "text", "id": "t_v9854i", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
+          {"type": "text", "id": "t_5d61zs", "color": "#18181b", "role": "paragraph", "size": 12, "text": "2", "width": 70},
+          {"type": "text", "id": "t_hm1xgf", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Stark Industries", "width": 160},
+          {"type": "row", "id": "r_52m0nu", "crossAlign": "center", "width": 110, "children": [
+            {"type": "row", "id": "r_wgl55h", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+              {"type": "text", "id": "t_ft2wk1", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
+            ]}
+          ]},
+          {"type": "text", "id": "t_78slbf", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 22, 2026", "width": 120}
+        ]}
+      ]},
+      {"type": "row", "id": "r_m4zrv5", "align": "between", "crossAlign": "center", "width": "fill", "children": [
+        {"type": "text", "id": "t_q9nnbr", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Rows per page 20 · 1–20 of 131"},
+        {"type": "row", "id": "r_p63jrd", "crossAlign": "center", "gap": 4, "children": [
+          {"type": "row", "id": "r_oe31jw", "align": "center", "crossAlign": "center", "fill": "#2563eb", "height": 26, "radius": 5, "width": 26, "children": [
+            {"type": "text", "id": "t_moxh3m", "color": "#ffffff", "role": "paragraph", "size": 11, "text": "1"}
+          ]},
+          {"type": "row", "id": "r_7af26i", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
+            {"type": "text", "id": "t_8kzb2w", "color": "#18181b", "role": "paragraph", "size": 11, "text": "2"}
+          ]},
+          {"type": "row", "id": "r_77sgjr", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
+            {"type": "text", "id": "t_42lk27", "color": "#18181b", "role": "paragraph", "size": 11, "text": "3"}
+          ]},
+          {"type": "row", "id": "r_7ph6vd", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
+            {"type": "text", "id": "t_mnhdf0", "color": "#18181b", "role": "paragraph", "size": 11, "text": "…"}
+          ]},
+          {"type": "row", "id": "r_hxpbjo", "align": "center", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "height": 26, "radius": 5, "width": 26, "children": [
+            {"type": "text", "id": "t_mysmmp", "color": "#18181b", "role": "paragraph", "size": 11, "text": "7"}
           ]}
         ]}
       ]}

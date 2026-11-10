@@ -79,8 +79,9 @@ export const layoutOf = (node: DesignNode): ParentLayout => {
   switch (node.type) {
     case "row":
       return "row";
-    case "column":
     case "page":
+      return node.direction === "row" ? "row" : "column";
+    case "column":
       return "column";
     default:
       return "block";
@@ -188,7 +189,7 @@ const layoutDeclared = (node: DesignNode): Declared => {
   }
   const out: Declared = {
     display: "flex",
-    flexDirection: node.type === "row" ? "row" : "column",
+    flexDirection: layoutOf(node) === "row" ? "row" : "column",
   };
   if (node.type === "page" && node.minHeight === undefined) {
     out.minHeight = SCREEN_HEIGHT;

@@ -331,13 +331,11 @@ describe("converting a frame", () => {
       throw new Error("no component");
     }
     const { root } = convertComponent(file, button, options());
-    if (root.type !== "page") {
-      throw new Error("not a page");
-    }
-    expect(root.children[0]).toMatchObject({
+    // The component's row is the page's own layout (ADR 0075).
+    expect(root).toMatchObject({
+      direction: "row",
       fill: "#3366ff",
-      type: "row",
-      width: "fill",
+      type: "page",
     });
   });
 
@@ -404,7 +402,7 @@ describe("converting a frame", () => {
     });
   });
 
-  it("keeps what is no frame at its own size on its page, where a row fills it", () => {
+  it("keeps what is no frame at its own size on its page, whose layout a row is", () => {
     const f = makeFixture();
     const symbol = f.add(f.internal, {
       fillPaints: [solid(0.2, 0.4, 1)],
@@ -493,9 +491,10 @@ describe("converting a frame", () => {
     expect(pageOf(photo).children).toMatchObject([
       { height: 180, type: "image", width: 320 },
     ]);
-    // A frame is the page's own layout: a row fills it, and its fill is the page's.
+    // A frame is the page's own layout: a row is the page, as its direction (ADR 0075).
     expect(pageOf(row)).toMatchObject({
-      children: [{ type: "row", width: "fill" }],
+      children: [{ type: "text" }],
+      direction: "row",
       fill: "#ffffff",
     });
   });

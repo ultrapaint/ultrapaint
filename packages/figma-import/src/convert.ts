@@ -681,16 +681,25 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     return shape(node, placement);
   };
 
-  /** The converted frame as a page: a column's fields lift onto the page, anything else is its child. */
+  /**
+   * The converted frame as a page: a row's or a column's fields lift onto the page, which is the
+   * screen's container (ADR 0075), a row's as its direction; a free layout is its child.
+   */
   const asPage = (converted: DesignNode | null, name: string): PageNode => {
     if (converted === null) {
       return { children: [], id: "root", name, type: "page" };
     }
-    if (converted.type === "column") {
-      const { height, id, type, width, ...fields } = converted;
-      return compact({ ...fields, id: "root", name, type: "page" });
+    if (converted.type === "column" || converted.type === "row") {
+      const { at, height, id, type, width, ...fields } = converted;
+      return compact({
+        ...fields,
+        ...(type === "row" && { direction: "row" as const }),
+        id: "root",
+        name,
+        type: "page",
+      });
     }
-    // A row or a free layout is the page's one child; its fill is the page's background too.
+    // A free layout is the page's one child; its fill is the page's background too.
     const child = compact({
       ...converted,
       height: undefined,

@@ -1,98 +1,96 @@
 {
-  "root": {"type": "page", "id": "root", "fill": "$color-background", "gap": 0, "children": [
-    {"type": "row", "id": "r_6aqa6f", "crossAlign": "start", "fill": "#d4d4d8", "gap": 40, "height": "fill", "padding": 40, "width": "fill", "children": [
-      {"type": "row", "id": "r_1mwc0f", "name": "Pricing", "crossAlign": "center", "fill": "#fafafa", "gap": 12, "padding": 24, "width": 560, "children": [
-        {"type": "column", "id": "c_smqgsq", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
-          {"type": "text", "id": "t_d4kmd5", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Starter", "weight": 600},
-          {"type": "text", "id": "t_tlener", "color": "#18181b", "role": "paragraph", "size": 24, "text": "$0", "weight": 700},
-          {"type": "row", "id": "r_x4pf89", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_wchbbq", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_q7ssw8", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_fw4ny0", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_k87ze8", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_qmr0jd", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_xtgo8w", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_hw7sb9", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_gcleiy", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_z0b4rf", "align": "center", "crossAlign": "center", "fill": "#f4f4f5", "padding": 7, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_ppomh5", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
-          ]}
+  "root": {"type": "page", "id": "root", "crossAlign": "start", "direction": "row", "fill": "#d4d4d8", "gap": 40, "padding": 40, "children": [
+    {"type": "row", "id": "r_1mwc0f", "name": "Pricing", "crossAlign": "center", "fill": "#fafafa", "gap": 12, "padding": 24, "width": 560, "children": [
+      {"type": "column", "id": "c_smqgsq", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
+        {"type": "text", "id": "t_d4kmd5", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Starter", "weight": 600},
+        {"type": "text", "id": "t_tlener", "color": "#18181b", "role": "paragraph", "size": 24, "text": "$0", "weight": 700},
+        {"type": "row", "id": "r_x4pf89", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_wchbbq", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_q7ssw8", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "column", "id": "c_kncw6h", "border": {"color": "#18181b", "style": "solid", "width": 1}, "fill": "#18181b", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
-          {"type": "text", "id": "t_31l096", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "Pro", "weight": 600},
-          {"type": "text", "id": "t_dhxor8", "color": "#ffffff", "role": "paragraph", "size": 24, "text": "$24", "weight": 700},
-          {"type": "row", "id": "r_g9d3uj", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_2eogvi", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
-            {"type": "text", "id": "t_aseqg4", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_femvlt", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_09e8q0", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
-            {"type": "text", "id": "t_2o6bn3", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_zizvsr", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_wm8zpo", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
-            {"type": "text", "id": "t_2szcht", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_fgfpmf", "align": "center", "crossAlign": "center", "fill": "#ffffff", "padding": 7, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_awjtlc", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
-          ]}
+        {"type": "row", "id": "r_fw4ny0", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_k87ze8", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_qmr0jd", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "column", "id": "c_v42m77", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
-          {"type": "text", "id": "t_jms90y", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Enterprise", "weight": 600},
-          {"type": "text", "id": "t_xw9w37", "color": "#18181b", "role": "paragraph", "size": 24, "text": "Custom", "weight": 700},
-          {"type": "row", "id": "r_yamgfq", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_np2mgy", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_xqzp8d", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_8t67md", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_8b5xj3", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_e02sd7", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_ptke66", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "image", "id": "img_z8jbzj", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
-            {"type": "text", "id": "t_w3kww1", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
-          ]},
-          {"type": "row", "id": "r_itlmc0", "align": "center", "crossAlign": "center", "fill": "#f4f4f5", "padding": 7, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_w9rl7v", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
-          ]}
+        {"type": "row", "id": "r_xtgo8w", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_hw7sb9", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_gcleiy", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
+        ]},
+        {"type": "row", "id": "r_z0b4rf", "align": "center", "crossAlign": "center", "fill": "#f4f4f5", "padding": 7, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_ppomh5", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
         ]}
       ]},
-      {"type": "column", "id": "c_4e3i50", "name": "Alarm modal", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 12, "padding": 20, "radius": 12, "width": 360, "children": [
-        {"type": "row", "id": "r_cohzq7", "align": "between", "crossAlign": "center", "width": "fill", "children": [
-          {"type": "text", "id": "t_igz0mu", "color": "#18181b", "role": "paragraph", "size": 15, "text": "Configure alarm", "weight": 700},
-          {"type": "image", "id": "img_oxh97w", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "#71717a", "width": 16}
+      {"type": "column", "id": "c_kncw6h", "border": {"color": "#18181b", "style": "solid", "width": 1}, "fill": "#18181b", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
+        {"type": "text", "id": "t_31l096", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "Pro", "weight": 600},
+        {"type": "text", "id": "t_dhxor8", "color": "#ffffff", "role": "paragraph", "size": 24, "text": "$24", "weight": 700},
+        {"type": "row", "id": "r_g9d3uj", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_2eogvi", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
+          {"type": "text", "id": "t_aseqg4", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "column", "id": "c_xmdw6t", "gap": 4, "width": "fill", "children": [
-          {"type": "text", "id": "t_ejat9w", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Alarm type", "weight": 500},
-          {"type": "row", "id": "r_te9q7z", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_yjkafz", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Temperature"},
-            {"type": "image", "id": "img_2cqvuh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
-          ]}
+        {"type": "row", "id": "r_femvlt", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_09e8q0", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
+          {"type": "text", "id": "t_2o6bn3", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "column", "id": "c_b78mdn", "gap": 4, "width": "fill", "children": [
-          {"type": "text", "id": "t_wm1tri", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Threshold", "weight": 500},
-          {"type": "row", "id": "r_jig293", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_07luu8", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Above 75 °C"},
-            {"type": "image", "id": "img_jshkvx", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
-          ]}
+        {"type": "row", "id": "r_zizvsr", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_wm8zpo", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12},
+          {"type": "text", "id": "t_2szcht", "color": "#d4d4d8", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "column", "id": "c_ytytt9", "gap": 4, "width": "fill", "children": [
-          {"type": "text", "id": "t_l8p41e", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Notify", "weight": 500},
-          {"type": "row", "id": "r_0fu6xf", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
-            {"type": "text", "id": "t_ah2huq", "color": "#18181b", "role": "paragraph", "size": 12, "text": "On-call team"},
-            {"type": "image", "id": "img_ebyzg7", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
-          ]}
+        {"type": "row", "id": "r_fgfpmf", "align": "center", "crossAlign": "center", "fill": "#ffffff", "padding": 7, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_awjtlc", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
+        ]}
+      ]},
+      {"type": "column", "id": "c_v42m77", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 8, "padding": 16, "radius": 10, "width": "fill", "children": [
+        {"type": "text", "id": "t_jms90y", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Enterprise", "weight": 600},
+        {"type": "text", "id": "t_xw9w37", "color": "#18181b", "role": "paragraph", "size": 24, "text": "Custom", "weight": 700},
+        {"type": "row", "id": "r_yamgfq", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_np2mgy", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_xqzp8d", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
         ]},
-        {"type": "row", "id": "r_rs751a", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-          {"type": "row", "id": "r_eyqckf", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
-            {"type": "text", "id": "t_n608o1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Cancel"}
-          ]},
-          {"type": "row", "id": "r_mr54ia", "crossAlign": "center", "fill": "#2563eb", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
-            {"type": "text", "id": "t_nxwz7e", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "Save alarm", "weight": 500}
-          ]}
+        {"type": "row", "id": "r_8t67md", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_8b5xj3", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_e02sd7", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
+        ]},
+        {"type": "row", "id": "r_ptke66", "crossAlign": "center", "gap": 6, "children": [
+          {"type": "image", "id": "img_z8jbzj", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#18181b", "width": 12},
+          {"type": "text", "id": "t_w3kww1", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Unlimited devices"}
+        ]},
+        {"type": "row", "id": "r_itlmc0", "align": "center", "crossAlign": "center", "fill": "#f4f4f5", "padding": 7, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_w9rl7v", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Choose", "weight": 600}
+        ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_4e3i50", "name": "Alarm modal", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 12, "padding": 20, "radius": 12, "width": 360, "children": [
+      {"type": "row", "id": "r_cohzq7", "align": "between", "crossAlign": "center", "width": "fill", "children": [
+        {"type": "text", "id": "t_igz0mu", "color": "#18181b", "role": "paragraph", "size": 15, "text": "Configure alarm", "weight": 700},
+        {"type": "image", "id": "img_oxh97w", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "#71717a", "width": 16}
+      ]},
+      {"type": "column", "id": "c_xmdw6t", "gap": 4, "width": "fill", "children": [
+        {"type": "text", "id": "t_ejat9w", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Alarm type", "weight": 500},
+        {"type": "row", "id": "r_te9q7z", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_yjkafz", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Temperature"},
+          {"type": "image", "id": "img_2cqvuh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
+        ]}
+      ]},
+      {"type": "column", "id": "c_b78mdn", "gap": 4, "width": "fill", "children": [
+        {"type": "text", "id": "t_wm1tri", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Threshold", "weight": 500},
+        {"type": "row", "id": "r_jig293", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_07luu8", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Above 75 °C"},
+          {"type": "image", "id": "img_jshkvx", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
+        ]}
+      ]},
+      {"type": "column", "id": "c_ytytt9", "gap": 4, "width": "fill", "children": [
+        {"type": "text", "id": "t_l8p41e", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Notify", "weight": 500},
+        {"type": "row", "id": "r_0fu6xf", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": 8, "radius": 6, "width": "fill", "children": [
+          {"type": "text", "id": "t_ah2huq", "color": "#18181b", "role": "paragraph", "size": 12, "text": "On-call team"},
+          {"type": "image", "id": "img_ebyzg7", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
+        ]}
+      ]},
+      {"type": "row", "id": "r_rs751a", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+        {"type": "row", "id": "r_eyqckf", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+          {"type": "text", "id": "t_n608o1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Cancel"}
+        ]},
+        {"type": "row", "id": "r_mr54ia", "crossAlign": "center", "fill": "#2563eb", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+          {"type": "text", "id": "t_nxwz7e", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "Save alarm", "weight": 500}
         ]}
       ]}
     ]}

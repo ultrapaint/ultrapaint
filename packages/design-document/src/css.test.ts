@@ -174,6 +174,22 @@ describe("declarationsOf", () => {
   });
 });
 
+describe("a page as its own container", () => {
+  it("runs as a row when its direction says so, and as a column otherwise (ADR 0075)", () => {
+    const page: DesignNode = { children: [], id: "p", type: "page" };
+    const row: DesignNode = { ...page, direction: "row" };
+    const ctx = makeStyleContext(ds);
+    expect(declarationsOf(row, ctx)).toMatchObject({
+      display: "flex",
+      flexDirection: "row",
+      minHeight: "100vh",
+    });
+    expect(declarationsOf(page, ctx).flexDirection).toBe("column");
+    expect(runsInRow(row, [])).toBe(true);
+    expect(runsInRow(page, [])).toBe(false);
+  });
+});
+
 describe("runsInRow", () => {
   const group: DesignNode = { children: [], id: "g", type: "group" };
   const box = (x: number, y: number) => ({ height: 20, width: 40, x, y });

@@ -1,191 +1,189 @@
 {
-  "root": {"type": "page", "id": "root", "fill": "oklch(0.99 0.001 80)", "gap": 0, "children": [
-    {"type": "row", "id": "r_h7ilpi", "name": "Editor", "fill": "oklch(0.945 0.004 80)", "gap": 8, "height": 900, "padding": 8, "width": "fill", "children": [
-      {"type": "column", "id": "c_0viidp", "name": "Left card", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.955 0.004 80)", "gap": 8, "height": "fill", "padding": 8, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": 382, "children": [
-        {"type": "row", "id": "r_pgzmrf", "crossAlign": "center", "gap": 10, "padding": {"left": 4, "right": 4, "top": 2}, "width": "fill", "children": [
-          {"type": "row", "id": "r_azd1ek", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 24, "radius": 6, "width": 24, "children": [
-            {"type": "text", "id": "t_s5atam", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 14, "text": "U", "weight": 700}
-          ]},
-          {"type": "column", "id": "c_0ovjos", "gap": 0, "children": [
-            {"type": "text", "id": "t_hy0pma", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 600},
-            {"type": "row", "id": "r_hnhzd5", "crossAlign": "center", "gap": 4, "children": [
-              {"type": "image", "id": "img_hyhlfb", "name": "git-branch", "height": 12, "src": "assets/icons/git-branch.svg", "tint": "oklch(0.53 0.01 65)", "width": 12},
-              {"type": "text", "id": "t_rv6zrd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "main"}
-            ]}
-          ]},
-          {"type": "row", "id": "r_0bcp0m", "width": "fill", "children": []},
-          {"type": "image", "id": "img_k3za1t", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
-          {"type": "image", "id": "img_uoxs5z", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+  "root": {"type": "page", "id": "root", "direction": "row", "fill": "oklch(0.945 0.004 80)", "gap": 8, "padding": 8, "children": [
+    {"type": "column", "id": "c_0viidp", "name": "Left card", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.955 0.004 80)", "gap": 8, "height": "fill", "padding": 8, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": 382, "children": [
+      {"type": "row", "id": "r_pgzmrf", "crossAlign": "center", "gap": 10, "padding": {"left": 4, "right": 4, "top": 2}, "width": "fill", "children": [
+        {"type": "row", "id": "r_azd1ek", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 24, "radius": 6, "width": 24, "children": [
+          {"type": "text", "id": "t_s5atam", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 14, "text": "U", "weight": 700}
         ]},
-        {"type": "row", "id": "r_bef527", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "gap": 8, "height": 32, "padding": {"left": 10, "right": 10}, "radius": 8, "width": "fill", "children": [
-          {"type": "image", "id": "img_gx6ue8", "name": "hash", "height": 16, "src": "assets/icons/hash.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
-          {"type": "text", "id": "t_kjhby7", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "App", "weight": 500},
-          {"type": "row", "id": "r_m7brj1", "width": "fill", "children": []},
-          {"type": "image", "id": "img_g2ysmx", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+        {"type": "column", "id": "c_0ovjos", "gap": 0, "children": [
+          {"type": "text", "id": "t_hy0pma", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 600},
+          {"type": "row", "id": "r_hnhzd5", "crossAlign": "center", "gap": 4, "children": [
+            {"type": "image", "id": "img_hyhlfb", "name": "git-branch", "height": 12, "src": "assets/icons/git-branch.svg", "tint": "oklch(0.53 0.01 65)", "width": 12},
+            {"type": "text", "id": "t_rv6zrd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "main"}
+          ]}
         ]},
-        {"type": "row", "id": "r_lj8sma", "gap": 6, "height": "fill", "width": "fill", "children": [
-          {"type": "column", "id": "c_rsbs4s", "gap": 4, "height": "fill", "width": 32, "children": [
-            {"type": "column", "id": "c_uanup6", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_gqpb5y", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "oklch(0.21 0.006 60)", "width": 18},
-              {"type": "row", "id": "r_2kwrem", "name": "Running dot", "border": {"color": "oklch(0.955 0.004 80)", "style": "solid", "width": 1.5}, "fill": "#ec4899", "height": 8, "margin": {"left": 20, "top": -24}, "radius": 999, "width": 8, "children": []}
-            ]},
-            {"type": "column", "id": "c_kz0ch2", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_0fnb6v", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_v27vky", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_aggbtf", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_m3hlz2", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_izq2uk", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_t9l96x", "height": "fill", "children": []},
-            {"type": "column", "id": "c_chuh1a", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_xyncc4", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_pkkorx", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_o3n8y0", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_jrnm4d", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 999, "width": 32, "children": [
-              {"type": "text", "id": "t_qsaedh", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 11, "text": "AN", "weight": 600}
-            ]}
+        {"type": "row", "id": "r_0bcp0m", "width": "fill", "children": []},
+        {"type": "image", "id": "img_k3za1t", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
+        {"type": "image", "id": "img_uoxs5z", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+      ]},
+      {"type": "row", "id": "r_bef527", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "gap": 8, "height": 32, "padding": {"left": 10, "right": 10}, "radius": 8, "width": "fill", "children": [
+        {"type": "image", "id": "img_gx6ue8", "name": "hash", "height": 16, "src": "assets/icons/hash.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
+        {"type": "text", "id": "t_kjhby7", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "App", "weight": 500},
+        {"type": "row", "id": "r_m7brj1", "width": "fill", "children": []},
+        {"type": "image", "id": "img_g2ysmx", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+      ]},
+      {"type": "row", "id": "r_lj8sma", "gap": 6, "height": "fill", "width": "fill", "children": [
+        {"type": "column", "id": "c_rsbs4s", "gap": 4, "height": "fill", "width": 32, "children": [
+          {"type": "column", "id": "c_uanup6", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_gqpb5y", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "oklch(0.21 0.006 60)", "width": 18},
+            {"type": "row", "id": "r_2kwrem", "name": "Running dot", "border": {"color": "oklch(0.955 0.004 80)", "style": "solid", "width": 1.5}, "fill": "#ec4899", "height": 8, "margin": {"left": 20, "top": -24}, "radius": 999, "width": 8, "children": []}
           ]},
-          {"type": "column", "id": "c_4adblz", "name": "Panel", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 10, "height": "fill", "padding": 12, "radius": 10, "width": "fill", "children": [
-            {"type": "row", "id": "r_lafzs7", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-              {"type": "image", "id": "img_tw8gxl", "name": "chevron-right", "height": 16, "src": "assets/icons/chevron-right.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
-              {"type": "text", "id": "t_0oq4bw", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Set up bike-shop", "weight": 600},
-              {"type": "row", "id": "r_yuzaqe", "width": "fill", "children": []},
-              {"type": "image", "id": "img_mqpap2", "name": "square-pen", "height": 16, "src": "assets/icons/square-pen.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+          {"type": "column", "id": "c_kz0ch2", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_0fnb6v", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_v27vky", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_aggbtf", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_m3hlz2", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_izq2uk", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_t9l96x", "height": "fill", "children": []},
+          {"type": "column", "id": "c_chuh1a", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_xyncc4", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_pkkorx", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_o3n8y0", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_jrnm4d", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 999, "width": 32, "children": [
+            {"type": "text", "id": "t_qsaedh", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 11, "text": "AN", "weight": 600}
+          ]}
+        ]},
+        {"type": "column", "id": "c_4adblz", "name": "Panel", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 10, "height": "fill", "padding": 12, "radius": 10, "width": "fill", "children": [
+          {"type": "row", "id": "r_lafzs7", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+            {"type": "image", "id": "img_tw8gxl", "name": "chevron-right", "height": 16, "src": "assets/icons/chevron-right.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
+            {"type": "text", "id": "t_0oq4bw", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Set up bike-shop", "weight": 600},
+            {"type": "row", "id": "r_yuzaqe", "width": "fill", "children": []},
+            {"type": "image", "id": "img_mqpap2", "name": "square-pen", "height": 16, "src": "assets/icons/square-pen.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+          ]},
+          {"type": "column", "id": "c_kcj1jm", "gap": 12, "height": "fill", "padding": {"top": 6}, "width": "fill", "children": [
+            {"type": "row", "id": "r_poqibx", "crossAlign": "center", "gap": 6, "children": [
+              {"type": "image", "id": "img_76ibk4", "name": "folder-open", "height": 14, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_b9blmn", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opened ~/Code/bike-shop"}
             ]},
-            {"type": "column", "id": "c_kcj1jm", "gap": 12, "height": "fill", "padding": {"top": 6}, "width": "fill", "children": [
-              {"type": "row", "id": "r_poqibx", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "image", "id": "img_76ibk4", "name": "folder-open", "height": 14, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_b9blmn", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opened ~/Code/bike-shop"}
+            {"type": "column", "id": "c_g1sv90", "gap": 6, "children": [
+              {"type": "row", "id": "r_lf6usa", "crossAlign": "center", "gap": 8, "children": [
+                {"type": "image", "id": "img_vogam6", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+                {"type": "text", "id": "t_d011y4", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Found a React app: Vite, Tailwind CSS v4, 31 components"}
               ]},
-              {"type": "column", "id": "c_g1sv90", "gap": 6, "children": [
-                {"type": "row", "id": "r_lf6usa", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_vogam6", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                  {"type": "text", "id": "t_d011y4", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Found a React app: Vite, Tailwind CSS v4, 31 components"}
-                ]},
-                {"type": "row", "id": "r_5q2szr", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_j6vrcz", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                  {"type": "text", "id": "t_pxm7r3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Keeping the designs in designs/, beside src/"}
-                ]},
-                {"type": "row", "id": "r_c3kvt9", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_b35139", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "#ec4899", "width": 14},
-                  {"type": "text", "id": "t_c0u9e1", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Reading its pages: 9 routes"}
-                ]}
+              {"type": "row", "id": "r_5q2szr", "crossAlign": "center", "gap": 8, "children": [
+                {"type": "image", "id": "img_j6vrcz", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+                {"type": "text", "id": "t_pxm7r3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Keeping the designs in designs/, beside src/"}
               ]},
-              {"type": "text", "id": "t_00cj5u", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Setting bike-shop up so you can design in it. Nothing in your code changes: I add a designs/ folder and ultrapaint.config.json."}
+              {"type": "row", "id": "r_c3kvt9", "crossAlign": "center", "gap": 8, "children": [
+                {"type": "image", "id": "img_b35139", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "#ec4899", "width": 14},
+                {"type": "text", "id": "t_c0u9e1", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Reading its pages: 9 routes"}
+              ]}
             ]},
-            {"type": "column", "id": "c_ydyua0", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
-              {"type": "column", "id": "c_6bjuim", "minHeight": 24, "width": "fill", "children": [
-                {"type": "text", "id": "t_g3jgxt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Queue a follow-up…"}
+            {"type": "text", "id": "t_00cj5u", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Setting bike-shop up so you can design in it. Nothing in your code changes: I add a designs/ folder and ultrapaint.config.json."}
+          ]},
+          {"type": "column", "id": "c_ydyua0", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
+            {"type": "column", "id": "c_6bjuim", "minHeight": 24, "width": "fill", "children": [
+              {"type": "text", "id": "t_g3jgxt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Queue a follow-up…"}
+            ]},
+            {"type": "row", "id": "r_dxks38", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+              {"type": "row", "id": "r_od3u9u", "name": "Button · plus", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+                {"type": "image", "id": "img_osdyu9", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
               ]},
-              {"type": "row", "id": "r_dxks38", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
-                {"type": "row", "id": "r_od3u9u", "name": "Button · plus", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-                  {"type": "image", "id": "img_osdyu9", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
-                ]},
-                {"type": "row", "id": "r_346weo", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
-                  {"type": "text", "id": "t_jkbb7j", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
-                  {"type": "text", "id": "t_1cd284", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
-                  {"type": "image", "id": "img_xoloeb", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
-                ]},
-                {"type": "row", "id": "r_669qc8", "width": "fill", "children": []},
-                {"type": "row", "id": "r_vri5vn", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
-                  {"type": "row", "id": "r_knexuc", "fill": "oklch(0.21 0.006 60)", "height": 10, "radius": 2, "width": 10, "children": []}
-                ]}
+              {"type": "row", "id": "r_346weo", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+                {"type": "text", "id": "t_jkbb7j", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_1cd284", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+                {"type": "image", "id": "img_xoloeb", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+              ]},
+              {"type": "row", "id": "r_669qc8", "width": "fill", "children": []},
+              {"type": "row", "id": "r_vri5vn", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
+                {"type": "row", "id": "r_knexuc", "fill": "oklch(0.21 0.006 60)", "height": 10, "radius": 2, "width": 10, "children": []}
               ]}
             ]}
           ]}
         ]}
-      ]},
-      {"type": "column", "id": "c_4yncxb", "name": "Canvas", "crossAlign": "center", "gap": 0, "height": "fill", "width": "fill", "children": [
-        {"type": "row", "id": "r_p51wsm", "crossAlign": "start", "padding": {"top": 0}, "width": "fill", "children": [
-          {"type": "row", "id": "r_5958ck", "width": "fill", "children": []},
-          {"type": "row", "id": "r_a3agdv", "name": "Mode tabs", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 2, "padding": 3, "radius": 10, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
-            {"type": "row", "id": "r_2pt8r2", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_eji6dd", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Canvas", "weight": 500}
-            ]},
-            {"type": "row", "id": "r_zim9v3", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_x12zmo", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Design system", "weight": 500}
-            ]},
-            {"type": "row", "id": "r_i8t4ub", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_vp0k50", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Prototype", "weight": 500}
-            ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_4yncxb", "name": "Canvas", "crossAlign": "center", "gap": 0, "height": "fill", "width": "fill", "children": [
+      {"type": "row", "id": "r_p51wsm", "crossAlign": "start", "padding": {"top": 0}, "width": "fill", "children": [
+        {"type": "row", "id": "r_5958ck", "width": "fill", "children": []},
+        {"type": "row", "id": "r_a3agdv", "name": "Mode tabs", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 2, "padding": 3, "radius": 10, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
+          {"type": "row", "id": "r_2pt8r2", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_eji6dd", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Canvas", "weight": 500}
           ]},
-          {"type": "row", "id": "r_cv4c4r", "align": "end", "width": "fill", "children": []}
-        ]},
-        {"type": "column", "id": "c_1w7su2", "align": "center", "crossAlign": "center", "height": "fill", "padding": {"bottom": 16, "top": 16}, "width": "fill", "children": [
-          {"type": "column", "id": "c_7toe2z", "crossAlign": "center", "gap": 18, "width": 640, "children": [
-            {"type": "column", "id": "c_vpsk7u", "crossAlign": "center", "gap": 4, "children": [
-              {"type": "image", "id": "img_6i7wza", "name": "frame", "height": 20, "src": "assets/icons/frame.svg", "tint": "oklch(0.53 0.01 65)", "width": 20},
-              {"type": "text", "id": "t_3ub7s8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Nothing designed in bike-shop yet", "weight": 600},
-              {"type": "text", "id": "t_qx69dn", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Describe a screen, or start from one of the app’s pages."}
-            ]},
-            {"type": "column", "id": "c_odzmai", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
-              {"type": "column", "id": "c_pripyx", "minHeight": 40, "width": "fill", "children": [
-                {"type": "text", "id": "t_8i9bpt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Describe a screen, or what to change in one…"}
-              ]},
-              {"type": "row", "id": "r_pukfdt", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
-                {"type": "row", "id": "r_chjnuy", "name": "Button · paperclip", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-                  {"type": "image", "id": "img_g5s5zu", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
-                ]},
-                {"type": "row", "id": "r_ga0gec", "width": "fill", "children": []},
-                {"type": "row", "id": "r_tplmba", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
-                  {"type": "text", "id": "t_nzd7e9", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
-                  {"type": "text", "id": "t_t2p16a", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
-                  {"type": "image", "id": "img_sejwm1", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
-                ]},
-                {"type": "row", "id": "r_bq1t5y", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
-                  {"type": "image", "id": "img_y59dgk", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
-                ]}
-              ]}
-            ]},
-            {"type": "row", "id": "r_2mh00j", "align": "center", "gap": 8, "wrap": true, "children": [
-              {"type": "row", "id": "r_89zr2h", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-                {"type": "image", "id": "img_ldcvtm", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_4t4jbd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Redesign /orders"}
-              ]},
-              {"type": "row", "id": "r_8rdgxi", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-                {"type": "image", "id": "img_2jm2hs", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_hc5ugd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Redesign /settings"}
-              ]},
-              {"type": "row", "id": "r_1rnbdd", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-                {"type": "image", "id": "img_ka4gsz", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_tc3tb0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A new page"}
-              ]}
-            ]}
+          {"type": "row", "id": "r_zim9v3", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_x12zmo", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Design system", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_i8t4ub", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_vp0k50", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Prototype", "weight": 500}
           ]}
         ]},
-        {"type": "row", "id": "r_j8qthe", "padding": {"bottom": 4}, "children": [
-          {"type": "row", "id": "r_erdcor", "name": "Toolbar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
-            {"type": "row", "id": "r_w6tlpi", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_wen5vc", "name": "mouse-pointer-2", "height": 16, "src": "assets/icons/mouse-pointer-2.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+        {"type": "row", "id": "r_cv4c4r", "align": "end", "width": "fill", "children": []}
+      ]},
+      {"type": "column", "id": "c_1w7su2", "align": "center", "crossAlign": "center", "height": "fill", "padding": {"bottom": 16, "top": 16}, "width": "fill", "children": [
+        {"type": "column", "id": "c_7toe2z", "crossAlign": "center", "gap": 18, "width": 640, "children": [
+          {"type": "column", "id": "c_vpsk7u", "crossAlign": "center", "gap": 4, "children": [
+            {"type": "image", "id": "img_6i7wza", "name": "frame", "height": 20, "src": "assets/icons/frame.svg", "tint": "oklch(0.53 0.01 65)", "width": 20},
+            {"type": "text", "id": "t_3ub7s8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Nothing designed in bike-shop yet", "weight": 600},
+            {"type": "text", "id": "t_qx69dn", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Describe a screen, or start from one of the app’s pages."}
+          ]},
+          {"type": "column", "id": "c_odzmai", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
+            {"type": "column", "id": "c_pripyx", "minHeight": 40, "width": "fill", "children": [
+              {"type": "text", "id": "t_8i9bpt", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Describe a screen, or what to change in one…"}
             ]},
-            {"type": "row", "id": "r_aids8z", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_j4onl6", "name": "frame", "height": 18, "src": "assets/icons/frame.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_9uxp0k", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_zeli3e", "name": "type", "height": 18, "src": "assets/icons/type.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_xi5uk3", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_4etf5s", "name": "hand", "height": 18, "src": "assets/icons/hand.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_cq7unb", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_4swv2d", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_3wi6cc", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
-            {"type": "row", "id": "r_d5c5bg", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_4qv3hc", "name": "undo-2", "height": 18, "src": "assets/icons/undo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_kyoa36", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_imkup8", "name": "redo-2", "height": 18, "src": "assets/icons/redo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_whmt3k", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
-            {"type": "row", "id": "r_zfcod9", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
-              {"type": "text", "id": "t_zi8x61", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "60%", "weight": 500},
-              {"type": "image", "id": "img_al6aau", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            {"type": "row", "id": "r_pukfdt", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+              {"type": "row", "id": "r_chjnuy", "name": "Button · paperclip", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+                {"type": "image", "id": "img_g5s5zu", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              ]},
+              {"type": "row", "id": "r_ga0gec", "width": "fill", "children": []},
+              {"type": "row", "id": "r_tplmba", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+                {"type": "text", "id": "t_nzd7e9", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_t2p16a", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+                {"type": "image", "id": "img_sejwm1", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+              ]},
+              {"type": "row", "id": "r_bq1t5y", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
+                {"type": "image", "id": "img_y59dgk", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              ]}
             ]}
+          ]},
+          {"type": "row", "id": "r_2mh00j", "align": "center", "gap": 8, "wrap": true, "children": [
+            {"type": "row", "id": "r_89zr2h", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+              {"type": "image", "id": "img_ldcvtm", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_4t4jbd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Redesign /orders"}
+            ]},
+            {"type": "row", "id": "r_8rdgxi", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+              {"type": "image", "id": "img_2jm2hs", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_hc5ugd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Redesign /settings"}
+            ]},
+            {"type": "row", "id": "r_1rnbdd", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
+              {"type": "image", "id": "img_ka4gsz", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_tc3tb0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A new page"}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_j8qthe", "padding": {"bottom": 4}, "children": [
+        {"type": "row", "id": "r_erdcor", "name": "Toolbar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
+          {"type": "row", "id": "r_w6tlpi", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_wen5vc", "name": "mouse-pointer-2", "height": 16, "src": "assets/icons/mouse-pointer-2.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+          ]},
+          {"type": "row", "id": "r_aids8z", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_j4onl6", "name": "frame", "height": 18, "src": "assets/icons/frame.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_9uxp0k", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_zeli3e", "name": "type", "height": 18, "src": "assets/icons/type.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_xi5uk3", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_4etf5s", "name": "hand", "height": 18, "src": "assets/icons/hand.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_cq7unb", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_4swv2d", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_3wi6cc", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
+          {"type": "row", "id": "r_d5c5bg", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_4qv3hc", "name": "undo-2", "height": 18, "src": "assets/icons/undo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_kyoa36", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_imkup8", "name": "redo-2", "height": 18, "src": "assets/icons/redo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_whmt3k", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
+          {"type": "row", "id": "r_zfcod9", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
+            {"type": "text", "id": "t_zi8x61", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "60%", "weight": 500},
+            {"type": "image", "id": "img_al6aau", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
           ]}
         ]}
       ]}

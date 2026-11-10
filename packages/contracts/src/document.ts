@@ -81,6 +81,9 @@ export const CrossAlign = Schema.Literals([
 ]);
 export type CrossAlign = typeof CrossAlign.Type;
 
+export const PageDirection = Schema.Literals(["row", "column"]);
+export type PageDirection = typeof PageDirection.Type;
+
 export const TextAlign = Schema.Literals(["start", "center", "end"]);
 export type TextAlign = typeof TextAlign.Type;
 
@@ -168,9 +171,15 @@ interface StackFields {
   readonly wrap?: boolean | undefined;
 }
 
+/**
+ * A page's root, the screen's own container: a column unless `direction` says row, at least as
+ * tall as the screen (ADR 0075).
+ */
 export interface PageNode extends BoxFields, StackFields {
   readonly at?: AtBreakpoints<OverrideOf<PageNode>> | undefined;
   readonly children: readonly DesignNode[];
+  /** Which way it lays its children out; a column when absent. */
+  readonly direction?: PageDirection | undefined;
   readonly type: "page";
 }
 
@@ -335,11 +344,19 @@ const children = Schema.Array(
   Schema.suspend((): Schema.Codec<DesignNode> => DesignNode)
 );
 
+const direction = Schema.optional(
+  PageDirection.annotate({
+    description:
+      'Which way the page lays its children out: "row" or "column" (the default). The page is the screen\'s container; it needs no row or column around its content.',
+  })
+);
+
 const PageNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
-  at: atBreakpoints({ ...boxOverride, ...stackFields }),
+  at: atBreakpoints({ ...boxOverride, ...stackFields, direction }),
   children,
+  direction,
   type: Schema.Literal("page"),
 });
 

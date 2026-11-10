@@ -323,7 +323,9 @@ ${designs ? `\n${designChat(reviewed)}` : ""}
 ${canvasesIn(settings.designsDir)}
 ${PAGES}
 It holds a tree of nodes, each with an id:
-- page: the root; lays its children out as a column.
+- page: the root and the screen's container, at least the screen's height: a column, or a row
+  with direction "row"; it takes padding, gap, align and fill itself, so the content needs no
+  row or column around it.
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.
 - group: a plain container; its children stack.

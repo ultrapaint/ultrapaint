@@ -93,7 +93,9 @@ refactor and the board view left.
   type), the steps of Tailwind's default scales, and the keywords each utility takes as Tailwind
   compiles them, both ways (`w-full` is `100%`; a gap takes none, `gap-[100%]`). What a class means stays the reader's: a look's field, DESIGN.md's
   token, the usage inventory's kind.
-- **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
+- **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). Its root is
+  the screen's own container, a column or a row (`direction`, ADR 0075); a row or column under it
+  that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its

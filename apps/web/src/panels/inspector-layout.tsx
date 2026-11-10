@@ -1,6 +1,7 @@
 /** The inspector's layout, size and spacing sections. */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, Padding } from "@ultrapaint/contracts/document";
+import { layoutOf } from "@ultrapaint/design-document/css";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import {
   AlignCenterHorizontal,
@@ -94,8 +95,9 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
   if (!node) {
     return null;
   }
-  // The icons are drawn the way the first one runs.
-  const row = node.type === "row";
+  // The icons are drawn the way the first one runs: a page runs as its direction says.
+  const runsAsRow = (n: Stack) => layoutOf(n) === "row";
+  const row = runsAsRow(node);
   const flex = nodes.every((n) => n.type !== "group");
   const icons = alignIcons(row);
   const [Start, Center, End, Between] = icons.along;
@@ -104,7 +106,22 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
     Icon ? <Icon /> : null;
   return (
     <Section title="Layout">
-      {node.type !== "page" && (
+      {nodes.every((n) => n.type === "page") && (
+        // The page is the screen's container, a row or a column (ADR 0075).
+        <Row label="Direction">
+          <Segmented
+            onChange={(v) => set("direction", v === "row" ? "row" : null)}
+            options={[
+              { label: "Row", value: "row" },
+              { label: "Column", value: "column" },
+            ]}
+            value={nullIfMixed(
+              sharedOf(nodes, (n) => (runsAsRow(n) ? "row" : "column"))
+            )}
+          />
+        </Row>
+      )}
+      {nodes.every((n) => n.type !== "page") && (
         <Row label="Type">
           <Segmented
             onChange={(v) => set("type", v)}
@@ -158,7 +175,7 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
               )}
             />
           </Row>
-          {nodes.every((n) => n.type === "row") && (
+          {nodes.every(runsAsRow) && (
             <Row label="Wrap">
               <Segmented
                 onChange={(v) => set("wrap", v === "wrap" ? true : null)}

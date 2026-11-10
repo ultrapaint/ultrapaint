@@ -1,247 +1,245 @@
 {
-  "root": {"type": "page", "id": "root", "fill": "oklch(0.99 0.001 80)", "gap": 0, "children": [
-    {"type": "row", "id": "r_fsilx3", "name": "Editor", "fill": "oklch(0.945 0.004 80)", "gap": 8, "height": 900, "padding": 8, "width": "fill", "children": [
-      {"type": "column", "id": "c_bjj2d3", "name": "Left card", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.955 0.004 80)", "gap": 8, "height": "fill", "padding": 8, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": 382, "children": [
-        {"type": "row", "id": "r_eg1r7q", "crossAlign": "center", "gap": 10, "padding": {"left": 4, "right": 4, "top": 2}, "width": "fill", "children": [
-          {"type": "row", "id": "r_8pdgpz", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 24, "radius": 6, "width": 24, "children": [
-            {"type": "text", "id": "t_sgbjn3", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 14, "text": "U", "weight": 700}
-          ]},
-          {"type": "column", "id": "c_drjrjh", "gap": 0, "children": [
-            {"type": "text", "id": "t_l74rzo", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 14, "text": "habit-tracker", "weight": 600},
-            {"type": "row", "id": "r_typct8", "crossAlign": "center", "gap": 4, "children": [
-              {"type": "image", "id": "img_hkzjsn", "name": "folder", "height": 12, "src": "assets/icons/folder.svg", "tint": "oklch(0.53 0.01 65)", "width": 12},
-              {"type": "text", "id": "t_eajdc7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Draft · ~/Ultrapaint/habit-tracker"}
-            ]}
-          ]},
-          {"type": "row", "id": "r_ne3okv", "width": "fill", "children": []},
-          {"type": "image", "id": "img_kn1yr8", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
-          {"type": "image", "id": "img_5idbq0", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+  "root": {"type": "page", "id": "root", "direction": "row", "fill": "oklch(0.945 0.004 80)", "gap": 8, "padding": 8, "children": [
+    {"type": "column", "id": "c_bjj2d3", "name": "Left card", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.955 0.004 80)", "gap": 8, "height": "fill", "padding": 8, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": 382, "children": [
+      {"type": "row", "id": "r_eg1r7q", "crossAlign": "center", "gap": 10, "padding": {"left": 4, "right": 4, "top": 2}, "width": "fill", "children": [
+        {"type": "row", "id": "r_8pdgpz", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 24, "radius": 6, "width": 24, "children": [
+          {"type": "text", "id": "t_sgbjn3", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 14, "text": "U", "weight": 700}
         ]},
-        {"type": "row", "id": "r_aamiwt", "gap": 6, "height": "fill", "width": "fill", "children": [
-          {"type": "column", "id": "c_po6pa9", "gap": 4, "height": "fill", "width": 32, "children": [
-            {"type": "column", "id": "c_2to0vv", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_rcjrju", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_9k72a4", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_xp82zu", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_ie345r", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_qbcmh1", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_5wd23t", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_rv42qo", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_i51zrr", "height": "fill", "children": []},
-            {"type": "column", "id": "c_b0yq5e", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_llxxs2", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "column", "id": "c_b7snlw", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_wbpb5p", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_54r52b", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 999, "width": 32, "children": [
-              {"type": "text", "id": "t_1ewump", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 11, "text": "AN", "weight": 600}
-            ]}
+        {"type": "column", "id": "c_drjrjh", "gap": 0, "children": [
+          {"type": "text", "id": "t_l74rzo", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 14, "text": "habit-tracker", "weight": 600},
+          {"type": "row", "id": "r_typct8", "crossAlign": "center", "gap": 4, "children": [
+            {"type": "image", "id": "img_hkzjsn", "name": "folder", "height": 12, "src": "assets/icons/folder.svg", "tint": "oklch(0.53 0.01 65)", "width": 12},
+            {"type": "text", "id": "t_eajdc7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Draft · ~/Ultrapaint/habit-tracker"}
+          ]}
+        ]},
+        {"type": "row", "id": "r_ne3okv", "width": "fill", "children": []},
+        {"type": "image", "id": "img_kn1yr8", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
+        {"type": "image", "id": "img_5idbq0", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+      ]},
+      {"type": "row", "id": "r_aamiwt", "gap": 6, "height": "fill", "width": "fill", "children": [
+        {"type": "column", "id": "c_po6pa9", "gap": 4, "height": "fill", "width": 32, "children": [
+          {"type": "column", "id": "c_2to0vv", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_rcjrju", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
           ]},
-          {"type": "column", "id": "c_w91llv", "name": "Panel", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 10, "height": "fill", "padding": 12, "radius": 10, "width": "fill", "children": [
-            {"type": "row", "id": "r_mmuz25", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-              {"type": "image", "id": "img_lhzn5v", "name": "chevron-right", "height": 16, "src": "assets/icons/chevron-right.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
-              {"type": "text", "id": "t_0k99bh", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Today’s habit screen", "weight": 600},
-              {"type": "row", "id": "r_baa8hk", "width": "fill", "children": []},
-              {"type": "image", "id": "img_o33xjh", "name": "square-pen", "height": 16, "src": "assets/icons/square-pen.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+          {"type": "column", "id": "c_9k72a4", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_xp82zu", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_ie345r", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_qbcmh1", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_5wd23t", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_rv42qo", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_i51zrr", "height": "fill", "children": []},
+          {"type": "column", "id": "c_b0yq5e", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_llxxs2", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "column", "id": "c_b7snlw", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_wbpb5p", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_54r52b", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "height": 32, "radius": 999, "width": 32, "children": [
+            {"type": "text", "id": "t_1ewump", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 11, "text": "AN", "weight": 600}
+          ]}
+        ]},
+        {"type": "column", "id": "c_w91llv", "name": "Panel", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 10, "height": "fill", "padding": 12, "radius": 10, "width": "fill", "children": [
+          {"type": "row", "id": "r_mmuz25", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+            {"type": "image", "id": "img_lhzn5v", "name": "chevron-right", "height": 16, "src": "assets/icons/chevron-right.svg", "tint": "oklch(0.53 0.01 65)", "width": 16},
+            {"type": "text", "id": "t_0k99bh", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Today’s habit screen", "weight": 600},
+            {"type": "row", "id": "r_baa8hk", "width": "fill", "children": []},
+            {"type": "image", "id": "img_o33xjh", "name": "square-pen", "height": 16, "src": "assets/icons/square-pen.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+          ]},
+          {"type": "column", "id": "c_g4spkl", "gap": 12, "height": "fill", "padding": {"top": 6}, "width": "fill", "children": [
+            {"type": "row", "id": "r_ril68d", "align": "end", "width": "fill", "children": [
+              {"type": "column", "id": "c_8l59fv", "fill": "oklch(0.955 0.003 80)", "maxWidth": 290, "padding": {"bottom": 8, "left": 12, "right": 12, "top": 8}, "radius": 12, "children": [
+                {"type": "text", "id": "t_8og7rf", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.45, "role": "paragraph", "size": 14, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
+              ]}
             ]},
-            {"type": "column", "id": "c_g4spkl", "gap": 12, "height": "fill", "padding": {"top": 6}, "width": "fill", "children": [
-              {"type": "row", "id": "r_ril68d", "align": "end", "width": "fill", "children": [
-                {"type": "column", "id": "c_8l59fv", "fill": "oklch(0.955 0.003 80)", "maxWidth": 290, "padding": {"bottom": 8, "left": 12, "right": 12, "top": 8}, "radius": 12, "children": [
-                  {"type": "text", "id": "t_8og7rf", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.45, "role": "paragraph", "size": 14, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
-                ]}
-              ]},
-              {"type": "row", "id": "r_rpf7im", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "image", "id": "img_m1w9rq", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_26xkl0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Worked for 1m 12s · 7 steps"}
-              ]},
-              {"type": "text", "id": "t_71z16l", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "I drew Today in the look you chose."},
-              {"type": "column", "id": "c_am0ujn", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
-                {"type": "row", "id": "r_jisdnm", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_xke1yr", "name": "palette", "height": 16, "src": "assets/icons/palette.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
-                  {"type": "text", "id": "t_qqtu90", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "The look", "weight": 600}
-                ]},
-                {"type": "column", "id": "c_3rp0ck", "gap": 4, "children": [
-                  {"type": "row", "id": "r_8jxbk7", "crossAlign": "center", "gap": 8, "children": [
-                    {"type": "row", "id": "r_qap0k4", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#5e5ce6", "height": 12, "radius": 999, "width": 12, "children": []},
-                    {"type": "text", "id": "t_an71xe", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Violet on warm white"}
-                  ]},
-                  {"type": "row", "id": "r_dn7d13", "crossAlign": "center", "gap": 8, "children": [
-                    {"type": "image", "id": "img_7d2pd4", "name": "circle", "height": 12, "src": "assets/icons/circle.svg", "tint": "transparent", "width": 12},
-                    {"type": "text", "id": "t_yamiv8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Inter"}
-                  ]},
-                  {"type": "row", "id": "r_zf9qv0", "crossAlign": "center", "gap": 8, "children": [
-                    {"type": "image", "id": "img_zu38x0", "name": "circle", "height": 12, "src": "assets/icons/circle.svg", "tint": "transparent", "width": 12},
-                    {"type": "text", "id": "t_p16g26", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Sharp corners, compact, outline icons"}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_4z5oh5", "gap": 8, "padding": {"top": 2}, "children": [
-                  {"type": "row", "id": "r_3qrh6t", "name": "Button · Change the look", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
-                    {"type": "text", "id": "t_ez93td", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Change the look", "weight": 500}
-                  ]}
-                ]}
-              ]},
-              {"type": "text", "id": "t_ncb9nl", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "It is written down in the Design system, with the reasons. Every page after this one uses it."}
+            {"type": "row", "id": "r_rpf7im", "crossAlign": "center", "gap": 6, "children": [
+              {"type": "image", "id": "img_m1w9rq", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+              {"type": "text", "id": "t_26xkl0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Worked for 1m 12s · 7 steps"}
             ]},
-            {"type": "column", "id": "c_h2y73h", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
-              {"type": "column", "id": "c_pd5ox6", "minHeight": 24, "width": "fill", "children": [
-                {"type": "text", "id": "t_tww27c", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Ask for a change…"}
+            {"type": "text", "id": "t_71z16l", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "I drew Today in the look you chose."},
+            {"type": "column", "id": "c_am0ujn", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_jisdnm", "crossAlign": "center", "gap": 8, "children": [
+                {"type": "image", "id": "img_xke1yr", "name": "palette", "height": 16, "src": "assets/icons/palette.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
+                {"type": "text", "id": "t_qqtu90", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "The look", "weight": 600}
               ]},
-              {"type": "row", "id": "r_rj2x6m", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
-                {"type": "row", "id": "r_ll0anz", "name": "Button · plus", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
-                  {"type": "image", "id": "img_yc49q7", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              {"type": "column", "id": "c_3rp0ck", "gap": 4, "children": [
+                {"type": "row", "id": "r_8jxbk7", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "row", "id": "r_qap0k4", "border": {"color": "oklch(0 0 0 / 10%)", "style": "solid", "width": 1}, "fill": "#5e5ce6", "height": 12, "radius": 999, "width": 12, "children": []},
+                  {"type": "text", "id": "t_an71xe", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Violet on warm white"}
                 ]},
-                {"type": "row", "id": "r_sg72hd", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
-                  {"type": "text", "id": "t_lkei97", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
-                  {"type": "text", "id": "t_aqe0vr", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
-                  {"type": "image", "id": "img_vd37bn", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+                {"type": "row", "id": "r_dn7d13", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "image", "id": "img_7d2pd4", "name": "circle", "height": 12, "src": "assets/icons/circle.svg", "tint": "transparent", "width": 12},
+                  {"type": "text", "id": "t_yamiv8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Inter"}
                 ]},
-                {"type": "row", "id": "r_vwzrmz", "width": "fill", "children": []},
-                {"type": "row", "id": "r_qt250y", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
-                  {"type": "image", "id": "img_faiq5b", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+                {"type": "row", "id": "r_zf9qv0", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "image", "id": "img_zu38x0", "name": "circle", "height": 12, "src": "assets/icons/circle.svg", "tint": "transparent", "width": 12},
+                  {"type": "text", "id": "t_p16g26", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Sharp corners, compact, outline icons"}
                 ]}
+              ]},
+              {"type": "row", "id": "r_4z5oh5", "gap": 8, "padding": {"top": 2}, "children": [
+                {"type": "row", "id": "r_3qrh6t", "name": "Button · Change the look", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
+                  {"type": "text", "id": "t_ez93td", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Change the look", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "text", "id": "t_ncb9nl", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "It is written down in the Design system, with the reasons. Every page after this one uses it."}
+          ]},
+          {"type": "column", "id": "c_h2y73h", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
+            {"type": "column", "id": "c_pd5ox6", "minHeight": 24, "width": "fill", "children": [
+              {"type": "text", "id": "t_tww27c", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "Ask for a change…"}
+            ]},
+            {"type": "row", "id": "r_rj2x6m", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+              {"type": "row", "id": "r_ll0anz", "name": "Button · plus", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
+                {"type": "image", "id": "img_yc49q7", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
+              ]},
+              {"type": "row", "id": "r_sg72hd", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
+                {"type": "text", "id": "t_lkei97", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_aqe0vr", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+                {"type": "image", "id": "img_vd37bn", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+              ]},
+              {"type": "row", "id": "r_vwzrmz", "width": "fill", "children": []},
+              {"type": "row", "id": "r_qt250y", "align": "center", "crossAlign": "center", "fill": "oklch(0.955 0.003 80)", "height": 32, "radius": 8, "width": 32, "children": [
+                {"type": "image", "id": "img_faiq5b", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "oklch(0.53 0.01 65)", "width": 16}
               ]}
             ]}
           ]}
         ]}
-      ]},
-      {"type": "column", "id": "c_xx451j", "name": "Canvas", "crossAlign": "center", "gap": 0, "height": "fill", "width": "fill", "children": [
-        {"type": "row", "id": "r_qfwsrh", "crossAlign": "start", "padding": {"top": 0}, "width": "fill", "children": [
-          {"type": "row", "id": "r_zauosv", "width": "fill", "children": []},
-          {"type": "row", "id": "r_c6nq9p", "name": "Mode tabs", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 2, "padding": 3, "radius": 10, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
-            {"type": "row", "id": "r_l0qyhz", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_pqswnr", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Canvas", "weight": 500}
-            ]},
-            {"type": "row", "id": "r_jl31u5", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_d7vbbr", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Design system", "weight": 500}
-            ]},
-            {"type": "row", "id": "r_rpqu02", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
-              {"type": "text", "id": "t_n0q4dz", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Prototype", "weight": 500}
-            ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_xx451j", "name": "Canvas", "crossAlign": "center", "gap": 0, "height": "fill", "width": "fill", "children": [
+      {"type": "row", "id": "r_qfwsrh", "crossAlign": "start", "padding": {"top": 0}, "width": "fill", "children": [
+        {"type": "row", "id": "r_zauosv", "width": "fill", "children": []},
+        {"type": "row", "id": "r_c6nq9p", "name": "Mode tabs", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(0.995 0.001 80)", "gap": 2, "padding": 3, "radius": 10, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
+          {"type": "row", "id": "r_l0qyhz", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_pqswnr", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Canvas", "weight": 500}
           ]},
-          {"type": "row", "id": "r_ienq7k", "align": "end", "width": "fill", "children": []}
-        ]},
-        {"type": "column", "id": "c_xa95y5", "align": "center", "crossAlign": "center", "height": "fill", "padding": {"bottom": 16, "top": 16}, "width": "fill", "children": [
-          {"type": "row", "id": "r_phwobd", "crossAlign": "start", "gap": 48, "children": [
-            {"type": "column", "id": "c_tv1dbw", "gap": 8, "children": [
-              {"type": "row", "id": "r_ugvvnf", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "text", "id": "t_iu9tc0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Today"},
-                {"type": "text", "id": "t_ggcbcg", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "390 × 760"}
-              ]},
-              {"type": "column", "id": "c_6t3dko", "name": "Today · From linear.app", "border": {"color": "#3d7bff", "style": "solid", "width": 2}, "fill": "#f6f5f4", "gap": 0, "height": 760, "radius": 4, "width": 390, "children": [
-                {"type": "column", "id": "c_2lhue1", "gap": 10, "height": "fill", "padding": {"bottom": 16, "left": 20, "right": 20, "top": 28}, "children": [
-                  {"type": "text", "id": "t_rus6st", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Thursday, 5 November"},
-                  {"type": "row", "id": "r_yb7szr", "align": "between", "crossAlign": "end", "width": "fill", "children": [
-                    {"type": "text", "id": "t_us8wvi", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 30, "text": "Today", "tracking": "-0.02em", "weight": 600},
-                    {"type": "text", "id": "t_u6hrb2", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "3 of 4 done"}
-                  ]},
-                  {"type": "row", "id": "r_sa15tm", "fill": "#efeeec", "height": 6, "radius": 3, "width": "fill", "children": [
-                    {"type": "row", "id": "r_d95fez", "fill": "#5e5ce6", "height": 6, "radius": 3, "width": 263, "children": []}
-                  ]},
-                  {"type": "row", "id": "r_hufr40", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
-                    {"type": "image", "id": "img_iafhon", "name": "book-open", "height": 20, "src": "assets/icons/book-open.svg", "tint": "#6b6866", "width": 20},
-                    {"type": "column", "id": "c_9mqwn8", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_ut2op2", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Read 20 pages", "weight": 500},
-                      {"type": "text", "id": "t_a0wqe9", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_2hvfoo", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_dh0x04", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_6dljc5", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
-                    {"type": "image", "id": "img_ueraru", "name": "droplet", "height": 20, "src": "assets/icons/droplet.svg", "tint": "#6b6866", "width": 20},
-                    {"type": "column", "id": "c_rwfzkj", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_8hi12a", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Drink 2 litres of water", "weight": 500},
-                      {"type": "text", "id": "t_21h5b3", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_ehti6l", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_8drods", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_j8qthd", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
-                    {"type": "image", "id": "img_az66zs", "name": "sigma", "height": 20, "src": "assets/icons/sigma.svg", "tint": "#6b6866", "width": 20},
-                    {"type": "column", "id": "c_gvmbaa", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_ylei33", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Revise maths", "weight": 500},
-                      {"type": "text", "id": "t_cdxf06", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days in a row"}
-                    ]},
-                    {"type": "row", "id": "r_w9sfim", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
-                      {"type": "image", "id": "img_zy4owv", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
-                    ]}
-                  ]},
-                  {"type": "row", "id": "r_3wme0l", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
-                    {"type": "image", "id": "img_1wnolp", "name": "footprints", "height": 20, "src": "assets/icons/footprints.svg", "tint": "#6b6866", "width": 20},
-                    {"type": "column", "id": "c_8opry9", "gap": 0, "width": "fill", "children": [
-                      {"type": "text", "id": "t_kppdpa", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Walk 30 minutes", "weight": 500},
-                      {"type": "text", "id": "t_u50hjm", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Not started"}
-                    ]},
-                    {"type": "row", "id": "r_6xhuan", "align": "center", "border": {"color": "#e4e2df", "style": "solid", "width": 1.5}, "crossAlign": "center", "fill": "#ffffff", "height": 20, "radius": 6, "width": 20, "children": []}
-                  ]},
-                  {"type": "row", "id": "r_he58wx", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "gap": 6, "height": 44, "padding": {"left": 14, "right": 14}, "radius": 6, "width": "fill", "children": [
-                    {"type": "image", "id": "img_2buxe2", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 16},
-                    {"type": "text", "id": "t_9k153i", "color": "#ffffff", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Add a habit", "weight": 500}
-                  ]}
-                ]},
-                {"type": "row", "id": "r_ek1bcv", "border": {"color": "#e4e2df", "style": "solid", "width": "1px 0 0 0"}, "fill": "#ffffff", "padding": {"bottom": 14, "top": 10}, "width": "fill", "children": [
-                  {"type": "column", "id": "c_azfwj0", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_cbv3fe", "name": "circle-check", "height": 22, "src": "assets/icons/circle-check.svg", "tint": "#5e5ce6", "width": 22},
-                    {"type": "text", "id": "t_1vfizt", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Today", "weight": 500}
-                  ]},
-                  {"type": "column", "id": "c_85xqsg", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_wj3xkb", "name": "flame", "height": 22, "src": "assets/icons/flame.svg", "tint": "#6b6866", "width": 22},
-                    {"type": "text", "id": "t_rs7e5w", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Streaks", "weight": 500}
-                  ]},
-                  {"type": "column", "id": "c_e9wocl", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
-                    {"type": "image", "id": "img_q7viqa", "name": "chart-column", "height": 22, "src": "assets/icons/chart-column.svg", "tint": "#6b6866", "width": 22},
-                    {"type": "text", "id": "t_wx4z0w", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Review", "weight": 500}
-                  ]}
-                ]}
-              ]}
-            ]},
-            {"type": "column", "id": "c_jaq9r4", "gap": 8, "children": [
-              {"type": "row", "id": "r_y5s95w", "gap": 6, "children": [
-                {"type": "text", "id": "t_rs6odj", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Streaks"},
-                {"type": "text", "id": "t_5o3wok", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "next"}
-              ]},
-              {"type": "column", "id": "c_oc4o5u", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0 / 50%)", "gap": 6, "height": 420, "radius": 4, "width": 220, "children": [
-                {"type": "image", "id": "img_ryxhjh", "name": "plus", "height": 18, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 18},
-                {"type": "text", "id": "t_4pson7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Ask for the next screen"}
-              ]}
-            ]}
+          {"type": "row", "id": "r_jl31u5", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_d7vbbr", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Design system", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_rpqu02", "crossAlign": "center", "height": 32, "padding": {"left": 14, "right": 14}, "radius": 7, "children": [
+            {"type": "text", "id": "t_n0q4dz", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Prototype", "weight": 500}
           ]}
         ]},
-        {"type": "row", "id": "r_3nwgv2", "padding": {"bottom": 4}, "children": [
-          {"type": "row", "id": "r_dw7i8u", "name": "Toolbar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
-            {"type": "row", "id": "r_yd5fdc", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
-              {"type": "image", "id": "img_e5ol4n", "name": "mouse-pointer-2", "height": 16, "src": "assets/icons/mouse-pointer-2.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+        {"type": "row", "id": "r_ienq7k", "align": "end", "width": "fill", "children": []}
+      ]},
+      {"type": "column", "id": "c_xa95y5", "align": "center", "crossAlign": "center", "height": "fill", "padding": {"bottom": 16, "top": 16}, "width": "fill", "children": [
+        {"type": "row", "id": "r_phwobd", "crossAlign": "start", "gap": 48, "children": [
+          {"type": "column", "id": "c_tv1dbw", "gap": 8, "children": [
+            {"type": "row", "id": "r_ugvvnf", "crossAlign": "center", "gap": 6, "children": [
+              {"type": "text", "id": "t_iu9tc0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Today"},
+              {"type": "text", "id": "t_ggcbcg", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "390 × 760"}
             ]},
-            {"type": "row", "id": "r_0xu49c", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_194igw", "name": "frame", "height": 18, "src": "assets/icons/frame.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_g0tn2p", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_37vkg4", "name": "type", "height": 18, "src": "assets/icons/type.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_ttefzz", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_v7kq9l", "name": "hand", "height": 18, "src": "assets/icons/hand.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_czqzaf", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_xt8bym", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_8o6p3n", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
-            {"type": "row", "id": "r_zpvuc5", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_za0o0i", "name": "undo-2", "height": 18, "src": "assets/icons/undo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_bd9nkv", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
-              {"type": "image", "id": "img_q5z4iu", "name": "redo-2", "height": 18, "src": "assets/icons/redo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
-            ]},
-            {"type": "row", "id": "r_rwm3rd", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
-            {"type": "row", "id": "r_84oeew", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
-              {"type": "text", "id": "t_ssepj8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "60%", "weight": 500},
-              {"type": "image", "id": "img_4f6osh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+            {"type": "column", "id": "c_6t3dko", "name": "Today · From linear.app", "border": {"color": "#3d7bff", "style": "solid", "width": 2}, "fill": "#f6f5f4", "gap": 0, "height": 760, "radius": 4, "width": 390, "children": [
+              {"type": "column", "id": "c_2lhue1", "gap": 10, "height": "fill", "padding": {"bottom": 16, "left": 20, "right": 20, "top": 28}, "children": [
+                {"type": "text", "id": "t_rus6st", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Thursday, 5 November"},
+                {"type": "row", "id": "r_yb7szr", "align": "between", "crossAlign": "end", "width": "fill", "children": [
+                  {"type": "text", "id": "t_us8wvi", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.2, "role": "paragraph", "size": 30, "text": "Today", "tracking": "-0.02em", "weight": 600},
+                  {"type": "text", "id": "t_u6hrb2", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "3 of 4 done"}
+                ]},
+                {"type": "row", "id": "r_sa15tm", "fill": "#efeeec", "height": 6, "radius": 3, "width": "fill", "children": [
+                  {"type": "row", "id": "r_d95fez", "fill": "#5e5ce6", "height": 6, "radius": 3, "width": 263, "children": []}
+                ]},
+                {"type": "row", "id": "r_hufr40", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "img_iafhon", "name": "book-open", "height": 20, "src": "assets/icons/book-open.svg", "tint": "#6b6866", "width": 20},
+                  {"type": "column", "id": "c_9mqwn8", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_ut2op2", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Read 20 pages", "weight": 500},
+                    {"type": "text", "id": "t_a0wqe9", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "12 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_2hvfoo", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_dh0x04", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_6dljc5", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "img_ueraru", "name": "droplet", "height": 20, "src": "assets/icons/droplet.svg", "tint": "#6b6866", "width": 20},
+                  {"type": "column", "id": "c_rwfzkj", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_8hi12a", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Drink 2 litres of water", "weight": 500},
+                    {"type": "text", "id": "t_21h5b3", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "30 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_ehti6l", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_8drods", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_j8qthd", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "img_az66zs", "name": "sigma", "height": 20, "src": "assets/icons/sigma.svg", "tint": "#6b6866", "width": 20},
+                  {"type": "column", "id": "c_gvmbaa", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_ylei33", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Revise maths", "weight": 500},
+                    {"type": "text", "id": "t_cdxf06", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "4 days in a row"}
+                  ]},
+                  {"type": "row", "id": "r_w9sfim", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "height": 20, "radius": 6, "width": 20, "children": [
+                    {"type": "image", "id": "img_zy4owv", "name": "check", "height": 13, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 13}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_3wme0l", "border": {"color": "#e4e2df", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "img_1wnolp", "name": "footprints", "height": 20, "src": "assets/icons/footprints.svg", "tint": "#6b6866", "width": 20},
+                  {"type": "column", "id": "c_8opry9", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_kppdpa", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 15, "text": "Walk 30 minutes", "weight": 500},
+                    {"type": "text", "id": "t_u50hjm", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Not started"}
+                  ]},
+                  {"type": "row", "id": "r_6xhuan", "align": "center", "border": {"color": "#e4e2df", "style": "solid", "width": 1.5}, "crossAlign": "center", "fill": "#ffffff", "height": 20, "radius": 6, "width": 20, "children": []}
+                ]},
+                {"type": "row", "id": "r_he58wx", "align": "center", "crossAlign": "center", "fill": "#5e5ce6", "gap": 6, "height": 44, "padding": {"left": 14, "right": 14}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "img_2buxe2", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 16},
+                  {"type": "text", "id": "t_9k153i", "color": "#ffffff", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Add a habit", "weight": 500}
+                ]}
+              ]},
+              {"type": "row", "id": "r_ek1bcv", "border": {"color": "#e4e2df", "style": "solid", "width": "1px 0 0 0"}, "fill": "#ffffff", "padding": {"bottom": 14, "top": 10}, "width": "fill", "children": [
+                {"type": "column", "id": "c_azfwj0", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_cbv3fe", "name": "circle-check", "height": 22, "src": "assets/icons/circle-check.svg", "tint": "#5e5ce6", "width": 22},
+                  {"type": "text", "id": "t_1vfizt", "color": "#151414", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Today", "weight": 500}
+                ]},
+                {"type": "column", "id": "c_85xqsg", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_wj3xkb", "name": "flame", "height": 22, "src": "assets/icons/flame.svg", "tint": "#6b6866", "width": 22},
+                  {"type": "text", "id": "t_rs7e5w", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Streaks", "weight": 500}
+                ]},
+                {"type": "column", "id": "c_e9wocl", "crossAlign": "center", "gap": 2, "width": "fill", "children": [
+                  {"type": "image", "id": "img_q7viqa", "name": "chart-column", "height": 22, "src": "assets/icons/chart-column.svg", "tint": "#6b6866", "width": 22},
+                  {"type": "text", "id": "t_wx4z0w", "color": "#6b6866", "font": "Inter, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Review", "weight": 500}
+                ]}
+              ]}
             ]}
+          ]},
+          {"type": "column", "id": "c_jaq9r4", "gap": 8, "children": [
+            {"type": "row", "id": "r_y5s95w", "gap": 6, "children": [
+              {"type": "text", "id": "t_rs6odj", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Streaks"},
+              {"type": "text", "id": "t_5o3wok", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "next"}
+            ]},
+            {"type": "column", "id": "c_oc4o5u", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0 / 50%)", "gap": 6, "height": 420, "radius": 4, "width": 220, "children": [
+              {"type": "image", "id": "img_ryxhjh", "name": "plus", "height": 18, "src": "assets/icons/plus.svg", "tint": "oklch(0.53 0.01 65)", "width": 18},
+              {"type": "text", "id": "t_4pson7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Ask for the next screen"}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_3nwgv2", "padding": {"bottom": 4}, "children": [
+        {"type": "row", "id": "r_dw7i8u", "name": "Toolbar", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.995 0.001 80)", "gap": 4, "padding": 6, "radius": 12, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "children": [
+          {"type": "row", "id": "r_yd5fdc", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_e5ol4n", "name": "mouse-pointer-2", "height": 16, "src": "assets/icons/mouse-pointer-2.svg", "tint": "oklch(0.99 0 0)", "width": 16}
+          ]},
+          {"type": "row", "id": "r_0xu49c", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_194igw", "name": "frame", "height": 18, "src": "assets/icons/frame.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_g0tn2p", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_37vkg4", "name": "type", "height": 18, "src": "assets/icons/type.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_ttefzz", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_v7kq9l", "name": "hand", "height": 18, "src": "assets/icons/hand.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_czqzaf", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_xt8bym", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_8o6p3n", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
+          {"type": "row", "id": "r_zpvuc5", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_za0o0i", "name": "undo-2", "height": 18, "src": "assets/icons/undo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_bd9nkv", "align": "center", "crossAlign": "center", "height": 32, "width": 32, "children": [
+            {"type": "image", "id": "img_q5z4iu", "name": "redo-2", "height": 18, "src": "assets/icons/redo-2.svg", "tint": "oklch(0.53 0.01 65)", "width": 18}
+          ]},
+          {"type": "row", "id": "r_rwm3rd", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 20, "width": 1, "children": []},
+          {"type": "row", "id": "r_84oeew", "crossAlign": "center", "gap": 4, "padding": {"left": 8, "right": 4}, "children": [
+            {"type": "text", "id": "t_ssepj8", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "60%", "weight": 500},
+            {"type": "image", "id": "img_4f6osh", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
           ]}
         ]}
       ]}

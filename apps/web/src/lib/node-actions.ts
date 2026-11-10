@@ -29,6 +29,7 @@ import {
   newElement,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { foldOps, wrapperOf } from "@ultrapaint/design-document/page-root";
 import {
   canvasDocOf,
   childrenOf,
@@ -53,7 +54,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
-import { frameRefOf } from "../state/frame-ref.ts";
+import { frameRefOf, ownFrameOf } from "../state/frame-ref.ts";
 import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
 import {
   asDrawnIn,
@@ -727,8 +728,41 @@ const duplicateNodes = async (targets: readonly Selection[]) => {
   }
 };
 
+/**
+ * The fold of a page's wrapper, when the one node unwrapped is that: its layout goes onto the
+ * page, which is the screen's container (ADR 0075), instead of going with it.
+ */
+const pageFold = (targets: readonly Selection[]) => {
+  const [only, ...more] = targets;
+  if (!only || more.length > 0) {
+    return null;
+  }
+  const { docs } = useDocuments.getState();
+  const { canvas, frames } = useEditor.getState();
+  const root = rootOfFrame(docs, canvas, only.frame);
+  if (!root || wrapperOf(root)?.id !== only.nodeId) {
+    return null;
+  }
+  const page = ownFrameOf(only.frame);
+  const ops = foldOps(root, frames[page]?.height);
+  return ops
+    ? { doc: docOfFrame(only.frame, canvas), frame: only.frame, ops, root }
+    : null;
+};
+
 /** Takes the children of every container among these nodes out of it, where it was. */
 const unwrapNodes = async (targets: readonly Selection[]) => {
+  const fold = pageFold(targets);
+  if (fold) {
+    const folded = await applyEdits(
+      [{ doc: fold.doc, ops: fold.ops }],
+      "Unwrap"
+    );
+    if (folded) {
+      select({ frame: fold.frame, nodeId: fold.root.id });
+    }
+    return;
+  }
   const result = await applyToEach(
     targets,
     (node) =>

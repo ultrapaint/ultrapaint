@@ -1,6 +1,6 @@
 # ADR 0021: A link names a page, and the prototype shows what can be pressed
 
-Status: accepted, 2026-10-01. Amends 0012 and 0020 (a link was a route).
+Status: accepted, 2026-10-01. Amends 0012 and 0020 (a link was a route). Amended 2026-11-10 by [0075](0075-a-page-is-its-own-container-and-the-prototype-shows-routes.md): a link picked for a page without a URL gives it one first.
 
 ## Context
 

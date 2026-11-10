@@ -3,7 +3,7 @@
 Status: accepted, 2026-09-30. Amends 0012 (routes no longer come from the file system) and 0019
 (the canvases leave the Pages panel). Amended 2026-10-26 by
 [0032](0032-floating-cards-one-canvas-workspace.md): Vibe and Design are one workspace, and the
-canvases are switched at the top of the left panel, the project having moved to the title card.
+canvases are switched at the top of the left panel, the project having moved to the title card. Amended 2026-11-10 by [0075](0075-a-page-is-its-own-container-and-the-prototype-shows-routes.md): the prototype's panel is Routes and shows only the pages that serve one; a page without a URL is a draft it never shows.
 
 ## Context
 

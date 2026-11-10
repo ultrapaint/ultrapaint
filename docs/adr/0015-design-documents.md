@@ -1,7 +1,7 @@
 # ADR 0015: Design documents replace TSX pages
 
 Status: accepted, 2026-09-25. Supersedes 0002, 0003, 0007's snippet insertion and the TSX
-verdict of [the storage checkpoint](../decisions/storage-format.md). Amends 0011, 0012 and 0014.
+verdict of [the storage checkpoint](../decisions/storage-format.md). Amends 0011, 0012 and 0014. Amended 2026-11-10 by [0075](0075-a-page-is-its-own-container-and-the-prototype-shows-routes.md): a page's root is the screen's own container, a column or a row.
 
 > Amended 2026-11-10: the undo state says which history was dropped and why
 > (`invalidated: { history, reason }`), and the editor says it on that control's tooltip

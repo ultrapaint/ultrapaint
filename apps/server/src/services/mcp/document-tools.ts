@@ -4,10 +4,12 @@
  * step at a time, and the focus that shows the user where an agent works.
  */
 import { Json } from "@ultrapaint/contracts/base";
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { type DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
+import { wrapperWarning } from "@ultrapaint/design-document/page-root";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
 import { Effect, Predicate, Schema } from "effect";
@@ -63,6 +65,15 @@ const nodeRefsToIds = (op: unknown): unknown => {
 
 /** Past this many, `apply_operations` says how many more warnings there are. */
 const MAX_WARNINGS = 12;
+
+/** What an agent is told of a page after its edit: a wrapper the page does not need, then fills with no room. */
+const warningsOf = (root: DesignNode, catalogue: Catalogue): string[] => {
+  const wrapper = wrapperWarning(root);
+  return [
+    ...(wrapper === null ? [] : [wrapper]),
+    ...fillWarnings(root, catalogue).map((w) => `${w.nodeId}: ${w.message}`),
+  ];
+};
 
 /**
  * One JSON object an agent passes, the handler validating it. An array of `AnyJson` would say
@@ -276,9 +287,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           });
         }
         const warnings = after.root
-          ? fillWarnings(after.root, yield* catalogue).map(
-              (w) => `${w.nodeId}: ${w.message}`
-            )
+          ? warningsOf(after.root, yield* catalogue)
           : [];
         return {
           created: result.created,
