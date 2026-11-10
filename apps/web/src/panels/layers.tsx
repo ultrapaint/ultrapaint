@@ -1100,7 +1100,8 @@ const menuKey = (target: MenuTarget) => {
   if (target.kind === "node") {
     return layerKey(target.frame, target.nodeId);
   }
-  return target.kind === "page" ? pageKey(target.pageId) : null;
+  // A view's menu is its page's (ADR 0036): the page's row is the one it marks.
+  return target.kind === "page" ? pageKey(ownFrameOf(target.pageId)) : null;
 };
 
 /**

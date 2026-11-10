@@ -206,7 +206,8 @@ every section of each run's final page with the skill of the checkout the comman
 within the run's request as above (the round's `round.json` says whether it had pictures), the
 judge model groups their findings, and fewer problems is better; system notes are counted apart.
 Each panel model also scores each run out of 100 on its own findings, as the council does. Each
-run gets `panel.json`, kept while the panel is the same, and the round `panel.md`: problems per
+run gets `panel.json`, kept while the panel is the same (a run with no sections to show is not
+reviewed, and is in neither file), and the round `panel.md`: problems per
 run and per section, each model's score, beside the judge's overall score and the run's seconds
 and tokens.
 
@@ -269,7 +270,7 @@ in `triage/<name>/` of the data directory and resumes; nothing reaches `gaps/` u
 
 To compare models as reviewers, give several to `--models` (opus by default): each reviews with
 every version of the skill, as a version of its own (`shipped@gpt-6.1-sol`), and one model judges
-them all, blind to who reviewed (`--judge-model`, opus). A `gpt-` model runs in Codex, and any of
+them all, blind to who reviewed (`--judge-model`, opus). A `gpt-` or `o<digit>` model runs in Codex, and any of
 Cursor's in `cursor-agent` by its exact name after `cursor:` (`cursor-agent --list-models`):
 
 ```sh

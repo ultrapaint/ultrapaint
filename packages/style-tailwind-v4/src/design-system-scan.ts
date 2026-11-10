@@ -39,8 +39,9 @@ import type {
 } from "@ultrapaint/framework-api/node";
 import { read } from "./tokens.ts";
 
+/** By name, in English's order whatever the machine's language: the scan reads the same everywhere. */
 const byName = (a: { name: string }, b: { name: string }) =>
-  a.name.localeCompare(b.name, undefined, { numeric: true });
+  a.name.localeCompare(b.name, "en", { numeric: true });
 
 /** Smallest first, for scales whose names do not sort: `sm`, `md`, `lg`, `xl`, `2xl`. */
 const byLength = (a: Token, b: Token) =>
@@ -186,7 +187,7 @@ export const scanDesignSystem = (
       ? [{ name: "Semantic", tokens: semantic.sort(byName) }]
       : []),
     ...[...palettes.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => a.localeCompare(b, "en"))
       .map(([name, shades]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
         tokens: shades.sort(byName),

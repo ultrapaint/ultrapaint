@@ -309,11 +309,12 @@ const importsFor = (
     }
   };
   visit(root);
+  // In English's order, whatever the machine's language: the same code on every machine.
   return [...named.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => a.localeCompare(b, "en"))
     .map(
       ([from, names]) =>
-        `import { ${[...names].sort((a, b) => a.localeCompare(b)).join(", ")} } from ${JSON.stringify(from)};`
+        `import { ${[...names].sort((a, b) => a.localeCompare(b, "en")).join(", ")} } from ${JSON.stringify(from)};`
     );
 };
 

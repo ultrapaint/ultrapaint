@@ -68,9 +68,10 @@ const DARK_TOKENS: Readonly<Record<string, string>> = {
 
 const LEADING_DOT_SLASH_RE = /^\.\/?/;
 
+/** A theme's declarations, in English's order whatever the machine's language. */
 const declarations = (tokens: Readonly<Record<string, string>>) =>
   Object.entries(tokens)
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .sort(([a], [b]) => a.localeCompare(b, "en", { numeric: true }))
     .map(([name, value]) => `  --${name}: ${value};`)
     .join("\n");
 
