@@ -31,7 +31,7 @@ export const isPicked = (ids: readonly string[], id: string) =>
  * selection yet: that is `pickFrames`, as the marquee is let go.
  */
 export const showPicks = (ids: readonly string[]) => {
-  if (useEditor.getState().selection || useEditor.getState().selectedPage) {
+  if (useEditor.getState().selection) {
     select(null);
   }
   setPicks(ids);
@@ -80,9 +80,7 @@ const setPicks = (ids: readonly string[]) => {
  */
 export const startCanvasPicks = () =>
   useEditor.subscribe((s, prev) => {
-    const selected =
-      (s.selection !== null && s.selection !== prev.selection) ||
-      (s.selectedPage !== null && s.selectedPage !== prev.selectedPage);
+    const selected = s.selection !== null && s.selection !== prev.selection;
     if (selected || s.canvas !== prev.canvas) {
       clearCanvasPicks();
     }

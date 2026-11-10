@@ -17,6 +17,7 @@ import {
 } from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
+import { selectedPageNow } from "../state/selection.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
 import { canvasPoint } from "./drag.ts";
 import { drawingMarquee } from "./frame-gesture.ts";
@@ -62,9 +63,10 @@ const pickedNow = (): readonly string[] => {
   if (ids.length > 0) {
     return ids;
   }
-  const { selectedPage, selection } = useEditor.getState();
-  if (selectedPage) {
-    return [selectedPage];
+  const { selection } = useEditor.getState();
+  const page = selectedPageNow();
+  if (page) {
+    return [page];
   }
   const ref = selection ? frameRefOf(selection.frame) : null;
   return selection && ref?.kind === "node" && ref.node === selection.nodeId

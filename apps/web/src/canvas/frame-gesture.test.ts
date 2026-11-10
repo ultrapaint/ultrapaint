@@ -9,8 +9,10 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { layoutSaved } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
+import { selectedPageNow } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { pageDocs } from "../testing/page-docs.ts";
 import { until } from "../testing/until.ts";
 import { useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
@@ -231,7 +233,9 @@ describe("a frame gesture", () => {
       },
       pages: [home],
     });
-    useDocuments.setState({ docs: { [CANVAS]: canvasDoc } });
+    useDocuments.setState({
+      docs: { [CANVAS]: canvasDoc, ...pageDocs([home.id]) },
+    });
     useEditor.setState({
       canvas: "main",
       frames: { [home.id]: start },
@@ -456,6 +460,6 @@ describe("a frame gesture", () => {
     fire("pointerup", 0, 0);
     await layoutSaved();
     expect(saved()).toEqual([]);
-    expect(useEditor.getState().selectedPage).toBe(home.id);
+    expect(selectedPageNow()).toBe(home.id);
   });
 });

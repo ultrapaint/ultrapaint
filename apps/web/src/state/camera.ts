@@ -9,6 +9,7 @@
  */
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { selectedPageNow } from "./selection.ts";
 import { allFrames } from "./surface.ts";
 
 export interface View {
@@ -280,8 +281,9 @@ export const zoomToFit = () => {
 /** Glides to the page selected, or the node selected: its rect when measured, its frame else. */
 export const zoomToSelection = () => {
   const viewport = viewportSize();
-  const { selection, selectedPage, rects } = useEditor.getState();
+  const { selection, rects } = useEditor.getState();
   const frames = allFrames();
+  const selectedPage = selectedPageNow();
   const pageFrame = selectedPage ? frames[selectedPage] : undefined;
   if (pageFrame) {
     fitTo(viewport, [pageFrame], true);

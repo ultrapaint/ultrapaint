@@ -88,6 +88,7 @@ import {
   toggleSelected,
   useDrawnIn,
   useIsSelected,
+  useSelectedPage,
 } from "../state/selection.ts";
 import { InlineInput } from "./canvases.tsx";
 import { type Dragging, rowDrag, rowDrop, useDropHere } from "./layer-drag.ts";
@@ -162,16 +163,18 @@ const selectItem = (item: LayerItem, add: boolean) => {
   }
 };
 
-/** The row that stands for what is selected: the node, or the page as a whole. */
+/** The row that stands for what is selected: the page's own for its root (ADR 0075), or the node's. */
 const selectedKeyOf = (
   selection: Selection | null,
   selectedPage: string | null
 ) => {
-  // A node selected in a view of a page is the page's row (ADR 0036).
-  if (selection) {
-    return layerKey(ownFrameOf(selection.frame), selection.nodeId);
+  if (selectedPage) {
+    return pageKey(selectedPage);
   }
-  return selectedPage ? pageKey(selectedPage) : null;
+  // A node selected in a view of a page is the page's row (ADR 0036).
+  return selection
+    ? layerKey(ownFrameOf(selection.frame), selection.nodeId)
+    : null;
 };
 
 /**
@@ -205,10 +208,11 @@ const useRevealSelection = (
   onReveal: (key: string) => void
 ) => {
   const selection = useEditor((s) => s.selection);
+  const selectedPage = useSelectedPage();
   const [revealedFor, setRevealedFor] = useState<Selection | null>(null);
-  if (selection && selection !== revealedFor) {
+  const key = selectedKeyOf(selection, selectedPage);
+  if (selection && key && selection !== revealedFor) {
     setRevealedFor(selection);
-    const key = layerKey(ownFrameOf(selection.frame), selection.nodeId);
     onReveal(key);
     setFolds((folds) => revealed(folds, items, key));
   }
@@ -414,7 +418,7 @@ export const Layers = () => {
   // On an app component's board (ADR 0045), its tree.
   const board = useBoard((s) => s.open);
   const selection = useEditor((s) => s.selection);
-  const selectedPage = useEditor((s) => s.selectedPage);
+  const selectedPage = useSelectedPage();
   const [folds, setFolds] = useState<Folds>(NO_FOLDS);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -929,7 +933,7 @@ const PageRow = ({
   const page = item.page as Page;
   const problem = useDocuments((s) => s.docs[page.id]?.problem);
   const { key } = item;
-  const selected = useEditor((s) => s.selectedPage === page.id);
+  const selected = useSelectedPage() === page.id;
   const problemId = useId();
   const dropHere = useDropHere(key);
   const dropHandlers = rowDrop(item, shared);

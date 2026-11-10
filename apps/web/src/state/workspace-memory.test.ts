@@ -13,9 +13,9 @@ const a: Selection = { frame: "p1", nodeId: "a" };
 const b: Selection = { frame: "p1", nodeId: "b" };
 const c: Selection = { frame: "p2", nodeId: "c" };
 
-const picked: Picked = { also: [b], selectedPage: null, selection: a };
+const picked: Picked = { also: [b], selection: a };
 
-const everything = { node: () => true, page: () => true };
+const everything = { node: () => true };
 
 describe("modeFor", () => {
   it("gives a workspace never left its first tool", () => {
@@ -41,24 +41,22 @@ describe("stillThere", () => {
 
   it("puts the next one in place of a deleted node the inspector showed", () => {
     const kept = stillThere(
-      { also: [b], selectedPage: null, selection: a },
-      { node: (s) => s.nodeId !== "a", page: () => true }
+      { also: [b], selection: a },
+      { node: (s) => s.nodeId !== "a" }
     );
-    expect(kept).toEqual({ also: [], selectedPage: null, selection: b });
+    expect(kept).toEqual({ also: [], selection: b });
   });
 
   it("leaves out others of another frame", () => {
-    const kept = stillThere(
-      { also: [c, b], selectedPage: null, selection: a },
-      everything
-    );
+    const kept = stillThere({ also: [c, b], selection: a }, everything);
     expect(kept.also).toEqual([b]);
   });
 
-  it("drops a deleted page", () => {
+  it("drops a deleted page's root", () => {
+    const root: Selection = { frame: "p9", nodeId: "root" };
     const kept = stillThere(
-      { also: [], selectedPage: "p9", selection: null },
-      { node: () => true, page: (id) => id !== "p9" }
+      { also: [], selection: root },
+      { node: (s) => s.frame !== "p9" }
     );
     expect(kept).toEqual(nothingPicked);
   });
@@ -98,7 +96,7 @@ describe("switchWorkspace", () => {
       { mode: "interact", picked: nothingPicked, workspace: "prototype" },
       "design",
       away.memory,
-      { node: () => false, page: () => true }
+      { node: () => false }
     );
     expect(back.picked).toEqual(nothingPicked);
   });

@@ -5,10 +5,9 @@
  */
 import type { Mode, Selection, Workspace } from "./editor.ts";
 
-/** What is selected: a node with the others picked beside it, or a page as a whole. */
+/** What is selected: a node with the others picked beside it; a page is its root (ADR 0075). */
 export interface Picked {
   also: readonly Selection[];
-  selectedPage: string | null;
   selection: Selection | null;
 }
 
@@ -21,7 +20,6 @@ export interface WorkspaceMemory {
 
 export const nothingPicked: Picked = {
   also: [],
-  selectedPage: null,
   selection: null,
 };
 
@@ -41,10 +39,10 @@ export const modeFor = (workspace: Workspace, left: Mode | undefined): Mode => {
   return left ?? "select";
 };
 
-/** What can still be found of a selection: nodes and pages since deleted are left out. */
+/** What can still be found of a selection: nodes since deleted are left out. */
 export const stillThere = (
   picked: Picked,
-  exists: { node: (s: Selection) => boolean; page: (id: string) => boolean }
+  exists: { node: (s: Selection) => boolean }
 ): Picked => {
   const [selection = null, ...also] = [
     ...(picked.selection ? [picked.selection] : []),
@@ -53,10 +51,6 @@ export const stillThere = (
   return {
     // The others belong to the frame of the one the inspector shows.
     also: selection ? also.filter((s) => s.frame === selection.frame) : [],
-    selectedPage:
-      picked.selectedPage !== null && exists.page(picked.selectedPage)
-        ? picked.selectedPage
-        : null,
     selection,
   };
 };

@@ -49,7 +49,6 @@ import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { pickedFramesMoved } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { pageRequest } from "./page-request.ts";
-import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
@@ -510,7 +509,10 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   );
 };
 
-/** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
+/**
+ * Whether the frame itself is selected: its root, which is the page as a whole (ADR 0075) in any
+ * of its views, or the node on the canvas it shows.
+ */
 const useFrameSelected = (
   frameId: string,
   isNode: boolean,
@@ -518,10 +520,11 @@ const useFrameSelected = (
 ) =>
   useEditor(
     (s) =>
-      s.selectedPage === ownFrameOf(frameId) ||
-      (isNode &&
-        s.selection?.frame === frameId &&
-        s.selection.nodeId === root?.id)
+      s.selection !== null &&
+      s.selection.nodeId === root?.id &&
+      (isNode
+        ? s.selection.frame === frameId
+        : ownFrameOf(s.selection.frame) === ownFrameOf(frameId))
   );
 
 /** A handle on each corner, shown while the frame is selected or the pointer is over it. */
@@ -629,10 +632,7 @@ export const FrameHeader = ({
   </div>
 );
 
-/**
- * Name and size above the frame, the frame's selection outline and, in Vibe, the toolbar of the
- * selected page.
- */
+/** Name and size above the frame, and the frame's selection outline. */
 const FrameChrome = ({
   frameId,
   frame,
@@ -701,9 +701,6 @@ const FrameChrome = ({
         )}
         {isNode ? null : <ViewBadge frameId={frameId} />}
       </FrameHeader>
-      {frameRefOf(frameId).kind === "page" && isSelected ? (
-        <PageToolbar pageId={frameId} />
-      ) : null}
       {lit || titleHover ? (
         <div
           className="pointer-events-none absolute inset-0"

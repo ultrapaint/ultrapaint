@@ -106,7 +106,6 @@ const pressRow = (text: string, target: LayerRow | null) => {
 beforeEach(() => {
   useEditor.setState({
     mode: "select",
-    selectedPage: null,
     selection: null,
     workspace: "design",
   });

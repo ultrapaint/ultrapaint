@@ -14,7 +14,8 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { useProject } from "../state/project.ts";
-import { select } from "../state/selection.ts";
+import { select, selectedPageNow } from "../state/selection.ts";
+import { pageDocs } from "../testing/page-docs.ts";
 import {
   beginCanvasMarquee,
   cancelCanvasMarquee,
@@ -86,7 +87,13 @@ beforeEach(() => {
     canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
     pages: [HOME, ABOUT, SHOP],
   });
-  useDocuments.setState({ canvas: "main", docs: { [CANVAS]: canvasDoc } });
+  useDocuments.setState({
+    canvas: "main",
+    docs: {
+      [CANVAS]: canvasDoc,
+      ...pageDocs([HOME.id, ABOUT.id, SHOP.id]),
+    },
+  });
   useEditor.setState({
     also: [],
     canvas: "main",
@@ -97,7 +104,6 @@ beforeEach(() => {
     },
     held: {},
     mode: "select",
-    selectedPage: null,
     selection: null,
     view: { x: 0, y: 0, zoom: 1 },
   });
@@ -154,7 +160,7 @@ describe("the marquee over the ground", () => {
     moveCanvasMarquee(at(20, 320));
     endCanvasMarquee();
     expect(useCanvasPicks.getState().ids).toEqual([]);
-    expect(useEditor.getState().selectedPage).toBe(SHOP.id);
+    expect(selectedPageNow()).toBe(SHOP.id);
   });
 
   it("adds to what is selected with Shift", () => {

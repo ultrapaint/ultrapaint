@@ -223,21 +223,17 @@ describe("showLeftPanel", () => {
 describe("the right panel (ADR 0058)", () => {
   it("has nothing to show with nothing selected, and is not drawn", () => {
     useEditor.setState({
-      selectedPage: null,
       selection: null,
       workspace: "design",
     });
     expect(rightHasSubject()).toBe(false);
   });
 
-  it("shows a selected layer or page", () => {
+  it("shows a selected layer, or a page by its root", () => {
     useEditor.setState({
-      selectedPage: null,
       selection: { frame: HOME, nodeId: "home" },
       workspace: "design",
     });
-    expect(rightHasSubject()).toBe(true);
-    useEditor.setState({ selectedPage: HOME, selection: null });
     expect(rightHasSubject()).toBe(true);
   });
 
@@ -251,7 +247,6 @@ describe("the right panel (ADR 0058)", () => {
 
   it("always shows a board view's inspector", () => {
     useEditor.setState({
-      selectedPage: null,
       selection: null,
       workspace: "design",
     });
@@ -261,7 +256,6 @@ describe("the right panel (ADR 0058)", () => {
 
   it("has nothing on the look page, whose dials are on the left", () => {
     useEditor.setState({
-      selectedPage: null,
       selection: null,
       workspace: "design",
     });

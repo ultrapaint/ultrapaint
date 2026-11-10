@@ -123,8 +123,6 @@ interface EditorStore {
    * editor is on a page that serves no URL.
    */
   route: string | null;
-  /** Page selected as a whole (its frame), as opposed to a node inside it. */
-  selectedPage: string | null;
   selection: Selection | null;
   setHover: (hover: EditorStore["hover"]) => void;
   setMode: (mode: Mode) => void;
@@ -182,7 +180,6 @@ const sameRects = (
 export const unpicked = {
   also: [],
   hover: null,
-  selectedPage: null,
   selection: null,
 } satisfies Partial<EditorStore>;
 
@@ -200,7 +197,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   rects: {},
   rightTab: "design",
   route: "/",
-  selectedPage: null,
   selection: null,
   // The pointer reports the same node many times a second; only a change is news.
   setHover: (hover) =>
@@ -232,7 +228,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
       return;
     }
     const { docs } = useDocuments.getState();
-    const pages = pagesOfCanvas(s.canvas);
     // Nothing shows the selection in the prototype, so no key may act on it there: it is put
     // aside, and found again on the canvas, less what was deleted meanwhile.
     const next = switchWorkspace(
@@ -240,7 +235,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
         mode: s.mode,
         picked: {
           also: s.also,
-          selectedPage: s.selectedPage,
           selection: s.selection,
         },
         workspace: s.workspace,
@@ -249,7 +243,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
       s.memory,
       {
         node: (n) => nodeIn(docs, s.canvas, n.frame, n.nodeId) !== null,
-        page: (id) => pages.some((p) => p.id === id),
       }
     );
     writeMode(workspace);

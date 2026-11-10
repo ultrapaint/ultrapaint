@@ -95,7 +95,8 @@ refactor and the board view left.
   token, the usage inventory's kind.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). Its root is
   the screen's own container, a column or a row (`direction`, ADR 0075); a row or column under it
-  that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). A page is
+  that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). The page
+  selected as a whole is its root selected (`selectedPageOf`), one selection for both. A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its

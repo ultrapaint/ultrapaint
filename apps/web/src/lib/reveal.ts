@@ -13,7 +13,7 @@ import { type Selection, useEditor } from "../state/editor.ts";
 import { type FrameRef, frameRefOf } from "../state/frame-ref.ts";
 import { goTo, toPageCanvas } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
-import { select, selectPage } from "../state/selection.ts";
+import { select } from "../state/selection.ts";
 
 /**
  * What is brought into view: a page's frame (a view's selects its page), a node of a frame, a
@@ -49,6 +49,38 @@ const frameHolding = (
       if (!stillAsked(asked, canvas) || read) {
         off();
         resolve(read ? frameOfCanvasNode(docs, canvas, nodeId) : null);
+        return true;
+      }
+      return false;
+    };
+    if (!check()) {
+      const offs = [useDocuments.subscribe(check), useEditor.subscribe(check)];
+      off = () => {
+        for (const o of offs) {
+          o();
+        }
+      };
+    }
+  });
+
+/**
+ * The root of page `id` on `canvas`, once its document is read: what selecting the page selects
+ * (ADR 0075). Null when it has none, or when another reveal or canvas is asked for first.
+ */
+const pageRootRead = (
+  canvas: string,
+  id: string,
+  asked: number
+): Promise<string | null> =>
+  new Promise((resolve) => {
+    let off: () => void = () => undefined;
+    const check = () => {
+      const { canvas: of, docs, loaded } = useDocuments.getState();
+      const root = docs[id]?.root ?? null;
+      const read = root !== null || (loaded && of === canvas);
+      if (!stillAsked(asked, canvas) || read) {
+        off();
+        resolve(stillAsked(asked, canvas) && root ? root.id : null);
         return true;
       }
       return false;
@@ -136,7 +168,13 @@ const revealInFrame = async (
     }
   }
   if ("page" in target) {
-    selectPage(target.page);
+    // The page is selected as its root, once its document is read.
+    const { canvas } = useEditor.getState();
+    const root =
+      canvas === null ? null : await pageRootRead(canvas, target.page, asked);
+    if (root !== null) {
+      select({ frame: target.page, nodeId: root });
+    }
   } else {
     select(target);
   }

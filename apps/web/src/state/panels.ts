@@ -79,16 +79,13 @@ export const usePanels = create<PanelsStore>((set, get) => ({
 const subjectOf = (
   editor: Pick<
     ReturnType<typeof useEditor.getState>,
-    "selectedPage" | "selection" | "workspace"
+    "selection" | "workspace"
   >,
   picks: number,
   board: boolean
 ) =>
   editor.workspace === "design" &&
-  (editor.selection !== null ||
-    editor.selectedPage !== null ||
-    picks > 1 ||
-    board);
+  (editor.selection !== null || picks > 1 || board);
 
 /** The look page's samples have nothing to inspect: the dials are on the left. */
 const boardInspected = (open: ReturnType<typeof useBoard.getState>["open"]) =>
@@ -104,7 +101,6 @@ export const rightHasSubject = () =>
 export const useRightSubject = () => {
   const editor = useEditor(
     useShallow((s) => ({
-      selectedPage: s.selectedPage,
       selection: s.selection,
       workspace: s.workspace,
     }))

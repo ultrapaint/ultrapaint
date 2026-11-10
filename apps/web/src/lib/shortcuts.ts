@@ -18,7 +18,7 @@ import { useEditor } from "../state/editor.ts";
 import { leaveIsolation } from "../state/isolation.ts";
 import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { select, selectPage } from "../state/selection.ts";
+import { select, selectedPageNow } from "../state/selection.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import { isTyping, overlayOpen } from "./keys.ts";
@@ -110,10 +110,6 @@ export const dismiss = () => {
     s.setMode("interact");
     return true;
   }
-  if (s.selectedPage) {
-    selectPage(null);
-    return true;
-  }
   return false;
 };
 
@@ -121,8 +117,8 @@ export const dismiss = () => {
  * Escape: one step back from whatever is going on, the first of these that has something to put
  * away. What the pointer is doing (a frame moved or sized, a drag, a marquee, a group being drawn:
  * put back, nothing saved, the tool kept), an app component edited in place (left), an open
- * comment, the prototype's commenting or a selected page (`dismiss`), what the main area holds
- * besides (a board's pick), then the selection (its parent, or let go at the top). False when
+ * comment or the prototype's commenting (`dismiss`), what the main area holds besides (a board's
+ * pick), then the selection (its parent, or let go at the top: a page's root, the page). False when
  * none had anything, and the key is the browser's.
  */
 export const stepBack = (): boolean =>
@@ -149,6 +145,13 @@ const screenOf = (x: number, y: number) => {
  */
 const openSelectionMenu = (s: EditorState) => {
   const frames = allFrames();
+  // The page's root is the page: its menu is the page's, at its frame's corner (ADR 0075).
+  const page = selectedPageNow();
+  const pageBox = page ? frames[page] : undefined;
+  if (page && pageBox) {
+    showMenu({ kind: "page", pageId: page }, screenOf(pageBox.x, pageBox.y));
+    return true;
+  }
   if (s.selection) {
     const { frame, nodeId } = s.selection;
     const box = frames[frame];
@@ -163,11 +166,6 @@ const openSelectionMenu = (s: EditorState) => {
         )
       : screenOf(box.x, box.y);
     showMenu({ frame, kind: "node", nodeId }, at);
-    return true;
-  }
-  const box = s.selectedPage ? frames[s.selectedPage] : undefined;
-  if (s.selectedPage && box) {
-    showMenu({ kind: "page", pageId: s.selectedPage }, screenOf(box.x, box.y));
     return true;
   }
   return false;

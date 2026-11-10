@@ -180,12 +180,14 @@ export const useFramePointer = ({
 
   /**
    * What a press or a right-click here is about: what is selected, when the point is inside
-   * it, else what a click would select.
+   * it, else what a click would select. A page's root selected is the page (ADR 0075): a press
+   * inside it is about what is under the pointer.
    */
   const pickAt = (x: number, y: number, alt: boolean) => {
     const chain = hitUnlocked(frameId, x, y);
     const [selected = null] = selectedIn(frameId);
-    return selected !== null && chain.includes(selected)
+    const pageSelected = kind === "page" && selected === currentRoot()?.id;
+    return selected !== null && !pageSelected && chain.includes(selected)
       ? selected
       : stepInto(chain, currentRoot(), selected, alt);
   };

@@ -152,9 +152,8 @@ const CopyCode = ({ code }: { code: string | null }) => {
  */
 const useSubject = () => {
   const selection = useEditor((s) => s.selection);
-  const selectedPage = useEditor((s) => s.selectedPage);
   const canvas = useEditor((s) => s.canvas);
-  const frame = selection?.frame ?? selectedPage;
+  const frame = selection?.frame ?? null;
   // The root is the stored document's own object, so the selector stays stable between renders.
   const root = useDocuments((s) =>
     frame ? rootOfFrame(s.docs, canvas, frame) : null

@@ -200,8 +200,9 @@ describe("the selection as its view draws it", () => {
       ["title", "start"],
       ["aside", undefined],
     ]);
+    // A page selected from a view is its root there, at that view's breakpoint (ADR 0075).
     selectPage(PHONE);
-    expect(inspected()).toMatchObject({ frame: HOME, node: { id: "home" } });
+    expect(inspected()).toMatchObject({ frame: PHONE, node: { id: "home" } });
     select(null);
     expect(inspected()).toBeNull();
   });

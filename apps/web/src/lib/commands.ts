@@ -27,7 +27,6 @@ import {
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
-import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import {
   rightHasSubject,
   showLeftPanel,
@@ -35,6 +34,7 @@ import {
   usePanels,
 } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
+import { selectedPageNow } from "../state/selection.ts";
 import { surfaceNow } from "../state/surface.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
@@ -60,6 +60,7 @@ import { copyNodeLink, copyPageLink } from "./node-links.ts";
 import {
   deleteCanvasPicks,
   deletePages,
+  duplicatePage,
   goToPage,
   newPage,
   zoomToPage,
@@ -194,21 +195,20 @@ interface Shortcut {
 
 const editor = () => useEditor.getState();
 
-/** The page selected as a whole, by its name on the canvas; null for a node or nothing. */
+/** The page selected as a whole (its root, ADR 0075); null for another node or nothing. */
 const selectedPageOf = () => {
-  const { selectedPage } = editor();
-  const id = selectedPage ? pageOfRef(frameRefOf(selectedPage)) : null;
+  const id = selectedPageNow();
   return useProject.getState().pages.find((p) => p.id === id) ?? null;
 };
 
-/** Copies the link to the node selected, or to the page selected as a whole. */
+/** Copies the link to the page selected as a whole, or to the node selected. */
 const copySelectionLink = () => {
   const { selection } = editor();
   const page = selectedPageOf();
-  if (selection) {
-    copyNodeLink(selection);
-  } else if (page) {
+  if (page) {
     copyPageLink(page);
+  } else if (selection) {
+    copyNodeLink(selection);
   }
 };
 const onCanvas = () => editor().workspace === "design";
@@ -548,7 +548,15 @@ const keyOnlyCommands = (): CommandSpec[] => [
     id: "duplicate",
     keys: ["mod+d"],
     offered: keyOnly,
-    run: toSelection(() => duplicateSelection()),
+    // A page selected as a whole is duplicated with its file (ADR 0075).
+    run: () => {
+      const page = selectedPageOf();
+      if (page) {
+        duplicatePage(page);
+        return true;
+      }
+      return toSelection(() => duplicateSelection())();
+    },
     scope: "canvas",
     title: "Duplicate",
   },
@@ -556,8 +564,7 @@ const keyOnlyCommands = (): CommandSpec[] => [
     group: "Selection",
     id: "copyLink",
     keywords: "share url reference agent",
-    offered: () =>
-      onCanvas() && (editor().selection !== null || selectedPageOf() !== null),
+    offered: () => onCanvas() && editor().selection !== null,
     run: copySelectionLink,
     title: "Copy link to the selection",
   },
@@ -602,7 +609,7 @@ const keyOnlyCommands = (): CommandSpec[] => [
         return true;
       }
       const page = selectedPageOf();
-      if (!editor().selection && page) {
+      if (page) {
         deletePages([page.id]);
         return true;
       }
@@ -891,14 +898,14 @@ const selectionTarget = (): MenuTarget | null => {
   if (s.workspace !== "design") {
     return null;
   }
-  if (s.selection) {
-    return {
-      frame: s.selection.frame,
-      kind: "node",
-      nodeId: s.selection.nodeId,
-    };
+  // The page's root is the page: its menu is the page's (ADR 0075).
+  const page = selectedPageNow();
+  if (page) {
+    return { kind: "page", pageId: page };
   }
-  return s.selectedPage ? { kind: "page", pageId: s.selectedPage } : null;
+  return s.selection
+    ? { frame: s.selection.frame, kind: "node", nodeId: s.selection.nodeId }
+    : null;
 };
 
 /** The selection's menu, item by item. */

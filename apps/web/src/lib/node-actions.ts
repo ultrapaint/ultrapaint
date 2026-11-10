@@ -71,7 +71,6 @@ interface Context {
   readonly activePage: string | null;
   readonly canvas: string | null;
   readonly docs: ReturnType<typeof useDocuments.getState>["docs"];
-  readonly selectedPage: string | null;
   readonly selection: ReturnType<typeof useEditor.getState>["selection"];
 }
 
@@ -83,34 +82,29 @@ const liveContext = (): Context => ({
 /** The editor as it is, with `target` standing in for the selection when there is one. */
 export const nodeContext = (target?: Selection): Context => {
   const ctx = liveContext();
-  return target ? { ...ctx, selectedPage: null, selection: target } : ctx;
+  return target ? { ...ctx, selection: target } : ctx;
 };
 
-/** The editor as it is, with a page selected as a whole. */
-export const pageContext = (pageId: string): Context => ({
-  ...liveContext(),
-  selectedPage: pageId,
-  selection: null,
-});
+/** The editor as it is, with a page selected as a whole: its root (ADR 0075). */
+export const pageContext = (pageId: string): Context => {
+  const ctx = liveContext();
+  const root = rootOfFrame(ctx.docs, ctx.canvas, pageId);
+  return {
+    ...ctx,
+    selection: root ? { frame: pageId, nodeId: root.id } : null,
+  };
+};
 
 /** The selected node, its frame and its document, or null when nothing is selected. */
 export const selected = (ctx: Context = liveContext()) => {
-  const { docs, selection, selectedPage, canvas } = ctx;
-  if (selection) {
-    const node = nodeIn(docs, canvas, selection.frame, selection.nodeId);
-    return node
-      ? {
-          doc: docOfFrame(selection.frame, canvas),
-          frame: selection.frame,
-          node,
-        }
-      : null;
+  const { docs, selection, canvas } = ctx;
+  if (!selection) {
+    return null;
   }
-  if (selectedPage) {
-    const node = rootOfFrame(docs, canvas, selectedPage);
-    return node ? { doc: selectedPage, frame: selectedPage, node } : null;
-  }
-  return null;
+  const node = nodeIn(docs, canvas, selection.frame, selection.nodeId);
+  return node
+    ? { doc: docOfFrame(selection.frame, canvas), frame: selection.frame, node }
+    : null;
 };
 
 /**

@@ -23,7 +23,7 @@ import {
 } from "./location.ts";
 import { computeFrames, setFrame } from "./page-layout.ts";
 import { useProject } from "./project.ts";
-import { select, selectPage } from "./selection.ts";
+import { select, selectedPageNow, selectPage } from "./selection.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -626,10 +626,11 @@ describe("followFrame", () => {
     expect(outOfStep()).toEqual([]);
   });
 
-  it("goes to a page without a URL as itself", () => {
+  it("goes to a page without a URL as itself", async () => {
+    await withNodes(draft.id);
     selectPage(draft.id);
     expect(at()).toMatchObject({ activePage: draft.id, route: null });
-    expect(useEditor.getState().selectedPage).toBe(draft.id);
+    expect(selectedPageNow()).toBe(draft.id);
     expect(outOfStep()).toEqual([]);
   });
 

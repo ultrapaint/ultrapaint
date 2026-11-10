@@ -274,7 +274,6 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
     mode: now.mode,
     picked: {
       also: now.also,
-      selectedPage: now.selectedPage,
       selection: now.selection,
     },
     view: now.view,

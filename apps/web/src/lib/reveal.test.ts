@@ -17,7 +17,9 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
+import { selectedPageNow } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { pageDocs } from "../testing/page-docs.ts";
 import { until } from "../testing/until.ts";
 import { showScope } from "./add-to-chat.ts";
 import { reveal } from "./reveal.ts";
@@ -128,7 +130,10 @@ beforeEach(async () => {
   fakeApi.respond("canvas.get", ({ canvas }) =>
     canvas === "other" ? otherLayout : mainLayout
   );
-  fakeApi.respond("documents.list", () => []);
+  // Each canvas's pages, read with it: a page is selected as its root (ADR 0075).
+  fakeApi.respond("documents.list", ({ canvas }) =>
+    Object.values(pageDocs([canvas === "other" ? about.id : home.id]))
+  );
   useProject.setState({
     canvases: [
       { home: "/", id: "main", name: "Main", variants: [] },
@@ -149,7 +154,7 @@ beforeEach(async () => {
 describe("reveal", () => {
   it("brings a page of the open canvas into view, selected", async () => {
     await reveal({ page: home.id });
-    expect(useEditor.getState().selectedPage).toBe(home.id);
+    expect(selectedPageNow()).toBe(home.id);
     expect(useEditor.getState().view).toEqual(HOME_IN_VIEW);
   });
 
@@ -168,7 +173,7 @@ describe("reveal", () => {
     hideCanvas();
     await reveal({ page: home.id });
     expect(useEditor.getState().workspace).toBe("design");
-    expect(useEditor.getState().selectedPage).toBe(home.id);
+    expect(selectedPageNow()).toBe(home.id);
     expect(useEditor.getState().view).toEqual(START);
     hideCanvas = measureViewportWith(() => VIEWPORT);
     expect(useEditor.getState().view).toEqual(HOME_IN_VIEW);
@@ -189,10 +194,8 @@ describe("reveal", () => {
     openBoard({ item: "Plan", view: "library" }, "none");
     await reveal({ page: home.id });
     expect(useBoard.getState().open).toBeNull();
-    expect(useEditor.getState()).toMatchObject({
-      selectedPage: home.id,
-      view: HOME_IN_VIEW,
-    });
+    expect(selectedPageNow()).toBe(home.id);
+    expect(useEditor.getState().view).toEqual(HOME_IN_VIEW);
 
     useComponents.setState({
       components: [
@@ -237,7 +240,7 @@ describe("showScope", () => {
     await showScope(thread({ file: about.file, name: "about" }));
     const editor = useEditor.getState();
     expect(editor.canvas).toBe("other");
-    expect(editor.selectedPage).toBe(about.id);
+    expect(selectedPageNow()).toBe(about.id);
     expect(editor.view).toEqual(ABOUT_IN_VIEW);
   });
 

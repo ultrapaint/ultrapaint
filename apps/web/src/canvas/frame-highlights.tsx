@@ -232,13 +232,16 @@ const Outline = ({
     >
       {kind === "selection" && !bare && node ? (
         <>
-          <SelectionTag
-            color={color}
-            inside={rect.y < TAG_HEIGHT * inv}
-            inv={inv}
-            node={node}
-            width={rect.width / inv}
-          />
+          {/* A page's root is named by its frame's header, lit while it is selected (ADR 0075). */}
+          {node.type === "page" ? null : (
+            <SelectionTag
+              color={color}
+              inside={rect.y < TAG_HEIGHT * inv}
+              inv={inv}
+              node={node}
+              width={rect.width / inv}
+            />
+          )}
           <ElementToolbar node={node} />
         </>
       ) : null}

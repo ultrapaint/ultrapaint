@@ -1,7 +1,7 @@
 /**
- * The bar of a selected page, docked above the tools as an element's is (ADR 0058): the viewports
- * it can be drawn at, the views it is drawn in beside its frame (ADR 0036), then the page's menu.
- * The frame's header keeps its name and size; the inspector keeps its Viewport field.
+ * What the element toolbar adds for a page's root, which is the page (ADR 0075): the viewports
+ * it can be drawn at and the views it is drawn in beside its frame (ADR 0036). The frame's header
+ * keeps its name and size; the inspector keeps its Viewport field.
  */
 import { presetSize, type ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
@@ -26,10 +26,7 @@ import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { addView, setPreset } from "../state/page-layout.ts";
 import { selectPage } from "../state/selection.ts";
-import { useDrag } from "./drag.ts";
-import { MoreButton } from "./element-toolbar.tsx";
 import { MenuHead, ValueTrigger } from "./element-toolbar-selects.tsx";
-import { Divider, SelectionDock } from "./selection-dock.tsx";
 
 const PRESET_ICON: Record<ViewportPreset, LucideIcon> = {
   custom: Scaling,
@@ -133,19 +130,13 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
   );
 };
 
-/** In the bar above the tools while the page is selected. */
-export const PageToolbar = ({ pageId }: { pageId: string }) => {
+/** In the element toolbar while the page's root is selected. */
+export const PageControls = ({ pageId }: { pageId: string }) => {
   const preset = useEditor((s) => presetOf(s.frames[pageId]));
-  const dragging = useDrag((s) => s.dragged !== null);
-  if (dragging) {
-    return null;
-  }
   return (
-    <SelectionDock label="Toolbar of the page">
+    <>
       <ViewportSelect pageId={pageId} preset={preset} />
       <ViewsMenu pageId={pageId} />
-      <Divider />
-      <MoreButton menu={{ kind: "page", pageId }} />
-    </SelectionDock>
+    </>
   );
 };

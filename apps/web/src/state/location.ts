@@ -224,7 +224,6 @@ const foundOn = (canvas: string): Parameters<typeof stillThere>[1] => {
         nodeIn(docs, canvas, s.frame, s.nodeId) !== null
       );
     },
-    page,
   };
 };
 
@@ -236,8 +235,8 @@ const foundOn = (canvas: string): Parameters<typeof stillThere>[1] => {
 const stillPicked = (canvas: string): Partial<EditorState> => {
   const exists = foundOn(canvas);
   keepOfPageSelection((left) => stillThere(left, exists));
-  const { also, rects, selectedPage, selection } = useEditor.getState();
-  const picked: Picked = { also, selectedPage, selection };
+  const { also, rects, selection } = useEditor.getState();
+  const picked: Picked = { also, selection };
   return { ...stillThere(picked, exists), hover: null, rects };
 };
 

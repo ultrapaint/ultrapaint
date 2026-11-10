@@ -555,7 +555,6 @@ export const Library = () => {
 const InsertHint = () => {
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
-  const selectedPage = useEditor((s) => s.selectedPage);
   const activePage = useEditor((s) => s.activePage);
   const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
@@ -563,10 +562,9 @@ const InsertHint = () => {
     activePage,
     canvas,
     docs,
-    selectedPage,
     selection,
   });
-  if (!(target && (selection || selectedPage))) {
+  if (!(target && selection)) {
     return null;
   }
   return (

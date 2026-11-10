@@ -32,6 +32,7 @@ import { useAgents } from "../state/agents.ts";
 import { useComponents } from "../state/components.ts";
 import { type MenuTarget, showMenu } from "../state/context-menu.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import { useDrag } from "./drag.ts";
 import {
   AlignSelect,
@@ -43,6 +44,7 @@ import {
   ValueTrigger,
 } from "./element-toolbar-selects.tsx";
 import { LinkControl } from "./link-control.tsx";
+import { PageControls } from "./page-toolbar.tsx";
 import { Divider, SelectionDock } from "./selection-dock.tsx";
 import { SpacingSelect } from "./spacing-select.tsx";
 import { Targets } from "./toolbar-targets.ts";
@@ -144,6 +146,9 @@ export const ElementToolbar = ({ node }: { node: DesignNode }) => {
   if (!selection || dragging) {
     return null;
   }
+  // A page's root is the page (ADR 0075): its viewport and views, and the page's menu.
+  const page =
+    node.type === "page" ? pageOfRef(frameRefOf(selection.frame)) : null;
   return (
     <SelectionDock label={`Toolbar of ${nodeLabel(node)}`}>
       {workedOnBy ? (
@@ -155,14 +160,20 @@ export const ElementToolbar = ({ node }: { node: DesignNode }) => {
         <Targets.Provider value={[selection]}>
           <Controls node={node} />
           <Divider />
+          {page === null ? null : (
+            <>
+              <PageControls pageId={page} />
+              <Divider />
+            </>
+          )}
         </Targets.Provider>
       )}
       <MoreButton
-        menu={{
-          frame: selection.frame,
-          kind: "node",
-          nodeId: selection.nodeId,
-        }}
+        menu={
+          page === null
+            ? { frame: selection.frame, kind: "node", nodeId: selection.nodeId }
+            : { kind: "page", pageId: page }
+        }
       />
     </SelectionDock>
   );

@@ -121,7 +121,7 @@ export const select = (selection: Selection | null) => {
   if (selection && hidesSelection(selection.frame)) {
     return;
   }
-  useEditor.setState({ also: [], selectedPage: null, selection });
+  useEditor.setState({ also: [], selection });
   if (selection) {
     followFrame(selection.frame);
     surfaceNow().selectedIn(selection.frame);
@@ -147,20 +147,53 @@ export const selectMany = (selections: readonly Selection[]) => {
   });
 };
 
-/** A page selected as a whole (its frame), or none; a view's frame selects its page. */
-export const selectPage = (pageId: string | null) => {
-  if (pageId && hidesSelection(pageId)) {
+/**
+ * A page selected as a whole, which is its root selected (ADR 0075), in the frame given: a view's
+ * frame selects it at that view's breakpoint. Nothing when the page cannot be read, or for none.
+ */
+export const selectPage = (frame: string | null) => {
+  if (frame === null) {
+    select(null);
     return;
   }
-  // A view's frame selects its page, which every view of it shows (ADR 0036).
-  useEditor.setState({
-    also: [],
-    selectedPage: pageId && ownFrameOf(pageId),
-    selection: null,
-  });
-  if (pageId) {
-    followFrame(pageId);
+  const { canvas } = useEditor.getState();
+  const root = rootOfFrame(useDocuments.getState().docs, canvas, frame);
+  if (root?.type === "page") {
+    select({ frame, nodeId: root.id });
   }
+};
+
+/**
+ * The page whose root is selected, by its own frame: the page selected as a whole. Null when the
+ * selection is of anything else.
+ */
+export const selectedPageOf = (
+  selection: Selection | null,
+  docs: Seen["docs"],
+  canvas: string | null
+): string | null => {
+  if (!selection) {
+    return null;
+  }
+  const root = rootOfFrame(docs, canvas, selection.frame);
+  return root?.type === "page" && root.id === selection.nodeId
+    ? ownFrameOf(selection.frame)
+    : null;
+};
+
+/** `selectedPageOf` as the stores are now. */
+export const selectedPageNow = (): string | null =>
+  selectedPageOf(
+    useEditor.getState().selection,
+    useDocuments.getState().docs,
+    useEditor.getState().canvas
+  );
+
+/** `selectedPageOf` for a component. */
+export const useSelectedPage = (): string | null => {
+  const selection = useEditor((s) => s.selection);
+  const canvas = useEditor((s) => s.canvas);
+  return useDocuments((s) => selectedPageOf(selection, s.docs, canvas));
 };
 
 /** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
@@ -331,10 +364,10 @@ export interface Inspected {
   readonly nodes: readonly DesignNode[];
 }
 
-type Inspecting = Pick<EditorState, "also" | "selectedPage" | "selection">;
+type Inspecting = Pick<EditorState, "also" | "selection">;
 
-/** The view a selection was made in, or the page selected as a whole; null when neither. */
-const inspectedFrame = (s: Inspecting) => s.selection?.frame ?? s.selectedPage;
+/** The view a selection was made in; null when nothing is selected. */
+const inspectedFrame = (s: Inspecting) => s.selection?.frame ?? null;
 
 const inspectedNodes = (
   s: Inspecting,
@@ -342,15 +375,10 @@ const inspectedNodes = (
   canvas: string | null,
   breakpoints: readonly Breakpoint[],
   at: string | null
-): DesignNode[] => {
-  if (s.selection) {
-    return drawnAt([s.selection, ...s.also], docs, canvas, breakpoints, at);
-  }
-  const root = s.selectedPage
-    ? rootOfFrame(docs, canvas, s.selectedPage)
-    : null;
-  return root ? [resolveAtBreakpoint(root, breakpoints, at)] : [];
-};
+): DesignNode[] =>
+  s.selection
+    ? drawnAt([s.selection, ...s.also], docs, canvas, breakpoints, at)
+    : [];
 
 const inspectedOf = (
   frame: string | null,
@@ -361,8 +389,8 @@ const inspectedOf = (
 };
 
 /**
- * What the inspector is about: every node selected, the one it shows first leading, or the root
- * of the page selected as a whole; as the view the selection was made in draws them.
+ * What the inspector is about: every node selected, the one it shows first leading (a page's
+ * root for the page selected as a whole), as the view the selection was made in draws them.
  */
 export const inspected = (seen: Seen = seenNow()): Inspected | null => {
   const s = useEditor.getState();
@@ -379,7 +407,6 @@ export const useInspected = (): Inspected | null => {
   const picked = useEditor(
     useShallow((s) => ({
       also: s.also,
-      selectedPage: s.selectedPage,
       selection: s.selection,
     }))
   );
