@@ -1,9 +1,11 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
+import { LEVELS } from "./judge.ts";
 import type { Asked } from "./models.ts";
 import { Models } from "./models.ts";
 import {
   flipsOf,
+  PAIR_LEVELS,
   pairwise,
   settled,
   shownAs,
@@ -28,6 +30,13 @@ const twoRounds = {
 };
 
 describe("pairwise", () => {
+  it("gives a side at each of the judge's levels, colour in its own spelling", () => {
+    assert.sameMembers(
+      PAIR_LEVELS.map((level) => (level === "colour" ? "color" : level)),
+      [...LEVELS]
+    );
+  });
+
   it("shows a run's two designs in the order its name gives, as the rounds judged so far were", () => {
     // From runs/r2-main-blank-vs-r2-ch-blank/pairwise.json: each run's `shownFirst`.
     assert.deepStrictEqual(

@@ -33,7 +33,7 @@ import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import { commitOf, RoundInfo, type RunInfo } from "./generate.ts";
 import { prompt, readJson, writeJson, writeText } from "./layout.ts";
-import { versionName, writeSkillTree } from "./recall.ts";
+import { recordSkillTree, versionName, writeSkillTree } from "./recall.ts";
 import {
   describeViewports,
   type LoadedReference,
@@ -618,6 +618,9 @@ const startRound = Effect.fn("startRound")(function* (
     name: options.round,
     references: references.map((r) => r.id),
     runs: options.runs,
+    ...(options.skill !== NO_SKILL && {
+      skillTree: yield* recordSkillTree(options.round, options.skill),
+    }),
     skills: options.skill,
     startedAt: DateTime.formatIso(yield* DateTime.now),
   } satisfies RoundInfo);

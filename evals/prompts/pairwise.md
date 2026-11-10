@@ -13,6 +13,6 @@ Design A:
 Design B:
 {{b}}
 
-Compare the two designs with each other, level by level: layout, hierarchy, restraint (what each adds that says nothing), typography, colour, spacing, components, and the craft of the whole. The reference shows what good looks like for this screen; a choice that differs from it and works as well counts the same.
+Compare the two designs with each other, level by level: layout, hierarchy, restraint (what each adds that says nothing), typography, colour, spacing, components, and craft (the details: icons, radii, formats, states, alignment to the pixel). The reference shows what good looks like for this screen; a choice that differs from it and works as well counts the same.
 
 Answer with the winner (A, B or a tie), its margin (clear, slight or none), the side each level goes to, and three to five concrete differences that decided it, each naming the design.

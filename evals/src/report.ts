@@ -1,21 +1,23 @@
 /**
  * `report`: a round's judgements put together. The scores are counted here; the findings of every
  * run are grouped by a model into gaps, and each gap is counted here again: in how many runs of
- * each reference it happened. A gap in every run is something the skills do not teach, or teach
- * wrong; a gap in some runs is something they teach that agents follow flakily.
+ * each reference it happened. A gap in every run is something the skill does not teach, or
+ * teaches wrong; a gap in some runs is something it teaches that agents follow flakily.
  *
- * The model also proposes skill files for the gaps worth fixing. They are proposals: a person
- * reads them, writes the ones worth trying into the skill of a worktree, and runs a round from it
- * (`ULTRAPAINT_CHECKOUT`, `evals/README.md`) to see whether they help.
+ * A gap seen in two runs or more that the skill could close is also written as a draft for
+ * `evals/gaps/` (`proposals/`), with the one change to try: a change to the skill starts as a gap
+ * and is measured before the skill changes (ADR 0065), so the report never writes the skill's
+ * text. A person moves the drafts worth keeping into `evals/gaps/`.
  *
  * A person's review (`review.json`) overrules the judge: a finding they said is no problem is
  * left out, a text they called noise is noise, and their comments are the synthesis's first
  * evidence. "Less is more" is counted here: the texts each run added that were noise or invented.
  */
 import path from "node:path";
-import { Effect, FileSystem, Schema } from "effect";
+import { DateTime, Effect, FileSystem, Schema } from "effect";
 import { ADDED_TEXT_FILE, AddedTextEntry } from "./added-text.ts";
 import { EvalsConfig } from "./config.ts";
+import type { Gap as DesignGap } from "./gap.ts";
 import { RoundInfo } from "./generate.ts";
 import {
   isLevel,
@@ -23,31 +25,32 @@ import {
   LEVELS,
   readJudgement,
   roundRuns,
-  roundSkills,
+  roundSkill,
+  skillPlace,
 } from "./judge.ts";
 import { PROMPTS, prompt, readJson, writeJson, writeText } from "./layout.ts";
 import { Models } from "./models.ts";
 import { readReview, scoreOf, type Verdict } from "./review.ts";
+import { slugOf } from "./sections.ts";
 
 const Gap = Schema.Struct({
   findings: Schema.Array(Schema.String),
   kind: Schema.Literals(["missing", "ignored", "misleading", "tool"]),
   level: Schema.Literals(LEVELS),
+  /** What the skill says of it today, quoted with its file; empty when nothing does. */
+  now: Schema.String,
   proposal: Schema.String,
+  /** The skill's file that should teach it, by its path in the skill, or `none`. */
   skill: Schema.String,
   summary: Schema.String,
+  /** How the lab would tell whether the proposed change works. */
+  test: Schema.String,
   title: Schema.String,
 });
+type Gap = typeof Gap.Type;
 
 const Synthesis = Schema.Struct({
   gaps: Schema.Array(Gap),
-  rewrites: Schema.Array(
-    Schema.Struct({
-      skill: Schema.String,
-      text: Schema.String,
-      why: Schema.String,
-    })
-  ),
   strengths: Schema.Array(Schema.String),
 });
 
@@ -66,9 +69,11 @@ const synthesisSchema = (skills: readonly string[]) => {
               type: "string",
             },
             level: { enum: LEVELS, type: "string" },
+            now: string,
             proposal: string,
             skill: { enum: [...skills, "none"], type: "string" },
             summary: string,
+            test: string,
             title: string,
           },
           required: [
@@ -78,33 +83,22 @@ const synthesisSchema = (skills: readonly string[]) => {
             "kind",
             "findings",
             "summary",
+            "now",
             "proposal",
+            "test",
           ],
-          type: "object",
-        },
-        type: "array",
-      },
-      rewrites: {
-        items: {
-          additionalProperties: false,
-          properties: {
-            skill: { enum: skills, type: "string" },
-            text: string,
-            why: string,
-          },
-          required: ["skill", "text", "why"],
           type: "object",
         },
         type: "array",
       },
       strengths: { items: string, type: "array" },
     },
-    required: ["gaps", "rewrites", "strengths"],
+    required: ["gaps", "strengths"],
     type: "object",
   };
 };
 
-/** The gaps and proposals, as the model answers them, naming the round's skills. */
+/** The gaps and their proposals, as the model answers them, naming the skill's files. */
 export const synthesisAnswer = (skills: readonly string[]) => ({
   decode: Synthesis,
   schema: synthesisSchema(skills),
@@ -158,9 +152,76 @@ const seenIn = (gap: {
 const KIND_LABEL = {
   ignored: "the skill says it; agents do not do it",
   misleading: "the skill leads the wrong way",
-  missing: "no skill says it",
+  missing: "the skill does not say it",
   tool: "the tool could not do it",
 } as const;
+
+/**
+ * A gap's kind as `evals/gaps/` has it. A rule that misleads is drafted as `missing`, its text
+ * quoting the rule: the rule that holds is the one the skill lacks.
+ */
+const DRAFT_KIND = {
+  ignored: "missed",
+  misleading: "missing",
+  missing: "missing",
+} as const satisfies Record<string, DesignGap["kind"]>;
+
+/** A gap seen in this many runs is drafted: one run's is one design's accident. */
+const DRAFTED_FROM = 2;
+
+/** A gap of a round with where it was seen. */
+type SeenGap = Gap & {
+  readonly byReference: readonly {
+    readonly hit: number;
+    readonly of: number;
+    readonly reference: string;
+  }[];
+  readonly runsHit: number;
+};
+
+/** Whether a gap is drafted for `evals/gaps/`: the skill could close it, and it recurred. */
+const isDrafted = <G extends SeenGap>(
+  gap: G
+): gap is G & { readonly kind: keyof typeof DRAFT_KIND } =>
+  gap.kind !== "tool" && gap.runsHit >= DRAFTED_FROM;
+
+const ONE_LINE = /\s+/g;
+
+/**
+ * A round's gap as a draft of a file of `evals/gaps/` (its README has the form): what happened,
+ * what the skill says now, the one change to try and its test. It has no `id`: the person who
+ * keeps it gives it the next free one, and a file moved there without one does not load.
+ */
+export const gapDraft = (options: {
+  readonly found: string;
+  readonly gap: SeenGap & { readonly kind: keyof typeof DRAFT_KIND };
+  readonly round: string;
+}) => {
+  const { found, gap, round } = options;
+  const seen = gap.byReference
+    .map((r) => `${r.reference} ${r.hit}/${r.of}`)
+    .join(", ");
+  return `---
+title: ${gap.title.replace(ONE_LINE, " ").trim()}
+kind: ${DRAFT_KIND[gap.kind]}
+status: open
+found: ${found}
+source: round ${round}, the judge's findings in ${gap.runsHit} runs (${seen})
+skill: [${gap.skill === "none" ? "SKILL.md" : gap.skill}]
+sections: []
+---
+
+**What happened.** ${gap.summary.trim()}
+
+**The skill now.** ${gap.now.trim() || "No rule says it."}
+
+**Proposed.** ${gap.proposal.trim()}
+
+**Test.** ${gap.test.trim()}
+
+**Result.**
+`;
+};
 
 export const report = Effect.fn("report")(function* (
   round: string,
@@ -170,7 +231,7 @@ export const report = Effect.fn("report")(function* (
   const models = yield* Models;
   const dir = path.join(data.runs, round);
   const info = yield* readJson(RoundInfo, path.join(dir, "round.json"));
-  const skills = yield* roundSkills(round);
+  const skill = yield* roundSkill(round);
   const runs = yield* roundRuns(round);
   const fs = yield* FileSystem.FileSystem;
   const verdicts = yield* readReview(round);
@@ -276,8 +337,9 @@ export const report = Effect.fn("report")(function* (
     prompt: yield* prompt("report", {
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
       references: references.map((r) => `- ${r}: ${runsOf(r)} runs`).join("\n"),
+      skills: skillPlace(skill.dir, dir),
     }),
-    ...synthesisAnswer(skills),
+    ...synthesisAnswer(skill.names),
   });
   const synthesis = answer.value;
 
@@ -308,10 +370,16 @@ export const report = Effect.fn("report")(function* (
     .sort((a, b) => b.runsHit - a.runsHit || b.high - a.high);
 
   yield* writeJson(path.join(dir, "gaps.json"), counted);
-  for (const rewrite of synthesis.rewrites) {
+  const found = DateTime.formatIsoDateUtc(yield* DateTime.now);
+  // Numbered in the report's order, so two gaps with one title are two files.
+  const drafts = counted.filter(isDrafted).map((gap, index) => ({
+    file: `${String(index + 1).padStart(2, "0")}-${slugOf(gap.title).slice(0, 48)}.md`,
+    gap,
+  }));
+  for (const draft of drafts) {
     yield* writeText(
-      path.join(dir, "proposals", `${rewrite.skill}.md`),
-      `${rewrite.text.trim()}\n`
+      path.join(dir, "proposals", draft.file),
+      gapDraft({ found, gap: draft.gap, round })
     );
   }
 
@@ -321,7 +389,7 @@ export const report = Effect.fn("report")(function* (
   );
   const areas = [
     ...LEVELS.filter((l) => scored.has(l)),
-    ...skills.filter((s) => scored.has(s) && !isLevel(s)),
+    ...skill.names.filter((s) => scored.has(s) && !isLevel(s)),
     "overall",
   ];
   const unwantedOf = (reference?: string, kind?: Unwanted["kind"]) =>
@@ -425,7 +493,7 @@ export const report = Effect.fn("report")(function* (
     "",
     "Most often first. *Every run* means some reference showed it in all its runs: the skill does not teach it. *Some runs* means agents get it right sometimes: the skill teaches it too weakly to hold.",
     "",
-    "| Gap | Level | Skill | Why | Seen | Runs |",
+    "| Gap | Level | The skill's file | Why | Seen | Runs |",
     "| --- | --- | --- | --- | --- | --- |",
     ...counted.map(
       (gap) =>
@@ -446,15 +514,16 @@ export const report = Effect.fn("report")(function* (
     "",
     ...synthesis.strengths.map((s) => `- ${s}`),
     "",
-    "## Proposed skill files",
+    "## Proposed gaps",
     "",
-    synthesis.rewrites.length === 0
-      ? "None this round."
+    drafts.length === 0
+      ? `None this round: no gap the skill could close was seen in ${DRAFTED_FROM} runs.`
       : [
-          'Whole replacements of the shipped skill, in `proposals/`. To try one, write it into the skill of a worktree and run a round from it with `ULTRAPAINT_CHECKOUT` (evals/README.md, "A candidate in a round"), then `compare` the two rounds.',
+          `Each gap seen in ${DRAFTED_FROM} runs or more that the skill could close, drafted in \`proposals/\` as a file of \`evals/gaps/\`: a change to the skill starts as a gap and is measured before the skill changes (ADR 0065), so nothing here is the skill's text. Move the ones worth keeping into \`evals/gaps/\` under the next free id (\`pnpm evals gaps\`), as the file's \`id\` and the start of its name; evals/gaps/README.md says how one is then measured.`,
           "",
-          ...synthesis.rewrites.map(
-            (r) => `- [${r.skill}](proposals/${r.skill}.md): ${r.why}`
+          ...drafts.map(
+            ({ file, gap }) =>
+              `- [${gap.title}](proposals/${file}): ${gap.skill === "none" ? "SKILL.md" : gap.skill}, ${gap.runsHit} runs`
           ),
         ].join("\n"),
     "",

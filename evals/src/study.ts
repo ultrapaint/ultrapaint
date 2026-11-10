@@ -10,6 +10,7 @@
 import path from "node:path";
 import { Effect, FileSystem, Predicate, Schema } from "effect";
 import { type DataDir, EvalsConfig } from "./config.ts";
+import { skillDirOf } from "./judge.ts";
 import {
   listDir,
   PROMPTS,
@@ -398,7 +399,7 @@ export const studyBook = Effect.fn("studyBook")(function* (options: {
   );
   yield* fs.remove(path.join(work, "skills"), { force: true, recursive: true });
   yield* fs.copy(
-    path.join(data.runs, options.skillsFrom, "skills"),
+    yield* skillDirOf(options.skillsFrom),
     path.join(work, "skills")
   );
   const answer = yield* models.ask({

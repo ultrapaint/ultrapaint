@@ -1,21 +1,22 @@
 # Design evals
 
-The design skills (`skills/ultrapaint/`) are what every agent is told about designing well
-before it designs. This finds what they fail to teach: take a screen someone made well, give an
-agent its content and none of its design, let it design the screen in Ultrapaint, and compare
-the two. What the agent misses in every run is something no skill teaches; what it misses in some
-runs is something a skill teaches too weakly to hold.
+The design skill (`skills/ultrapaint/`, a core and its references, ADR 0069) is what every agent
+is told about designing well before it designs. This finds what it fails to teach: take a screen
+someone made well, give an agent its content and none of its design, let it design the screen in
+Ultrapaint, and compare the two. What the agent misses in every run is something the skill does
+not teach; what it misses in some runs is something it teaches too weakly to hold.
 
 Internal only: it changes nothing in the product. It runs the `ultrapaint` command of this
 checkout as a user would, in a host project (`hosts/` of the data directory), so a round measures
-the skills, the briefing and the tools as they are on the checkout's current commit, in a project
+the skill, the briefing and the tools as they are on the checkout's current commit, in a project
 with or without a design system. It reaches Ultrapaint through its command and its wire contracts
 (`@ultrapaint/contracts`) only, so `pnpm typecheck` says when a change to the contracts breaks it.
 
 ## The data directory
 
-The code and its prompts are here; what they read and write is not in git: the references and
-their captures, the hosts, the rounds, the studies' corpus. It is `ULTRAPAINT_EVALS_DATA`, else
+The code, its prompts and the pages its viewers serve (`viewers/`: `review`, `gallery`, `decide`)
+are here; what they read and write is not in git: the references and their captures, the hosts,
+the rounds, the studies' corpus. It is `ULTRAPAINT_EVALS_DATA`, else
 `~/Code/ultrapaint-data`:
 
 ```
@@ -25,6 +26,8 @@ families/       a product's screens and component crops, for track A
 candidates/     skill files to try, at their paths in the skill (recall --skills candidates/<fix>)
 gaps/           the design gaps' pictures, and the sections recall reviews (gaps/README.md)
 runs/           one directory per round, and <a>-vs-<b>/ for pairwise
+decisions/      the decks an agent asks the person, and their answers
+triage/         one directory per triage of the findings log
 corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources and notes
 .work/          the servers' configurations, scratch designs directories and logs
 ```
@@ -32,7 +35,7 @@ corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources
 ### Hosts
 
 The projects the agents design in. Each is what a user gets from `ultrapaint new`, so a round
-measures the skills in the situation a real project puts them in.
+measures the skill in the situation a real project puts it in.
 
 | Host | Made with | Components | Design system |
 | --- | --- | --- | --- |
@@ -54,8 +57,11 @@ Remaking a screen asks two things of an agent that are best measured apart:
   them, as a user would ask: tokens and components restyled in an implement thread, brought into
   Ultrapaint with `/sync`, then laid out on a sheet at `/components` by a design thread. Each
   component of the sheet is cut out and compared with the same component cut from the family's
-  screens (`families/<family>/components/`). A run's project is kept, and the best becomes the
-  family's library: `freeze <family> <round> <run>` copies it to `hosts/<family>`.
+  screens (`families/<family>/components/`): by you in `review`, and by a model with
+  `judge-components <round>`, which scores how close each is and lists what differs
+  (`runs/<round>/components-report.md`; `--against <earlier round>` also sets each beside the
+  version you picked there). A run's project is kept, and the best becomes the family's library:
+  `freeze <family> <round> <run>` copies it to `hosts/<family>`.
 - **Track B, the composition** (`round --host family`): each reference is designed on its
   family's library, several runs each, so what is measured is the layout, the words and the
   data, not a design system the agent had to invent.
@@ -63,10 +69,11 @@ Remaking a screen asks two things of an agent that are best measured apart:
 Both are reviewed best of several: the same component, or the same section, from every run,
 lettered A, B, C in a shuffled order beside the reference; you pick the best, or none, with a
 comment when there is something to say. `learn <round>` then reads your picks: what the winners do
-that the others do not, as rules for the skills (`runs/<round>/learned.md`).
+that the others do not, as rules for the skill (`runs/<round>/learned.md`).
 
 ```sh
 pnpm evals extract <round> [families…] --runs 3        # track A
+pnpm evals judge-components <round>                    # its components against the product's
 pnpm evals freeze <family> <round> <run>               # its best run, the family's library
 pnpm evals round <round> --host family --runs 3        # track B
 pnpm evals review <round>                              # pick the best of each
@@ -75,7 +82,9 @@ pnpm evals learn <round>                               # what the picks say
 
 ## The loop
 
-1. **Collect** a reference: `references/<id>/reference.json` (below).
+1. **Collect** a reference: `references/<id>/reference.json` (below). `gallery` shows the shots
+   gathered in `gallery/shots.json` one at a time, to take or skip; the ones taken
+   (`gallery/selection.json`) are those to make references from.
 2. **Capture** it: `capture` takes its pictures at 1440 and 390 wide, the first window and the
    whole page in tiles, and its text in reading order.
 3. **Brief** it: `brief` writes its content, without its design, to `brief.md`. Read the brief and
@@ -93,10 +102,13 @@ pnpm evals learn <round>                               # what the picks say
    and your comments are the synthesis's first evidence.
 6. **Read the report** (`runs/<name>/report.md`): scores per level of design, how much the agents
    added that should not be there, and the gaps, most frequent first, each with its level, the
-   skill it belongs to and why it happened. Run `report` again after a review.
-7. **Try a fix**: write the change into the skill of a worktree of its own (below, "A candidate
-   in a round"), run `round <name>-<fix> --host <host>` from it, and `compare <name>
-   <name>-<fix>`. What helps goes into the shipped skill later, by hand.
+   file of the skill it belongs to and why it happened. Run `report` again after a review.
+7. **Try a fix**: a change to the skill starts as a gap (ADR 0065), so the report drafts each
+   gap seen in two runs or more as a file for `gaps/` (`runs/<name>/proposals/`); move the ones
+   worth keeping there. To try a change, write it into the skill of a worktree of its own
+   (below, "A candidate in a round"), run `round <name>-<fix> --host <host>` from it, and
+   `compare <name> <name>-<fix>`. What helps goes into the shipped skill later, by hand, naming
+   the gaps it closes.
 
 The same references in two hosts, compared, say what a design system changes: which gaps it
 closes, and which rules only hold with tokens to hold them.
@@ -115,7 +127,12 @@ pnpm evals compare <baseline> <candidate>
 pnpm evals pairwise <a> <b>                    # the two judged blind, run by run
 pnpm evals setup-host <host>                   # import a host's design system with /init
 pnpm evals panel <round> [rounds…]             # what a fixed panel still finds in the designs
+pnpm evals gallery [--set shots|shadcn]        # choose the shots to take references from
+pnpm evals patterns annotate|book              # how a well-made product builds its interface
+pnpm evals study annotate|book                 # what a library of well-made sites does
 ```
+
+`pnpm evals --help` lists every command, and `pnpm evals <command> --help` its options.
 
 `pairwise` judges each run twice, the two designs shown the other way round the second time: a
 judge leans to one letter, so a side that changes with the order counts as a tie, and the command
@@ -125,13 +142,13 @@ once before is asked only the order it lacks.
 `round` takes `--runs` (3), `--agent` (claude-code), `--agent-model` (the name the agent's model
 picker shows; its default otherwise), `--minutes` (30, per run),
 `--judge-model` (opus) and `--concurrency` (3 judgements at once), and the review loop's
-`--review end|each-section` (none by default), `--reviewers` (opus), its goal (`--goal`,
-`--reviewer-goals`, `--floors`, `--max-rounds` (6), `--budget`), `--log-findings` and `--effort`
+`--review end|each-section|editor` (none by default), `--reviewers` (opus), its goal (`--goal`,
+`--reviewer-goals`, `--floors`, `--max-rounds` (2), `--budget`), `--log-findings` and `--effort`
 (high), below. It resumes: a run with a
 `run.json` and a judged run are kept, so after a failure, run the same command again. Its steps
 are also commands of their own: `generate`, `judge` (`--force` to judge again) and `report`.
 
-Rounds measure the checkout the command runs from. To measure another commit (the skills before a
+Rounds measure the checkout the command runs from. To measure another commit (the skill before a
 change, to compare with after), make a worktree of it, install it, and point
 `ULTRAPAINT_CHECKOUT` at it; say which in the round's name:
 
@@ -151,46 +168,52 @@ a dozen pictures: start with one reference and `--runs 1`.
 
 ## Reviews in a round
 
-ADR 0060 has a council of reviewers look at a design inside its loop, each scoring it out of 100,
-until the goal says to stop. Whether they do it section by section or once at the end of the
+ADR 0060 has review models look at a design inside its loop, each scoring it out of 100, until
+the goal says to stop. Whether they do it section by section or once at the end of the
 designer's turn is measured here first (`docs/plans/PLAN-review-loop.md`):
 
 ```sh
 pnpm evals round <name> --host family --review end --reviewers opus,gpt-6.1-sol --goal 90
-pnpm evals round <name> --host family --review end --reviewers opus,cursor:grok-4.7-high  # until both sign off
+pnpm evals round <name> --host family --review end --reviewers opus,cursor:grok-4.7-high  # until both approve
 pnpm evals panel <name> design-after --models opus,gpt-6.1-sol,cursor:grok-4.7-high
 ```
 
-- **The council** is `--reviewers`. Each reviewer only looks (Claude with `Read,Glob`, Codex in
-  its read-only sandbox, Cursor in ask mode) and answers, per section, its findings (each with
-  its category, one of the skill's references, its severity and the rule it breaks, or none), the
-  categories the section has, and a sign-off: good enough for what was asked, or what is left.
+- **The review models** are `--reviewers`, in the order they take turns. Each only looks (Claude
+  with `Read,Glob`, Codex in its read-only sandbox, Cursor in ask mode) and answers, per section,
+  its findings (each with its category, a concern the skill holds rules for, its severity and
+  the rule it breaks, or none), the categories the section has, and its sign-off: it approves
+  the section as good enough for what was asked, or says what is left.
 - **What a review rests on** is in its answer too, in the lab before the editor (the person's
   choice of 10 November). `picture`: whether the capture can be judged; a review of a blank or
   half-drawn one is no review, and the reviewer has no score there. `coverage`: a row per
   concern the section has (passed, findings, or not reviewed and why); a concern it gave no row
   counts as not reviewed, and each pass of `review.json` holds how many concerns were looked at.
   `keep`: one thing the section does well, told to the designer with the findings so a fix
-  doesn't sand it down. And a sign-off counts only when none of the reviewer's own findings is a
-  blocker or a major: approval is taken from the findings.
+  doesn't sand it down. And a sign-off approves only when none of the reviewer's own findings is
+  a blocker or a major: approval is taken from the findings.
 - **Its score** (contracts' `review`): a category is 100 less its findings' cost (blocker 40, major
   15, minor 5, nit 1), a section the mean of its categories (60 at most with a blocker), the page
-  the mean of its sections. Each reviewer is scored on its own findings; the council has no score
-  of its own. A reviewer that fails has no score that round, and the loop goes on with the others.
-- **Who looks** (ADR 0061): `--each-round` (`rotate` by default: the members in turn; `one`, the
-  first; `all`, the whole council) and `--sign-off` (`all` by default: once a round's reviewers
-  are satisfied, the whole council reviews the page as it stands and decides; `one`, the round's
-  own reviewers close the loop). Each pass records who reviewed it, and whether it signed off.
-- **The goal**: with `--goal <score>`, the loop stops when every reviewer reaches it;
+  the mean of its sections. Each review model is scored on its own findings; together they have
+  no score. One that fails has no score that round, and the loop goes on with the others.
+- **Who looks** (ADR 0061): `--each-round` (`rotate` by default: the review models in turn;
+  `one`, the first; `all`, every one) and `--sign-off`, who must approve at the end (`all` by
+  default: once a round's reviewers approve, every review model reviews the page as it stands
+  and decides; `one`, the round's own reviewers close the loop). Each pass records who reviewed
+  it, and whether it approved.
+- **The goal**: with `--goal <score>`, the loop stops when every review model reaches it;
   `--reviewer-goals gpt-6.1-sol=none,cursor:grok-4.7-high=80` gives one its own target or makes it
-  only advise; `--floors accessibility=80` holds every reviewer to a category's floor. Without
-  `--goal`, it stops when every reviewer signs off. `--max-rounds` (6), two rounds gaining under 2
+  only advise; `--floors accessibility=80` holds every one to a category's floor. Without
+  `--goal`, it stops when every one approves. `--max-rounds` (2 by default, the rounds the
+  editor's review ships with, ADR 0063: a first look and a second), two rounds gaining under 2
   points, and `--budget` (dollars, where the models say) stop a loop that isn't converging; the
   last pass records why it stopped and which pass was best. A pass that finds nothing stops it too.
 - **The findings log** (`--log-findings`, off by default): every pass's findings are appended to
   `~/.ultrapaint/findings/lab.jsonl` (`ULTRAPAINT_FINDINGS` for another directory), each with its
   project (`lab/<round>`), page, section, crop, reviewers, the skill's commit and what the
-  designer did with it, for triage (issue #8).
+  designer did with it, for triage (issue #8). With `--review editor` the log is the editor's
+  own (ADR 0066): the flag has its server keep each round's findings in
+  `~/.ultrapaint/findings/<the host project's name>.jsonl`, in the user directory whatever
+  `ULTRAPAINT_FINDINGS` says.
 
 - `--review end`: when the designer's turn ends, its page is cut into the reference's sections,
   every reviewer (models as `recall --models` takes them) reviews every section from its crop with
@@ -208,6 +231,10 @@ pnpm evals panel <name> design-after --models opus,gpt-6.1-sol,cursor:grok-4.7-h
   `Section done: <node> <name>` (`prompts/review-each-section.md`). That node is pictured and
   reviewed until the goal says to stop, before the designer is asked for the next; after `All
   sections done`, the page is reviewed as in `end`. Forty turns at most.
+- `--review editor`: the editor's own review loop (ADR 0063) in place of the lab's. The round's
+  project is given `--reviewers`, `--each-round`, `--sign-off` and the goal as its review
+  settings, the editor reviews each design as it does for a person, and a run keeps the review
+  rounds of its transcript in `editor-review.json`.
 - Each run keeps `review.json` beside `run.json`: every pass with its sections, each reviewer's
   findings, score and sign-off, the merged list, why the loop stopped, the designer's reply and which numbers it fixed or declined, and the
   totals with and without the review work (the designer's own turns, its answers, the reviewers).
@@ -218,7 +245,7 @@ baseline), by what a fixed panel of fresh reviewers still finds: every model of 
 every section of each run's final page with the skill of the checkout the command runs from,
 within the run's request as above (the round's `round.json` says whether it had pictures), the
 judge model groups their findings, and fewer problems is better; system notes are counted apart.
-Each panel model also scores each run out of 100 on its own findings, as the council does. Each
+Each panel model also scores each run out of 100 on its own findings, as a round's review models do. Each
 run gets `panel.json`, kept while the panel is the same (a run with no sections to show is not
 reviewed, and is in neither file), and the round `panel.md`: problems per
 run and per section, each model's score, beside the judge's overall score and the run's seconds
@@ -327,6 +354,8 @@ skill and the gaps: whether it is real and general, a rule the skill lacks (`mis
 (`missed`), and whether a gap covers it already. What they all find real and general is drafted:
 a new gap, or a line of evidence for the gap that covers it. The run keeps its groups and checks
 in `triage/<name>/` of the data directory and resumes; nothing reaches `gaps/` until `--apply`.
+Run again under a name already applied, it drafts what was logged since, and the answers given
+to the earlier deck do not answer the new one (below, "Decisions").
 
 The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
 from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
@@ -346,9 +375,10 @@ Cursor's in `cursor-agent` by its exact name after `cursor:` (`cursor-agent --li
 pnpm evals recall <round> --models opus,gpt-6.1-sol,cursor:grok-4.7-high --runs 2
 ```
 
-Cursor bills its named models (Opus, Gemini) from one pool and Composer and Grok from another;
-each run on it is guarded by `.work/probe/cursor-guard.mjs <pgid> 98 auto|api`, which stops it
-before the pool runs out or anything is billed on demand.
+Cursor bills its named models (Opus, Gemini) from one pool and Composer and Grok from another,
+and nothing in the lab watches either: run a bulk job on Cursor under a guard of your own. The
+data directory's `.work/probe/cursor-guard.mjs <pgid> 98 auto|api` is one: it stops a process
+group before the pool runs out or anything is billed on demand.
 
 A round's designing agent is chosen the same way: `round --agent codex --agent-model
 gpt-6.1-sol`, compared with `compare` or `pairwise`.
@@ -388,7 +418,10 @@ pnpm evals off-system <rounds…>
 ```
 
 `off-system` counts, per run, the values a round's pages set for themselves where the design
-system has a token (design-document's `offSystemValues`), into `runs/<round>/off-system.md`.
+system has a token (design-document's `offSystemValues`), into `runs/<round>/off-system.md`. A
+page that does not read as this checkout's (a round may have measured another commit) is left
+out: the table's last column says how many pages each run's count leaves out, and the run's
+heading names them.
 
 ### How a finding could have been caught
 
@@ -406,6 +439,32 @@ each would catch. `outline` writes each gap section's outline from its code, wit
 judgement, and `recall --inputs outline` shows a reviewer that outline instead of the pictures and
 code (`shipped+outline`), to see which gaps the outline alone shows. Its report ends with what a review took on
 average, per version: findings, seconds and, where the model counts them, tokens.
+
+## Studies
+
+Two commands count what well-made interfaces do, each in two steps: `annotate` has a model look
+at every picture not looked at yet and answer the same questions of each, and `book` counts the
+answers and has a model write them up, set against the skill a round recorded
+(`--skills-from <round>`, required: the round whose skill the write-up is compared with).
+
+```sh
+pnpm evals patterns annotate [--corpus untitled-ui|landing]
+pnpm evals patterns book --skills-from <round> [--corpus untitled-ui|landing]
+pnpm evals study annotate [--sources opl,typewolf,awwwards,landing] [--model gpt-6.1-sol]
+pnpm evals study book --dimension <dimension> --skills-from <round> [--character technical]
+```
+
+- `patterns`: how one product builds its interface, per kind of piece (dialogs, settings pages,
+  tables, menus…): Untitled UI's shots (`gallery/untitled-ui.json`) or a set of SaaS landing
+  pages (`corpus/landing/`). The notes, the counts and the book are in `patterns/` and
+  `patterns-landing/`.
+- `study`: what the library of well-made sites (`corpus/<source>/`) does, per dimension of
+  design (layout, typography, color, spacing, imagery, icons, components, content) and per
+  character (technical, humanistic, expressive). A model's notes are in
+  `studies/<model>/notes/`, and `book` writes `studies/<model>/<dimension>.md` from the notes of
+  `--notes <model>` (gpt-6.1-sol).
+
+What a book says the skill should change is evidence for a gap, never a change to the skill.
 
 ## Decisions
 
@@ -434,6 +493,11 @@ any comment, for the agent to read back and act on. An answer in the person's ow
 answer leads to and the evidence beside it, and put the quickest cards first. Show each item as
 a close-up with a box around it, never a whole screen to search. An item that no picture shows
 says so on its card.
+
+A command that writes its deck again (`triage`, `recall --rate`) keeps an answer only while the
+deck still has the card it was given to, word for word. When a card reads otherwise or is gone,
+its id may name another question: the answers file is first copied whole to
+`decisions/<deck>.answers.<time>.json`, and those answers leave `<deck>.answers.json`.
 
 ## A reference
 
@@ -478,8 +542,9 @@ in `capture/` by hand, under the names `capture` uses (`desktop-fold.jpg`, `desk
 
 ```
 runs/<name>/
-  round.json            agent, model, commit, which skills
-  skills/<skill>.md     the skills as the agents were told them this round
+  round.json            agent, model, commit, the skill tree it ran with (each file's hash)
+  skills/shipped/       the skill as the round ran with it: SKILL.md and references/
+  skills/<skill>.md     what the server told the agents: the skill's core, the host's own skills
   <ref>/run-<n>/
     shots/              the agent's page, in the same pictures as the reference
     pages/              its page files
@@ -494,12 +559,15 @@ runs/<name>/
   findings.json, gaps.json, unwanted-text.json
   review.json           your verdicts, card by card
   review-notes.md       your comments
-  report.md             scores, less is more, gaps, proposals
+  report.md             scores, less is more, gaps, proposed gaps
   panel.md              what the panel found, run by run and section by section
-  proposals/<skill>.md  proposed replacements of the shipped skills
+  proposals/<n>-<gap>.md  each recurring gap, drafted as a file for evals/gaps/
 ```
 
-All of it is in the data directory, on the machine that ran the round.
+All of it is in the data directory, on the machine that ran the round. A round from before the
+skill was one (ADR 0069) keeps its shape and still reads: its `round.json` has no skill tree,
+its `skills/` holds the skills one file each, a finding names a skill, and its `proposals/` are
+whole skill files.
 
 ## How a run is done
 
@@ -514,8 +582,9 @@ A viewport is drawn from the variant made for it, `<page>@mobile`, when the agen
 
 ## How it is judged
 
-The judge reads the principles (`prompts/principles.md`: less is more first), the brief, every
-skill, both sets of pictures and the run's trace, and looks for the places where the agent's
+The judge reads the principles (`prompts/principles.md`: less is more first), the brief, the
+skill as the round recorded it (its core, and the references the screen's kind and concerns
+call for), both sets of pictures and the run's trace, and looks for the places where the agent's
 design is visibly worse than the reference: the reference is one good answer, so a different
 choice that works as well is no finding. Each finding is at one level of design:
 
@@ -528,14 +597,15 @@ choice that works as well is no finding. Each finding is at one level of design:
 | typography, color, spacing | scale and weight, palette and contrast, rhythm and density |
 | craft | icons, radii, number formats, states, wording, alignment to the pixel |
 
-and names the skill whose subject it is, and how that skill covers it:
+and names the file of the skill whose subject it is (`SKILL.md`, the core, for a rule that bears
+on most screens; `references/kinds/dialog.md`; `none`), and how the skill covers it:
 
 | Coverage | Means | Fix |
 | --- | --- | --- |
-| not covered | no skill says it | add the rule |
-| covered, not followed | a skill says it, the agent did not do it | make the rule harder to miss: an exact value, a check in "Before you finish" |
+| not covered | the skill does not say it | add the rule |
+| covered, not followed | the skill says it, the agent did not do it | make the rule harder to miss: an exact value, a row in its file's check table |
 | rule misleads | following the skill made it worse | change or remove the rule |
-| tool limitation | Ultrapaint could not do it | not a skill: a product issue |
+| tool limitation | Ultrapaint could not do it | not the skill: a product issue |
 
 The tool limitations are a by-product worth reading: they are what the editor lacks for designs
 like the reference's.
@@ -544,13 +614,19 @@ Each run is scored 1–5 per level. The report groups the findings of all runs i
 them: seen in every run of a reference, it is consistent; in some, it is flaky. Scores that
 disagree by 2 or more between runs of one reference are marked ⚠.
 
+A gap seen in two runs or more that the skill could close is drafted in `proposals/` as a file
+for `gaps/`: what happened, what the skill says now, the one change to try and its test. The
+report never writes the skill's text, since a change is measured as a gap before the skill
+changes (ADR 0065). A draft has no `id`: to keep one, move it into `evals/gaps/` under the next
+free id (`pnpm evals gaps`).
+
 ### Less is more, counted
 
 After a run, every text its page shows is matched against the brief's content (its lists, tables
 and quoted copy, not the brief writer's own words): what is left is what the agent wrote itself.
 Each is pictured in its place (`parts/`), and the judge says of each whether it is noise, invented
 content, or needed. The report counts the noise and the invented per run; `compare` says whether
-a change to the skills made it go down. Your verdict on a text card overrules the judge's.
+a change to the skill made it go down. Your verdict on a text card overrules the judge's.
 
 `prompts/principles.md` is where taste is written down. Add to it what your review comments
 keep saying: it goes to the judge and to the synthesis of every round.

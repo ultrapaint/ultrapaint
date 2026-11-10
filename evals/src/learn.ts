@@ -97,7 +97,7 @@ export const learn = Effect.fn("learn")(function* (
     prompt: yield* prompt("learn", {
       choices: choices.join("\n"),
       principles: yield* fs.readFileString(path.join(PROMPTS, "principles.md")),
-      skills: (yield* roundSkills(round)).join(", ") || "the design skills",
+      skills: (yield* roundSkills(round)).join(", ") || "`SKILL.md`",
     }),
     ...learnedAnswer,
   });

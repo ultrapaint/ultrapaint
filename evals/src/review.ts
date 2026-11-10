@@ -16,6 +16,9 @@
  *
  * Verdicts go in `runs/<round>/review.json` as they are given, so a review can stop and go on;
  * `report` reads them: they overrule the judge, and the comments go to the synthesis.
+ *
+ * The page is `evals/viewers/review.html`; the pictures a card shows are files of the data
+ * directory, served at their path from it.
  */
 import { createServer } from "node:http";
 import path from "node:path";
@@ -32,7 +35,13 @@ import { foldName } from "./capture.ts";
 import { type DataDir, EvalsConfig } from "./config.ts";
 import { RoundInfo } from "./generate.ts";
 import { type Judgement, readJudgement, roundRuns } from "./judge.ts";
-import { listDir, readJson, viewerSrc, writeJson } from "./layout.ts";
+import {
+  listDir,
+  readJson,
+  viewerPage,
+  viewerSrc,
+  writeJson,
+} from "./layout.ts";
 import {
   challengeCards,
   componentCards,
@@ -695,6 +704,7 @@ export const review = Effect.fn("review")(function* (
   }
   const byId = new Map(cards.map((c) => [c.id, c]));
   const lock = yield* Semaphore.make(1);
+  const page = yield* viewerPage("review");
 
   const session = Effect.gen(function* () {
     const verdicts: Record<string, Verdict> = {};
@@ -762,7 +772,7 @@ export const review = Effect.fn("review")(function* (
   const routes = Layer.mergeAll(
     HttpRouter.add("GET", "/api/session", session),
     HttpRouter.add("POST", "/api/verdict", save),
-    HttpRouter.add("GET", "/", HttpServerResponse.redirect("/review/")),
+    HttpRouter.add("GET", "/", Effect.succeed(HttpServerResponse.html(page))),
     HttpStaticServer.layer({ root: data.root })
   );
   yield* Effect.log(

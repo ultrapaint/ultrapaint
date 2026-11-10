@@ -470,4 +470,62 @@ describe("a triage run", () => {
         ]);
       }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(scripted))))
   );
+
+  it.effect(
+    "leaves a deck written anew unanswered: an answer stays with the card it was given to, and the earlier answers are kept beside the deck",
+    () =>
+      Effect.gen(function* () {
+        const { data, gaps } = yield* EvalsConfig;
+        const fs = yield* FileSystem.FileSystem;
+        const answer = {
+          at: "2026-11-06T12:00:00.000Z",
+          choice: "keep",
+          comment: "the settings list above all",
+          label: "Keep as a gap",
+          title: "Groups as close as their rows",
+        };
+        const answers = () =>
+          Effect.map(
+            readData("decisions/triage-nov.answers.json"),
+            (text) => JSON.parse(text) as Record<string, unknown>
+          );
+        yield* fs.makeDirectory(gaps, { recursive: true });
+        yield* logged("bike-shop", twice("spacing", "Groups as close"));
+        yield* triage(options);
+        yield* writeData({
+          "decisions/triage-nov.answers.json": { "spacing-1": answer },
+        });
+
+        // The same findings read again: the card is the one that was answered.
+        yield* triage(options);
+        assert.deepStrictEqual(yield* answers(), { "spacing-1": answer });
+
+        yield* applyTriage("nov");
+        const later = { at: "2026-11-07T10:00:00.000Z", project: "tea-shop" };
+        yield* logged("tea-shop", [
+          finding("designs/a.page.json", "opus", later),
+          finding("designs/b.page.json", "gpt-6.1-sol", later),
+        ]);
+        // The same name on what was logged since: spacing-1 is another problem's card.
+        yield* triage(options);
+        assert.deepStrictEqual(yield* answers(), {});
+        const beside = (yield* fs.readDirectory(
+          path.join(data.root, "decisions")
+        )).filter(
+          (f) =>
+            f.startsWith("triage-nov.answers.") &&
+            f !== "triage-nov.answers.json"
+        );
+        assert.strictEqual(beside.length, 1);
+        assert.deepStrictEqual(
+          JSON.parse(yield* readData(`decisions/${beside[0]}`)),
+          { "spacing-1": answer }
+        );
+
+        yield* applyTriage("nov");
+        assert.deepStrictEqual(yield* fs.readDirectory(gaps), [
+          "g01-groups-as-close-as-their-rows.md",
+        ]);
+      }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(scripted))))
+  );
 });

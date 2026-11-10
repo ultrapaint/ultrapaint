@@ -15,6 +15,7 @@ import path from "node:path";
 import {
   formatReviewModel,
   Goal,
+  parseReviewModel,
   type ReviewSettings,
 } from "@ultrapaint/contracts/review";
 import {
@@ -41,7 +42,7 @@ import {
   writeText,
 } from "./layout.ts";
 import type { Models } from "./models.ts";
-import { writeSkillTree } from "./recall.ts";
+import { recordSkillTree, SkillTree, writeSkillTree } from "./recall.ts";
 import {
   describeViewports,
   familyOf,
@@ -111,6 +112,11 @@ export const RoundInfo = Schema.Struct({
    * older round may name the candidates directory it tried.
    */
   skills: Schema.String,
+  /**
+   * The skill tree the round ran with, file by file (ADR 0069); absent in a round from before it
+   * was recorded, whose `skills/` holds its skills one file each, and in one run with no skill.
+   */
+  skillTree: Schema.optional(SkillTree),
   startedAt: Schema.String,
 });
 export type RoundInfo = typeof RoundInfo.Type;
@@ -154,6 +160,32 @@ export interface GenerateOptions {
   readonly round: string;
   readonly runs: number;
 }
+
+/**
+ * The editor's review settings of a round's flags (`--review editor`, ADR 0063). There the
+ * findings log is the editor's own (ADR 0066): with `logFindings` its server appends each round's
+ * findings to `findings/<project>.jsonl` of the user directory, under the host project's name,
+ * which is where `triage` reads unless `ULTRAPAINT_FINDINGS` points it elsewhere.
+ */
+export const editorReviewOf = (flags: {
+  readonly approval: NonNullable<ReviewSettings["approval"]>;
+  readonly eachRound: NonNullable<ReviewSettings["eachRound"]>;
+  readonly effort: string;
+  readonly goal: NonNullable<ReviewSettings["goal"]>;
+  readonly logFindings: boolean;
+  /** The review models as the flag names them: `opus`, `cursor:grok-4.7-high`. */
+  readonly reviewers: readonly string[];
+}): ReviewSettings => ({
+  approval: flags.approval,
+  eachRound: flags.eachRound,
+  ...(flags.logFindings && { findingsLog: true }),
+  goal: flags.goal,
+  on: true,
+  reviewModels: flags.reviewers.map((reviewer) => ({
+    ...parseReviewModel(reviewer),
+    effort: flags.effort,
+  })),
+});
 
 export const commitOf = Effect.gen(function* () {
   const { checkout } = yield* EvalsConfig;
@@ -205,7 +237,11 @@ const referenceImages = Effect.fn("referenceImages")(function* (
 });
 const ZOOM = /^zoom-\d+\.jpg$/;
 
-/** The skills as agents are told them this round, one file each, for the judge and the report. */
+/**
+ * What the server told the agents this round, one file per skill it lists (the design skill's
+ * core in the editor's terms, the host's own skill files), kept beside the skill's tree
+ * (`recordSkillTree`) to set against it.
+ */
 const recordSkills = Effect.fn("recordSkills")(function* (
   session: UltrapaintSession,
   round: string
@@ -784,6 +820,8 @@ const startRound = Effect.fn("startRound")(function* (
       }),
       runs: options.runs,
       skills: skillsOfRound(skillsBriefing),
+      // The checkout's skill, which its server is built with and tells the agents.
+      skillTree: yield* recordSkillTree(options.round, "built-in"),
       startedAt: new Date().toISOString(),
     } satisfies RoundInfo);
   }

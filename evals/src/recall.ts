@@ -34,6 +34,7 @@
  * person rates it real or noise (`decisions/rate-<round>.json`): once answered, the report gives
  * each version the share of what it found there that was real.
  */
+import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   Clock,
@@ -45,7 +46,7 @@ import {
   Semaphore,
 } from "effect";
 import { EvalsConfig } from "./config.ts";
-import { Answers, type Deck } from "./decide.ts";
+import { Answers, type Deck, writeDeck } from "./decide.ts";
 import { EvalsError } from "./errors.ts";
 import {
   isFinding,
@@ -493,6 +494,53 @@ export const writeSkillTree = Effect.fn("writeSkillTree")(function* (
 });
 
 /**
+ * The skill tree a round ran with, as its record (`round.json`) holds it since the skill is one
+ * (ADR 0069): the judge reads it there, and two rounds are told apart by what their skill said.
+ */
+export const SkillTree = Schema.Struct({
+  /** Where the round keeps it, from the round's directory: `skills/shipped`. */
+  dir: Schema.String,
+  /**
+   * Each file of the skill by its path in it (`SKILL.md`, `references/kinds/dialog.md`), with the
+   * SHA-256 of its text.
+   */
+  files: Schema.Record(Schema.String, Schema.String),
+});
+export type SkillTree = typeof SkillTree.Type;
+
+/** The skill's own README is beside it in the checkout and does not ship with it. */
+const SKILL_README = "README.md";
+
+/** The files of a skill tree, by their path in the skill, sorted. */
+export const skillFilesOf = Effect.fn("skillFilesOf")(function* (tree: string) {
+  const fs = yield* FileSystem.FileSystem;
+  return (yield* fs.readDirectory(tree, { recursive: true }))
+    .filter((f) => f.endsWith(".md") && f !== SKILL_README)
+    .sort();
+});
+
+/**
+ * A round's skill tree, written into the round (`writeSkillTree`) and read back as its record:
+ * every file with the hash of what the round's copy says, so the record is of what was kept.
+ */
+export const recordSkillTree = Effect.fn("recordSkillTree")(function* (
+  round: string,
+  skills: string
+) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  const dir = path.join("skills", versionName(skills));
+  const tree = yield* writeSkillTree(path.join(data.runs, round, dir), skills);
+  const files: Record<string, string> = {};
+  for (const file of yield* skillFilesOf(tree)) {
+    files[file] = createHash("sha256")
+      .update(yield* fs.readFileString(path.join(tree, file)))
+      .digest("hex");
+  }
+  return { dir, files } satisfies SkillTree;
+});
+
+/**
  * A section as the round reviews it: its pictures and code copied into the round, where its
  * reviewers and judges work, with nothing beside them that names a gap.
  */
@@ -855,6 +903,12 @@ const kept = <S extends Schema.Top, E, R>(
     return made;
   });
 
+/** What a run says when the deck it wrote anew left earlier ratings without their problems. */
+const setAside = (file: string | undefined) =>
+  file === undefined
+    ? ""
+    : `; the problems changed, and the ratings given to the earlier ones are kept in ${file}`;
+
 export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   const { data } = yield* EvalsConfig;
   const out = path.join(data.runs, options.round);
@@ -1031,12 +1085,9 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
       sections: sectionsRead,
       unmatched,
     });
-    yield* writeJson(
-      path.join(decisions, `${rateDeckName(options.round)}.json`),
-      deck
-    );
+    const aside = yield* writeDeck(rateDeckName(options.round), deck);
     yield* Effect.log(
-      `${deck.cards.length} problems to rate: pnpm evals decide ${rateDeckName(options.round)}`
+      `${deck.cards.length} problems to rate: pnpm evals decide ${rateDeckName(options.round)}${setAside(aside)}`
     );
   }
   const answersFile = path.join(

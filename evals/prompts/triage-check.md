@@ -21,7 +21,7 @@ Answer:
 - `title`: the gap's title, the problem in a few words ("Groups as close as their rows").
 - `happened`: two to four sentences: what the reviews found, where, and why it matters.
 - `proposed`: the rule or check to try, in the skill's voice, short and specific; for `missed`,
-  what would make the existing rule applied (a wording, a "Before you finish" row).
+  what would make the existing rule applied (a wording, a row in its file's check table).
 - `test`: how a lab round tells whether the change works, in a sentence.
 - `skill`: the skill's files it concerns, as paths from `skills/ultrapaint/`.
 

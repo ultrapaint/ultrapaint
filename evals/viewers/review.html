@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      name="viewport"
+    >
+    <title>Design review</title>
+    <style>
+    :root {
+      --bg: #f4f4f2;
+      --card: #fff;
+      --ink: #18181b;
+      --muted: #71717a;
+      --line: #e4e4e7;
+      --no: #dc2626;
+      --yes: #16a34a;
+      --skip: #a1a1aa;
+      --radius: 14px;
+      font:
+        14px / 1.45 ui-sans-serif,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .progress {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+    .bar {
+      flex: 0 0 160px;
+      height: 4px;
+      overflow: hidden;
+      background: var(--line);
+      border-radius: 2px;
+    }
+    .bar i {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: var(--ink);
+      transition: width 0.2s;
+    }
+    .back {
+      flex: none;
+      padding: 6px 12px;
+      font: inherit;
+      color: var(--ink);
+      cursor: pointer;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .back:disabled {
+      color: var(--skip);
+      cursor: default;
+    }
+    .chips {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .chips button,
+    .toggle {
+      padding: 6px 10px;
+      font: inherit;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: 0;
+      border-radius: 8px;
+    }
+    .chips button[aria-pressed="true"] {
+      color: var(--ink);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--line);
+    }
+    .toggle input {
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+    main {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      place-items: center;
+      min-height: 0;
+      padding: 0 20px 34px;
+    }
+    .card {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: minmax(0, 1fr);
+      width: min(1500px, 100%);
+      height: 100%;
+      overflow: hidden;
+      touch-action: pan-y;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.06),
+        0 8px 30px rgb(0 0 0 / 0.06);
+      transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+    }
+    .card.dragging {
+      transition: none;
+    }
+    .top {
+      display: grid;
+      gap: 4px;
+      padding: 16px 20px 12px;
+    }
+    .meta {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .meta b {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .question {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .quote {
+      padding: 10px 14px;
+      margin: 4px 0 0;
+      font-size: 18px;
+      background: #fafaf9;
+      border-left: 3px solid var(--ink);
+      border-radius: 4px;
+    }
+    .lines {
+      display: grid;
+      gap: 2px;
+      padding: 0;
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      list-style: none;
+    }
+    .panes {
+      display: grid;
+      grid-auto-columns: 1fr;
+      grid-auto-flow: column;
+      gap: 12px;
+      min-height: 0;
+      padding: 0 20px;
+    }
+    .panes.with-reference {
+      grid-template-columns: 3fr 2fr;
+    }
+    .pane {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+    .pane h2 {
+      margin: 0 0 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .scroll {
+      overflow: auto;
+      touch-action: pan-y;
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .scroll img {
+      display: block;
+      width: 100%;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .tabs {
+      display: none;
+    }
+    /* A section: fitted to its pane, a tall one kept narrow. */
+    .lens-section .scroll {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      place-items: start center;
+      padding: 12px;
+    }
+    .lens-section .scroll img.tall {
+      width: auto;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .marked {
+      position: relative;
+      overflow: hidden;
+    }
+    .mark {
+      position: absolute;
+      pointer-events: none;
+      outline: 2px solid #f59e0b;
+      outline-offset: 2px;
+      border-radius: 4px;
+      box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.28);
+    }
+    .comment-toggle {
+      display: none;
+    }
+    .scroll.crop {
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .scroll.crop img {
+      width: auto;
+      max-width: 100%;
+      box-shadow: 0 0 0 1px var(--line);
+    }
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 20px 16px;
+    }
+    .comment {
+      width: 100%;
+      height: 40px;
+      padding: 10px 12px;
+      font: inherit;
+      resize: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .comment:focus {
+      height: 72px;
+      outline: 2px solid var(--ink);
+      outline-offset: -1px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .actions button {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .actions button > kbd {
+      font:
+        11px ui-monospace,
+        monospace;
+      color: var(--muted);
+    }
+    .actions .no:hover,
+    .actions .no.chosen {
+      color: var(--no);
+      border-color: var(--no);
+    }
+    .actions .yes:hover,
+    .actions .yes.chosen {
+      color: var(--yes);
+      border-color: var(--yes);
+    }
+    /* A rating: five points, worst to best, each its number over its word, then skip. */
+    .actions.scale button {
+      flex-direction: column;
+      gap: 0;
+      min-width: 64px;
+      padding: 6px 12px;
+      line-height: 1.2;
+    }
+    .actions.scale button b {
+      font-size: 16px;
+    }
+    .actions.scale button span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .actions.scale button.chosen {
+      color: var(--card);
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+    .actions.scale button.chosen span {
+      color: var(--card);
+    }
+    .stamp {
+      position: absolute;
+      top: 24px;
+      z-index: 2;
+      padding: 6px 14px;
+      font-size: 22px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      background: rgb(255 255 255 / 0.85);
+      border: 3px solid;
+      border-radius: 8px;
+      opacity: 0;
+    }
+    .stamp.no {
+      left: 24px;
+      color: var(--no);
+      transform: rotate(-8deg);
+    }
+    .stamp.yes {
+      right: 24px;
+      color: var(--yes);
+      transform: rotate(8deg);
+    }
+    .done {
+      color: var(--muted);
+      text-align: center;
+    }
+    .done h2 {
+      font-size: 20px;
+      color: var(--ink);
+    }
+    .help {
+      position: fixed;
+      bottom: 6px;
+      left: 20px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    p.help kbd {
+      padding: 0 4px;
+      font:
+        11px ui-monospace,
+        monospace;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+    /* Layout only: the arrangement, with nothing to read; held, it is sharp. */
+    .lens-layout .scroll img {
+      filter: blur(5px) grayscale(1);
+      transition: filter 0.15s;
+    }
+    .lens-layout.sharp .scroll img {
+      filter: none;
+    }
+    /*
+     * A section: its pictures share the card, each fitted whole and as large as it can be:
+     * in rows when they are wide (a header, a table), side by side when tall (a sidebar).
+     */
+    .panes.stacked,
+    .panes.columns {
+      grid-template-rows: repeat(var(--count, 3), minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-flow: row;
+      overflow: hidden;
+    }
+    .panes.columns {
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-columns: repeat(var(--count, 3), minmax(0, 1fr));
+    }
+    /* In a row, the picture is fitted whole into it. */
+    .panes.stacked .scroll {
+      position: relative;
+      overflow: hidden;
+    }
+    .panes.stacked .scroll img {
+      position: absolute;
+      inset: 8px;
+      width: calc(100% - 16px);
+      height: calc(100% - 16px);
+      object-fit: contain;
+    }
+    /* In a column, at the column's width, scrolled: the three scroll together. */
+    .panes.columns .scroll {
+      display: block;
+      padding: 0;
+      overflow: auto;
+    }
+    .panes.columns .scroll img {
+      width: 100%;
+      height: auto;
+      max-height: none;
+    }
+    /* A phone: one picture at a time behind tabs, answers as large buttons, a folded comment. */
+    @media (max-width: 760px) {
+      header {
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 10px 12px 8px;
+      }
+      header h1 {
+        display: none;
+      }
+      .bar {
+        flex: 1 1 auto;
+      }
+      .chips {
+        order: 3;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .chips button {
+        flex: none;
+      }
+      .toggle {
+        padding: 0;
+        font-size: 13px;
+      }
+      main {
+        padding: 0 8px calc(8px + env(safe-area-inset-bottom));
+      }
+      .top {
+        padding: 12px 14px 8px;
+      }
+      .meta span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .question {
+        font-size: 17px;
+      }
+      .quote {
+        padding: 8px 10px;
+        font-size: 15px;
+      }
+      .lines {
+        max-height: 6.5em;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .panes,
+      .panes.with-reference {
+        grid-template-rows: auto 1fr;
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-flow: row;
+        gap: 8px;
+        padding: 0 10px;
+      }
+      .pane h2 {
+        display: none;
+      }
+      /* On a phone a section's pictures are stacked and scrolled, each at full width. */
+      .panes.stacked {
+        grid-template-rows: none;
+        grid-auto-rows: max-content;
+        overflow: auto;
+      }
+      .panes.stacked .pane h2 {
+        display: block;
+      }
+      .panes.stacked .scroll {
+        display: block;
+        overflow: visible;
+      }
+      .panes.stacked .scroll img {
+        position: static;
+        width: 100%;
+        height: auto;
+      }
+      .panes.stacked .scroll img.tall {
+        width: auto;
+        max-width: 100%;
+        max-height: 60vh;
+        margin: 0 auto;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        background: var(--bg);
+        border-radius: 9px;
+      }
+      .tabs button {
+        flex: 1;
+        padding: 6px 8px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        border-radius: 7px;
+      }
+      .tabs button[aria-pressed="true"] {
+        color: var(--ink);
+        background: var(--card);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+      }
+      .bottom {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px;
+      }
+      .comment-toggle {
+        display: block;
+        justify-self: start;
+        padding: 2px 4px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--muted);
+        background: none;
+        border: 0;
+      }
+      .comment {
+        display: none;
+      }
+      .bottom.commenting .comment {
+        display: block;
+        height: 64px;
+      }
+      .bottom.commenting .comment-toggle {
+        display: none;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+      }
+      .actions button {
+        justify-content: center;
+        min-height: 48px;
+        padding: 10px 12px;
+        line-height: 1.2;
+        text-align: center;
+      }
+      .actions button > kbd {
+        display: none;
+      }
+      .actions.scale {
+        grid-template-columns: repeat(5, 1fr) auto;
+        gap: 6px;
+      }
+      .actions.scale button {
+        min-width: 0;
+        padding: 6px 2px;
+      }
+      .stamp {
+        top: 16px;
+        font-size: 17px;
+      }
+      .stamp.no {
+        left: 14px;
+      }
+      .stamp.yes {
+        right: 14px;
+      }
+    }
+    @media (max-width: 760px), (pointer: coarse) {
+      .help {
+        display: none;
+      }
+    }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Design review</h1>
+      <span class="progress" id="progress"></span>
+      <span class="bar"><i id="bar"></i></span>
+      <button class="back" disabled id="back" type="button">← Back</button>
+      <nav class="chips" id="chips"></nav>
+      <label class="toggle"
+        ><input checked id="pending" type="checkbox">Only what is left</label
+      >
+    </header>
+    <main id="main"></main>
+    <p class="help">
+      <kbd>←</kbd> <kbd>→</kbd> answer · <kbd>↓</kbd> skip · <kbd>Z</kbd> back ·
+      <kbd>R</kbd>
+      reference · <kbd>1</kbd>–<kbd>5</kbd>
+      rate or pick, <kbd>0</kbd> none · <kbd>C</kbd> comment, then
+      <kbd>Ctrl</kbd>+arrow to answer with it
+    </p>
+    <script>
+    "use strict";
+    // In the order they are best reviewed in: sections first, whole screens last.
+    const KINDS = [
+      ["all", "All"],
+      ["component", "Components"],
+      ["section", "Sections"],
+      ["finding", "Findings"],
+      ["text", "Texts"],
+      ["layout", "Layouts"],
+      ["pair", "Pairs"],
+      ["screen", "Screens"],
+    ];
+    const state = {
+      cards: [],
+      history: [],
+      index: 0,
+      kind: "all",
+      pane: 0,
+      pending: true,
+      returnTo: null,
+      revisit: null,
+      showReference: true,
+      verdicts: {},
+    };
+    const $ = (id) => document.getElementById(id);
+    const narrow = matchMedia("(max-width: 760px)");
+    const el = (tag, props = {}, children = []) => {
+      const node = Object.assign(document.createElement(tag), props);
+      for (const child of [].concat(children)) {
+        if (child !== null && child !== undefined) {
+          node.append(child);
+        }
+      }
+      return node;
+    };
+
+    // A card gone back to stays in view, answered or not, until it is answered again.
+    const visible = () =>
+      state.cards.filter(
+        (c) =>
+          (state.kind === "all" || c.kind === state.kind) &&
+          (!(state.pending && state.verdicts[c.id]) || c.id === state.revisit)
+      );
+
+    async function load() {
+      const session = await (await fetch("/api/session")).json();
+      Object.assign(state, {
+        cards: session.cards,
+        // Back goes through the answers in the order they were given, from before a reload too.
+        history: Object.entries(session.verdicts)
+          .sort(([, a], [, b]) => a.at.localeCompare(b.at))
+          .map(([id]) => id),
+        verdicts: session.verdicts,
+      });
+      document.title = `Design review: ${session.rounds.join(" · ")}`;
+      render();
+    }
+
+    function chips() {
+      const nav = $("chips");
+      nav.replaceChildren(
+        ...KINDS.map(([kind, label]) => {
+          const of = state.cards.filter(
+            (c) => kind === "all" || c.kind === kind
+          );
+          if (of.length === 0) {
+            return null;
+          }
+          const left = of.filter((c) => !state.verdicts[c.id]).length;
+          const button = el("button", {
+            onclick: () => {
+              state.kind = kind;
+              state.index = 0;
+              render();
+            },
+            textContent: `${label} ${left}`,
+          });
+          button.setAttribute("aria-pressed", String(state.kind === kind));
+          return button;
+        }).filter(Boolean)
+      );
+    }
+
+    function pane(title, pictures, crop = false) {
+      return el("section", { className: "pane" }, [
+        el("h2", { textContent: title }),
+        el(
+          "div",
+          { className: `scroll${crop ? " crop" : ""}` },
+          pictures.map((p) => {
+            const img = el("img", {
+              alt: p.label,
+              draggable: false,
+              // The picture holding a mark is loaded at once, to be scrolled to.
+              loading: p.mark ? "eager" : "lazy",
+              // A tall part (a sidebar) shown at full width would be all scrolling.
+              onload: (e) => {
+                const shown = e.target;
+                const tall = shown.naturalHeight > shown.naturalWidth * 1.4;
+                shown.classList.toggle("tall", tall);
+                // Tall parts side by side compare better than squeezed into rows.
+                const wrap = shown.closest(".panes.stacked");
+                if (tall && wrap && !narrow.matches) {
+                  wrap.classList.replace("stacked", "columns");
+                  scrollTogether(wrap);
+                }
+                if (p.mark) {
+                  showMark(shown);
+                }
+              },
+              src: p.src,
+            });
+            if (!p.mark) {
+              return img;
+            }
+            // Where the text is: a box on the page, the rest dimmed.
+            return el("div", { className: "marked" }, [
+              img,
+              el("div", {
+                className: "mark",
+                style: `left:${p.mark.x * 100}%;top:${p.mark.y * 100}%;width:${p.mark.width * 100}%;height:${p.mark.height * 100}%`,
+              }),
+            ]);
+          })
+        ),
+      ]);
+    }
+
+    /** The mark scrolled to the middle of its pane. */
+    function showMark(img) {
+      const box = img.parentElement?.querySelector(".mark");
+      const scroller = img.closest(".scroll");
+      if (!(box && scroller)) {
+        return;
+      }
+      const top =
+        box.getBoundingClientRect().top -
+        scroller.getBoundingClientRect().top +
+        scroller.scrollTop;
+      scroller.scrollTop = Math.max(
+        0,
+        top - scroller.clientHeight / 2 + box.offsetHeight / 2
+      );
+    }
+
+    /** On a phone: one pane at a time, chosen by tabs. */
+    function tabbed(wrap, titles) {
+      const all = [...wrap.children];
+      const chosen = Math.min(state.pane, all.length - 1);
+      const tabs = el(
+        "div",
+        { className: "tabs" },
+        titles.map((title, index) => {
+          const b = el("button", {
+            onclick: () => {
+              state.pane = index;
+              render();
+            },
+            textContent: title,
+          });
+          b.setAttribute("aria-pressed", String(index === chosen));
+          return b;
+        })
+      );
+      wrap.replaceChildren(tabs, all[chosen]);
+      return wrap;
+    }
+
+    /** The columns of a section scroll as one, so the same height of each is in view. */
+    function scrollTogether(wrap) {
+      const columns = [...wrap.querySelectorAll(".scroll")];
+      let leading = null;
+      for (const column of columns) {
+        column.addEventListener("scroll", () => {
+          if (leading && leading !== column) {
+            return;
+          }
+          leading = column;
+          const share =
+            column.scrollTop /
+            Math.max(1, column.scrollHeight - column.clientHeight);
+          for (const other of columns) {
+            if (other !== column) {
+              other.scrollTop =
+                share * (other.scrollHeight - other.clientHeight);
+            }
+          }
+          requestAnimationFrame(() => {
+            leading = null;
+          });
+        });
+      }
+    }
+
+    /** On a phone: one picture at a time, behind tabs. */
+    function narrowPanes(card, wrap) {
+      const designs = card.rightPictures
+        ? [pane("Left", card.pictures), pane("Right", card.rightPictures)]
+        : [pane(designTitle(card), card.pictures, isCrop(card))];
+      wrap.append(...designs, pane("Reference", card.referencePictures));
+      const titles = card.rightPictures
+        ? ["Left", "Right"]
+        : [designTitle(card)];
+      return tabbed(wrap, [...titles, "Reference"]);
+    }
+
+    const isCrop = (card) =>
+      card.kind === "text" && card.pictures[0]?.label === "in its place";
+    const designTitle = (card) => {
+      if (card.pictures.some((p) => p.mark)) {
+        return "In the screen";
+      }
+      return isCrop(card) ? "In its place" : "Design";
+    };
+
+    function panes(card) {
+      const wrap = el("div", {
+        className: `panes${card.lens ? ` lens-${card.lens}` : ""}`,
+      });
+      // A section's pictures are all seen at once: in rows, or side by side when tall.
+      if (card.options) {
+        wrap.classList.add("stacked");
+        // Without a reference (the product's screens do not show it), the options alone.
+        wrap.append(
+          ...card.options.map((o) => pane(o.label, o.pictures)),
+          ...(card.referencePictures.length > 0
+            ? [pane("Reference", card.referencePictures)]
+            : [])
+        );
+        wrap.style.setProperty("--count", String(wrap.children.length));
+        return wrap;
+      }
+      if (card.lens === "section") {
+        wrap.classList.add("stacked");
+        wrap.append(
+          pane(card.rightPictures ? "Left" : "Design", card.pictures),
+          ...(card.rightPictures ? [pane("Right", card.rightPictures)] : []),
+          pane("Reference", card.referencePictures)
+        );
+        wrap.style.setProperty("--count", String(wrap.children.length));
+        return wrap;
+      }
+      if (narrow.matches) {
+        return narrowPanes(card, wrap);
+      }
+      if (card.rightPictures) {
+        wrap.append(
+          pane("Left", card.pictures),
+          pane("Right", card.rightPictures)
+        );
+      } else {
+        const crop = isCrop(card);
+        wrap.append(pane(designTitle(card), card.pictures, crop));
+        wrap.classList.toggle("with-reference", state.showReference && !crop);
+      }
+      if (state.showReference) {
+        wrap.append(pane("Reference", card.referencePictures));
+      }
+      return wrap;
+    }
+
+    function render() {
+      chips();
+      $("back").disabled = state.history.length === 0;
+      const total = state.cards.length;
+      const done = state.cards.filter((c) => state.verdicts[c.id]).length;
+      $("progress").textContent = `${done} of ${total}`;
+      $("bar").style.width = `${(100 * done) / Math.max(1, total)}%`;
+      const list = visible();
+      const main = $("main");
+      if (state.index >= list.length) {
+        state.index = Math.max(0, list.length - 1);
+      }
+      const card = list[state.index];
+      if (!card) {
+        main.replaceChildren(
+          el("div", { className: "done" }, [
+            el("h2", { textContent: "Nothing left here" }),
+            el("p", {
+              textContent:
+                "Every verdict is saved. Run the report again to use them.",
+            }),
+          ])
+        );
+        return;
+      }
+      if (card.id !== state.shown) {
+        state.shown = card.id;
+        state.pane = 0;
+      }
+      const given = state.verdicts[card.id];
+      const comment = el("textarea", {
+        className: "comment",
+        placeholder: "Why? (optional)",
+        value: given?.comment ?? "",
+      });
+      const commentToggle = el("button", {
+        className: "comment-toggle",
+        onclick: () => {
+          bottom.classList.add("commenting");
+          comment.focus();
+        },
+        textContent: "+ Add a comment",
+      });
+      const button = (side, cls, key) => {
+        const b = el(
+          "button",
+          { className: cls, onclick: () => answer(side) },
+          [card[side] ?? "Skip", el("kbd", { textContent: key })]
+        );
+        if (given?.choice === side) {
+          b.classList.add("chosen");
+        }
+        return b;
+      };
+      const bottom = el(
+        "div",
+        { className: `bottom${given?.comment ? " commenting" : ""}` },
+        [commentToggle, comment, actionsFor(card, given, button)]
+      );
+      const node = el("article", { className: "card" }, [
+        el("div", { className: "stamp no", textContent: card.left }),
+        el("div", { className: "stamp yes", textContent: card.right }),
+        el("div", { className: "top" }, [
+          el("div", { className: "meta" }, [
+            el("b", { textContent: card.kind }),
+            el("span", { textContent: card.title }),
+          ]),
+          el("p", { className: "question", textContent: card.question }),
+          card.quote
+            ? el("p", { className: "quote", textContent: card.quote })
+            : null,
+          card.lines.length
+            ? el(
+                "ul",
+                { className: "lines" },
+                card.lines.map((l) => el("li", { textContent: l }))
+              )
+            : null,
+        ]),
+        panes(card),
+        bottom,
+      ]);
+      main.replaceChildren(node);
+      // A rating is given with a button or a key; a swipe has no number in it.
+      if (!(card.scale || card.options)) {
+        drag(node);
+      }
+      holdToSharpen(node);
+    }
+
+    /** `extra` is `{ score }` for a rating, `{ pick }` for the best of several. */
+    async function answer(choice, extra = {}) {
+      const card = visible()[state.index];
+      if (!card) {
+        return;
+      }
+      // A rated card is only rated, a picking card only picked, any other answered left or right.
+      let expected = null;
+      if (card.options) {
+        expected = "picked";
+      } else if (card.scale) {
+        expected = "rated";
+      }
+      const fits =
+        choice === "skip" ||
+        (expected
+          ? choice === expected
+          : choice === "left" || choice === "right");
+      if (!fits) {
+        return;
+      }
+      const { pick, score } = extra;
+      const comment = document.querySelector(".comment")?.value ?? "";
+      const node = document.querySelector(".card");
+      const dx = { left: -1, picked: 0, rated: 0, right: 1, skip: 0 }[choice];
+      node.style.transform = `translate(${dx * 120}%, ${choice === "skip" ? 40 : 0}px) rotate(${dx * 12}deg)`;
+      node.style.opacity = "0";
+      const response = await fetch("/api/verdict", {
+        body: JSON.stringify({ choice, comment, id: card.id, pick, score }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      if (!response.ok) {
+        const { message } = await response.json();
+        render();
+        document.querySelector(".question").textContent =
+          `Not saved: ${message}`;
+        return;
+      }
+      state.verdicts[card.id] = {
+        at: new Date().toISOString(),
+        choice,
+        comment,
+        pick,
+        score,
+      };
+      state.history = [
+        ...state.history.filter((id) => id !== card.id),
+        card.id,
+      ];
+      const revisited = state.revisit === card.id;
+      state.revisit = null;
+      if (revisited && state.returnTo) {
+        // Answered again: on to where the review was before going back.
+        const at = visible().findIndex((c) => c.id === state.returnTo);
+        state.index = at === -1 ? state.index : at;
+        state.returnTo = null;
+      } else if (!state.pending) {
+        state.index += 1;
+      }
+      setTimeout(render, 180);
+    }
+
+    /** A button for one answer, marked when it is the answer given. */
+    function answerButton(label, hint, title, chosen, onclick) {
+      const b = el("button", { onclick, title }, [
+        el("b", { textContent: label }),
+        el("span", { textContent: hint }),
+      ]);
+      if (chosen) {
+        b.classList.add("chosen");
+      }
+      return b;
+    }
+
+    /** The card's answers: options to pick from, a scale, or left and right. */
+    function actionsFor(card, given, button) {
+      if (card.options) {
+        return el("div", { className: "actions scale picks" }, [
+          ...card.options.map((option, index) =>
+            answerButton(
+              option.label,
+              String(index + 1),
+              `Option ${option.label}`,
+              given?.pick === option.id,
+              () => answer("picked", { pick: option.id })
+            )
+          ),
+          answerButton(
+            "None",
+            "0",
+            "None is good",
+            given?.pick === "none",
+            () => answer("picked", { pick: "none" })
+          ),
+          button("skip", "", "↓"),
+        ]);
+      }
+      if (card.scale) {
+        return el("div", { className: "actions scale" }, [
+          ...card.scale.map((label, index) =>
+            answerButton(
+              String(index + 1),
+              label,
+              label,
+              given?.score === index + 1,
+              () => answer("rated", { score: index + 1 })
+            )
+          ),
+          button("skip", "", "↓"),
+        ]);
+      }
+      return el("div", { className: "actions" }, [
+        button("left", "no", "←"),
+        button("skip", "", "↓"),
+        button("right", "yes", "→"),
+      ]);
+    }
+
+    function digit(n) {
+      const card = visible()[state.index];
+      if (card?.options) {
+        const option = n === 0 ? { id: "none" } : card.options[n - 1];
+        if (option) {
+          answer("picked", { pick: option.id });
+        }
+      } else if (card?.scale && n >= 1 && n <= card.scale.length) {
+        answer("rated", { score: n });
+      }
+    }
+
+    /** The last answer shown again, with what was chosen, to be answered again or kept. */
+    function back() {
+      const id = state.history.pop();
+      if (!id) {
+        return;
+      }
+      if (!state.returnTo) {
+        state.returnTo = visible()[state.index]?.id ?? null;
+      }
+      const card = state.cards.find((c) => c.id === id);
+      if (card && state.kind !== "all" && card.kind !== state.kind) {
+        state.kind = "all";
+      }
+      state.revisit = id;
+      state.index = Math.max(
+        0,
+        visible().findIndex((c) => c.id === id)
+      );
+      render();
+    }
+
+    /**
+     * Swiping the card answers. A gesture that starts moving sideways is a swipe, wherever it
+     * starts, pictures included; one that starts moving up or down is left to scroll.
+     */
+    function drag(node) {
+      let start = null;
+      let swiping = false;
+      const stamps = [
+        node.querySelector(".stamp.no"),
+        node.querySelector(".stamp.yes"),
+      ];
+      const reset = () => {
+        start = null;
+        swiping = false;
+        node.classList.remove("dragging");
+        node.style.transform = "";
+        for (const s of stamps) {
+          s.style.opacity = "0";
+        }
+      };
+      node.addEventListener("pointerdown", (e) => {
+        if (e.target.closest("button, textarea") || e.button > 0) {
+          return;
+        }
+        start = { x: e.clientX, y: e.clientY };
+        swiping = false;
+      });
+      node.addEventListener("pointermove", (e) => {
+        if (start === null) {
+          return;
+        }
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        if (!swiping) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+            start = null;
+            return;
+          }
+          if (Math.abs(dx) < 10) {
+            return;
+          }
+          swiping = true;
+          node.classList.add("dragging");
+          node.setPointerCapture(e.pointerId);
+        }
+        node.style.transform = `translateX(${dx}px) rotate(${dx / 40}deg)`;
+        stamps[0].style.opacity = String(Math.min(1, Math.max(0, -dx / 100)));
+        stamps[1].style.opacity = String(Math.min(1, Math.max(0, dx / 100)));
+      });
+      node.addEventListener("pointerup", (e) => {
+        if (start === null || !swiping) {
+          start = null;
+          return;
+        }
+        const dx = e.clientX - start.x;
+        const far = Math.min(140, node.offsetWidth * 0.28);
+        if (Math.abs(dx) > far) {
+          start = null;
+          swiping = false;
+          node.classList.remove("dragging");
+          answer(dx > 0 ? "right" : "left");
+          return;
+        }
+        reset();
+      });
+      node.addEventListener("pointercancel", reset);
+    }
+
+    /** A layout card's pictures, blurred, are sharp for as long as they are pressed. */
+    function holdToSharpen(node) {
+      const lens = node.querySelector(".lens-layout");
+      if (!lens) {
+        return;
+      }
+      let timer;
+      const sharp = (on) => lens.classList.toggle("sharp", on);
+      lens.addEventListener("pointerdown", () => {
+        timer = setTimeout(() => sharp(true), 150);
+      });
+      for (const end of ["pointerup", "pointercancel", "pointerleave"]) {
+        lens.addEventListener(end, () => {
+          clearTimeout(timer);
+          sharp(false);
+        });
+      }
+      // A swipe is not a hold.
+      lens.addEventListener("pointermove", (e) => {
+        if (Math.abs(e.movementX) > 2) {
+          clearTimeout(timer);
+        }
+      });
+      lens.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === " ") {
+        document.querySelector(".lens-layout")?.classList.remove("sharp");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      const typing = e.target.matches?.("textarea, input");
+      if (typing) {
+        if (e.key === "Escape") {
+          e.target.blur();
+        }
+        // While a comment is typed, Ctrl or ⌘ with an arrow answers with it.
+        const modified = e.ctrlKey || e.metaKey;
+        const side = {
+          ArrowDown: "skip",
+          ArrowLeft: "left",
+          ArrowRight: "right",
+        }[e.key];
+        if (modified && side) {
+          e.preventDefault();
+          answer(side);
+        }
+        if (modified && "0123456789".includes(e.key) && e.key.length === 1) {
+          e.preventDefault();
+          digit(Number(e.key));
+        }
+        return;
+      }
+      const keys = {
+        " ": () =>
+          document.querySelector(".lens-layout")?.classList.add("sharp"),
+        ArrowDown: () => answer("skip"),
+        ArrowLeft: () => answer("left"),
+        ArrowRight: () => answer("right"),
+        c: () => document.querySelector(".comment")?.focus(),
+        r: () => {
+          state.showReference = !state.showReference;
+          render();
+        },
+        z: back,
+      };
+      // A number rates a card on a scale, or picks one of several (0: none is good).
+      if ("0123456789".includes(e.key) && e.key.length === 1) {
+        e.preventDefault();
+        digit(Number(e.key));
+        return;
+      }
+      const act = keys[e.key];
+      if (act) {
+        e.preventDefault();
+        act();
+      }
+    });
+    narrow.addEventListener("change", () => render());
+    $("back").addEventListener("click", back);
+    $("pending").addEventListener("change", (e) => {
+      state.pending = e.target.checked;
+      state.index = 0;
+      render();
+    });
+    load();
+    </script>
+  </body>
+</html>

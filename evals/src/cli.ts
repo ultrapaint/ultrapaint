@@ -1,5 +1,5 @@
 /**
- * The design evals: how well the design skills Ultrapaint ships teach agents to design, found
+ * The design evals: how well the design skill Ultrapaint ships teaches agents to design, found
  * by asking for screens someone already made well and comparing. Internal: nothing here ships.
  *
  *   pnpm evals capture [refs…]                     pictures and text of the references
@@ -7,19 +7,23 @@
  *   pnpm evals setup-host <host>                   import a host's design system with /init
  *   pnpm evals round <name> [refs…] --host <host>  generate, judge and report, in one go
  *   pnpm evals gallery                             choose the shots to take references from
- *   pnpm evals patterns annotate | book            Untitled UI's patterns, counted
+ *   pnpm evals patterns annotate | book            a well-made product's patterns, counted
+ *   pnpm evals study annotate | book               what a library of well-made sites does, counted
  *   pnpm evals extract <round> [families…]         track A: a design system made from pictures
+ *   pnpm evals judge-components <round>            track A: its components against the product's
  *   pnpm evals freeze <family> <round> <run>       make a run's design system the family's library
  *   pnpm evals sections <round> [rounds…]          cut screens into sections, for the review
- *   pnpm evals learn <round>                       what your picks say, as rules for the skills
+ *   pnpm evals learn <round>                       what your picks say, as rules for the skill
  *   pnpm evals review <round> [rounds…]            judge what rounds made yourself, by swiping
  *   pnpm evals compare <baseline> <candidate>      two rounds' scores
+ *   pnpm evals pairwise <a> <b>                    two rounds judged blind, run by run
  *   pnpm evals gaps                                the design gaps, with kind and status
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
  *   pnpm evals catchable <name> [--decks …] [--panels …] sort the findings: code, outline or eye
  *   pnpm evals off-system <rounds…>                values a round's pages set where a token was due
  *   pnpm evals recall <round> [sections…]          whether a reviewer finds what a person found
+ *   pnpm evals outline [sections…]                 each gap section's outline, for recall
  *   pnpm evals panel <round> [rounds…]             what a fixed panel still finds in finished designs
  *   pnpm evals triage <name> [--apply]              the findings log's recurring problems, as gaps to keep
  *
@@ -33,7 +37,7 @@ import {
   DEFAULT_REVIEW,
   EACH_ROUND,
   type EachRound,
-  parseReviewModel,
+  MAX_ROUNDS,
 } from "@ultrapaint/contracts/review";
 import { Effect, Layer, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -49,7 +53,7 @@ import { EvalsError } from "./errors.ts";
 import { extract, freeze } from "./extract.ts";
 import { GALLERY_SETS, gallery } from "./gallery.ts";
 import { listGaps } from "./gap.ts";
-import { generate } from "./generate.ts";
+import { editorReviewOf, generate } from "./generate.ts";
 import { setupHost } from "./host.ts";
 import { judge } from "./judge.ts";
 import { learn } from "./learn.ts";
@@ -167,7 +171,7 @@ const reviewFlags = {
     EACH_ROUND.map((m) => [m, m] as const)
   ).pipe(
     Flag.withDescription(
-      "Who of the council reviews each round: one (the first), rotate (in turn), all"
+      "Who of the review models reviews each round: one (the first), rotate (in turn), all"
     ),
     Flag.withDefault(DEFAULT_REVIEW.eachRound)
   ),
@@ -183,21 +187,21 @@ const reviewFlags = {
   ),
   goal: Flag.Int("goal").pipe(
     Flag.withDescription(
-      "The score out of 100 every reviewer reaches before the loop stops; without it, every reviewer signs off"
+      "The score out of 100 every review model reaches before the loop stops; without it, every one approves"
     ),
     Flag.optional
   ),
   logFindings: Flag.Boolean("log-findings").pipe(
     Flag.withDescription(
-      "Append every pass's findings to the findings log (~/.ultrapaint/findings/lab.jsonl, or ULTRAPAINT_FINDINGS)"
+      "Append every pass's findings to the findings log (~/.ultrapaint/findings/lab.jsonl, or ULTRAPAINT_FINDINGS); with --review editor, the editor keeps its own log of them, under the host project's name"
     ),
     Flag.withDefault(false)
   ),
   maxRounds: Flag.Int("max-rounds").pipe(
     Flag.withDescription(
-      "Reviews of a section, or of the page, at most, whatever the goal: the safety cap"
+      `Reviews of a section, or of the page, at most, whatever the goal: ${MAX_ROUNDS} without it, as the editor's review ships (ADR 0063)`
     ),
-    Flag.withDefault(6)
+    Flag.optional
   ),
   review: Flag.ChoiceWithValue(
     "review",
@@ -216,7 +220,7 @@ const reviewFlags = {
   ),
   reviewers: Flag.String("reviewers").pipe(
     Flag.withDescription(
-      "The council: the models that review, comma-separated: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
+      "The review models, comma-separated, in the order they take turns: opus, gpt-6.1-sol, cursor:<a model of cursor-agent --list-models>"
     ),
     Flag.withDefault("opus")
   ),
@@ -225,7 +229,7 @@ const reviewFlags = {
     APPROVAL.map((m) => [m, m] as const)
   ).pipe(
     Flag.withDescription(
-      "Who must reach the goal at the end: all (the whole council reviews once more) or one (the round's own reviewer)"
+      "Who must approve at the end: all (every review model reviews once more) or one (the round's own reviewer)"
     ),
     Flag.withDefault(DEFAULT_REVIEW.approval)
   ),
@@ -282,7 +286,7 @@ interface GenerateInput {
   readonly host: string;
   readonly judgeModel: string;
   readonly logFindings: boolean;
-  readonly maxRounds: number;
+  readonly maxRounds: Option.Option<number>;
   readonly minutes: number;
   readonly name: string;
   readonly picture: boolean;
@@ -321,7 +325,7 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
   const goal = yield* goalFrom({
     budgetUsd: Option.getOrUndefined(input.budget),
     floors: Option.getOrUndefined(input.floors),
-    maxRounds: input.maxRounds,
+    maxRounds: Option.getOrUndefined(input.maxRounds),
     reviewerGoals: Option.getOrUndefined(input.reviewerGoals),
     score: Option.getOrUndefined(input.goal),
   });
@@ -329,16 +333,14 @@ const runGenerate = Effect.fn("runGenerate")(function* (input: GenerateInput) {
     agent: input.agent,
     editorReview:
       Option.getOrUndefined(input.review) === "editor"
-        ? {
+        ? editorReviewOf({
             approval: input.signOff,
             eachRound: input.eachRound,
+            effort: input.effort,
             goal,
-            on: true,
-            reviewModels: modelList(input.reviewers).map((reviewer) => ({
-              ...parseReviewModel(reviewer),
-              effort: input.effort,
-            })),
-          }
+            logFindings: input.logFindings,
+            reviewers: modelList(input.reviewers),
+          })
         : undefined,
     host: input.host,
     minutes: input.minutes,
@@ -399,7 +401,7 @@ const reportCommand = Command.make(
   })
 ).pipe(
   Command.withDescription(
-    "Put a round's judgements together: scores, gaps, proposals"
+    "Put a round's judgements together: scores, gaps, and the recurring gaps drafted for evals/gaps/"
   )
 );
 
@@ -695,9 +697,8 @@ const studyCommand = Command.make("study").pipe(
         ),
         skillsFrom: Flag.String("skills-from").pipe(
           Flag.withDescription(
-            "A round whose recorded skills the reference is set against"
-          ),
-          Flag.withDefault("compose-r6")
+            "The round whose recorded skill the reference is set against"
+          )
         ),
       },
       Effect.fn(function* (input) {
@@ -774,9 +775,8 @@ const patternsCommand = Command.make("patterns").pipe(
         ),
         skillsFrom: Flag.String("skills-from").pipe(
           Flag.withDescription(
-            "A round whose recorded skills the book is set against"
-          ),
-          Flag.withDefault("compose-r1")
+            "The round whose recorded skill the book is set against, or a directory of it by its whole path"
+          )
         ),
       },
       Effect.fn(function* (input) {
@@ -1257,7 +1257,7 @@ const panelCommand = Command.make(
 
 Command.make("design-evals").pipe(
   Command.withDescription(
-    "Find what the shipped design skills fail to teach, by remaking good screens and comparing"
+    "Find what the shipped design skill fails to teach, by remaking good screens and comparing"
   ),
   Command.withSubcommands([
     captureCommand,

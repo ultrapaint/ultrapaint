@@ -54,12 +54,11 @@ export interface Answered<A> {
 }
 
 /**
- * The names a model has when it runs in Cursor, so the same model on another plan keeps its notes
+ * The name a model has when it runs in Cursor, so the same model on another plan keeps its notes
  * apart to be compared, and the name Cursor's agent knows it by.
  */
 const CURSOR_MODELS: Readonly<Record<string, string>> = {
   "cursor-opus-5.5": "claude-opus-5-5",
-  "cursor-opus-5.5-rerun": "claude-opus-5-5",
 };
 
 export type Backend = "claude" | "codex" | "cursor";

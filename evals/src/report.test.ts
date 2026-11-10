@@ -1,6 +1,8 @@
+import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Schema } from "effect";
-import { Models } from "./models.ts";
+import { Effect, FileSystem, Schema } from "effect";
+import { EvalsConfig } from "./config.ts";
+import { type Asked, Models } from "./models.ts";
 import { report } from "./report.ts";
 import { judgement, readData, TestData, writeData } from "./test-data.ts";
 
@@ -53,18 +55,27 @@ const verdict = (kind: string, choice: string, comment?: string) => ({
   subject: "1",
 });
 
+/** A gap as the model answers it, of the findings given. */
+const gap = (
+  findings: readonly string[],
+  index: number,
+  more: Readonly<Record<string, unknown>> = {}
+) => ({
+  findings,
+  kind: "missing",
+  level: "layout",
+  now: "",
+  proposal: "Say it.",
+  skill: "design",
+  summary: "",
+  test: "Look for it.",
+  title: `gap ${index + 1}`,
+  ...more,
+});
+
 /** The synthesis the model answers with: a gap per list of findings. */
 const synthesis = (gaps: readonly (readonly string[])[]) => ({
-  gaps: gaps.map((findings, index) => ({
-    findings,
-    kind: "missing",
-    level: "layout",
-    proposal: "Say it.",
-    skill: "design",
-    summary: "",
-    title: `gap ${index + 1}`,
-  })),
-  rewrites: [],
+  gaps: gaps.map((findings, index) => gap(findings, index)),
   strengths: [],
 });
 
@@ -250,6 +261,77 @@ describe("report", () => {
             title: "gap 1",
           },
         ]);
+      }).pipe(Effect.provide(TestData))
+  );
+  it.effect(
+    "drafts a gap seen in two runs as a file for evals/gaps, with no id and none of the skill's text, and none for a gap seen once or the tool's",
+    () =>
+      Effect.gen(function* () {
+        const { data } = yield* EvalsConfig;
+        const fs = yield* FileSystem.FileSystem;
+        yield* writeData({
+          "runs/r/round.json": {
+            ...ROUND,
+            skillTree: {
+              dir: "skills/shipped",
+              files: { "references/layout.md": "1f", "SKILL.md": "2e" },
+            },
+          },
+          ...judged("home", 1, {
+            findings: [finding("a"), finding("b"), finding("c")],
+          }),
+          ...judged("home", 2, { findings: [finding("a"), finding("c")] }),
+        });
+        const asked: Asked[] = [];
+        yield* report("r", { model: "opus" }).pipe(
+          Effect.provide(
+            Models.layerTest((question) => {
+              asked.push(question);
+              return {
+                gaps: [
+                  gap(["home/run-1#1", "home/run-2#1"], 0, {
+                    kind: "ignored",
+                    now: '`references/layout.md`: "Use the width."',
+                    proposal:
+                      "A row in its check table: a column under half the window.",
+                    skill: "references/layout.md",
+                    summary: "The page sits in a narrow column.",
+                    title: "Wasted width",
+                  }),
+                  gap(["home/run-1#2"], 1),
+                  gap(["home/run-1#3", "home/run-2#2"], 2, { kind: "tool" }),
+                ],
+                strengths: [],
+              };
+            })
+          )
+        );
+
+        // The model is sent to the round's tree, from the round's directory.
+        assert.include(asked[0]?.prompt, "in `skills/shipped`.");
+        assert.deepStrictEqual(
+          yield* fs.readDirectory(path.join(data.runs, "r", "proposals")),
+          ["01-wasted-width.md"]
+        );
+        const draft = yield* readData("runs/r/proposals/01-wasted-width.md");
+        assert.include(
+          draft,
+          "---\ntitle: Wasted width\nkind: missed\nstatus: open\nfound: 1970-01-01\nsource: round r, the judge's findings in 2 runs (home 2/2)\nskill: [references/layout.md]\nsections: []\n---\n"
+        );
+        assert.include(
+          draft,
+          '**The skill now.** `references/layout.md`: "Use the width."'
+        );
+        assert.include(
+          draft,
+          "**Proposed.** A row in its check table: a column under half the window."
+        );
+        assert.include(draft, "**Test.** Look for it.");
+        const text = yield* readData("runs/r/report.md");
+        assert.include(
+          text,
+          "- [Wasted width](proposals/01-wasted-width.md): references/layout.md, 2 runs"
+        );
       }).pipe(Effect.provide(TestData))
   );
 });

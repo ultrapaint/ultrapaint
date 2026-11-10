@@ -146,7 +146,11 @@ const pairsOf = (list: string | undefined) =>
 
 const SCORE = /^\d{1,3}$/;
 
-/** The goal of a round's flags; fails on a pair it can't read. */
+/**
+ * The goal of a round's flags; fails on a pair it can't read. Without `maxRounds` it holds the
+ * rounds the editor's review ships with (contracts' `MAX_ROUNDS`, ADR 0063), so a round measures
+ * the review as a person gets it unless it is told otherwise, and its record says which.
+ */
 export const goalFrom = Effect.fnUntraced(function* (flags: GoalFlags) {
   const reviewers: Record<string, number | null> = {};
   for (const { key, value } of pairsOf(flags.reviewerGoals)) {
@@ -174,7 +178,7 @@ export const goalFrom = Effect.fnUntraced(function* (flags: GoalFlags) {
   return {
     ...(flags.budgetUsd !== undefined && { budgetUsd: flags.budgetUsd }),
     ...(Object.keys(floors).length > 0 && { floors }),
-    ...(flags.maxRounds !== undefined && { maxRounds: flags.maxRounds }),
+    maxRounds: flags.maxRounds ?? MAX_ROUNDS,
     ...(Object.keys(reviewers).length > 0 && { reviewers }),
     ...(flags.score !== undefined && { score: flags.score }),
   } satisfies Goal;

@@ -560,6 +560,8 @@ describe("the review loop", () => {
             score: 90,
           }
         );
+        // Untold, the rounds the editor's review ships with.
+        assert.deepStrictEqual(yield* goalFrom({}), { maxRounds: 2 });
         const wrong = yield* Effect.flip(goalFrom({ floors: "contrast=80" }));
         assert.include(wrong.message, "not <category>=<score>");
       })

@@ -4,7 +4,10 @@ and the notes are in this directory:
 
 - `counts.json`: per kind of piece and overall, how often each pattern appears.
 - `notes.json`: every piece's observations, by kind.
-- `skills/`: the design skills the agents are taught now, one file each. Read every one.
+- `skills/`: the design skill the agents are taught, as a round recorded it: `SKILL.md`, its
+  core, which holds every rule, and the files under `references/` with their detail. Read the
+  core and the file of each kind of piece the counts have. (A round from before the one skill
+  has its skills there, one file each: read every one.)
 
 {{principles}}
 
@@ -18,8 +21,9 @@ Write the pattern book in markdown:
 2. Across kinds: grouping (cards, dividers, space), how much descriptive text and where, spacing
    ratios, action hierarchy and placement, type scale, where icons go and where they do not, what
    the accent marks.
-3. Where these pieces and the skills differ: each difference, what the skill says, what the pieces
-   does and how often, and which skill should change, or whether the skill is right.
+3. Where these pieces and the skill differ: each difference, what the skill says and in which
+   file, what the pieces do and how often, and whether the skill is right. A difference worth
+   acting on is a gap to measure, not a change to write.
 4. Where these pieces and the principles above differ (descriptive text, labels, icons…): each one,
    neutrally, for the person to settle.
 

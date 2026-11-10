@@ -13,6 +13,20 @@ export const PROMPTS = path.join(EVALS, "prompts");
 export const viewerSrc = (data: DataDir, file: string) =>
   `/${data.fromData(file)}`;
 
+/** The pages the commands serve, in the repository beside the code: `evals/viewers/`. */
+export const VIEWERS = ["decide", "gallery", "review"] as const;
+
+/**
+ * A viewer's page. It is the code's, so a data directory made afresh has it; what the page shows
+ * is the data directory's.
+ */
+export const viewerPage = Effect.fn("viewerPage")(function* (
+  name: (typeof VIEWERS)[number]
+) {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* fs.readFileString(path.join(EVALS, "viewers", `${name}.html`));
+});
+
 /** `{{name}}` in a template filled in; a name without a value is left as it is. */
 export const fillTemplate = (
   template: string,

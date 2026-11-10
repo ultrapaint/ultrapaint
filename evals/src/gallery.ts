@@ -3,6 +3,8 @@
  * of the sources (`gallery/shots.json`, from Dribbble) is shown with the ones already references
  * marked, one at a time to swipe (right to take, left to skip) or all in a grid; each decision is
  * saved as it is made (`gallery/selection.json`), for references to be made from those taken.
+ *
+ * The page is `evals/viewers/gallery.html`; the shots and the selection are the data directory's.
  */
 import { createServer } from "node:http";
 import path from "node:path";
@@ -15,7 +17,7 @@ import {
   HttpStaticServer,
 } from "effect/http";
 import { EvalsConfig } from "./config.ts";
-import { readJson, writeJson } from "./layout.ts";
+import { readJson, viewerPage, writeJson } from "./layout.ts";
 import { loadReferences } from "./reference.ts";
 
 export const GALLERY_SETS = ["shadcn", "shots"] as const;
@@ -92,6 +94,7 @@ export const gallery = Effect.fn("gallery")(function* (options: {
   const SHOTS = path.join(data.gallery, set.shots);
   const SELECTION = path.join(data.gallery, set.selection);
   const shots = yield* readJson(Schema.Array(Shot), SHOTS);
+  const page = yield* viewerPage("gallery");
   // Shots already references are marked; looks to like have none.
   const used =
     options.set === "shots"
@@ -162,7 +165,7 @@ export const gallery = Effect.fn("gallery")(function* (options: {
   const routes = Layer.mergeAll(
     HttpRouter.add("GET", "/api/gallery", session),
     HttpRouter.add("POST", "/api/gallery", toggle),
-    HttpRouter.add("GET", "/", HttpServerResponse.redirect("/gallery/")),
+    HttpRouter.add("GET", "/", Effect.succeed(HttpServerResponse.html(page))),
     HttpStaticServer.layer({ root: data.root })
   );
   yield* Effect.log(

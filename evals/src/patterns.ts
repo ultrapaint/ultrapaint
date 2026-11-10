@@ -4,7 +4,7 @@
  * the same questions of each (how groups are told apart, how much descriptive text and where, the
  * spacing, the actions, the type, the icons), and the answers are counted per kind of piece
  * (dialogs, settings pages, tables, menus…). A model then writes the counts up as a pattern book,
- * set against the skills the agents are taught and the person's principles.
+ * set against the skill a round recorded and the person's principles.
  *
  *   patterns/pictures/   the pictures, downloaded (not kept in git)
  *   patterns/notes/      one file of answers per picture
@@ -16,6 +16,7 @@ import { Effect, FileSystem, Schema } from "effect";
 
 import { type DataDir, EvalsConfig } from "./config.ts";
 import { fetchPicture } from "./fetch-picture.ts";
+import { skillDirOf } from "./judge.ts";
 import {
   listDir,
   PROMPTS,
@@ -26,12 +27,7 @@ import {
 } from "./layout.ts";
 import { Models } from "./models.ts";
 
-export const CORPUS_NAMES = [
-  "landing",
-  "landing-opus",
-  "untitled-ui",
-  "untitled-ui-opus",
-] as const;
+export const CORPUS_NAMES = ["landing", "untitled-ui"] as const;
 export type CorpusName = (typeof CORPUS_NAMES)[number];
 
 /**
@@ -48,20 +44,8 @@ const CORPORA: Record<
       "a set of well-made SaaS landing pages, each cut into slices of its height",
     shots: path.join("corpus", "landing", "tiles.json"),
   },
-  /** The same pictures looked at again by Opus 5.5 (a one-off script of the old lab, kept in the data directory's `lab-archive/src/api-patterns.mjs`), for the books. */
-  "landing-opus": {
-    dir: path.join("studies", "opus-5.5-patterns", "landing"),
-    product:
-      "a set of well-made SaaS landing pages, each cut into slices of its height",
-    shots: path.join("corpus", "landing", "tiles.json"),
-  },
   "untitled-ui": {
     dir: "patterns",
-    product: "Untitled UI",
-    shots: path.join("gallery", "untitled-ui.json"),
-  },
-  "untitled-ui-opus": {
-    dir: path.join("studies", "opus-5.5-patterns", "untitled-ui"),
     product: "Untitled UI",
     shots: path.join("gallery", "untitled-ui.json"),
   },
@@ -516,11 +500,9 @@ export const book = Effect.fn("book")(function* (options: {
       ])
     )
   );
-  // The skills as a round recorded them, or a folder of them, beside the counts, for the book to
-  // set them against.
-  const skills = path.isAbsolute(options.skillsFrom)
-    ? options.skillsFrom
-    : path.join(data.runs, options.skillsFrom, "skills");
+  // The skill as a round recorded it, or a folder of it, beside the counts, for the book to set
+  // them against.
+  const skills = yield* skillDirOf(options.skillsFrom);
   yield* fs.remove(path.join(STUDY, "skills"), {
     force: true,
     recursive: true,

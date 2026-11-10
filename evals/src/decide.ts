@@ -9,16 +9,17 @@
  */
 import { createServer } from "node:http";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { NodeHttpServer } from "@effect/platform-node";
-import { Effect, FileSystem, Layer, Schema, Semaphore } from "effect";
+import { DateTime, Effect, FileSystem, Layer, Schema, Semaphore } from "effect";
 import {
   HttpRouter,
   HttpServerRequest,
   HttpServerResponse,
   HttpStaticServer,
 } from "effect/http";
-import { EVALS, EvalsConfig } from "./config.ts";
-import { readJson, writeJson } from "./layout.ts";
+import { EvalsConfig } from "./config.ts";
+import { readJson, viewerPage, writeJson } from "./layout.ts";
 
 export const Option = Schema.Struct({
   /** What the answer is saved as. */
@@ -124,6 +125,68 @@ export const answerTo = (
   };
 };
 
+/** A card as its file holds it: what an answer was given to. */
+const asWritten = (card: Card): unknown => JSON.parse(JSON.stringify(card));
+
+/** The answers as any writer left them: read whole, so setting them aside loses none. */
+const AnswersAsWritten = Schema.Record(Schema.String, Schema.Unknown);
+
+/** A file that is not there yet: the name, or the name with the first number that is free. */
+const freeFile = Effect.fnUntraced(function* (dir: string, name: string) {
+  const fs = yield* FileSystem.FileSystem;
+  let file = path.join(dir, `${name}.json`);
+  for (let n = 2; yield* fs.exists(file); n += 1) {
+    file = path.join(dir, `${name}-${n}.json`);
+  }
+  return file;
+});
+
+/**
+ * A deck written by the command that makes it. An answer was given to a card as it read: it stays
+ * while the deck still has that card, word for word, so a command run again on the same data
+ * keeps what was answered. Once a card reads otherwise or is gone, its id may name another
+ * question, so the answers file is first copied whole beside itself under the time
+ * (`<deck>.answers.<time>.json`) and those answers leave the one `decide` and the command read.
+ * It gives the file the answers were set aside in, when some were.
+ */
+export const writeDeck = Effect.fn("writeDeck")(function* (
+  deckName: string,
+  deck: Deck
+) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  const dir = path.join(data.root, "decisions");
+  const deckFile = path.join(dir, `${deckName}.json`);
+  const answersFile = path.join(dir, `${deckName}.answers.json`);
+  let aside: string | undefined;
+  if (yield* fs.exists(answersFile)) {
+    const answers = yield* readJson(AnswersAsWritten, answersFile);
+    // A deck that no longer reads says nothing of what its answers were given to.
+    const before: readonly Card[] = (yield* fs.exists(deckFile))
+      ? yield* readJson(Deck, deckFile).pipe(
+          Effect.map((d) => d.cards),
+          Effect.catchTag("EvalsError", () => Effect.succeed([]))
+        )
+      : [];
+    const was = new Map(before.map((c) => [c.id, asWritten(c)]));
+    const stands = new Set(
+      deck.cards
+        .filter((c) => was.has(c.id))
+        .filter((c) => isDeepStrictEqual(was.get(c.id), asWritten(c)))
+        .map((c) => c.id)
+    );
+    const kept = Object.entries(answers).filter(([id]) => stands.has(id));
+    if (kept.length < Object.keys(answers).length) {
+      const at = DateTime.formatIso(yield* DateTime.now).replaceAll(":", "-");
+      aside = yield* freeFile(dir, `${deckName}.answers.${at}`);
+      yield* fs.copyFile(answersFile, aside);
+      yield* writeJson(answersFile, Object.fromEntries(kept));
+    }
+  }
+  yield* writeJson(deckFile, deck);
+  return aside === undefined ? undefined : data.fromData(aside);
+});
+
 export const decide = Effect.fn("decide")(function* (
   deckName: string,
   options: { readonly host: string; readonly port: number }
@@ -133,9 +196,7 @@ export const decide = Effect.fn("decide")(function* (
   const dir = path.join(data.root, "decisions");
   const deck = yield* readJson(Deck, path.join(dir, `${deckName}.json`));
   const answersFile = path.join(dir, `${deckName}.answers.json`);
-  const page = yield* fs.readFileString(
-    path.join(EVALS, "viewers", "decide.html")
-  );
+  const page = yield* viewerPage("decide");
   const byId = new Map(deck.cards.map((c) => [c.id, c]));
   const lock = yield* Semaphore.make(1);
   const readAnswers = Effect.gen(function* () {

@@ -22,7 +22,7 @@ import {
 } from "@ultrapaint/contracts/review";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
-import { type Card, type Deck, OWN_ANSWER } from "./decide.ts";
+import { type Card, type Deck, OWN_ANSWER, writeDeck } from "./decide.ts";
 import { EvalsError } from "./errors.ts";
 import { type LoadedGap, loadGaps } from "./gap.ts";
 import { listDir, prompt, readJson, writeJson } from "./layout.ts";
@@ -719,10 +719,12 @@ export const triage = Effect.fn("triage")(function* (options: TriageOptions) {
     intro: `What review models found in ${findings.length} findings, grouped into recurring problems and checked by ${options.models.join(" and ")}. Keep a draft to add it to evals/gaps/ (then \`pnpm evals triage ${options.name} --apply\`), or drop it.${dropped.length > 0 ? `\n\nNot drafted:\n${dropped.join("\n")}` : ""}`,
     title: `Triage ${options.name}: ${drafts.length} gaps to keep or drop`,
   };
-  yield* writeJson(
-    path.join(data.root, "decisions", `triage-${options.name}.json`),
-    deck
-  );
+  const aside = yield* writeDeck(`triage-${options.name}`, deck);
+  if (aside !== undefined) {
+    yield* Console.log(
+      `The deck's cards changed: the answers given to the earlier ones are kept in ${aside}, and those cards are to answer again.`
+    );
+  }
   yield* Console.log(
     `${drafts.length} drafts. Decide: pnpm evals decide triage-${options.name}`
   );

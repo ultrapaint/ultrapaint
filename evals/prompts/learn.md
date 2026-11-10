@@ -16,9 +16,9 @@ The choices, one per card (`picked` is the winner's picture, `others` the ones n
 2. Group what you see into patterns that hold across cards: what the person rewards and what they
    punish. A pattern seen once is a note; one seen three times or more is a rule. Where a comment
    says why, it is the best wording of the rule.
-3. Write each rule as a design skill states one: a principle with an exact value or a test, true
-   for any product, and name the skill it belongs to ({{skills}}, or `extract` for how to read a
-   design system off pictures, or `none`).
+3. Write each rule as the design skill states one: a line with an exact value or a test, true
+   for any product, and name the file of the skill it belongs to ({{skills}}, or `extract` for
+   how to read a design system off pictures, or `none`).
 
 Return `patterns`: each with `title`, `rule`, `skill`, `cards` (the ids it was seen in) and
 `strength` (`rule` or `note`); and `summary`: three or four sentences on the person's taste.

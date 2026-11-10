@@ -4,7 +4,7 @@ and pages. For each one, say how it could have been caught, the cheapest reliabl
 - `code`: a **general check** catches it: one rule written once for every screen, before anyone
   knew of this problem, that a program runs on the rendered page (each element's box, computed
   styles, colours, text) or the design document, with a threshold. For example: text contrast
-  below 4.5:1, a target under 24×24, a gap between groups not three times the gap within one, a
+  below 4.5:1, a target under 24×24, a gap between groups under twice the gap within one, a
   value off the design system's spacing scale, nested surfaces less than a tone step apart, text
   that overflows or can't truncate, a rule off its bar's centre line. A check that only works
   because it names this screen's elements or this problem's numbers ("flag the 24px where this

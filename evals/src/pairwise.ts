@@ -16,7 +16,11 @@ import { EvalsConfig } from "./config.ts";
 import { listDir, PROMPTS, prompt, readJson, writeJson } from "./layout.ts";
 import { Models } from "./models.ts";
 
-const LEVELS = [
+/**
+ * The levels a side is given at: the judge's eight (`judge.ts`), in the prompt's order, colour
+ * spelt as the prompt and the verdicts kept so far spell it.
+ */
+export const PAIR_LEVELS = [
   "layout",
   "hierarchy",
   "restraint",
@@ -24,6 +28,7 @@ const LEVELS = [
   "colour",
   "spacing",
   "components",
+  "craft",
 ] as const;
 const SIDES = ["A", "B", "tie"] as const;
 const MARGINS = ["clear", "slight", "none"] as const;
@@ -42,9 +47,9 @@ const verdictSchema = {
     levels: {
       additionalProperties: false,
       properties: Object.fromEntries(
-        LEVELS.map((l) => [l, { enum: SIDES, type: "string" }])
+        PAIR_LEVELS.map((l) => [l, { enum: SIDES, type: "string" }])
       ),
-      required: LEVELS,
+      required: PAIR_LEVELS,
       type: "object",
     },
     margin: { enum: MARGINS, type: "string" },
