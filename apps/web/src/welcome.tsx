@@ -38,6 +38,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { composerBox, composerText } from "./components/composer-style.ts";
+import { DialogHost } from "./components/dialogs.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { Lockup } from "./components/logo.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
@@ -46,6 +47,7 @@ import {
   openRemoteProject,
   RemoteProjectDialog,
 } from "./components/remote-project-dialog.tsx";
+import { removeFromList } from "./lib/remove-project.ts";
 import {
   firstStartModel,
   projectNameOf,
@@ -64,6 +66,18 @@ import "./styles.css";
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+
+/** What the page could not do, as its alert titles it, and why. */
+interface Problem {
+  readonly message: string;
+  readonly title: string;
+}
+
+/** A problem met opening a project, unless `title` says doing what. */
+const problemOf = (
+  error: unknown,
+  title = "Couldn’t open the project"
+): Problem => ({ message: messageOf(error), title });
 
 /** Where a new project goes: a new folder in `~/Ultrapaint`, or one the person chose. */
 type Where =
@@ -149,7 +163,7 @@ const AlreadyAProject = ({
       }}
       open={folder !== null}
     >
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="gap-5">
         <DialogHeader>
           <DialogTitle>
             {folder?.name} is already an Ultrapaint project
@@ -433,8 +447,8 @@ const OpenProject = ({ onProblem }: { onProblem: (m: string) => void }) => {
 };
 
 /**
- * A project of the list: the row opens it, and its menu takes it off the list. The one open
- * behind this page stays on it.
+ * A project of the list: the row opens it, and its menu takes it off the list, asking first
+ * when its unsaved designs would go with it. The one open behind this page stays on it.
  */
 const ProjectRow = ({
   isOpen,
@@ -491,9 +505,13 @@ const Welcome = () => {
   // The project open behind this page, which stays on the list.
   const [current, setCurrent] = useState<string | null>(null);
   const query = new URLSearchParams(window.location.search);
-  // Why the last project could not be opened, as the app says it.
-  const [problem, setProblem] = useState(() => query.get("problem"));
-  const say = (error: unknown) => setProblem(messageOf(error));
+  // What could not be done: at first, why the last project could not be opened, as the app
+  // says it.
+  const [problem, setProblem] = useState(() => {
+    const message = query.get("problem");
+    return message ? problemOf(message) : null;
+  });
+  const say = (error: unknown) => setProblem(problemOf(error));
   // The project the app is opening, until its editor takes the window's place.
   const [opening] = useState(() => {
     const name = query.get("opening");
@@ -506,18 +524,27 @@ const Welcome = () => {
     projects
       ?.list()
       .then(setList)
-      .catch((error: unknown) => setProblem(messageOf(error)));
+      .catch((error: unknown) => setProblem(problemOf(error)));
     projects
       ?.current()
       .then(setCurrent)
-      .catch((error: unknown) => setProblem(messageOf(error)));
+      .catch((error: unknown) => setProblem(problemOf(error)));
   }, [projects]);
 
-  const remove = (id: string) =>
-    projects
-      ?.remove(id)
-      .then(() => setList((shown) => shown.filter((p) => p.id !== id)))
-      .catch(say);
+  const remove = (project: PlatformProject) => {
+    if (!projects) {
+      return;
+    }
+    removeFromList(projects, project)
+      .then((gone) => {
+        if (gone) {
+          setList((shown) => shown.filter((p) => p.id !== project.id));
+        }
+      })
+      .catch((error: unknown) =>
+        setProblem(problemOf(error, "Couldn’t remove the project"))
+      );
+  };
 
   const goBack = () =>
     projects
@@ -548,7 +575,7 @@ const Welcome = () => {
             </p>
           </div>
         </header>
-        <StartComposer onProblem={setProblem} />
+        <StartComposer onProblem={say} />
       </section>
       {opening ? (
         <div className="flex items-start gap-3 rounded-lg border bg-card p-3">
@@ -584,9 +611,9 @@ const Welcome = () => {
       {problem ? (
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertTitle>Couldn’t open the project</AlertTitle>
+          <AlertTitle>{problem.title}</AlertTitle>
           <AlertDescription className="whitespace-pre-wrap">
-            {problem}
+            {problem.message}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -595,7 +622,7 @@ const Welcome = () => {
           <h2 className="font-heading-xsmall">
             {list.length > 0 ? "Recent projects" : "No projects yet"}
           </h2>
-          <OpenProject onProblem={setProblem} />
+          <OpenProject onProblem={say} />
         </div>
         {list.length > 0 ? (
           <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
@@ -604,7 +631,7 @@ const Welcome = () => {
                 isOpen={project.id === current}
                 key={project.id}
                 onOpen={() => projects?.open(project.id).catch(say)}
-                onRemove={() => remove(project.id)}
+                onRemove={() => remove(project)}
                 project={project}
               />
             ))}
@@ -633,5 +660,6 @@ createRoot(document.getElementById("root") as HTMLElement).render(
   <TooltipProvider delay={300}>
     <WindowTop />
     <Welcome />
+    <DialogHost />
   </TooltipProvider>
 );

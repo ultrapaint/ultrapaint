@@ -29,7 +29,6 @@ console.log("[stage] the server");
 execFileSync(
   process.execPath,
   [
-    "--experimental-strip-types",
     path.join(serverDir, "scripts", "build.ts"),
     "--outdir",
     path.join(appDir, "server"),

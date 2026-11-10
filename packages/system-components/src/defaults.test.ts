@@ -124,6 +124,21 @@ describe("the default look", () => {
       ].map((part) => part?.shadow)
     ).toEqual(new Array(5).fill(shadowOf("Overlay")));
     expect(SYSTEM_COMPONENTS_CSS).toContain("box-shadow: var(--shadow-lg)");
+    expect(defaultLookOf("Switch")?.base["switch-thumb"]?.shadow).toBe(
+      "$shadow-sm"
+    );
+  });
+
+  it("edges what opens over the page with one line, a popup as a dialog and a toast", () => {
+    expect(
+      [
+        defaultLookOf("Menu")?.base["menu-popup"],
+        defaultLookOf("Select")?.base["select-popup"],
+        defaultLookOf("Popover")?.base.popover,
+        defaultLookOf("Dialog")?.base.dialog,
+        defaultLookOf("Toast")?.base.root,
+      ].map((part) => part?.border)
+    ).toEqual(new Array(5).fill({ color: "$color-border", width: "1px" }));
   });
 
   it("styles a part's own state where Base UI puts it, on the part", () => {

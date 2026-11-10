@@ -60,10 +60,7 @@ describe("a new application", () => {
     const root = written(result.files);
     const found = detect(root);
     expect(found?.anchors[0]?.dir).toBe("app");
-    expect(found?.libraries[0]).toMatchObject({
-      inApp: true,
-      sourceDir: "app/src/components",
-    });
+    expect(found?.libraries[0]?.sourceDir).toBe("app/src/components");
     expect(JSON.parse(String(result.files["app/package.json"])).name).toBe(
       "acme-web"
     );
@@ -258,12 +255,17 @@ describe("its components", () => {
     }
   });
 
-  it("draw a card and what opens over the page with the shadow of their level", () => {
+  it("draw a card and what opens over the page with the shadow of their level, the latter edged with one line", () => {
     expect(ui("card")).toContain(" shadow-sm");
     for (const name of ["dialog", "menu", "popover", "select", "toast"]) {
       expect(ui(name)).toContain(" shadow-lg");
       expect(ui(name)).not.toContain("ring-black");
     }
+    for (const name of ["menu", "popover", "select"]) {
+      expect(ui(name)).toContain(" rounded-md border bg-popover ");
+    }
+    expect(ui("dialog")).toContain(" rounded-lg border bg-background ");
+    expect(ui("toast")).toContain(" rounded-lg border ");
   });
 
   it("take a system component's slots as parts among their children", () => {

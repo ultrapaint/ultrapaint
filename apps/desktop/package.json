@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-strip-types scripts/dev.ts",
-    "dist": "node --experimental-strip-types scripts/dist.ts",
-    "stage": "node --experimental-strip-types scripts/stage.ts",
+    "dev": "node scripts/dev.ts",
+    "dist": "node scripts/dist.ts",
+    "stage": "node scripts/stage.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

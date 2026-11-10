@@ -12,7 +12,14 @@ import type { Platform } from "./platform.ts";
  * page is the window's entry and draws itself into `#root` as its module is read: read anew for
  * each test, with the modules it stands on, so that each has a page of its own.
  */
-const draw = async () => {
+const draw = async (
+  shell: {
+    /** Whether the shell keeps a session for `blog` that holds what its folder does not. */
+    readonly unsaved?: boolean;
+    /** Why the shell removes nothing. */
+    readonly refuses?: string;
+  } = {}
+) => {
   vi.resetModules();
   const { act } = await import("react");
   const { setPlatform } = await import("./platform.ts");
@@ -22,10 +29,18 @@ const draw = async () => {
       current: () => Promise.resolve("shop"),
       list: () =>
         Promise.resolve([
-          { detail: "/work/blog", id: "blog", name: "Blog" },
-          { detail: "/work/shop", id: "shop", name: "Shop" },
+          {
+            detail: "/work/blog",
+            id: "blog",
+            name: "Blog",
+            unsaved: shell.unsaved ?? false,
+          },
+          { detail: "/work/shop", id: "shop", name: "Shop", unsaved: false },
         ]),
       remove: (id: string) => {
+        if (shell.refuses !== undefined) {
+          return Promise.reject(new Error(shell.refuses));
+        }
         removed.push(id);
         return Promise.resolve();
       },
@@ -58,6 +73,13 @@ const removeItems = () =>
   );
 const offered = (item: Element) => !item.hasAttribute("data-disabled");
 
+/** The question on screen: its title, and its button of that name. */
+const question = () => document.body.querySelector("[role=alertdialog]");
+const answer = (name: string) =>
+  [...(question()?.querySelectorAll("button") ?? [])].find(
+    (button) => button.textContent === name
+  );
+
 afterEach(() => {
   document.body.innerHTML = "";
 });
@@ -80,5 +102,45 @@ describe("the start screen's projects", () => {
     await settled();
     expect(removed).toEqual(["blog"]);
     expect(rows()).toEqual(["Shop/work/shop"]);
+  }, 20_000);
+
+  it("asks before it removes a project whose designs are not saved to its folder", async () => {
+    const { press, removed, settled } = await draw({ unsaved: true });
+    await settled();
+
+    press(actionsFor("Blog"));
+    press(removeItems().find(offered));
+    await settled();
+    expect(question()?.textContent).toContain("Remove Blog from the list?");
+    expect(question()?.textContent).toContain(
+      "The designs not saved to its folder are deleted"
+    );
+    press(answer("Cancel"));
+    await settled();
+    expect(removed).toEqual([]);
+    expect(rows()).toEqual(["Blog/work/blog", "Shop/work/shop"]);
+
+    press(actionsFor("Blog"));
+    press(removeItems().find(offered));
+    await settled();
+    press(answer("Remove"));
+    await settled();
+    expect(removed).toEqual(["blog"]);
+    expect(rows()).toEqual(["Shop/work/shop"]);
+  }, 20_000);
+
+  it("says a project could not be removed, and why", async () => {
+    const { press, settled } = await draw({
+      refuses: "The project list could not be written.",
+    });
+    await settled();
+
+    press(actionsFor("Blog"));
+    press(removeItems().find(offered));
+    await settled();
+    expect(document.body.querySelector("[role=alert]")?.textContent).toBe(
+      "Couldn’t remove the projectThe project list could not be written."
+    );
+    expect(rows()).toEqual(["Blog/work/blog", "Shop/work/shop"]);
   }, 20_000);
 });

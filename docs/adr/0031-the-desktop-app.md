@@ -18,6 +18,16 @@ changed in the server and the editor, and what Phases 1, 2 and 3 added.
 > list; the ids are contracts' `BuiltInAgentId`, which the list must name exactly. The pinned
 > releases stay the app's own table, keyed by those ids. The bridge says what the app signs an
 > agent in with (`signInWith: "ChatGPT"`) rather than `signIn: "chatgpt" | "terminal"`.
+>
+> Amended 2026-11-10: a project can be removed from the list, in the switcher and on the start
+> screen. Its entry goes, and the session the app kept for it (`<userData>/sessions/<id>`); its
+> folder stays, here or on another machine, and the open project is refused. The removal asks
+> first when it would delete work kept nowhere else: the session holds something and the folder
+> has no configuration, beside which a saved project keeps everything. A project on another
+> machine never asks: its session is there, and stays. A downloaded agent whose version is not
+> the one the app pins counts as not installed, until the pinned one is downloaded in its place.
+> The `new-design` address parameter went with the dialog that read it
+> ([0062](0062-a-new-person-starts-from-a-prompt-or-a-project.md)).
 
 ## Context
 

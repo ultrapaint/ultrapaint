@@ -127,7 +127,6 @@ export const DEFAULT_LOOK: DesignSystem = {
     token("radius-lg", "0.75rem", "Cards and dialogs"),
   ],
   shadows,
-  source: "Ultrapaint's default look",
   spacing: { base: "0.25rem" },
   themes: ["light", "dark"],
   typography: {

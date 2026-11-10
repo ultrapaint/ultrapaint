@@ -51,7 +51,9 @@ const withHandlers = <A, E>(
   body: (
     handlers: ReturnType<typeof bridgeHandlers>,
     recorded: Recorded,
-    asked: string[]
+    asked: string[],
+    /** The app's data directory. */
+    dir: string
   ) => Effect.Effect<A, E, HandlerServices>,
   sshConfig = "/nowhere/config",
   home = "/home/u"
@@ -91,7 +93,9 @@ const withHandlers = <A, E>(
       Layer.provideMerge(fakeShell(recorded))
     );
     const handlers = bridgeHandlers({ home, sshConfig });
-    return yield* body(handlers, recorded, asked).pipe(Effect.provide(app));
+    return yield* body(handlers, recorded, asked, dir).pipe(
+      Effect.provide(app)
+    );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 describe("the bridge's handlers", () => {
@@ -115,6 +119,33 @@ describe("the bridge's handlers", () => {
         assert.deepStrictEqual(recorded.events, ["start shop"]);
       })
     )
+  );
+
+  it.effect(
+    "list a project as unsaved when the app keeps a session for it that holds something",
+    () =>
+      withHandlers((handlers, _recorded, _asked, dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const store = yield* ProjectStore;
+          const blog = yield* store.add("/work/blog");
+          yield* store.add("/work/shop");
+          const session = path.join(dir, "sessions", blog.id);
+          yield* fs.makeDirectory(session, { recursive: true });
+          yield* fs.writeFileString(path.join(session, "session.json"), "{}");
+          assert.deepStrictEqual(
+            (yield* handlers["projects.list"]()).map((p) => [
+              p.name,
+              p.unsaved,
+            ]),
+            [
+              ["blog", true],
+              ["shop", false],
+            ]
+          );
+        })
+      )
   );
 
   it.effect(

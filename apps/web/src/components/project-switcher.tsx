@@ -14,6 +14,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { removeFromList } from "../lib/remove-project.ts";
 import {
   type PlatformProject,
   platform,
@@ -39,7 +40,8 @@ const ProjectLabel = ({ project }: { project: PlatformProject }) =>
 /**
  * The shell's projects, one of them open, in the header's place for the project's name: a field
  * that opens a menu of them, of the ways to another, and of those to take off the list, which
- * the open one is never among. Only a shell has a list of projects (the desktop app); in a
+ * the open one is never among; one whose unsaved designs would go with it asks first. Only a
+ * shell has a list of projects (the desktop app); in a
  * browser the header shows the one project the server runs, and this is not drawn.
  */
 const SwitcherMenu = ({ switcher }: { switcher: Switcher }) => {
@@ -54,10 +56,13 @@ const SwitcherMenu = ({ switcher }: { switcher: Switcher }) => {
       .catch(reportError);
   }, [switcher]);
   const others = projects.filter((p) => p.id !== open);
-  const remove = (id: string) =>
-    switcher
-      .remove(id)
-      .then(() => setProjects((shown) => shown.filter((p) => p.id !== id)))
+  const remove = (project: PlatformProject) =>
+    removeFromList(switcher, project)
+      .then((gone) => {
+        if (gone) {
+          setProjects((shown) => shown.filter((p) => p.id !== project.id));
+        }
+      })
       .catch(reportError);
   return (
     <DropdownMenu>
@@ -117,7 +122,7 @@ const SwitcherMenu = ({ switcher }: { switcher: Switcher }) => {
               <DropdownMenuSubTrigger>Remove from list</DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-auto">
                 {others.map((p) => (
-                  <DropdownMenuItem key={p.id} onClick={() => remove(p.id)}>
+                  <DropdownMenuItem key={p.id} onClick={() => remove(p)}>
                     <ProjectLabel project={p} />
                   </DropdownMenuItem>
                 ))}

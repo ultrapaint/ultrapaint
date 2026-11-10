@@ -34,9 +34,9 @@ const CHEVRON_ICON = `<svg
             <path d="m6 9 6 6 6-6" />
           </svg>`;
 
-/** A popup's surface: a select's, a menu's, a popover's. */
+/** A popup's surface: a select's, a menu's, a popover's, edged as a dialog and a toast are. */
 const POPUP =
-  "origin-(--transform-origin) rounded-md bg-popover text-popover-foreground text-sm shadow-lg outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0";
+  "origin-(--transform-origin) rounded-md border bg-popover text-popover-foreground text-sm shadow-lg outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0";
 
 /** How a compound component finds its parts among its children. */
 const PARTS = `import { Children, isValidElement, type ReactNode } from "react";

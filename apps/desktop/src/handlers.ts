@@ -168,15 +168,18 @@ export const bridgeHandlers = (
     ),
   "projects.inspect": (folder) => inspectFolder(folder),
   "projects.list": () =>
-    Effect.map(
-      ProjectStore.use((store) => store.list),
-      (projects) =>
-        projects.map((p) => ({
+    Effect.gen(function* () {
+      const open = yield* OpenProject;
+      const projects = yield* ProjectStore.use((store) => store.list);
+      return yield* Effect.forEach(projects, (p) =>
+        Effect.map(open.unsaved(p), (unsaved) => ({
           detail: projectDetail(p),
           id: p.id,
           name: p.name,
+          unsaved,
         }))
-    ),
+      );
+    }),
   "projects.open": (id) => OpenProject.use((o) => o.open(id)),
   "projects.openFolder": (folder, start?: FirstPrompt) =>
     Effect.asVoid(

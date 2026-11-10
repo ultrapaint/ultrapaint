@@ -1,8 +1,8 @@
 /**
  * The editor's own system components (ADR 0040), as data: what each is for, the props a design sets, its
- * variant axes, its parts (`data-slot`, which a look styles and a design fills), the states a look
- * styles and the layer it draws in. No React here: the server, the agents' briefings and the
- * editor's panels read it without loading a component.
+ * variant axes, its parts (`data-slot`, which a look styles and a design fills) and the states a
+ * look styles. No React here: the server, the agents' briefings and the editor's panels read it
+ * without loading a component.
  *
  * A system component's behaviour is Base UI's, run by the editor; its look is the design's (a file per
  * system component, over the default look in `look.ts`). Implementing a design hands the look of each
@@ -32,9 +32,6 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { componentSlotOf } from "@ultrapaint/design-document/app-components";
 import { findNode } from "@ultrapaint/design-document/tree";
 
-/** Where a system component draws: in the page's flow, anchored to it above the page, or over the page. */
-type ComponentLayer = "inline" | "anchored" | "blocking";
-
 /** A part of a system component. */
 interface SystemComponentSlot {
   /**
@@ -59,7 +56,6 @@ export interface SystemComponentMeta {
   readonly description: string;
   /** The props a new instance starts with. */
   readonly example: Readonly<Record<string, JsonValue>>;
-  readonly layer: ComponentLayer;
   readonly name: string;
   readonly props: readonly PropMeta[];
   /** Its parts, the root first. */
@@ -119,7 +115,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A button: its label and any icon are its children, a spinner while it is loading.",
     example: { variant: "primary" },
-    layer: "inline",
     name: "Button",
     props: [
       choice("variant", BUTTON_VARIANTS),
@@ -139,7 +134,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Display",
     description: "A short label: a status, a count, a tag.",
     example: { variant: "default" },
-    layer: "inline",
     name: "Badge",
     props: [
       choice("variant", ["default", "secondary", "outline", "destructive"]),
@@ -155,7 +149,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Display",
     description: "A spinner: something is under way.",
     example: {},
-    layer: "inline",
     name: "Spinner",
     props: [choice("size", SIZES)],
     slots: [{ label: "Spinner", name: ROOT_SLOT }],
@@ -166,7 +159,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Display",
     description: "A picture of a person, or their initials when there is none.",
     example: { fallback: "AL" },
-    layer: "inline",
     name: "Avatar",
     props: [text("src"), text("fallback", "AL"), choice("size", SIZES)],
     slots: [
@@ -182,7 +174,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A surface that groups content: a header with a title and a description, content, a footer.",
     example: { description: "A short description.", title: "Card title" },
-    layer: "inline",
     name: "Card",
     props: [text("title"), text("description")],
     slots: [
@@ -210,7 +201,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Layout",
     description: "A line between groups of content.",
     example: { orientation: "horizontal" },
-    layer: "inline",
     name: "Separator",
     props: [choice("orientation", ["horizontal", "vertical"])],
     slots: [{ label: "Separator", name: ROOT_SLOT }],
@@ -222,7 +212,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A text field, with an optional label above it and an icon at the start of its box (input-icon).",
     example: { label: "Email", placeholder: "you@example.com" },
-    layer: "inline",
     name: "Input",
     props: [
       text("label"),
@@ -255,7 +244,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A text field of several lines, with an optional label above it.",
     example: { label: "Message", placeholder: "Write something…" },
-    layer: "inline",
     name: "Textarea",
     props: [
       text("label"),
@@ -279,7 +267,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Forms",
     description: "A box that is ticked or not, with its label.",
     example: { label: "Remember me" },
-    layer: "inline",
     name: "Checkbox",
     props: [text("label"), flag("checked"), DISABLED],
     slots: [
@@ -295,7 +282,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     category: "Forms",
     description: "A switch that is on or off, with its label.",
     example: { label: "Notifications" },
-    layer: "inline",
     name: "Switch",
     props: [text("label"), flag("checked"), DISABLED],
     slots: [
@@ -312,7 +298,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "Tabs: one panel at a time. The children are the selected tab's panel.",
     example: { items: ["Overview", "Activity", "Settings"], value: "Overview" },
-    layer: "inline",
     name: "Tabs",
     props: [list("items"), text("value")],
     slots: [
@@ -333,7 +318,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       label: "Status",
       placeholder: "Choose…",
     },
-    layer: "anchored",
     name: "Select",
     props: [
       text("label"),
@@ -362,7 +346,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A menu of actions, opened by its trigger: the children. An item `-` is a separator.",
     example: { items: ["Profile", "Settings", "-", "Sign out"] },
-    layer: "anchored",
     name: "Menu",
     props: [list("items"), choice("align", ["start", "center", "end"]), OPEN],
     slots: [
@@ -381,7 +364,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A panel that opens next to its trigger without blocking the page: the trigger slot opens it, the children are its content.",
     example: { title: "Filters" },
-    layer: "anchored",
     name: "Popover",
     props: [
       text("title"),
@@ -407,7 +389,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A hint that shows when its trigger, the children, is hovered or focused.",
     example: { content: "A helpful hint" },
-    layer: "anchored",
     name: "Tooltip",
     props: [
       text("content", "A helpful hint"),
@@ -431,7 +412,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
       open: true,
       title: "Are you sure?",
     },
-    layer: "blocking",
     name: "Dialog",
     props: [text("title"), text("description"), choice("size", SIZES), OPEN],
     slots: [
@@ -463,7 +443,6 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description:
       "A notification in the page's corner: a title, a description and an action slot.",
     example: { open: true, title: "Changes saved" },
-    layer: "anchored",
     name: "Toast",
     props: [
       text("title"),

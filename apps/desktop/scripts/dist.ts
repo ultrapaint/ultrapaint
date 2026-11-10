@@ -28,11 +28,9 @@ const onlyDir = process.argv.includes("--dir");
 /** One of electron-builder's own placeholders, which it fills in for each installer. */
 const placeholder = (name: string) => `\${${name}}`;
 
-execFileSync(
-  process.execPath,
-  ["--experimental-strip-types", path.join(desktopDir, "scripts", "stage.ts")],
-  { stdio: "inherit" }
-);
+execFileSync(process.execPath, [path.join(desktopDir, "scripts", "stage.ts")], {
+  stdio: "inherit",
+});
 
 /** The app icon: the mark on its tile, on Apple's grid, from `resources/icon.svg`. */
 const icon = path.join(desktopDir, "resources", "icon.png");

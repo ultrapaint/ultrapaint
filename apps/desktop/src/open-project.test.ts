@@ -488,6 +488,49 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "says a project holds unsaved work while its session holds something and its folder has no configuration, and never for a remote one",
+    () =>
+      withApp((_recorded, dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const folder = path.join(dir, "work", "shop");
+          yield* fs.makeDirectory(folder, { recursive: true });
+          const shop = yield* store.add(folder);
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          const sessionOf = (id: string) => path.join(dir, "sessions", id);
+          // Never opened: the app keeps nothing for it.
+          assert.isFalse(yield* open.unsaved(shop));
+          // Opened by a server that wrote nothing.
+          yield* fs.makeDirectory(sessionOf(shop.id), { recursive: true });
+          assert.isFalse(yield* open.unsaved(shop));
+          yield* fs.writeFileString(
+            path.join(sessionOf(shop.id), "session.json"),
+            "{}"
+          );
+          assert.isTrue(yield* open.unsaved(shop));
+          // A directory of that name here is not its session, which is on its machine.
+          yield* fs.makeDirectory(sessionOf(site.id), { recursive: true });
+          yield* fs.writeFileString(
+            path.join(sessionOf(site.id), "session.json"),
+            "{}"
+          );
+          assert.isFalse(yield* open.unsaved(site));
+          // Saved to its folder, what the session held is there too.
+          yield* fs.writeFileString(
+            path.join(folder, "ultrapaint.config.json"),
+            "{}"
+          );
+          assert.isFalse(yield* open.unsaved(shop));
+        })
+      )
+  );
+
+  it.effect(
     "keeps the open project, and the one opening, on the list when asked to remove them",
     () =>
       withApp((recorded, dir) =>

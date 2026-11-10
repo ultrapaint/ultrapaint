@@ -8,6 +8,7 @@
  * While a project opens the window says so, from the first moment: a machine that does not
  * answer leaves no blank window, and the user can stop it for the list or pick another project.
  */
+import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import {
   Context,
   Deferred,
@@ -133,6 +134,13 @@ export class OpenProject extends Context.Service<
     readonly remove: (
       id: string
     ) => Effect.Effect<void, StoreError | ProjectOpen>;
+    /**
+     * Whether `remove` would delete work kept nowhere else: the app keeps a session for the
+     * project that holds something, and its folder has no configuration, beside which a saved
+     * project keeps everything. Never for a project on another machine, whose session is there
+     * and stays.
+     */
+    readonly unsaved: (project: Project) => Effect.Effect<boolean>;
     /**
      * Starts the open project's server again, so that it takes up a change to the agents; the
      * editor comes back where it was. Asks first when agents are at work; nothing changes when
@@ -425,6 +433,26 @@ export class OpenProject extends Context.Service<
           return { opened: yield* openProject(project), project };
         });
 
+        /** What a directory holds: nothing when it is not there, or cannot be read. */
+        const entries = (dir: string) =>
+          fs.readDirectory(dir).pipe(Effect.orElseSucceed((): string[] => []));
+
+        const unsaved = Effect.fn("OpenProject.unsaved")(function* (
+          project: Project
+        ) {
+          if (project.kind !== "local") {
+            return false;
+          }
+          const kept = yield* entries(path.join(sessions, project.id));
+          if (kept.length === 0) {
+            return false;
+          }
+          // Saved, a session is copied beside the configuration and its server reads it there:
+          // what is left here is no one's.
+          const inFolder = yield* entries(project.path);
+          return !CONFIG_FILE_NAMES.some((file) => inFolder.includes(file));
+        });
+
         const remove = Effect.fn("OpenProject.remove")(function* (id: string) {
           const found = yield* Effect.catchTag(
             Effect.asSome(store.get(id)),
@@ -551,6 +579,7 @@ export class OpenProject extends Context.Service<
           }),
           stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
           stopOpening: stopLaunch("list"),
+          unsaved,
         });
       })
     );

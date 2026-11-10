@@ -35,8 +35,9 @@ const line = (color: string): PartStyle["border"] => ({
 const POPUP_SHADOW = "$shadow-lg";
 const ROUND = "9999px";
 
-/** A popup's surface: a select's, a menu's, a popover's. */
+/** A popup's surface: a select's, a menu's, a popover's, edged as a dialog and a toast are. */
 const popup: PartStyle = {
+  border: line("$color-border"),
   color: "$color-popover-foreground",
   fill: "$color-popover",
   fontSize: "0.875rem",
@@ -397,7 +398,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
         fill: "$color-background",
         height: "1rem",
         radius: ROUND,
-        shadow: "0 1px 2px rgb(0 0 0 / 0.2)",
+        shadow: "$shadow-sm",
         width: "1rem",
       },
     },

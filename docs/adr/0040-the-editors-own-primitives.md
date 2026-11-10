@@ -8,6 +8,11 @@ the specs)
 and 0030 (`/implement` applies a primitive to the application's own component). The terms are in
 `GLOSSARY.md`.
 
+> Amended 2026-11-10: the catalogue no longer gives a component's layer, which nothing read;
+> where a part is drawn is its style's alone. Popups (select, menu, popover) draw the look's
+> `shadow-lg` and the `color-border` line Dialog and Toast draw, Card `shadow-sm`: the tokens
+> of the look, where they wrote literals.
+
 > Renamed by [0041](0041-system-and-app-components.md), 2026-10-29: the primitives are **system
 > components** (`packages/system-components`, `from: "@ultrapaint/system"`), drafts and widgets
 > are **app components**, and both are kept in one `components/` directory. The decision here

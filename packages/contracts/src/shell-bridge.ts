@@ -100,6 +100,11 @@ export const PlatformProject = Schema.Struct({
   detail: Schema.optional(Schema.String),
   id: Schema.String,
   name: Schema.String,
+  /**
+   * Whether the shell keeps a session for it that holds what its folder does not: `remove`
+   * deletes it, so the editor asks first.
+   */
+  unsaved: Schema.Boolean,
 });
 export type PlatformProject = typeof PlatformProject.Type;
 
