@@ -15,12 +15,10 @@ describe("a refused save's reasons", () => {
     expect(problemRow("Designs directory does not exist: docs/x")).toBe(
       "designs"
     );
-    expect(
-      problemRow(
-        "The package pages resolve their imports from has no package.json: apps/x"
-      )
-    ).toBe("application");
-    expect(problemRow("Library directory does not exist: src/ui")).toBe(
+    expect(problemRow("Application has no package.json: apps/x")).toBe(
+      "application"
+    );
+    expect(problemRow("Component directory does not exist: src/ui")).toBe(
       "components"
     );
   });

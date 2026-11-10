@@ -54,7 +54,13 @@ export const OptionSelect = ({
   className,
   disabled,
   hint,
+  id,
+  "aria-label": ariaLabel,
 }: {
+  /** The select's name where no label points at its `id`. */
+  "aria-label"?: string;
+  /** What a label's `htmlFor` names: the trigger's. */
+  id?: string;
   value: string | null;
   onChange: (value: string) => void;
   options: readonly SelectOption[];
@@ -76,7 +82,12 @@ export const OptionSelect = ({
       onValueChange={onValueChange}
       value={value}
     >
-      <SelectTrigger className={cn("w-full min-w-0", className)} size={size}>
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className={cn("w-full min-w-0", className)}
+        id={id}
+        size={size}
+      >
         <SelectValue className="truncate" placeholder={placeholder}>
           {(v: string | null) =>
             options.find((o) => o.value === v)?.label ?? placeholder

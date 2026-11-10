@@ -237,7 +237,7 @@ const CanvasRow = ({
  * Under the project, in its card: the canvas shown, in Canvas mode and the prototype; its list
  * opens over the left panel rather than growing the card. The mode itself is the place switch's.
  */
-export const ModeAndCanvases = () => {
+export const CanvasPicker = () => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
   const current = useEditor((s) => s.canvas);
@@ -245,14 +245,14 @@ export const ModeAndCanvases = () => {
   if (!configured || canvases.length === 0 || mode !== "canvas") {
     return null;
   }
-  return <CanvasPicker canvases={canvases} current={current} />;
+  return <CanvasPickerPopover canvases={canvases} current={current} />;
 };
 
 const MENU_ROW =
   "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body outline-none hover:bg-accent focus-visible:bg-accent [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
 /** The canvas shown, which opens the list of canvases and what makes a new one, over the panel. */
-const CanvasPicker = ({
+const CanvasPickerPopover = ({
   canvases,
   current,
 }: {

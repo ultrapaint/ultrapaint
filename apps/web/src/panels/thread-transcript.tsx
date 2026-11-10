@@ -335,8 +335,8 @@ const DiffContentView = ({
           <div
             className={cn(
               "px-2.5",
-              row.kind === "added" && "bg-success/12 text-success",
-              row.kind === "removed" && "bg-destructive/12 text-destructive",
+              row.kind === "added" && "bg-accent text-foreground",
+              row.kind === "removed" && "bg-destructive/10 text-destructive",
               row.kind === "same" && "text-muted-foreground"
             )}
             key={row.key}

@@ -152,7 +152,6 @@ const answerAll = () => {
   const v = () => server.v;
   fakeApi.respond("project.info", info);
   fakeApi.respond("pages.list", pagesNow);
-  fakeApi.respond("logs.recent", () => []);
   fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: v() > 1 }));
   fakeApi.respond("documents.list", () => [doc(`h${v()}`)]);
   fakeApi.respond("canvas.get", () => layoutAt(100 * v()));

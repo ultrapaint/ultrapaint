@@ -305,26 +305,10 @@ const drawnAt = (
   });
 
 /**
- * The nodes named, as their frame draws them: a selection's, all of one frame. The element
- * toolbar shows their values, which are those of its view.
+ * The nodes named, as their frame draws them: a selection's, all of one frame, and the same list
+ * while the nodes stay the same. The element toolbar shows their values, which are those of its
+ * view.
  */
-export const drawnNodes = (
-  targets: readonly Selection[],
-  seen: Seen = seenNow()
-): DesignNode[] => {
-  const [first] = targets;
-  return first
-    ? drawnAt(
-        targets,
-        seen.docs,
-        seen.canvas,
-        seen.breakpoints,
-        frameBreakpoint(first.frame, seen)
-      )
-    : [];
-};
-
-/** `drawnNodes` for a component: the same list while the nodes stay the same. */
 export const useDrawnNodes = (
   targets: readonly Selection[]
 ): readonly DesignNode[] => {

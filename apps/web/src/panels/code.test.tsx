@@ -7,6 +7,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { viewFrameOf } from "../state/frame-ref.ts";
+import { useProject } from "../state/project.ts";
 import { select } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { CodePanel } from "./code.tsx";
@@ -36,13 +38,14 @@ const home: DocumentState = {
 };
 
 const initialEditor = useEditor.getState();
+const initialProject = useProject.getState();
 
 let mounted: Root;
 let container: HTMLElement;
 
 /** Selects a node and waits for the answer about its code to be drawn. */
-const selectAndRead = async (nodeId: string, asked: number) => {
-  act(() => select({ frame: HOME, nodeId }));
+const selectAndRead = async (nodeId: string, asked: number, frame = HOME) => {
+  act(() => select({ frame, nodeId }));
   await act(() => fakeApi.requested("code.write", asked));
 };
 
@@ -63,6 +66,19 @@ beforeEach(() => {
     workspace: "design",
   });
   useDocuments.setState({ canvas: "main", docs: { [HOME]: home } });
+  useProject.setState(initialProject, true);
+  useProject.setState({
+    pages: [
+      {
+        canvas: "main",
+        file: `designs/main/${HOME}`,
+        id: HOME,
+        name: "Home",
+        path: HOME,
+        route: "/orders",
+      },
+    ],
+  });
   container = document.createElement("div");
   mounted = createRoot(container);
   act(() => mounted.render(<CodePanel />));
@@ -86,6 +102,13 @@ describe("the code of the node selected", () => {
     expect(fakeApi.calls.at(-1)).toMatchObject({
       input: { canvas: "main", node: { id: "title" } },
       method: "code.write",
+    });
+  });
+
+  it("names a page's component in a view of the page as in its own frame", async () => {
+    await selectAndRead("home", 1, viewFrameOf(HOME, "tablet"));
+    expect(fakeApi.calls.at(-1)?.input).toMatchObject({
+      component: "OrdersPage",
     });
   });
 });

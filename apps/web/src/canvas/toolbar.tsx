@@ -18,12 +18,10 @@ import {
   MousePointer2,
   Plus,
   Pointer,
-  Redo2,
   Scan,
   SquareDashed,
   Sun,
   Type,
-  Undo2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -49,7 +47,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { IconButton } from "../components/icon-button.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { keysOf } from "../lib/commands.ts";
 import {
@@ -58,7 +55,7 @@ import {
   insertNode,
   insertTarget,
 } from "../lib/node-actions.ts";
-import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
+import { zoomBy } from "../lib/shortcuts.ts";
 import { setBoardTheme, useBoard } from "../state/board.ts";
 import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
@@ -68,8 +65,8 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
-import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
+import { UndoRedo } from "./undo-redo.tsx";
 
 /** `label` names the tool for a screen reader, as the tooltip names it on screen. */
 const modes: {
@@ -139,9 +136,6 @@ const modes: {
     value: "comment",
   },
 ];
-
-const undoEdit = () => undoOrRedo(false);
-const redoEdit = () => undoOrRedo(true);
 
 const onModeChange = (next: readonly unknown[]) => {
   const v = next[0] as Mode | undefined;
@@ -401,7 +395,6 @@ const ToolbarDivider = () => (
  * the tools, undo and redo, then the zoom. On a board view, its few tools and the theme it draws in.
  */
 export const Toolbar = () => {
-  const undo = useProject((s) => s.undo);
   // Holding Space pans for as long as it is held; the strip shows the tool in effect.
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
   // A board view has no elements to insert and a few tools (ADR 0045), and draws in a theme;
@@ -449,35 +442,7 @@ export const Toolbar = () => {
       </ToggleGroup>
       {onBoard ? <ThemeSwitch /> : null}
       <ToolbarDivider />
-      <IconButton
-        className="size-8 rounded-lg"
-        disabled={!undo.canUndo}
-        label={undo.undoLabel ? `Undo ${undo.undoLabel}` : "Undo"}
-        onClick={undoEdit}
-        side="top"
-        tooltip={
-          <>
-            Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""}{" "}
-            <CommandKeys id="undo" />
-          </>
-        }
-      >
-        <Undo2 />
-      </IconButton>
-      <IconButton
-        className="size-8 rounded-lg"
-        disabled={!undo.canRedo}
-        label="Redo"
-        onClick={redoEdit}
-        side="top"
-        tooltip={
-          <>
-            Redo <CommandKeys id="redo" />
-          </>
-        }
-      >
-        <Redo2 />
-      </IconButton>
+      <UndoRedo />
       <ToolbarDivider />
       <ZoomMenu />
     </div>

@@ -136,7 +136,7 @@ const lastEdit = () => {
 };
 
 /** What the editor reads of the project, which a test leaves alone: as it was. */
-const READS = ["project.info", "logs.recent", "edit.state"];
+const READS = ["project.info", "edit.state"];
 
 /** The project as the server tells it again after a change. */
 const serveProject = () => {

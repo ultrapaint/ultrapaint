@@ -81,22 +81,6 @@ export const frameRefOf = (id: string): FrameRef => {
     : { kind: "view", page: id.slice(0, at), view: id.slice(at + VIEW.length) };
 };
 
-/** The id a ref is written as: `frameRefOf`'s inverse. */
-export const frameIdOf = (ref: FrameRef): string => {
-  switch (ref.kind) {
-    case "page":
-      return ref.page;
-    case "view":
-      return viewFrameOf(ref.page, ref.view);
-    case "node":
-      return nodeFrameOf(ref.node);
-    case "board":
-      return boardFrameOf(ref);
-    default:
-      return unknownKind(ref);
-  }
-};
-
 const unknownKind = (ref: never): never => ref;
 
 /**

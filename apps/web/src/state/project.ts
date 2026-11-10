@@ -1,7 +1,7 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { UndoState } from "@ultrapaint/contracts/edit";
 import type { Canvas, Page, PageList } from "@ultrapaint/contracts/pages";
-import type { LogLine, ProjectInfo } from "@ultrapaint/contracts/project";
+import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
@@ -16,7 +16,6 @@ interface ProjectStore {
   load: () => Promise<void>;
   /** The project info and settings have been read once. */
   loaded: boolean;
-  logs: readonly LogLine[];
   openSaveConfig: (open: boolean) => void;
   /** Opens the settings on `section`, or where they were, or closes them. */
   openSettings: (open: boolean, section?: string) => void;
@@ -49,7 +48,6 @@ export const useProject = create<ProjectStore>((set, get) => ({
     }
   },
   loaded: false,
-  logs: [],
   openSaveConfig: (saveConfigOpen) => set({ saveConfigOpen }),
   openSettings: (settingsOpen, section) => {
     const settingsSection = section ?? get().settingsSection;
@@ -112,20 +110,12 @@ const pagesData = follow({
   whole: ["pages"],
 });
 
-/** The server's log and where the undo history stands. */
+/** Where the undo history stands. */
 const historyData = follow({
-  apply: ([logs, undo]) => useProject.setState({ logs, undo }),
+  apply: (undo) => useProject.setState({ undo }),
   atOpen: projectOpen,
-  on: {
-    "edit.state": (undo) => useProject.setState({ undo }),
-    log: (line) =>
-      useProject.setState((s) => ({ logs: [...s.logs.slice(-499), line] })),
-  },
-  read: () =>
-    Promise.all([
-      api().request("logs.recent", undefined),
-      api().request("edit.state", undefined),
-    ]),
+  on: { "edit.state": (undo) => useProject.setState({ undo }) },
+  read: () => api().request("edit.state", undefined),
 });
 
 const notConfiguredListeners = new Set<() => void>();

@@ -12,6 +12,7 @@ import {
   type UsageKind,
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
+import { tokenKindOf } from "@ultrapaint/contracts/token-table";
 import { tokenValues } from "@ultrapaint/design-document/tokens";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import { useState } from "react";
@@ -73,9 +74,10 @@ const Swatch = ({ kind, value }: { kind: UsageKind; value: string }) => {
   if (kind !== "color") {
     return null;
   }
-  const background = value.startsWith("color-")
-    ? (tokenValues(designSystem).get(value) ?? BASICS[value])
-    : value;
+  const background =
+    tokenKindOf(value) === "color"
+      ? (tokenValues(designSystem).get(value) ?? BASICS[value])
+      : value;
   return background ? (
     <span
       className="size-3 shrink-0 rounded-sm border"

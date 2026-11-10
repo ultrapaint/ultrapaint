@@ -195,7 +195,7 @@ export const RemoteProjectDialog = () => {
       }}
       open={shown}
     >
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="gap-5">
         {/* Mounted with the dialog: each opening starts from a fresh form. */}
         {shown ? <Form projects={projects} /> : null}
       </DialogContent>

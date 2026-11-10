@@ -89,7 +89,7 @@ export const Pages = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
         <h2 className="flex-1 truncate font-heading-xsmall">Pages</h2>
         {unreachable > 0 ? (
           <span
@@ -106,7 +106,7 @@ export const Pages = () => {
           The pages drawn on this canvas are listed here, to click through.
         </PanelEmpty>
       ) : (
-        <div className="flex flex-col gap-px px-2 pb-2">
+        <div className="flex flex-col gap-0.5 px-2 pb-2">
           {entries.map((entry) => (
             <PageRow
               entry={entry}

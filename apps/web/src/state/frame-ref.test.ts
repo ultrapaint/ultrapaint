@@ -1,14 +1,16 @@
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { describe, expect, it } from "vitest";
 import {
+  boardFrameOf,
   documentShown,
   type FrameRef,
-  frameIdOf,
   frameRefOf,
   hasPrototypeLinks,
+  nodeFrameOf,
   ownFrameOf,
   pageOfRef,
   takesComments,
+  viewFrameOf,
   widthOf,
 } from "./frame-ref.ts";
 
@@ -24,26 +26,26 @@ const BOARD: FrameRef = {
 
 describe("a frame's id", () => {
   it("is read back as the frame it was written for, of each kind", () => {
-    expect([PAGE, VIEW, NODE, BOARD].map(frameIdOf)).toEqual([
+    const written = [
+      "home.page.json",
+      viewFrameOf("home.page.json", "md"),
+      nodeFrameOf("n1"),
+      boardFrameOf({ item: "color", name: "light", view: "system" }),
+    ];
+    expect(written).toEqual([
       "home.page.json",
       "home.page.json#md",
       "node:n1",
       "board:system/color/light",
     ]);
-    for (const ref of [PAGE, VIEW, NODE, BOARD]) {
-      expect(frameRefOf(frameIdOf(ref))).toEqual(ref);
-    }
+    expect(written.map(frameRefOf)).toEqual([PAGE, VIEW, NODE, BOARD]);
   });
 
   it("names a board whose item holds a slash or a #, a guideline's heading", () => {
-    const odd: FrameRef = {
-      item: "guide-a/b#c",
-      kind: "board",
-      name: "document",
-      view: "system",
-    };
-    expect(frameRefOf(frameIdOf(odd))).toEqual(odd);
-    expect(ownFrameOf(frameIdOf(odd))).toBe(frameIdOf(odd));
+    const odd = { item: "guide-a/b#c", name: "document", view: "system" };
+    const id = boardFrameOf(odd);
+    expect(frameRefOf(id)).toEqual({ ...odd, kind: "board" });
+    expect(ownFrameOf(id)).toBe(id);
   });
 
   it("says the page a view draws again, and every other frame its own", () => {

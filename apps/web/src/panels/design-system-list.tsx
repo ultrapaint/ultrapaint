@@ -4,9 +4,14 @@
  * the item open is lit, a click opens another, and what DESIGN.md's linter finds is under them.
  * The Sync and `/init` are in its title, a step the sync waits on is a row over the list, and the
  * Sync's view takes its place while the set-up is shown. A project with no design system of its
- * own sees the default look's foundations, and the ways to make its own (ADR 0062).
+ * own sees the default look's foundations, and the ways to make its own (ADR 0062). A file of the
+ * design system that does not read is said over the list, in the foundations' place when it is
+ * `design-system.json`; what the tokens file holds that was left out is with the linter's findings.
  */
-import type { DesignFinding } from "@ultrapaint/contracts/design-system";
+import {
+  DESIGN_SYSTEM_FILE,
+  type DesignFinding,
+} from "@ultrapaint/contracts/design-system";
 import {
   AlertTriangle,
   ChevronDown,
@@ -14,7 +19,7 @@ import {
   Search,
   Wand2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,6 +38,7 @@ import {
   guidelinesOf,
   type SystemItem,
 } from "../boards/system-boards.ts";
+import { FileProblem } from "../components/file-problem.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -46,7 +52,10 @@ import { useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
 import { LookPanel } from "./look-panel.tsx";
+import { problemParts } from "./page-problem.ts";
 import { SyncView } from "./sync.tsx";
+
+const NONE: readonly never[] = [];
 
 const showSetup = () => useDesignSystemSetup.getState().show(true);
 const hideSetup = () => useDesignSystemSetup.getState().show(false);
@@ -58,34 +67,121 @@ const Heading = ({ children }: { children: string }) => (
   </h3>
 );
 
-/** DESIGN.md's linter's errors and warnings, under the guidelines; its information says nothing to act on. */
-const Findings = ({ findings }: { findings: readonly DesignFinding[] }) => {
+/** One thing a file's reader says that stops nothing, beside its warning: red for an error. */
+const Finding = ({
+  children,
+  error = false,
+}: {
+  children: ReactNode;
+  error?: boolean;
+}) => (
+  <li className="flex items-start gap-2">
+    <AlertTriangle
+      className={cn(
+        "mt-0.5 size-3.5 shrink-0",
+        error ? "text-destructive" : "text-warning"
+      )}
+    />
+    <span className="min-w-0 text-muted-foreground">{children}</span>
+  </li>
+);
+
+const QUOTED = /`([^`]+)`/;
+
+/** A note's words, with the token it names between backticks in mono. */
+const noteWords = (note: string) =>
+  note.split(QUOTED).map((part, i) =>
+    i % 2 === 1 ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one note, in its order.
+      <code className="font-code text-foreground" key={i}>
+        {part}
+      </code>
+    ) : (
+      part
+    )
+  );
+
+/**
+ * Under the guidelines, what the files' readers say that stops nothing: what the tokens file
+ * holds that the design system could not take (`notes`), then DESIGN.md's linter's errors and
+ * warnings; its information says nothing to act on.
+ */
+const Findings = ({
+  findings,
+  notes,
+}: {
+  findings: readonly DesignFinding[];
+  notes: readonly string[];
+}) => {
   const shown = findings.filter((f) => f.severity !== "info");
-  if (shown.length === 0) {
+  if (shown.length + notes.length === 0) {
     return null;
   }
   return (
     <ul className="mt-3 flex flex-col gap-2 px-3 font-body-small">
+      {notes.map((note) => (
+        <Finding key={note}>{noteWords(note)}</Finding>
+      ))}
       {shown.map((f) => (
-        <li
-          className="flex items-start gap-2"
+        <Finding
+          error={f.severity === "error"}
           key={`${f.path ?? ""}${f.message}`}
         >
-          <AlertTriangle
-            className={cn(
-              "mt-0.5 size-3.5 shrink-0",
-              f.severity === "error" ? "text-destructive" : "text-warning"
-            )}
-          />
-          <span className="min-w-0 text-muted-foreground">
-            {f.path ? (
-              <span className="font-code text-foreground">{f.path} </span>
-            ) : null}
-            {f.message}
-          </span>
-        </li>
+          {f.path ? (
+            <span className="font-code text-foreground">{f.path} </span>
+          ) : null}
+          {f.message}
+        </Finding>
       ))}
     </ul>
+  );
+};
+
+/** The values' file (ADR 0035), beside `design-system.json` in the designs directory. */
+const DESIGN_TOKENS_FILE = "design.tokens.json";
+
+const NAMED = /^design(?:-system|\.tokens)\.json is (?:not valid: )?/;
+const MEANWHILE =
+  /: the values are design-system\.json's and the code's until it reads$/;
+
+/**
+ * The server's reason alone: without the file's name and what the values are meanwhile, which
+ * the message says in its own lines, and without the JSON parser's name.
+ */
+const reasonOf = (problem: string) =>
+  problem
+    .replace(NAMED, "")
+    .replace(MEANWHILE, "")
+    .replace("SyntaxError: ", "");
+
+/**
+ * One of the design system's two files does not read (ADR 0035), said over the list: with
+ * `design-system.json` nothing of it is listed and designs are drawn in the default look; with
+ * the tokens file (`tokens`) the foundations are listed with the values the other file and the
+ * code have. The server reads the file again when it is saved, so nothing here asks it to.
+ */
+const FilesProblem = ({
+  problem,
+  tokens,
+}: {
+  problem: string;
+  tokens: boolean;
+}) => {
+  const designsDir = useProject((s) => s.settings?.designsDir);
+  const name = tokens ? DESIGN_TOKENS_FILE : DESIGN_SYSTEM_FILE;
+  const file = designsDir ? `${designsDir}/${name}` : name;
+  return (
+    <FileProblem
+      className="mx-2 mb-2"
+      parts={problemParts(reasonOf(problem))}
+      role="alert"
+      title={tokens ? "Not a valid tokens file." : "Not a valid design system."}
+    >
+      Fix it in <code className="font-code text-foreground">{file}</code>
+      {tokens
+        ? ": the values are design-system.json’s and the code’s until then."
+        : ": designs use Ultrapaint’s default look until then."}
+    </FileProblem>
   );
 };
 
@@ -199,6 +295,8 @@ export const DesignSystemList = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const document = useDesignSystem((s) => s.document);
   const loaded = useDesignSystem((s) => s.loaded);
+  const problem = useDesignSystem((s) => s.problem);
+  const notes = useDesignSystem((s) => s.notes);
   const setupShown = useDesignSystemSetup((s) => s.shown);
   const lookPage = useLookPage((s) => s.open);
   const openItem = useBoard((s) =>
@@ -221,14 +319,18 @@ export const DesignSystemList = () => {
   if (setupShown) {
     return <SyncView onBack={designSystem ? hideSetup : undefined} />;
   }
+  // `design-system.json` is there and does not read: not a project with no design system, whose
+  // foundations listed are the default look's.
+  const unread = !designSystem && problem !== undefined;
   // Nothing is listed until the design system is read: the neutral Color would show meanwhile.
-  const foundations = loaded ? foundationsOf(designSystem, query) : [];
+  const foundations =
+    loaded && !unread ? foundationsOf(designSystem, query) : [];
   const guidelines = loaded ? guidelinesOf(document, query) : [];
   const searching = query.trim() !== "";
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-3">
+      <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-4">
         <h2 className="flex-1 truncate font-heading-xsmall">Foundations</h2>
         <IconButton
           className="text-muted-foreground"
@@ -247,7 +349,7 @@ export const DesignSystemList = () => {
           </IconButton>
         ) : null}
       </div>
-      {loaded && !designSystem ? <DefaultLook /> : null}
+      {loaded && !designSystem && !unread ? <DefaultLook /> : null}
       <div className="shrink-0 px-2 pb-2">
         <InputGroup>
           <InputGroupAddon>
@@ -268,6 +370,9 @@ export const DesignSystemList = () => {
         </InputGroup>
       </div>
       <div className="min-h-0 flex-1 overflow-auto pb-2">
+        {problem === undefined ? null : (
+          <FilesProblem problem={problem} tokens={designSystem !== null} />
+        )}
         {loaded ? <SyncWaiting /> : <LoadingRows />}
         {foundations.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
@@ -293,7 +398,7 @@ export const DesignSystemList = () => {
             Search by a token’s name or value, or a guideline’s words.
           </PanelEmpty>
         ) : null}
-        {document ? <Findings findings={document.findings} /> : null}
+        <Findings findings={document?.findings ?? NONE} notes={notes ?? NONE} />
       </div>
     </div>
   );

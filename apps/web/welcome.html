@@ -4,7 +4,7 @@
   start (PLAN-desktop, ADR 0031). It asks for a new design, a folder or another project of the
   list, through the Platform the app's preload script sets; it talks to no server.
 -->
-<html class="dark" lang="en">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta
@@ -13,6 +13,11 @@
     >
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <title>Ultrapaint</title>
+    <!--
+      The theme, the saved preference or else the system's, as the editor's page decides its own.
+    -->
+    <!-- biome-ignore lint/performance/noSyncScripts: it runs before the page is first drawn, so the page is never drawn in the other theme. -->
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>

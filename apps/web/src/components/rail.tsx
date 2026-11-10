@@ -65,7 +65,7 @@ const RailItem = ({
         <button
           aria-label={name}
           aria-pressed={active}
-          className="group relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-sidebar aria-pressed:text-foreground aria-pressed:shadow-xs aria-pressed:ring-1 aria-pressed:ring-border"
+          className="group relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-sidebar aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border"
           onClick={onClick}
           type="button"
         />

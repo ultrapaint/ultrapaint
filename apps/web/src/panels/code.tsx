@@ -24,6 +24,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { ownFrameOf } from "../state/frame-ref.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { EmptyState } from "./inspector-fields.tsx";
 
@@ -158,9 +159,11 @@ const useSubject = () => {
   const root = useDocuments((s) =>
     frame ? rootOfFrame(s.docs, canvas, frame) : null
   );
-  // A page without a URL is named after its file, as its URL would be.
+  // A page without a URL is named after its file, as its URL would be; a view of a page is its
+  // page's (ADR 0036).
   const route = useProject((s) => {
-    const page = s.pages.find((p) => p.id === frame);
+    const own = frame ? ownFrameOf(frame) : null;
+    const page = s.pages.find((p) => p.id === own);
     return page ? (page.route ?? routeOf(page.path)) : undefined;
   });
   const path = root ? findPath(root, selection?.nodeId ?? root.id) : null;

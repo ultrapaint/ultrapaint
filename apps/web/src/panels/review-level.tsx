@@ -131,7 +131,7 @@ const LevelSlider = ({
             ))}
             {at >= 0 ? (
               <SliderPrimitive.Thumb
-                className="size-4 rounded-full bg-foreground shadow-sm outline-none transition-[box-shadow] duration-100 after:absolute after:-inset-1 after:content-[''] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+                className="size-4 rounded-full bg-foreground outline-none transition-[box-shadow] duration-100 after:absolute after:-inset-1 after:content-[''] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                 getAriaValueText={(_formatted, value) =>
                   LEVEL_NAMES[REVIEW_LEVELS[value] ?? "standard"]
                 }

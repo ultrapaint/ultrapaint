@@ -123,6 +123,8 @@ export const useWatchedRects = (
   useEffect(() => {
     frameOf(frameId).watchRects(watched === "" ? [] : watched.split(" "));
   }, [frameId, watched]);
+  // A frame taken off the canvas watches nothing: its handle is forgotten with it.
+  useEffect(() => () => frameOf(frameId).watchRects([]), [frameId]);
 };
 
 export const Frame = memo(

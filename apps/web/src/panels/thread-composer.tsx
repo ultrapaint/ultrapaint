@@ -761,7 +761,7 @@ const AttachmentChip = ({
               chipClass,
               implicit
                 ? "border border-input border-dashed text-muted-foreground"
-                : "bg-background text-foreground shadow-xs [&>svg]:text-muted-foreground"
+                : "bg-background text-foreground [&>svg]:text-muted-foreground"
             )}
           />
         }
@@ -790,7 +790,7 @@ const ContextChip = ({
   <span
     className={cn(
       chipClass,
-      "bg-background text-foreground shadow-xs [&>svg]:text-muted-foreground"
+      "bg-background text-foreground [&>svg]:text-muted-foreground"
     )}
   >
     {icon}

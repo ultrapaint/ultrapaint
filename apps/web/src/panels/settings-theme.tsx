@@ -12,9 +12,14 @@ const themes = [
 export const ThemeRow = () => {
   const preference = useTheme((s) => s.preference);
   return (
-    <Row description="Designs keep their own themes." title="Theme">
+    <Row
+      description="Designs keep their own themes."
+      htmlFor="settings-theme"
+      title="Theme"
+    >
       <OptionSelect
         className={rowSelect}
+        id="settings-theme"
         onChange={(v) => useTheme.getState().set(v as ThemePreference)}
         options={themes}
         value={preference}

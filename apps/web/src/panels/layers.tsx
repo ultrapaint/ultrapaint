@@ -52,6 +52,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { FileProblem } from "../components/file-problem.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -926,27 +927,14 @@ const PageProblem = ({
   // Its words start under the page's name: the row's inset, its chevron and the gap after it.
   return (
     <div className="py-1 pr-2 pl-6" ref={ref}>
-      <div
-        className="wrap-anywhere rounded-md bg-destructive/10 p-2 font-body"
+      <FileProblem
         id={id}
+        parts={problemParts(problem)}
+        title="Not a valid page."
       >
-        <p className="text-destructive">Not a valid page.</p>
-        {problemParts(problem).map((part, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one message, in its order.
-          <p key={i}>
-            {part.at === null ? null : (
-              <>
-                <code className="font-code">{part.at}</code>{" "}
-              </>
-            )}
-            {part.says}
-          </p>
-        ))}
-        <p className="text-muted-foreground">
-          Fix it in <code className="font-code text-foreground">{file}</code>{" "}
-          and the page is drawn again.
-        </p>
-      </div>
+        Fix it in <code className="font-code text-foreground">{file}</code> and
+        the page is drawn again.
+      </FileProblem>
     </div>
   );
 };

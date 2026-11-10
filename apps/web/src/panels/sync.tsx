@@ -307,7 +307,11 @@ export const SyncView = ({
       <div className="flex shrink-0 flex-col border-b pb-3">
         <div className="flex h-11 items-center gap-1 px-3">
           {onBack ? (
-            <IconButton className="-ml-1.5" onClick={onBack} tooltip="Tokens">
+            <IconButton
+              className="-ml-1.5"
+              onClick={onBack}
+              tooltip="Foundations"
+            >
               <ChevronLeft />
             </IconButton>
           ) : null}

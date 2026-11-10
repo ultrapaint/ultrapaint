@@ -32,7 +32,7 @@ export const SaveConfigDialog = () => {
   const settings = useProject((s) => s.settings);
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="gap-5">
         {settings ? <SaveConfigForm settings={settings} /> : null}
       </DialogContent>
     </Dialog>

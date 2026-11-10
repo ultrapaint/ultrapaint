@@ -9,7 +9,6 @@ import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { nodeFrameOf } from "./frame-ref.ts";
 import {
-  drawnNodes,
   frameBreakpoint,
   inspected,
   isSelected,
@@ -188,22 +187,6 @@ describe("selected here", () => {
 });
 
 describe("the selection as its view draws it", () => {
-  it("gives the toolbar a view's values: md's inside the md view", () => {
-    const targets = [
-      { frame: TABLET, nodeId: "title" },
-      { frame: TABLET, nodeId: "lede" },
-    ];
-    expect(
-      drawnNodes(targets).map((n) => (n as { align?: string }).align)
-    ).toEqual(["start", "start"]);
-    // The page's own frame is at xl, which md holds for; a phone is at the base.
-    expect(
-      drawnNodes([{ frame: PHONE, nodeId: "title" }]).map(
-        (n) => (n as { align?: string }).align
-      )
-    ).toEqual(["center"]);
-  });
-
   it("gives the inspector the nodes selected at the breakpoint of the view they were selected in", () => {
     selectMany([
       { frame: TABLET, nodeId: "title" },

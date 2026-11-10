@@ -308,7 +308,7 @@ export const problemRow = (problem: string): ProblemRow | null => {
   if (problem.includes("package.json")) {
     return "application";
   }
-  if (problem.startsWith("Library directory")) {
+  if (problem.startsWith("Component directory")) {
     return "components";
   }
   return null;
@@ -445,7 +445,7 @@ const Sidebar = ({
               className={cn(
                 "flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
                 active
-                  ? "bg-card text-foreground shadow-xs not-focus-visible:ring-1 not-focus-visible:ring-border"
+                  ? "bg-card text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               )}
               data-section={id}

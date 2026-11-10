@@ -55,6 +55,13 @@ const pressed = () =>
     (b) => b.textContent
   );
 
+/** What each select is called: the words of the label that names it. */
+const selectNames = () =>
+  [...container.querySelectorAll("[data-slot=select-trigger]")].map(
+    (select) =>
+      container.querySelector(`label[for="${select.id}"]`)?.textContent ?? null
+  );
+
 beforeEach(async () => {
   fakeApi.reset();
   fakeApi.respond("agents.list", () => [agent]);
@@ -79,6 +86,10 @@ afterEach(() => {
 });
 
 describe("Settings › Agents › New chats", () => {
+  it("names each select by its row", () => {
+    expect(selectNames()).toEqual(["Agent", "Model"]);
+  });
+
   it("shows the default the server holds again when saving another fails", async () => {
     expect(pressed()).toEqual(["Low"]);
     fakeApi.respond("chat.setDefaults", () =>

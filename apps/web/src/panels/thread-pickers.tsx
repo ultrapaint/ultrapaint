@@ -41,6 +41,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SwitchMark } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { quietTrigger } from "../components/quiet-select.tsx";
@@ -107,21 +108,8 @@ const SwitchOptionItem = ({
       onCheckedChange={onCheckedChange}
     >
       {option.name}
-      {/* The system Switch's look: off, edged and its knob muted (DESIGN.md). */}
-      <span
-        aria-hidden
-        className={cn(
-          "ml-auto flex h-4 w-7 items-center rounded-full p-0.5 transition-colors",
-          checked ? "bg-brand" : "ring-1 ring-muted-foreground ring-inset"
-        )}
-      >
-        <span
-          className={cn(
-            "size-3 rounded-full transition-transform",
-            checked ? "translate-x-3 bg-white" : "bg-muted-foreground"
-          )}
-        />
-      </span>
+      {/* The item is the control; the system Switch is only drawn in it. */}
+      <SwitchMark checked={checked} className="ml-auto" />
     </DropdownMenuCheckboxItem>
   );
 };

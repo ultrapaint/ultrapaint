@@ -152,7 +152,7 @@ export const DialogHost = () => {
   return (
     <>
       <AlertDialog onOpenChange={onConfirmOpenChange} open={open && !!confirm}>
-        <AlertDialogContent className="gap-5 p-5 data-[size=default]:sm:max-w-md">
+        <AlertDialogContent className="gap-5">
           <AlertDialogHeader className="gap-1.5">
             <AlertDialogTitle className="text-balance">
               {confirm?.title}
@@ -175,7 +175,7 @@ export const DialogHost = () => {
         </AlertDialogContent>
       </AlertDialog>
       <Dialog onOpenChange={onPromptOpenChange} open={open && !!prompt}>
-        <DialogContent className="gap-5 sm:max-w-md" showCloseButton={false}>
+        <DialogContent className="gap-5" showCloseButton={false}>
           {prompt ? (
             <PromptForm
               key={prompt.id}

@@ -44,7 +44,7 @@ import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openLookPage, startLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
-import { ModeAndCanvases } from "./panels/canvases.tsx";
+import { CanvasPicker } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
@@ -322,7 +322,7 @@ const LeftCard = (props: {
       <TitleRow />
       {hidden ? null : (
         <>
-          <ModeAndCanvases />
+          <CanvasPicker />
           <div className="flex min-h-0 flex-1">
             {workspace === "design" ? <Rail /> : null}
             <LeftPanel {...props} />
@@ -385,7 +385,7 @@ const RightPanel = ({
         onValueChange={onRightTabChange}
         value={rightTab}
       >
-        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pr-1.5 pl-1.5">
+        <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b pr-1.5 pl-1.5">
           <TabsList className="h-8!" variant="default">
             <TabsTrigger className="px-2.5" value="design">
               Design

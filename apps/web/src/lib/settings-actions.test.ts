@@ -40,7 +40,7 @@ const found: SetupSuggestions = {
   anchors: [],
   cssEntries: ["src/app.css"],
   designsDirs: ["docs/designs"],
-  libraries: [{ dir: "src", inApp: true, name: "shop", sourceDir: "src/ui" }],
+  libraries: [{ dir: "src", name: "shop", sourceDir: "src/ui" }],
   repoName: "shop",
   styleSystem: "tailwind-v4",
 };
@@ -72,7 +72,6 @@ beforeEach(async () => {
   useProject.setState({ info: server.info, settings: running });
   fakeApi.respond("project.info", told);
   fakeApi.respond("pages.list", () => ({ canvases: [], pages: [] }));
-  fakeApi.respond("logs.recent", () => []);
   fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: false }));
   fakeApi.respond("setup.detect", () => found);
   fakeApi.respond("setup.createDesigns", () => ({ created: [] }));

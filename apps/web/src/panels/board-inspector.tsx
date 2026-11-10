@@ -73,7 +73,7 @@ const subtitleOf = (picked: Picked) => {
     case "token":
       return tokenKindLabel(picked.name);
     case "group":
-      return "Color group";
+      return "Colour group";
     default:
       return "Text style";
   }
@@ -259,7 +259,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
   const subtitle = picked ? subtitleOf(picked) : kind;
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b pr-1.5 pl-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-1.5 pl-3">
         <PickSwatch picked={picked} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <h2

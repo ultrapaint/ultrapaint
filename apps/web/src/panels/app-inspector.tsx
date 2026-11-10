@@ -253,7 +253,7 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
         )}
       </Section>
       <ComponentUsedIn from={APP_FROM} name={file.name} />
-      <Section title="Notes">
+      <Section title="Behaviour notes">
         <Notes
           component={file}
           key={file.name}

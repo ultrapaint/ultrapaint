@@ -109,12 +109,6 @@ export const McpConnectionGroup = () => {
             {copied ? <Check /> : <Copy />}
           </IconButton>
         </div>
-        {connection.replaced ? (
-          <p className="font-body-small text-destructive">
-            The token changed. Copy the command again for agents connected
-            before.
-          </p>
-        ) : null}
       </Row>
     </Group>
   );
@@ -209,9 +203,14 @@ export const SkillsGroup = ({
       }
       title="Design skills"
     >
-      <Row description={briefingDescriptions[briefing]} title="Told as">
+      <Row
+        description={briefingDescriptions[briefing]}
+        htmlFor="settings-skills-told-as"
+        title="Told as"
+      >
         <OptionSelect
           className={rowSelect}
+          id="settings-skills-told-as"
           onChange={(value) =>
             onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
           }
@@ -242,10 +241,12 @@ export const SendKeyRow = () => {
           ? "Shift+Enter starts a new line."
           : "Enter starts a new line."
       }
+      htmlFor="settings-send-key"
       title="Send key"
     >
       <OptionSelect
         className={rowSelect}
+        id="settings-send-key"
         onChange={(v) => setSendKey(v as SendKey)}
         options={sendKeys}
         value={sendKey}
@@ -354,9 +355,10 @@ export const ChatDefaultsGroup = () => {
   const mode = modes.find((m) => m.id === modeId);
   return (
     <Group title="New chats">
-      <Row title="Agent">
+      <Row htmlFor="settings-chat-agent" title="Agent">
         <OptionSelect
           className={rowSelect}
+          id="settings-chat-agent"
           onChange={onAgent}
           options={agents.map((a) => {
             const word = readiness(machine[a.id]);
@@ -369,10 +371,15 @@ export const ChatDefaultsGroup = () => {
           value={agentId}
         />
       </Row>
-      <Row description={modelDescription} title="Model">
+      <Row
+        description={modelDescription}
+        htmlFor="settings-chat-model"
+        title="Model"
+      >
         <OptionSelect
           className={rowSelect}
           disabled={models.length === 0}
+          id="settings-chat-model"
           onChange={(model) => save({ ...kept, model })}
           options={models.map((m) => ({
             description: m.description,
@@ -394,9 +401,14 @@ export const ChatDefaultsGroup = () => {
         </Row>
       ) : null}
       {modes.length > 0 ? (
-        <Row description={mode?.description} title="Permissions">
+        <Row
+          description={mode?.description}
+          htmlFor="settings-chat-permissions"
+          title="Permissions"
+        >
           <OptionSelect
             className={rowSelect}
+            id="settings-chat-permissions"
             onChange={(value) => save({ ...kept, modeId: value })}
             options={modes.map((m) => ({ label: m.name, value: m.id }))}
             value={modeId}

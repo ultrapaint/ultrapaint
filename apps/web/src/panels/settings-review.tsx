@@ -220,6 +220,7 @@ const ChosenRow = ({
       </span>
       {efforts.length > 0 ? (
         <OptionSelect
+          aria-label={`Effort of ${name}`}
           className={cn(rowSelect, "h-6 font-body-small text-muted-foreground")}
           onChange={onEffort}
           options={efforts.map((e) => ({ label: e.name, value: e.value }))}
@@ -594,9 +595,10 @@ export const ReviewGroup = ({
               value={merged.eachRound ?? "rotate"}
             />
           </Row>
-          <Row title="Approval">
+          <Row htmlFor="settings-review-approval" title="Approval">
             <OptionSelect
               className={rowSelect}
+              id="settings-review-approval"
               onChange={(value) =>
                 set({ approval: value as Approval, on: true })
               }

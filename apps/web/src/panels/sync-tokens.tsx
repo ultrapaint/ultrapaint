@@ -18,6 +18,7 @@ import type {
   TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
+import { TOKEN_NAME_SHAPE } from "@ultrapaint/contracts/token-table";
 import { plural } from "@ultrapaint/shared/text";
 import { Check, ChevronDown, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -139,7 +140,7 @@ const MatchRow = ({
       const name = await promptDialog({
         confirmLabel: "Match",
         defaultValue: fresh ?? "",
-        description: `What ${token.variable} is called in ${target}: lower case, words joined by dashes.`,
+        description: `What ${token.variable} is called in ${target}: ${TOKEN_NAME_SHAPE}.`,
         title: "A new token",
       });
       if (name?.trim()) {

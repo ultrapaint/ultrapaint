@@ -90,6 +90,8 @@ export const useSkeletons = (frameId: string, skeletons: readonly string[]) => {
   useEffect(() => {
     frameOf(frameId).skeleton(skeletons);
   }, [frameId, key]);
+  // A frame taken off the canvas has no skeleton left: its handle is forgotten with it.
+  useEffect(() => () => frameOf(frameId).skeleton([]), [frameId]);
 };
 
 const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
