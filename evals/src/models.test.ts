@@ -50,9 +50,9 @@ describe("the models", () => {
           value: { brief: "A screen of customers." },
         });
         assert.strictEqual(ran[0]?.command, "claude");
-        assert.deepStrictEqual(ran[0]?.args.slice(0, 6), [
+        // The prompt goes on stdin, not as an argument.
+        assert.deepStrictEqual(ran[0]?.args.slice(0, 5), [
           "-p",
-          "Write the brief.",
           "--output-format",
           "json",
           "--model",

@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { Effect, FileSystem, Option, Schema } from "effect";
+import { Effect, FileSystem, Option, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { EvalsError } from "./errors.ts";
 import type { Asked, Reply } from "./models.ts";
@@ -60,8 +60,9 @@ export const askCodex = Effect.fn("askCodex")(function* (asked: Asked) {
       ChildProcess.make(
         "codex",
         [
+          // `-`: the prompt is read from stdin, which takes one longer than an argument can be.
           "exec",
-          asked.prompt,
+          "-",
           "--json",
           "--ephemeral",
           "--ignore-user-config",
@@ -78,7 +79,10 @@ export const askCodex = Effect.fn("askCodex")(function* (asked: Asked) {
           schemaFile,
           ...(asked.images ?? []).flatMap((image) => ["-i", image]),
         ],
-        { cwd: asked.cwd, stdin: "ignore" }
+        {
+          cwd: asked.cwd,
+          stdin: Stream.make(new TextEncoder().encode(asked.prompt)),
+        }
       )
     )
     .pipe(

@@ -4,7 +4,7 @@
  * `cwd` and is named in the prompt: pictures reach it through its Read tool, and a prompt stays
  * short enough for a command line.
  */
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { EvalsError } from "./errors.ts";
 import type { Asked, Reply } from "./models.ts";
@@ -24,9 +24,10 @@ const TIMEOUT = "25 minutes";
 
 export const askClaude = Effect.fn("askClaude")(function* (asked: Asked) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  // The prompt goes on stdin: past 128K characters one argument is more than Linux passes on
+  // (E2BIG), as a grouping of a round's findings is.
   const args = [
     "-p",
-    asked.prompt,
     "--output-format",
     "json",
     "--model",
@@ -41,7 +42,10 @@ export const askClaude = Effect.fn("askClaude")(function* (asked: Asked) {
   ];
   const output = yield* spawner
     .string(
-      ChildProcess.make("claude", args, { cwd: asked.cwd, stdin: "ignore" })
+      ChildProcess.make("claude", args, {
+        cwd: asked.cwd,
+        stdin: Stream.make(new TextEncoder().encode(asked.prompt)),
+      })
     )
     .pipe(
       Effect.timeout(TIMEOUT),

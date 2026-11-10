@@ -37,6 +37,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
+  Cause,
   Clock,
   DateTime,
   Effect,
@@ -867,12 +868,15 @@ const groupUnmatched = Effect.fn("groupUnmatched")(function* (
   return result;
 });
 
-/** A step that failed is logged and left out; the next call asks again. */
+/**
+ * A step that failed is logged and left out; the next call asks again. A command that could not
+ * even start (its spawn threw) is left out the same way, not the end of the round.
+ */
 const orLater = <A, E, R>(what: string, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
-    Effect.catch((error) =>
+    Effect.catchCause((cause) =>
       Effect.as(
-        Effect.logWarning(`${what}: not done: ${String(error)}`),
+        Effect.logWarning(`${what}: not done: ${Cause.pretty(cause)}`),
         undefined
       )
     )
