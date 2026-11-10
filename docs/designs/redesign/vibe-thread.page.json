@@ -77,7 +77,7 @@
             {"type": "text", "id": "t_g9csg7", "color": "$color-muted-foreground", "role": "paragraph", "size": 10.5, "text": "Working on"},
             {"type": "row", "id": "r_i0fymv", "crossAlign": "center", "gap": 6, "children": [
               {"type": "text", "id": "t_poyyl7", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Orders table", "weight": 600},
-              {"type": "text", "id": "t_sg9w21", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "/orders"}
+              {"type": "text", "id": "t_sg9w21", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "/orders"}
             ]}
           ]},
           {"type": "row", "id": "r_ehpgt5", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "gap": 5, "padding": {"bottom": 4, "left": 8, "right": 8, "top": 4}, "radius": 6, "children": [
@@ -212,7 +212,7 @@
         {"type": "column", "id": "c_3mi40r", "name": "Frame", "padding": {"top": 38}, "width": 820, "children": [
           {"type": "row", "id": "r_rw9nf8", "name": "Frame label", "crossAlign": "center", "gap": 8, "padding": {"bottom": 8}, "width": "fill", "children": [
             {"type": "text", "id": "t_505pfc", "color": "$color-foreground", "role": "paragraph", "size": 11, "text": "Orders", "weight": 500},
-            {"type": "text", "id": "t_1kai6f", "color": "$color-muted-foreground", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "/orders"},
+            {"type": "text", "id": "t_1kai6f", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "/orders"},
             {"type": "column", "id": "c_wtsjam", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
             {"type": "text", "id": "t_fcogl0", "color": "#71717a", "role": "paragraph", "size": 11, "text": "1280 × 800"}
           ]},
@@ -256,7 +256,7 @@
                       {"type": "text", "id": "t_sa04wo", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Date", "weight": 600, "width": 104}
                     ]},
                     {"type": "row", "id": "r_gnospm", "name": "Row #1042", "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_z0u2vt", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1042", "width": 58},
+                      {"type": "text", "id": "t_z0u2vt", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1042", "width": 58},
                       {"type": "text", "id": "t_fcl3m1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_ofx8fa", "color": "#18181b", "role": "paragraph", "size": 12, "text": "3", "width": 40},
                       {"type": "text", "id": "t_cz2ljf", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Acme Corp", "width": 128},
@@ -270,7 +270,7 @@
                       ]}
                     ]},
                     {"type": "row", "id": "r_jynrmq", "name": "Row #1041", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_bf4vp7", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1041", "width": 58},
+                      {"type": "text", "id": "t_bf4vp7", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1041", "width": 58},
                       {"type": "text", "id": "t_mem9wr", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_pi68g1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "1", "width": 40},
                       {"type": "text", "id": "t_h11tbz", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Globex Inc", "width": 128},
@@ -284,7 +284,7 @@
                       ]}
                     ]},
                     {"type": "row", "id": "r_0j26k5", "name": "Row #1040", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_72loz3", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1040", "width": 58},
+                      {"type": "text", "id": "t_72loz3", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1040", "width": 58},
                       {"type": "text", "id": "t_7bb8po", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Bolt Y3 Connector", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_voevc9", "color": "#18181b", "role": "paragraph", "size": 12, "text": "12", "width": 40},
                       {"type": "text", "id": "t_1q39al", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Initech", "width": 128},
@@ -298,7 +298,7 @@
                       ]}
                     ]},
                     {"type": "row", "id": "r_of22us", "name": "Row #1039", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_aoo1k3", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1039", "width": 58},
+                      {"type": "text", "id": "t_aoo1k3", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1039", "width": 58},
                       {"type": "text", "id": "t_skqfhl", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_utkcb1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "5", "width": 40},
                       {"type": "text", "id": "t_1qxsis", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Umbrella Co", "width": 128},
@@ -312,7 +312,7 @@
                       ]}
                     ]},
                     {"type": "row", "id": "r_3xek2w", "name": "Row #1038", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_v15lvg", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1038", "width": 58},
+                      {"type": "text", "id": "t_v15lvg", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1038", "width": 58},
                       {"type": "text", "id": "t_xb83ju", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Relay Module", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_xw4wa2", "color": "#18181b", "role": "paragraph", "size": 12, "text": "8", "width": 40},
                       {"type": "text", "id": "t_s7m24w", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Hooli", "width": 128},
@@ -326,7 +326,7 @@
                       ]}
                     ]},
                     {"type": "row", "id": "r_4imxvl", "name": "Row #1037", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
-                      {"type": "text", "id": "t_6ohmbq", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1037", "width": 58},
+                      {"type": "text", "id": "t_6ohmbq", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "#1037", "width": 58},
                       {"type": "text", "id": "t_euupwv", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 136},
                       {"type": "text", "id": "t_2r1yuv", "color": "#18181b", "role": "paragraph", "size": 12, "text": "2", "width": 40},
                       {"type": "text", "id": "t_45qou6", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Stark Industries", "width": 128},

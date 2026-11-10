@@ -4,17 +4,17 @@
       {"type": "column", "id": "c_ohyvkq", "name": "Start", "crossAlign": "center", "fill": "oklch(0.99 0.001 80)", "gap": 0, "height": 900, "width": "fill", "children": [
         {"type": "row", "id": "r_1qv9kq", "crossAlign": "center", "gap": 8, "height": 44, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
           {"type": "row", "id": "r_pl9au2", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 20, "radius": 5, "width": 20, "children": [
-            {"type": "text", "id": "t_tkzl95", "color": "oklch(0.99 0 0)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
+            {"type": "text", "id": "t_tkzl95", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
           ]},
-          {"type": "text", "id": "t_be23bq", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 600}
+          {"type": "text", "id": "t_be23bq", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 600}
         ]},
         {"type": "column", "id": "c_l6asgb", "gap": 0, "padding": {"top": 96}, "width": 680, "children": [
-          {"type": "text", "id": "t_m6eyf2", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 24, "text": "Start a new project", "tracking": "-0.02em", "weight": 600},
-          {"type": "text", "id": "t_04p7ob", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "padding": {"top": 4}, "role": "paragraph", "size": 14, "text": "Describe what you want to make, and an agent designs it from scratch. To work on an app you already have, open it below."},
+          {"type": "text", "id": "t_m6eyf2", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 24, "text": "Start a new project", "tracking": "-0.02em"},
+          {"type": "text", "id": "t_04p7ob", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "padding": {"top": 4}, "role": "paragraph", "size": 14, "text": "Describe what you want to make, and an agent designs it from scratch. To work on an app you already have, open it below."},
           {"type": "column", "id": "c_7iu9ip", "height": 20, "children": []},
           {"type": "column", "id": "c_zqvvcu", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
             {"type": "column", "id": "c_o2dx91", "minHeight": 52, "width": "fill", "children": [
-              {"type": "text", "id": "t_o2biak", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
+              {"type": "text", "id": "t_o2biak", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
             ]},
             {"type": "row", "id": "r_lkncvh", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
               {"type": "row", "id": "r_og8j27", "name": "Button · paperclip", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
@@ -22,18 +22,18 @@
               ]},
               {"type": "row", "id": "r_mlg6iw", "name": "Picker · ~/Ultrapaint", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
                 {"type": "image", "id": "img_3l935g", "name": "folder", "height": 14, "src": "assets/icons/folder.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_bwpof4", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint", "weight": 500},
+                {"type": "text", "id": "t_bwpof4", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint", "weight": 500},
                 {"type": "image", "id": "img_4zh96t", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
               ]},
               {"type": "row", "id": "r_q7awd8", "name": "Picker · Agent picks the look", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
                 {"type": "image", "id": "img_kn17lf", "name": "palette", "height": 14, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-                {"type": "text", "id": "t_3xedtp", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Agent picks the look", "weight": 500},
+                {"type": "text", "id": "t_3xedtp", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Agent picks the look", "weight": 500},
                 {"type": "image", "id": "img_gyw138", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
               ]},
               {"type": "row", "id": "r_iohjet", "width": "fill", "children": []},
               {"type": "row", "id": "r_08k38z", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
-                {"type": "text", "id": "t_rphkq3", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
-                {"type": "text", "id": "t_iexmsl", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+                {"type": "text", "id": "t_rphkq3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_iexmsl", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
                 {"type": "image", "id": "img_21t893", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
               ]},
               {"type": "row", "id": "r_2oe5s6", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
@@ -43,22 +43,22 @@
           ]},
           {"type": "row", "id": "r_sjluc8", "gap": 8, "padding": {"top": 12}, "wrap": true, "children": [
             {"type": "row", "id": "r_t02sg0", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-              {"type": "text", "id": "t_moc7oc", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A booking page for a hair salon"}
+              {"type": "text", "id": "t_moc7oc", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A booking page for a hair salon"}
             ]},
             {"type": "row", "id": "r_5szzf5", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-              {"type": "text", "id": "t_6xute8", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "An admin for a bike shop"}
+              {"type": "text", "id": "t_6xute8", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "An admin for a bike shop"}
             ]},
             {"type": "row", "id": "r_nhgp4g", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-              {"type": "text", "id": "t_kr36r0", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A portfolio for a photographer"}
+              {"type": "text", "id": "t_kr36r0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A portfolio for a photographer"}
             ]}
           ]},
           {"type": "column", "id": "c_2as7hp", "gap": 8, "padding": {"top": 48}, "width": "fill", "children": [
             {"type": "row", "id": "r_53fdt4", "crossAlign": "center", "padding": {"left": 4}, "width": "fill", "children": [
-              {"type": "text", "id": "t_qtyrja", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Your projects", "weight": 500},
+              {"type": "text", "id": "t_qtyrja", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Your projects", "weight": 500},
               {"type": "row", "id": "r_rresph", "width": "fill", "children": []},
               {"type": "row", "id": "r_q8174r", "name": "Button · Open project", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
                 {"type": "image", "id": "img_xu2a8a", "name": "folder-open", "height": 16, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
-                {"type": "text", "id": "t_r416i3", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open project", "weight": 500},
+                {"type": "text", "id": "t_r416i3", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open project", "weight": 500},
                 {"type": "image", "id": "img_60qhor", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
               ]}
             ]},
@@ -66,15 +66,15 @@
               {"type": "row", "id": "r_rnqm80", "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
                 {"type": "column", "id": "c_m38iph", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f6efe4", "height": 32, "radius": 6, "width": 48, "children": []},
                 {"type": "column", "id": "c_509dh9", "gap": 0, "children": [
-                  {"type": "text", "id": "t_j9u30s", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "salon-booking", "weight": 500},
-                  {"type": "text", "id": "t_g9ulp3", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint/salon-booking · edited 3 days ago"}
+                  {"type": "text", "id": "t_j9u30s", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "salon-booking", "weight": 500},
+                  {"type": "text", "id": "t_g9ulp3", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint/salon-booking · edited 3 days ago"}
                 ]}
               ]},
               {"type": "row", "id": "r_767rep", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
                 {"type": "column", "id": "c_csk3m8", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f4f4f5", "height": 32, "radius": 6, "width": 48, "children": []},
                 {"type": "column", "id": "c_0rp314", "gap": 0, "children": [
-                  {"type": "text", "id": "t_il73pt", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500},
-                  {"type": "text", "id": "t_ysm2wi", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Code/bike-shop · edited last week"}
+                  {"type": "text", "id": "t_il73pt", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500},
+                  {"type": "text", "id": "t_ysm2wi", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Code/bike-shop · edited last week"}
                 ]}
               ]}
             ]}
@@ -84,15 +84,15 @@
       {"type": "column", "id": "c_y0sjyx", "align": "start", "crossAlign": "center", "fill": "oklch(0.21 0.006 60 / 28%)", "height": 900, "margin": {"top": -900}, "padding": {"top": 56}, "width": "fill", "children": [
         {"type": "column", "id": "c_ph5fi7", "name": "Already a project", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 16, "padding": 20, "radius": 14, "shadow": "0 2px 4px oklch(0.3 0.02 60 / 8%), 0 12px 32px -6px oklch(0.3 0.02 60 / 22%)", "width": 440, "children": [
           {"type": "column", "id": "c_hmm0ko", "gap": 4, "children": [
-            {"type": "text", "id": "t_v3sf7h", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 16, "text": "bike-shop is already an Ultrapaint project", "weight": 600},
-            {"type": "text", "id": "t_1u7i8s", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "It has its own designs and settings. Open it to keep working there, or choose another folder for the new project."}
+            {"type": "text", "id": "t_v3sf7h", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 16, "text": "bike-shop is already an Ultrapaint project"},
+            {"type": "text", "id": "t_1u7i8s", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "It has its own designs and settings. Open it to keep working there, or choose another folder for the new project."}
           ]},
           {"type": "row", "id": "r_0g9f60", "align": "end", "gap": 8, "width": "fill", "children": [
             {"type": "row", "id": "r_2zwu7w", "name": "Button · Choose another folder", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
-              {"type": "text", "id": "t_vcs99s", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Choose another folder", "weight": 500}
+              {"type": "text", "id": "t_vcs99s", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Choose another folder", "weight": 500}
             ]},
             {"type": "row", "id": "r_n7sojr", "name": "Button · Open bike-shop", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "gap": 6, "height": 32, "padding": {"left": 12, "right": 12}, "radius": 8, "children": [
-              {"type": "text", "id": "t_s9hb78", "color": "oklch(0.99 0 0)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Open bike-shop", "weight": 500}
+              {"type": "text", "id": "t_s9hb78", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Open bike-shop", "weight": 500}
             ]}
           ]}
         ]}

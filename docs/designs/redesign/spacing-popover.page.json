@@ -32,7 +32,7 @@
                 ]},
                 {"type": "row", "id": "r_7iacv9", "name": "Select · spacing", "crossAlign": "center", "fill": "#3f3f46", "gap": 5, "height": 28, "padding": {"left": 7, "right": 6}, "radius": 6, "children": [
                   {"type": "image", "id": "img_rcgrxo", "name": "sides all", "fit": "contain", "height": 14, "src": "assets/icons/sides-all-a1a1aa.svg", "width": 14},
-                  {"type": "text", "id": "t_hxuhtk", "color": "$color-foreground", "font": "$font-mono", "role": "paragraph", "size": 11.5, "text": "12 6", "weight": 500},
+                  {"type": "text", "id": "t_hxuhtk", "color": "$color-foreground", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11.5, "text": "12 6", "weight": 500},
                   {"type": "image", "id": "img_ss6a64", "name": "chevron-down", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11}
                 ]},
                 {"type": "row", "id": "r_njhs0m", "name": "Select · 1.5", "crossAlign": "center", "gap": 5, "height": 28, "padding": {"left": 7, "right": 6}, "radius": 6, "children": [
@@ -337,47 +337,47 @@
                   {"type": "column", "id": "c_rsvkir", "name": "Options", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "fill": "#18181b", "gap": 1, "padding": 4, "radius": 8, "shadow": "$shadow-xl", "width": 190, "children": [
                     {"type": "row", "id": "r_737q4o", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_ojf3aq", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "0", "width": "fill"},
-                      {"type": "text", "id": "t_9kgrzv", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-0"},
+                      {"type": "text", "id": "t_9kgrzv", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-0"},
                       {"type": "group", "id": "g_1vkals", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_nh5a38", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_uakxuh", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "2", "width": "fill"},
-                      {"type": "text", "id": "t_tvxkp8", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-0.5"},
+                      {"type": "text", "id": "t_tvxkp8", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-0.5"},
                       {"type": "group", "id": "g_574g53", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_4s4hr3", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_8pfhpj", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "4", "width": "fill"},
-                      {"type": "text", "id": "t_dhlezw", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-1"},
+                      {"type": "text", "id": "t_dhlezw", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-1"},
                       {"type": "group", "id": "g_9ipwho", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_qyotmw", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_zq8on9", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "6", "width": "fill"},
-                      {"type": "text", "id": "t_rcclcl", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-1.5"},
+                      {"type": "text", "id": "t_rcclcl", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-1.5"},
                       {"type": "group", "id": "g_ge8cr7", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_caupnt", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_v24ptk", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "8", "width": "fill"},
-                      {"type": "text", "id": "t_f83k00", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-2"},
+                      {"type": "text", "id": "t_f83k00", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-2"},
                       {"type": "group", "id": "g_rqea46", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_t1r8sa", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_1736v4", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "10", "width": "fill"},
-                      {"type": "text", "id": "t_jxh2zn", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-2.5"},
+                      {"type": "text", "id": "t_jxh2zn", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-2.5"},
                       {"type": "group", "id": "g_15pj9k", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_nmbfe1", "crossAlign": "center", "fill": "#27272a", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_efjnjt", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "12", "width": "fill"},
-                      {"type": "text", "id": "t_abjrbr", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-3"},
+                      {"type": "text", "id": "t_abjrbr", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-3"},
                       {"type": "image", "id": "img_k1aw5y", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#fafafa", "width": 12}
                     ]},
                     {"type": "row", "id": "r_p7c48b", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_bx4hmg", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "16", "width": "fill"},
-                      {"type": "text", "id": "t_6hskin", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-4"},
+                      {"type": "text", "id": "t_6hskin", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-4"},
                       {"type": "group", "id": "g_lrlzbd", "height": 12, "width": 12, "children": []}
                     ]},
                     {"type": "row", "id": "r_brzly7", "crossAlign": "center", "gap": 8, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 5, "width": "fill", "children": [
                       {"type": "text", "id": "t_tjh580", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "20", "width": "fill"},
-                      {"type": "text", "id": "t_8en7qi", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10, "text": "spacing-5"},
+                      {"type": "text", "id": "t_8en7qi", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10, "text": "spacing-5"},
                       {"type": "group", "id": "g_l76mfu", "height": 12, "width": 12, "children": []}
                     ]}
                   ]}

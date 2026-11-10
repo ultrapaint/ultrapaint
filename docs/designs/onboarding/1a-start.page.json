@@ -3,17 +3,17 @@
     {"type": "column", "id": "c_rjoz9i", "name": "Start", "crossAlign": "center", "fill": "oklch(0.99 0.001 80)", "gap": 0, "height": 900, "width": "fill", "children": [
       {"type": "row", "id": "r_1y01yy", "crossAlign": "center", "gap": 8, "height": 44, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
         {"type": "row", "id": "r_myyt31", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 20, "radius": 5, "width": 20, "children": [
-          {"type": "text", "id": "t_qx9847", "color": "oklch(0.99 0 0)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
+          {"type": "text", "id": "t_qx9847", "color": "oklch(0.99 0 0)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "U", "weight": 700}
         ]},
-        {"type": "text", "id": "t_6olzng", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 600}
+        {"type": "text", "id": "t_6olzng", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 600}
       ]},
       {"type": "column", "id": "c_ku10vf", "gap": 0, "padding": {"top": 96}, "width": 680, "children": [
-        {"type": "text", "id": "t_0tqg0c", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 24, "text": "Start a new project", "tracking": "-0.02em", "weight": 600},
-        {"type": "text", "id": "t_8z5mjz", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "padding": {"top": 4}, "role": "paragraph", "size": 14, "text": "Describe what you want to make, and an agent designs it from scratch. To work on an app you already have, open it below."},
+        {"type": "text", "id": "t_0tqg0c", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 24, "text": "Start a new project", "tracking": "-0.02em"},
+        {"type": "text", "id": "t_8z5mjz", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "padding": {"top": 4}, "role": "paragraph", "size": 14, "text": "Describe what you want to make, and an agent designs it from scratch. To work on an app you already have, open it below."},
         {"type": "column", "id": "c_xycduh", "height": 20, "children": []},
         {"type": "column", "id": "c_s59gd4", "name": "Composer", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "fill": "oklch(1 0 0)", "gap": 10, "padding": {"bottom": 10, "left": 14, "right": 10, "top": 12}, "radius": 14, "shadow": "0 1px 2px oklch(0.3 0.02 60 / 6%), 0 8px 24px -8px oklch(0.3 0.02 60 / 16%)", "width": "fill", "children": [
           {"type": "column", "id": "c_9hy4ir", "minHeight": 52, "width": "fill", "children": [
-            {"type": "text", "id": "t_kzg2ss", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
+            {"type": "text", "id": "t_kzg2ss", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.47, "role": "paragraph", "size": 15, "text": "A habit tracker for students: today’s list, streaks and a weekly review"}
           ]},
           {"type": "row", "id": "r_u0r1wb", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
             {"type": "row", "id": "r_s42jfi", "name": "Button · paperclip", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 6}, "radius": 8, "children": [
@@ -21,18 +21,18 @@
             ]},
             {"type": "row", "id": "r_bx8xn8", "name": "Picker · ~/Ultrapaint", "crossAlign": "center", "fill": "oklch(0.935 0.004 80)", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
               {"type": "image", "id": "img_jqyk09", "name": "folder", "height": 14, "src": "assets/icons/folder.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-              {"type": "text", "id": "t_w38yyp", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint", "weight": 500},
+              {"type": "text", "id": "t_w38yyp", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint", "weight": 500},
               {"type": "image", "id": "img_pe5cjj", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
             ]},
             {"type": "row", "id": "r_ek3wj4", "name": "Picker · Agent picks the look", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
               {"type": "image", "id": "img_zv8opb", "name": "palette", "height": 14, "src": "assets/icons/palette.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-              {"type": "text", "id": "t_8b5hit", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Agent picks the look", "weight": 500},
+              {"type": "text", "id": "t_8b5hit", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Agent picks the look", "weight": 500},
               {"type": "image", "id": "img_jtdo05", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
             ]},
             {"type": "row", "id": "r_72e2cn", "width": "fill", "children": []},
             {"type": "row", "id": "r_yvwwb4", "name": "Picker · Opus 5.5", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 8, "children": [
-              {"type": "text", "id": "t_7nf9as", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
-              {"type": "text", "id": "t_0an84v", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
+              {"type": "text", "id": "t_7nf9as", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Opus 5.5", "weight": 500},
+              {"type": "text", "id": "t_0an84v", "color": "oklch(0.53 0.01 65 / 70%)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "High", "weight": 500},
               {"type": "image", "id": "img_76bxzv", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
             ]},
             {"type": "row", "id": "r_a2t1qx", "align": "center", "crossAlign": "center", "fill": "oklch(0.53 0.21 263)", "height": 32, "radius": 8, "width": 32, "children": [
@@ -42,22 +42,22 @@
         ]},
         {"type": "row", "id": "r_kwdhye", "gap": 8, "padding": {"top": 12}, "wrap": true, "children": [
           {"type": "row", "id": "r_li4zbq", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-            {"type": "text", "id": "t_wdtdl4", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A booking page for a hair salon"}
+            {"type": "text", "id": "t_wdtdl4", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A booking page for a hair salon"}
           ]},
           {"type": "row", "id": "r_pt4wwu", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-            {"type": "text", "id": "t_3aldrl", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "An admin for a bike shop"}
+            {"type": "text", "id": "t_3aldrl", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "An admin for a bike shop"}
           ]},
           {"type": "row", "id": "r_jx47rt", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 999, "children": [
-            {"type": "text", "id": "t_ylu86x", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A portfolio for a photographer"}
+            {"type": "text", "id": "t_ylu86x", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "A portfolio for a photographer"}
           ]}
         ]},
         {"type": "column", "id": "c_0wrran", "gap": 8, "padding": {"top": 48}, "width": "fill", "children": [
           {"type": "row", "id": "r_uydbb0", "crossAlign": "center", "padding": {"left": 4}, "width": "fill", "children": [
-            {"type": "text", "id": "t_262ah7", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Your projects", "weight": 500},
+            {"type": "text", "id": "t_262ah7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Your projects", "weight": 500},
             {"type": "row", "id": "r_pxra3m", "width": "fill", "children": []},
             {"type": "row", "id": "r_0ea6o7", "name": "Button · Open project", "align": "center", "border": {"color": "oklch(0.21 0.006 60 / 16%)", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(1 0 0)", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 8, "children": [
               {"type": "image", "id": "img_gk1253", "name": "folder-open", "height": 16, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
-              {"type": "text", "id": "t_wdm9gj", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open project", "weight": 500},
+              {"type": "text", "id": "t_wdm9gj", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Open project", "weight": 500},
               {"type": "image", "id": "img_ikwaoq", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
             ]}
           ]},
@@ -65,15 +65,15 @@
             {"type": "row", "id": "r_i5a0fa", "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
               {"type": "column", "id": "c_37avx0", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f6efe4", "height": 32, "radius": 6, "width": 48, "children": []},
               {"type": "column", "id": "c_am9g4n", "gap": 0, "children": [
-                {"type": "text", "id": "t_wxclcd", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "salon-booking", "weight": 500},
-                {"type": "text", "id": "t_dtan0p", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint/salon-booking · edited 3 days ago"}
+                {"type": "text", "id": "t_wxclcd", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "salon-booking", "weight": 500},
+                {"type": "text", "id": "t_dtan0p", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Ultrapaint/salon-booking · edited 3 days ago"}
               ]}
             ]},
             {"type": "row", "id": "r_4brnlo", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 12, "padding": {"bottom": 10, "left": 14, "right": 14, "top": 10}, "width": "fill", "children": [
               {"type": "column", "id": "c_gu3xbu", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "fill": "#f4f4f5", "height": 32, "radius": 6, "width": 48, "children": []},
               {"type": "column", "id": "c_syravb", "gap": 0, "children": [
-                {"type": "text", "id": "t_alpugg", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500},
-                {"type": "text", "id": "t_os8bqm", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Code/bike-shop · edited last week"}
+                {"type": "text", "id": "t_alpugg", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500},
+                {"type": "text", "id": "t_os8bqm", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "~/Code/bike-shop · edited last week"}
               ]}
             ]}
           ]}
@@ -83,16 +83,16 @@
             {"type": "row", "id": "r_mr2pg0", "crossAlign": "start", "fill": "oklch(0.935 0.004 80)", "gap": 8, "padding": {"bottom": 7, "left": 8, "right": 8, "top": 7}, "radius": 6, "width": "fill", "children": [
               {"type": "image", "id": "img_yvd2g1", "name": "folder", "height": 16, "margin": {"top": 2}, "src": "assets/icons/folder.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
               {"type": "column", "id": "c_xr1bdo", "gap": 0, "width": "fill", "children": [
-                {"type": "text", "id": "t_flwzo0", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "New folder in ~/Ultrapaint", "weight": 500},
-                {"type": "text", "id": "t_3xkksd", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "~/Ultrapaint/habit-tracker"}
+                {"type": "text", "id": "t_flwzo0", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "New folder in ~/Ultrapaint", "weight": 500},
+                {"type": "text", "id": "t_3xkksd", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "~/Ultrapaint/habit-tracker"}
               ]},
               {"type": "image", "id": "img_068284", "name": "check", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check.svg", "tint": "oklch(0.21 0.006 60)", "width": 14}
             ]},
             {"type": "row", "id": "r_95y45c", "crossAlign": "start", "gap": 8, "padding": {"bottom": 7, "left": 8, "right": 8, "top": 7}, "radius": 6, "width": "fill", "children": [
               {"type": "image", "id": "img_zmozj3", "name": "folder-open", "height": 16, "margin": {"top": 2}, "src": "assets/icons/folder-open.svg", "tint": "oklch(0.21 0.006 60)", "width": 16},
               {"type": "column", "id": "c_9m3aeq", "gap": 0, "width": "fill", "children": [
-                {"type": "text", "id": "t_my2m2z", "color": "oklch(0.21 0.006 60)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Choose a folder…", "weight": 500},
-                {"type": "text", "id": "t_7di1a8", "color": "oklch(0.53 0.01 65)", "font": "'Onest Variable', Onest, system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Start the project in a folder you pick"}
+                {"type": "text", "id": "t_my2m2z", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "Choose a folder…", "weight": 500},
+                {"type": "text", "id": "t_7di1a8", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.38, "role": "paragraph", "size": 12, "text": "Start the project in a folder you pick"}
               ]}
             ]}
           ]}

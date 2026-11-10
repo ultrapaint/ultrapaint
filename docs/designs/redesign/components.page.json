@@ -517,7 +517,7 @@
                 {"type": "image", "id": "img_2s44hn", "name": "link", "height": 13, "src": "assets/icons/link.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_4w9a6b", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_lu0vyy", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Copy link to element"},
-                  {"type": "text", "id": "t_52vp1u", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10.5, "text": "?route=/orders&node=c_8x2k1q"}
+                  {"type": "text", "id": "t_52vp1u", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10.5, "text": "?route=/orders&node=c_8x2k1q"}
                 ]},
                 {"type": "text", "id": "t_jq7ymk", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⇧⌘L"}
               ]},
@@ -525,7 +525,7 @@
                 {"type": "image", "id": "img_eeqf1i", "name": "hash", "height": 13, "src": "assets/icons/hash.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_cc3fdd", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_mfkni4", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Copy element ID"},
-                  {"type": "text", "id": "t_1rzfhe", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10.5, "text": "c_8x2k1q"}
+                  {"type": "text", "id": "t_1rzfhe", "color": "#71717a", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 10.5, "text": "c_8x2k1q"}
                 ]},
                 {"type": "text", "id": "t_xdhf4v", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⌥⌘C"}
               ]},
@@ -595,7 +595,7 @@
                   {"type": "text", "id": "t_o72xek", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "ID copied", "weight": 600},
                   {"type": "row", "id": "r_d4wt6x", "crossAlign": "center", "gap": 6, "children": [
                     {"type": "row", "id": "r_vqwav2", "crossAlign": "center", "fill": "#27272a", "padding": {"bottom": 3, "left": 6, "right": 6, "top": 3}, "radius": 5, "children": [
-                      {"type": "text", "id": "t_b7jru6", "color": "#c4b5fd", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "c_8x2k1q"}
+                      {"type": "text", "id": "t_b7jru6", "color": "#c4b5fd", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11, "text": "c_8x2k1q"}
                     ]},
                     {"type": "text", "id": "t_zgg3tj", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "for an agent"}
                   ]}
@@ -604,8 +604,8 @@
               {"type": "column", "id": "c_ukrjk0", "gap": 6, "padding": {"top": 6}, "children": [
                 {"type": "text", "id": "t_zayy2p", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Pasted to an agent", "weight": 500},
                 {"type": "column", "id": "c_p5xbkk", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "#1f1f23", "gap": 4, "padding": 12, "radius": 10, "width": 340, "children": [
-                  {"type": "text", "id": "t_8m66d4", "color": "$color-foreground", "font": "$font-mono", "role": "paragraph", "size": 11.5, "text": "get_screenshot", "weight": 600},
-                  {"type": "text", "id": "t_vqfo7h", "color": "#c4b5fd", "font": "$font-mono", "role": "paragraph", "size": 11.5, "text": "{ \"node\": \"/orders#c_8x2k1q\" }"}
+                  {"type": "text", "id": "t_8m66d4", "color": "$color-foreground", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11.5, "text": "get_screenshot", "weight": 600},
+                  {"type": "text", "id": "t_vqfo7h", "color": "#c4b5fd", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 11.5, "text": "{ \"node\": \"/orders#c_8x2k1q\" }"}
                 ]}
               ]},
               {"type": "column", "id": "c_7lb0r6", "gap": 6, "padding": {"top": 6}, "children": [

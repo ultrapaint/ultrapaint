@@ -2,7 +2,7 @@
   "defaults": {
     "color": "$color-foreground",
     "fill": "$color-background",
-    "font": "$font-sans",
+    "font": "'Figtree Variable', system-ui, sans-serif",
     "theme": "dark"
   },
   "name": "Samples",
