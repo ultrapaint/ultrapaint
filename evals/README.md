@@ -117,6 +117,11 @@ pnpm evals setup-host <host>                   # import a host's design system w
 pnpm evals panel <round> [rounds…]             # what a fixed panel still finds in the designs
 ```
 
+`pairwise` judges each run twice, the two designs shown the other way round the second time: a
+judge leans to one letter, so a side that changes with the order counts as a tie, and the command
+ends on how many winners changed (the judge's flip rate). `--one-order` judges once; a run judged
+once before is asked only the order it lacks.
+
 `round` takes `--runs` (3), `--agent` (claude-code), `--agent-model` (the name the agent's model
 picker shows; its default otherwise), `--minutes` (30, per run),
 `--judge-model` (opus) and `--concurrency` (3 judgements at once), and the review loop's

@@ -1,5 +1,31 @@
 import { assert, describe, it } from "@effect/vitest";
-import { shownAs, skillReads, tallyOf, unblind } from "./pairwise.ts";
+import { Effect, Layer } from "effect";
+import type { Asked } from "./models.ts";
+import { Models } from "./models.ts";
+import {
+  flipsOf,
+  pairwise,
+  settled,
+  shownAs,
+  skillReads,
+  tallyOf,
+  unblind,
+} from "./pairwise.ts";
+import { readData, TestData, writeData } from "./test-data.ts";
+
+/** A judge that always prefers the design it is shown first. */
+const firstShown = (_: Asked) => ({
+  levels: { layout: "A" },
+  margin: "clear",
+  reasons: [],
+  winner: "A",
+});
+
+const twoRounds = {
+  "references/home/capture/home.jpg": "jpg",
+  "runs/a/home/run-1/shots/home.jpg": "jpg",
+  "runs/b/home/run-1/shots/home.jpg": "jpg",
+};
 
 describe("pairwise", () => {
   it("shows a run's two designs in the order its name gives, as the rounds judged so far were", () => {
@@ -108,4 +134,87 @@ describe("pairwise", () => {
       "references/typography.md",
     ]);
   });
+
+  it("lets a side stand only when both orders gave it, and counts the winners that changed", () => {
+    const run = {
+      levels: { colour: "b", layout: "a" },
+      margin: "clear",
+      reasons: [],
+      shownFirst: "a",
+      winner: "a",
+    };
+    const swapped = {
+      ...run,
+      levels: { colour: "b", layout: "b" },
+      winner: "b",
+    };
+    assert.deepStrictEqual(settled(run), {
+      levels: { colour: "b", layout: "a" },
+      winner: "a",
+    });
+    assert.deepStrictEqual(settled({ ...run, swapped }), {
+      levels: { colour: "b", layout: "tie" },
+      winner: "tie",
+    });
+    const results = {
+      "home/run-1": { ...run, swapped },
+      "home/run-2": { ...run, swapped: run },
+      "home/run-3": run,
+    };
+    assert.deepStrictEqual(flipsOf(results), { both: 2, flipped: 1 });
+    assert.deepStrictEqual(tallyOf(results), {
+      a: 2,
+      "colour:b": 3,
+      "layout:a": 2,
+      "layout:tie": 1,
+      tie: 1,
+    });
+  });
+
+  it.effect(
+    "judges a run both ways round, so a judge that prefers what it sees first settles nothing",
+    () =>
+      Effect.gen(function* () {
+        yield* writeData(twoRounds);
+        yield* pairwise("a", "b", { model: "opus" });
+        const results = JSON.parse(
+          yield* readData("runs/a-vs-b/pairwise.json")
+        );
+        const run = results["home/run-1"];
+        assert.notStrictEqual(run.shownFirst, run.swapped.shownFirst);
+        assert.strictEqual(run.winner, run.shownFirst);
+        assert.strictEqual(run.swapped.winner, run.swapped.shownFirst);
+        assert.deepStrictEqual(settled(run), {
+          levels: { layout: "tie" },
+          winner: "tie",
+        });
+      }).pipe(
+        Effect.provide(Layer.merge(TestData, Models.layerTest(firstShown)))
+      )
+  );
+
+  it.effect(
+    "asks only the order a run lacks: a run judged one way before is judged the other way, once",
+    () =>
+      Effect.gen(function* () {
+        let asked = 0;
+        const counting = (question: Asked) => {
+          asked += 1;
+          return firstShown(question);
+        };
+        yield* Effect.gen(function* () {
+          yield* writeData(twoRounds);
+          yield* pairwise("a", "b", { model: "opus", oneOrder: true });
+          assert.strictEqual(asked, 1);
+          yield* pairwise("a", "b", { model: "opus", oneOrder: true });
+          assert.strictEqual(asked, 1);
+          yield* pairwise("a", "b", { model: "opus" });
+          assert.strictEqual(asked, 2);
+          yield* pairwise("a", "b", { model: "opus" });
+          assert.strictEqual(asked, 2);
+        }).pipe(
+          Effect.provide(Layer.merge(TestData, Models.layerTest(counting)))
+        );
+      })
+  );
 });

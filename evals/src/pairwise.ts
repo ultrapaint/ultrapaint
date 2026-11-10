@@ -4,6 +4,10 @@
  * says which is better, level by level. The verdicts are kept under the rounds' names in
  * `runs/<a>-vs-<b>/pairwise.json`, so a run judged once is not asked again; `reads.json` beside
  * it lists the skill's files each run opened.
+ *
+ * A judge leans to one letter, so each run is judged twice, the designs shown the other way
+ * round the second time (`swapped`): a side that changes with the order is a tie, and how many
+ * winners changed is the judge's flip rate. `oneOrder` asks once, as rounds were judged before.
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
@@ -54,15 +58,54 @@ const verdictSchema = {
 /** A verdict, as the judge answers it. */
 export const verdictAnswer = { decode: Verdict, schema: verdictSchema };
 
-/** A verdict with its letters turned into the rounds' names. */
-export const Judged = Schema.Struct({
+const judged = {
   levels: Schema.Record(Schema.String, Schema.String),
   margin: Schema.String,
   reasons: Schema.Array(Schema.String),
   shownFirst: Schema.String,
   winner: Schema.String,
+};
+
+/** A verdict with its letters turned into the rounds' names. */
+export const Judged = Schema.Struct({
+  ...judged,
+  /** The same run judged with the designs shown the other way round. */
+  swapped: Schema.optional(Schema.Struct(judged)),
 });
 const Results = Schema.Record(Schema.String, Judged);
+
+/**
+ * What a run's two verdicts settle: a side both orders gave stands, one that changed with the
+ * order is a tie. A run judged in one order is as that order said.
+ */
+export const settled = (run: typeof Judged.Type) => {
+  const { swapped } = run;
+  if (swapped === undefined) {
+    return { levels: run.levels, winner: run.winner };
+  }
+  const both = (one: string, other: string | undefined) =>
+    one === other ? one : "tie";
+  return {
+    levels: Object.fromEntries(
+      Object.entries(run.levels).map(([level, side]) => [
+        level,
+        both(side, swapped.levels[level]),
+      ])
+    ),
+    winner: both(run.winner, swapped.winner),
+  };
+};
+
+/** The runs judged in both orders, and those whose winner changed with the order. */
+export const flipsOf = (
+  results: Readonly<Record<string, typeof Judged.Type>>
+) => {
+  const both = Object.values(results).filter((r) => r.swapped !== undefined);
+  return {
+    both: both.length,
+    flipped: both.filter((r) => r.swapped?.winner !== r.winner).length,
+  };
+};
 
 /** A stable number from a run's name, so the same run always shows the same round first. */
 const hash = (s: string) =>
@@ -203,17 +246,18 @@ const sharedRuns = Effect.fn("sharedRuns")(function* (a: string, b: string) {
   return keys;
 });
 
-/** One run of each round judged against the other, the verdict under the rounds' names. */
+/**
+ * One run of each round judged against the other, shown in the order given, the verdict under
+ * the rounds' names.
+ */
 const judgeRun = Effect.fn("judgeRun")(function* (
-  a: string,
-  b: string,
+  order: readonly [string, string],
   key: string,
   options: { readonly model: string; readonly principles: string }
 ) {
   const { data } = yield* EvalsConfig;
   const models = yield* Models;
   const reference = key.slice(0, key.indexOf("/"));
-  const order = shownAs(a, b, key);
   const [first, second] = order;
   const answer = yield* models.ask({
     cwd: data.root,
@@ -239,8 +283,9 @@ export const tallyOf = (
     tally[k] = (tally[k] ?? 0) + 1;
   };
   for (const r of Object.values(results)) {
-    count(r.winner);
-    for (const [level, side] of Object.entries(r.levels)) {
+    const { levels, winner } = settled(r);
+    count(winner);
+    for (const [level, side] of Object.entries(levels)) {
       count(`${level}:${side}`);
     }
   }
@@ -250,7 +295,11 @@ export const tallyOf = (
 export const pairwise = Effect.fn("pairwise")(function* (
   a: string,
   b: string,
-  options: { readonly model: string }
+  options: {
+    readonly model: string;
+    /** Judges each run once, in the order its name gives; twice, both ways round, without it. */
+    readonly oneOrder?: boolean;
+  }
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
@@ -269,27 +318,49 @@ export const pairwise = Effect.fn("pairwise")(function* (
       [a]: yield* readsOf(path.join(data.runs, a, key)),
       [b]: yield* readsOf(path.join(data.runs, b, key)),
     };
-    if (results[key]) {
+    const [first, second] = shownAs(a, b, key);
+    const ask = (order: readonly [string, string]) =>
+      judgeRun(order, key, { model: options.model, principles }).pipe(
+        // A run the judge could not answer for is left out; the next call asks again.
+        Effect.catch((error) =>
+          Effect.as(
+            Effect.logWarning(`${key}: not judged: ${String(error)}`),
+            undefined
+          )
+        )
+      );
+    const kept = results[key];
+    if (
+      kept !== undefined &&
+      (kept.swapped !== undefined || options.oneOrder)
+    ) {
       continue;
     }
-    const judged = yield* judgeRun(a, b, key, {
-      model: options.model,
-      principles,
-    }).pipe(
-      // A run the judge could not answer for is left out; the next call asks again.
-      Effect.catch((error) =>
-        Effect.as(
-          Effect.logWarning(`${key}: not judged: ${String(error)}`),
-          undefined
-        )
-      )
-    );
-    if (judged) {
-      results[key] = judged;
-      yield* writeJson(file, results);
-      yield* Effect.log(`${key}: ${judged.winner} (${judged.margin})`);
+    const once = kept ?? (yield* ask([first, second]));
+    if (once === undefined) {
+      continue;
     }
+    const swapped = options.oneOrder ? undefined : yield* ask([second, first]);
+    if (kept !== undefined && swapped === undefined) {
+      continue;
+    }
+    const run = swapped === undefined ? once : { ...once, swapped };
+    results[key] = run;
+    yield* writeJson(file, results);
+    yield* Effect.log(
+      `${key}: ${settled(run).winner}${
+        swapped !== undefined && swapped.winner !== once.winner
+          ? ` (${once.winner} one way round, ${swapped.winner} the other)`
+          : ` (${once.margin})`
+      }`
+    );
   }
   yield* writeJson(path.join(out, "reads.json"), reads);
   yield* Effect.log(`tally ${JSON.stringify(tallyOf(results))}`);
+  const flips = flipsOf(results);
+  if (flips.both > 0) {
+    yield* Effect.log(
+      `${flips.flipped} of ${flips.both} winners changed with the order the designs were shown in: each is counted a tie`
+    );
+  }
 });

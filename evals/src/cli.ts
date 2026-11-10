@@ -812,13 +812,22 @@ const pairwiseCommand = Command.make(
       Argument.withDescription("The round to set against it, run by run")
     ),
     judgeModel: judgeFlags.judgeModel,
+    oneOrder: Flag.Boolean("one-order").pipe(
+      Flag.withDescription(
+        "Judge each run once, not twice with the designs shown both ways round"
+      ),
+      Flag.withDefault(false)
+    ),
   },
   Effect.fn(function* (input) {
-    yield* pairwise(input.a, input.b, { model: input.judgeModel });
+    yield* pairwise(input.a, input.b, {
+      model: input.judgeModel,
+      oneOrder: input.oneOrder,
+    });
   })
 ).pipe(
   Command.withDescription(
-    "Two rounds judged blind, run by run: which design is better, level by level"
+    "Two rounds judged blind, run by run, each run both ways round: which design is better, level by level"
   )
 );
 
