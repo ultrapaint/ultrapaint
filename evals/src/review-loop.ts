@@ -46,6 +46,8 @@ import { Clock, DateTime, Effect, FileSystem } from "effect";
 import { EvalsError } from "./errors.ts";
 import { prompt, writeJson } from "./layout.ts";
 import {
+  coverageShare,
+  keepText,
   type MergedFinding,
   mergeSection,
   type ReviewRequest,
@@ -394,6 +396,8 @@ export const sizeOf = (turn: Turn): TurnSize => ({
 export interface ReviewPass {
   /** What the designer did with each finding, by its number in the prompt. */
   readonly answered?: ReturnType<typeof answersOf>;
+  /** Of the concerns the reviews answered for, how many they looked at; absent in older passes. */
+  readonly coverage?: { readonly concerns: number; readonly reviewed: number };
   /** `section`: the node the designer named; `page`: the whole page. */
   readonly kind: "page" | "section";
   readonly merged: readonly MergedFinding[];
@@ -602,6 +606,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
       rounds.push({ costUsd: spent.costUsd, reviewers: scores });
       const verdict = verdictOf(options.goal, rounds);
       const base = {
+        coverage: coverageShare(reviews),
         kind: pass.kind,
         merged,
         ...(pass.node !== undefined && { node: pass.node }),
@@ -638,6 +643,7 @@ export const reviewLoop = Effect.fn("reviewLoop")(function* <R>(
       const turn = yield* io.thread.send(
         yield* prompt("review-findings", {
           findings: findingsText(merged),
+          keep: keepText(reviews),
           notes: notesText(systemNotes),
           scores: scoresText(options.goal, scores, reviews),
           what,

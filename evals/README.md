@@ -165,6 +165,14 @@ pnpm evals panel <name> design-after --models opus,gpt-6.1-sol,cursor:grok-4.7-h
   its read-only sandbox, Cursor in ask mode) and answers, per section, its findings (each with
   its category, one of the skill's references, its severity and the rule it breaks, or none), the
   categories the section has, and a sign-off: good enough for what was asked, or what is left.
+- **What a review rests on** is in its answer too, in the lab before the editor (the person's
+  choice of 10 November). `picture`: whether the capture can be judged; a review of a blank or
+  half-drawn one is no review, and the reviewer has no score there. `coverage`: a row per
+  concern the section has (passed, findings, or not reviewed and why); a concern it gave no row
+  counts as not reviewed, and each pass of `review.json` holds how many concerns were looked at.
+  `keep`: one thing the section does well, told to the designer with the findings so a fix
+  doesn't sand it down. And a sign-off counts only when none of the reviewer's own findings is a
+  blocker or a major: approval is taken from the findings.
 - **Its score** (contracts' `review`): a category is 100 less its findings' cost (blocker 40, major
   15, minor 5, nit 1), a section the mean of its categories (60 at most with a blocker), the page
   the mean of its sections. Each reviewer is scored on its own findings; the council has no score

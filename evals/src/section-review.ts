@@ -10,6 +10,13 @@
  * only a system component would fix comes apart, as a system note. Several reviewers' findings on
  * one section are grouped by the judge model, one problem per thing wrong, each keeping which
  * reviewers found it.
+ *
+ * A review also says what it rests on, so a concern skipped or a bad capture is seen, not taken
+ * for a clean one: whether the picture could be judged at all (a review of a blank or half-drawn
+ * capture is no review), a row per concern (passed, findings, or not reviewed and why), and one
+ * thing the section does well, which the designer is told to keep. A reviewer approves a section
+ * when it signs off and nothing a careful designer wouldn't ship is among its own findings: the
+ * approval is taken from the findings, not from the word alone.
  */
 import path from "node:path";
 import {
@@ -24,6 +31,7 @@ import {
   sectionScore,
 } from "@ultrapaint/contracts/review";
 import { Clock, Effect, Schema } from "effect";
+import { EvalsError } from "./errors.ts";
 import { prompt } from "./layout.ts";
 import { Models } from "./models.ts";
 
@@ -62,8 +70,77 @@ export const SystemNote = Schema.Struct({
 });
 export type SystemNote = typeof SystemNote.Type;
 
+export const COVERAGE = ["passed", "findings", "not reviewed"] as const;
+/** What a review says of one concern: looked at and fine, looked at and wrong, or not looked at. */
+export const CoverageRow = Schema.Struct({
+  category: Category,
+  /** Why it was not reviewed; empty otherwise. */
+  note: Schema.String,
+  verdict: Schema.Literals(COVERAGE),
+});
+export type CoverageRow = typeof CoverageRow.Type;
+
+/** The concerns every screen has: a review answers for each, and for those it reached. */
+const ALWAYS: readonly Category[] = [
+  "hierarchy",
+  "restraint",
+  "layout",
+  "spacing",
+  "typography",
+  "color",
+];
+
+/**
+ * A review's coverage as it stands: a row for every concern the section has, a concern with
+ * findings said to have them whatever its row says, and one the review gave no row said not
+ * reviewed.
+ */
+export const coverageOf = (review: {
+  readonly coverage?: readonly CoverageRow[] | undefined;
+  readonly findings: readonly SectionFinding[];
+  readonly reached: readonly Category[];
+}): readonly CoverageRow[] => {
+  const found = new Set(review.findings.map((f) => f.category));
+  const has = new Set<Category>([...ALWAYS, ...review.reached, ...found]);
+  return CATEGORIES.filter((category) => has.has(category)).map((category) => {
+    if (found.has(category)) {
+      return { category, note: "", verdict: "findings" };
+    }
+    const row = review.coverage?.find((r) => r.category === category);
+    if (row === undefined) {
+      return {
+        category,
+        note: "the review said nothing of it",
+        verdict: "not reviewed",
+      };
+    }
+    // A row that claims findings it does not give is a concern looked at with nothing to show.
+    return row.verdict === "findings"
+      ? { category, note: "", verdict: "passed" }
+      : row;
+  });
+};
+
+/** Whether a review approves its section: it signed off, and none of its findings holds it back. */
+export const approves = (review: {
+  readonly findings: readonly SectionFinding[];
+  readonly signOff: SignOff;
+}) =>
+  review.signOff.done &&
+  !review.findings.some(
+    (f) => f.severity === "blocker" || f.severity === "major"
+  );
+
 const ReviewAnswer = Schema.Struct({
+  /** A row per concern; absent in answers from before it was asked. */
+  coverage: Schema.optional(Schema.Array(CoverageRow)),
   findings: Schema.Array(SectionFinding),
+  /** One thing the section does well, which a fix must not undo; empty when it names none. */
+  keep: Schema.optional(Schema.String),
+  /** Whether the picture can be judged: not blank, drawn to the end, the section it is said to be. */
+  picture: Schema.optional(
+    Schema.Struct({ judged: Schema.Boolean, why: Schema.String })
+  ),
   /** The categories, beyond the ones every screen has, the section has: what it is scored on. */
   reached: Schema.Array(Category),
   signOff: SignOff,
@@ -74,7 +151,27 @@ const reviewAnswer = {
   schema: {
     additionalProperties: false,
     properties: {
+      coverage: {
+        items: {
+          additionalProperties: false,
+          properties: {
+            category: { enum: [...CATEGORIES], type: "string" },
+            note: str,
+            verdict: { enum: [...COVERAGE], type: "string" },
+          },
+          required: ["category", "verdict", "note"],
+          type: "object",
+        },
+        type: "array",
+      },
       findings: { items: findingSchema, type: "array" },
+      keep: str,
+      picture: {
+        additionalProperties: false,
+        properties: { judged: { type: "boolean" }, why: str },
+        required: ["judged", "why"],
+        type: "object",
+      },
       reached: {
         items: { enum: [...CATEGORIES], type: "string" },
         type: "array",
@@ -95,7 +192,15 @@ const reviewAnswer = {
         type: "array",
       },
     },
-    required: ["findings", "reached", "signOff", "systemNotes"],
+    required: [
+      "picture",
+      "findings",
+      "coverage",
+      "reached",
+      "keep",
+      "signOff",
+      "systemNotes",
+    ],
     type: "object",
   },
 };
@@ -172,9 +277,13 @@ export interface SectionToReview {
 /** What one reviewer found in one section, and what it took. */
 export interface SectionReview {
   readonly costUsd: number;
+  /** A row per concern the section has (`coverageOf`); absent in a review that failed. */
+  readonly coverage?: readonly CoverageRow[];
   /** Why the reviewer gave no review, when it gave none: it then has no score, and nothing else. */
   readonly failed?: string;
   readonly findings: readonly SectionFinding[];
+  /** One thing the section does well, for the designer to keep. */
+  readonly keep?: string;
   readonly reached: readonly Category[];
   readonly reviewer: string;
   readonly seconds: number;
@@ -244,9 +353,19 @@ export const reviewSection = Effect.fn("reviewSection")(function* (
     }),
     ...reviewAnswer,
   });
+  const { picture } = answer.value;
+  if (picture !== undefined && !picture.judged) {
+    // A capture that can't be judged gives no review: no findings, no score, nothing signed off.
+    return yield* new EvalsError({
+      message: `it could not judge the picture: ${picture.why.trim() || "no reason given"}`,
+    });
+  }
+  const keep = answer.value.keep?.trim();
   const review: SectionReview = {
     costUsd: answer.costUsd,
+    coverage: coverageOf(answer.value),
     findings: answer.value.findings,
+    ...(keep ? { keep } : {}),
     reached: answer.value.reached,
     reviewer,
     seconds: ((yield* Clock.currentTimeMillis) - started) / 1000,
@@ -322,7 +441,7 @@ export const reviewerRounds = (
         reviewer,
         {
           score: score as Score,
-          signedOff: given.length > 0 && given.every((r) => r.signOff.done),
+          signedOff: given.length > 0 && given.every(approves),
           unscored,
         },
       ];
@@ -430,6 +549,30 @@ export const mergeSection = Effect.fn("mergeSection")(function* (
     } satisfies Spent,
   };
 });
+
+/**
+ * What the reviews call well done, once each, as the designer is told before the findings: a fix
+ * that sands it down is a worse design with a better score.
+ */
+export const keepText = (reviews: readonly SectionReview[]) => {
+  const kept = [
+    ...new Set(
+      reviews.flatMap((r) => (r.keep ? [`${r.section}: ${r.keep}`] : []))
+    ),
+  ];
+  return kept.length === 0
+    ? ""
+    : `\nKeep what they found well made; no fix undoes it:\n\n${kept.map((k) => `- ${k}`).join("\n")}\n`;
+};
+
+/** The share of the concerns the reviews answered for that they looked at. */
+export const coverageShare = (reviews: readonly SectionReview[]) => {
+  const rows = reviews.flatMap((r) => r.coverage ?? []);
+  return {
+    concerns: rows.length,
+    reviewed: rows.filter((r) => r.verdict !== "not reviewed").length,
+  };
+};
 
 /** What reviewing cost, all steps together. */
 export const spentOf = (steps: readonly Spent[]): Spent => ({

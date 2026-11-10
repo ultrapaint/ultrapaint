@@ -5,7 +5,7 @@ Reviewers looked at {{what}}. Where they stand, out of 100:
 They found these problems:
 
 {{findings}}
-{{notes}}
+{{notes}}{{keep}}
 Fix each one, or decline it with its reason. Change only what the findings are about. End by
 listing which you fixed and which you declined, as the last lines of your message:
 
