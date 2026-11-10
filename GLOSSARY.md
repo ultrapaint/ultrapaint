@@ -226,6 +226,11 @@ refactor and the board view left.
   resampling of the gaps leaves it (`recall-stats.ts`); the gaps not `done` are the **held-out
   split**, since a `done` gap's rule was written from its own section, and what no gap matched is
   rated real or noise in the **rating deck** (`rate-<round>`, `recall --rate`).
+- **Design checks**: what a program decides of a rendered page with no model and no judgement
+  (ADR 0061), each with a threshold from the skill or the design system: the package
+  `design-checks` (`in-page.ts` runs in the page, `findings.ts` reads what it gave). The lab runs
+  them with `pnpm evals measure`; a check reaches an agent only once its false alarms were
+  counted on sections a person rated.
 - **Outside run**: a lab round in a host that is a plain app, not an Ultrapaint project (a
   `host.json` of kind `outside`; evals' `outside.ts`): the skill installed as a project installs
   one and the agent's own command run there, never told the skill's name (ADR 0069). It says

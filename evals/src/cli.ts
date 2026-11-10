@@ -894,6 +894,12 @@ const decideCommand = Command.make(
 const measureCommand = Command.make(
   "measure",
   {
+    axe: Flag.Boolean("axe").pipe(
+      Flag.withDescription(
+        "With --checks: axe-core's contrast and target-size rules too, each with the ratio or the size it measured"
+      ),
+      Flag.withDefault(false)
+    ),
     checks: Flag.Boolean("checks").pipe(
       Flag.withDescription(
         "Run the general design checks too: contrast, control edges, surface tones, the spacing scale, touching rows, clipped text, names that can't truncate, targets"
@@ -953,6 +959,7 @@ const measureCommand = Command.make(
     yield* measure(input.url, {
       checks: input.checks
         ? {
+            axe: input.axe,
             grid: input.grid,
             hover: input.hover,
             nearTone: 0.045,

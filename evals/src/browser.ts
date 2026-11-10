@@ -5,6 +5,17 @@
  * `in-page.ts`.
  */
 import { existsSync } from "node:fs";
+import {
+  type Audited,
+  type AuditOptions,
+  auditInBrowser,
+  HOVER_MARK,
+  type LaidBlock,
+  type LaidRule,
+  layoutInBrowser,
+  markHoverableInBrowser,
+  rowPointsInBrowser,
+} from "@ultrapaint/design-checks/in-page";
 import { Context, Effect, Layer, type Scope } from "effect";
 import {
   type BrowserContextOptions,
@@ -12,24 +23,18 @@ import {
   devices,
   type Page,
 } from "playwright-core";
+import { AXE_SOURCE } from "./axe.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import {
-  type Audited,
-  type AuditOptions,
-  auditInBrowser,
+  type AxeNode,
+  axeInBrowser,
   type Box,
   compareInBrowser,
   cropInBrowser,
   cutInBrowser,
-  HOVER_MARK,
-  type LaidBlock,
-  type LaidRule,
-  layoutInBrowser,
   locateInBrowser,
-  markHoverableInBrowser,
   outlineInBrowser,
-  rowPointsInBrowser,
   scrollThroughInBrowser,
   type TileOptions,
   trimInBrowser,
@@ -154,6 +159,8 @@ export class Browser extends Context.Service<
     readonly audit: (
       url: string,
       options: AuditOptions & {
+        /** Whether axe-core measures contrast and target sizes too, before anything is changed. */
+        readonly axe?: boolean;
         /**
          * Whether the page is checked again with `:hover` forced on whatever the pointer acts on,
          * for what shows only then (fills, actions); only `hoverChecks` run then.
@@ -164,7 +171,11 @@ export class Browser extends Context.Service<
         readonly theme: "dark" | "light";
       }
     ) => Effect.Effect<
-      { readonly hover?: Audited; readonly rest: Audited },
+      {
+        readonly axe?: readonly AxeNode[];
+        readonly hover?: Audited;
+        readonly rest: Audited;
+      },
       EvalsError
     >;
     /** Keeps a page open at the URL until the scope closes: the editor, for get_screenshot. */
@@ -427,6 +438,7 @@ export class Browser extends Context.Service<
       const audit = (
         url: string,
         options: AuditOptions & {
+          readonly axe?: boolean;
           readonly hover: boolean;
           readonly hoverChecks: AuditOptions["only"];
           readonly steps: readonly ((page: Page) => Promise<unknown>)[];
@@ -450,15 +462,22 @@ export class Browser extends Context.Service<
               Promise.resolve()
             );
             const {
+              axe: wantsAxe,
               hover,
               hoverChecks,
               steps: _,
               theme: __,
               ...checks
             } = options;
+            // Before the stress pass lengthens the names: axe measures the page as it was drawn.
+            const axe = wantsAxe
+              ? await page
+                  .addScriptTag({ path: AXE_SOURCE })
+                  .then(() => page.evaluate(axeInBrowser, checks.root))
+              : undefined;
             const rest = await page.evaluate(auditInBrowser, checks);
             if (!hover) {
-              return { rest };
+              return { ...(axe && { axe }), rest };
             }
             // Chrome's own forced state: every element the pointer acts on drawn as hovered at once.
             await page.evaluate(markHoverableInBrowser, HOVER_MARK);
@@ -503,7 +522,7 @@ export class Browser extends Context.Service<
               controls: [...new Set(found.flatMap((f) => f.controls))],
               findings: [...byKey.values()],
             };
-            return { hover: hovered, rest };
+            return { ...(axe && { axe }), hover: hovered, rest };
           },
           `checking ${url}`
         );

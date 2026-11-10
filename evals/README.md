@@ -367,6 +367,14 @@ each list (three or more rows of one height) to see whether it truncates; `--gri
 computed spacing against a scale, off by default since a page's half steps look like values off
 it. `runs/checks-1/` and `checks-2/` hold them run on the editor before and after its fixes.
 
+The checks are the package `@ultrapaint/design-checks` (`packages/design-checks`): what runs in
+the page (`in-page.ts`) and the findings made from what it read (`findings.ts`), pure and free
+of the lab, so the editor can run them on a frame it draws. `--axe` adds axe-core's contrast and
+target-size rules beside them, each with the ratio or the size it measured: a second opinion on
+ours, and a dependency of the lab alone (MPL-2.0). Where axe cannot tell (a gradient or an image
+behind the text) its finding is marked to confirm. Its target rule passes a small target with
+24px of room around it, as WCAG does; ours asks for the 24×24 itself, as the skill does.
+
 ```sh
 pnpm evals off-system <rounds…>
 ```
