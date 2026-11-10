@@ -8,6 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { isTokenName } from "@ultrapaint/contracts/token-table";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { afterAll, describe, expect, it } from "vitest";
 import { readTokens, writeTokens } from "./tokens.ts";
@@ -166,6 +167,25 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(byName(ctx, "color-accent")?.value).toBe("#f59e0b");
     expect(byName(ctx, "color-brand")?.values).toEqual({ dark: "#60a5fa" });
     expect(byName(ctx, "radius-lg")).toBeUndefined();
+  });
+
+  it("reads back a token of every name the token table takes, and of none it refuses", () => {
+    const names = [
+      "color-accent",
+      "color-Brand_1",
+      "spacing-1_5",
+      "spacing-1.5",
+      "color-a--b",
+    ];
+    const ctx = project();
+    const edits = writeTokens(
+      ctx,
+      names.map((name) => ({ name, value: "#f59e0b" }))
+    );
+    writeFileSync(path.join(ctx.root, "src/app.css"), edits[0]?.text ?? "");
+    expect(names.filter((name) => byName(ctx, name) !== undefined)).toEqual(
+      names.filter(isTokenName)
+    );
   });
 
   it("takes the last of two changes to one value, whether to the token or the variable it names", () => {

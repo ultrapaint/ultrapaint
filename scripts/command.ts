@@ -66,7 +66,6 @@ const tsx = () =>
  * when the runner goes away without stopping it.
  */
 const guarded = (args: readonly string[]) => [
-  "--experimental-strip-types",
   path.join(root, "scripts", "dev-guard.ts"),
   process.execPath,
   ...args,

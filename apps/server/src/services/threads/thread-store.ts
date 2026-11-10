@@ -284,7 +284,8 @@ export class ThreadStore extends Context.Service<
         get: (id) => Effect.sync(() => threads.get(id)?.thread),
         hasItem: (id, itemId) =>
           threads.get(id)?.items.some((i) => i.id === itemId) ?? false,
-        items: (id) => Effect.sync(() => threads.get(id)?.items ?? []),
+        // A copy: the answer is the transcript as it is now, whatever is said before it is sent.
+        items: (id) => Effect.sync(() => [...(threads.get(id)?.items ?? [])]),
         list: Effect.sync(() =>
           Array.from(threads.values(), (e) => ({
             ...e.thread,

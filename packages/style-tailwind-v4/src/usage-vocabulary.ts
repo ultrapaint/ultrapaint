@@ -11,38 +11,8 @@ export const FUNCTION_COLOR_RE =
   /\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\([^()]*\)/gi;
 const SPACES_RE = /\s+/g;
 
-export const NAMED_COLORS = new Set([
-  "aqua",
-  "black",
-  "blue",
-  "brown",
-  "coral",
-  "crimson",
-  "cyan",
-  "fuchsia",
-  "gold",
-  "gray",
-  "green",
-  "grey",
-  "indigo",
-  "khaki",
-  "lime",
-  "magenta",
-  "maroon",
-  "navy",
-  "olive",
-  "orange",
-  "pink",
-  "purple",
-  "red",
-  "salmon",
-  "silver",
-  "teal",
-  "tomato",
-  "violet",
-  "white",
-  "yellow",
-]);
+/** Colours that are not a decision: nothing to put on the design system. */
+export const NO_COLOR = new Set(["transparent", "current", "inherit", "none"]);
 
 /** The utilities read; `utilities` matches the longest first, so `gap-x` wins over `gap`. */
 const COLOR_UTILITIES = [
@@ -147,5 +117,9 @@ export const normaliseColor = (value: string) => {
   return v.replace(SPACES_RE, " ");
 };
 
-/** A whole value that is a colour: hex, any CSS name, or a colour function of numbers. */
-export const isColorLiteral = (value: string) => parseColor(value) !== null;
+/**
+ * A whole value that is a colour written out: hex, any CSS name, or a colour function of
+ * numbers, in a class's brackets and in a declaration alike. `transparent` is no decision.
+ */
+export const isColorLiteral = (value: string) =>
+  !NO_COLOR.has(value.trim().toLowerCase()) && parseColor(value) !== null;

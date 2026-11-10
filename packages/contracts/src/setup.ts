@@ -14,11 +14,6 @@ const AnchorSuggestion = Schema.Struct({
 /** A package of the repository that looks like a component library. */
 export const LibrarySuggestion = Schema.Struct({
   dir: RepoRelativePath,
-  /**
-   * The components are a directory of the application itself (`front/src/components`), not a
-   * package of their own: nothing imports them by a package name.
-   */
-  inApp: Schema.optional(Schema.Boolean),
   name: Schema.String,
   /** Directory with the component sources: where the agents that implement look (ADR 0040). */
   sourceDir: RepoRelativePath,
@@ -37,8 +32,6 @@ export const SetupSuggestions = Schema.Struct({
   designsDirs: Schema.Array(RepoRelativePath),
   libraries: Schema.Array(LibrarySuggestion),
   repoName: Schema.String,
-  /** The repository's root has a package.json: a new application goes in a directory of it. */
-  rootManifest: Schema.optional(Schema.Boolean),
   /** The style system the stylesheets are written for, when one the tool reads is found. */
   styleSystem: Schema.optional(StyleSystemId),
   /**

@@ -187,6 +187,32 @@ describe("classesOf", () => {
     expect(classesOf(detached, ds)).toEqual(classesOf(node, ds));
   });
 
+  it("writes a detailed system's colour as the utility of its own namespace", () => {
+    const node: DesignNode = {
+      border: { color: "$border-color-focus", width: 1 },
+      color: "$text-color-subtle",
+      fill: "$background-color-danger-subtle",
+      id: "t",
+      role: "paragraph",
+      text: "Hi",
+      type: "text",
+    };
+    expect(classesOf(node, ds)).toEqual(
+      expect.arrayContaining([
+        "border-focus",
+        "text-subtle",
+        "bg-danger-subtle",
+      ])
+    );
+    // A text colour on a fill is no utility of `bg`: its variable.
+    expect(
+      classesOf(
+        { children: [], fill: "$text-color-subtle", id: "g", type: "group" },
+        ds
+      )
+    ).toEqual(["bg-(--text-color-subtle)"]);
+  });
+
   it("keeps a token of another namespace as its variable", () => {
     const node: DesignNode = {
       children: [],

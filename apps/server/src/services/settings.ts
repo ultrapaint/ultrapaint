@@ -22,11 +22,9 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeExists } from "../fs-exists.ts";
-import { runGit } from "./git.ts";
 import { configText, toConfig, toSettings } from "./project-config.ts";
 import { Storage } from "./storage.ts";
 
@@ -102,7 +100,6 @@ export class SettingsService extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const log = yield* AppLog;
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const layerScope = yield* Effect.scope;
       const writeAtomic = makeWriteAtomic(fs, path);
       const external = yield* PubSub.unbounded<Settings>();
@@ -299,17 +296,6 @@ export class SettingsService extends Context.Service<
       }
 
       // ---- validation ----
-      const gitLine = (cwd: string, args: readonly string[]) =>
-        runGit(cwd, args).pipe(
-          Effect.provideService(
-            ChildProcessSpawner.ChildProcessSpawner,
-            spawner
-          ),
-          Effect.map((r) => (r.exitCode === 0 ? r.stdout.trim() : "")),
-          // Git missing, or a folder that is not a repository: there is no branch to say.
-          Effect.orElseSucceed(() => "")
-        );
-
       /** Whether a package.json is in the designs directory or a directory above it, in the repository. */
       const packageAbove = Effect.fnUntraced(function* (
         repo: string,
@@ -351,27 +337,22 @@ export class SettingsService extends Context.Service<
           const anchor = path.join(repo, settings.resolveFrom, "package.json");
           if (!(yield* exists(anchor))) {
             problems.push(
-              `The package pages resolve their imports from has no package.json: ${settings.resolveFrom}`
+              `Application has no package.json: ${settings.resolveFrom}`
             );
           }
         } else if (!(yield* packageAbove(repo, settings.designsDir))) {
           problems.push(
-            "No package.json for the pages to resolve their imports from: set Resolve imports from to your application's directory."
+            "No package.json for the pages to resolve their imports from: set Application to your application's directory."
           );
         }
         for (const dir of settings.libraryDirs) {
           if (!(yield* exists(path.join(repo, dir)))) {
-            problems.push(`Library directory does not exist: ${dir}`);
+            problems.push(`Component directory does not exist: ${dir}`);
           }
         }
-        const ok = problems.length === 0;
         return {
-          branch: ok
-            ? yield* gitLine(repo, ["rev-parse", "--abbrev-ref", "HEAD"])
-            : undefined,
-          ok,
+          ok: problems.length === 0,
           problems,
-          repoName: path.basename(repo),
         } satisfies SettingsValidation;
       });
 

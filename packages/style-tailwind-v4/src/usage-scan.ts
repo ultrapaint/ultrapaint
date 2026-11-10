@@ -16,6 +16,7 @@ import type {
   UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
 import { USAGE_KINDS } from "@ultrapaint/contracts/design-system-setup";
+import { tokenKindOf } from "@ultrapaint/contracts/token-table";
 import type {
   UsageOccurrence,
   UsageReader,
@@ -157,7 +158,7 @@ const summarise: UsageReader["summarise"] = (files, ctx, at) => {
   const ownColors =
     ctx.ownTokens === null
       ? known.colors.size
-      : ctx.ownTokens.filter((name) => name.startsWith("color-")).length;
+      : ctx.ownTokens.filter((name) => tokenKindOf(name) === "color").length;
   return {
     against: ctx.ownTokens === null ? "saved" : "theme",
     at,

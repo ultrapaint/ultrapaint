@@ -36,7 +36,7 @@ import {
   scanning,
   splitClass,
 } from "./usage-scan.ts";
-import { printClass } from "./utilities.ts";
+import { colorValueOf, printClass } from "./utilities.ts";
 
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
@@ -119,10 +119,20 @@ const suggest: UsageReader["suggest"] = (values, ds) => {
   });
 };
 
-/** A target as the value of a class of its kind: `color-primary` is `primary` in `bg-primary`. */
-const classValue = (kind: UsageKind, target: string): string | null => {
+/**
+ * A target as the value of a class of its kind: `color-primary` is `primary` in `bg-primary`. A
+ * colour is one only on a utility that reads its namespace (`colorValueOf`).
+ */
+const classValue = (
+  kind: UsageKind,
+  target: string,
+  use: string
+): string | null => {
   if (kind === "zIndex") {
     return NUMBER_RE.test(target) ? target : null;
+  }
+  if (kind === "color") {
+    return colorValueOf(use, target);
   }
   // What is left of a token past its kind's prefix is the class's value.
   const prefix = tokenPrefix(kind);
@@ -138,7 +148,7 @@ const rewriteClass = (
   target: string
 ): string | null => {
   const parts = splitClass(raw);
-  const next = classValue(value.kind, target);
+  const next = parts && classValue(value.kind, target, parts.use);
   if (!(parts && next)) {
     return null;
   }

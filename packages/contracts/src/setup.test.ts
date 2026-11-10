@@ -62,7 +62,6 @@ describe("first-run suggestions", () => {
       libraries: [
         {
           dir: "front",
-          inApp: true,
           name: "front",
           sourceDir: "front/src/components",
         },

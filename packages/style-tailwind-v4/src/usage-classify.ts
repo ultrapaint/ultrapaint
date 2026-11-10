@@ -9,7 +9,9 @@ import type {
 } from "@ultrapaint/contracts/design-system-setup";
 import {
   type ListedToken,
+  nameOfShort,
   spacingStepOf,
+  tokenPrefix,
   tokensByValue,
   tokensOfKind,
   type ValueLookup,
@@ -19,13 +21,14 @@ import {
   COLOR_SET,
   FUNCTION_COLOR_RE,
   isColorLiteral,
-  NAMED_COLORS,
+  NO_COLOR,
   normaliseColor,
   RADIUS_SET,
   SPACING_SET,
 } from "./usage-vocabulary.ts";
 import {
   arbitraryOf,
+  colorNamespaces,
   RADIUS_STEPS,
   SHADOW_STEPS,
   TEXT_STEPS,
@@ -42,8 +45,6 @@ const LENGTH_IN_RE = /-?\d*\.?\d+(px|rem|em)\b/g;
 const DASHED_RE = /-([a-z])/g;
 
 const DEFAULT_LAYERS = new Set(["0", "10", "20", "30", "40", "50"]);
-/** Colours that are not a decision: nothing to put on the design system. */
-const NO_COLOR = new Set(["transparent", "current", "inherit", "none"]);
 
 const STYLE_COLOR = new Set([
   "background",
@@ -153,26 +154,18 @@ const rawColor = (known: Known, literal: string): Classified => {
   };
 };
 
-/** The namespace of a kind's tokens: `var(--primary)` is `color-primary` when that exists. */
-const NAMESPACE: Partial<Record<UsageKind, string>> = {
-  color: "color",
-  fontSize: "text",
-  fontWeight: "font-weight",
-  radius: "radius",
-  shadow: "shadow",
-  spacing: "spacing",
-};
-
 /**
- * `var(--color-primary)` as the token it names. A custom property the design system has no token
- * for (`--card-spacing`) passes a value on from elsewhere, where it is counted: null.
+ * `var(--color-primary)` as the token it names; a variable without its kind's namespace,
+ * `var(--primary)`, is `color-primary` when that exists. A custom property the design system has
+ * no token for (`--card-spacing`) passes a value on from elsewhere, where it is counted: null.
  */
 const fromVar = (
   kind: UsageKind,
   name: string,
   known: Set<string>
 ): Classified | null => {
-  const namespaced = `${NAMESPACE[kind] ?? ""}-${name}`;
+  // A layer is a number: the token table has no kind for it, and no namespace.
+  const namespaced = kind === "zIndex" ? name : nameOfShort(kind, name);
   const token = [name, namespaced].find((n) => known.has(n));
   return token ? { kind, status: "system", token, value: token } : null;
 };
@@ -187,7 +180,11 @@ const wholeVar = (inside: string) => {
 const isComputed = (inside: string) =>
   inside.includes("var(") || inside.includes("calc(") || inside.includes("--");
 
-const classifyColor = (value: string, known: Known): Classified | null => {
+const classifyColor = (
+  use: string,
+  value: string,
+  known: Known
+): Classified | null => {
   const free = arbitraryOf(value);
   if (free) {
     if (free.hint !== undefined && free.hint !== "color") {
@@ -202,11 +199,15 @@ const classifyColor = (value: string, known: Known): Classified | null => {
   if (NO_COLOR.has(value)) {
     return null;
   }
-  const token = `color-${value}`;
-  if (known.colors.has(token)) {
-    return { kind: "color", status: "system", token, value: token };
+  // The first namespace the utility reads that holds it, as Tailwind takes it.
+  const own = colorNamespaces(use)
+    .map((prefix) => `${prefix}${value}`)
+    .find((name) => known.colors.has(name));
+  if (own !== undefined) {
+    return { kind: "color", status: "system", token: own, value: own };
   }
   if (PALETTE_RE.test(value) || value === "black" || value === "white") {
+    const token = `${tokenPrefix("color")}${value}`;
     return { kind: "color", status: "default", token, value: token };
   }
   return null;
@@ -338,7 +339,7 @@ const classifyClass = (
   value: string,
   known: Known
 ): Classified | null =>
-  (COLOR_SET.has(use) ? classifyColor(value, known) : null) ??
+  (COLOR_SET.has(use) ? classifyColor(use, value, known) : null) ??
   classifyOther(use, value, known);
 
 /** The tokens of a kind, which a `var()` in a declaration may name. */
@@ -370,7 +371,8 @@ const writtenColors = (
   for (const match of rest.matchAll(HEX_IN_RE)) {
     out.push(rawColor(known, match[0]));
   }
-  if (kind === "color" && NAMED_COLORS.has(rest.trim().toLowerCase())) {
+  // A colour by its name, the whole of what is left: the names a class's value is read by.
+  if (kind === "color" && out.length === 0 && isColorLiteral(rest)) {
     out.push(rawColor(known, rest));
   }
   if (

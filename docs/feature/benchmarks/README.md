@@ -20,7 +20,7 @@ The bench now builds the editor and opens it in headless Chrome for the length o
 A new comparison goes in a directory of its own:
 
 ```sh
-node --experimental-strip-types apps/server/bench/run.ts --arm mcp --label <name> \
+node apps/server/bench/run.ts --arm mcp --label <name> \
   --agent claude-code --model "Opus 5" --runs 2 --out docs/feature/benchmarks/<comparison>
-node --experimental-strip-types apps/server/bench/report.ts docs/feature/benchmarks/<comparison>
+node apps/server/bench/report.ts docs/feature/benchmarks/<comparison>
 ```

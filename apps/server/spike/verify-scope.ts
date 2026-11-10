@@ -2,7 +2,7 @@
  * Manual check of the real path: the built-in launch configuration, the `AgentSandbox` service
  * and `spawnAcpAgent` as the thread service uses them, driving a real agent.
  *
- * node --experimental-strip-types apps/server/spike/verify-scope.ts <claude-code|codex>
+ * node apps/server/spike/verify-scope.ts <claude-code|codex>
  */
 import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";

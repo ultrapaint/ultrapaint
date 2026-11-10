@@ -40,7 +40,7 @@ export type ProjectInfo = typeof ProjectInfo.Type;
 export const LogLine = Schema.Struct({
   at: Schema.Number,
   level: Schema.Literals(["info", "warn", "error"]),
-  source: Schema.Literals(["host", "server", "agent"]),
+  source: Schema.Literals(["server", "agent"]),
   text: Schema.String,
 });
 export type LogLine = typeof LogLine.Type;

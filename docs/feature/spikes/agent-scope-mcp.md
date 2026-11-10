@@ -1,15 +1,16 @@
 # Spike M0: agent scope, network and MCP
 
 Run on 2026-09-19 on macOS against `@agentclientprotocol/claude-agent-acp` 0.79.0 (Claude Code
-2.1.272) and `@agentclientprotocol/codex-acp` 1.12.0 (codex-cli 0.154.0). Harness and fixtures:
-`packages/acp/spike/`.
+2.1.272) and `@agentclientprotocol/codex-acp` 1.12.0 (codex-cli 0.154.0). The harness and its
+fixtures were three scripts in `packages/acp/spike/`, removed once ADRs 0013 and 0014 recorded
+what they decided:
 
-- `agent-scope.mjs <claude|codex> [scenario...] [--mcp url] [--no-policy | --seatbelt | --srt]` builds a throwaway
-  repository, a secret outside it in the temp dir and one in `$HOME`, starts the agent with the
-  policy under test, approves every permission request (so only the policy stops the agent),
-  and scores each scenario.
-- `scope-guard.mjs` is the Claude Code `PreToolUse` hook.
-- `mcp-server.ts` is a Streamable HTTP MCP server on Effect's `McpServer`.
+- `agent-scope.mjs <claude|codex> [scenario...] [--mcp url] [--no-policy | --seatbelt | --srt]` built a throwaway
+  repository, a secret outside it in the temp dir and one in `$HOME`, started the agent with the
+  policy under test, approved every permission request (so only the policy stopped the agent),
+  and scored each scenario.
+- `scope-guard.mjs` was the Claude Code `PreToolUse` hook.
+- `mcp-server.ts` was a Streamable HTTP MCP server on Effect's `McpServer`.
 
 ## Decisions this spike serves
 

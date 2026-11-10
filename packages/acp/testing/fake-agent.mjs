@@ -4,7 +4,6 @@
  * picks the scenario:
  *
  *   reply       streams two text chunks and ends the turn
- *   tool        a tool call that goes pending, then completed, around a text chunk
  *   permission  asks for permission, then reports the chosen option as text
  *   elicit      asks the user a form (a choice and a number) and reports the answer as text;
  *               `elicit link` asks them to follow a link instead
@@ -12,10 +11,8 @@
  *               `fs/write_text_file`, and says `refused: …` when the host refuses
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
- *   blocks      reports how many project briefings came with the prompt
- *   history     reports whether the conversation so far came with the prompt, and its first line
+ *   briefing    repeats the project briefing that came with the prompt, or says `briefing:none`
  *   how         reports how its session was opened: `how:new`, `how:loaded` or `how:resumed`
- *   model       reports the session's model
  *   read        reads the path given after it through `fs/read_text_file`, and says `read:` and
  *               the text, or the code of the error it got
  *   mcp         reports the MCP server the client gave the session, with its token
@@ -81,13 +78,6 @@ const configOptions = (sessionId) => [
 ];
 
 const scenarios = {
-  /** Says how much of the prompt was the project briefing, which leads a session's first one. */
-  async blocks(cx, sessionId, _cwd, _rest, prompt) {
-    const briefings = prompt.filter(
-      (block) => block.type === "text" && block.text.startsWith("<ultrapaint>")
-    );
-    await text(cx, sessionId, `blocks:${briefings.length}`);
-  },
   /** Repeats the project briefing, for a test that asks what the agent was told. */
   async briefing(cx, sessionId, _cwd, _rest, prompt) {
     const about = prompt.find(
@@ -162,14 +152,6 @@ const scenarios = {
       message: "usage limit reached",
     });
   },
-  async history(cx, sessionId, _cwd, _rest, prompt) {
-    const recap = prompt.find(
-      (block) =>
-        block.type === "text" && block.text.startsWith("<ultrapaint-history>")
-    );
-    const said = recap?.text.split("\n").find((l) => l.startsWith("User: "));
-    await text(cx, sessionId, recap ? `history:${said}` : "history:none");
-  },
   async how(cx, sessionId) {
     await text(cx, sessionId, `how:${opened.get(sessionId) ?? "new"}`);
   },
@@ -184,9 +166,6 @@ const scenarios = {
       sessionId,
       `mcp:${server?.url ?? "none"}|${token?.value ?? "none"}`
     );
-  },
-  async model(cx, sessionId) {
-    await text(cx, sessionId, `model:${models.get(sessionId) ?? "fast"}`);
   },
   async permission(cx, sessionId) {
     const response = await cx.request(
@@ -224,12 +203,6 @@ const scenarios = {
     await text(cx, sessionId, "Hello ");
     await text(cx, sessionId, "world");
   },
-  /** A turn that takes a moment and then ends by itself, answering with the prompt's number. */
-  async slow(cx, sessionId) {
-    await text(cx, sessionId, "slow:start");
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    await text(cx, sessionId, "slow:done");
-  },
   async terminal(cx, sessionId) {
     const { terminalId } = await cx.request(methods.client.terminal.create, {
       args: ["hi"],
@@ -249,31 +222,6 @@ const scenarios = {
       terminalId,
     });
     await text(cx, sessionId, `terminal:${output.trim()}`);
-  },
-  async tool(cx, sessionId) {
-    await cx.notify(methods.client.session.update, {
-      sessionId,
-      update: {
-        kind: "read",
-        locations: [{ path: "designs/home.tsx" }],
-        sessionUpdate: "tool_call",
-        status: "pending",
-        title: "Read home",
-        toolCallId: "call_1",
-      },
-    });
-    await cx.notify(methods.client.session.update, {
-      sessionId,
-      update: {
-        content: [
-          { content: { text: "file body", type: "text" }, type: "content" },
-        ],
-        sessionUpdate: "tool_call_update",
-        status: "completed",
-        toolCallId: "call_1",
-      },
-    });
-    await text(cx, sessionId, "Done reading.");
   },
   async wait(cx, sessionId) {
     await text(cx, sessionId, "waiting");

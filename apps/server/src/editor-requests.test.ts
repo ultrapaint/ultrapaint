@@ -607,8 +607,34 @@ describe("the editor's requests on a project", () => {
       assert.strictEqual(error._tag, "Stale");
       const state = yield* client["edit.state"]();
       assert.isFalse(state.canUndo);
-      assert.include(state.invalidated ?? "", "changed outside the editor");
+      assert.deepStrictEqual(state.invalidated, {
+        history: "undo",
+        reason: `${HOME_FILE} changed outside the editor`,
+      });
     })
+  );
+
+  inProject(
+    "drops redo history when the file changed after an undo, and says so until the next edit",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        yield* headingSays("Welcome");
+        yield* client["edit.undo"]();
+        const fs = yield* FileSystem.FileSystem;
+        const file = path.join(repo, HOME_FILE);
+        yield* fs.writeFileString(file, `${yield* fs.readFileString(file)}\n`);
+        const error = yield* Effect.flip(client["edit.redo"]());
+        assert.strictEqual(error._tag, "Stale");
+        const state = yield* client["edit.state"]();
+        assert.isFalse(state.canRedo);
+        assert.deepStrictEqual(state.invalidated, {
+          history: "redo",
+          reason: `${HOME_FILE} changed outside the editor`,
+        });
+        yield* headingSays("Again");
+        assert.isUndefined((yield* client["edit.state"]()).invalidated);
+      })
   );
 
   inProject("keeps documents inside the designs directory", () =>
@@ -631,7 +657,6 @@ describe("the editor's requests on a project", () => {
       yield* headingSays("External");
       yield* client["pages.create"]({ canvas: "", name: "Log in" });
       const status = yield* client["git.status"]();
-      assert.strictEqual(status.branch, "main");
       const changed = status.files.map((f) => f.path);
       assert.include(changed, HOME_FILE);
       assert.include(changed, "designs/log-in.page.json");

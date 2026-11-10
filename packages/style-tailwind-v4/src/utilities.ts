@@ -6,6 +6,8 @@
  * `w-full`). What a class means to a reader (a look's field, DESIGN.md's token, the inventory's
  * kind) is the reader's. Pure.
  */
+import type { DETAILED_GROUPS } from "@ultrapaint/contracts/token-presets";
+import { tokenPrefix } from "@ultrapaint/contracts/token-table";
 
 /** A class taken apart: `md:hover:!-mt-[13px]` is `md`, `hover`, `!` before, minus, `mt-[13px]`. */
 export interface TailwindClass {
@@ -211,32 +213,24 @@ export const SHADOW_STEPS: ReadonlySet<string> = new Set([
 
 // ---- Keywords ----
 
-/** Keywords a utility takes and the CSS each is, both ways. */
+/** Keywords a utility takes, by the CSS each is. */
 interface Keywords {
-  /** The CSS a keyword is: `full` → `100%`. */
-  readonly css: (keyword: string) => string | undefined;
   /** The keyword a value is written as, `100%` → `full`, any case. */
   readonly keyword: (css: string) => string | undefined;
 }
 
-/** Each keyword with the CSS it is, the first spelling the one it reads as. */
+/** Each keyword with the CSS it is, in every spelling a value may have. */
 const keywords = (
   table: Readonly<Record<string, string | readonly string[]>>
 ): Keywords => {
-  const spellings = Object.entries(table).map(
-    ([keyword, css]) =>
-      [keyword, typeof css === "string" ? [css] : css] as const
-  );
   const byCss = new Map(
-    spellings.flatMap(([keyword, css]) =>
-      css.map((c) => [c.toLowerCase(), keyword] as const)
+    Object.entries(table).flatMap(([keyword, css]) =>
+      (typeof css === "string" ? [css] : css).map(
+        (c) => [c.toLowerCase(), keyword] as const
+      )
     )
   );
-  const byKeyword = new Map(spellings.map(([k, css]) => [k, css[0]]));
-  return {
-    css: (keyword) => byKeyword.get(keyword),
-    keyword: (css) => byCss.get(css.trim().toLowerCase()),
-  };
+  return { keyword: (css) => byCss.get(css.trim().toLowerCase()) };
 };
 
 /** The sizes a length utility says by name, `w-full`, `h-fit`; a maximum's without `auto`. */
@@ -308,3 +302,50 @@ export const COLOR_KEYWORDS = keywords({
   transparent: "transparent",
   white: ["#fff", "white"],
 });
+
+// ---- Colour namespaces ----
+
+/**
+ * The utilities that read each per-property namespace of the token table's colours (ADR 0062)
+ * before `--color-*`, as Tailwind v4 compiles them: `bg-danger-subtle` is
+ * `--background-color-danger-subtle`. Keyed by the table's namespaces, so one it adds does not
+ * compile here until its utilities are said.
+ */
+const OWN_COLORS: Readonly<
+  Record<(typeof DETAILED_GROUPS)[number]["prefix"], readonly string[]>
+> = {
+  "background-color-": ["bg", "from", "via", "to"],
+  "border-color-": [
+    "border",
+    "border-x",
+    "border-y",
+    "border-t",
+    "border-r",
+    "border-b",
+    "border-l",
+    "border-s",
+    "border-e",
+    "divide",
+  ],
+  "text-color-": ["text"],
+};
+
+/**
+ * The namespaces a colour utility reads its tokens from, as token names start: its own first
+ * (`bg` reads `background-color-`), then `color-`, which every colour utility reads.
+ */
+export const colorNamespaces = (utility: string): string[] => [
+  ...Object.entries(OWN_COLORS).flatMap(([prefix, utilities]) =>
+    utilities.includes(utility) ? [prefix] : []
+  ),
+  tokenPrefix("color"),
+];
+
+/**
+ * A colour token as the value a utility names it by, `bg` and `background-color-danger-subtle` →
+ * `danger-subtle`; null for a token of a namespace the utility does not read.
+ */
+export const colorValueOf = (utility: string, token: string): string | null => {
+  const prefix = colorNamespaces(utility).find((p) => token.startsWith(p));
+  return prefix === undefined ? null : token.slice(prefix.length);
+};

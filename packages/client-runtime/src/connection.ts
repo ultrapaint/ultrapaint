@@ -15,6 +15,7 @@ import {
   Exit,
   type Fiber,
   Layer,
+  Predicate,
   Schedule,
   Stream,
 } from "effect";
@@ -56,10 +57,8 @@ interface ConnectionOptions {
 const isWireError = (
   error: unknown
 ): error is { _tag: keyof typeof errorCodes; message: string } =>
-  typeof error === "object" &&
-  error !== null &&
-  "_tag" in error &&
-  typeof error._tag === "string" &&
+  Predicate.hasProperty(error, "_tag") &&
+  Predicate.isString(error._tag) &&
   error._tag in errorCodes;
 
 const toRequestError = (method: string, cause: Cause.Cause<unknown>) => {

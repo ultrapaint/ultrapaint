@@ -119,7 +119,6 @@ export class SetupService extends Context.Service<
           designsDirs: found?.designsDirs ?? [],
           libraries: found?.libraries ?? [],
           repoName: path.basename(root),
-          rootManifest: yield* exists(path.join(root, "package.json")),
           ...(styles.supported
             ? { styleSystem: styleSystem.id }
             : styles.note !== undefined && { stylesNote: styles.note }),

@@ -168,8 +168,7 @@ export class McpAccess extends Context.Service<
         connection: Effect.gen(function* () {
           const { header, url } = yield* endpoint;
           const token = enabled ? yield* external : "";
-          // No token is replaced on the way: the settings read the field all the same.
-          return { enabled, header, replaced: false, token, url };
+          return { enabled, header, token, url };
         }),
         endpoint,
         external,

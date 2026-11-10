@@ -2,6 +2,10 @@
 
 Status: superseded: its iframes by 0034, its framework split by 0042 and its framework seam by [0046](0046-deep-modules-fifth-review.md), 2026-10-30. Accepted 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
 
+> Amended 2026-11-10: with both an application and a designs package in a repository, setup
+> proposes the application as the one agents implement in; a designs package is still found as
+> the designs directory, and is the application only when it is the one React package.
+
 > Amended by [0037](0037-deep-modules.md), 2026-10-28 (`docs/plans/done/PLAN-architecture.md`, step 13). The seams stay, each with its one
 > adapter (one framework, one renderer, one style system), as decided. The renderer's interface
 > describes one host, the editor's page: `RenderSetup` gives the design's stylesheet to the core

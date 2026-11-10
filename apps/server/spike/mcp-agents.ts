@@ -4,7 +4,7 @@
  * the agent is asked to use a tool. The server logs which protocol revision each thread speaks
  * ("MCP: thread … speaks 2026-07-28"); the tool calls the agent made are printed after the turn.
  *
- * node --experimental-strip-types apps/server/spike/mcp-agents.ts <claude-code|codex> [prompt]
+ * node apps/server/spike/mcp-agents.ts <claude-code|codex> [prompt]
  *
  * A question the agent puts to the user is answered with the first option of each, so a prompt
  * that makes it ask runs to the end on its own.

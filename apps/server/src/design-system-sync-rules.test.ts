@@ -13,6 +13,7 @@ import {
   withTokenChanges,
 } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
+import { applyEdits } from "@ultrapaint/design-document/design-system-edits";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { describe, expect, it } from "vitest";
 import {
@@ -393,6 +394,25 @@ describe("matching Figma's tokens to the code's", () => {
     expect(matchProblem(brand, "color-brand")).toBeNull();
     expect(matchProblem(brand, "radius-card")).toContain("names a radius one");
     expect(matchProblem(brand, "Brand Blue")).toContain("not a token name");
+  });
+
+  it("matches a token to every name the editor adds, and to no other", () => {
+    const brand = figma[0] as SideToken;
+    for (const name of [
+      "color-brand-500",
+      "color-Brand_1",
+      "color-a.b",
+      "color-a--b",
+      "color-a-",
+    ]) {
+      const added = applyEdits(emptyDesignSystem(), [
+        { name, op: "addToken", value: "#2563eb" },
+      ]);
+      expect(matchProblem(brand, name) === null, name).toBe(
+        !("problem" in added)
+      );
+    }
+    expect(matchProblem(brand, "color-Brand_1")).toBeNull();
   });
 });
 

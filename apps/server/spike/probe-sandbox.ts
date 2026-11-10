@@ -7,7 +7,7 @@
  * It is the check `verify-scope.ts` cannot be: an agent may decline to try, or try in a way that
  * proves nothing. A shell does exactly what it is told.
  *
- * node --experimental-strip-types apps/server/spike/probe-sandbox.ts [claude-code|codex]
+ * node apps/server/spike/probe-sandbox.ts [claude-code|codex]
  */
 import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";

@@ -10,8 +10,6 @@ import { runGit } from "./git.ts";
 const STATE_SUBDIRS = [
   "threads",
   "chat",
-  "checkpoints",
-  "snapshots",
   "thumbnails",
   "imports",
   "design-system-setup",

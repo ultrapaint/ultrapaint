@@ -205,8 +205,6 @@ export const DesignSystem = Schema.Struct({
   omitted: Schema.optional(Schema.Array(Schema.String)),
   radius: Schema.Array(Token),
   shadows: Schema.Array(Token),
-  /** Where it was read from, for the panel: the stylesheet, the scan, the agent. */
-  source: Schema.optional(Schema.String),
   spacing: Schema.Struct({
     /** `--spacing`, the step every spacing utility multiplies. */
     base: Schema.String,

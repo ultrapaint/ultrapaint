@@ -40,16 +40,11 @@ const parseStatus = (
   out: string,
   isInDesigns: (p: string) => boolean
 ): GitStatus => {
-  let branch = "";
   const files: GitFileStatus[] = [];
   let skipNext = false;
   for (const entry of out.split("\0").filter(Boolean)) {
     if (skipNext) {
       skipNext = false;
-      continue;
-    }
-    if (entry.startsWith("## ")) {
-      branch = entry.slice(3).split("...")[0] ?? "";
       continue;
     }
     const code = entry.slice(0, 2);
@@ -60,10 +55,9 @@ const parseStatus = (
       code,
       design: isInDesigns(file),
       path: file,
-      staged: code[0] !== " " && code[0] !== "?",
     });
   }
-  return { branch, files };
+  return { files };
 };
 
 export class GitService extends Context.Service<
@@ -123,7 +117,7 @@ export class GitService extends Context.Service<
         provide(git(paths.root, args, env));
 
       const status = Effect.map(
-        run(["status", "--porcelain=v1", "-b", "-z", "--untracked-files=all"]),
+        run(["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
         (out) => parseStatus(out, paths.isInDesigns)
       ).pipe(Effect.withSpan("GitService.status"));
 

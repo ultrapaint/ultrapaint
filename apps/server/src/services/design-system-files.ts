@@ -256,7 +256,7 @@ export const withBaseline = <S extends BaselineSide>(
     // A file that does not read is left alone: reading it says why.
     return null;
   }
-  if (!Predicate.isObject(json) || Array.isArray(json)) {
+  if (!Predicate.isObject(json)) {
     return null;
   }
   const record = json as Record<string, unknown>;

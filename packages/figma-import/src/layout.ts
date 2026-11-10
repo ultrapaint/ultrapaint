@@ -9,7 +9,13 @@ import type {
   Size,
 } from "@ultrapaint/contracts/document";
 import type { FigNode } from "openfig-core";
-import { cssRgba, solidColor, type TokenMatcher, topPaint } from "./paint.ts";
+import {
+  cssRgba,
+  shadowCss,
+  solidColor,
+  type TokenMatcher,
+  topPaint,
+} from "./paint.ts";
 
 export type Direction = "row" | "column" | null;
 
@@ -77,23 +83,6 @@ const borderOf = (node: FigNode, tokens: TokenMatcher): Border | undefined => {
     style: dashed ? ("dashed" as const) : undefined,
     width: round(width),
   });
-};
-
-const shadowOf = (node: FigNode): string | undefined => {
-  const shadows = ((node.effects ?? []) as NonNullable<FigNode["effects"]>)
-    .filter(
-      (effect) =>
-        effect.visible !== false &&
-        (effect.type === "DROP_SHADOW" || effect.type === "INNER_SHADOW")
-    )
-    .map((effect) => {
-      const inset = effect.type === "INNER_SHADOW" ? "inset " : "";
-      const color = effect.color
-        ? cssRgba(effect.color, effect.opacity ?? 1)
-        : "rgba(0, 0, 0, 0.25)";
-      return `${inset}${round(effect.offset?.x ?? 0)}px ${round(effect.offset?.y ?? 0)}px ${round(effect.radius ?? 0)}px ${round(effect.spread ?? 0)}px ${color}`;
-    });
-  return shadows.length > 0 ? shadows.join(", ") : undefined;
 };
 
 const fillOf = (node: FigNode, tokens: TokenMatcher): string | undefined => {
@@ -171,7 +160,7 @@ export const boxOf = (
         ? round(node.opacity)
         : undefined,
     radius: radiusOf(node),
-    shadow: shadowOf(node),
+    shadow: shadowCss(node.effects),
   });
 
 const mainAlign = (value: string | undefined) => {

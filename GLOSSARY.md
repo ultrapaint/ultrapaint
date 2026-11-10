@@ -318,8 +318,7 @@ refactor and the board view left.
   UI, run by the editor's React. An instance names one with `from: "@ultrapaint/system"`; `from`
   is one of the two origins (`InstanceFrom`), and a page that names anything else does not read. Its
   entry in the catalogue's source (`SYSTEM_COMPONENTS`) says its props, variant axes, parts (`data-slot`, the optional ones a look
-  may leave out), slots, **interaction states** (hover, focus, disabled…) and **layer**: in the page's flow (`inline`), anchored above it
-  (`anchored`) or over it (`blocking`). Its **look** is its file: style fields per part at its
+  may leave out), slots and **interaction states** (hover, focus, disabled…). Its **look** is its file: style fields per part at its
   base, in each variant, in each state and in a **state in a variant** (`variantStates`, ADR
   0044: an outline button's hover), the more specific winning and disabled over the other
   states, layout per part, content for a slot given nothing, the

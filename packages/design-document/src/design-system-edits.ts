@@ -14,9 +14,11 @@ import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit"
 import { defaultTheme } from "@ultrapaint/contracts/themes";
 import {
   addTokens,
+  isTokenName,
   mapTokens,
   removeTokens,
   SPACING_BASE,
+  TOKEN_NAME_SHAPE,
   tokenKindOf,
   tokenOf,
   withTokenChanges,
@@ -25,8 +27,6 @@ import type { TokenChange } from "@ultrapaint/contracts/tokens";
 
 /** A design system with the operations made, or what the first one that did not fit says. */
 export type Edited = DesignSystem | { readonly problem: string };
-
-const TOKEN_NAME_RE = /^[a-z0-9][\w.-]*$/i;
 
 /** The theme an operation names, as a change says it: left out for the default theme. */
 const themeOf = (ds: DesignSystem, theme: string | undefined) =>
@@ -90,8 +90,8 @@ const addToken = (
   ds: DesignSystem,
   op: Extract<DesignSystemEdit, { op: "addToken" }>
 ): Edited => {
-  if (!TOKEN_NAME_RE.test(op.name)) {
-    return problem(op, "a token's name is letters, digits, - . and _");
+  if (!isTokenName(op.name)) {
+    return problem(op, `a token's name is ${TOKEN_NAME_SHAPE}`);
   }
   if (has(ds, op.name)) {
     return problem(op, "the design system has a token of that name already");

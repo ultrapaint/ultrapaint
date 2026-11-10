@@ -72,7 +72,7 @@ describe("recognising a React repository", () => {
     });
   });
 
-  it("prefers a designs package that is already there", () => {
+  it("keeps the application that renders when a designs package is already there", () => {
     const root = repository({
       "apps/web/package.json": {
         dependencies: {
@@ -95,7 +95,8 @@ describe("recognising a React repository", () => {
       "packages/ui/src/button.tsx": component,
     });
     const found = detect(root);
-    expect(found?.anchors[0]?.dir).toBe("packages/designs");
+    // The pages go where they are; what is implemented is the application, not their package.
+    expect(found?.anchors[0]?.dir).toBe("apps/web");
     expect(found?.designsDirs).toEqual(["packages/designs"]);
     // The designs package renders components; it is not a library of them.
     expect(found?.libraries.map((l) => l.name)).toEqual(["@acme/ui"]);
@@ -139,7 +140,6 @@ describe("recognising a React repository", () => {
     expect(found?.libraries).toEqual([
       {
         dir: "front",
-        inApp: true,
         name: "front",
         sourceDir: "front/src/components",
       },

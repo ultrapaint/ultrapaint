@@ -198,6 +198,55 @@ describe("component tokens", () => {
     );
   });
 
+  it("holds a detailed system's colours under their own names, and refers to them", () => {
+    const ds = emptyDesignSystem();
+    const { groups, notes } = mirrorOf(
+      {
+        ...ds,
+        colors: [
+          {
+            name: "Text",
+            tokens: [{ name: "text-color-subtle", value: "#666666" }],
+          },
+          {
+            name: "Background",
+            tokens: [
+              { name: "background-color-danger-subtle", value: "#ffeeee" },
+            ],
+          },
+          {
+            name: "Border",
+            tokens: [{ name: "border-color-focus", value: "#2563eb" }],
+          },
+          {
+            name: "Brand",
+            tokens: [{ name: "color-brand", value: "#111111" }],
+          },
+        ],
+        tokenPreset: "detailed",
+      },
+      {
+        badge: {
+          backgroundColor: "$background-color-danger-subtle",
+          textColor: "$text-color-subtle",
+        },
+      }
+    );
+    expect(notes).toEqual([]);
+    expect(groups.colors).toEqual({
+      "background-color-danger-subtle": "#ffeeee",
+      "border-color-focus": "#2563eb",
+      brand: "#111111",
+      "text-color-subtle": "#666666",
+    });
+    expect(groups.components).toEqual({
+      badge: {
+        backgroundColor: "{colors.background-color-danger-subtle}",
+        textColor: "{colors.text-color-subtle}",
+      },
+    });
+  });
+
   it("refers to a token whose key has a dot in it", () => {
     const ds = shadcn();
     const { groups } = mirrorOf(

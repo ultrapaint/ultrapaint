@@ -157,11 +157,23 @@ describe("keywords", () => {
       names.map((name) => ({ cls: `${utility}-${name}`, name, utility }))
     );
     const rules = await compiledClasses(pairs.map((p) => p.cls));
+    const compiled = (cls: string) => [...(rules.get(cls)?.values() ?? [])][0];
+    /** What a name is on any utility that takes it: `screen` is `100vw` and `100vh`. */
+    const valuesOf = (name: string) =>
+      utilities.flatMap((u) => compiled(`${u}-${name}`) ?? []);
     for (const { cls, name, utility } of pairs) {
-      const [value] = [...(rules.get(cls)?.values() ?? [])];
-      expect([cls, lengthKeywords(utility).css(name)]).toEqual([cls, value]);
+      const value = compiled(cls);
+      // A class Tailwind compiles is its value's keyword; one it does not is no value's.
+      const read =
+        value === undefined
+          ? valuesOf(name).map((v) => lengthKeywords(utility).keyword(v))
+          : [lengthKeywords(utility).keyword(value)];
+      expect([cls, read.filter((k) => k === name)]).toEqual([
+        cls,
+        value === undefined ? [] : [name],
+      ]);
     }
-    // And the other way: a value is the keyword of the utility it is written on.
+    // A value is the keyword of the utility it is written on, in any case.
     expect(lengthKeywords("w").keyword("100%")).toBe("full");
     expect(lengthKeywords("h").keyword("100VH")).toBe("screen");
     expect(lengthKeywords("w").keyword("100vh")).toBeUndefined();
@@ -171,12 +183,12 @@ describe("keywords", () => {
     expect(lengthKeywords("gap").keyword("100%")).toBeUndefined();
   });
 
-  it("say a colour both ways: black and white as Tailwind's theme has them", () => {
+  it("say a colour: black and white as Tailwind's theme has them", () => {
     const theme = defaultTheme();
-    expect(COLOR_KEYWORDS.css("black")).toBe(theme.get("color-black"));
-    expect(COLOR_KEYWORDS.css("white")).toBe(theme.get("color-white"));
-    expect(COLOR_KEYWORDS.css("current")).toBe("currentColor");
     for (const [css, keyword] of [
+      [theme.get("color-black") ?? "", "black"],
+      [theme.get("color-white") ?? "", "white"],
+      ["currentColor", "current"],
       ["black", "black"],
       ["#000", "black"],
       ["#FFF", "white"],

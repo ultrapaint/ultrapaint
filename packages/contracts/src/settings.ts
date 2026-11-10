@@ -108,10 +108,8 @@ export const defaultSettings = (repoPath: string): Settings => ({
 });
 
 export const SettingsValidation = Schema.Struct({
-  branch: Schema.optional(Schema.String),
   ok: Schema.Boolean,
   problems: Schema.Array(Schema.String),
-  repoName: Schema.optional(Schema.String),
 });
 export type SettingsValidation = typeof SettingsValidation.Type;
 

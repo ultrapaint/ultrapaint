@@ -6,12 +6,10 @@ export const GitFileStatus = Schema.Struct({
   /** Whether the path is inside the designs directory. */
   design: Schema.Boolean,
   path: Schema.String,
-  staged: Schema.Boolean,
 });
 export type GitFileStatus = typeof GitFileStatus.Type;
 
 export const GitStatus = Schema.Struct({
-  branch: Schema.String,
   files: Schema.Array(GitFileStatus),
 });
 export type GitStatus = typeof GitStatus.Type;

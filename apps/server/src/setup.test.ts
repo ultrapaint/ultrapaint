@@ -102,7 +102,6 @@ describe("first-run setup", () => {
           yield* fs.makeDirectory(`${repo}/docs/designs`, { recursive: true });
 
           const found = yield* setup.detect(repo);
-          assert.isFalse(found.rootManifest ?? true);
           assert.strictEqual(found.anchors[0]?.dir, "front");
           assert.strictEqual(
             found.libraries[0]?.sourceDir,
@@ -122,7 +121,7 @@ describe("first-run setup", () => {
           const { resolveFrom: _gone, ...unanchored } = front;
           const missing = yield* validate(unanchored);
           assert.isFalse(missing.ok);
-          assert.include(missing.problems.join(" "), "Resolve imports from");
+          assert.include(missing.problems.join(" "), "set Application to");
         })
       )
   );

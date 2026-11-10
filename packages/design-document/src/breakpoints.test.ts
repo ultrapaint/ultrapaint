@@ -10,7 +10,7 @@ import {
   breakpointsOf,
   breakpointsUsed,
   DEFAULT_BREAKPOINTS,
-  resolveAt,
+  resolveAtBreakpoint,
   sourceOf,
   visibilityOf,
   withVisibility,
@@ -76,28 +76,30 @@ describe("breakpoints", () => {
     expect(breakpointAt(DEFAULT_BREAKPOINTS, 1440)?.name).toBe("xl");
   });
 
-  it("resolves a tree at a width, mobile-first, and keeps a tree without overrides as it is", () => {
-    const phone = resolveAt(page, DEFAULT_BREAKPOINTS, 390);
+  it("resolves a tree at a breakpoint, mobile-first, and keeps a tree without overrides as it is", () => {
+    const phone = resolveAtBreakpoint(page, DEFAULT_BREAKPOINTS, null);
     const [small] = (phone as PageNode).children as [StackNode];
     expect(small).toMatchObject({ gap: 16, type: "column" });
     expect(small.at).toBeUndefined();
     expect(small.children[0]?.hidden).toBe(true);
 
-    const [tablet] = (resolveAt(page, DEFAULT_BREAKPOINTS, 834) as PageNode)
-      .children as [StackNode];
+    const [tablet] = (
+      resolveAtBreakpoint(page, DEFAULT_BREAKPOINTS, "md") as PageNode
+    ).children as [StackNode];
     expect(tablet).toMatchObject({ gap: 24, type: "row" });
     expect(tablet.children[0]?.hidden).toBe(false);
 
-    const [desktop] = (resolveAt(page, DEFAULT_BREAKPOINTS, 1440) as PageNode)
-      .children as [StackNode];
+    const [desktop] = (
+      resolveAtBreakpoint(page, DEFAULT_BREAKPOINTS, "xl") as PageNode
+    ).children as [StackNode];
     expect(desktop).toMatchObject({ gap: 32, type: "row" });
     // What no breakpoint touches is the same object, so the renderer draws it as it was.
     expect(desktop.children[1]).toBe(stack.children[1]);
-    expect(resolveAt(page, DEFAULT_BREAKPOINTS, 1440)).toBe(
-      resolveAt(page, DEFAULT_BREAKPOINTS, 1440)
+    expect(resolveAtBreakpoint(page, DEFAULT_BREAKPOINTS, "xl")).toBe(
+      resolveAtBreakpoint(page, DEFAULT_BREAKPOINTS, "xl")
     );
     const flat = { children: [], id: "p", type: "page" } as PageNode;
-    expect(resolveAt(flat, DEFAULT_BREAKPOINTS, 1440)).toBe(flat);
+    expect(resolveAtBreakpoint(flat, DEFAULT_BREAKPOINTS, "xl")).toBe(flat);
   });
 
   it("lays an instance's props of a breakpoint over its own, one by one", () => {
@@ -109,7 +111,7 @@ describe("breakpoints", () => {
       props: { size: "sm", variant: "outline" },
       type: "instance" as const,
     };
-    expect(resolveAt(node, DEFAULT_BREAKPOINTS, 800)).toMatchObject({
+    expect(resolveAtBreakpoint(node, DEFAULT_BREAKPOINTS, "md")).toMatchObject({
       props: { size: "lg", variant: "outline" },
     });
   });

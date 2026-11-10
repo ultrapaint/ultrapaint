@@ -5,8 +5,8 @@ import { EventBus } from "./events.ts";
 const CAPACITY = 500;
 
 /**
- * Log lines the editor shows: agent stderr and server notices. Kept in a ring buffer for
- * `logs.recent` and pushed to subscribers as they arrive.
+ * The server's notices and its agents' stderr. Kept in a ring buffer for `logs.recent` and pushed
+ * to subscribers as they arrive.
  */
 export class AppLog extends Context.Service<
   AppLog,

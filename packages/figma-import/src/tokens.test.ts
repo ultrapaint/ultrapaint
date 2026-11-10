@@ -1,5 +1,8 @@
+import type { FigNode } from "openfig-core";
 import { describe, expect, it } from "vitest";
 import { readFig } from "./fig.ts";
+import { boxOf } from "./layout.ts";
+import { noTokens } from "./paint.ts";
 import { makeFixture, solid } from "./testing/fixture.ts";
 import { readFigmaTokens } from "./tokens.ts";
 
@@ -191,6 +194,47 @@ describe("the tokens of a Figma file", () => {
     ]);
     expect(set.themes).toEqual(["dark"]);
     expect(set.notes.join(" ")).toContain("Primitives/Opacity/Disabled");
+  });
+
+  it("writes a shadow style as the node it is drawn on has its shadow", () => {
+    const fixture = makeFixture();
+    fixture.add(fixture.internal, {
+      effects: [
+        {
+          color: { a: 1, b: 0, g: 0, r: 0 },
+          offset: { x: 0, y: 1.333 },
+          opacity: 0.5,
+          radius: 4,
+          spread: 0,
+          type: "DROP_SHADOW",
+          visible: true,
+        },
+        {
+          color: { a: 0.2, b: 0, g: 0, r: 0 },
+          offset: { x: 0, y: 1 },
+          radius: 0,
+          type: "INNER_SHADOW",
+          visible: true,
+        },
+      ],
+      name: "Shadow/Soft",
+      size: { x: 10, y: 10 },
+      styleType: "EFFECT",
+      type: "RECTANGLE",
+    } as never);
+    const read = readFig(fixture.build());
+    const drawn = (read.doc.message.nodeChanges as FigNode[]).find(
+      (n) => n.name === "Shadow/Soft"
+    ) as FigNode;
+    const [token] = readFigmaTokens(read).tokens;
+    expect(token?.name).toBe("shadow-soft");
+    expect(token?.values[""]).toBe(
+      "0px 1.33px 4px 0px rgba(0, 0, 0, 0.5), inset 0px 1px 0px 0px rgba(0, 0, 0, 0.2)"
+    );
+    expect(
+      boxOf(drawn, { direction: null }, { height: 10, width: 10 }, noTokens)
+        .shadow
+    ).toBe(token?.values[""]);
   });
 
   it("takes the light mode as the default wherever it comes among a collection's modes", () => {

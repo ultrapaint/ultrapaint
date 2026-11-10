@@ -329,8 +329,6 @@ export const Thread = Schema.Struct({
   review: Schema.optional(ReviewSettings),
   /** Whether the agent process is confined to the repository by the operating system. */
   sandboxed: Schema.optional(Schema.Boolean),
-  /** Why it is not, when this machine has a sandbox that refused to start. */
-  sandboxProblem: Schema.optional(Schema.String),
   scope: Schema.optional(ThreadScope),
   sessionId: Schema.optional(Schema.String),
   status: ThreadStatus,
@@ -727,8 +725,6 @@ export const McpConnection = Schema.Struct({
   /** Off when the server was started with `--no-mcp`. */
   enabled: Schema.Boolean,
   header: Schema.String,
-  /** The token was one made the old, guessable way and is new since the server started. */
-  replaced: Schema.Boolean,
   token: Schema.String,
   url: Schema.String,
 });

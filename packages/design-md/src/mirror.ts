@@ -13,10 +13,16 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type { Padding } from "@ultrapaint/contracts/document";
 import {
+  shortName,
+  tokenKindOf,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
+import {
   formatNumber,
   isColor,
   resolveCss,
 } from "@ultrapaint/contracts/token-value";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { ComponentLook } from "@ultrapaint/design-document/component-look";
 import {
   isToken,
@@ -44,12 +50,13 @@ interface Mirror {
 const textStyleKey = (style: TextStyle) => tokenKeyOf(style.name);
 
 /**
- * The tokens named `<prefix>-<key>`, by key, with the values `accept` takes once resolved;
- * what it does not take is said in `notes`.
+ * The tokens of a kind by key, their short names (`color-primary` is `primary`, a detailed
+ * system's `text-color-subtle` itself), with the values `accept` takes once resolved; what it
+ * does not take is said in `notes`.
  */
 const groupOf = <A>(
   tokens: readonly Token[],
-  prefix: string,
+  kind: TokenKind,
   resolve: (name: string, value: string) => string | null,
   accept: (value: string) => A | null,
   wanted: string,
@@ -57,13 +64,13 @@ const groupOf = <A>(
 ): Record<string, A> => {
   const out: Record<string, A> = {};
   for (const token of tokens) {
-    if (!token.name.startsWith(prefix)) {
+    if (tokenKindOf(token.name) !== kind) {
       continue;
     }
     const resolved = resolve(token.name, token.value);
     const value = resolved === null ? null : accept(resolved);
     if (value !== null) {
-      out[token.name.slice(prefix.length)] = value;
+      out[shortName(token.name)] = value;
     } else if (resolved !== null) {
       notes.push(`${token.name}: ${resolved} is not ${wanted}.`);
     }
@@ -109,24 +116,24 @@ export const mirrorOf = (
   };
   const group = <A>(
     tokens: readonly Token[],
-    prefix: string,
+    kind: TokenKind,
     accept: (value: string) => A | null,
     wanted: string
-  ) => groupOf(tokens, prefix, resolve, accept, wanted, notes);
+  ) => groupOf(tokens, kind, resolve, accept, wanted, notes);
 
   const colors = group(
-    ds.colors.flatMap((g) => g.tokens),
-    "color-",
+    tokensOfKind(ds, "color"),
+    "color",
     (value) => (isColor(value) ? value : null),
     "a colour DESIGN.md can hold"
   );
-  const rounded = group(ds.radius, "radius-", lengthOf, LENGTH);
+  const rounded = group(tokensOfKind(ds, "radius"), "radius", lengthOf, LENGTH);
   const spacing = group(
     [
       { name: "spacing-base", value: ds.spacing.base },
-      ...(ds.spacing.tokens ?? []),
+      ...tokensOfKind(ds, "spacing"),
     ],
-    "spacing-",
+    "spacing",
     spacingOf,
     LENGTH
   );

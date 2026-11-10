@@ -452,8 +452,8 @@ export type ReviewModel = typeof ReviewModel.Type;
 
 /**
  * How a design is reviewed (ADR 0060, 0061, 0063): the review models, who of them looks each
- * round, who approves, the goal, when in the loop, and whether findings are logged. Kept per
- * project, chosen again when a design starts; the narrower wins.
+ * round, who approves, the goal, and whether findings are logged. Kept per project, chosen again
+ * when a design starts; the narrower wins.
  */
 export const ReviewSettings = Schema.Struct({
   /** Who approves at the end. */
@@ -469,8 +469,6 @@ export const ReviewSettings = Schema.Struct({
    * signed in.
    */
   reviewModels: Schema.optional(Schema.Array(ReviewModel)),
-  /** After the designer's turn, or after each section it builds. */
-  when: Schema.optional(Schema.Literals(["end", "each-section"])),
 });
 export type ReviewSettings = typeof ReviewSettings.Type;
 
@@ -480,7 +478,6 @@ export const DEFAULT_REVIEW = {
   eachRound: "rotate",
   findingsLog: false,
   on: true,
-  when: "end",
 } as const satisfies ReviewSettings;
 
 /** The settings of the narrowest layer that sets each field: the design's over the project's. */
@@ -561,8 +558,7 @@ export const levelOf = (
 };
 
 /**
- * Settings at a level: the review models, when and the log kept, the goal dropped (a goal is
- * Custom's).
+ * Settings at a level: the review models and the log kept, the goal dropped (a goal is Custom's).
  */
 export const withLevel = (
   settings: ReviewSettings | undefined,

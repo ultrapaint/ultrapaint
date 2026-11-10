@@ -241,8 +241,6 @@ export const TokenComparison = Schema.Struct({
   diffs: Schema.Array(TokenDiff),
   /** What the source is, to say: the Figma file's name, `DESIGN.md`. */
   file: Schema.String,
-  /** The Figma import, for a Figma comparison. */
-  importId: Schema.optional(Schema.String),
   /** What could not be read, named or compared, in a few words each. */
   notes: Schema.Array(Schema.String),
   source: TokenSourceKind,

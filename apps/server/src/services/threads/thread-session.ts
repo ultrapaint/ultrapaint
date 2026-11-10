@@ -837,7 +837,6 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           currentModeId: undefined,
           modes: undefined,
           sandboxed: undefined,
-          sandboxProblem: undefined,
           ...options,
           agentId,
           sessionId: undefined,

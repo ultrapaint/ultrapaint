@@ -63,7 +63,6 @@ interface OpenedSession {
     | "currentModeId"
     | "modes"
     | "sandboxed"
-    | "sandboxProblem"
     | "sessionId"
   >;
   /** The stored session was reopened: the agent has the conversation back. */
@@ -245,7 +244,6 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
         currentModeId,
         modes,
         sandboxed: sandbox.available,
-        sandboxProblem: sandbox.problem,
         sessionId: info.sessionId,
       },
       resumed,

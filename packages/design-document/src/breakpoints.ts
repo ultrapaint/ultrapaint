@@ -141,18 +141,6 @@ export const resolveAtBreakpoint = (
   return resolveWith(node, holding, holding.join(" "));
 };
 
-/** The tree as it is drawn at a width. */
-export const resolveAt = (
-  node: DesignNode,
-  breakpoints: readonly Breakpoint[],
-  width: number
-): DesignNode =>
-  resolveAtBreakpoint(
-    node,
-    breakpoints,
-    breakpointAt(breakpoints, width)?.name ?? null
-  );
-
 /** The breakpoints the tree sets anything at, smallest first: what its code has prefixes for. */
 export const breakpointsUsed = (
   node: DesignNode,

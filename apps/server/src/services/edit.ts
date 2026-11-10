@@ -208,7 +208,7 @@ export class EditService extends Context.Service<
 
       let journal: JournalEntry[] = [];
       let cursor = 0;
-      let invalidated: string | undefined;
+      let invalidated: UndoState["invalidated"];
 
       const snapshotState = (): UndoState => {
         const undo = journal[cursor - 1];
@@ -454,21 +454,22 @@ export class EditService extends Context.Service<
         return null;
       });
 
-      /** Drops the history an outside change made impossible to walk. */
+      /** Drops the history an outside change made impossible to walk; what the step fails with. */
       const invalidate = (
         file: string,
         entry: JournalEntry,
         undoing: boolean
       ) => {
+        const reason = `${file} changed outside the editor`;
         if (undoing) {
-          invalidated = `${file} changed outside the editor since "${entry.label}"; older undo entries were dropped`;
+          invalidated = { history: "undo", reason };
           journal = journal.slice(cursor);
           cursor = 0;
-        } else {
-          invalidated = `${file} changed outside the editor; redo history was dropped`;
-          journal = journal.slice(0, cursor);
+          return `${reason} since "${entry.label}"; older undo entries were dropped`;
         }
-        return invalidated;
+        invalidated = { history: "redo", reason };
+        journal = journal.slice(0, cursor);
+        return `${reason}; redo history was dropped`;
       };
 
       /** What the step reports: the files it put back, and the action it was. */

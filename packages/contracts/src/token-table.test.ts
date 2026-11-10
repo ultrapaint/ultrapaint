@@ -5,10 +5,12 @@ import {
   allTokens,
   DEFAULT_SPACING_BASE,
   fillValues,
+  isTokenName,
   layValues,
   lineHeightName,
   listedTokens,
   mapTokenRecords,
+  nameOfShort,
   removeTokens,
   SPACING_BASE,
   SPACING_STEPS,
@@ -331,6 +333,44 @@ describe("reading a kind", () => {
       expect(shortName(nameOf(kind))).toBe("x");
     }
   );
+
+  it("takes as a token's name what a stylesheet declares as one variable", () => {
+    for (const name of [
+      "color-primary",
+      "text-2xl",
+      "color-Brand_1",
+      "spacing-1_5",
+      "default-transition-duration",
+      SPACING_BASE,
+    ]) {
+      expect(isTokenName(name), name).toBe(true);
+    }
+    for (const name of [
+      "Brand Blue",
+      "spacing-1.5",
+      "text-sm--line-height",
+      "color-",
+      "-color",
+      "1px",
+      "",
+    ]) {
+      expect(isTokenName(name), name).toBe(false);
+    }
+  });
+
+  it("reads a short name back as its kind's name, in whichever of its namespaces", () => {
+    for (const name of [
+      "color-card",
+      "color-color-x",
+      "text-color-subtle",
+      "background-color-danger-subtle",
+      "radius-lg",
+      "inset-shadow-sm",
+    ]) {
+      expect(nameOfShort(tokenKindOf(name), shortName(name)), name).toBe(name);
+    }
+    expect(nameOfShort("color", "primary")).toBe("color-primary");
+  });
 
   it("keeps a name its kind's own prefix does not start, and finds the spacing base", () => {
     expect(shortName("inset-shadow-sm")).toBe("inset-shadow-sm");

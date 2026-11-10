@@ -3,7 +3,12 @@
  * them, so they can be matched to its tokens and compared (ADR 0027). `colors.primary` is
  * `color-primary`, `rounded.md` is `radius-md`, `spacing.base` is `spacing`.
  */
-import { SPACING_BASE, tokenPrefix } from "@ultrapaint/contracts/token-table";
+import {
+  nameOfShort,
+  SPACING_BASE,
+  shortName,
+  tokenKindOf,
+} from "@ultrapaint/contracts/token-table";
 import { isColor, parseNumber } from "@ultrapaint/contracts/token-value";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {
@@ -217,20 +222,21 @@ const EDGE_DASHES_RE = /^-+|-+$/g;
 export const tokenKeyOf = (key: string): string =>
   key.toLowerCase().replace(KEY_RE, "-").replace(EDGE_DASHES_RE, "");
 
-/** The kind of token each group of the front matter holds, and its names' prefix in the code. */
-const PREFIXES = {
-  colors: { kind: "color", prefix: tokenPrefix("color") },
-  rounded: { kind: "radius", prefix: tokenPrefix("radius") },
-  spacing: { kind: "spacing", prefix: tokenPrefix("spacing") },
-} as const satisfies Partial<
-  Record<MirroredGroup, { kind: TokenKind; prefix: string }>
->;
+/** The kind of token each group of the front matter holds; the token table names them. */
+const KINDS = {
+  colors: "color",
+  rounded: "radius",
+  spacing: "spacing",
+} as const satisfies Partial<Record<MirroredGroup, TokenKind>>;
 
-/** The code's name for a document token, by group and key. */
-const codeNameOf = (group: keyof typeof PREFIXES, key: string): string =>
+/**
+ * The code's name for a document token, by group and key: the key is the token's short name, so
+ * a colour of a detailed system (`colors.text-color-subtle`) is itself.
+ */
+const codeNameOf = (group: keyof typeof KINDS, key: string): string =>
   group === "spacing" && key === "base"
     ? SPACING_BASE
-    : `${PREFIXES[group].prefix}${tokenKeyOf(key)}`;
+    : nameOfShort(KINDS[group], tokenKeyOf(key));
 
 const MAX_REF_DEPTH = 10;
 
@@ -307,7 +313,7 @@ export const documentTokens = (
       }
       tokens.push({
         ...(ref !== null && { alias: ref }),
-        kind: PREFIXES[group].kind,
+        kind: KINDS[group],
         name: codeNameOf(group, key),
         value,
         variable,
@@ -319,16 +325,14 @@ export const documentTokens = (
 
 /**
  * Where a code token goes in the document, or null for one the front matter has no group for:
- * `color-accent` → `colors.accent`, `spacing` → `spacing.base`.
+ * `color-accent` → `colors.accent`, `spacing` → `spacing.base`. The key is the token's short
+ * name, which a colour outside `color-` keeps whole (`colors.text-color-subtle`).
  */
 export const documentPathOf = (name: string): string | null => {
   if (name === SPACING_BASE) {
     return "spacing.base";
   }
-  for (const [group, { prefix }] of Object.entries(PREFIXES)) {
-    if (name.startsWith(prefix)) {
-      return `${group}.${name.slice(prefix.length)}`;
-    }
-  }
-  return null;
+  const kind = tokenKindOf(name);
+  const group = Object.entries(KINDS).find(([, own]) => own === kind)?.[0];
+  return group === undefined ? null : `${group}.${shortName(name)}`;
 };

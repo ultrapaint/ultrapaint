@@ -417,7 +417,6 @@ export const lookSystem = (dials: LookDials): DesignSystem => {
       token("shadow-md", SHADOWS.md, undefined, "What is dragged"),
       token("shadow-lg", SHADOWS.lg, undefined, "Menus, popovers and dialogs"),
     ],
-    source: "Chosen on the look page",
     spacing: { base: DENSITY[dials.density].spacing },
     themes: ["light", "dark"],
     ...(detailed && { tokenPreset: "detailed" as const }),

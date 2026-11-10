@@ -224,7 +224,6 @@ export const scanDesignSystem = (
       colors,
       radius: [],
       shadows: [],
-      source: `Tailwind v4 theme in ${reading.files.map((f) => path.relative(ctx.root, f)).join(", ") || "no stylesheet"}`,
       spacing: { base: spacingBase },
       ...(themeNames.length > 0 && { themes: ["light", ...themeNames] }),
       typography: {

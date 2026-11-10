@@ -93,6 +93,28 @@ describe("ThreadStore", () => {
   );
 
   it.effect(
+    "answers a transcript as it is when read, whatever is said after",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          const push = (id: string) =>
+            store.push(THREAD.id, { at: 0, id, kind: "agent", text: id });
+          yield* push("item_1");
+          const read = yield* store.items(THREAD.id);
+          yield* push("item_2");
+          yield* store.appendText(THREAD.id, "item_1", " and more");
+          assert.deepStrictEqual(read, [
+            { at: 0, id: "item_1", kind: "agent", text: "item_1" },
+          ]);
+        }).pipe(Effect.provide(storeIn(home)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "writes a streamed reply after a pause, and whatever is left when it closes",
     () =>
       Effect.gen(function* () {

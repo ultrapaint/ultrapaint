@@ -139,7 +139,6 @@ describe("server over WebSocket RPC", () => {
       const { client, repo, settings } = yield* TestEnv;
       const validation = yield* client["settings.set"](settings);
       assert.deepStrictEqual(validation.problems, []);
-      assert.strictEqual(validation.branch, "main");
       const info = yield* client["project.info"]();
       assert.isTrue(info.configured);
       assert.strictEqual(info.repoPath, repo);

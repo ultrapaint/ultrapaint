@@ -216,7 +216,6 @@ const figmaAdapter: SideAdapter = {
         baseline: baseline !== null && Object.keys(baseline.figma).length > 0,
         diffs,
         file,
-        importId: latest.id,
         notes: [...figma.notes],
         source: "figma",
         targets: design

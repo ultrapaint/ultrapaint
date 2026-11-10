@@ -3,6 +3,12 @@
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/plans/done/PLAN-design-md.md`.
 
+> Amended 2026-11-10: a token's name is one rule (`isTokenName`, in the token table): letters,
+> digits and `_` in words joined by one dash, starting lower case, which is what the stylesheet
+> reads back, so every name the editor adds is one Sync can match. The mirror holds every
+> colour the token table knows (0037): a detailed system's colours are keyed by their whole
+> name (`colors.text-color-subtle`), a simple system's as before.
+
 > Amended by [0067](0067-the-words-are-a-part-of-their-own.md), 2026-11-06: a Content section, the
 > product's choices for its words, is added before Do's and Don'ts.
 

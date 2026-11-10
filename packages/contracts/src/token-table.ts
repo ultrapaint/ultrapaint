@@ -184,6 +184,32 @@ export const shortName = (name: string): string => {
     : name;
 };
 
+/**
+ * The name a kind's short name stands for, `shortName` the other way: `card` → `color-card`. One
+ * in another of the kind's namespaces is the name already (`text-color-subtle`).
+ */
+export const nameOfShort = (kind: TokenKind, short: string): string => {
+  const [own = "", ...others] =
+    TOKEN_TABLE.find((entry) => entry.kind === kind)?.prefixes ?? [];
+  return others.some((prefix) => short.startsWith(prefix))
+    ? short
+    : `${own}${short}`;
+};
+
+const TOKEN_NAME_RE = /^[a-z][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)*$/;
+
+/** What a token's name is made of, as a problem says it. */
+export const TOKEN_NAME_SHAPE =
+  "letters, digits and _, in words joined by one dash (color-primary)";
+
+/**
+ * Whether a name can be a token's: one a stylesheet declares as `--name` and reads back as that
+ * token, so a name added in the editor or matched in Sync is one the code and the tokens file
+ * hold too. A dot is not CSS there (Tailwind writes the step `1.5` as `1_5`), and `--` starts
+ * what belongs to a token (`text-sm--line-height`). Its kind is `tokenKindOf`'s to say.
+ */
+export const isTokenName = (name: string): boolean => TOKEN_NAME_RE.test(name);
+
 /** A token as a list holds it: a font size has its line height, a font where it is loaded from. */
 export type ListedToken = Token &
   Partial<Pick<FontSizeToken, "lineHeight">> &

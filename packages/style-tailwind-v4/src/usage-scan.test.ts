@@ -1,4 +1,5 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import type { UsageContext } from "@ultrapaint/framework-api/node";
 import { describe, expect, it } from "vitest";
 import { usage } from "./usage-rewrite.ts";
@@ -237,6 +238,59 @@ export const x = 1;`,
       "default text-sm",
       "system color-primary",
     ]);
+  });
+
+  it("counts a detailed system's colours as the system's, each on the utility that reads its namespace", () => {
+    const detailed: DesignSystem = {
+      ...designSystem,
+      colors: [
+        {
+          name: "Text",
+          tokens: [{ name: "text-color-subtle", value: "#666666" }],
+        },
+        {
+          name: "Background",
+          tokens: [
+            { name: "background-color-danger-subtle", value: "#ffeeee" },
+            { name: "background-color-subtle", value: "#fafafa" },
+          ],
+        },
+        {
+          name: "Border",
+          tokens: [{ name: "border-color-focus", value: "#2563eb" }],
+        },
+        { name: "Brand", tokens: [{ name: "color-brand", value: "#111111" }] },
+      ],
+      tokenPreset: "detailed",
+    };
+    const files = {
+      "src/app.css": ".a { color: var(--text-color-subtle); }",
+      "src/app.tsx": `const a = "text-subtle bg-subtle bg-danger-subtle border-t-focus divide-focus ring-brand bg-focus";`,
+    };
+    expect(valuesOf(files, { ...saved, designSystem: detailed })).toEqual([
+      "color system border-color-focus → border-color-focus ×2",
+      "color system text-color-subtle → text-color-subtle ×2",
+      "color system background-color-danger-subtle → background-color-danger-subtle ×1",
+      "color system background-color-subtle → background-color-subtle ×1",
+      "color system color-brand → color-brand ×1",
+    ]);
+    const own = tokensOfKind(detailed, "color").map((t) => t.name);
+    const theme = inventoryOf(files, {
+      designSystem: detailed,
+      ownTokens: own,
+    });
+    expect(theme.ownColors).toBe(5);
+    expect(theme.recommendation.mode).toBe("adopt");
+  });
+
+  it("counts a colour by any CSS name in a declaration, as in a class", () => {
+    expect(
+      valuesOf({
+        "src/app.css":
+          ".a { color: rebeccapurple; border-color: transparent; fill: red; }",
+        "src/app.tsx": `export const A = () => <div className="bg-[rebeccapurple] text-[transparent]" style={{ color: "RebeccaPurple", background: "transparent" }} />;`,
+      })
+    ).toEqual(["color raw rebeccapurple ×3", "color raw red ×1"]);
   });
 
   it("recommends proposing a design system when the theme has few colours or the code is off it", () => {

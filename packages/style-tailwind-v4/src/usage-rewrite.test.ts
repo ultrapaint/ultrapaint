@@ -65,6 +65,43 @@ describe("rewriting a file onto the design system", () => {
     expect(out.left).toEqual([]);
   });
 
+  it("rewrites a class onto a detailed system's colour by the utility that reads its namespace", () => {
+    const detailed: UsageContext = {
+      designSystem: {
+        ...designSystem,
+        colors: [
+          {
+            name: "Background",
+            tokens: [
+              { name: "background-color-danger-subtle", value: "#ffeeee" },
+            ],
+          },
+        ],
+        tokenPreset: "detailed",
+      },
+      ownTokens: null,
+    };
+    const out = usage.rewriter(
+      detailed,
+      new Map([
+        [mappingKey("color", "#ffeeee"), "background-color-danger-subtle"],
+      ])
+    )("src/a.tsx", `const a = "hover:bg-[#fee]/50 text-[#ffeeee]";\n`);
+    expect(out.text).toBe(
+      `const a = "hover:bg-danger-subtle/50 text-[#ffeeee]";\n`
+    );
+    // A text colour is not read from the backgrounds: the agent's to decide.
+    expect(out.left).toEqual([
+      {
+        kind: "color",
+        line: 1,
+        raw: "text-[#ffeeee]",
+        target: "background-color-danger-subtle",
+        value: "#ffeeee",
+      },
+    ]);
+  });
+
   it("rewrites inline styles and stylesheet declarations onto variables", () => {
     const tsx = `export const A = () => <div style={{ color: "#333", padding: 12, zIndex: 999 }} />;
 `;

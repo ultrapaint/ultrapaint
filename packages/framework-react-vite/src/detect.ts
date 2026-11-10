@@ -228,8 +228,6 @@ export const detect = (root: string): Detected | null => {
           1 +
           (pkg.dependencies.has("react-dom") ? 1 : 0) +
           usedLibraries.length * 3 +
-          // A designs package that is already there was made for exactly this.
-          (DESIGNS_NAME_RE.test(pkg.rel) ? 20 : 0) +
           (pkg.dependencies.has("vite") ? 2 : 0) +
           (pkg.dependencies.has("@tailwindcss/vite") ||
           pkg.dependencies.has("tailwindcss")
@@ -260,7 +258,6 @@ export const detect = (root: string): Detected | null => {
       if (sourceDir) {
         libraries.push({
           dir: pkg.rel === "" ? "." : pkg.rel,
-          inApp: true,
           name: pkg.name,
           sourceDir: toPosix(path.relative(root, sourceDir)),
         });

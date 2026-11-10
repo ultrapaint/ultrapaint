@@ -15,7 +15,7 @@ import {
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { FigColor, FigNode, FigPaint } from "openfig-core";
 import { type FigFile, guidOf } from "./fig.ts";
-import { cssColor, cssRgba, topPaint } from "./paint.ts";
+import { cssColor, shadowCss, topPaint } from "./paint.ts";
 
 interface FigmaToken {
   /** The variable its default mode points at, by its place in Figma: a semantic colour's palette entry. */
@@ -284,28 +284,6 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
   return tokens;
 };
 
-/** A drop shadow effect as CSS: `0 4px 8px 0 rgba(…)`. */
-const shadowCss = (effects: readonly unknown[]): string | null => {
-  const shadows = effects
-    .filter(
-      (e) =>
-        field(e, "visible") !== false &&
-        (field(e, "type") === "DROP_SHADOW" ||
-          field(e, "type") === "INNER_SHADOW")
-    )
-    .map((e) => {
-      const offset = field(e, "offset");
-      const x = Number(field(offset, "x") ?? 0);
-      const y = Number(field(offset, "y") ?? 0);
-      const blur = Number(field(e, "radius") ?? 0);
-      const spread = Number(field(e, "spread") ?? 0);
-      const color = field(e, "color") as FigColor | undefined;
-      const inset = field(e, "type") === "INNER_SHADOW" ? "inset " : "";
-      return `${inset}${x}px ${y}px ${blur}px ${spread}px ${color ? cssRgba(color) : "rgba(0, 0, 0, 0.25)"}`;
-    });
-  return shadows.length > 0 ? shadows.join(", ") : null;
-};
-
 const readStyles = (file: FigFile): FigmaToken[] => {
   const nodes = (file.doc.message.nodeChanges as FigNode[]).filter(
     (n) =>
@@ -333,7 +311,7 @@ const readStyles = (file: FigFile): FigmaToken[] => {
         });
       }
     } else if (type === "EFFECT") {
-      const css = shadowCss(listOf(field(node, "effects")));
+      const css = shadowCss(node.effects);
       const token = named(path, "shadow");
       if (css && token) {
         tokens.push({

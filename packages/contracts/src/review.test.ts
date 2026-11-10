@@ -246,7 +246,6 @@ describe("who reviews", () => {
       goal: { score: 90 },
       on: true,
       reviewModels: [opus],
-      when: "end",
     });
   });
 

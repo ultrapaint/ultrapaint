@@ -23,6 +23,7 @@ import {
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import {
   COLOR_KEYWORDS,
+  colorNamespaces,
   lengthKeywords,
   printArbitrary,
   printClass,
@@ -155,7 +156,12 @@ const color =
     }
     return one(
       isToken(text)
-        ? fromToken(prefix, text, ["color"])
+        ? fromToken(
+            prefix,
+            text,
+            // A token's prefix without its dash is the namespace `fromToken` takes.
+            colorNamespaces(prefix).map((ns) => ns.slice(0, -1))
+          )
         : arbitrary(prefix, text),
       property
     );

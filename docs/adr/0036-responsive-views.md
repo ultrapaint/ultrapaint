@@ -4,6 +4,9 @@ Status: accepted and implemented, 2026-10-26. Amends 0015 (a node's fields can d
 breakpoint), 0020 (a page's frame has views beside it) and 0034 (a component's `matchMedia` and
 `innerWidth` answer for its frame). Plan: `docs/plans/done/PLAN-responsive-views.md`.
 
+> Amended 2026-11-10: `resolveAt` is gone; `resolveAtBreakpoint` is the one function that lays
+> the breakpoints over the base.
+
 ## Context
 
 A page is one tree of nodes, and every field of a node has one value, drawn as an inline style

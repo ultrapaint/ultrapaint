@@ -21,7 +21,12 @@ import {
   type TokenDiff,
   type TokenMatchInput,
 } from "@ultrapaint/contracts/sync";
-import { tokenKindOf, tokensByValue } from "@ultrapaint/contracts/token-table";
+import {
+  isTokenName,
+  TOKEN_NAME_SHAPE,
+  tokenKindOf,
+  tokensByValue,
+} from "@ultrapaint/contracts/token-table";
 import { inCodeUnits } from "@ultrapaint/contracts/token-value";
 import type {
   SourceToken,
@@ -319,8 +324,6 @@ export const agreementAfter = (input: {
   return Object.fromEntries(out.sort(([a], [b]) => inEnglish(a, b)));
 };
 
-const TOKEN_NAME_RE = /^[a-z][a-z0-9-]*[a-z0-9]$/;
-
 /**
  * Why a side's token cannot be matched to a design token of that name, or null when it can: the
  * name has to be one the code could declare, of the token's kind.
@@ -329,8 +332,8 @@ export const matchProblem = (
   token: Pick<SideToken, "kind" | "variable">,
   to: string
 ): string | null => {
-  if (!TOKEN_NAME_RE.test(to)) {
-    return `${to} is not a token name: lower case, words joined by dashes (color-primary)`;
+  if (!isTokenName(to)) {
+    return `${to} is not a token name: ${TOKEN_NAME_SHAPE}`;
   }
   const kind = tokenKindOf(to);
   return kind === token.kind

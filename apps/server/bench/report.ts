@@ -5,7 +5,7 @@
  * One section per agent. The arms of one agent say nothing about another's — a different model
  * behind a different harness — so the runs are never pooled across them.
  *
- * Usage: node --experimental-strip-types apps/server/bench/report.ts <directory of runs>
+ * Usage: node apps/server/bench/report.ts <directory of runs>
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";

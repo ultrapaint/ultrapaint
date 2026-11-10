@@ -4,15 +4,17 @@
  * where a value's origin is still known. A number is pixels, `$name` a token, anything else CSS
  * (`@ultrapaint/contracts/node-style`); a raw value of a kind the system tokenises is off it.
  *
- * Spacing in pixels is on the system when it is a whole number of the spacing base's steps (16 is
- * four steps of 4): Tailwind writes it as that step. Any other raw spacing, and any raw colour,
- * radius, shadow or type value, is off it.
+ * Spacing in pixels is on the system when it is a step of the spacing scale as the token table
+ * has it (`spacingStepAt`: 16 is four steps of 4, 10 two and a half), which is what the editor
+ * writes as that step. Any other raw spacing, and any raw colour, radius, shadow or type value,
+ * is off it.
  *
  * Left alone: 0 and the CSS keywords that are no value (`none`, `transparent`, `auto`,
  * `currentColor`, `inherit`); sizes (a width, a height), which are the layout's; a round radius
  * given as a percentage; and an instance's props, which are its component's.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { spacingStepAt } from "@ultrapaint/contracts/token-table";
 import { isToken } from "./tokens.ts";
 import { childrenOf } from "./tree.ts";
 
@@ -61,7 +63,7 @@ export const isOffSystem = (
   }
   if (typeof value === "number") {
     return kind === "spacing"
-      ? Math.abs(value / spacingBase - Math.round(value / spacingBase)) > 1e-6
+      ? spacingStepAt(value, spacingBase) === null
       : value !== 0;
   }
   if (typeof value !== "string") {

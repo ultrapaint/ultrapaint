@@ -190,4 +190,24 @@ describe("documentPathOf", () => {
     expect(documentPathOf("spacing-gutter")).toBe("spacing.gutter");
     expect(documentPathOf("shadow-md")).toBeNull();
   });
+
+  it("reads a detailed system's colour back from where it goes", () => {
+    for (const name of [
+      "text-color-subtle",
+      "background-color-danger-subtle",
+      "border-color-focus",
+      "color-accent",
+    ]) {
+      const path = documentPathOf(name) ?? "";
+      expect(path.startsWith("colors."), name).toBe(true);
+      const doc = parse(
+        ["---", "colors:", `  ${path.slice(7)}: '#2563eb'`, "---", ""].join(
+          "\n"
+        )
+      );
+      expect(documentTokens(doc).tokens).toEqual([
+        { kind: "color", name, value: "#2563eb", variable: path },
+      ]);
+    }
+  });
 });

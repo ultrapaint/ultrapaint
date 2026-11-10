@@ -4,7 +4,7 @@
  * measures is the product rather than a model of it.
  *
  * Usage:
- *   node --experimental-strip-types apps/server/bench/run.ts [--arm baseline]
+ *   node apps/server/bench/run.ts [--arm baseline]
  *       [--agent claude-code] [--tasks new-page,router-link] [--runs 1]
  *       [--label name-in-the-report] --out docs/feature/benchmarks/<comparison>
  *
