@@ -4,6 +4,12 @@ Status: accepted, 2026-11-03. Amends 0048 (the router, the design-system part an
 (the character settled with the user), 0054 (a missing role, waiting for Sync) and 0067 (a way
 in for the words alone).
 
+> Amended by [0069](0069-the-design-skill-is-a-core-and-its-references.md), 2026-11-08: the jobs
+> are four steps of the core (a screen or page, reviewing one, the design system, only the
+> words); the design system's files are `references/system/` (foundations, components, extract,
+> figma), `references/design-system.md` and its folder gone; the server has no built-in part per
+> reference.
+
 ## Context
 
 0048 made the design skill one router with eighteen parts. The design system ran through all of

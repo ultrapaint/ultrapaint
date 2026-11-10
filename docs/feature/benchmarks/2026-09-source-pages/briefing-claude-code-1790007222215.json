@@ -25,8 +25,8 @@
       "execute": 15
     },
     "trace": [
-      "cat -n /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/i",
-      "ls /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/",
+      "cat -n ~/Code/ultrapaint/ultrapaint/docs/bench-designs/i",
+      "ls ~/Code/ultrapaint/ultrapaint/docs/bench-designs/",
       "grep -rn \"Button\" --include=*.tsx apps/web/src --exclude-dir=components -l | hea",
       "sed -n '1,60p' apps/web/src/components/button.tsx 2>/dev/null || ls apps/web/src",
       "grep -rn \"Button\" apps/web/src --include=\"*.tsx\" -l | head -20; echo ---; ls app",

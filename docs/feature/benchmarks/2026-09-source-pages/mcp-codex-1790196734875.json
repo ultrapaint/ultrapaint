@@ -29,7 +29,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.get_component",
       "rtk proxy cat apps/web/src/components/ui/card.tsx apps/web/package.json",
@@ -70,7 +70,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.focus",
       "mcp.ultrapaint.read_page",
@@ -109,7 +109,7 @@
       "edit": 2
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.list_components",
       "rtk rg --files -g AGENTS.md -g package.json -g '*form*.tsx' -g '*input*.tsx' app",
@@ -156,7 +156,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.focus",

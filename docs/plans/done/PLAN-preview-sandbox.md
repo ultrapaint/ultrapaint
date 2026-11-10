@@ -284,7 +284,7 @@ against, not the ADR's.
 Measured against the commit before step 1, alternately on the same machine (Redesign, 10
 frames), with `pnpm bench:canvas`:
 
-| | Before (3db4bc0) | After |
+| | Before (2026-10-27) | After |
 |---|---|---|
 | Load, every frame drawn | 352–376 ms | 349 ms |
 | Pan after load: busy | 16–17% | 17–19% |
@@ -504,7 +504,7 @@ was the line a stuck page was on in the desktop app, which step 11 left (step 17
       of a rejection's toast now writes toasts down as they show: the loops canvas holds the page
       longer than a toast lasts since step 15.
 
-Steps 12 to 16 against the commit before them (97cc58c), alternately, on a machine at rest
+Steps 12 to 16 against the commit before them (2026-10-27), alternately, on a machine at rest
 (Redesign, 10 frames): load 374–432 / 374–478 ms, pan 18–21 / 16–21%, zoom 37–38 / 36–42%,
 switching back 31–45 ms (one 132) / 32–47 ms, renderer 371–382 / 368–372 MB. Step 12's zoom of
 40–44% was the machine's load, as its quiet pair said.

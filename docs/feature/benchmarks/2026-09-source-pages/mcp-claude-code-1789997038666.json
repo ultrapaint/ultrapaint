@@ -75,11 +75,11 @@
       "mcp": 2
     },
     "trace": [
-      "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
+      "cat ~/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
       "ToolSearch",
       "mcp__ultrapaint__focus",
       "mcp__ultrapaint__get_component",
-      "cat > /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/in"
+      "cat > ~/Code/ultrapaint/ultrapaint/docs/bench-designs/in"
     ],
     "agent": "claude-code"
   },
@@ -116,7 +116,7 @@
       "mcp__ultrapaint__list_components",
       "mcp__ultrapaint__get_component",
       "mcp__ultrapaint__get_component",
-      "sed -n 1,200p /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/apps/web/src/",
+      "sed -n 1,200p ~/Code/ultrapaint/ultrapaint/apps/web/src/",
       "grep -rl \"FieldGroup\" apps/web/src --include=*.tsx | grep -v \"ui/field.tsx\" | he",
       "grep -rl \"FieldGroup\" apps/web/src | grep -v \"ui/field\" | head -20; echo \"---CAR",
       "sed -n 1,120p apps/web/src/panels/save-config.tsx",

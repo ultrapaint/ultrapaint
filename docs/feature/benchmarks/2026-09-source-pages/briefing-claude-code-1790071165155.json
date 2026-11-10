@@ -25,7 +25,7 @@
       "execute": 28
     },
     "trace": [
-      "ls -la /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs 2",
+      "ls -la ~/Code/ultrapaint/ultrapaint/docs/bench-designs 2",
       "ls apps/web/src/components | head -50 && echo \"---PKG---\" && cat apps/web/packag",
       "find docs/bench-designs -type f | head -20 && echo \"---UI---\" && ls apps/web/src",
       "cat apps/web/src/components/ui/card.tsx 2>/dev/null | head -60",

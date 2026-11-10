@@ -32,6 +32,9 @@ Two things start an agent without a prompt of the person's at that moment, and b
   `agent.prompt` (`apps/server/src/agent-prompts.test.ts`). A new one is added there with its
   reason, or it fails.
 
+  Added 2026-11-10: the editor's list holds each call of `threads.sendQueued` too, which sends a
+  prompt the person queued.
+
 ## Consequences
 
 - A feature that wants an agent's work without the person's prompt (a setup, a sync, a check on

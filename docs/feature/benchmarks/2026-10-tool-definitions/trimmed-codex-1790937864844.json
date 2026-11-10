@@ -3,7 +3,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.apply_operations: ",
       "mcp.ultrapaint.get_screenshot: "
     ],
@@ -34,11 +34,11 @@
       "think": 11
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.list_templates",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -63,7 +63,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.apply_operations: ",
       "mcp.ultrapaint.get_screenshot: "
     ],
@@ -93,7 +93,7 @@
       "execute": 1
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_document_format",
       "mcp.ultrapaint.list_templates",
       "mcp.ultrapaint.get_component",
@@ -102,7 +102,7 @@
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "mcp.ultrapaint.create_page",
       "Guardian Review",
@@ -124,7 +124,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.get_screenshot: "
     ],
     "failure": null,
@@ -153,10 +153,10 @@
       "think": 6
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.get_component",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -172,7 +172,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.get_screenshot: "
     ],
     "failure": null,
@@ -200,7 +200,7 @@
       "think": 5
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_component",
       "Guardian Review",
       "mcp.ultrapaint.read_page",
@@ -217,7 +217,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.apply_operations: ",
       "mcp.ultrapaint.get_screenshot: "
     ],
@@ -247,12 +247,12 @@
       "think": 14
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -282,7 +282,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.get_screenshot: "
     ],
     "failure": null,
@@ -311,13 +311,13 @@
       "think": 13
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.list_templates",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -344,7 +344,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.get_screenshot: "
     ],
     "failure": null,
@@ -373,7 +373,7 @@
       "think": 6
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "Guardian Review",
       "mcp.ultrapaint.list_pages",
@@ -392,7 +392,7 @@
     "agent": "codex",
     "arm": "trimmed",
     "failed": [
-      "Read file '/home/naf/.codex/RTK.md': ",
+      "Read file '~/.codex/RTK.md': ",
       "mcp.ultrapaint.get_screenshot: "
     ],
     "failure": null,
@@ -422,12 +422,12 @@
       "execute": 1
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.list_pages",
       "Guardian Review",
       "Guardian Review",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "mcp.ultrapaint.create_page",
       "Guardian Review",

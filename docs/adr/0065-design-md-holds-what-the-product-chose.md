@@ -10,7 +10,7 @@ system in prose, and an agent is told its conventions come first where the two d
 repository's DESIGN.md had taken in rules the skill already states for every product: an empty
 panel's one action, a primary that stays pressable, a tooltip on an icon button, one meaning for a
 row's click, the neutral Badge. They came from a redesign's brief (gap p01) and from corrections
-written there because the skill changes only on the lab's evidence (eb7dde4, gaps g01–g04). Copied,
+written there because the skill changes only on the lab's evidence (2026-11-04, gaps g01–g04). Copied,
 each lost its condition, and the copy outranked the rule it came from: two of three reviewers of
 the onboarding screens asked to drop the empty canvas's second way to fill it on the flat "one
 action" alone, where the skill says "one action that fills it" and lets the likely one lead.

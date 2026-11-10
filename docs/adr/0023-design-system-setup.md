@@ -1,11 +1,16 @@
 # ADR 0023: A design system is set up in steps the user sees, stops and redoes
 
 Status: accepted, 2026-10-06. Builds on 0015 (the design system is imported by an agent).
-Amended 2026-10-26 by [PLAN-desktop](../plans/PLAN-desktop.md) Phase 0.4: the snapshots are kept in the
+Amended 2026-10-26 by [PLAN-desktop](../plans/done/PLAN-desktop.md) Phase 0.4: the snapshots are kept in the
 tool's own snapshot store, the code's files are listed by a walk that reads `.gitignore`, and no
 git is needed (see the amendment at the end).
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the inventory has no plain elements (the editor's catalogue is not the repository's library); a step's moves are one pure rule.
+>
+> Amended by [0062](0062-a-new-person-starts-from-a-prompt-or-a-project.md), 2026-11-05: the
+> setup dialog goes; the steps start from the Design system tab, whose bar makes the project's
+> own system from the code, a new look or Figma, and making it from the code is an agent chat in
+> the Agents list.
 
 ## Context
 

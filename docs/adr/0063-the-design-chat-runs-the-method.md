@@ -2,7 +2,12 @@
 
 Status: accepted, 2026-11-06; amended the same day by the lab (the lighter review, below). Builds on 0060 (the council) and 0061 (checks before reviews), and
 replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
-`docs/plans/PLAN-design-chat.md`, mocks in `docs/plans/design-chat/`.
+`docs/plans/done/PLAN-design-chat.md`, mocks in `docs/plans/done/design-chat/`.
+
+> Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
+> keeping the findings is the person's choice, in their profile (Settings › Preferences › Keep
+> findings) and for every project, where this kept it in the project's `review` settings; a
+> project's `review.findingsLog` still turns it on.
 
 ## Context
 

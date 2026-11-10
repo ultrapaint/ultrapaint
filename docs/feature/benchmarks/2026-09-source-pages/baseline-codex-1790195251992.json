@@ -28,7 +28,7 @@
       "edit": 2
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g 'AGENTS.md' -g 'package.json' -g '*route*' -g '*page*' -g '*A",
       "rtk proxy cat package.json apps/web/package.json README.md",
       "rtk git status --short",
@@ -76,7 +76,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g 'AGENTS.md' -g '*button*' -g '*Button*' -g '*page*' -g '*home",
       "rtk git status --short",
       "rtk rg --files apps/web/src",
@@ -121,7 +121,7 @@
     },
     "trace": [
       "pwd && rg --files -g 'AGENTS.md' -g 'package.json' -g '*route*' -g '*settings*' ",
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "rtk proxy cat AGENTS.md apps/web/package.json package.json",
       "rtk --files apps/web/src",
       "rtk git status --short",
@@ -169,7 +169,7 @@
     },
     "trace": [
       "pwd; rg --files -g 'AGENTS.md' -g '*home*' -g '*index*' -g '*page*' -g 'package.",
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "rtk proxy cat AGENTS.md package.json; rtk git status --short; rtk proxy ls -a",
       "rtk proxy ls -R apps/web/src/pages; rtk proxy cat apps/web/src/main.tsx; rtk rg ",
       "rtk proxy cat docs/bench-designs/index.tsx; rtk proxy ls -la docs/bench-designs;",

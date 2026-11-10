@@ -1,8 +1,15 @@
 # ADR 0061: A design is checked before it is reviewed
 
-Status: proposed, 2026-11-05. Amends ADR 0060, whose council stays. A design round compares this
+Status: accepted, 2026-11-10, as far as it is built: the checks (the lab's `measure`, the
+`design-checks` package since 2026-11-10) and the council's rounds (`eachRound`, `signOff`), which
+0063 took to the editor; the outline step and the checks at each edit are not built yet.
+Proposed 2026-11-05. Amends ADR 0060, whose council stays. A design round compares this
 with the council every round (step 4 of `docs/plans/PLAN-review-loop.md`) before the editor is
 built for it.
+
+> Amended by [0063](0063-the-design-chat-runs-the-method.md), 2026-11-06: in the editor the
+> settings are a review level (Off, Quick, Standard, Thorough, Custom) per project and per
+> design, the person's own default waiting; a review is a first look and a second at most.
 
 ## Context
 

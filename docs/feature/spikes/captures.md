@@ -2,8 +2,8 @@
 
 Run on 2026-10-26 on the Linux reference machine, as Phase 6 of `docs/plans/done/PLAN-editor-renderer.md`,
 on top of ADR 0034 (frames in the editor's page). Not merged: main stays on drawing the
-components live. The code is on the branch `experiment/captures` (e844d7f, pushed); it is copied
-below so this note stands without the branch.
+components live. The code is on the branch `experiment/captures` (its commit of 2026-10-26,
+pushed); it is copied below so this note stands without the branch.
 
 ## What it does
 
@@ -53,8 +53,8 @@ Captures last for the session: nothing is written to disk.
 
 If canvases of fifty pages and more become common, or the first paint of a project opened
 matters: as a first-paint cache that goes live when idle, persisted under the cache directory
-with the server's hash of the components. `git cherry-pick e844d7f` onto main is the starting
-point (it touches `preview-core/frame.ts`, `framework-api/browser.ts`, `web/canvas/frame.tsx`
+with the server's hash of the components. Cherry-picking that commit of the branch onto main is
+the starting point (it touches `preview-core/frame.ts`, `framework-api/browser.ts`, `web/canvas/frame.tsx`
 and the bench, and adds `preview-core/captures.ts`, its test and `web/canvas/captures-flag.ts`).
 The debug handle `globalThis.__edCaptures` lists the captures, the misses (instances a page
 could not be drawn without) and the timings of capturing and building.
@@ -340,8 +340,8 @@ export const buildStatic = (input: StaticInput): DocumentFragment | null => {
 };
 ```
 
-How the frame, the editor and the bench use it, against main at the time (`git diff d8bf755
-e844d7f`):
+How the frame, the editor and the bench use it, against main at the time (the branch's commit of
+2026-10-26 against its parent):
 
 ```diff
 diff --git a/apps/web/src/canvas/captures-flag.ts b/apps/web/src/canvas/captures-flag.ts

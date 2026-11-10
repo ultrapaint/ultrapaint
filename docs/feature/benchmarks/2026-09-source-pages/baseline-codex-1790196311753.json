@@ -29,7 +29,7 @@
     },
     "trace": [
       "pwd && rg --files -g 'AGENTS.md' -g 'package.json' -g '*route*' -g '*page*' -g '",
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "rtk proxy sh -c 'cat AGENTS.md; cat package.json; ls -a; cat apps/web/package.js",
       "rtk proxy sh -c 'cat README.md; rg --files apps/web/src | head -35; git status -",
       "rtk proxy sh -c 'cat apps/web/src/pages/billing.tsx; rg --files docs | head -30;",
@@ -72,7 +72,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g 'AGENTS.md' -g '*button*' -g '*Button*' -g '*page*' -g '*inde",
       "rtk cat AGENTS.md apps/web/src/components/ui/button.tsx apps/web/package.json pa",
       "rtk rg --files apps/web/src",
@@ -115,7 +115,7 @@
     },
     "trace": [
       "pwd; rg --files -g AGENTS.md -g package.json -g '*route*' -g '*settings*' -g '*i",
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "rtk proxy sh -c 'cat AGENTS.md; cat package.json; cat apps/web/package.json; cat",
       "rtk proxy sh -c 'cat apps/web/src/main.tsx; cat apps/web/src/components/ui/input",
       "rtk proxy pnpm -F @ultrapaint/web typecheck",
@@ -150,7 +150,7 @@
       "edit": 2
     },
     "trace": [
-      "pwd; cat /Users/alessandro.narciso/.codex/RTK.md; rg --files -g 'AGENTS.md' -g '",
+      "pwd; cat ~/.codex/RTK.md; rg --files -g 'AGENTS.md' -g '",
       "rtk proxy sh -c 'cat AGENTS.md; git status --short; ls -a; rg --files apps/web/s",
       "rtk proxy sh -c 'cat apps/web/src/main.tsx; cat apps/web/src/pages/pricing.tsx; ",
       "rtk proxy sh -c 'rg -n \"closest|HTMLAnchor|navigateTo|_router|bench-designs\" pac",

@@ -1,7 +1,12 @@
 # Plan: designs reviewed inside their loop, by reviewers the person picks
 
-Status: proposed, 2026-11-04; amended 2026-11-05. Decisions in ADR 0060 (the council) and ADR
-0061 (checks before reviews). Builds on 0059 (gaps measured by recall).
+Status: in progress, as of 2026-11-10; proposed 2026-11-04, amended 2026-11-05. Decisions in
+ADR 0060 (the council) and ADR 0061 (checks before reviews), both accepted. Builds on 0059 (gaps
+measured by recall). Shipped: phases 1 and 2, the skill's review role (phase 4), the editor's
+review loop and its settings (phase 5, built as ADR 0063 from
+[PLAN-design-chat](done/PLAN-design-chat.md)) and triage (phase 6, ADR 0066). Open: the
+experiment (3), the outline step (4), the checks at each edit and the other harnesses (5), trim
+and the benchmark (6). Each phase says which below.
 
 ## Why
 
@@ -44,6 +49,9 @@ different problems), and every finding kept so the skill learns from them.
    and `measure`, not by reviewers alone; with each arm's tokens and time.
 4. **The skill.** Its outline step and checklist, its review role (categories, severity, rule, sign-off, read-only) and the
    step that answers reviews, shipped when phase 2 shows the loop helps.
+   - Shipped, 2026-11-08 (ADR 0069): the review role is the core's job "Reviewing a design", and
+     step 6 of a screen's job answers the findings of a review made for it.
+   - Open: the outline step and its checklist.
 5. **Harnesses.** The checks at each edit in the editor's write tools (their results in the tool's
    answer, no new tool), a script of them in the skill for other harnesses. The review's
    settings (contracts' `ReviewSettings`) in the editor:
@@ -59,7 +67,22 @@ different problems), and every finding kept so the skill learns from them.
    headless reviewers on 2× crops in each theme, the turn-end backstop, the setting, the log), T3
    Code's delegation, Claude Code's subagents and CLIs, a `scripts/council` fallback in the skill;
    a stop hook where the harness has one, so the loop isn't skipped (gap p08).
+   - Shipped, 2026-11-06 (ADR 0063, amended by 0066): the editor's review loop, a server service
+     that at a design turn's end asks the round's review models in read-only sessions, on a
+     picture of each page as the editor draws it; Settings › Agents › Review as a review level
+     (Off, Quick, Standard, Thorough, Custom) with the review models, kept in
+     `ultrapaint.config.json` under `review`; the composer's Review chip for one design; the
+     findings log, turned on by Keep findings in the person's profile.
+   - Shipped, 2026-11-10: the rendered checks as a package of their own, `packages/design-checks`,
+     which the lab's `measure` runs and the editor can.
+   - Open: the checks at each edit in the editor's write tools and a script of them in the skill;
+     the review's settings as the person's own default; the request's words read into the
+     settings; when (End of turn · Each section) as a setting; 2× crops in each theme (see Open);
+     the council started by T3 Code's delegation, Claude Code's subagents and the CLIs, the
+     `scripts/council` fallback and a stop hook.
 6. **Triage** (issue #8), **trim** (issue #9) and **the benchmark** (issue #7), scored the same way.
+   - Shipped, 2026-11-06 (ADR 0066): triage, `pnpm evals triage`.
+   - Open: trim and the benchmark.
 
 ## Open
 

@@ -4,6 +4,11 @@ Status: accepted, 2026-11-06. Amends 0049 (the design skill's two jobs, now with
 words alone) and 0027 (DESIGN.md's sections, now with Content). Follows 0065 (DESIGN.md holds what
 the product chose).
 
+> Amended by [0069](0069-the-design-skill-is-a-core-and-its-references.md), 2026-11-08: the
+> words' files are `references/words/` (`voice.md`, `interface.md`, `pages.md`), and the steps
+> for a task that writes only the words are the core's, in `SKILL.md`; `references/content.md`,
+> `references/content/` and `studies/content.md` are gone. DESIGN.md's Content is as below.
+
 ## Context
 
 The design skill's words were one reference, `references/content.md`: the voice, a screen's

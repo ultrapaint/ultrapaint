@@ -29,10 +29,10 @@
       "execute": 1
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "Guardian Review",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "mcp.ultrapaint.get_component",
       "Guardian Review",
@@ -84,10 +84,10 @@
       "think": 10
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.list_pages",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",

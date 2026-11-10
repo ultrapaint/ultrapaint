@@ -74,7 +74,7 @@ Found while mapping the code for this plan; each is answered in the phase that m
   are the design system's or the neutral defaults (`look.ts`): `$color-sidebar`, `$color-brand`,
   `$color-rail` and `$shadow-*` resolve to nothing, so the older redesign pages lost their card
   fills (the new sketches use the neutral tokens and plain values). And every canvas image
-  answered 404 until `dfaa3b3` (the asset route joined the root to an absolute path).
+  answered 404 until 2026-10-30 (the asset route joined the root to an absolute path).
 
 ## Phases
 
@@ -336,7 +336,7 @@ Left under Padding, a note's part on a line of its own); and a frame's React roo
 right after the editor's commit rather than in it (`renderToCanvas`'s `unmount`), which ends the
 "synchronously unmount a root" warning on leaving or switching boards and the prototype. The
 bench's "Layers, open" (486 ms after Phase 6, 346 after Phase 4) was measured again interleaved
-against `b172574`, five runs each: 358 ms and 354 ms at the median, the first run of each server
+against an earlier commit, five runs each: 358 ms and 354 ms at the median, the first run of each server
 near 500 on both (Layers' chunk compiled by Vite the first time it is opened), so no regression.
 
 ### Phase 8: later, not now

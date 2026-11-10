@@ -27,8 +27,8 @@
       "mcp": 2
     },
     "trace": [
-      "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
-      "ls /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/",
+      "cat ~/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
+      "ls ~/Code/ultrapaint/ultrapaint/docs/bench-designs/",
       "ToolSearch",
       "grep -rl \"@ultrapaint/web\" apps/web/src --include=*.tsx | head -5",
       "mcp__ultrapaint__get_component",

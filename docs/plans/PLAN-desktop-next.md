@@ -1,8 +1,12 @@
 # Plan: the desktop app, what is left
 
-Status: proposed, 2026-10-26. Follows [PLAN-desktop](PLAN-desktop.md), whose Phases 0 to 3 are done
+Status: proposed, 2026-10-26. Follows [PLAN-desktop](done/PLAN-desktop.md), whose Phases 0 to 3 are done
 (ADR 0031). This plan holds its Phase 4, what building Phases 0 to 3 found, and the open
 questions. The revision history has a plan of its own ([PLAN-revision-history](PLAN-revision-history.md)).
+
+As of 2026-11-10: 6.6 and 7.2 are done, the app has its icon (4.3), 4.5 is overtaken, and Q5 and
+Q6 are answered for now by ADR 0051. Everything else below is open. Since ADR 0062 the
+"new-design dialog" of 4.4 and 6.4 is the start screen.
 
 ## What building it found
 
@@ -42,10 +46,14 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
       install, Node missing and present, each agent missing, downloaded, signed in, an API key, a
       new design, a project over SSH. The AppImage gets an icon and says what to install when
       libfuse2 is missing, or the deb becomes the recommended Linux package.
+      Shipped of it, 2026-11-09: the app's icon (`apps/desktop/resources/icon.png`), in every
+      package and on the window. The rest is open.
 - [ ] 4.4 Git identity (F6): the new-design dialog asks for a name and email when git is on and
       git has none, and sets them for that repository only.
 - [ ] 4.5 The starter's specs (F7): every starter component gets its spec when the project is
       written, before the first commit.
+      Overtaken, 2026-10-29: specs went with ADR 0041 (one component file each, the system
+      components the editor's own), and the starter writes none. Nothing left to do here.
 - [ ] 4.6 The watcher (F11): a page in a folder made after the server started is picked up.
 - [ ] 4.7 The snapshot store's limit (F13): a size cap in settings, the oldest unreferenced
       objects collected first; the first snapshot skips files over a size (assets stay).
@@ -99,7 +107,7 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
 | Q2 | Claude sign-in for people without Claude Code | API key only (now); ask Anthropic for approval to offer claude.ai sign-in | API key now, ask before a release aimed at designers |
 | Q3 | Storage without a local repository | A free hosted version keeping the work in the browser's storage; a GitHub integration (designs in a repository, read and written through the API); nothing | Both need the preview and the agents somewhere: the browser cannot run the project's Vite or an agent CLI. A hosted version means a canvas without the real components, or a machine in the cloud. Leave it until the desktop app has users; the GitHub integration first if any, since it keeps designs as files in a repository |
 | Q4 | The Changes panel | Kept with git's status and diff; folded into History ([PLAN-revision-history](PLAN-revision-history.md) Phase 4); removed | Fold into History once revisions exist; until then, keep it as it is |
-| Q5 | macOS signing | An Apple Developer account (99 USD a year); unsigned builds opened with a right click | Unsigned while it is only you; an account before anyone else installs it |
-| Q6 | The Linux package | AppImage, deb, both | Both, the deb recommended (it carries the AppArmor profile and depends on bubblewrap) |
+| Q5 | macOS signing | An Apple Developer account (99 USD a year); unsigned builds opened with a right click | Unsigned while it is only you; an account before anyone else installs it. ADR 0051 (2026-11-03) ships it unsigned, installed through the Homebrew tap; signing is 7.1 |
+| Q6 | The Linux package | AppImage, deb, both | Both, the deb recommended (it carries the AppArmor profile and depends on bubblewrap). ADR 0051 (2026-11-03) ships both |
 | Q7 | Agent versions | Pinned (now: Claude Code 2.1.308, Codex 0.160.1, matched to the adapters); following the latest | Pinned, raised with the adapters in one change |
 | Q8 | The order of Phases 4 to 7 | As listed; releases (7) before machines without tools (5) | As listed: 4 makes it work elsewhere, 5 and 6 widen who it works for, 7 ships it |

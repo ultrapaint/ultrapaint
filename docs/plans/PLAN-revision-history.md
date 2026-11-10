@@ -1,7 +1,7 @@
 # Plan: a revision history
 
 Status: proposed, 2026-10-25. Builds on 0008 (checkpoints), 0019 (snapshots) and the snapshot
-store of [PLAN-desktop](PLAN-desktop.md) Phase 0.4. Its ADR is written with Phase 1.
+store of [PLAN-desktop](done/PLAN-desktop.md) Phase 0.4. Its ADR is written with Phase 1.
 
 ## Why
 

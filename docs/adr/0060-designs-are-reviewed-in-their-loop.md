@@ -1,12 +1,26 @@
 # ADR 0060: Designs are reviewed inside their loop, by reviewers the person picks
 
-Status: proposed, 2026-11-04; amended the same day with the council's score, goal and findings
-log. The timing (D5 in `docs/plans/PLAN-review-loop.md`) is measured before the editor is built.
+Status: accepted, 2026-11-10, as built: the lab's loop since 2026-11-04, the editor's by 0063,
+the triage by 0066. Proposed 2026-11-04; amended the same day with the council's score, goal and
+findings log. The timing (D5 in `docs/plans/PLAN-review-loop.md`) is measured before the editor
+is built.
+
+> Amended by [0061](0061-designs-are-checked-before-they-are-reviewed.md), 2026-11-05: the
+> council stays, and reviews after an outline and the checks, one member each round in turn and
+> the whole council to sign off by default.
+>
+> Amended by [0063](0063-the-design-chat-runs-the-method.md), 2026-11-06: in the editor the
+> council is the review models and signing off is approving; only blockers and majors go to the
+> designer, in a first look and a second, two rounds at most where this says six.
+>
+> Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
+> keeping the findings is the person's choice in their profile, for every project, and
+> `pnpm evals triage` turns the logged findings into gaps.
 
 ## Context
 
 The design skill ends with a step asking the designing agent to have a fresh agent review each
-section (6112aa4). Fresh reviewers find most of what a design gets wrong, but in a design round
+section (since 2026-11-04). Fresh reviewers find most of what a design gets wrong, but in a design round
 Claude in the editor never started one (0 of 6 runs) while Codex always did (gap p08): a step the
 agent may skip doesn't happen. A review at the end also comes after the design is built. Recall
 showed that reviewers on different models find partly different problems (Grok 4.7 55/100, Opus

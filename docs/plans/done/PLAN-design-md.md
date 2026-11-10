@@ -1,6 +1,6 @@
 # Plan: DESIGN.md in the open format, kept in step with the code
 
-Status: proposed, 2026-10-15. Decision in ADR 0027. Builds on 0024 (style systems) and 0025
+Status: done, all six phases (see Outcome); proposed 2026-10-15. Decision in ADR 0027. Builds on 0024 (style systems) and 0025
 (sync, values in the code, Figma matched against a baseline).
 
 ## Why
@@ -372,7 +372,7 @@ size. Deviations:
 
 ## Outcome
 
-All six phases are on `main`, a commit each after the ADR (`4012f93` to the phase 6 commit).
+All six phases are on `main`, a commit each after the ADR, all on 2026-10-15.
 
 - **Checked by tests.** The upstream examples round-trip byte for byte. A prose-only, a legacy
   and a Stitch-style DESIGN.md each go through Sync in `design-md.test.ts`. The panel was seen

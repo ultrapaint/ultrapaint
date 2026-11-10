@@ -46,6 +46,11 @@ release is made by hand: the **Release** workflow in the Actions tab raises the 
 
 ## Background
 
+Records of the first build, kept for their evidence. What they measured is superseded: screens
+are design documents, not TSX ([ADR 0015](adr/0015-design-documents.md)), and the canvas draws
+the editor's own components, not the repository's in iframes
+([ADR 0040](adr/0040-the-editors-own-primitives.md)).
+
 Storage verdict: [`docs/decisions/storage-format.md`](decisions/storage-format.md).
 Spike results: [`docs/feature/spikes/findings.md`](feature/spikes/findings.md).
 

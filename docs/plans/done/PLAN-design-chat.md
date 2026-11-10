@@ -1,7 +1,7 @@
 # Plan: the design chat, an assistant that designs, checks and gets reviewed
 
 Status: accepted, 2026-11-06, and built: ADR 0063. Builds on ADR 0060 (the council) and 0061
-(checks before reviews), and replaces the UI part of `PLAN-review-loop.md` phase 5 ("Harnesses"); the
+(checks before reviews), and replaces the UI part of `docs/plans/PLAN-review-loop.md` phase 5 ("Harnesses"); the
 rest of that plan stands.
 
 Mocks, in this folder: `design-chat/review-and-agents-settings.html` (frames 1–6: the Review
@@ -131,7 +131,7 @@ Told in the briefing to a design thread, measured on the lab's rounds before it 
 | C5 | Where the review runs | A server service started at the end of a design turn that edited pages, the reviewers headless ACP sessions in a read-only sandbox, their findings the designer's next prompt. The designer is never asked to start it (gap p08) |
 | C6 | The run card | Drawn by the editor from what the transcript already holds (the agent's plan entries, its tool calls, the check results in them) and a new `review` item per round; no new tool for the agent, the MCP budget being tight |
 | C7 | Mode in the trigger | Its icon always; name and description in the menu |
-| C8 | What "Standard" means | Rotate and all, ADR 0061's defaults, until step 4 of `PLAN-review-loop.md` (after 2026-11-09) says otherwise; the levels are re-measured then |
+| C8 | What "Standard" means | Rotate and all, ADR 0061's defaults, until step 4 of `docs/plans/PLAN-review-loop.md` (after 2026-11-09) says otherwise; the levels are re-measured then |
 
 ## Contracts and data
 
@@ -165,7 +165,7 @@ Told in the briefing to a design thread, measured on the lab's rounds before it 
   - **Reviewers**: `reviewersOfRound` picks them; each a fresh ACP session through `AcpAgent`,
     its model and effort set, the sandbox read-only for the whole repository (a profile
     `packages/acp/sandbox.ts` gains), told the skill's review role
-    (`PLAN-review-loop.md` phase 4) and answering in `Finding`'s schema. Five minutes, then
+    (`docs/plans/PLAN-review-loop.md` phase 4) and answering in `Finding`'s schema. Five minutes, then
     "No score" and the next model in turn takes the round.
   - **Score and stop**: `sectionScore`, `pageScore`, `verdictOf`; a `review` item per round,
     updated as reviewers answer.
@@ -217,7 +217,7 @@ it does something); 5 needs 3; 6 can start after 1.
 
 - Reading review settings from the request's words ("Opus and Grok, until 90") into the chip.
 - The user layer of settings (C3).
-- The outline's checklist and the review role in the skill: `PLAN-review-loop.md` phase 4,
+- The outline's checklist and the review role in the skill: `docs/plans/PLAN-review-loop.md` phase 4,
   after its experiment. Until then the run card shows Outline only when the agent writes one.
 - The checks at each edit in the write tools (that plan's phase 5): Build's "fixed by checks"
   appears once they report.

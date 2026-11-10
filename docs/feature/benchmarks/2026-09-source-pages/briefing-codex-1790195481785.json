@@ -28,7 +28,7 @@
       "edit": 2
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g 'AGENTS.md' -g '*css' -g '*card.tsx' -g '*button.tsx' -g 'pac",
       "rtk proxy sh -c 'find docs -name AGENTS.md; ls -la docs/bench-designs; cat apps/",
       "rtk proxy sh -c 'cat apps/web/package.json; head -100 apps/web/src/styles.css; c",
@@ -67,7 +67,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g AGENTS.md -g 'index.tsx' -g 'button.tsx' docs apps/web/src/co",
       "rtk proxy cat apps/web/src/components/ui/button.tsx",
       "rtk proxy find docs -name AGENTS.md",
@@ -104,7 +104,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd && rg --files -g 'AGENTS.md' -g '*input*' -g '*label*' -g '*button*' -g '*se",
       "rtk proxy sh -c 'find docs -name AGENTS.md; cat apps/web/src/panels/settings.tsx",
       "rtk proxy sh -c 'cat apps/web/src/components/ui/button.tsx; cat package.json; ca",
@@ -140,7 +140,7 @@
       "edit": 1
     },
     "trace": [
-      "cat /Users/alessandro.narciso/.codex/RTK.md; pwd; rg --files -g AGENTS.md -g '*.",
+      "cat ~/.codex/RTK.md; pwd; rg --files -g AGENTS.md -g '*.",
       "rtk proxy sh -c 'for f in AGENTS.md docs/AGENTS.md docs/bench-designs/AGENTS.md;",
       "rtk rg -n \"function Link|export.*Link|to: string|href: string\" packages/framewor",
       "Editing files",

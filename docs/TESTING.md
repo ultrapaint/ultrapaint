@@ -51,7 +51,7 @@ Pick the narrowest level that crosses the behaviour:
 | Module | a service on its layer, with the in-memory or scripted adapter at its seam: `ProjectTest`, `callTool`, the scripted agent, `fakeApi` and the stores, `createPreview` on the scripted renderer | flows, concurrency, what follows a change |
 | Request | the editor's RPC handlers over a test's own project through an in-memory client (`ProjectRpc`, `inAProject`), no socket, on the test clock | what an editor request does end to end inside the server |
 | Wire | the server over its socket (`TestServer`) | only what the wire does: schema rejection, the origin and token guards, event streaming, health |
-| End to end | `pnpm e2e:sandbox`, a real agent | by hand, out of CI |
+| End to end | the editor in a headless Chrome (`pnpm bench:canvas`), a real agent (`pnpm evals round`) | by hand, out of CI |
 
 A behaviour that crosses no wire is not tested over the socket.
 

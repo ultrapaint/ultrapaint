@@ -28,14 +28,14 @@
       "execute": 2
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_document_format",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "mcp.ultrapaint.create_page",
       "Guardian Review",
@@ -81,7 +81,7 @@
       "execute": 2
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_document_format",
       "Guardian Review",
       "mcp.ultrapaint.get_component",
@@ -91,7 +91,7 @@
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.read_design_system",
       "mcp.ultrapaint.get_document_format",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -143,10 +143,10 @@
       "think": 6
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.read_page",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -187,10 +187,10 @@
       "think": 6
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.get_component",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -232,12 +232,12 @@
       "think": 14
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_document_format",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",
@@ -293,13 +293,13 @@
       "think": 14
     },
     "trace": [
-      "Read file '/home/naf/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_component",
       "mcp.ultrapaint.get_document_format",
-      "cat /home/naf/.codex/RTK.md",
+      "cat ~/.codex/RTK.md",
       "Guardian Review",
       "Guardian Review",
       "Guardian Review",

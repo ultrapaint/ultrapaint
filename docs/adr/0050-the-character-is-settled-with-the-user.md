@@ -3,6 +3,11 @@
 Status: accepted, 2026-11-03. Amends 0049 (a project with no system, the taste rules). Amended by
 0054 (the dials in an extracted Overview).
 
+> Amended by [0062](0062-a-new-person-starts-from-a-prompt-or-a-project.md), 2026-11-05: a thread
+> drawing in an opened project with no design system writes none: its pages are drawn in the
+> default look, the agent says so once, and the person makes the system when they choose. A new
+> project still gets one, its look picked by the agent or by the person.
+
 ## Context
 
 The character (technical, humanistic, expressive) set the dials every reference leaves open, but

@@ -55,7 +55,7 @@
       "grep -rn \"components/ui/card\\|components/ui/button\" apps/web/src | head -5; echo",
       "mkdir -p docs/bench-designs && cat > docs/bench-designs/pricing.tsx <<'EOF'\nimpo",
       "npx biome check docs/bench-designs/pricing.tsx 2>&1 | tail -40",
-      "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/apps/web && npx tsc --no",
+      "cd ~/Code/ultrapaint/ultrapaint/apps/web && npx tsc --no",
       "./node_modules/.bin/tsc --noEmit --skipLibCheck --jsx react-jsx --module esnext ",
       "command -v node; echo \"---\"; ls ~/.local/share/mise/installs/node 2>/dev/null; l",
       "ls /opt/homebrew/opt/node*/bin/node 2>/dev/null; ls /usr/local/bin/node 2>/dev/n",
@@ -66,7 +66,7 @@
       "ls node_modules/@types 2>/dev/null | head; cat tsconfig.json",
       "cat > tsconfig.pricing-check.json <<'EOF'\n{\n  \"extends\": \"./tsconfig.json\",\n  \"c",
       "cp ../../docs/bench-designs/pricing.tsx src/__pricing-check.tsx && cat > tsconfi",
-      "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint && pwd && git status --s"
+      "cd ~/Code/ultrapaint/ultrapaint && pwd && git status --s"
     ],
     "agent": "claude-code"
   }

@@ -8,17 +8,18 @@ Build a local-first design tool for teams that work with coding agents.
   work is saved to files and folders inside that repository, configurable in settings,
   so design and front-end code are versioned together and can ship in the same PR.
 
-- **A Figma-like editor whose canvas is the real web UI.** The layout is familiar from
+- **A Figma-like editor whose canvas is real web UI.** The layout is familiar from
   Figma: a toolbar, a layers panel on the left, a property inspector on the right, and a
   canvas in the middle. But the canvas is not a vector document. It renders our screens
-  with our own design system — its theme and its React components — live and clickable.
+  as HTML with our own design system: its tokens, and the editor's own components drawn in
+  its look, live and clickable ([ADR 0040](adr/0040-the-editors-own-primitives.md)).
   There is no pixel-perfect drawing surface.
 
 - **An infinite, navigable canvas with many screens at once.** The canvas pans and zooms
   like Figma. Multiple screens sit side by side on the same surface so a whole flow or
   wizard can be seen and worked on together, not one screen at a time. Each screen is
-  still the real React UI. Behind the scenes this is web rendering, with each screen
-  positioned and scaled on the surface, not a pixel canvas.
+  still real web UI, drawn in the editor's page. Behind the scenes this is web rendering,
+  with each screen positioned and scaled on the surface, not a pixel canvas.
 
 - **Canvases, as Figma has pages.** Wireframes, components, logos, a second version of the
   application: each is a canvas of its own, with its own pages and routes, listed above the
@@ -37,9 +38,10 @@ Build a local-first design tool for teams that work with coding agents.
   design system's tokens where it has them, component props are the component's own,
   and the canvas updates immediately.
 
-- **Design with our real components.** Screens are composed from our design system, not
-  generated HTML. Component props are editable in the inspector, and the design system
-  is the palette for inserting new elements.
+- **Design with components.** Screens are composed from components, not loose HTML: system
+  components, the editor's own, and app components, the project's own, one file each
+  ([ADR 0041](adr/0041-system-and-app-components.md)). Their properties are editable in the
+  inspector, and the Library is the palette for inserting them.
 
 - **Agent-native through ACP.** Agents connect over the Agent Client Protocol (ACP), so
   the tool has one agnostic agent API and no provider-specific integration code. Claude
@@ -65,9 +67,9 @@ Build a local-first design tool for teams that work with coding agents.
 
 - **Web UI and backend are strictly separated.** The editor is a pure web application
   that talks to a local backend over a well-defined API. The backend owns everything
-  that touches the machine: the repository filesystem, git where there is one, the dev server for the
-  preview, code parsing and edits, agent processes, and credentials. The web UI never
-  accesses these directly.
+  that touches the machine: the repository filesystem, git where there is one, the design
+  documents and the design system's files, the code's tokens, agent processes, and
+  credentials. Nothing of the repository's runs. The web UI never accesses these directly.
 
 - **Follow the T3 Code repository structure.** T3 Code already solves this split for a
   local agent tool: a web app and a local server sharing one codebase. During
@@ -90,14 +92,17 @@ Build a local-first design tool for teams that work with coding agents.
   authentication and model lists stay in a thin per-agent launch configuration. Nothing
   above the ACP layer knows which agent is running.
 
+- **The editor is an MCP server.** Its tools tell the agents in its threads, and an agent
+  outside it, what the project is and where they are working, and draw them a picture of it
+  ([ADR 0014](adr/0014-editor-mcp.md), [0022](adr/0022-mcp-2026-and-asking-the-user.md)).
+
+- **A Figma file is imported.** A `.fig` file's frames become pages and its variables
+  tokens ([ADR 0016](adr/0016-figma-import.md)).
+
 ## Future
 
-- **Figma interchange.** Export screens to `.fig` and import from `.fig` files, if the
-  tool proves itself. The architecture should not prevent it.
-
-- **MCP.** Expose the editor to external agents as an MCP server, and let agents use
-  MCP servers inside threads. Not part of the first build; ACP covers the agent
-  connection until then.
+- **Figma export.** Export screens to `.fig`, if the tool proves itself. The architecture
+  should not prevent it.
 
 ## What it is not
 

@@ -28,7 +28,7 @@
       "mcp": 5
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "mcp.ultrapaint.get_context",
       "mcp.ultrapaint.read_page",
       "mcp.ultrapaint.get_component",

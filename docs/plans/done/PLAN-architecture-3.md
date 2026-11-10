@@ -1134,7 +1134,7 @@ None open.
     never been drawn: the frames are drawn a few at a time, and `open` waited only for those
     already on the canvas, so whether the window's frame was among them varied (the flaky width
     and scroll). StyleX was not `fs.allow`: its frame was among those never drawn, and Vite
-    serves its runtime pre-bundled. Since step 14 (b61e8d5, found by running each commit's e2e
+    serves its runtime pre-bundled. Since step 14 (2026-10-28, found by running each commit's e2e
     against the same dependencies) `reveal({ page: undefined })` waits for no frame and the
     checks passed without the camera ever moving, the hotkey's and the loop's frames happening to
     be on the screen. Fixed in the check: `zoomToPage` is given the page (as `bench:canvas`

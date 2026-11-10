@@ -51,7 +51,7 @@
       "ls docs/bench-designs/_router.tsx 2>/dev/null || node --experimental-strip-types",
       "command -v -p node; ls ~/.local/share/mise/installs/node 2>/dev/null; echo $PATH",
       "ls -l /opt/homebrew/bin/node /usr/local/bin/node 2>/dev/null; /opt/homebrew/bin/",
-      "ls /Users/alessandro.narciso/.local/share/mise/installs/node/*/bin/node /Users/a",
+      "ls ~/.local/share/mise/installs/node/*/bin/node ~",
       "python3 - <<'PY'\nimport re, pathlib\nsrc = pathlib.Path(\"packages/framework-react",
       "sed -n 30,45p docs/bench-designs/_router.tsx; echo \"=== tail ===\"; tail -25 docs"
     ],

@@ -3,6 +3,15 @@
 Status: accepted, 2026-11-02. Amends 0046 (the briefing's default, which it left at `full` until
 the design evals agreed) and 0043 (what an agent reads says each thing once).
 
+> Amended by [0049](0049-the-design-skill-has-two-jobs.md), 2026-11-03: the router names two
+> jobs, a screen and its design system.
+>
+> Amended by [0069](0069-the-design-skill-is-a-core-and-its-references.md), 2026-11-08:
+> `SKILL.md` is a core that holds every rule and the steps, where it was a router; its references
+> are a file per kind of screen or page and per topic (`references/kinds/`, `pages/`, `system/`,
+> `words/`), where they were one per part; the per-part built-in skills, their replace and extend
+> files and their toggles are retired, and `skills.briefing: "router"` tells the core.
+
 ## Context
 
 The design skills were eighteen skills, `skills/design/<name>/SKILL.md`, each with references of

@@ -95,7 +95,7 @@
       "mcp__ultrapaint__focus",
       "mcp__ultrapaint__apply_operations",
       "ToolSearch",
-      "grep -rn \"border\" /home/naf/Code/ultrapaint/packages/contracts/src/*.ts | grep ",
+      "grep -rn \"border\" ~/Code/ultrapaint/packages/contracts/src/*.ts | grep ",
       "grep -n \"Border\" -A 14 packages/contracts/src/document.ts | sed -n '1,60p'",
       "mcp__ultrapaint__apply_operations",
       "mcp__ultrapaint__set_frame",

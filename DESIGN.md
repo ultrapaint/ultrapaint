@@ -1,30 +1,30 @@
 ---
 colors:
-  background: oklch(0.175 0.004 70)
-  foreground: oklch(0.965 0.003 80)
-  muted-foreground: oklch(0.67 0.008 75)
-  primary: oklch(0.56 0.2 263)
+  background: oklch(0.99 0.001 80)
+  foreground: oklch(0.21 0.006 60)
+  muted-foreground: oklch(0.53 0.01 65)
+  primary: oklch(0.53 0.21 263)
   primary-foreground: oklch(0.99 0 0)
-  brand: oklch(0.56 0.2 263)
+  brand: oklch(0.53 0.21 263)
   brand-foreground: oklch(0.99 0 0)
-  secondary: oklch(0.28 0.004 70)
-  secondary-foreground: oklch(0.965 0.003 80)
-  muted: oklch(0.255 0.004 70)
-  accent: oklch(0.285 0.004 70)
-  accent-foreground: oklch(0.965 0.003 80)
-  card: oklch(0.235 0.004 70)
-  popover: oklch(0.245 0.005 70)
-  border: oklch(1 0 0 / 8%)
-  input: oklch(1 0 0 / 13%)
-  ring: oklch(0.66 0.17 263)
-  destructive: oklch(0.68 0.18 25)
-  success: oklch(0.74 0.15 155)
-  warning: oklch(0.82 0.14 78)
-  canvas: oklch(0.165 0.004 70)
-  board: oklch(0.185 0.018 262)
-  sidebar: oklch(0.222 0.004 70)
-  rail: oklch(0.176 0.004 70)
-  selection: "#4f8cff"
+  secondary: oklch(0.945 0.003 80)
+  secondary-foreground: oklch(0.21 0.006 60)
+  muted: oklch(0.955 0.003 80)
+  accent: oklch(0.935 0.004 80)
+  accent-foreground: oklch(0.21 0.006 60)
+  card: oklch(1 0 0)
+  popover: oklch(1 0 0)
+  border: oklch(0.21 0.006 60 / 10%)
+  input: oklch(0.21 0.006 60 / 16%)
+  ring: oklch(0.53 0.21 263)
+  destructive: oklch(0.55 0.21 27)
+  success: oklch(0.6 0.15 155)
+  warning: oklch(0.7 0.15 70)
+  canvas: oklch(0.945 0.004 80)
+  board: oklch(0.95 0.012 262)
+  sidebar: oklch(0.995 0.001 80)
+  rail: oklch(0.955 0.004 80)
+  selection: "#3d7bff"
   component: "#8b5cf6"
   agent: "#ec4899"
 typography:
@@ -152,7 +152,7 @@ follows the system's unless the person picks one in Settings › Preferences.
   canvas, panel, card, popover. In light the panels are warm white over a paper-grey canvas.
 - Two text colours: {colors.foreground} for what is read first (names, values, titles, labels of
   actions); {colors.muted-foreground} for what qualifies it (sizes, routes, times, hints,
-  descriptions, placeholders, idle icons). Foreground 15:1, muted about 5:1 on a panel.
+  descriptions, placeholders, idle icons).
 - {colors.primary} (ultramarine) is the one colour of the chrome: the one primary button of a view,
   a checked switch or checkbox, the active tool, the focus ring. Never on headings, icons or rows.
 - Selected and hovered rows, the active tab, the current rail item: a neutral fill
@@ -234,13 +234,12 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - Tooltips: a short name and the keys, nothing more. No arrows.
 - An empty panel's state is centred in it, a muted icon above its text and buttons.
 - A hint about the selection ("Inserts into …") sits at the panel's foot.
-- A row's actions are in a ⋯ menu shown at rest, Delete apart at its end.
+- A row's actions are all in its ⋯ menu.
 - What can be undone runs at once with Undo in its toast; no confirm. A busy button shows a
   spinner and its verb ("Committing…").
 - List rows sit 2px apart, so their fills never touch; a row's keyboard focus is the 2px ring
   around the whole row. Checkboxes and off switches are edged in {colors.muted-foreground}; a
-  checkbox's focus is a 2px ring 2px off it. A name cut short has its full text in the row's
-  tooltip.
+  checkbox's focus is a 2px ring 2px off it.
 - A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
   its 10% tint; context muted.
 - A select in a settings row is its value and a chevron, filled only on hover; a field there is
@@ -250,8 +249,7 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   error names the place in the file in mono, never the validator's text. A notice takes the same
   place, muted, with a warning icon. A status that blocks the action (a conflict) is in the
   foreground with a warning dot.
-- Loading draws skeleton rows of every column at foreground 10%; a read that fails says so in
-  place, with Try again.
+- Skeleton rows are the foreground at 10%; a retry is named Try again.
 - A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
   28rem wide.
 - A section that applies at once has Done in its footer in place of Cancel and Save, and says

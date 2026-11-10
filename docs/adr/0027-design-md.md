@@ -1,7 +1,7 @@
 # ADR 0027: DESIGN.md follows the open standard, at the repository root, kept in step with the code both ways
 
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
-Plan: `docs/plans/PLAN-design-md.md`.
+Plan: `docs/plans/done/PLAN-design-md.md`.
 
 > Amended by [0067](0067-the-words-are-a-part-of-their-own.md), 2026-11-06: a Content section, the
 > product's choices for its words, is added before Do's and Don'ts.

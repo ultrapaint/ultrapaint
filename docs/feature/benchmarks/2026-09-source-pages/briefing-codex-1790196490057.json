@@ -27,7 +27,7 @@
       "execute": 7
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd; rg --files -g 'AGENTS.md' -g '*css' -g '*card.tsx' -g '*button.tsx' -g 'pac",
       "rtk proxy cat apps/web/src/pages/pricing.tsx apps/web/src/components/ui/card.tsx",
       "rtk proxy ls -la docs/bench-designs",
@@ -65,9 +65,9 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd && rg --files -g AGENTS.md -g 'index.tsx' -g 'button.tsx' docs apps/web/src/",
-      "Read file '/Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-desig",
+      "Read file '~/Code/ultrapaint/ultrapaint/docs/bench-desig",
       "rtk proxy cat apps/web/src/components/ui/button.tsx",
       "rtk proxy find docs -name AGENTS.md",
       "rtk git status --short",
@@ -104,7 +104,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "List files in 'web'",
       "rtk proxy cat apps/web/src/panels/settings.tsx apps/web/src/components/ui/input.",
       "rtk proxy sh -c 'find docs -name AGENTS.md; ls -la docs/bench-designs; cat packa",
@@ -142,7 +142,7 @@
       "edit": 1
     },
     "trace": [
-      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "Read file '~/.codex/RTK.md'",
       "pwd && rg --files -g AGENTS.md -g '*.tsx' docs/bench-designs && cat docs/bench-d",
       "rtk proxy sh -c 'for p in AGENTS.md docs/AGENTS.md docs/bench-designs/AGENTS.md;",
       "rtk rg -n 'function Link|const Link|LinkProps|_router.tsx' packages/framework-re",

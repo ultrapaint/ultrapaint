@@ -46,7 +46,7 @@ flows in two rounds and answered the open questions in a deck (`decisions/onboar
 
 - The welcome page, the new-design dialog and the canvas's starters are replaced; the setup
   dialog's choice moves to the Design system tab. The work is in slices,
-  `docs/plans/PLAN-onboarding.md`.
+  `docs/plans/done/PLAN-onboarding.md`.
 - The start screen has no server, so the chat's preferences (each agent's models as its sessions
   last offered them, the agent and model a new thread starts with) are the user's, in
   `~/.ultrapaint/chat/preferences.json`, not a project's: the start screen reads them through
