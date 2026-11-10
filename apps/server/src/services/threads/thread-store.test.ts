@@ -25,6 +25,45 @@ const storeIn = (home: string) =>
     )
   );
 
+const THREAD = {
+  agentId: "fake",
+  createdAt: 0,
+  id: "thread_a_00001",
+  status: "idle",
+  title: "A",
+  updatedAt: 0,
+} as const;
+
+/** The thread's file under `home`, as it is written now. */
+const storedIn = (home: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const json = yield* fs.readFileString(
+      path.join(home, "threads", `${THREAD.id}.json`)
+    );
+    return JSON.parse(json) as {
+      readonly items: readonly {
+        readonly id: string;
+        readonly text?: string;
+      }[];
+      readonly thread: { readonly title: string };
+    };
+  });
+
+/** Waits until `read` gives `wanted`: the write runs on real I/O after the clock moves. */
+const eventually = <A, E, R>(read: Effect.Effect<A, E, R>, wanted: A) =>
+  Effect.gen(function* () {
+    for (let i = 0; i < 2000; i += 1) {
+      const found = yield* read;
+      if (JSON.stringify(found) === JSON.stringify(wanted)) {
+        return;
+      }
+      yield* Effect.yieldNow;
+    }
+    assert.fail(`the thread file never said ${JSON.stringify(wanted)}`);
+  });
+
 describe("ThreadStore", () => {
   it.effect("removes a thread's file and nothing beside it", () =>
     Effect.gen(function* () {
@@ -58,104 +97,68 @@ describe("ThreadStore", () => {
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
         const home = yield* fs.makeTempDirectoryScoped();
-        const file = path.join(home, "threads", "thread_a_00001.json");
-        const written = Effect.map(
-          fs.readFileString(file),
-          (json) => JSON.parse(json).items[0]?.text
+        const text = Effect.map(
+          storedIn(home),
+          (stored) => stored.items[0]?.text
         );
-        /** The file once it says `text`: the write runs on real I/O after the clock moves. */
-        const writtenAs = (text: string) =>
-          Effect.gen(function* () {
-            for (let i = 0; i < 2000; i += 1) {
-              if ((yield* written) === text) {
-                return;
-              }
-              yield* Effect.yieldNow;
-            }
-            assert.fail(`the thread file never said ${text}`);
-          });
         yield* Effect.gen(function* () {
           const store = yield* ThreadStore;
-          yield* store.add({
-            agentId: "fake",
-            createdAt: 0,
-            id: "thread_a_00001",
-            status: "idle",
-            title: "A",
-            updatedAt: 0,
-          });
-          yield* store.push("thread_a_00001", {
+          yield* store.add(THREAD);
+          yield* store.push(THREAD.id, {
             at: 0,
             id: "item_1",
             kind: "agent",
             text: "a",
           });
-          assert.strictEqual(yield* written, "a");
-          const append = (text: string) =>
-            store.patchItem("thread_a_00001", "item_1", (item) =>
-              item.kind === "agent" ? { ...item, text: item.text + text } : item
+          const append = (chunk: string) =>
+            store.patchItem(THREAD.id, "item_1", (item) =>
+              item.kind === "agent"
+                ? { ...item, text: item.text + chunk }
+                : item
             );
           yield* append("b");
           yield* append("c");
-          assert.strictEqual(yield* written, "a");
+          assert.isUndefined(yield* text);
           yield* TestClock.adjust("250 millis");
-          yield* writtenAs("abc");
+          yield* eventually(text, "abc");
           yield* append("d");
         }).pipe(Effect.provide(storeIn(home)));
-        assert.strictEqual(yield* written, "abcd");
+        assert.strictEqual(yield* text, "abcd");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
   it.effect(
-    "reads a turn's usage written before it was ACP's, its cached input as cached reads",
+    "writes a turn's new items and the thread's changes together after a pause, and whatever is left when it closes",
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
         const home = yield* fs.makeTempDirectoryScoped();
-        yield* fs.makeDirectory(path.join(home, "threads"));
-        const usage = {
-          byModel: [{ model: "gpt", tokens: 30 }],
-          cachedInputTokens: 5,
-          inputTokens: 10,
-          outputTokens: 20,
-          totalTokens: 30,
-        };
-        yield* fs.writeFileString(
-          path.join(home, "threads", "thread_a_00001.json"),
-          JSON.stringify({
-            items: [
-              {
-                at: 0,
-                changedFiles: [],
-                id: "item_1",
-                kind: "turn_end",
-                stopReason: "end_turn",
-                usage,
-              },
-            ],
-            thread: {
-              agentId: "fake",
-              createdAt: 0,
-              id: "thread_a_00001",
-              status: "idle",
-              title: "A",
-              updatedAt: 0,
-            },
-          })
-        );
-        const [end] = yield* Effect.flatMap(ThreadStore, (store) =>
-          store.items("thread_a_00001")
-        ).pipe(Effect.provide(storeIn(home)));
-        assert.deepStrictEqual(end?.kind === "turn_end" && end.usage, {
-          byModel: [{ model: "gpt", tokens: 30 }],
-          cachedReadTokens: 5,
-          inputTokens: 10,
-          outputTokens: 20,
-          totalTokens: 30,
-        });
+        const said = Effect.map(storedIn(home), (stored) => [
+          stored.thread.title,
+          ...stored.items.map((item) => item.id),
+        ]);
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          const push = (id: string) =>
+            store.push(THREAD.id, { at: 0, id, kind: "agent", text: id });
+          yield* push("item_1");
+          yield* store.update(THREAD.id, { title: "B" });
+          yield* push("item_2");
+          // The thread as it was added: nothing since has been written yet.
+          assert.deepStrictEqual(yield* said, ["A"]);
+          yield* TestClock.adjust("250 millis");
+          yield* eventually(said, ["B", "item_1", "item_2"]);
+          yield* push("item_3");
+          yield* store.update(THREAD.id, { title: "C" });
+        }).pipe(Effect.provide(storeIn(home)));
+        assert.deepStrictEqual(yield* said, [
+          "C",
+          "item_1",
+          "item_2",
+          "item_3",
+        ]);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 

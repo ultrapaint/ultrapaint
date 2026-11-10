@@ -3,6 +3,7 @@ import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
+import { until } from "../testing/until.ts";
 import {
   type AgentWork,
   editedWork,
@@ -14,7 +15,7 @@ import {
 } from "./agents.ts";
 import { pick, sendAnswers, useAnswers } from "./answers.ts";
 import { addChip, useAttachments } from "./attachments.ts";
-import { followServer } from "./server-data.ts";
+import { caughtUp, followServer } from "./server-data.ts";
 
 vi.mock(
   "./connection.ts",
@@ -37,6 +38,32 @@ const said = (id: string, text: string): ThreadItem => ({
   kind: "agent",
   text,
 });
+
+/** A chunk of the reply `1` of thread `t`, added where its text was `offset` long. */
+const chunk = (offset: number, text: string) =>
+  ({ itemId: "1", offset, text, threadId: "t", type: "itemText" }) as const;
+
+/** What the editor holds of the reply `1` of thread `t`. */
+const reply = () => {
+  const item = useAgents.getState().items.t?.find((i) => i.id === "1");
+  return item?.kind === "agent" ? item.text : undefined;
+};
+
+const transcriptReads = () =>
+  fakeApi.calls.filter((c) => c.method === "threads.items").length;
+
+/** `threads.items` left unanswered until the test answers it. */
+const heldRead = () => {
+  let answer: (items: readonly ThreadItem[]) => void = () => undefined;
+  fakeApi.respond(
+    "threads.items",
+    () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      })
+  );
+  return (items: readonly ThreadItem[]) => answer(items);
+};
 
 type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
 
@@ -239,15 +266,42 @@ describe("the agent events", () => {
       items: { t: [other, said("1", "Hello ")] },
       threads: [thread("t")],
     });
-    fakeApi.emit("agent", {
-      itemId: "1",
-      text: "world",
-      threadId: "t",
-      type: "itemText",
-    });
+    fakeApi.emit("agent", chunk(6, "world"));
     const [kept, streamed] = useAgents.getState().items.t ?? [];
     expect(kept).toBe(other);
     expect(streamed).toEqual(said("1", "Hello world"));
+  });
+
+  it("takes a chunk told twice once", () => {
+    useAgents.setState({ items: { t: [said("1", "Hello ")] } });
+    fakeApi.emit("agent", chunk(6, "world"));
+    const once = useAgents.getState().items;
+    fakeApi.emit("agent", chunk(6, "world"));
+    expect(reply()).toBe("Hello world");
+    expect(useAgents.getState().items).toBe(once);
+  });
+
+  it("takes of a chunk only what it says past the end of the message", () => {
+    useAgents.setState({ items: { t: [said("1", "Hello wor")] } });
+    fakeApi.emit("agent", chunk(6, "world"));
+    expect(reply()).toBe("Hello world");
+  });
+
+  it("leaves a message as it is at a chunk that starts past its end, in a thread not open", () => {
+    useAgents.setState({ items: { t: [said("1", "Hello ")] } });
+    fakeApi.emit("agent", chunk(9, "ld"));
+    expect(reply()).toBe("Hello ");
+    expect(transcriptReads()).toBe(0);
+  });
+
+  it("holds an item told again once, as it holds it", () => {
+    useAgents.setState({ items: { t: [said("1", "Hello world")] } });
+    fakeApi.emit("agent", {
+      item: said("1", "Hello "),
+      threadId: "t",
+      type: "item",
+    });
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello world")]);
   });
 
   it("forgets a removed thread's transcript, terminals and work", () => {
@@ -352,6 +406,76 @@ describe("a thread opened", () => {
     await opened;
     expect(useAgents.getState().items.t).toEqual([]);
     expect(useAgents.getState().readFailed).toEqual({});
+  });
+
+  it("takes a chunk told while its transcript is read after the answer, which may be older", async () => {
+    const answer = heldRead();
+    const opened = useAgents.getState().open("t");
+    fakeApi.emit("agent", chunk(9, "ld"));
+    answer([said("1", "Hello wor")]);
+    await opened;
+    expect(reply()).toBe("Hello world");
+  });
+
+  it("takes nothing twice of a reply its transcript already held when it was read", async () => {
+    fakeApi.respond("threads.items", () => [said("1", "Hello world")]);
+    await useAgents.getState().open("t");
+    // Sent before the transcript was answered, and reaching the editor after it.
+    fakeApi.emit("agent", {
+      item: said("1", "Hello "),
+      threadId: "t",
+      type: "item",
+    });
+    fakeApi.emit("agent", chunk(6, "wor"));
+    fakeApi.emit("agent", chunk(9, "ld"));
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello world")]);
+    fakeApi.emit("agent", chunk(11, "!"));
+    expect(reply()).toBe("Hello world!");
+  });
+
+  it("reads its transcript again at a chunk that starts past the end of its message, and takes what is told meanwhile after it", async () => {
+    fakeApi.respond("threads.items", () => [said("1", "Hello ")]);
+    await useAgents.getState().open("t");
+    const answer = heldRead();
+    // "wor" never came.
+    fakeApi.emit("agent", chunk(9, "ld"));
+    expect(reply()).toBe("Hello ");
+    expect(transcriptReads()).toBe(2);
+    fakeApi.emit("agent", chunk(11, "!"));
+    answer([said("1", "Hello world")]);
+    await until(useAgents, () => reply() === "Hello world!");
+    expect(transcriptReads()).toBe(2);
+  });
+
+  it("reads its transcript again at a chunk of a message it does not hold", async () => {
+    fakeApi.respond("threads.items", () => []);
+    await useAgents.getState().open("t");
+    fakeApi.respond("threads.items", () => [said("1", "Hello world")]);
+    fakeApi.emit("agent", chunk(6, "world"));
+    await until(useAgents, () => reply() === "Hello world");
+  });
+
+  it("does not ask with every chunk for a transcript that could not be read", async () => {
+    fakeApi.respond("threads.items", () =>
+      Promise.reject(new RequestError("internal", "the file is gone"))
+    );
+    await useAgents.getState().open("t");
+    fakeApi.emit("agent", chunk(6, "world"));
+    fakeApi.emit("agent", chunk(11, "!"));
+    expect(transcriptReads()).toBe(1);
+  });
+
+  it("is read again when the connection opens again, shown without being opened too", async () => {
+    fakeApi.respond("agents.list", () => []);
+    fakeApi.respond("threads.list", () => [thread("t")]);
+    fakeApi.respond("threads.items", () => [said("1", "Hello")]);
+    await useAgents.getState().load();
+    useAgents.getState().show(thread("t"));
+    expect(useAgents.getState().items.t).toEqual([]);
+    fakeApi.disconnect();
+    fakeApi.connect();
+    await caughtUp();
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
   });
 
   it("says its transcript could not be read, until it is", async () => {

@@ -36,20 +36,6 @@ const Note = Schema.Struct({
 });
 type Note = typeof Note.Type;
 
-/**
- * A snapshot as it was kept before the snapshot store: one JSON file per snapshot under
- * `<state>/snapshots`, with every design file's text. Read once, to move it into the store.
- */
-const decodeOldRecord = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(
-    Schema.Struct({
-      files: Schema.Record(Schema.String, Schema.String),
-      repo: Schema.optional(Schema.String),
-      snapshot: Snapshot,
-    })
-  )
-);
-
 type RestoreFailure = NotFound | NotConfigured | EditFailure;
 
 /** Designs-relative path to content, of the files a snapshot kept under the designs directory. */
@@ -166,13 +152,6 @@ export class Snapshots extends Context.Service<
         publish: (list) => events.publish("snapshots", list),
         what: "snapshot",
       });
-
-      yield* refs.importOld("snapshots", (text) =>
-        Effect.map(decodeOldRecord(text), ({ files, repo, snapshot }) => ({
-          files,
-          note: { ...(repo !== undefined && { repo }), snapshot },
-        }))
-      );
 
       const snapshotOf = Effect.fnUntraced(function* (
         name: string,

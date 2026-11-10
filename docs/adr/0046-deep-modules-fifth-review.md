@@ -10,6 +10,13 @@ baselines moved one way), 0041 and 0042 (the migration is retired; an instance h
 and 0045 (the board view is a surface). The terms are in `GLOSSARY.md`; how tests are written is
 `docs/TESTING.md`.
 
+> Amended by [0048](0048-the-design-skill-is-a-router.md), 2026-11-02: `skills.briefing` gains
+> `router`, the default.
+>
+> Amended by [0069](0069-the-design-skill-is-a-core-and-its-references.md), 2026-11-08: the
+> design skill is one built-in skill, on or off as one; a built-in skill per part and a project's
+> file that replaces or extends one are retired.
+
 ## Context
 
 A fifth review, on 2026-10-30, after 0040 to 0045 replaced the repository's components with
@@ -75,7 +82,11 @@ Each concept has one module, with an interface its callers and its tests share.
   files its agent was not seen writing are "changed during the turn", not its own; otherwise every
   file is, so an agent's shell edits in a thread of its own are still credited.
 - Usage and the context are read from ACP's typed messages.
-- A streamed chunk travels alone (`itemText`).
+- A streamed chunk travels alone (`itemText`). Since 2026-11-10 it says where it starts
+  (`offset`, the length of the item's text before it), and the editor reads the open chat's
+  transcript as it reads a document (0044): news that arrives during the read waits for the
+  answer, a chunk already held changes nothing, and one that starts past the end has the
+  transcript read again.
 - The agent and its terminals are spawned by Effect's spawner, in a process group, with one kill
   policy and an environment given by `ServerConfig`.
 

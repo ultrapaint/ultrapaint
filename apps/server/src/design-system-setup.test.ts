@@ -12,7 +12,6 @@ import { Effect, FileSystem } from "effect";
 import { runCommand } from "./process.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { SetupTools } from "./services/mcp/setup-tools.ts";
-import { Storage } from "./services/storage.ts";
 import { callTool, ProjectFixture, withProject } from "./testing/project.ts";
 
 const APP = `export const App = () => (
@@ -190,53 +189,6 @@ describe("the design-system setup", () => {
             "todo",
           ]);
           assert.isNull(yield* service.inventory);
-        })
-      )
-  );
-
-  it.effect(
-    "reads an inventory and a mapping an older version kept, without the plain elements it listed",
-    () =>
-      withProject()(
-        Effect.gen(function* () {
-          const service = yield* setup;
-          const fs = yield* FileSystem.FileSystem;
-          // Where the setup keeps its files: written as an older version left them.
-          const dir = path.join(
-            yield* (yield* Storage).stateDir,
-            "design-system-setup"
-          );
-          yield* service.start("inventory", {});
-          const [kept] = yield* fs.readDirectory(dir);
-          const at = path.join(dir, kept ?? "", "inventory.json");
-          const inventory = JSON.parse(yield* fs.readFileString(at));
-          const element = {
-            count: 1,
-            examples: ["<button>"],
-            files: 1,
-            kind: "element",
-            locations: [],
-            status: "raw",
-            token: "Button",
-            value: "button",
-          };
-          yield* fs.writeFileString(
-            at,
-            JSON.stringify({
-              ...inventory,
-              totals: [
-                ...inventory.totals,
-                { default: 0, kind: "element", raw: 1, system: 0 },
-              ],
-              values: [...inventory.values, element],
-            })
-          );
-          const read = yield* service.inventory;
-          assert.isNotNull(read);
-          assert.notInclude(
-            (read?.values ?? []).map((v) => v.kind as string),
-            "element"
-          );
         })
       )
   );

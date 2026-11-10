@@ -13,7 +13,7 @@ import {
   UsageMapping,
 } from "@ultrapaint/contracts/design-system-setup";
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import { Clock, Effect, FileSystem, Path, Predicate, Schema } from "effect";
+import { Clock, Effect, FileSystem, Path, Schema } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
@@ -36,28 +36,6 @@ const normalise = (setup: DesignSystemSetup): DesignSystemSetup => ({
       }
   ),
 });
-
-/**
- * A file's JSON without the plain elements an older inventory or mapping listed: the setup no
- * longer reads them (the editor's components are not the repository's library), and the rest of
- * what was found and decided still reads.
- */
-const withoutElements = (json: unknown): unknown => {
-  if (!Predicate.isObject(json) || Array.isArray(json)) {
-    return json;
-  }
-  const kept = (list: unknown) =>
-    Array.isArray(list)
-      ? list.filter((e) => !(Predicate.isObject(e) && e.kind === "element"))
-      : list;
-  const record = json as Record<string, unknown>;
-  return {
-    ...record,
-    ...("values" in record && { values: kept(record.values) }),
-    ...("totals" in record && { totals: kept(record.totals) }),
-    ...("entries" in record && { entries: kept(record.entries) }),
-  };
-};
 
 export const refuse = (message: string) =>
   Effect.fail(new BadRequest({ message }));
@@ -100,11 +78,7 @@ export const makeSetupStore = Effect.gen(function* () {
     schema: Schema.Codec<A, I, never, never>
   ) => {
     const json = Schema.fromJsonString(schema);
-    const decode = (text: string) =>
-      Effect.flatMap(
-        Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text),
-        (found) => Schema.decodeUnknownEffect(schema)(withoutElements(found))
-      );
+    const decode = Schema.decodeUnknownEffect(json);
     const encode = Schema.encodeEffect(json);
     return {
       read: Effect.gen(function* () {

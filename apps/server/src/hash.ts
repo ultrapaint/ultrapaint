@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
+import { Predicate } from "effect";
 
 export const hashContent = (content: string): string =>
   createHash("sha1").update(content).digest("hex").slice(0, 16);
@@ -32,9 +33,7 @@ export const sortedByKey = <A>(
 /** JSON with every object's keys in order: the same design always hashes the same. */
 export const stableJson = (value: unknown): string =>
   JSON.stringify(value, (_key, v: unknown) =>
-    typeof v === "object" && v !== null && !Array.isArray(v)
-      ? sortedByKey(v as Record<string, unknown>)
-      : v
+    Predicate.isObject(v) ? sortedByKey(v) : v
   );
 
 /** What a component's file hashes to: the design's side of its binding (ADR 0030). */

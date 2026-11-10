@@ -26,86 +26,6 @@ const parseJson = Schema.decodeUnknownEffect(
 const decodeStored = Schema.decodeUnknownEffect(Stored);
 const encodeStored = Schema.encodeEffect(StoredJson);
 
-/** A tool call as threads wrote it before its content and locations were kept structured. */
-const isOldToolCall = (item: unknown): item is Record<string, unknown> => {
-  if (typeof item !== "object" || item === null) {
-    return false;
-  }
-  const { content, kind, locations } = item as Record<string, unknown>;
-  return (
-    kind === "tool" &&
-    ((Array.isArray(content) && content.some((c) => typeof c === "string")) ||
-      (Array.isArray(locations) &&
-        locations.some((l) => typeof l === "string")))
-  );
-};
-
-/** A turn's usage as threads wrote it before it was ACP's: cached reads were `cachedInputTokens`. */
-const isOldUsage = (item: unknown): item is Record<string, unknown> => {
-  if (typeof item !== "object" || item === null) {
-    return false;
-  }
-  const { kind, usage } = item as Record<string, unknown>;
-  return (
-    kind === "turn_end" &&
-    typeof usage === "object" &&
-    usage !== null &&
-    "cachedInputTokens" in usage
-  );
-};
-
-/** An item written before, as this version writes it. */
-const migrateItem = (item: unknown): unknown => {
-  if (isOldToolCall(item)) {
-    return {
-      ...item,
-      content: Array.isArray(item.content)
-        ? item.content.map((c: unknown) =>
-            typeof c === "string" ? { text: c, type: "text" } : c
-          )
-        : item.content,
-      locations: Array.isArray(item.locations)
-        ? item.locations.map((l: unknown) =>
-            typeof l === "string" ? { path: l } : l
-          )
-        : item.locations,
-    };
-  }
-  if (isOldUsage(item)) {
-    const { cachedInputTokens, ...usage } = item.usage as Record<
-      string,
-      unknown
-    >;
-    return {
-      ...item,
-      usage: { ...usage, cachedReadTokens: cachedInputTokens },
-    };
-  }
-  return item;
-};
-
-/**
- * Threads written by earlier versions: tool calls whose content and locations were flattened
- * to strings, which become text and bare paths, and a turn's usage before it was ACP's. An old
- * conversation is still worth reading. Anything already current is returned as it came, so a
- * thread written by this version is not rebuilt on every start.
- */
-export const migrateStored = (stored: unknown): unknown => {
-  const items =
-    typeof stored === "object" && stored !== null
-      ? (stored as { items?: unknown }).items
-      : undefined;
-  if (
-    !(
-      Array.isArray(items) &&
-      items.some((item) => isOldToolCall(item) || isOldUsage(item))
-    )
-  ) {
-    return stored;
-  }
-  return { ...(stored as object), items: items.map(migrateItem) };
-};
-
 /**
  * A thread as it is read at start: idle, whatever its file says, since no session survives a
  * restart. Set before the file is decoded, so a status no longer written (`starting`, `closed`)
@@ -121,7 +41,11 @@ const atRest = (stored: unknown): unknown => {
     : stored;
 };
 
-/** How long a patched transcript may wait before it is written. */
+/** Where the threads are kept in the state directory: a file each, named by the thread's id. */
+export const THREADS_DIR = "threads";
+export const threadFileName = (id: string) => `${id}.json`;
+
+/** How long a changed thread may wait before it is written. */
 const FLUSH_DELAY = "250 millis";
 
 interface Entry {
@@ -149,7 +73,9 @@ export class ThreadStore extends Context.Service<
     readonly push: (id: string, item: ThreadItem) => Effect.Effect<void>;
     /**
      * A streamed chunk at the end of an agent's message or thought: published as the chunk
-     * alone (`itemText`), where a patch publishes the whole item.
+     * alone (`itemText`), where a patch publishes the whole item, with the offset it was added
+     * at. `items` is answered from memory beside the events, so the transcript an editor reads
+     * may hold a chunk it is yet to be told: the offset is what lets it tell.
      */
     readonly appendText: (
       id: string,
@@ -176,10 +102,10 @@ export class ThreadStore extends Context.Service<
       const fileOf = (id: string) =>
         Effect.flatMap(safeFileId("thread", id), (safe) =>
           Effect.map(storage.stateDir, (state) =>
-            path.join(state, "threads", `${safe}.json`)
+            path.join(state, THREADS_DIR, threadFileName(safe))
           )
         );
-      const dir = path.join(yield* storage.stateDir, "threads");
+      const dir = path.join(yield* storage.stateDir, THREADS_DIR);
       const threads = new Map<string, Entry>();
       // Streaming chunks persist the same file many times a second; keep the writes in order.
       const writes = makeKeyedLock();
@@ -189,7 +115,7 @@ export class ThreadStore extends Context.Service<
       for (const name of names.filter((n) => n.endsWith(".json"))) {
         yield* fs.readFileString(path.join(dir, name)).pipe(
           Effect.flatMap(parseJson),
-          Effect.map((json) => atRest(migrateStored(json))),
+          Effect.map(atRest),
           Effect.flatMap(decodeStored),
           // Its id names the file it is written back to.
           Effect.tap((stored) => safeFileId("thread", stored.thread.id)),
@@ -230,11 +156,11 @@ export class ThreadStore extends Context.Service<
         );
 
       /*
-       * A streamed reply patches its item once per chunk, and each write encodes the whole
-       * thread: written every time, a long reply costs the square of its length. A patch only
-       * marks the thread dirty and the file is written at most every FLUSH_DELAY; anything that
-       * adds or changes the thread itself (a new item, the end of a turn) writes at once, and
-       * closing the store writes whatever is still dirty.
+       * Each write encodes the whole thread: written on every change, a long chat costs the
+       * square of its length, a streamed reply once per chunk and a turn once per item. A change
+       * only marks the thread dirty and its file is written at most every FLUSH_DELAY, so a
+       * server killed outright loses a quarter of a second at most. A new thread is written at
+       * once, and closing the store writes whatever is still dirty.
        */
       const dirty = new Set<string>();
       const scheduled = new Set<string>();
@@ -284,7 +210,7 @@ export class ThreadStore extends Context.Service<
           ...patch,
           updatedAt: yield* Clock.currentTimeMillis,
         };
-        yield* persist(id);
+        yield* persistSoon(id);
         yield* events.publish("agent", {
           thread: entry.thread,
           type: "thread",
@@ -297,7 +223,7 @@ export class ThreadStore extends Context.Service<
           return;
         }
         entry.items.push(item);
-        yield* persist(id);
+        yield* persistSoon(id);
         yield* events.publish("agent", { item, threadId: id, type: "item" });
       });
 
@@ -340,6 +266,8 @@ export class ThreadStore extends Context.Service<
         yield* persistSoon(id);
         yield* events.publish("agent", {
           itemId,
+          // Where the text ended as this chunk was added, whatever was added since.
+          offset: existing.text.length,
           text,
           threadId: id,
           type: "itemText",

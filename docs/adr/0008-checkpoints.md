@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-09-17.
 
+> Amended 2026-11-10: checkpoints in the old format are no longer imported. That format was
+> replaced before the first release (v0.1.0, 2026-11-08), and no state on the machines the tool
+> ran on still held it.
+
 > Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../plans/done/PLAN-architecture-3.md)
 > step 2): a checkpoint is a ref of a `checkpoints` namespace in the tool's snapshot store
 > (0031), a file unchanged between turns kept once, rather than one JSON file each; the last 30

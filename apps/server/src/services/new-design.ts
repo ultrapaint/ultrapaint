@@ -36,6 +36,11 @@ class NewDesignFailed extends Schema.TaggedError<NewDesignFailed>()(
   { message: Schema.String, step: Schema.String }
 ) {}
 
+/** Why a step could not be done, as the step itself says it. */
+class StepFailed extends Schema.TaggedError<StepFailed>()("StepFailed", {
+  message: Schema.String,
+}) {}
+
 interface NewDesignResult {
   readonly configPath: string;
   readonly folder: string;
@@ -77,19 +82,19 @@ export class NewDesignService extends Context.Service<
         options: NewDesignOptions,
         report: (progress: NewDesignProgress) => Effect.Effect<void>
       ) {
-        /** Runs a step between its reports; its failure, a message, stops the rest. */
+        /** Runs a step between its reports; its failure, reported, stops the rest. */
         const step = <R>(
           id: NewDesignStep,
-          run: Effect.Effect<Outcome, string, R>
+          run: Effect.Effect<Outcome, StepFailed, R>
         ): Effect.Effect<Outcome, NewDesignFailed, R> =>
           Effect.gen(function* () {
             yield* report({ state: "active", step: id });
             const outcome = yield* run.pipe(
-              Effect.tapError((message) =>
+              Effect.tapError(({ message }) =>
                 report({ detail: message, state: "failed", step: id })
               ),
               Effect.mapError(
-                (message) => new NewDesignFailed({ message, step: id })
+                ({ message }) => new NewDesignFailed({ message, step: id })
               )
             );
             yield* report({
@@ -101,7 +106,8 @@ export class NewDesignService extends Context.Service<
             });
             return outcome;
           });
-        const said = (error: { readonly message: string }) => error.message;
+        const said = (error: { readonly message: string }) =>
+          new StepFailed({ message: error.message });
 
         const { folder } = options;
         const configPath = path.join(folder, CONFIG_FILE_NAME);
@@ -111,11 +117,16 @@ export class NewDesignService extends Context.Service<
           "folder",
           Effect.gen(function* () {
             if (!path.isAbsolute(folder)) {
-              return yield* Effect.fail(`${folder} is not an absolute path`);
+              return yield* new StepFailed({
+                message: `${folder} is not an absolute path`,
+              });
             }
             yield* Effect.mapError(
               fs.makeDirectory(folder, { recursive: true }),
-              (error) => `${folder} could not be made: ${error.message}`
+              (error) =>
+                new StepFailed({
+                  message: `${folder} could not be made: ${error.message}`,
+                })
             );
             return { detail: folder };
           })
@@ -136,9 +147,9 @@ export class NewDesignService extends Context.Service<
                   said
                 )).filter((name) => !LEFT_BY_OTHERS.has(name));
                 if (there.length > 0) {
-                  return yield* Effect.fail(
-                    `${folder} is not empty (${there.slice(0, 3).join(", ")}${there.length > 3 ? ", …" : ""}): a new design starts in an empty folder.`
-                  );
+                  return yield* new StepFailed({
+                    message: `${folder} is not empty (${there.slice(0, 3).join(", ")}${there.length > 3 ? ", …" : ""}): a new design starts in an empty folder.`,
+                  });
                 }
                 // Designs only (ADR 0062): the designs directory, and no application yet.
                 const made =
@@ -181,7 +192,9 @@ export class NewDesignService extends Context.Service<
                     (encoded) => writeAtomic(configPath, configText(encoded))
                   ),
                   (error) =>
-                    `${configPath} could not be written: ${error.message}`
+                    new StepFailed({
+                      message: `${configPath} could not be written: ${error.message}`,
+                    })
                 );
                 return { detail: `${made.created.length + 1} files` };
               })
@@ -201,9 +214,9 @@ export class NewDesignService extends Context.Service<
                     said
                   );
                   if (!result.installed) {
-                    return yield* Effect.fail(
-                      `${result.packageManager} install failed${result.installLog ? `:\n${result.installLog}` : "."}`
-                    );
+                    return yield* new StepFailed({
+                      message: `${result.packageManager} install failed${result.installLog ? `:\n${result.installLog}` : "."}`,
+                    });
                   }
                   return { detail: `With ${result.packageManager}.` };
                 })

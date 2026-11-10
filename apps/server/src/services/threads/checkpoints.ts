@@ -3,7 +3,7 @@ import { Checkpoint, type FileDiff } from "@ultrapaint/contracts/snapshots";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
-import { type DesignRef, keepsFile, makeDesignRefs } from "../design-refs.ts";
+import { type DesignRef, makeDesignRefs } from "../design-refs.ts";
 import type { EditFailure } from "../edit.ts";
 
 /** The snapshot store's namespace for the checkpoints taken before agent turns. */
@@ -24,20 +24,6 @@ const Note = Schema.Struct({
   repo: Schema.optional(Schema.String),
 });
 type Note = typeof Note.Type;
-
-/**
- * A checkpoint as it was kept before the snapshot store: one JSON file per checkpoint under
- * `<state>/checkpoints`, with every design file's text. Read once, to move it into the store.
- */
-const decodeOldRecord = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(
-    Schema.Struct({
-      checkpoint: Checkpoint,
-      files: Schema.Record(Schema.String, Schema.String),
-      repo: Schema.optional(Schema.String),
-    })
-  )
-);
 
 /**
  * The designs as they were before each agent turn (ADR 0008), to compare with now and to go
@@ -83,19 +69,6 @@ export class Checkpoints extends Context.Service<
         publish: (list) => events.publish("checkpoints", list),
         what: "checkpoint",
       });
-
-      yield* refs.importOld("checkpoints", (text) =>
-        Effect.map(decodeOldRecord(text), ({ checkpoint, files, repo }) => ({
-          files,
-          note: {
-            checkpoint: {
-              ...checkpoint,
-              files: checkpoint.files.filter(keepsFile),
-            },
-            ...(repo !== undefined && { repo }),
-          },
-        }))
-      );
 
       const create = Effect.fn("Checkpoints.create")(function* (
         threadId: string,

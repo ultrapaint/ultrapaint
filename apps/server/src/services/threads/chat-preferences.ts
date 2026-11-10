@@ -14,7 +14,6 @@ import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { ServerConfig } from "../../config.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
-import { Storage } from "../storage.ts";
 
 type Stored = typeof ChatPreferencesFile.Type;
 const decodeStored = Schema.decodeUnknownEffect(
@@ -37,8 +36,7 @@ type ThreadOptions = Pick<Thread, "configOptions" | "currentModeId" | "modes">;
  *
  * They are the user's, not a project's (ADR 0062): kept in the user's directory, so a new
  * project offers the models the last one learnt, and the desktop app's start screen, which has
- * no server, reads them there. A project's state directory held them before; that file is read
- * when the user's directory has none yet.
+ * no server, reads them there.
  */
 export class ChatPreferences extends Context.Service<
   ChatPreferences,
@@ -57,7 +55,6 @@ export class ChatPreferences extends Context.Service<
   static readonly layer = Layer.effect(
     ChatPreferences,
     Effect.gen(function* () {
-      const storage = yield* Storage;
       const { userDir } = yield* ServerConfig;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
@@ -67,14 +64,8 @@ export class ChatPreferences extends Context.Service<
 
       const empty: Stored = { agents: [], defaults: {} };
       const read = Effect.gen(function* () {
-        const before = path.join(
-          yield* storage.stateDir,
-          ...CHAT_PREFERENCES_FILE
-        );
-        for (const from of [file, before]) {
-          if (yield* fs.exists(from)) {
-            return yield* decodeStored(yield* fs.readFileString(from));
-          }
+        if (yield* fs.exists(file)) {
+          return yield* decodeStored(yield* fs.readFileString(file));
         }
         return empty;
       });

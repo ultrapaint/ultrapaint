@@ -8,6 +8,7 @@ import {
   startingMode,
   summarise,
   TEXT_ATTACHMENT_LIMIT,
+  withChunk,
   withNamedChoices,
 } from "./threads.ts";
 
@@ -160,5 +161,47 @@ describe("a text file attached to a prompt", () => {
   it("holds up to the limit, and no more", () => {
     expect(decodes("x".repeat(TEXT_ATTACHMENT_LIMIT))).toBe(true);
     expect(decodes("x".repeat(TEXT_ATTACHMENT_LIMIT + 1))).toBe(false);
+  });
+});
+
+describe("withChunk", () => {
+  it("puts a chunk that starts where the text ends at its end", () => {
+    expect(withChunk("Hello ", { offset: 6, text: "world" })).toBe(
+      "Hello world"
+    );
+    expect(withChunk("", { offset: 0, text: "Hello" })).toBe("Hello");
+  });
+
+  it("leaves the text as it is for a chunk it already holds", () => {
+    expect(withChunk("Hello world", { offset: 6, text: "world" })).toBe(
+      "Hello world"
+    );
+    expect(withChunk("Hello world!", { offset: 6, text: "wor" })).toBe(
+      "Hello world!"
+    );
+  });
+
+  it("takes only what a chunk says past the end of the text", () => {
+    expect(withChunk("Hello wor", { offset: 6, text: "world" })).toBe(
+      "Hello world"
+    );
+  });
+
+  it("takes nothing of a chunk that starts past the end of the text", () => {
+    expect(withChunk("Hello ", { offset: 9, text: "ld" })).toBeNull();
+  });
+
+  it("gives the reply whichever chunks a read of it already held", () => {
+    const chunks = [
+      { offset: 0, text: "Hello " },
+      { offset: 6, text: "wor" },
+      { offset: 9, text: "ld" },
+      { offset: 11, text: "!" },
+    ];
+    for (const read of ["", "Hello ", "Hello wor", "Hello world!"]) {
+      expect(
+        chunks.reduce((held, chunk) => withChunk(held, chunk) ?? held, read)
+      ).toBe("Hello world!");
+    }
   });
 });

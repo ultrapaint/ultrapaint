@@ -6,7 +6,7 @@
  * is kept when asked. No editor is open, so the reviewers get the page's document and no picture.
  */
 import path from "node:path";
-import { assert, describe, it } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import { MAX_ROUNDS, type ReviewSettings } from "@ultrapaint/contracts/review";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
@@ -18,6 +18,7 @@ import { REVIEWER_ROLE } from "./services/review/review-prompts.ts";
 import { TIMED_OUT, UNREADABLE } from "./services/review/review-rounds.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
+import { perTest } from "./testing/each-test.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
 import {
   briefingFor,
@@ -31,15 +32,16 @@ import {
 } from "./testing/threads.ts";
 import { turnEnded } from "./testing/turns.ts";
 
-/** A test on its own thread services, on a project with `settings`. */
+/**
+ * A test on its own thread services, on a project with `settings`, on the test clock from
+ * `TEST_EPOCH` (docs/TESTING.md rule 3).
+ */
 const test = <A, E>(
   name: string,
   body: () => Effect.Effect<A, E, ThreadTestServices>,
   settings?: Partial<Settings>
 ) =>
-  it.effect(name, () =>
-    Effect.provide(body(), settings ? threadTest({ settings }) : ThreadTest)
-  );
+  perTest(settings ? threadTest({ settings }) : ThreadTest).effect(name, body);
 
 const PAGE = "designs/home.page.json";
 const REQUEST = "A calm settings page";

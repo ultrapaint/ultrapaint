@@ -5,19 +5,16 @@
  * and a part written three times or more is written once, in `$defs`, and referred to. The
  * schema still validates every document it did.
  */
-import type { JsonSchema } from "effect";
+import { type JsonSchema, Predicate } from "effect";
 
 type Json = JsonSchema.JsonSchema;
 
 /** A number's strings that a file never holds. */
 const NOT_A_NUMBER = ["Infinity", "-Infinity", "NaN"];
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** Whether a schema is `null`, or a number's "NaN" and "Infinity" strings. */
 const unwritten = (schema: unknown) =>
-  isObject(schema) &&
+  Predicate.isObject(schema) &&
   (schema.type === "null" ||
     (schema.type === "string" &&
       Array.isArray(schema.enum) &&
@@ -28,7 +25,7 @@ const simplified = (schema: unknown): unknown => {
   if (Array.isArray(schema)) {
     return schema.map(simplified);
   }
-  if (!isObject(schema)) {
+  if (!Predicate.isObject(schema)) {
     return schema;
   }
   const out: Record<string, unknown> = {};
@@ -41,13 +38,15 @@ const simplified = (schema: unknown): unknown => {
   const members = (out.anyOf as unknown[])
     .filter((m) => !unwritten(m))
     .flatMap((m) =>
-      isObject(m) && Array.isArray(m.anyOf) && Object.keys(m).length === 1
+      Predicate.isObject(m) &&
+      Array.isArray(m.anyOf) &&
+      Object.keys(m).length === 1
         ? (m.anyOf as unknown[])
         : [m]
     );
   const { anyOf: _anyOf, ...rest } = out;
   const [only] = members;
-  if (members.length === 1 && isObject(only)) {
+  if (members.length === 1 && Predicate.isObject(only)) {
     // A list of one is its member, with what was said beside the list.
     return { ...only, ...rest };
   }
@@ -62,7 +61,7 @@ const counted = (schema: unknown, into: Map<string, number>) => {
     }
     return;
   }
-  if (!isObject(schema)) {
+  if (!Predicate.isObject(schema)) {
     return;
   }
   const text = JSON.stringify(schema);
@@ -77,7 +76,7 @@ const replaced = (schema: unknown, text: string, ref: Json): unknown => {
   if (Array.isArray(schema)) {
     return schema.map((item) => replaced(item, text, ref));
   }
-  if (!isObject(schema)) {
+  if (!Predicate.isObject(schema)) {
     return schema;
   }
   if (JSON.stringify(schema) === text) {

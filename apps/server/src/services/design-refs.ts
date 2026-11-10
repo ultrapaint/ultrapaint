@@ -18,7 +18,6 @@ import { EditService } from "./edit.ts";
 import { simpleDiff } from "./file-diff.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { type Contents, SnapshotStore } from "./snapshot-store.ts";
-import { Storage } from "./storage.ts";
 
 const DESIGN_FILE_RE = /\.(tsx?|json|css|md)$/;
 
@@ -26,7 +25,7 @@ const DESIGN_FILE_RE = /\.(tsx?|json|css|md)$/;
  * Comments are the conversation about the designs, not the designs: nothing kept here keeps
  * them, and putting the designs back never puts old ones back.
  */
-export const keepsFile = (file: string) => basename(file) !== COMMENTS_FILE;
+const keepsFile = (file: string) => basename(file) !== COMMENTS_FILE;
 
 /** What a note says of where it was taken: absent in one kept before it was recorded. */
 interface Located {
@@ -63,7 +62,6 @@ export const makeDesignRefs = <
     const { idOf, listed, namespace, what } = options;
     const store = yield* SnapshotStore;
     const project = yield* OpenProject;
-    const storage = yield* Storage;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const walk = makeWalk(fs, path);
@@ -274,72 +272,10 @@ export const makeDesignRefs = <
       );
     });
 
-    /**
-     * Moves what was kept in an older format, one JSON file each under `<state>/<dir>`, into
-     * the store with its ids and notes, without the comments, and removes each file once it is
-     * in. One that cannot be moved stays where it is and says why in the log; the next start
-     * tries it again.
-     */
-    const importOld = Effect.fnUntraced(
-      function* (
-        dir: string,
-        decodeOld: (text: string) => Effect.Effect<
-          {
-            readonly files: { readonly [file: string]: string };
-            readonly note: N;
-          },
-          Schema.SchemaError
-        >
-      ) {
-        const from = path.join(yield* storage.stateDir, dir);
-        if (!(yield* Effect.orElseSucceed(fs.exists(from), () => false))) {
-          return;
-        }
-        for (const entry of yield* fs.readDirectory(from)) {
-          if (!entry.endsWith(".json")) {
-            continue;
-          }
-          const file = path.join(from, entry);
-          yield* fs.readFileString(file).pipe(
-            Effect.flatMap(decodeOld),
-            Effect.flatMap(({ files, note }) =>
-              Effect.flatMap(encodeNote(note), (noted) =>
-                store.recordContents(
-                  namespace,
-                  Object.fromEntries(
-                    Object.entries(files).filter(([kept]) => keepsFile(kept))
-                  ),
-                  { name: idOf(note), note: noted }
-                )
-              )
-            ),
-            Effect.andThen(fs.remove(file)),
-            Effect.catchTag(
-              ["PlatformError", "SchemaError", "SnapshotStoreFailed"],
-              (error) =>
-                Effect.logWarning(
-                  `The ${what} ${file} stays in the old format, not moved into the snapshot store: ${error.message}`
-                )
-            )
-          );
-        }
-        if ((yield* fs.readDirectory(from)).length === 0) {
-          // An empty directory left behind holds nothing; the next start finds it empty again.
-          yield* Effect.ignore(fs.remove(from, { recursive: true }));
-        }
-      },
-      Effect.catchTag("PlatformError", (error) =>
-        Effect.logWarning(
-          `The ${what}s kept in the old format were not looked for: ${error.message}`
-        )
-      )
-    );
-
     return {
       designFiles,
       diff,
       find,
-      importOld,
       keep,
       list,
       name: nameTree,

@@ -1,8 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "@effect/vitest";
-import { serialiseDocument } from "@ultrapaint/design-document/format";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect } from "effect";
+import { canvasText, parseCanvasText } from "./services/canvas-files.ts";
+import { pageText, parseDocument } from "./services/document-file.ts";
 
 const DESIGNS = fileURLToPath(
   new URL("../../../docs/designs", import.meta.url)
@@ -25,18 +27,40 @@ const countNodes = (value: unknown): number => {
   return 1 + countNodes(children);
 };
 
+/**
+ * The file's text read as the server reads it, and written as the server writes it: a page's
+ * tree, with how many nodes it has, or a canvas's layout. A file that does not read, or leaves
+ * an id out, fails here.
+ */
+const readAndWritten = Effect.fnUntraced(function* (
+  file: string,
+  text: string
+) {
+  if (file.endsWith("canvas.json")) {
+    const { filled, layout } = yield* parseCanvasText(text);
+    assert.isFalse(filled, "an id was filled in");
+    return { text: canvasText(layout) };
+  }
+  const read = yield* parseDocument(text);
+  if ("problem" in read) {
+    return assert.fail(read.problem);
+  }
+  assert.isFalse(read.filled, "an id was filled in");
+  return { nodes: countNodes(read.root), text: pageText(read.root) };
+});
+
 describe("this repository's own designs", () => {
-  it.each(designFiles)("reads %s back as it was, a line per node", (file) => {
-    const document = JSON.parse(readFileSync(file, "utf8")) as unknown;
-    const text = serialiseDocument(document);
-    expect(JSON.parse(text)).toEqual(document);
-    expect(serialiseDocument(JSON.parse(text))).toBe(text);
-    const { root } = document as { root?: unknown };
-    if (root !== undefined) {
-      // The file's braces and version, a line per node, a line per list of children closed.
-      expect(text.split("\n").length).toBeLessThanOrEqual(
-        2 * countNodes(root) + 4
-      );
-    }
-  });
+  it.effect.each(designFiles)(
+    "reads %s back as it was, a line per node",
+    (file) =>
+      Effect.gen(function* () {
+        const text = readFileSync(file, "utf8");
+        const written = yield* readAndWritten(file, text);
+        assert.strictEqual(written.text, text);
+        if (written.nodes !== undefined) {
+          // The file's braces and version, a line per node, a line per list of children closed.
+          assert.isAtMost(text.split("\n").length, 2 * written.nodes + 4);
+        }
+      })
+  );
 });

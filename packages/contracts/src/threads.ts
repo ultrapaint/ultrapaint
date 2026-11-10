@@ -783,9 +783,15 @@ export const AgentEvent = Schema.Union([
     threadId: Schema.String,
     type: Schema.Literal("itemUpdate"),
   }),
-  /** A streamed chunk: `text` goes at the end of the item's own, sent without the rest of it. */
+  /**
+   * A streamed chunk, sent without the rest of its item: `text` goes at `offset` of the item's
+   * own, which is where that text ended when the chunk was added to it (a string's length). The
+   * offset orders a chunk with a read of the transcript, which may hold it already or have been
+   * answered before it (`withChunk`).
+   */
   Schema.Struct({
     itemId: Schema.String,
+    offset: Schema.Int,
     text: Schema.String,
     threadId: Schema.String,
     type: Schema.Literal("itemText"),
@@ -793,6 +799,23 @@ export const AgentEvent = Schema.Union([
   Schema.Struct({ threadId: Schema.String, type: Schema.Literal("removed") }),
 ]);
 export type AgentEvent = typeof AgentEvent.Type;
+
+/**
+ * A message's text with a streamed chunk taken: what the chunk says past the end of the text
+ * held, so a chunk told twice, or one a read of the transcript already held, changes nothing.
+ * Null for a chunk that starts past the end: one before it was missed, and the text is right
+ * again only once the transcript is read.
+ */
+export const withChunk = (
+  held: string,
+  chunk: { readonly offset: number; readonly text: string }
+): string | null => {
+  const known = held.length - chunk.offset;
+  if (known < 0) {
+    return null;
+  }
+  return known >= chunk.text.length ? held : held + chunk.text.slice(known);
+};
 
 const MARKDOWN_RE = /[*_`#>[\]]+/g;
 const SPACES_RE = /\s+/g;

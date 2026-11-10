@@ -47,7 +47,6 @@ describe("McpAccess", () => {
           yield* (yield* ListenPort).listening(1);
           const token = yield* access.external;
           assert.match(token, TOKEN_RE);
-          assert.isFalse((yield* access.connection).replaced);
           assert.isTrue(yield* access.allows(token));
           // As long as the token, and one character off.
           assert.isFalse(yield* access.allows(`${token.slice(0, -1)}x`));
@@ -60,24 +59,6 @@ describe("McpAccess", () => {
         // The permission bits, without the file type above them.
         assert.strictEqual(Number(info.mode) % 0o1000, 0o600);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
-  );
-
-  it.effect("replaces a token made the old, guessable way", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const home = yield* fs.makeTempDirectoryScoped();
-      const old = "mcp_lx3k9a_4f2k1";
-      yield* fs.writeFileString(path.join(home, "mcp-token"), `${old}\n`);
-      yield* Effect.gen(function* () {
-        const access = yield* McpAccess;
-        yield* (yield* ListenPort).listening(1);
-        assert.isFalse(yield* access.allows(old));
-        assert.match(yield* access.external, TOKEN_RE);
-        // The settings tell the user to give the agents outside the new one.
-        assert.isTrue((yield* access.connection).replaced);
-      }).pipe(Effect.provide(accessIn(home)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
   it.effect(

@@ -39,6 +39,7 @@ import {
   printColor,
 } from "@ultrapaint/contracts/token-value";
 import type { SourceToken, TokenKind } from "@ultrapaint/contracts/tokens";
+import { Predicate } from "effect";
 
 /** The values' file, in the designs directory next to `design-system.json`. */
 export const DESIGN_TOKENS_FILE = "design.tokens.json";
@@ -47,8 +48,6 @@ const EXTENSION = "dev.ultrapaint";
 const FORMAT = "2025.10";
 
 type Rec = Record<string, unknown>;
-const isRec = (v: unknown): v is Rec =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
  * Each kind's group in the file, named as the format's tools name them; the groups are written
@@ -313,7 +312,7 @@ const listCss = (
   if (value.length > 0 && value.every((v) => typeof v === "string")) {
     return value.map(quoteFamily).join(", ");
   }
-  if (value.length > 0 && value.every(isRec)) {
+  if (value.length > 0 && value.every(Predicate.isObject)) {
     const shadows = value.map((v) => shadowCss(v, resolve));
     return shadows.every((s) => s !== undefined)
       ? shadows.join(", ")
@@ -356,7 +355,7 @@ const cssOf = (value: unknown, resolve: Resolve): string | undefined => {
   if (Array.isArray(value)) {
     return listCss(value, resolve);
   }
-  if (!isRec(value)) {
+  if (!Predicate.isObject(value)) {
     return undefined;
   }
   if (typeof value.$ref === "string") {
@@ -568,7 +567,10 @@ const collect = (
     );
   }
   for (const [key, child] of Object.entries(node)) {
-    if ((key.startsWith("$") && key !== "$root") || !isRec(child)) {
+    if (
+      (key.startsWith("$") && key !== "$root") ||
+      !Predicate.isObject(child)
+    ) {
       continue;
     }
     const path = [...segments, key];
@@ -587,14 +589,14 @@ const collect = (
 
 const extensionOf = (node: Rec): Rec => {
   const all = node.$extensions;
-  const ours = isRec(all) ? all[EXTENSION] : undefined;
-  return isRec(ours) ? ours : {};
+  const ours = Predicate.isObject(all) ? all[EXTENSION] : undefined;
+  return Predicate.isObject(ours) ? ours : {};
 };
 
 /** Canonical JSON, keys sorted, to tell whether two values are the same. */
 const canonical = (value: unknown): string =>
   JSON.stringify(value, (_key, v: unknown) =>
-    isRec(v)
+    Predicate.isObject(v)
       ? Object.fromEntries(
           Object.entries(v).sort(([a], [b]) => a.localeCompare(b))
         )
@@ -656,7 +658,7 @@ export const tokensFromDesignTokens = (
   readonly tokens: readonly ReadToken[];
 } => {
   const notes = new Set<string>();
-  if (!isRec(json)) {
+  if (!Predicate.isObject(json)) {
     return {
       notes: [
         "The file is not a Design Tokens document: it is not a JSON object.",
@@ -736,8 +738,8 @@ export const tokensFromDesignTokens = (
 
   const themeTokens = (e: Entry, name: string): ReadToken[] => {
     const ext = extensionOf(e.node);
-    const themes = isRec(ext.themes) ? ext.themes : {};
-    const themesCss = isRec(ext.themesCss) ? ext.themesCss : {};
+    const themes = Predicate.isObject(ext.themes) ? ext.themes : {};
+    const themesCss = Predicate.isObject(ext.themesCss) ? ext.themesCss : {};
     const out: ReadToken[] = [];
     for (const [theme, value] of Object.entries(themes)) {
       const css = read(e, value, themesCss[theme], resolverFor(e.path));

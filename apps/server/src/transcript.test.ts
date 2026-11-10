@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { migrateStored } from "./services/threads/thread-store.ts";
 import {
   emptyCursor,
   projectUpdate,
@@ -182,48 +181,5 @@ describe("a turn's cursor", () => {
 
   it("stays null outside a turn", () => {
     expect(projectUpdate(chunk("late"), ctx).turn).toBeNull();
-  });
-});
-
-describe("migrateStored", () => {
-  it("reads a thread written before tool content was structured", () => {
-    const old = {
-      items: [
-        {
-          at: 1,
-          content: ["file body"],
-          id: "tool_1",
-          kind: "tool",
-          locations: ["designs/index.tsx"],
-          status: "completed",
-          title: "Read",
-          toolCallId: "call_1",
-        },
-      ],
-      thread: { id: "thread_1" },
-    };
-    const [item] = (migrateStored(old) as typeof old).items as unknown as {
-      content: unknown;
-      locations: unknown;
-    }[];
-    expect(item?.content).toEqual([{ text: "file body", type: "text" }]);
-    expect(item?.locations).toEqual([{ path: "designs/index.tsx" }]);
-  });
-
-  it("leaves a current thread exactly as it was, rather than rebuild it", () => {
-    const current = {
-      items: [
-        {
-          content: [{ text: "file body", type: "text" }],
-          kind: "tool",
-          locations: [{ path: "designs/index.tsx" }],
-        },
-      ],
-    };
-    expect(migrateStored(current)).toBe(current);
-  });
-
-  it("leaves what is not a thread at all to the decoder", () => {
-    expect(migrateStored("not a thread")).toBe("not a thread");
   });
 });

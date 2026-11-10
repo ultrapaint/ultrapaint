@@ -1,32 +1,17 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import { Storage } from "./services/storage.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 
-/** The preferences of a project whose state is in `stateDir`, for the user in `userDir`. */
-const preferencesOf = (userDir: string, stateDir: string) =>
+/** The preferences as a project's server has them, for the user in `userDir`. */
+const preferencesOf = (userDir: string) =>
   ChatPreferences.layer.pipe(
-    Layer.provide(Storage.layer),
     Layer.provide(AppLog.layer),
     Layer.provide(EventBus.layer),
-    Layer.provide(
-      ServerConfig.layerTest({
-        storage: { mode: "ephemeral", sessionDir: stateDir },
-        userDir,
-      })
-    )
-  );
-
-/** The defaults a project's chat starts with. */
-const defaultsOf = (userDir: string, stateDir: string) =>
-  Effect.scoped(
-    ChatPreferences.use((p) => p.defaults).pipe(
-      Effect.provide(preferencesOf(userDir, stateDir))
-    )
+    Layer.provide(ServerConfig.layerTest({ userDir }))
   );
 
 describe("the chat's preferences", () => {
@@ -34,34 +19,19 @@ describe("the chat's preferences", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const user = yield* fs.makeTempDirectoryScoped();
-      const one = yield* fs.makeTempDirectoryScoped();
-      const two = yield* fs.makeTempDirectoryScoped();
       yield* Effect.scoped(
         ChatPreferences.use((p) =>
           p.setDefaults({ agentId: "codex", model: "gpt" })
-        ).pipe(Effect.provide(preferencesOf(user, one)))
+        ).pipe(Effect.provide(preferencesOf(user)))
       );
-      const defaults = yield* defaultsOf(user, two);
+      // Another project's server, started later for the same user.
+      const defaults = yield* Effect.scoped(
+        ChatPreferences.use((p) => p.defaults).pipe(
+          Effect.provide(preferencesOf(user))
+        )
+      );
       assert.deepStrictEqual(defaults, { agentId: "codex", model: "gpt" });
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
-  );
-
-  it.effect(
-    "are read from a project's state directory while the user's has none",
-    () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const user = yield* fs.makeTempDirectoryScoped();
-        const project = yield* fs.makeTempDirectoryScoped();
-        yield* fs.makeDirectory(path.join(project, "chat"));
-        yield* fs.writeFileString(
-          path.join(project, "chat", "preferences.json"),
-          JSON.stringify({ agents: [], defaults: { agentId: "claude-code" } })
-        );
-        const defaults = yield* defaultsOf(user, project);
-        assert.deepStrictEqual(defaults, { agentId: "claude-code" });
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 });
 
@@ -107,7 +77,6 @@ const startsWith = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const user = yield* fs.makeTempDirectoryScoped();
-    const project = yield* fs.makeTempDirectoryScoped();
     return yield* Effect.scoped(
       ChatPreferences.use((p) =>
         Effect.gen(function* () {
@@ -123,7 +92,7 @@ const startsWith = (
             model: current("model"),
           };
         })
-      ).pipe(Effect.provide(preferencesOf(user, project)))
+      ).pipe(Effect.provide(preferencesOf(user)))
     );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 

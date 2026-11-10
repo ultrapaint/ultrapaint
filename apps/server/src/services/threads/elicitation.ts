@@ -19,6 +19,7 @@ import type {
   Question,
   QuestionOption,
 } from "@ultrapaint/contracts/threads";
+import { Predicate } from "effect";
 import type { Json } from "effect/Schema";
 
 const OTHER = ":other";
@@ -81,9 +82,6 @@ export const formOf = (questions: readonly Question[]): ElicitationForm => {
   return { properties, required, type: "object" };
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const text = (value: unknown) =>
   typeof value === "string" && value.length > 0 ? value : undefined;
 
@@ -91,7 +89,7 @@ const text = (value: unknown) =>
 const optionsOf = (field: Record<string, unknown>) => {
   const titledOptions = field.oneOf ?? field.anyOf;
   if (Array.isArray(titledOptions)) {
-    return titledOptions.filter(isRecord).map(
+    return titledOptions.filter(Predicate.isObject).map(
       (entry): QuestionOption => ({
         id: String(entry.const),
         label: text(entry.title) ?? String(entry.const),
@@ -143,7 +141,9 @@ const questionOf = (
     case "boolean":
       return { ...base, options: YES_NO, value: "boolean" };
     case "array": {
-      const options = isRecord(field.items) ? optionsOf(field.items) : null;
+      const options = Predicate.isObject(field.items)
+        ? optionsOf(field.items)
+        : null;
       return options === null ? null : { ...base, multiple: true, options };
     }
     default:
@@ -156,7 +156,7 @@ const questionOf = (
  * elicitation is declined rather than half answered.
  */
 export const questionsOf = (form: unknown): Question[] | null => {
-  if (!(isRecord(form) && isRecord(form.properties))) {
+  if (!(Predicate.isObject(form) && Predicate.isObject(form.properties))) {
     return null;
   }
   const fields = form.properties;
@@ -166,18 +166,19 @@ export const questionsOf = (form: unknown): Question[] | null => {
       : []
   );
   const isOther = (key: string) =>
-    key.endsWith(OTHER) && isRecord(fields[key.slice(0, -OTHER.length)]);
+    key.endsWith(OTHER) &&
+    Predicate.isObject(fields[key.slice(0, -OTHER.length)]);
   const questions: Question[] = [];
   for (const [key, field] of Object.entries(fields)) {
     if (isOther(key)) {
       continue;
     }
-    const question = isRecord(field)
+    const question = Predicate.isObject(field)
       ? questionOf(
           key,
           field,
           required.has(key),
-          isRecord(fields[otherOf(key)])
+          Predicate.isObject(fields[otherOf(key)])
         )
       : null;
     if (question === null) {
@@ -227,7 +228,7 @@ export const answersOf = (
   questions: readonly Question[],
   content: unknown
 ): Answers => {
-  const values = isRecord(content) ? content : {};
+  const values = Predicate.isObject(content) ? content : {};
   const answers: Record<string, Answer> = {};
   for (const question of questions) {
     const typed = values[otherOf(question.id)];

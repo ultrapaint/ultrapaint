@@ -10,6 +10,9 @@ tools take `canvas`) and 0015 (assets are shared).
 > kept in the tool's snapshot store (0031), under its `designs` namespace, rather than one JSON
 > file each under `<state>/snapshots`. Only the format changes: what a snapshot is, keeps and
 > does is as below. Snapshots in the old format are imported when the server starts.
+>
+> Amended 2026-11-10: snapshots in the old format are no longer imported, as checkpoints are not
+> (0008).
 
 ## Context
 

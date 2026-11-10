@@ -45,6 +45,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Schema,
   Semaphore,
   Stream,
 } from "effect";
@@ -55,6 +56,11 @@ import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { TOOLS } from "./threads/agent-ways.ts";
+
+/** The document taken away between its reading and its rewriting: nothing follows into it. */
+class DocumentGone extends Schema.TaggedError<DocumentGone>()("DocumentGone", {
+  message: Schema.String,
+}) {}
 
 /**
  * What the format's own linter (`@google/design.md`, ADR 0027) says about a DESIGN.md: broken
@@ -387,7 +393,7 @@ export class DesignMd extends Context.Service<
           // A document taken away meanwhile stays away.
           yield* edit.amend(file, (content) =>
             content === null
-              ? Effect.fail("gone" as const)
+              ? Effect.fail(new DocumentGone({ message: `${file} is gone` }))
               : Effect.succeed([rewrite(content), null] as const)
           );
           const after = mergeMirror(parse(found.text), groups, agreed).agreed;

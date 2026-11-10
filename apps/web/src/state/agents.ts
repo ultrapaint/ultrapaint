@@ -7,6 +7,7 @@ import {
   TERMINAL_TAIL,
   type Thread,
   type ThreadItem,
+  withChunk,
 } from "@ultrapaint/contracts/threads";
 import { create } from "zustand";
 import { isOpenQuestion } from "../lib/answers.ts";
@@ -209,7 +210,13 @@ export const useAgents = create<AgentsStore>((set) => ({
   focused: {},
   following: null,
   items: {},
-  load: () => agentsData.read().catch(reportError),
+  // The transcript's piece is asked for with the lists', so that every connection open reads it.
+  load: async () => {
+    await Promise.all([
+      agentsData.read().catch(reportError),
+      transcriptData.read().catch(reportError),
+    ]);
+  },
   open: async (threadId) => {
     if (!threadId) {
       set({ current: null, view: "list" });
@@ -226,13 +233,7 @@ export const useAgents = create<AgentsStore>((set) => ({
         view: "thread",
       };
     });
-    try {
-      const items = await api().request("threads.items", { threadId });
-      set((s) => ({ items: { ...s.items, [threadId]: items } }));
-    } catch (error) {
-      reportError(error);
-      set((s) => ({ readFailed: { ...s.readFailed, [threadId]: true } }));
-    }
+    await transcriptData.read().catch(reportError);
   },
   readFailed: {},
   seen: readSeen(),
@@ -253,7 +254,60 @@ export const useAgents = create<AgentsStore>((set) => ({
   working: {},
 }));
 
-/** A thread's news: itself changed, an item added or updated, or the thread gone. */
+/** The thread open in the chat: the one whose transcript the editor reads, and reads again. */
+const openThread = () => {
+  const { current, view } = useAgents.getState();
+  return view === "thread" ? current : null;
+};
+
+/**
+ * News that does not continue what the editor holds of a transcript: a chunk that starts past
+ * the end of its message, or news of an item it does not hold. Something told before it was
+ * missed, so it is not taken, and the transcript of the thread open in the chat is read again;
+ * another thread's is when it is opened. One that could not be read is not asked for again with
+ * every chunk: opening it, or the connection, asks.
+ */
+const missed = (threadId: string) => {
+  if (openThread() === threadId && !useAgents.getState().readFailed[threadId]) {
+    transcriptData.read().catch(reportError);
+  }
+};
+
+/**
+ * A streamed chunk: only its item changes, and only its text, by what the chunk says past the
+ * end of it (`withChunk`).
+ */
+const takeChunk = (ev: Extract<AgentEvent, { type: "itemText" }>) => {
+  const held = useAgents.getState().items[ev.threadId];
+  const at = held?.findLastIndex((i) => i.id === ev.itemId) ?? -1;
+  const item = held?.[at];
+  if (!(held && item)) {
+    missed(ev.threadId);
+    return;
+  }
+  if (item.kind !== "agent" && item.kind !== "thought") {
+    return;
+  }
+  const text = withChunk(item.text, ev);
+  if (text === null) {
+    missed(ev.threadId);
+    return;
+  }
+  if (text === item.text) {
+    return;
+  }
+  const items = held.with(at, { ...item, text });
+  useAgents.setState((s) => ({
+    items: { ...s.items, [ev.threadId]: items },
+    threads: summarised(s.threads, ev.threadId, items),
+  }));
+};
+
+/**
+ * A thread's news: itself changed, an item added or updated, or the thread gone. What is told
+ * of a transcript may be in the transcript read already (the server answers a read from its
+ * memory, beside the events it is still sending), so each is taken only as far as it is news.
+ */
 const takeAgentEvent = (ev: AgentEvent) => {
   const set = useAgents.setState;
   if (ev.type === "thread") {
@@ -280,33 +334,31 @@ const takeAgentEvent = (ev: AgentEvent) => {
   } else if (ev.type === "item") {
     const { item } = ev;
     set((s) => {
-      const items = [...(s.items[ev.threadId] ?? []), item];
+      const held = s.items[ev.threadId] ?? [];
+      // An item the transcript read already held stays as it was read: no older than this.
+      const known = held.some((i) => i.id === item.id);
+      const items = known ? held : [...held, item];
       return {
         changed:
           item.kind === "turn_end"
             ? [...new Set([...s.changed, ...item.changedFiles])]
             : s.changed,
-        items: { ...s.items, [ev.threadId]: items },
+        items: known ? s.items : { ...s.items, [ev.threadId]: items },
         threads: summarised(s.threads, ev.threadId, items),
       };
     });
   } else if (ev.type === "itemText") {
-    // A streamed chunk: only its item changes, and only its text.
-    set((s) => {
-      const items = (s.items[ev.threadId] ?? []).map((i) =>
-        i.id === ev.itemId && (i.kind === "agent" || i.kind === "thought")
-          ? { ...i, text: i.text + ev.text }
-          : i
-      );
-      return {
-        items: { ...s.items, [ev.threadId]: items },
-        threads: summarised(s.threads, ev.threadId, items),
-      };
-    });
+    takeChunk(ev);
   } else if (ev.type === "itemUpdate") {
     // A card answered or declined is asked no more: what was being given to it is let go of.
     if (ev.item.kind === "question" && !isOpenQuestion(ev.item)) {
       forgetAnswers([ev.item.id]);
+    }
+    if (
+      !useAgents.getState().items[ev.threadId]?.some((i) => i.id === ev.item.id)
+    ) {
+      missed(ev.threadId);
+      return;
     }
     set((s) => {
       const items = (s.items[ev.threadId] ?? []).map((i) =>
@@ -337,33 +389,16 @@ const takeAgentEvent = (ev: AgentEvent) => {
   }
 };
 
-/** What the agents' piece reads: the transcript only of a thread open in the chat. */
 interface AgentsRead {
   readonly agents: readonly AgentConfig[];
-  readonly items: {
-    readonly items: readonly ThreadItem[];
-    readonly threadId: string;
-  } | null;
   readonly threads: readonly Thread[];
 }
 
-/**
- * The agents, the threads and the transcript of the one open, and what the agents say as they
- * work: followed from the start, not only while the chat is open, as the badge over the tool
- * strip reports turns that changed files.
- */
+/** The agents and the threads, and what the agents say they work on, change and run. */
 const agentsData = follow({
-  apply: ({ agents, items, threads }: AgentsRead) =>
-    useAgents.setState((s) => ({
-      agents,
-      threads,
-      ...(items && {
-        items: { ...s.items, [items.threadId]: items.items },
-        readFailed: nowRead(s.readFailed, items.threadId),
-      }),
-    })),
+  apply: ({ agents, threads }: AgentsRead) =>
+    useAgents.setState({ agents, threads }),
   on: {
-    agent: takeAgentEvent,
     "agent.edited": (ev) =>
       useAgents.setState((s) => ({
         working: {
@@ -392,19 +427,43 @@ const agentsData = follow({
     },
   },
   read: async (): Promise<AgentsRead> => {
-    // The chat opens on the list; a thread is opened by choice, and its transcript read again.
-    const { current, view } = useAgents.getState();
-    const open = view === "thread" ? current : null;
-    const [agents, threads, items] = await Promise.all([
+    const [agents, threads] = await Promise.all([
       api().request("agents.list", undefined),
       api().request("threads.list", undefined),
-      open ? api().request("threads.items", { threadId: open }) : null,
     ]);
-    return {
-      agents,
-      items: open && items ? { items, threadId: open } : null,
-      threads,
-    };
+    return { agents, threads };
+  },
+});
+
+/**
+ * The transcript of the thread open in the chat, and the threads' news: followed from the start,
+ * not only while the chat is open, as the badge over the tool strip reports turns that changed
+ * files. The chat opens on the list; a thread is opened by choice, and its transcript read then
+ * and at every connection open.
+ *
+ * A read is ordered with the news as a document's is (ADR 0044): what is told while it is on its
+ * way waits for its answer, which the server may have read before it, and is taken after it. The
+ * answer may as well hold what the editor is yet to be told, which `takeAgentEvent` tells apart.
+ */
+const transcriptData = follow({
+  apply: (items: readonly ThreadItem[], threadId: string) =>
+    useAgents.setState((s) => ({
+      items: { ...s.items, [threadId]: items },
+      readFailed: nowRead(s.readFailed, threadId),
+    })),
+  key: openThread,
+  news: ["agent"],
+  on: { agent: takeAgentEvent },
+  read: async (threadId) => {
+    try {
+      return await api().request("threads.items", { threadId });
+    } catch (error) {
+      // Said before the news that waited is taken, which would ask for it again (`missed`).
+      useAgents.setState((s) => ({
+        readFailed: { ...s.readFailed, [threadId]: true },
+      }));
+      throw error;
+    }
   },
 });
 

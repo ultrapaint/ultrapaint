@@ -2,7 +2,7 @@
  * The cards a thread's agent waits on, through their module's interface: each kind opened,
  * answered, declined and let go, and the mark a form comes back with.
  */
-import { assert, describe, it } from "@effect/vitest";
+import { assert, describe } from "@effect/vitest";
 import type {
   CreateElicitationRequest,
   RequestPermissionRequest,
@@ -11,6 +11,7 @@ import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, Fiber } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeId } from "../../ids.ts";
+import { perTest } from "../../testing/each-test.ts";
 import {
   ThreadTest,
   type ThreadTestServices,
@@ -19,10 +20,11 @@ import {
 import { makePendingCards } from "./pending-cards.ts";
 import { ThreadStore } from "./thread-store.ts";
 
+/** On the test clock from `TEST_EPOCH` (docs/TESTING.md rule 3). */
 const test = <A, E>(
   name: string,
   body: () => Effect.Effect<A, E, ThreadTestServices>
-) => it.effect(name, () => Effect.provide(body(), ThreadTest));
+) => perTest(ThreadTest).effect(name, body);
 
 /** A thread in the store, and its cards. */
 const cardsOfNewThread = Effect.gen(function* () {

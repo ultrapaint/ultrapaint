@@ -10,7 +10,7 @@ import type {
   CreateElicitationRequest,
   SessionUpdate,
 } from "@ultrapaint/acp/acp-agent";
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import { type ThreadItem, withChunk } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Fiber, FileSystem, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
@@ -23,6 +23,7 @@ import {
   ThreadSessions,
 } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
+import { perTest } from "./testing/each-test.ts";
 import {
   type LaunchedAgent,
   ScriptedAgents,
@@ -43,11 +44,14 @@ import {
 } from "./testing/threads.ts";
 import { kinds, said, turnEnded, turnsEnded } from "./testing/turns.ts";
 
-/** A test on its own thread services, its own fixture and its own agents. */
+/**
+ * A test on its own thread services, its own fixture and its own agents, on the test clock from
+ * `TEST_EPOCH` (docs/TESTING.md rule 3).
+ */
 const test = <A, E>(
   name: string,
   body: () => Effect.Effect<A, E, ThreadTestServices>
-) => it.effect(name, () => Effect.provide(body(), ThreadTest));
+) => perTest(ThreadTest).effect(name, body);
 
 const send = (threadId: string, text: string) =>
   promptThread({ attachments: [], text, threadId });
@@ -426,7 +430,7 @@ describe("a thread's session", () => {
       assert.deepStrictEqual(turn.texts, ["again"]);
     }));
 
-  it.effect(
+  perTest(threadTest({ sandboxed: true })).effect(
     "reopens a stored session with what stops a confined agent's own sandbox",
     () =>
       Effect.gen(function* () {
@@ -448,7 +452,7 @@ describe("a thread's session", () => {
           (reopened?.params as { _meta?: unknown } | undefined)?._meta,
           SCRIPTED_SANDBOX_META
         );
-      }).pipe(Effect.provide(threadTest({ sandboxed: true })))
+      })
   );
 
   test("tells the agent who the client is, by the server's version", () =>
@@ -660,7 +664,7 @@ describe("a turn", () => {
       assert.include(turn.texts.at(-1) ?? "", "picture");
     }));
 
-  it.effect(
+  perTest(threadTest({ mcp: true })).effect(
     "offers the editor's MCP server to an agent that reaches one over http, and only then",
     () =>
       Effect.gen(function* () {
@@ -677,10 +681,10 @@ describe("a turn", () => {
         yield* agents.script({ capabilities: { mcpCapabilities: {} } });
         const cannot = yield* started();
         assert.strictEqual(yield* serversOf(cannot.agent), 0);
-      }).pipe(Effect.provide(threadTest({ mcp: true })))
+      })
   );
 
-  it.effect(
+  perTest(threadTest({ mcp: true })).effect(
     "briefs an agent and words its task for the tools it was given, not the server's",
     () =>
       Effect.gen(function* () {
@@ -697,7 +701,7 @@ describe("a turn", () => {
           briefingFor("design"),
           taskFor("redraw", "marketing"),
         ]);
-      }).pipe(Effect.provide(threadTest({ mcp: true })))
+      })
   );
 
   test("offers each choice of an option the agent groups", () =>
@@ -820,6 +824,45 @@ describe("a turn", () => {
       yield* turn.end();
       const { items } = yield* threadWhen(threadId, turnEnded);
       assert.deepStrictEqual(said(items), ["Hello world!"]);
+    }));
+
+  test("says where each chunk starts, so a transcript read mid-reply is continued by the chunks told before it and after", () =>
+    Effect.gen(function* () {
+      const events = yield* EventBus;
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started();
+      // Started at once, the fiber has subscribed by the time the fork returns.
+      const sent = yield* Effect.forkChild(
+        events.subscribe("agent").pipe(
+          Stream.filterMap((ev) =>
+            ev.type === "itemText" ? Result.succeed(ev) : Result.failVoid
+          ),
+          Stream.take(3),
+          Stream.runCollect
+        ),
+        { startImmediately: true }
+      );
+      yield* turn.say("Hello ");
+      yield* turn.say("wor");
+      // As `threads.items` answers an editor that opens the chat here: the chunk before it is
+      // in the answer, and may reach that editor after it.
+      const [read = ""] = said(yield* store.items(threadId));
+      yield* turn.say("ld");
+      yield* turn.say("!");
+      const chunks = yield* Fiber.join(sent);
+      assert.deepStrictEqual(
+        chunks.map((c) => [c.offset, c.text]),
+        [
+          [6, "wor"],
+          [9, "ld"],
+          [11, "!"],
+        ]
+      );
+      assert.strictEqual(read, "Hello wor");
+      assert.strictEqual(
+        chunks.reduce((held, chunk) => withChunk(held, chunk) ?? held, read),
+        "Hello world!"
+      );
     }));
 
   test("keeps the tail of a terminal's output in the tool call that ran it", () =>

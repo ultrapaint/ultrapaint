@@ -281,66 +281,33 @@ describe("agent turn checkpoints", () => {
     );
   });
 
-  /** A checkpoint as it was kept before the snapshot store: one JSON file with every design file. */
-  const old = (
-    id: string,
-    at: number,
-    files: Readonly<Record<string, string>>
-  ) =>
-    JSON.stringify({
-      checkpoint: {
-        at,
-        files: Object.keys(files),
-        id,
-        label: `Before: ${id}`,
-        threadId: "t-old",
-      },
-      files,
-    });
-
-  eachTest(
-    ProjectTest({
-      state: {
-        "checkpoints/cp_old_1.json": old("cp_old_1", 1000, {
-          [COMMENTS]: '{ "comments": [], "version": 1 }\n',
-          "designs/package.json": '{ "name": "designs" }\n',
-        }),
-        "checkpoints/cp_old_2.json": "{ not json",
-      },
-    })
-  )((it) => {
+  eachTest(ProjectTest())((it) => {
     it.effect(
-      "moves the checkpoints kept in the old format into the store",
+      "lists the snapshots of the open repository and those that say nothing of where they were taken",
       () =>
         Effect.gen(function* () {
-          const { home } = yield* ProjectFixture;
-          const fs = yield* FileSystem.FileSystem;
-          const checkpoints = yield* Checkpoints;
-          const [moved, ...rest] = yield* checkpoints.list;
-          assert.deepStrictEqual(rest, []);
-          // The comments were never the designs: the checkpoint no longer keeps them.
-          assert.deepStrictEqual(moved, {
-            at: 1000,
-            files: ["designs/package.json"],
-            id: "cp_old_1",
-            label: "Before: cp_old_1",
-            threadId: "t-old",
-          });
-          // The file moved is gone; the one that does not read stays, for someone to look at.
+          const { repo } = yield* ProjectFixture;
+          const store = yield* SnapshotStore;
+          const kept = (id: string, at: number, where: { repo?: string }) =>
+            store.recordContents(
+              "designs",
+              { [HOME_FILE]: "{}\n" },
+              {
+                name: id,
+                note: JSON.stringify({
+                  ...where,
+                  snapshot: { at, files: 1, id, name: id },
+                }),
+              }
+            );
+          yield* kept("sn_here_00001", 1000, { repo });
+          yield* kept("sn_nowhere_00001", 500, {});
+          yield* kept("sn_elsewhere_00001", 2000, { repo: `${repo}-other` });
+          const listed = yield* Effect.flatMap(Snapshots, (s) => s.list);
           assert.deepStrictEqual(
-            yield* fs.readDirectory(path.join(home, "checkpoints")),
-            ["cp_old_2.json"]
+            listed.map((s) => s.id),
+            ["sn_here_00001", "sn_nowhere_00001"]
           );
-          const diffs = yield* checkpoints.diff("cp_old_1");
-          assert.deepStrictEqual(
-            diffs.map((d) => d.path),
-            [HOME_FILE]
-          );
-          const comments = '{ "comments": [{ "id": "c1" }], "version": 1 }\n';
-          yield* write(COMMENTS, comments);
-          yield* checkpoints.revert("cp_old_1");
-          assert.isNull(yield* read(HOME_FILE));
-          assert.strictEqual(yield* read(COMMENTS), comments);
         })
     );
   });

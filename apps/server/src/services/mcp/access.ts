@@ -38,9 +38,6 @@ const newToken = Effect.sync(
   () => `mcp_${randomBytes(32).toString("base64url")}`
 );
 
-/** How tokens were made before: the time and a few random bits, which a page could guess. */
-const GUESSABLE_TOKEN_RE = /^mcp_[0-9a-z]+_[0-9a-z]{5}$/;
-
 /** Whether two tokens are the same, in a time that does not say how much of them matched. */
 const sameToken = (given: string, known: string) => {
   const a = Buffer.from(given);
@@ -104,7 +101,6 @@ export class McpAccess extends Context.Service<
       /** The project's token, as last read or made, and the state directory it belongs to. */
       let known: { readonly file: string; readonly token: string } | null =
         null;
-      let replaced = false;
 
       /**
        * Read from the state directory the first time, written if it is not there, and kept. The
@@ -120,18 +116,10 @@ export class McpAccess extends Context.Service<
           if (known?.file === file) {
             return known.token;
           }
-          const read = yield* Effect.orElseSucceed(
+          const existing = yield* Effect.orElseSucceed(
             Effect.map(fs.readFileString(file), (text) => text.trim()),
             () => ""
           );
-          // One made the old way is replaced: the agent outside is given the new one to use.
-          const existing = GUESSABLE_TOKEN_RE.test(read) ? "" : read;
-          if (read && !existing) {
-            replaced = true;
-            yield* Effect.logWarning(
-              "the MCP token was one a website could guess, and is replaced: copy the new one from the settings into agents outside the editor"
-            );
-          }
           if (existing) {
             // Written before it was kept to its owner; only they need to read it.
             yield* Effect.ignore(fs.chmod(file, 0o600));
@@ -177,12 +165,11 @@ export class McpAccess extends Context.Service<
           }
           return Effect.map(external, (project) => sameToken(token, project));
         },
-        // The token was one made the old, guessable way and was replaced since the server
-        // started: the agents outside the editor still send the old one, which is turned away.
         connection: Effect.gen(function* () {
           const { header, url } = yield* endpoint;
           const token = enabled ? yield* external : "";
-          return { enabled, header, replaced, token, url };
+          // No token is replaced on the way: the settings read the field all the same.
+          return { enabled, header, replaced: false, token, url };
         }),
         endpoint,
         external,
