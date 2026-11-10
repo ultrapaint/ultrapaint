@@ -248,14 +248,15 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   /**
    * What leads a session's first prompt, `text`. A resumed session has the conversation back,
    * and the briefing with it if anything was ever asked. A new one is told the project, then
-   * what was said before it.
+   * what was said before it. `reviewed`: the editor reviews what the thread's turns make.
    */
   const sessionContext = Effect.fnUntraced(function* (
     resumed: boolean,
     earlier: readonly ThreadItem[],
     purpose: ThreadPurpose,
     tools: boolean,
-    text: string
+    text: string,
+    reviewed: boolean
   ) {
     if (resumed && earlier.some((i) => i.kind === "user")) {
       return [];
@@ -266,7 +267,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     const designs =
       parsed?._tag !== "Request" || toldTheDesignSkill(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { designs, tools })
+      ? yield* briefing.text(purpose, { designs, reviewed, tools })
       : undefined;
     const recap = resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((said): ContentBlock[] =>

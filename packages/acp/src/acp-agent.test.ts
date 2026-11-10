@@ -301,6 +301,22 @@ describe("TerminalManager", () => {
   );
 
   // real clock: a real command in a real terminal.
+  it.live("reports the signal that killed a command, not always SIGTERM", () =>
+    Effect.gen(function* () {
+      const terminals = yield* makeTerminalManager({ env: {} });
+      const id = yield* terminals.create({
+        args: ["-c", "kill -KILL $$"],
+        command: "/bin/sh",
+        cwd: process.cwd(),
+        env: {},
+      });
+      const exit = yield* terminals.waitForExit(id);
+      assert.deepStrictEqual(exit, { exitCode: null, signal: "SIGKILL" });
+      assert.deepStrictEqual((yield* terminals.output(id)).exitStatus, exit);
+    }).pipe(Effect.provide(NodeServices.layer))
+  );
+
+  // real clock: a real command in a real terminal.
   it.live("keeps only the newest bytes past the limit", () =>
     Effect.gen(function* () {
       const terminals = yield* makeTerminalManager({ env: {} });

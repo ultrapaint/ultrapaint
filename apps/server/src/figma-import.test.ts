@@ -12,6 +12,7 @@ import {
 import { Effect, FileSystem, Path } from "effect";
 import { OpenProject } from "./project.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
+import { PagesService } from "./services/pages.ts";
 import { eachTest } from "./testing/each-test.ts";
 import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
@@ -431,6 +432,41 @@ describe("importing a Figma file", () => {
           ["second.fig", "first.fig"]
         );
         assert.strictEqual((yield* figma((f) => f.latest))?.name, "second.fig");
+      })
+    );
+
+    it.effect("writes no page for a frame that does not convert to one", () =>
+      Effect.gen(function* () {
+        const project = yield* OpenProject;
+        const figma = project.service(FigmaImportService);
+        const pages = project.service(PagesService);
+        const f = makeFixture();
+        const frame = f.add(f.page, {
+          name: "Faded",
+          size: { x: 400, y: 300 },
+          type: "FRAME",
+        });
+        // An opacity no node of a page can have, which the conversion passes on as it is.
+        f.add(frame, {
+          fillPaints: [solid(0, 0, 0)],
+          name: "Ghost",
+          opacity: -0.5,
+          size: { x: 100, y: 100 },
+          type: "RECTANGLE",
+        });
+        const { id } = yield* figma((s) => s.create("faded.fig", f.build()));
+        const before = (yield* pages((p) => p.list)).pages.map((p) => p.file);
+
+        const error = yield* Effect.flip(
+          figma((s) => s.writeFrame(id, "Faded", ""))
+        );
+
+        assert.strictEqual(error._tag, "BadRequest");
+        assert.include(error.message, "did not convert to a valid page");
+        assert.deepStrictEqual(
+          (yield* pages((p) => p.list)).pages.map((p) => p.file),
+          before
+        );
       })
     );
   });

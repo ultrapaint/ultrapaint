@@ -11,6 +11,14 @@ export const hashBytes = (bytes: Uint8Array): string =>
 export const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /**
+ * The order of what is written to a committed file or hashed: English's, on every machine. The
+ * machine's own language would put `y` before `x` (Lithuanian), `zIndex` before `text`
+ * (Estonian) or `aa` last (Danish), and two teammates would write the same file differently.
+ */
+export const inEnglish = (a: string, b: string): number =>
+  a.localeCompare(b, "en");
+
+/**
  * A record with its keys in order: the same record always writes the same, and a file of it
  * that is committed diffs and merges line by line.
  */
@@ -18,7 +26,7 @@ export const sortedByKey = <A>(
   record: Readonly<Record<string, A>>
 ): Record<string, A> =>
   Object.fromEntries(
-    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
+    Object.entries(record).sort(([a], [b]) => inEnglish(a, b))
   );
 
 /** JSON with every object's keys in order: the same design always hashes the same. */

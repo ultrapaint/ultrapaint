@@ -20,6 +20,7 @@ import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
 import {
+  briefingFor,
   onThread,
   promptThread,
   ThreadFixture,
@@ -405,6 +406,61 @@ describe("a design's review", () => {
       });
     }));
 
+  /** The findings log's lines, as they were written. */
+  const logged = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const { home, repo } = yield* ThreadFixture;
+    const text = yield* fs.readFileString(
+      path.join(home, "findings", `${path.basename(repo)}.jsonl`)
+    );
+    return text
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+  });
+
+  /** A design whose first round sent "Uneven gap" to the designer, the findings log kept. */
+  const sentToDesigner = Effect.gen(function* () {
+    const { designer, threadId } = yield* designed({
+      review: { findingsLog: true },
+    });
+    const reviewing = yield* nextReviewer;
+    yield* reviewing.turn.say(answer([finding("Uneven gap")], false));
+    yield* reviewing.turn.end();
+    return { designer, fixing: yield* designer.nextTurn, threadId };
+  });
+
+  test("logs findings as unanswered when their thread is deleted before the designer answers", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* sentToDesigner;
+      yield* (yield* ThreadSessions).delete(threadId);
+      const lines = yield* logged;
+      assert.strictEqual(lines.length, 1);
+      assert.deepInclude(lines[0], {
+        designer: { did: "unanswered" },
+        round: 1,
+        title: "Uneven gap",
+      });
+    }));
+
+  test("logs findings as unanswered when the turn that answers them fails", () =>
+    Effect.gen(function* () {
+      const { designer, fixing, threadId } = yield* sentToDesigner;
+      yield* fixing.fail("usage limit reached");
+      yield* threadWhen(threadId, (t) => t.status === "error");
+      // The person's next prompt starts another run: nothing answers that round any more.
+      yield* promptThread({ attachments: [], text: "again", threadId });
+      yield* Effect.andThen(designer.nextTurn, (t) => t.end());
+      yield* threadWhen(threadId, turnEnded);
+      const lines = yield* logged;
+      assert.strictEqual(lines.length, 1);
+      assert.deepInclude(lines[0], {
+        designer: { did: "unanswered" },
+        round: 1,
+        title: "Uneven gap",
+      });
+    }));
+
   test("keeps the findings when the person keeps them, whatever the project says", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -460,4 +516,40 @@ describe("no review", () => {
       const { threadId } = yield* designed({ purpose: "implement" });
       yield* noReview(threadId);
     }));
+
+  /** What the designer of a new thread, its review settings `review`, is briefed with. */
+  const briefed = Effect.fnUntraced(function* (review?: ReviewSettings) {
+    const threads = yield* ThreadSessions;
+    const agents = yield* ScriptedAgents;
+    const store = yield* ThreadStore;
+    const { id: threadId } = yield* threads.create({ agentId: "scripted" });
+    if (review) {
+      yield* store.update(threadId, { review });
+    }
+    yield* promptThread({ attachments: [], text: REQUEST, threadId });
+    const turn = yield* Effect.flatMap(agents.next, (a) => a.nextTurn);
+    return turn.texts[0];
+  });
+
+  test("is announced to a designer whose review is off", () =>
+    Effect.gen(function* () {
+      assert.strictEqual(yield* briefed(), briefingFor("design"));
+      assert.strictEqual(
+        yield* briefed({ on: false }),
+        briefingFor("design", false, false)
+      );
+    }));
+
+  test(
+    "is announced to a designer when the project's review is off, unless its own is on",
+    () =>
+      Effect.gen(function* () {
+        assert.strictEqual(
+          yield* briefed(),
+          briefingFor("design", false, false)
+        );
+        assert.strictEqual(yield* briefed({ on: true }), briefingFor("design"));
+      }),
+    { review: { on: false } }
+  );
 });

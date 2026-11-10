@@ -29,6 +29,7 @@ import {
   variantOf,
 } from "@ultrapaint/shared/route";
 import { Schema } from "effect";
+import { inEnglish } from "../hash.ts";
 
 export const IGNORED_DIRS = new Set([
   "node_modules",
@@ -39,8 +40,6 @@ export const IGNORED_DIRS = new Set([
 export const decodeOrder = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CanvasOrder)
 );
-
-const byRoute = (a: string, b: string) => a.localeCompare(b);
 
 /** Routes keyed by page path, as entries a route can be matched against. */
 const routeEntries = (routes: Readonly<Record<string, string>>) =>
@@ -62,7 +61,7 @@ export const homeOf = (
   if (served.length === 0 || matchRoute(entries, "/")) {
     return "/";
   }
-  return normaliseRoute([...served].sort(byRoute)[0] ?? "/");
+  return normaliseRoute([...served].sort(inEnglish)[0] ?? "/");
 };
 
 /**
@@ -83,7 +82,7 @@ export const followHome = (
   if (moved !== undefined) {
     return normaliseRoute(moved);
   }
-  const [first] = Object.values(after).map(normaliseRoute).sort(byRoute);
+  const [first] = Object.values(after).map(normaliseRoute).sort(inEnglish);
   return first;
 };
 
@@ -165,7 +164,7 @@ export const pageListOf = (input: {
         p.canvas === id && p.variant !== undefined ? [p.variant] : []
       )
       .filter((v) => !listed.includes(v))
-      .sort((a, b) => a.localeCompare(b));
+      .sort(inEnglish);
     const served = pages.flatMap((p) =>
       p.canvas === id && p.variant === undefined && p.route !== undefined
         ? [p.route]

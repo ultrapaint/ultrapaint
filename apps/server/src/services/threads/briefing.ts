@@ -173,21 +173,25 @@ calls — is the code's. When the user asks for behaviour, ${ways.noteBehaviour}
 tell them it goes to the code when the design is implemented (the Implement button). Token values
 are the design's: change them in the design system, never in a stylesheet.`;
 
+/** What a design thread is told of the editor's review loop (ADR 0063), when its turns are reviewed. */
+const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's review models look at what you made and sends
+  you their findings. Fix each, or decline it with its reason, and end that reply with one line
+  per declined finding: "Declined: <title> — <reason>". The editor runs the review: don't start
+  one of your own.
+`;
+
 /**
  * How a design thread speaks and works in the chat (ADR 0063): an assistant at work on the
- * method, its plan the run card's steps, the editor's review loop answered, one question at a time.
+ * method, its plan the run card's steps, the editor's review loop answered where the thread is
+ * `reviewed`, one question at a time.
  */
-const DESIGN_CHAT = `How you work in this chat:
+const designChat = (reviewed: boolean) => `How you work in this chat:
 - Before the first node, say your plan once, in at most three sentences: the page, its sections
   and the states each will have. Then work; don't narrate each step.
 - Keep your plan with your plan or todo tool, as "Outline", then one "Build <section>" per
   section, ticked off as you go: the chat shows it as the run's progress, so never write the
   list into your messages.
-- When your turn ends, the editor has the user's review models look at what you made and sends
-  you their findings. Fix each, or decline it with its reason, and end that reply with one line
-  per declined finding: "Declined: <title> — <reason>". The editor runs the review: don't start
-  one of your own.
-- At the end, say where the result is, each change by its link, at most three things the user
+${reviewed ? REVIEW_ANSWERED : ""}- At the end, say where the result is, each change by its link, at most three things the user
   might not expect, and what you didn't check. No recap of the request, no list of all you did.
 - Ask one question at a time, with its options and the one you suggest first.
 `;
@@ -253,11 +257,14 @@ export class ProjectBriefing extends Context.Service<
      * no project is open. `tools`: its agent has the editor's tools (ADR 0039), the server's MCP
      * setting when it is not said. `designs`: the thread is told the design skills; a design
      * thread is unless said otherwise (`toldTheDesignSkill`), an implement thread never.
+     * `reviewed`: the editor reviews what the thread's turns make (ADR 0063), which a thread told
+     * the design skills is told too, unless no review will run for it (`ReviewLoop.enabled`).
      */
     readonly text: (
       purpose: ThreadPurpose,
       options?: {
         readonly designs?: boolean;
+        readonly reviewed?: boolean;
         readonly tools?: boolean;
       }
     ) => Effect.Effect<string | undefined>;
@@ -273,7 +280,8 @@ export class ProjectBriefing extends Context.Service<
       const build = Effect.fnUntraced(function* (
         purpose: ThreadPurpose,
         tools: boolean,
-        designs: boolean
+        designs: boolean,
+        reviewed: boolean
       ) {
         const ways = agentWays(tools);
         const paths = yield* RepoPaths;
@@ -311,7 +319,7 @@ export class ProjectBriefing extends Context.Service<
 You are working in Ultrapaint, a design tool. The user sees the designs you change, live, on
 its canvas, drawn with Ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
-${designs ? `\n${DESIGN_CHAT}` : ""}
+${designs ? `\n${designChat(reviewed)}` : ""}
 ${canvasesIn(settings.designsDir)}
 ${PAGES}
 It holds a tree of nodes, each with an id:
@@ -380,7 +388,8 @@ never write it; when styles are missing, send the user to Sync in the Design sys
               build(
                 purpose,
                 options.tools ?? mcp,
-                purpose === "design" && options.designs !== false
+                purpose === "design" && options.designs !== false,
+                options.reviewed !== false
               )
             )
             // No project open, or a repository the server cannot read: the agent manages without.

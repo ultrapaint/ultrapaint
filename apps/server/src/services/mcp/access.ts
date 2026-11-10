@@ -61,7 +61,10 @@ export const CallingThread: Context.Reference<string | undefined> =
 export class McpAccess extends Context.Service<
   McpAccess,
   {
-    /** Whether this token may call at all, from a thread or from outside. */
+    /**
+     * Whether this token may call at all, from a thread or from outside. Nobody outside may when
+     * the server was started without its MCP server.
+     */
     readonly allows: (token: string | undefined) => Effect.Effect<boolean>;
     /**
      * How an agent outside the editor connects, as the settings show it: the address, the header
@@ -106,8 +109,10 @@ export class McpAccess extends Context.Service<
       /**
        * Read from the state directory the first time, written if it is not there, and kept. The
        * file is asked for at the moment of use, like everything else that touches the state:
-       * saving an unsaved session moves the directory, and a token read from the old one is
-       * still the right token, so only a different file is read again.
+       * saving an unsaved session moves the directory, and only a different file is read again.
+       * The token's file does not move with it, and the token handed out in the unsaved session
+       * is still the right one: it is written where the state now is, unless that place already
+       * keeps a token of its own.
        */
       const external = making.withPermits(1)(
         Effect.gen(function* () {
@@ -131,7 +136,7 @@ export class McpAccess extends Context.Service<
             // Written before it was kept to its owner; only they need to read it.
             yield* Effect.ignore(fs.chmod(file, 0o600));
           }
-          const token = existing || (yield* newToken);
+          const token = existing || known?.token || (yield* newToken);
           if (!existing) {
             // A state directory that cannot be written still gets a token; it lasts until the
             // server stops, which is better than turning away every agent outside the editor.
@@ -164,6 +169,11 @@ export class McpAccess extends Context.Service<
           }
           if (threadOf(token) !== undefined) {
             return Effect.succeed(true);
+          }
+          // Started without its MCP server, the editor gives nobody outside a token: one an
+          // earlier run left with the state opens nothing.
+          if (!enabled) {
+            return Effect.succeed(false);
           }
           return Effect.map(external, (project) => sameToken(token, project));
         },

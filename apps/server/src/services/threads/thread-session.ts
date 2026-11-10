@@ -622,7 +622,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
             earlier,
             purpose,
             session.editorMcp,
-            input.text
+            input.text,
+            yield* reviews.enabled(threadId)
           ))
         );
       }
@@ -869,14 +870,17 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     const setConfigOption = Effect.fn("ThreadSession.setConfigOption")(
       function* (optionId: string, value: string) {
         const thread = yield* store.get(threadId);
-        const options = thread?.configOptions ?? [];
+        if (!thread) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        const options = thread.configOptions ?? [];
         const chosen = options.map((o) =>
           o.id === optionId ? { ...o, currentValue: value } : o
         );
         const now = yield* current;
         // No session yet: the choice waits for the one the next prompt starts.
-        if (now === null || thread === undefined) {
-          yield* store.update(threadId, { configOptions: chosen });
+        if (now === null) {
+          yield* store.update(threadId, optionsSet(thread, chosen));
           return;
         }
         const response = yield* Effect.mapError(
@@ -930,6 +934,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           yield* Fiber.interrupt(reviewing);
         }
         yield* stopLive;
+        // Last: a review stopped just now left its pages waiting for the next round.
+        yield* reviews.forget(threadId);
       }),
       prompt: (input) => detached(prompting.withPermit(promptNow(input))),
       sendQueued: detached(sendQueued),
@@ -996,18 +1002,22 @@ export class ThreadSessions extends Context.Service<
       const detached = <A, E>(effect: Effect.Effect<A, E>) =>
         Effect.flatMap(Effect.forkIn(effect, serviceScope), Fiber.join);
       const make = yield* makeSessionFactory({ detached, serviceScope });
+      const store = yield* ThreadStore;
       const sessions = new Map<string, ThreadSession>();
+      // A thread the store does not have (deleted, or never there) is answered by a session of
+      // its own, which says so, and is not kept: nothing would ever forget it.
       const of = (threadId: string) =>
-        Effect.sync(() => {
+        Effect.map(store.get(threadId), (thread) => {
           const known = sessions.get(threadId);
           if (known) {
             return known;
           }
           const made = make(threadId);
-          sessions.set(threadId, made);
+          if (thread !== undefined) {
+            sessions.set(threadId, made);
+          }
           return made;
         }).pipe(Effect.withSpan("ThreadSessions.of"));
-      const store = yield* ThreadStore;
       const agents = yield* AgentConfigs;
       const preferences = yield* ChatPreferences;
       const discovery = yield* AgentDiscovery;
@@ -1054,10 +1064,14 @@ export class ThreadSessions extends Context.Service<
             const session = yield* of(threadId);
             yield* session.delete;
           },
+          // Detached, as a prompt is: cut short by its request's socket closing, a delete would
+          // forget the session while its agent still ran.
           (effect, threadId) =>
-            Effect.ensuring(
-              effect,
-              Effect.sync(() => sessions.delete(threadId))
+            detached(
+              Effect.ensuring(
+                effect,
+                Effect.sync(() => sessions.delete(threadId))
+              )
             )
         ),
         of,

@@ -282,8 +282,11 @@ export const KILL_AFTER = "3 seconds";
 /** `Process interrupted due to receipt of signal: 'SIGTERM'`, as the spawner says it. */
 const SIGNAL_RE = /signal: '(\w+)'/;
 
-/** The signal a process the spawner says was interrupted was stopped by. */
-const signalOf = (error: { readonly cause?: unknown }): string => {
+/**
+ * The signal a process the spawner says was interrupted was stopped by: an agent's, and a
+ * terminal's command alike.
+ */
+export const signalOf = (error: { readonly cause?: unknown }): string => {
   const match: RegExpExecArray | null = Predicate.isError(error.cause)
     ? SIGNAL_RE.exec(error.cause.message)
     : null;

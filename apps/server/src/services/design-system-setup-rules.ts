@@ -25,6 +25,7 @@ import {
 import { spacingStepOf } from "@ultrapaint/contracts/token-table";
 import type { UsageSuggestion } from "@ultrapaint/framework-api/node";
 import { plural } from "@ultrapaint/shared/text";
+import { inEnglish } from "../hash.ts";
 
 /** Values off the system a task lists, most used first. */
 const BRIEF_VALUES = 80;
@@ -309,7 +310,7 @@ export const batchesOf = (
     byDir.set(dir, [...(byDir.get(dir) ?? []), file]);
   }
   const batches: MigrationBatch[] = [];
-  for (const [dir, all] of [...byDir].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [dir, all] of [...byDir].sort(([a], [b]) => inEnglish(a, b))) {
     for (let i = 0; i < all.length; i += BATCH_FILES) {
       batches.push({
         dir,

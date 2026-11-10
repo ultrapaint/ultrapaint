@@ -51,6 +51,16 @@ interface SettingsFile {
 /** File an unsaved session keeps its settings in, inside the directory the command lends it. */
 const SESSION_FILE = "session.json";
 
+/** A path a POSIX shell reads as one word without quoting. */
+const PLAIN_WORD = /^[\w./-]+$/;
+
+/**
+ * A path as one word of a command typed in a POSIX shell: as it is when it is plain, else in
+ * single quotes, a single quote of its own closing them, escaped, and opening them again.
+ */
+const shellWord = (value: string) =>
+  PLAIN_WORD.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+
 /**
  * The settings, wherever the storage target keeps them: a home directory's `settings.json`, an
  * `ultrapaint.config.json` in the repository, the `session.json` of an unsaved session the command
@@ -481,8 +491,8 @@ export class SettingsService extends Context.Service<
           command: (CONFIG_FILE_NAMES as readonly string[]).includes(
             path.basename(configPath)
           )
-            ? `cd ${path.dirname(configPath)} && ultrapaint`
-            : `ultrapaint --config ${configPath}`,
+            ? `cd ${shellWord(path.dirname(configPath))} && ultrapaint`
+            : `ultrapaint --config ${shellWord(configPath)}`,
           configPath,
           validation,
         } satisfies PersistResult;

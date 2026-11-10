@@ -58,6 +58,7 @@ import { makeId, newestFirst, safeFileId } from "../ids.ts";
 import { CodeSide } from "./code-side.ts";
 import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
+import { decodePage } from "./document-file.ts";
 import type { EditFailure } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -72,9 +73,6 @@ const LOADED_LIMIT = 2;
 
 const decodeImport = Schema.decodeUnknownEffect(
   Schema.fromJsonString(FigmaImport)
-);
-const decodePage = Schema.decodeUnknownEffect(
-  Schema.Struct({ root: Schema.Unknown, version: Schema.Number })
 );
 
 /** A frame converted with the mapping as it stands. */
@@ -658,8 +656,7 @@ export class FigmaImportService extends Context.Service<
               new BadRequest({
                 message: `the frame did not convert to a valid page: ${error.message}`,
               })
-          ),
-          Effect.map((decoded) => decoded as unknown as PageDocument)
+          )
         );
         yield* writeImages(conversion);
         const page = yield* pages.createWith(

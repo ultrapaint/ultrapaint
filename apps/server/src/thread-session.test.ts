@@ -235,6 +235,79 @@ describe("a thread's session", () => {
       assert.isUndefined(yield* store.get(threadId));
     }));
 
+  test("stops the agent of a thread whose delete is cut short, as a closing socket cuts a request", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const store = yield* ThreadStore;
+      const { agent, threadId } = yield* started();
+      // Begun at once, so the interrupt finds it where it first waits: the thread's file.
+      const deleting = yield* Effect.forkChild(threads.delete(threadId), {
+        startImmediately: true,
+      });
+      yield* Fiber.interrupt(deleting);
+      yield* agent.stopped;
+      assert.isUndefined(yield* store.get(threadId));
+    }));
+
+  test("keeps no session for a thread that is not there", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
+      assert.strictEqual(
+        yield* threads.of(threadId),
+        yield* threads.of(threadId)
+      );
+      yield* threads.delete(threadId);
+      // Asked for after its delete, as a request still on its way is: answered, and not kept.
+      const late = yield* threads.of(threadId);
+      assert.notStrictEqual(yield* threads.of(threadId), late);
+      const error = yield* Effect.flip(
+        late.prompt({ attachments: [], text: "hello", threadId })
+      );
+      assert.strictEqual(error._tag, "NotFound");
+    }));
+
+  test("keeps the mode with a mode option chosen before the session starts", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const agents = yield* ScriptedAgents;
+      const store = yield* ThreadStore;
+      yield* agents.script({
+        configOptions: [
+          {
+            category: "mode",
+            currentValue: "ask",
+            id: "mode",
+            name: "Mode",
+            options: [
+              { name: "Ask", value: "ask" },
+              { name: "Auto", value: "auto" },
+            ],
+            type: "select",
+          },
+        ],
+      });
+      yield* (yield* AgentDiscovery).discover("scripted");
+      yield* agents.next;
+      // A new thread starts in the agent's automatic mode.
+      const created = yield* threads.create({ agentId: "scripted" });
+      assert.strictEqual(created.currentModeId, "auto");
+      yield* onThread(created.id, (s) => s.setConfigOption("mode", "ask"));
+      const thread = yield* store.get(created.id);
+      assert.strictEqual(thread?.configOptions?.[0]?.currentValue, "ask");
+      assert.strictEqual(thread?.currentModeId, "ask");
+    }));
+
+  test("says a thread that is not there is not found when an option is set on it", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        onThread("thread_gone_00001", (s) =>
+          s.setConfigOption("model", "smart")
+        )
+      );
+      assert.strictEqual(error._tag, "NotFound");
+    }));
+
   test("applies a model and a mode chosen before the session starts, from what discovery learnt", () =>
     Effect.gen(function* () {
       const threads = yield* ThreadSessions;

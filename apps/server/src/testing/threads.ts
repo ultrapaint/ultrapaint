@@ -55,11 +55,11 @@ export class ThreadFixture extends Context.Service<
 >()("ultrapaint/server/testing/ThreadFixture") {}
 
 /**
- * The briefing's stand-in: `<ultrapaint>` and the purpose it was asked for, and whether its
- * agent has the editor's tools.
+ * The briefing's stand-in: `<ultrapaint>` and the purpose it was asked for, whether its agent
+ * has the editor's tools, and whether a design thread is told the editor reviews its work.
  */
-export const briefingFor = (purpose: string, tools = false) =>
-  `<ultrapaint>\nThe project, for a ${purpose} thread${tools ? ", with the editor's tools" : ""}.\n</ultrapaint>`;
+export const briefingFor = (purpose: string, tools = false, reviewed = true) =>
+  `<ultrapaint>\nThe project, for a ${purpose} thread${tools ? ", with the editor's tools" : ""}${reviewed ? "" : ", not reviewed"}.\n</ultrapaint>`;
 
 /**
  * The fixture's project closed, as saving other settings closes it, and opened again: every
@@ -198,7 +198,14 @@ const briefing = Layer.succeed(
   ProjectBriefing,
   ProjectBriefing.of({
     text: (purpose, options = {}) =>
-      Effect.succeed(briefingFor(purpose, options.tools)),
+      Effect.succeed(
+        briefingFor(
+          purpose,
+          options.tools,
+          // Only a design thread is told of the review, as in the briefing itself.
+          purpose !== "design" || options.reviewed !== false
+        )
+      ),
   })
 );
 

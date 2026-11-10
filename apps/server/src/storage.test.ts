@@ -304,6 +304,39 @@ eachTest(Unsaved)("a session started without a configuration", (test) => {
       assert.strictEqual(twice._tag, "BadRequest");
     })
   );
+
+  // The command is copied into a shell: a directory with a space or a quote in its name is
+  // still one word there.
+  for (const [file, commandFor] of [
+    [
+      "ultrapaint.json",
+      (dir: string) => `cd '${dir}/it'\\''s ours' && ultrapaint`,
+    ],
+    [
+      "team.json",
+      (dir: string) => `ultrapaint --config '${dir}/it'\\''s ours/team.json'`,
+    ],
+  ] as const) {
+    test.effect(
+      `says a command a shell reads, for ${file} in a directory with a space`,
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          yield* client["settings.set"](settings);
+          const dir = path.join(repo, "it's ours");
+          yield* fs.makeDirectory(dir);
+
+          const result = yield* client["settings.persist"]({
+            configPath: path.join(dir, file),
+            settings,
+          });
+
+          assert.strictEqual(result.command, commandFor(repo));
+        })
+    );
+  }
 });
 
 const Shared = makeTestServer(({ repo }) =>

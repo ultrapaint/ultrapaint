@@ -28,6 +28,7 @@ import type {
   TokenChange,
   TokenKind,
 } from "@ultrapaint/contracts/tokens";
+import { inEnglish } from "../hash.ts";
 
 /** A token as a side has it, named as pages name tokens, with its value per theme. */
 export interface SideToken {
@@ -315,7 +316,7 @@ export const agreementAfter = (input: {
       out.push([key, agreed]);
     }
   }
-  return Object.fromEntries(out.sort(([a], [b]) => a.localeCompare(b)));
+  return Object.fromEntries(out.sort(([a], [b]) => inEnglish(a, b)));
 };
 
 const TOKEN_NAME_RE = /^[a-z][a-z0-9-]*[a-z0-9]$/;

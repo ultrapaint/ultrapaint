@@ -1,6 +1,6 @@
 import { Effect, Exit, Fiber, Random, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { KILL_AFTER } from "./acp-agent.ts";
+import { KILL_AFTER, signalOf } from "./acp-agent.ts";
 import { TerminalError } from "./errors.ts";
 import { type AgentLaunch, agentEnv } from "./sandbox.ts";
 
@@ -123,20 +123,18 @@ export const makeTerminalManager = (options: {
       const limit = request.outputByteLimit ?? DEFAULT_OUTPUT_LIMIT;
       const terminal: Terminal = {
         drained: Effect.void,
-        // A command killed by a signal has no exit code to report.
+        // A command killed by a signal has no exit code to report: the agent is told which one.
         exit: handle.exitCode.pipe(
-          Effect.map(
-            (code): TerminalExit => ({
+          Effect.match({
+            onFailure: (error): TerminalExit => ({
+              exitCode: null,
+              signal: signalOf(error),
+            }),
+            onSuccess: (code): TerminalExit => ({
               exitCode: Number(code),
               signal: null,
-            })
-          ),
-          Effect.orElseSucceed(
-            (): TerminalExit => ({
-              exitCode: null,
-              signal: "SIGTERM",
-            })
-          ),
+            }),
+          }),
           Effect.tap((status) =>
             Effect.sync(() => {
               terminal.exited = status;

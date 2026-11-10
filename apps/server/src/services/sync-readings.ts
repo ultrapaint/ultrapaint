@@ -22,6 +22,7 @@ import {
   tokenKindOf,
 } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
+import { inEnglish } from "../hash.ts";
 import {
   agreementAfter,
   compareSide,
@@ -204,7 +205,7 @@ export const figmaBaselineAfter = (input: {
               ]
             : [];
         })
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort(([a], [b]) => inEnglish(a, b))
     ),
   };
 };

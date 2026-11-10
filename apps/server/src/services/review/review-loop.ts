@@ -28,6 +28,7 @@ import {
   namedChoices,
   type RoundFinding,
   type RoundReviewer,
+  type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import {
@@ -133,12 +134,23 @@ const NOBODY =
 /** What a reviewer still looking is shown with when the review is stopped. */
 export const STOPPED = "The review was stopped.";
 
-/** A round's findings, the project's name and the round's number, as the log keeps them. */
+/**
+ * A round's findings, the project's name and the round's number, as the log keeps them, and the
+ * thread whose designer answers them.
+ */
 interface Logged {
   readonly found: readonly Found[];
   readonly project: string;
   readonly round: number;
+  readonly threadId: string;
 }
+
+/**
+ * Whether a thread's turns are reviewed at all: a design thread whose review, with `settings`
+ * its own over the project's, is on.
+ */
+const reviewed = (thread: Thread, settings: ReviewSettings) =>
+  (thread.purpose ?? "design") === "design" && settings.on !== false;
 
 /** A round under way: its item, who is in it, and what its reviewers gave so far. */
 interface RoundState {
@@ -176,6 +188,16 @@ export class ReviewLoop extends Context.Service<
      * isn't to be reviewed now: an implement thread, review off, no page changed, or the run over.
      */
     readonly due: (threadId: string) => Effect.Effect<DueRound | null>;
+    /**
+     * Whether the thread's turns are reviewed, as `due` decides it: a design thread whose review,
+     * its own over the project's, is on. What its agent is told to expect (its briefing).
+     */
+    readonly enabled: (threadId: string) => Effect.Effect<boolean>;
+    /**
+     * The thread was deleted: none of its pages waits for a round, and findings its designer had
+     * not answered are logged as unanswered.
+     */
+    readonly forget: (threadId: string) => Effect.Effect<void>;
     /**
      * Runs the round, and when its reviewers are satisfied while every review model is to
      * approve, the closing round of all of them: the findings for the designer, or null when the
@@ -266,6 +288,22 @@ export class ReviewLoop extends Context.Service<
         );
       });
 
+      /**
+       * The thread's findings that no turn answers any more are logged as unanswered: those of
+       * every round but `answering`.
+       */
+      const giveUp = Effect.fnUntraced(function* (
+        threadId: string,
+        answering?: string
+      ) {
+        for (const [id, waiting] of [...unanswered]) {
+          if (waiting.threadId === threadId && id !== answering) {
+            unanswered.delete(id);
+            yield* logFindings(waiting, () => ({ did: "unanswered" }));
+          }
+        }
+      });
+
       // ---- a turn's end ----
 
       /** The turn answered a round: the round says what it fixed and declined, and so does the log. */
@@ -275,6 +313,8 @@ export class ReviewLoop extends Context.Service<
         cancelled: boolean
       ) {
         const round = runOf(items).answering;
+        // A round whose answering turn failed is not the one this turn answers: nothing will.
+        yield* giveUp(threadId, round?.id);
         if (round === undefined || round.fixed !== undefined) {
           return;
         }
@@ -341,10 +381,7 @@ export class ReviewLoop extends Context.Service<
           ...reviewSettingsOf(paths.settings.review, thread.review),
           ...(keepFindings === true && { findingsLog: true }),
         };
-        if (
-          (thread.purpose ?? "design") !== "design" ||
-          settings.on === false
-        ) {
+        if (!reviewed(thread, settings)) {
           // Not reviewed: what it changed is not owed a review later.
           pending.delete(threadId);
           return null;
@@ -381,6 +418,29 @@ export class ReviewLoop extends Context.Service<
           turns: turnsOf(run.rounds),
         };
         return round;
+      });
+
+      const enabled = Effect.fn("ReviewLoop.enabled")(function* (
+        threadId: string
+      ) {
+        const thread = yield* store.get(threadId);
+        const paths = yield* currentPaths;
+        return (
+          thread !== undefined &&
+          paths !== null &&
+          reviewed(
+            thread,
+            reviewSettingsOf(paths.settings.review, thread.review)
+          )
+        );
+      });
+
+      const forget = Effect.fn("ReviewLoop.forget")(function* (
+        threadId: string
+      ) {
+        pending.delete(threadId);
+        lastPages.delete(threadId);
+        yield* giveUp(threadId);
       });
 
       // ---- who reviews ----
@@ -555,6 +615,7 @@ export class ReviewLoop extends Context.Service<
             found: state.found,
             project: review.projectName,
             round: number,
+            threadId: review.threadId,
           };
           // Findings the designer is not asked about are logged as such.
           const unsent = review.settings.findingsLog
@@ -715,7 +776,7 @@ export class ReviewLoop extends Context.Service<
         );
       });
 
-      return ReviewLoop.of({ due, run, turnEnded });
+      return ReviewLoop.of({ due, enabled, forget, run, turnEnded });
     })
   );
 }

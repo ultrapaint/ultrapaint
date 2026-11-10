@@ -613,6 +613,23 @@ describe("the briefing", () => {
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 
+  test.effect(
+    "tells a design thread the editor reviews its work, unless no review will run for it",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const review = "the editor has the user's review models look";
+        const told = (yield* briefing.text("design")) ?? "";
+        assert.include(told, review);
+        const untold =
+          (yield* briefing.text("design", { reviewed: false })) ?? "";
+        assert.notInclude(untold, review);
+        assert.notInclude(untold, "Declined:");
+        // The rest of how it works in the chat is said either way.
+        assert.include(untold, "Ask one question at a time");
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
   /** The project's own skills: one with a heading, and one without. */
   const ownSkills = {
     "designs/skills/color.md": "Blue is the brand; never use it for status.\n",
