@@ -8,6 +8,7 @@
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
+import { pageOfLink } from "@ultrapaint/shared/link";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
 import { frameOf } from "../canvas/editor-frame.ts";
@@ -113,6 +114,7 @@ import {
   editPageUrl,
   goToPage,
   implementPage,
+  isDraft,
   markImplemented,
   newState,
   pageById,
@@ -177,12 +179,18 @@ const allHidden = (targets: readonly Selection[]) => {
   return nodes.length > 0 && nodes.every((n) => n.hidden === true);
 };
 
-/** The canvas's base pages a link can lead to, by name. */
-const linkTargets = () =>
-  pagesOfCanvas(useEditor.getState().canvas)
-    .filter((p) => p.variant === undefined)
-    .map((p) => ({ name: p.name, path: linkToPage(p) }))
+/** The canvas's base pages a link can lead to, by name: the routes, then the drafts (ADR 0075). */
+const linkTargets = () => {
+  const pages = pagesOfCanvas(useEditor.getState().canvas);
+  return pages
+    .filter((p) => p.variant === undefined && p.state === undefined)
+    .map((p) => ({
+      draft: isDraft(p, pages),
+      name: p.name,
+      path: linkToPage(p),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
+};
 
 const nodeMenu = (target: Selection) => {
   const ctx = nodeContext(target);
@@ -383,8 +391,19 @@ const selectCommented = (pageId: string, nodeId: string) => {
 };
 
 /** Sets where a node leads: a page's file or back; `null` for nowhere. */
-const setLink = (sel: Selection, link: string | null) =>
-  updateSelection({ link }, link === null ? "Remove the link" : "Link", sel);
+/** Links the node; to a draft, once it is given a route (ADR 0075). */
+const setLink = async (sel: Selection, link: string | null) => {
+  const pages = pagesOfCanvas(useEditor.getState().canvas);
+  const led = link === null ? undefined : pageOfLink(pages, link);
+  if (led && isDraft(led, pages) && !(await editPageUrl(led))) {
+    return;
+  }
+  await updateSelection(
+    { link },
+    link === null ? "Remove the link" : "Link",
+    sel
+  );
+};
 
 /** Asks for a URL or another site for the node to lead to. */
 const askLink = async (sel: Selection) => {

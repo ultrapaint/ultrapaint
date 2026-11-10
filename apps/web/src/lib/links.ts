@@ -14,11 +14,19 @@ import { toast } from "sonner";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
+import {
+  basePageOf,
+  DRAFT_HINT,
+  editPageUrl,
+  isDraft,
+} from "./page-actions.ts";
 import { reveal } from "./reveal.ts";
 
 /**
- * Goes where a link pressed in the prototype leads: a page of the canvas, at its URL or as it is
- * when it has none, in the variant the prototype is in; a URL; back; or another site, beside it.
+ * Goes where a link pressed in the prototype leads: a page of the canvas, at its URL or as its
+ * state, in the variant the prototype is in; a URL; back; or another site, beside it. A draft has
+ * no route, and the prototype never shows it (ADR 0075): the link says so, and offers to give it
+ * one.
  */
 export const followLink = (link: string, options?: { push?: boolean }) => {
   const target = linkTargetOf(link);
@@ -43,7 +51,20 @@ export const followLink = (link: string, options?: { push?: boolean }) => {
     });
     return;
   }
-  // A page without a URL is shown as it is; in a variant, the variant's own drawing of it.
+  if (isDraft(page, pages)) {
+    const draft = basePageOf(page, pages);
+    toast(`${draft.name} is a draft`, {
+      action: {
+        label: "Give it a route",
+        onClick: () => {
+          editPageUrl(draft);
+        },
+      },
+      description: DRAFT_HINT,
+    });
+    return;
+  }
+  // A state serves no URL of its own; in a variant, the variant's own drawing of it.
   const drawn =
     page.route === undefined && editor.variant !== null
       ? pages.find(
@@ -75,27 +96,32 @@ export const focusLink = (link: string) => {
   }
 };
 
-/** How the editor names where a link goes, and whether it goes anywhere. */
+/**
+ * How the editor names where a link goes, whether it goes anywhere, and the draft it leads to,
+ * which the prototype does not show until it has a route (ADR 0075).
+ */
 export const describeLink = (
   pages: readonly Page[],
   link: string
-): { broken: boolean; label: string } => {
+): { broken: boolean; draft: Page | null; label: string } => {
   const target = linkTargetOf(link);
   const broken = isBrokenLink(pages, link);
+  const led = pageOfLink(pages, link);
+  const draft = led && isDraft(led, pages) ? basePageOf(led, pages) : null;
   if (target?.kind === "back") {
-    return { broken, label: "Back" };
+    return { broken, draft, label: "Back" };
   }
   if (target?.kind === "external") {
-    return { broken, label: target.url };
+    return { broken, draft, label: target.url };
   }
-  const page = pageOfLink(pages, link);
-  if (page) {
+  if (led) {
     return {
       broken,
-      label: target?.kind === "url" ? `${page.name} · ${link}` : page.name,
+      draft,
+      label: target?.kind === "url" ? `${led.name} · ${link}` : led.name,
     };
   }
-  return { broken, label: `${link} (no page)` };
+  return { broken, draft, label: `${link} (no page)` };
 };
 
 /** The link a field writes for a page: its file, which no change of URL breaks. */

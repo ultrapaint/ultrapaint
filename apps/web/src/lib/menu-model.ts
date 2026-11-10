@@ -168,7 +168,8 @@ export interface NodeFacts {
   /** Where it sits among its siblings. */
   index: number;
   /** The canvas's pages a link can lead to, by file; empty for a node beside the pages. */
-  linkTargets?: readonly { name: string; path: string }[];
+  /** The routes, then the drafts (ADR 0075), which a link to gives a route first. */
+  linkTargets?: readonly { draft?: boolean; name: string; path: string }[];
   /** The node clicked, or the one of the selection the inspector shows. */
   node: DesignNode;
   /** It is inside something other than a page's root, which Select parent goes to. */
@@ -193,10 +194,16 @@ const linkEntries = (f: NodeFacts): Entry<NodeAction> | false => {
   });
   return {
     entries: tidy<NodeAction>([
-      ...(f.linkTargets ?? []).map((p) =>
-        item(to(p.path), p.name, { checked: link === p.path })
-      ),
+      ...(f.linkTargets ?? [])
+        .filter((p) => !p.draft)
+        .map((p) => item(to(p.path), p.name, { checked: link === p.path })),
       (f.linkTargets ?? []).length > 0 && separator,
+      ...(f.linkTargets ?? [])
+        .filter((p) => p.draft)
+        .map((p) =>
+          item(to(p.path), `${p.name} (draft)`, { checked: link === p.path })
+        ),
+      (f.linkTargets ?? []).some((p) => p.draft) && separator,
       item(to("back"), "Back", { checked: link === "back" }),
       item({ kind: "linkUrl" }, "A URL or another site…"),
       link !== undefined && separator,
@@ -496,7 +503,7 @@ export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
   return tidy<PageAction>([
     {
       kind: "label",
-      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "no URL"}`,
+      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "draft"}`,
     },
     item({ kind: "goTo" }, f.route ? `Go to ${f.route}` : "Go to page"),
     f.onCanvas && item({ kind: "zoomTo" }, "Zoom to page"),
@@ -517,8 +524,8 @@ export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
     },
     separator,
     isBasePage(f) && item({ kind: "rename" }, "Rename…"),
-    item({ kind: "setUrl" }, f.route ? "Change URL…" : "Set URL…"),
-    f.route !== undefined && item({ kind: "removeUrl" }, "Remove URL"),
+    item({ kind: "setUrl" }, f.route ? "Change route…" : "Give it a route…"),
+    f.route !== undefined && item({ kind: "removeUrl" }, "Remove route"),
     item({ kind: "duplicate" }, "Duplicate page"),
     ...drawingEntries(f),
     {

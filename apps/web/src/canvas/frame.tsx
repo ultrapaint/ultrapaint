@@ -25,6 +25,7 @@ import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
+import { editPageUrl } from "../lib/page-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
 import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { useComments } from "../state/comments.ts";
@@ -35,6 +36,7 @@ import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
 import { removeView } from "../state/page-layout.ts";
+import { useProject } from "../state/project.ts";
 import {
   select,
   selectPage,
@@ -632,7 +634,35 @@ export const FrameHeader = ({
   </div>
 );
 
-/** Name and size above the frame, and the frame's selection outline. */
+/**
+ * The route a page serves, after its name over its frame (ADR 0075), pressed to change it. A
+ * draft has none, and shows none.
+ */
+const FrameRoute = ({ pageId }: { pageId: string }) => {
+  const page = useProject((s) => s.pages.find((p) => p.id === pageId));
+  if (page?.route === undefined) {
+    return null;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            className="min-w-0 max-w-full cursor-pointer truncate font-code text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:underline"
+            onClick={() => editPageUrl(page)}
+            onPointerDown={(e) => e.stopPropagation()}
+            type="button"
+          />
+        }
+      >
+        {page.route}
+      </TooltipTrigger>
+      <TooltipContent>Change the route</TooltipContent>
+    </Tooltip>
+  );
+};
+
+/** Name, route and size above the frame, and the frame's selection outline. */
 const FrameChrome = ({
   frameId,
   frame,
@@ -694,6 +724,9 @@ const FrameChrome = ({
         >
           <CutText className="block truncate">{name}</CutText>
         </button>
+        {frameRefOf(frameId).kind === "page" ? (
+          <FrameRoute pageId={frameId} />
+        ) : null}
         {isNode ? null : (
           <span className="text-muted-foreground/70 tabular-nums">
             {Math.round(frame.width)} × {Math.round(frame.height)}

@@ -21,9 +21,10 @@ second version of the application in a third. A link never leaves its canvas, an
 
 /** A page: a document of a canvas, its URL, its variants, and one tree for every width. */
 export const PAGES = `A page is a design document, not code: a <name>.page.json file inside its canvas. It may serve a
-URL in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json keeps: a
-screen of the application has one, a sketch or a sheet of components needs none, and a page
-without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for
+URL, its route, in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json
+keeps: a screen of the application has one, a sketch or a sheet of components needs none. A page
+without one is a draft: the prototype shows only routes, and a link to a draft leads nowhere
+until it has one. pricing@bold.page.json is pricing.page.json drawn again for
 the variant "bold": it serves the same URL, shown in its place when the prototype is in that
 variant; orders@empty.page.json is the orders page in its empty state. A page is one tree for
 every width, mobile-first: a node's fields are the smallest screen's, and its \`at\` says what

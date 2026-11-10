@@ -59,6 +59,7 @@ import {
 import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { copyNodeRef } from "../lib/node-links.ts";
 import {
+  DRAFT_HINT,
   editPageUrl,
   implementPage,
   markImplemented,
@@ -401,7 +402,7 @@ const PageSection = ({ frame }: { frame: string }) => {
   return (
     <>
       <Section title="Page">
-        <Row label="URL">
+        <Row label="Route">
           <Tooltip>
             <TooltipTrigger
               render={
@@ -417,12 +418,10 @@ const PageSection = ({ frame }: { frame: string }) => {
                 />
               }
             >
-              {page.route ?? "None"}
+              {page.route ?? "None: a draft"}
             </TooltipTrigger>
-            <TooltipContent>
-              {page.route === undefined
-                ? "No link or prototype reaches it"
-                : "Change the URL"}
+            <TooltipContent className="max-w-64">
+              {page.route === undefined ? DRAFT_HINT : "Change the route"}
             </TooltipContent>
           </Tooltip>
         </Row>

@@ -342,7 +342,7 @@ Every node may have width/height ("fill", "hug" or pixels), min/max sizes, paddi
 (background), border, radius, shadow, opacity, hidden, locked (only the editor reads it: the
 user locked it against stray clicks; leave it), and link: where the prototype goes when
 it is pressed, a page file of the canvas ("pricing.page.json", preferred: it survives a change of
-URL and reaches a page without one), a URL with its parameters ("/invoices/42"), "back", or
+URL), a URL with its parameters ("/invoices/42"), "back", or
 another site ("https://…").
 Padding and margin are one value for every side or { top, right, bottom, left }; space between
 siblings is the parent's gap, and margin is for the one child that stands apart.

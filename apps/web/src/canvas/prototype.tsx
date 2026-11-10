@@ -1,5 +1,4 @@
-import { presetSize } from "@ultrapaint/contracts/pages";
-import { basePathOf } from "@ultrapaint/shared/route";
+import { type Page, presetSize } from "@ultrapaint/contracts/pages";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,6 +10,7 @@ import {
   Smartphone,
   Tablet,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -32,7 +32,7 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { followLink } from "../lib/links.ts";
-import { NO_URL_HINT } from "../lib/page-actions.ts";
+import { basePageOf, editPageUrl, isDraft } from "../lib/page-actions.ts";
 import {
   type PrototypeDevice,
   parseDevice,
@@ -41,7 +41,7 @@ import {
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
-import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
@@ -87,6 +87,77 @@ export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
 /** What the prototype says when no page serves the route the editor holds. */
 const noPage = (route: string | null) =>
   route === null ? "No page" : `No page serves ${route}`;
+
+/** The route the prototype was last on, by canvas: where it opens when entered from a draft. */
+const lastRoutes = new Map<string, string>();
+
+/** The draft the prototype was entered from, said once over its bar until put away. */
+const useLeftDraft = create<{ left: Page | null }>(() => ({ left: null }));
+
+const dismissDraft = () => useLeftDraft.setState({ left: null });
+
+/**
+ * The prototype shows only routes (ADR 0075). Entered on a draft, it opens on the route it was
+ * last on, or the canvas's home, and says once that the draft has none.
+ */
+const useDraftLanding = () => {
+  const canvas = useEditor((s) => s.canvas);
+  const route = useEditor((s) => s.route);
+  const activePage = useEditor((s) => s.activePage);
+  const pages = useProject((s) => s.pages);
+  const home = useProject(
+    (s) => s.canvases.find((c) => c.id === canvas)?.home ?? "/"
+  );
+  useEffect(() => {
+    if (canvas === null) {
+      return;
+    }
+    if (route !== null) {
+      lastRoutes.set(canvas, route);
+      return;
+    }
+    const own = pages.filter((p) => p.canvas === canvas);
+    const page = own.find((p) => p.id === activePage);
+    if (!(page && isDraft(page, own))) {
+      return;
+    }
+    useLeftDraft.setState({ left: basePageOf(page, own) });
+    goTo({ route: lastRoutes.get(canvas) ?? home }, { push: false });
+  }, [activePage, canvas, home, pages, route]);
+  return useLeftDraft((s) => s.left);
+};
+
+/** Said once over the bar when the prototype was entered from a draft, with a way to give it a route. */
+const DraftNotice = ({ draft }: { draft: Page }) => {
+  const giveRoute = async () => {
+    if (await editPageUrl(draft)) {
+      dismissDraft();
+      goTo({ page: draft.id });
+    }
+  };
+  return (
+    <div
+      className="floating pointer-events-auto flex min-w-0 items-center gap-2 py-1 pr-1 pl-3 font-body"
+      role="status"
+    >
+      <TriangleAlert className="size-4 shrink-0 text-warning" />
+      <span className="min-w-0 truncate">
+        {draft.name} is a draft, not in the prototype
+      </span>
+      <Button onClick={giveRoute} size="sm" variant="secondary">
+        Give it a route
+      </Button>
+      <IconButton
+        className="size-7"
+        onClick={dismissDraft}
+        side="top"
+        tooltip="Dismiss"
+      >
+        <X />
+      </IconButton>
+    </div>
+  );
+};
 
 /** A press beside the page lets go of the comment open on it, or of the one being written. */
 const closeComments = (e: ReactPointerEvent) => {
@@ -145,13 +216,14 @@ const PageComments = ({
   );
 };
 
-/** A canvas with no pages: nothing to click through until one is drawn. */
+/** A canvas with no routes: nothing to click through until a page serves one (ADR 0075). */
 const NoPages = () => (
   <div className="flex max-w-xs flex-col items-center gap-1 text-center">
     <PanelsTopLeft className="mb-2 size-5 text-muted-foreground" />
-    <span className="font-body-medium">No pages to try</span>
+    <span className="font-body-medium">No routes to try</span>
     <span className="text-balance font-body-small text-muted-foreground">
-      The prototype clicks through the pages of this canvas. Draw one first.
+      The prototype clicks through the pages that serve a route. Give a page one
+      from its name on the canvas.
     </span>
     <Button
       className="mt-3"
@@ -181,7 +253,11 @@ export const Prototype = () => {
   const device = useDevice((s) => s.device);
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
-  const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
+  // Only the pages that serve a route are in the prototype (ADR 0075).
+  const hasPages =
+    canvas !== null &&
+    pages.some((p) => p.canvas === canvas && p.route !== undefined);
+  const leftDraft = useDraftLanding();
   // What a part of the page threw and nothing caught, until it draws again.
   const pageError = useFrameError(canvas === null ? null : frameIdOf(canvas));
 
@@ -305,7 +381,8 @@ export const Prototype = () => {
         </div>
       ) : null}
       {hasPages ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-2">
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-2 px-2">
+          {leftDraft ? <DraftNotice draft={leftDraft} /> : null}
           <PrototypeControls />
         </div>
       ) : (
@@ -325,31 +402,11 @@ const BASE = "";
 const NO_VARIANTS: readonly string[] = [];
 
 /**
- * The page a page without a URL is a variant of, or the page itself: what the address says has
- * no URL. Null while the prototype shows a URL, or a page that has one.
- */
-const useNoUrlPage = () => {
-  const activePage = useEditor((s) => s.activePage);
-  const route = useEditor((s) => s.route);
-  const page = useProject((s) => s.pages.find((p) => p.id === activePage));
-  if (route !== null || !page || page.route !== undefined) {
-    return null;
-  }
-  return (
-    pagesOfCanvas(page.canvas).find(
-      (p) => p.variant === undefined && p.path === basePathOf(page.path)
-    ) ?? page
-  );
-};
-
-/**
  * The prototype's address, as a browser's: the URL the editor holds, which can be typed over
- * and followed with Enter, Escape putting it back. A page without a URL says so in its place:
- * it can be looked at, but nothing in the click-through leads to it.
+ * and followed with Enter, Escape putting it back.
  */
 const AddressField = () => {
   const route = useEditor((s) => s.route);
-  const noUrl = useNoUrlPage();
   const [draft, setDraft] = useState<string | null>(null);
   const go = (e: FormEvent) => {
     e.preventDefault();
@@ -360,14 +417,11 @@ const AddressField = () => {
     }
     (document.activeElement as HTMLElement | null)?.blur();
   };
-  const field = (
+  return (
     <form
       className="group/address mx-1 flex h-8 w-64 min-w-0 shrink items-center gap-1.5 rounded-lg border border-transparent bg-muted px-2.5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 hover:border-input"
       onSubmit={go}
     >
-      {noUrl ? (
-        <TriangleAlert aria-hidden className="size-3.5 shrink-0 text-warning" />
-      ) : null}
       <input
         aria-label="URL"
         className="min-w-0 flex-1 bg-transparent font-code outline-none placeholder:font-body-small placeholder:text-muted-foreground"
@@ -380,24 +434,11 @@ const AddressField = () => {
             e.currentTarget.blur();
           }
         }}
-        placeholder={noUrl ? `${noUrl.name} has no URL` : "/"}
+        placeholder="/"
         spellCheck={false}
         value={draft ?? route ?? ""}
       />
     </form>
-  );
-  if (!noUrl || draft !== null) {
-    return field;
-  }
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<div className="flex min-w-0" />}>
-        {field}
-      </TooltipTrigger>
-      <TooltipContent className="max-w-64" side="top">
-        {NO_URL_HINT}
-      </TooltipContent>
-    </Tooltip>
   );
 };
 

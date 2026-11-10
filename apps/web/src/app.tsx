@@ -111,8 +111,8 @@ const layersPanel = deferred(() =>
 const libraryPanel = deferred(() =>
   import("./panels/library.tsx").then((m) => m.Library)
 );
-const pagesPanel = deferred(() =>
-  import("./panels/pages.tsx").then((m) => m.Pages)
+const routesPanel = deferred(() =>
+  import("./panels/routes.tsx").then((m) => m.Routes)
 );
 const settingsPanel = deferred(() =>
   import("./panels/settings.tsx").then((m) => m.SettingsPage)
@@ -129,7 +129,7 @@ const preloadPanels = () =>
       designSystemListPanel,
       layersPanel,
       libraryPanel,
-      pagesPanel,
+      routesPanel,
       settingsPanel,
     ].map((panel) => panel.preload()),
     preloadMarkdown(),
@@ -142,7 +142,7 @@ const Comments = commentsPanel.Component;
 const DesignSystemList = designSystemListPanel.Component;
 const Layers = layersPanel.Component;
 const Library = libraryPanel.Component;
-const Pages = pagesPanel.Component;
+const Routes = routesPanel.Component;
 const SettingsPage = settingsPanel.Component;
 
 /** How long the splash waits at most: a server that does not answer leaves the editor to say so. */
@@ -255,8 +255,8 @@ const LeftPanel = ({
   const prototype = useEditor((s) => s.workspace === "prototype");
   const hidden = usePanels((s) => s.left);
   // Only the active panel is mounted: panels subscribe to server events while visible. The
-  // prototype has no rail and one panel, its pages.
-  const Active = prototype ? Pages : leftPanels[leftTab];
+  // prototype has no rail and one panel, its routes (ADR 0075).
+  const Active = prototype ? Routes : leftPanels[leftTab];
   return (
     <aside
       className={cn("relative min-w-0 shrink-0", hidden ? "hidden" : "flex")}

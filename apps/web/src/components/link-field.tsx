@@ -2,6 +2,7 @@ import { BACK_LINK, linkTargetOf } from "@ultrapaint/shared/link";
 import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { describeLink, linkToPage } from "../lib/links.ts";
+import { basePageOf, editPageUrl, isDraft } from "../lib/page-actions.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { promptDialog } from "./dialogs.tsx";
@@ -28,9 +29,10 @@ export const askLinkUrl = async (current?: string) => {
 };
 
 /**
- * Where a node leads when pressed in the prototype: a page of the canvas (named by its file, so
- * a change of URL leaves the link alone, and a page without a URL is reached too), back, a URL
- * with its parameters, or another site. A link to a page that is not there says so.
+ * Where a node leads when pressed in the prototype: a route of the canvas (named by its page's
+ * file, so a change of URL leaves the link alone), back, a URL with its parameters, or another
+ * site. A draft, a page without a route (ADR 0075), is listed after the routes: picked, it is
+ * given its route first. A link to a page that is not there, or to a draft, says so.
  */
 export const LinkField = ({
   className,
@@ -49,18 +51,32 @@ export const LinkField = ({
   const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
   const own = pages.filter((p) => p.canvas === canvas);
-  const bases = own
-    .filter((p) => p.variant === undefined)
+  const bases = own.filter((p) => p.variant === undefined);
+  const routed = bases
+    .filter((p) => !isDraft(p, own))
+    .sort((a, b) =>
+      (basePageOf(a, own).route ?? "").localeCompare(
+        basePageOf(b, own).route ?? ""
+      )
+    );
+  const drafts = bases
+    .filter((p) => p.state === undefined && isDraft(p, own))
     .sort((a, b) => a.name.localeCompare(b.name));
   const current = link ?? NOWHERE;
   const described = link ? describeLink(own, link) : null;
   const options: SelectOption[] = [
     { label: "Nowhere", value: NOWHERE },
-    ...bases.map((p) => ({
-      // A page in a state (ADR 0030) serves no URL: a link names its file.
-      description: p.state === undefined ? (p.route ?? "no URL") : "state",
-      group: "Pages",
+    ...routed.map((p) => ({
+      // A page in a state (ADR 0030) serves its page's route: a link names its file.
+      description: p.state === undefined ? (p.route ?? "") : "state",
+      group: "Routes",
       label: p.state === undefined ? p.name : `${p.name} · ${p.state}`,
+      value: linkToPage(p),
+    })),
+    ...drafts.map((p) => ({
+      description: "no route",
+      group: "Drafts",
+      label: p.name,
       value: linkToPage(p),
     })),
     { group: "Other", label: "Back", value: BACK_LINK },
@@ -86,9 +102,15 @@ export const LinkField = ({
       }
       return;
     }
+    // A draft is given its route first: the prototype shows only routes.
+    const draft = drafts.find((p) => linkToPage(p) === value);
+    if (draft && !(await editPageUrl(draft))) {
+      return;
+    }
     onChange(value === NOWHERE ? null : value);
   };
 
+  const draft = described?.draft ?? null;
   return (
     <div className={cn("flex w-full min-w-0 flex-col gap-1", className)}>
       <OptionSelect
@@ -102,6 +124,19 @@ export const LinkField = ({
         <span className="flex items-center gap-1.5 font-body-small text-destructive">
           <TriangleAlert className="size-3.5 shrink-0" />
           Goes to a page that is not there
+        </span>
+      ) : null}
+      {draft && !described?.broken ? (
+        <span className="flex flex-wrap items-center gap-x-1.5 font-body-small text-muted-foreground">
+          <TriangleAlert className="size-3.5 shrink-0 text-warning" />
+          {draft.name} is a draft, not in the prototype.
+          <button
+            className="text-foreground underline-offset-2 outline-none hover:underline focus-visible:underline"
+            onClick={() => editPageUrl(draft)}
+            type="button"
+          >
+            Give it a route
+          </button>
         </span>
       ) : null}
     </div>

@@ -332,10 +332,12 @@ describe("a node's menu", () => {
   it("is read off the stores: the node, its siblings, the pages it can lead to", () => {
     const title = nodeAt(HOME, "title");
     expect(itemOf(title, { kind: "editText" }).label).toBe("Edit text");
-    // The variant's drawing of Home is not a page of its own to lead to.
+    // The variant's drawing of Home is not a page of its own to lead to; About, without a route,
+    // is a draft, after the routes (ADR 0075).
     expect(labels(submenu(title, "link")?.entries)).toEqual([
-      "About",
       "Home",
+      "separator",
+      "About (draft)",
       "separator",
       "Back",
       "A URL or another site…",
@@ -355,7 +357,18 @@ describe("a node's menu", () => {
     // The menu reads the node again: it is hidden, so it shows it.
     expect(itemOf(title, { hidden: false, kind: "hide" }).label).toBe("Show");
 
+    // About is a draft: it is given its route, then linked to.
+    fakeApi.respond("pages.setRoute", ({ id, route }) =>
+      page(id, "About", { route: route ?? undefined })
+    );
+    answers.prompt = "/about";
     await choose(title, { kind: "link", to: ABOUT });
+    expect(fakeApi.calls).toContainEqual(
+      expect.objectContaining({
+        input: { id: ABOUT, route: "/about" },
+        method: "pages.setRoute",
+      })
+    );
     expect(lastEdit()).toEqual({
       label: "Link",
       ops: [{ doc: HOME, id: "title", op: "update", set: { link: ABOUT } }],

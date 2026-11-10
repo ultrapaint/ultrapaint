@@ -103,6 +103,12 @@ refactor and the board view left.
   **page variants** (`pricing@bold.page.json`) and **page states**, which are named after it and
   move and go with it (`familyOf`). _Avoid_ "variant" or "state" alone where a component's could
   be meant: a component has **variants** and **interaction states** of its own.
+- **Route**: the URL a page serves in its canvas's **prototype** (`canvas.json`'s `routes`, ADRs
+  0020, 0075), its variants and states serving their base page's. The prototype shows the routes
+  alone, listed in its Routes panel (the web's `panels/routes.tsx`), and a route is shown over its
+  page's frame. A page without one is a **draft** (the web's `isDraft`): drawn and edited on the
+  canvas, never in the prototype; a link to it is given a route when it is picked. _Avoid_ "URL"
+  for it in the editor's words; the URL is what a route is written as.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached

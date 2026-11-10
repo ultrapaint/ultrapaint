@@ -4,6 +4,7 @@
  */
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
+import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 
@@ -19,9 +20,25 @@ import { deleteNodes } from "./node-actions.ts";
 import { reveal } from "./reveal.ts";
 import { startTask } from "./start-thread.ts";
 
-/** What the warning on a page without a URL says, wherever it is shown. */
-export const NO_URL_HINT =
-  "No URL: no link and no step of the prototype can reach this page. Give it one to put it in the click-through.";
+/** What is said of a draft, a page without a route, wherever it is said (ADR 0075). */
+export const DRAFT_HINT =
+  "A draft: it has no route, so the prototype does not show it. Give it a route to put it in the click-through.";
+
+/**
+ * The page a variant or a state is drawn for, or the page itself: what serves the route, or none.
+ */
+export const basePageOf = (page: Page, pages: readonly Page[]): Page =>
+  pages.find(
+    (p) =>
+      p.canvas === page.canvas &&
+      p.variant === undefined &&
+      p.state === undefined &&
+      p.path === basePathOf(page.path)
+  ) ?? page;
+
+/** A draft: a page whose base page serves no route, which the prototype never shows (ADR 0075). */
+export const isDraft = (page: Page, pages: readonly Page[]): boolean =>
+  basePageOf(page, pages).route === undefined;
 
 export const pageById = (id: string): Page | undefined =>
   useProject.getState().pages.find((p) => p.id === id);
@@ -49,12 +66,18 @@ const typedUrl = (value: string): string | null => {
 
 /**
  * Serves the page at another URL, or at none. The editor stays on the page: when it was showing
- * it, it follows it to its new URL.
+ * it, it follows it to its new URL. Whether the page serves the URL asked for afterwards.
  */
-export const setPageUrl = async (page: Page, value: string) => {
+export const setPageUrl = async (
+  page: Page,
+  value: string
+): Promise<boolean> => {
   const route = typedUrl(value);
-  if (route === (page.route ?? null) || !ensureEditable()) {
-    return;
+  if (route === (page.route ?? null)) {
+    return true;
+  }
+  if (!ensureEditable()) {
+    return false;
   }
   try {
     const changed = await api().request("pages.setRoute", {
@@ -66,22 +89,27 @@ export const setPageUrl = async (page: Page, value: string) => {
       await useProject.getState().load();
       goTo({ page: changed.id }, { push: false });
     }
+    return true;
   } catch (error) {
     reportError(error);
+    return false;
   }
 };
 
-/** Asks for the URL the page serves in the prototype; left empty, it serves none. */
-export const editPageUrl = async (page: Page) => {
+/**
+ * Asks for the URL the page serves in the prototype, a draft's filled in from its name; left
+ * empty, it serves none. Whether it serves one afterwards.
+ */
+export const editPageUrl = async (page: Page): Promise<boolean> => {
   if (!ensureEditable()) {
-    return;
+    return false;
   }
   const to = await promptDialog({
     confirmLabel: page.route === undefined ? "Set URL" : "Change",
     defaultValue: page.route ?? `/${slugOf(page.name)}`,
     description:
       page.route === undefined
-        ? "Where the prototype serves the page, and where a link leads to reach it."
+        ? "Its route in the prototype, and where a link leads to reach it. A page without one is a draft, which the prototype does not show."
         : "Links to the page keep leading to it: those that named the old URL name the page itself afterwards. Leave it empty for no URL.",
     placeholder: "/settings/billing",
     title:
@@ -89,9 +117,10 @@ export const editPageUrl = async (page: Page) => {
         ? `Set a URL for ${page.name}`
         : `Change the URL of ${page.name}`,
   });
-  if (to !== null) {
-    await setPageUrl(page, to);
+  if (to === null) {
+    return page.route !== undefined;
   }
+  return (await setPageUrl(page, to)) && typedUrl(to) !== null;
 };
 
 /** Renames the page; its file follows the name, and its URL and every link to it stay. */
@@ -184,10 +213,10 @@ export const implementPage = (page: Page) =>
 const DEFAULT_TEMPLATE = "centered";
 
 /**
- * Makes a page in the open canvas and goes to it. It has no URL: a page is drawn first, and
- * given one when the prototype should reach it.
+ * Makes a page in the open canvas and goes to it. Without a route it is a draft: a page is drawn
+ * first, and given one when the prototype should reach it.
  */
-const createPage = async (name: string) => {
+const createPage = async (name: string, route?: string) => {
   if (!ensureEditable()) {
     return null;
   }
@@ -195,6 +224,7 @@ const createPage = async (name: string) => {
     const page = await api().request("pages.create", {
       canvas: useEditor.getState().canvas ?? "",
       name: name.trim(),
+      ...(route !== undefined && { route }),
       template: DEFAULT_TEMPLATE,
     });
     await useProject.getState().load();
@@ -219,6 +249,33 @@ export const newPage = async () => {
   });
   if (name !== null && name.trim() !== "") {
     await createPage(name);
+  }
+};
+
+/** Asks for a name and a route, and makes a page that serves it: a screen of the prototype. */
+export const newRoutedPage = async () => {
+  if (!ensureEditable()) {
+    return;
+  }
+  const name = await promptDialog({
+    confirmLabel: "Next",
+    placeholder: "Billing settings",
+    title: "New page with a route",
+  });
+  if (name === null || name.trim() === "") {
+    return;
+  }
+  const to = await promptDialog({
+    confirmLabel: "Create",
+    defaultValue: `/${slugOf(name)}`,
+    description:
+      "Where the prototype serves it, and where a link leads to reach it.",
+    placeholder: "/settings/billing",
+    title: `The route of ${name.trim()}`,
+  });
+  const route = to === null ? null : typedUrl(to);
+  if (route !== null) {
+    await createPage(name, route);
   }
 };
 

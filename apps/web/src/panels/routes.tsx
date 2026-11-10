@@ -1,6 +1,15 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
-import { Files, TriangleAlert } from "lucide-react";
+import { FilePlus, Plus, Route } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -8,9 +17,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { CutText } from "../components/cut-text.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { NO_URL_HINT } from "../lib/page-actions.ts";
+import { editPageUrl, newRoutedPage } from "../lib/page-actions.ts";
 import { useEditor } from "../state/editor.ts";
 import {
   statusLabel,
@@ -32,8 +42,8 @@ interface Entry {
 const isBase = (p: Page) => p.variant === undefined && p.state === undefined;
 
 /**
- * The canvas's pages, one row each, with their variants and states under them: the ones in the
- * prototype first, in the order of their URLs, then the ones it cannot reach, by name.
+ * The canvas's routes, one row each in the order of their URLs, with the page's variants and
+ * states under it. A draft, a page without a route, is not in the prototype (ADR 0075).
  */
 const entriesOf = (
   pages: readonly Page[],
@@ -44,41 +54,67 @@ const entriesOf = (
     p.variant === undefined
       ? order.length + states.indexOf(p.state ?? "")
       : order.indexOf(p.variant);
-  const entries: Entry[] = pages.filter(isBase).map((page) => ({
-    page,
-    variants: pages
-      .filter((p) => !isBase(p) && basePathOf(p.path) === page.path)
-      .sort((a, b) => rank(a) - rank(b)),
-  }));
-  // A variant or a state whose base page is gone is still a page of the canvas.
-  for (const orphan of pages.filter(
-    (p) =>
-      !(
-        isBase(p) ||
-        pages.some((b) => isBase(b) && b.path === basePathOf(p.path))
-      )
-  )) {
-    entries.push({ page: orphan, variants: [] });
-  }
-  return entries.sort((a, b) => {
-    const left = a.page.route;
-    const right = b.page.route;
-    if (left !== undefined && right !== undefined) {
-      return left.localeCompare(right);
-    }
-    if (left !== undefined || right !== undefined) {
-      return left === undefined ? 1 : -1;
-    }
-    return a.page.name.localeCompare(b.page.name);
-  });
+  const entries: Entry[] = pages
+    .filter((p) => isBase(p) && p.route !== undefined)
+    .map((page) => ({
+      page,
+      variants: pages
+        .filter((p) => !isBase(p) && basePathOf(p.path) === page.path)
+        .sort((a, b) => rank(a) - rank(b)),
+    }));
+  return entries.sort((a, b) =>
+    (a.page.route ?? "").localeCompare(b.page.route ?? "")
+  );
 };
 
+/** Gives the canvas a route: a new page that serves one, or one of its drafts given one. */
+const NewRoute = ({ drafts }: { drafts: readonly Page[] }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      render={
+        <IconButton
+          className="text-muted-foreground"
+          size="icon-sm"
+          tooltip="New route"
+          variant="ghost"
+        />
+      }
+    >
+      <Plus />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-60">
+      <DropdownMenuGroup>
+        <DropdownMenuItem onClick={() => newRoutedPage()}>
+          <FilePlus />
+          New page with a route…
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      {drafts.length > 0 ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Give a draft a route</DropdownMenuLabel>
+            {drafts.map((draft) => (
+              <DropdownMenuItem
+                key={draft.id}
+                onClick={() => editPageUrl(draft)}
+              >
+                <span className="min-w-0 flex-1 truncate">{draft.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </>
+      ) : null}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 /**
- * The pages of the open canvas as the prototype sees them: each with the URL it serves, or a
- * warning when it has none, since nothing in the click-through leads to it then. The prototype
- * is for clicking through: the list opens pages and changes none.
+ * The routes of the open canvas, which are what the prototype shows (ADR 0075): each with the
+ * page that serves it. The prototype is for clicking through: a row opens its route, and the +
+ * gives the canvas another.
  */
-export const Pages = () => {
+export const Routes = () => {
   const configured = useProject((s) => s.info.configured);
   const pages = useProject((s) => s.pages);
   const canvases = useProject((s) => s.canvases);
@@ -91,31 +127,20 @@ export const Pages = () => {
 
   const inCanvas = pages.filter((p) => p.canvas === canvas);
   const entries = entriesOf(inCanvas, info?.variants ?? [], info?.states ?? []);
-  const unreachable = entries.filter((e) => e.page.route === undefined).length;
+  const drafts = inCanvas
+    .filter((p) => isBase(p) && p.route === undefined)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
-        <h2 className="flex-1 truncate font-heading-xsmall">Pages</h2>
-        {unreachable > 0 ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground" />
-              }
-            >
-              <TriangleAlert className="size-3.5 text-warning" />
-              {unreachable} without a URL
-            </TooltipTrigger>
-            <TooltipContent>
-              {`${unreachable === 1 ? "A page has" : `${unreachable} pages have`} no URL: no link of the prototype leads to ${unreachable === 1 ? "it" : "them"}`}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-4">
+        <h2 className="flex-1 truncate font-heading-xsmall">Routes</h2>
+        <NewRoute drafts={drafts} />
       </div>
       {entries.length === 0 ? (
-        <PanelEmpty icon={<Files />} title="No pages yet">
-          The pages drawn on this canvas are listed here, to click through.
+        <PanelEmpty icon={<Route />} title="No routes yet">
+          The prototype clicks through the pages that serve a route. Give one a
+          route with +, or from its name on the canvas.
         </PanelEmpty>
       ) : (
         <div className="flex flex-col gap-0.5 px-2 pb-2">
@@ -153,30 +178,17 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
         style={{ paddingLeft: 8 }}
         type="button"
       >
+        {/* The route first, the page that serves it after. */}
         <CutText
-          className="min-w-0 flex-1 truncate font-body-medium"
-          tip={`${page.name}${page.route === home ? " (home)" : ""} · ${page.file}`}
+          className="min-w-0 shrink-0 truncate font-code"
+          tip={`${page.route}${page.route === home ? " (home)" : ""} · ${page.file}`}
         >
-          {page.name}
+          {page.route}
         </CutText>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          {page.name}
+        </span>
         <StatusDot target={page.id} />
-        {page.route === undefined ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="flex shrink-0 items-center gap-1.5 font-body-small text-muted-foreground" />
-              }
-            >
-              <TriangleAlert className="size-3.5 text-warning" />
-              No URL
-            </TooltipTrigger>
-            <TooltipContent>{NO_URL_HINT}</TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="min-w-0 max-w-[55%] shrink-0 truncate font-code text-muted-foreground">
-            {page.route}
-          </span>
-        )}
       </button>
       {entry.variants.map((variant) => (
         <VariantRow key={variant.id} page={variant} />
