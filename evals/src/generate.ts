@@ -743,9 +743,13 @@ const startRound = Effect.fn("startRound")(function* (
         message: `round ${options.round} was started with host ${before.host ?? "none"} and skills ${before.skills}; name a new round for host ${options.host} and skills ${skills}`,
       });
     }
-    if ((before.review?.mode ?? "none") !== (options.review?.mode ?? "none")) {
+    // As it is recorded below: the editor's review when on, else the lab's.
+    const review = options.editorReview?.on
+      ? "editor"
+      : (options.review?.mode ?? "none");
+    if ((before.review?.mode ?? "none") !== review) {
       return yield* new EvalsError({
-        message: `round ${options.round} was started with review ${before.review?.mode ?? "none"}; name a new round to review ${options.review?.mode ?? "none"}`,
+        message: `round ${options.round} was started with review ${before.review?.mode ?? "none"}; name a new round to review ${review}`,
       });
     }
   } else {

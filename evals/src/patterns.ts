@@ -220,7 +220,6 @@ const pieceSchema = (() => {
 const idOf = (url: string) =>
   createHash("sha1").update(url).digest("hex").slice(0, 12);
 
-/** Every picture of the corpus, with the shot it is from. */
 /**
  * Every picture of the corpus, in the order it is looked at: each shot's main picture first, the
  * shots in a fixed shuffled order, then each shot's second picture, and so on. A sample of the

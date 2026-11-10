@@ -50,10 +50,6 @@ export const isExtractRound = Effect.fn("isExtractRound")(function* (
   );
 });
 
-/**
- * Track A's cards: each component of each family, from every run beside the product's own; with
- * one run only, it is rated against the product's rather than picked.
- */
 /** The run picked before for a component, or all of that round's when none was good enough. */
 const pickedBefore = Effect.fn("pickedBefore")(function* (
   before: Before,
@@ -165,6 +161,10 @@ export interface Before {
   >;
 }
 
+/**
+ * Track A's cards: each component of each family, from every run beside the product's own; with
+ * one run only, it is rated against the product's rather than picked.
+ */
 export const componentCards = Effect.fn("componentCards")(function* (
   round: string,
   scale: readonly string[],

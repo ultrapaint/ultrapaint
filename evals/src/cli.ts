@@ -90,7 +90,9 @@ const force = Flag.Boolean("force").pipe(
 );
 const model = (fallback: string, what: string) =>
   Flag.String("model").pipe(
-    Flag.withDescription(`Claude model ${what} (an alias or a full name)`),
+    Flag.withDescription(
+      `The model ${what}: a gpt- model runs in Codex, a cursor: one in Cursor, any other in Claude`
+    ),
     Flag.withDefault(fallback)
   );
 const generateFlags = {
@@ -734,7 +736,13 @@ const patternsCommand = Command.make("patterns").pipe(
       "book",
       {
         corpus: corpusFlag,
-        model: model("opus", "that writes the book"),
+        // The book is asked for as text, which only Claude is (`Models.write`).
+        model: Flag.String("model").pipe(
+          Flag.withDescription(
+            "Claude model that writes the book (an alias or a full name)"
+          ),
+          Flag.withDefault("opus")
+        ),
         skillsFrom: Flag.String("skills-from").pipe(
           Flag.withDescription(
             "A round whose recorded skills the book is set against"

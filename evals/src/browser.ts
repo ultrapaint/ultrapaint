@@ -29,7 +29,6 @@ import {
   locateInBrowser,
   markHoverableInBrowser,
   outlineInBrowser,
-  padInBrowser,
   rowPointsInBrowser,
   scrollThroughInBrowser,
   type TileOptions,
@@ -113,11 +112,6 @@ export class Browser extends Context.Service<
       } | null,
       EvalsError
     >;
-    /** A picture with a margin of its own background around it, as a PNG. */
-    readonly pad: (
-      png: Uint8Array,
-      margin: number
-    ) => Effect.Effect<Uint8Array, EvalsError>;
     /** A picture cut to what it shows, with a margin, as a PNG. */
     readonly trim: (
       png: Uint8Array,
@@ -390,16 +384,6 @@ export class Browser extends Context.Service<
           "finding a part in a page"
         );
 
-      const pad = (png: Uint8Array, margin: number) =>
-        withPage(
-          {},
-          async (page) =>
-            bytesOf(
-              await page.evaluate(padInBrowser, { data: base64(png), margin })
-            ),
-          "padding a picture"
-        );
-
       const trim = (png: Uint8Array, margin: number) =>
         withPage(
           {},
@@ -509,9 +493,15 @@ export class Browser extends Context.Service<
               found.push(await page.evaluate(auditInBrowser, hoverOptions));
             }
             await page.mouse.move(1, 1);
+            // One finding however many passes saw it, by the key `auditInBrowser` keeps one by.
+            const byKey = new Map(
+              found
+                .flatMap((f) => f.findings)
+                .map((f) => [`${f.check}|${f.label}|${f.detail}`, f] as const)
+            );
             const hovered = {
               controls: [...new Set(found.flatMap((f) => f.controls))],
-              findings: found.flatMap((f) => f.findings),
+              findings: [...byKey.values()],
             };
             return { hover: hovered, rest };
           },
@@ -527,7 +517,6 @@ export class Browser extends Context.Service<
         hold,
         layout,
         locate,
-        pad,
         trim,
         zoom,
       });
@@ -546,7 +535,6 @@ export class Browser extends Context.Service<
       hold: () => noBrowser,
       layout: () => noBrowser,
       locate: () => noBrowser,
-      pad: () => noBrowser,
       trim: () => noBrowser,
       zoom: () => noBrowser,
     })

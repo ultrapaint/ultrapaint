@@ -1,8 +1,10 @@
 /**
  * `review`: a person's eye on what rounds made, one card at a time in the browser, swiped left or
  * right with a comment when there is something to say. The judge is a model; what a person likes
- * is the measure it stands in for. Four kinds of card:
+ * is the measure it stands in for. Seven kinds of card:
  *
+ * - `component`: a component of a design system made from pictures (track A), as each run drew
+ *   it, beside the product's own. Which is closest?
  * - `layout`: two designs (or one) blurred and grey, so only their arrangement shows.
  * - `section`: one part of the screen (the sidebar, the key figures, the table) in two designs,
  *   beside the same part of the reference: one thing to look at, a quick answer.

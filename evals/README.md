@@ -297,7 +297,7 @@ measuring.
 `--checks` adds the general design checks (ADR 0061), each with a threshold from the skill or the
 design system: text and placeholder contrast (4.5:1, large 3:1), a field's edge against what it
 sits on (3:1), a filled control whose fill doesn't separate (under 1.1:1), surfaces nearly one
-tone (under 0.045 oklch lightness apart, `elevation.md`'s step; or on a floating card's own tone), a dialog darker than
+tone (under 0.045 oklch lightness apart, `surfaces.md`'s step; or on a floating card's own tone), a dialog darker than
 the page it covers, rounded or filled rows touching, text clipped with no ellipsis, and targets
 under 24×24. `--hover` checks again with every control drawn as hovered (Chrome's forced
 `:hover`), for fills that touch and controls shown only on hover; `--stress` lengthens a name in

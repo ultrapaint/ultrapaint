@@ -410,7 +410,7 @@ const sectionCopy = Effect.fn("sectionCopy")(function* (
       }
     }
   }
-  // The outline may come after the round's first run, so it is copied whenever it is newer.
+  // The outline may come after the round's first run, so it is copied every time.
   if (yield* fs.exists(path.join(from, OUTLINE_FILE))) {
     yield* fs.copyFile(
       path.join(from, OUTLINE_FILE),
@@ -890,7 +890,6 @@ const whoOf = (options: RecallOptions) => {
     : `reviewed by ${options.models.join(", ")}, judged by ${options.judgeModel}, effort ${options.effort}`;
 };
 
-/** The round's report: recall per gap and version, then what no gap matched, to be rated. */
 /** What a version's reviews took on average: seconds and, where counted, tokens. */
 export const spentLines = (
   reviewed: Readonly<Record<string, readonly Reviewed[]>>,
@@ -916,6 +915,7 @@ export const spentLines = (
   ];
 };
 
+/** The round's report: recall per gap and version, then what no gap matched, to be rated. */
 export const reportOf = (input: ReportInput) => {
   const { options, versions } = input;
   const row = (cells: readonly string[]) => `| ${cells.join(" | ")} |`;

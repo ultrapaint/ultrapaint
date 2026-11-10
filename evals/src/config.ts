@@ -14,20 +14,15 @@ export const EVALS = path.resolve(import.meta.dirname, "..");
 /** The data directory, and where each thing is in it. */
 export interface DataDir {
   readonly briefFile: (reference: string) => string;
-  /** Skill files to try in a round instead of, or on top of, the shipped ones. */
-  readonly candidates: string;
   readonly captureDir: (reference: string) => string;
   /** The library of well-made sites the studies look at, one directory per source. */
   readonly corpus: string;
-  /** A product's screens and component crops, for track A. */
-  readonly families: string;
+  /** A family's directory: a product's screens and component crops, for track A. */
   readonly familyDir: (family: string) => string;
   /** A path as the reports show it: from the data directory. */
   readonly fromData: (file: string) => string;
   /** The shots a person chooses references from. */
   readonly gallery: string;
-  /** A gap's pictures: the person's screenshots of what they corrected. */
-  readonly gapDir: (gap: string) => string;
   readonly hostDir: (host: string) => string;
   /** The projects the agents design in, one directory each, made with `ultrapaint new`. */
   readonly hosts: string;
@@ -56,14 +51,11 @@ export const dataDirAt = (root: string): DataDir => {
   const families = path.join(root, "families");
   return {
     briefFile: (reference) => path.join(references, reference, "brief.md"),
-    candidates: path.join(root, "candidates"),
     captureDir: (reference) => path.join(references, reference, "capture"),
     corpus: path.join(root, "corpus"),
-    families,
     familyDir: (family) => path.join(families, family),
     fromData: (file) => path.relative(root, file),
     gallery: path.join(root, "gallery"),
-    gapDir: (gap) => path.join(root, "gaps", gap),
     hostDir: (host) => path.join(hosts, host),
     hosts,
     referenceDir: (reference) => path.join(references, reference),

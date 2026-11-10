@@ -702,36 +702,6 @@ export const trimInBrowser = async (input: {
   return cut.toDataURL("image/png").split(",")[1] ?? "";
 };
 
-/** Runs in the page: a picture with a margin of its own background (its corner's colour) around it. */
-export const padInBrowser = async (input: {
-  readonly data: string;
-  readonly margin: number;
-}) => {
-  const image = new Image();
-  image.src = `data:image/png;base64,${input.data}`;
-  await image.decode();
-  const probe = document.createElement("canvas");
-  probe.width = 1;
-  probe.height = 1;
-  const probeContext = probe.getContext("2d");
-  probeContext?.drawImage(image, 0, 0, 1, 1, 0, 0, 1, 1);
-  const [r, g, b] = probeContext?.getImageData(0, 0, 1, 1).data ?? [
-    255, 255, 255,
-  ];
-  const m = input.margin;
-  const canvas = document.createElement("canvas");
-  canvas.width = image.naturalWidth + m * 2;
-  canvas.height = image.naturalHeight + m * 2;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return input.data;
-  }
-  context.fillStyle = `rgb(${r} ${g} ${b})`;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, m, m);
-  return canvas.toDataURL("image/png").split(",")[1] ?? "";
-};
-
 /** A line of text, top to bottom, in CSS pixels of the window. */
 export interface InkLine {
   readonly bottom: number;
@@ -892,7 +862,7 @@ export interface AuditOptions {
   readonly grid: number;
   /**
    * Under this oklch lightness apart, nested surfaces are less than one tone step apart:
-   * `elevation.md`'s step, about 0.045.
+   * `surfaces.md`'s step, about 0.045.
    */
   readonly nearTone: number;
   /** The checks to run, by name; all without it. */
@@ -1240,7 +1210,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
   };
   /**
    * Inside a floating card (one with a shadow), a surface covering part of it on the card's own
-   * tone, the same tone included: chrome and content read as one sheet (elevation.md).
+   * tone, the same tone included: chrome and content read as one sheet (surfaces.md).
    */
   const floatingTonesOf = (card: Element) => {
     const style = getComputedStyle(card);
@@ -1465,7 +1435,6 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     }
   };
 
-  /** A list by its layout, whatever its markup: three or more rows of one height, stacked. */
   /**
    * A list's rows by their layout, whatever the markup: three or more children of the most common
    * height (16–64px), stacked; a heading row of another height above them is left out. None when

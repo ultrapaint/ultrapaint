@@ -112,17 +112,6 @@ const FamilyComponents = Schema.Struct({
   components: Schema.Array(FamilyComponent),
 });
 
-export const ExtractInfo = Schema.Struct({
-  agent: Schema.String,
-  commit: Schema.String,
-  family: Schema.String,
-  model: Schema.optional(Schema.String),
-  name: Schema.String,
-  runs: Schema.Number,
-  startedAt: Schema.String,
-  track: Schema.Literal("extract"),
-});
-
 /** A host copied for one run, its packages linked rather than copied. */
 const copyHost = Effect.fn("copyHost")(function* (from: string, to: string) {
   const fs = yield* FileSystem.FileSystem;
@@ -203,10 +192,6 @@ const familyPictures = Effect.fn("familyPictures")(function* (family: string) {
 /** Around a component cut from a screen, this share of its own size of the screen on each side. */
 const COMPONENT_SURROUNDINGS = 0.25;
 
-/**
- * Each component cut from the screen it was found in, with some of the screen around it, so it is
- * seen where it lives (on its surface, beside its neighbours) when compared with an agent's.
- */
 /** The family's component crops (`families/<family>/components`), as pictures to attach. */
 const componentPictures = Effect.fn("componentPictures")(function* (
   family: string
@@ -230,6 +215,10 @@ const componentPictures = Effect.fn("componentPictures")(function* (
   return pictures;
 });
 
+/**
+ * Each component cut from the screen it was found in, with some of the screen around it, so it is
+ * seen where it lives (on its surface, beside its neighbours) when compared with an agent's.
+ */
 export const cutFamilyComponents = Effect.fn("cutFamilyComponents")(function* (
   family: string,
   found: typeof FamilyComponents.Type
