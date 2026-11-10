@@ -15,7 +15,11 @@
  * answer to (`/` in each) is ambiguous, rather than whichever was listed first.
  */
 import { COMPONENT_TARGET_PREFIX } from "@ultrapaint/contracts/implementation";
-import { parseEditorLink, parseNodeRef } from "@ultrapaint/shared/node-ref";
+import {
+  CANVAS_ID_PATTERN,
+  parseEditorLink,
+  parseNodeRef,
+} from "@ultrapaint/shared/node-ref";
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
 /** What a page needs for its name to be read. */
@@ -68,7 +72,9 @@ export const pageNamed = <T extends NamedPage>(
 };
 
 /** A page's name inside a canvas named first: `marketing:/pricing`, `marketing:pricing.page.json`. */
-const IN_CANVAS_RE = /^([\w.-]+):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$/;
+const IN_CANVAS_RE = new RegExp(
+  String.raw`^(${CANVAS_ID_PATTERN}):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$`
+);
 
 /** What a page's name names: the page, maybe one of its nodes. */
 type PageTargetNamed<P> =

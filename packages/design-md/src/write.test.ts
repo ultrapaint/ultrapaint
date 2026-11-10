@@ -166,6 +166,50 @@ describe("withMirror", () => {
     });
     expect("problem" in result).toBe(true);
   });
+
+  it("refuses to add a front matter above one that never closes", () => {
+    const result = withMirror("---\nname: x\n## Colors\n", {
+      ...emptyGroups(),
+      colors: { a: "#000" },
+    });
+    expect(result).toEqual({
+      problem:
+        "The front matter opens with --- and is never closed, so colors cannot be written in it.",
+    });
+  });
+
+  it("refuses to write in a front matter that is not a map", () => {
+    const result = withMirror("---\n- a\n---\n", {
+      ...emptyGroups(),
+      colors: { a: "#000" },
+    });
+    expect(result).toEqual({
+      problem:
+        "The front matter is not a map of keys to tokens, so colors cannot be written in it.",
+    });
+  });
+
+  it("writes a block with the line ending its file has", () => {
+    const text =
+      "---\r\nname: x\r\ncolors:\r\n  # ink\r\n  a: '#111'\r\n---\r\n\r\n## Colors\r\n";
+    expect(
+      withMirror(text, { ...emptyGroups(), colors: { a: "#000" } })
+    ).toEqual({ changed: true, text: text.replace("'#111'", '"#000"') });
+    const bare = "# Handout\r\n\r\n## Overview\r\n";
+    expect(
+      withMirror(bare, { ...emptyGroups(), colors: { a: "#000" } })
+    ).toEqual({
+      changed: true,
+      text: `---\r\ncolors:\r\n  a: "#000"\r\n---\r\n\r\n${bare}`,
+    });
+  });
+
+  it("leaves a block whose only group was taken out empty", () => {
+    const text = "---\ncolors:\n  a: '#111'\n---\n## Colors\n";
+    const after = textOf(withMirror(text, emptyGroups()));
+    expect(after).toBe("---\n---\n## Colors\n");
+    expect(parse(after).problems).toEqual([]);
+  });
 });
 
 describe("create", () => {

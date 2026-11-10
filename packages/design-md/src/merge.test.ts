@@ -29,6 +29,25 @@ describe("flatten", () => {
     });
     expect(unflatten(flatten(groups))).toEqual(groups);
   });
+
+  it("keeps a key with a dot in it one key, in every group", () => {
+    const groups: TokenGroups = {
+      colors: { "brand.primary": "#fff" },
+      components: { "button.primary": { backgroundColor: "#000" } },
+      rounded: { "1.5": "6px" },
+      spacing: { "0.5": "2px" },
+      typography: { "body.sm": { fontSize: "14px", fontWeight: 400 } },
+    };
+    expect(flatten(groups)).toEqual({
+      "colors.brand.primary": "#fff",
+      "components.button.primary.backgroundColor": "#000",
+      "rounded.1.5": "6px",
+      "spacing.0.5": "2px",
+      "typography.body.sm.fontSize": "14px",
+      "typography.body.sm.fontWeight": 400,
+    });
+    expect(unflatten(flatten(groups))).toEqual(groups);
+  });
 });
 
 describe("mergeMirror", () => {
@@ -108,6 +127,29 @@ describe("mergeMirror", () => {
     expect(merged.groups.colors).toEqual({
       blue: "#25e",
       primary: "{colors.blue}",
+    });
+    expect(merged.held).toEqual([]);
+  });
+
+  it("writes a half step of the spacing scale under its own key", () => {
+    const merged = mergeMirror(
+      doc("spacing:\n  0.5: 2px"),
+      { ...emptyGroups(), spacing: { "0.5": "2px", "1.5": "6px" } },
+      { "spacing.0.5": "2px" }
+    );
+    expect(merged.groups.spacing).toEqual({ "0.5": "2px", "1.5": "6px" });
+    expect(merged.held).toEqual([]);
+  });
+
+  it("follows a reference to a key with a dot in it", () => {
+    const merged = mergeMirror(
+      doc("spacing:\n  0.5: 2px\n  hairline: '{spacing.0.5}'"),
+      { ...emptyGroups(), spacing: { "0.5": "2px", hairline: "2px" } },
+      {}
+    );
+    expect(merged.groups.spacing).toEqual({
+      "0.5": "2px",
+      hairline: "{spacing.0.5}",
     });
     expect(merged.held).toEqual([]);
   });

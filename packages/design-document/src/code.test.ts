@@ -1,5 +1,5 @@
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
-import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
+import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import { describe, expect, it } from "vitest";
@@ -199,6 +199,27 @@ describe("breakpoints", () => {
     expect(toCode(node, writer, { breakpoints })).toBe(
       `<p className="md/display:none">Narrow</p>
 <p className="display:none">Wide</p>`
+    );
+  });
+});
+
+describe("an app component in the Code tab", () => {
+  it("names a property as one prop, at a breakpoint that changes it too", () => {
+    const plan: DesignNode = {
+      at: { md: { props: { "show badge": true } } },
+      component: "Plan",
+      from: APP_FROM,
+      id: "p",
+      props: { "plan name": "Pro", "show badge": false },
+      type: "instance",
+    };
+    expect(
+      toCode(plan, writer, { breakpoints: [{ min: 768, name: "md" }] })
+    ).toBe(
+      `import { Plan } from "@/components/plan";
+
+<Plan planName="Pro" showBadge={false} className="md/display:none" />
+<Plan planName="Pro" showBadge className="display:none" />`
     );
   });
 });

@@ -17,8 +17,21 @@ export interface NodeRef {
 }
 
 const CANVAS = "canvas";
-const REF_RE =
-  /^(?:([\w.-]+):)?(\/[^#\s]*|canvas|[^\s#/:][^\s#:]*\.page\.json)#([\w-]+)$/;
+
+/** A directory's name in a canvas's path: it does not start with a dot, as no canvas's does. */
+const CANVAS_SEGMENT = String.raw`[^\s/\\:.\0][^\s/\\:\0]*`;
+
+/**
+ * A canvas as it is written before a page (`marketing:/pricing`, `app/v2:/pricing`), as the
+ * source of a pattern: the path of a directory inside the designs directory, as the contracts'
+ * `CanvasId` has it, without what a reference cannot hold, the whitespace that ends it and the
+ * `:` that ends its canvas. It never starts with `/`, so a page's URL is never read as one.
+ */
+export const CANVAS_ID_PATTERN = String.raw`${CANVAS_SEGMENT}(?:\/${CANVAS_SEGMENT})*`;
+
+const REF_RE = new RegExp(
+  String.raw`^(?:(${CANVAS_ID_PATTERN}):)?(\/[^#\s]*|canvas|[^\s#/:][^\s#:]*\.page\.json)#([\w-]+)$`
+);
 
 export const formatNodeRef = (ref: NodeRef): string =>
   `${ref.canvas ? `${ref.canvas}:` : ""}${ref.page ?? CANVAS}#${ref.nodeId}`;

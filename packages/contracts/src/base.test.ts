@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { CANVAS_ID_PATTERN } from "@ultrapaint/shared/node-ref";
 import { Schema } from "effect";
 import { CanvasId, FileId, RepoRelativePath } from "./base.ts";
 
@@ -60,6 +61,33 @@ describe("CanvasId", () => {
       "a\0b",
     ]) {
       expect(isCanvasId(id), id).toBe(false);
+    }
+  });
+
+  it("is what a reference writes before a page, but for whitespace, a colon and the designs directory", () => {
+    const written = new RegExp(`^${CANVAS_ID_PATTERN}$`);
+    for (const id of [
+      "onboarding",
+      "flows/sign-in",
+      "Café",
+      "v2.1",
+      "a#b",
+      "..",
+      "a/..",
+      "/etc",
+      "a//b",
+      "a/",
+      ".git",
+      "a/.git",
+      "a\\b",
+      "a\0b",
+    ]) {
+      expect(written.test(id), id).toBe(isCanvasId(id));
+    }
+    // A reference ends at whitespace and its canvas at the colon; it names the designs directory by no canvas.
+    for (const id of ["flows/sign in", "a:b", ""]) {
+      expect(isCanvasId(id), id).toBe(true);
+      expect(written.test(id), id).toBe(false);
     }
   });
 });

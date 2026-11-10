@@ -41,6 +41,8 @@ export interface DesignMd {
   readonly text: string;
   /** The `#` heading above the first section, when there is one. */
   readonly title: string | null;
+  /** Whether the text opens a front matter and never closes it: it is then read as body. */
+  readonly unclosed: boolean;
   /** Every top-level key's value, from whichever block holds it. */
   readonly values: Readonly<Record<string, unknown>>;
 }
@@ -58,6 +60,9 @@ interface Line {
   readonly start: number;
   readonly text: string;
 }
+
+/** What is said of a front matter that opens and never closes. */
+export const UNCLOSED = "The front matter opens with --- and is never closed.";
 
 const linesOf = (text: string, from: number): Line[] => {
   const lines: Line[] = [];
@@ -78,17 +83,21 @@ const linesOf = (text: string, from: number): Line[] => {
 const frontMatterOf = (
   text: string,
   problems: string[]
-): { readonly body: number; readonly block: TokenBlock | null } => {
+): {
+  readonly body: number;
+  readonly block: TokenBlock | null;
+  readonly unclosed: boolean;
+} => {
   // Typed by hand: the linter otherwise takes the result for non-null.
   const open: RegExpExecArray | null = FRONT_OPEN_RE.exec(text);
   if (open === null) {
-    return { block: null, body: 0 };
+    return { block: null, body: 0, unclosed: false };
   }
   const start = open[0].length;
   const close: RegExpExecArray | null = FRONT_CLOSE_RE.exec(text.slice(start));
   if (close === null) {
-    problems.push("The front matter opens with --- and is never closed.");
-    return { block: null, body: 0 };
+    problems.push(UNCLOSED);
+    return { block: null, body: 0, unclosed: true };
   }
   const end = start + close.index;
   const after = text.indexOf("\n", end);
@@ -100,6 +109,7 @@ const frontMatterOf = (
       start,
     },
     body: after < 0 ? text.length : after + 1,
+    unclosed: false,
   };
 };
 
@@ -251,6 +261,7 @@ export const parse = (text: string): DesignMd => {
     sections: body.sections,
     text,
     title: body.title,
+    unclosed: front.unclosed,
     values,
   };
 };

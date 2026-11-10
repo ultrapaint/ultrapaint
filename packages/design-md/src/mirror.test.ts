@@ -197,4 +197,22 @@ describe("component tokens", () => {
       "components.button.textColor: $color-chart is not a value DESIGN.md can hold."
     );
   });
+
+  it("refers to a token whose key has a dot in it", () => {
+    const ds = shadcn();
+    const { groups } = mirrorOf(
+      {
+        ...ds,
+        spacing: {
+          ...ds.spacing,
+          tokens: [{ name: "spacing-0.5", value: "2px" }],
+        },
+      },
+      { badge: { padding: "$spacing-0.5" } }
+    );
+    expect(groups.spacing["0.5"]).toBe("2px");
+    expect(groups.components).toEqual({
+      badge: { padding: "{spacing.0.5}" },
+    });
+  });
 });

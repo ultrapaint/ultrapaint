@@ -46,12 +46,45 @@ export const attachTextStyle = (
   return set;
 };
 
-const sameSettings = (node: TextNode, style: TextStyle) =>
-  TEXT_STYLE_SETTINGS.every((key) => {
+/**
+ * How many of the text's own settings the style says the same of; -1 when it says otherwise of
+ * one. A setting the style leaves unsaid is no contradiction, and no match either.
+ */
+const settingsShared = (node: TextNode, style: TextStyle): number => {
+  let shared = 0;
+  for (const key of TEXT_STYLE_SETTINGS) {
     const own = node[key];
     const theirs = style[key];
-    return own === undefined || theirs === undefined || own === theirs;
-  }) && TEXT_STYLE_SETTINGS.some((key) => node[key] !== undefined);
+    if (own === undefined || theirs === undefined) {
+      continue;
+    }
+    if (own !== theirs) {
+      return -1;
+    }
+    shared += 1;
+  }
+  return shared;
+};
+
+/** The style that says the most of the text's own settings and nothing against them: the first of those. */
+const closestStyle = (
+  node: TextNode,
+  styles: readonly TextStyle[]
+): TextStyle | undefined => {
+  if (TEXT_STYLE_SETTINGS.every((key) => node[key] === undefined)) {
+    return;
+  }
+  let best: TextStyle | undefined;
+  let most = -1;
+  for (const style of styles) {
+    const shared = settingsShared(node, style);
+    if (shared > most) {
+      best = style;
+      most = shared;
+    }
+  }
+  return best;
+};
 
 /**
  * The style a detached text goes back to: the one it matches setting for setting, else the one
@@ -63,7 +96,7 @@ export const matchTextStyle = (
 ): TextStyle | undefined => {
   const group = node.role === "heading" ? "heading" : "body";
   return (
-    styles.find((s) => sameSettings(node, s)) ??
+    closestStyle(node, styles) ??
     styles.find(
       (s) =>
         s.role === node.role &&

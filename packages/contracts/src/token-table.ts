@@ -19,6 +19,7 @@ import type {
   FontSizeToken,
   Token,
 } from "./design-system.ts";
+import { DETAILED_GROUPS } from "./token-presets.ts";
 import {
   type Comparable,
   comparable,
@@ -346,7 +347,19 @@ const appendAt = (
   return { ...rec, [key]: appendAt(rec[key], more, tokens) };
 };
 
-/** Colours go into the semantic group, the first group when there is none, a new one when none. */
+/**
+ * The group a colour goes into: in a detailed system (ADR 0062) the group of its namespace
+ * (`border-color-warning` in Border), else the semantic group, the first when there is none.
+ */
+const colorGroupOf = (groups: DesignSystem["colors"], name: string): number => {
+  const named = (wanted: string) =>
+    groups.findIndex((g) => g.name.toLowerCase() === wanted.toLowerCase());
+  const detailed = DETAILED_GROUPS.find((d) => name.startsWith(d.prefix));
+  const own = detailed ? named(detailed.name) : -1;
+  return own >= 0 ? own : Math.max(0, named("semantic"));
+};
+
+/** Colours go each into its group (`colorGroupOf`), a new one when the design system has none. */
 const addColors = (
   ds: DesignSystem,
   colors: readonly Token[]
@@ -357,22 +370,19 @@ const addColors = (
   if (ds.colors.length === 0) {
     return { ...ds, colors: [{ name: "Colors", tokens: [...colors] }] };
   }
-  const semantic = Math.max(
-    0,
-    ds.colors.findIndex((g) => g.name.toLowerCase() === "semantic")
-  );
   return {
     ...ds,
-    colors: ds.colors.map((g, i) =>
-      i === semantic ? { ...g, tokens: [...g.tokens, ...colors] } : g
-    ),
+    colors: ds.colors.map((g, i) => {
+      const own = colors.filter((c) => colorGroupOf(ds.colors, c.name) === i);
+      return own.length > 0 ? { ...g, tokens: [...g.tokens, ...own] } : g;
+    }),
   };
 };
 
 /**
  * The design system with tokens listed where their kind goes, after the tokens there: a colour in
- * the semantic group (the first group when there is none), any other kind in its list, `spacing`
- * as the spacing base. A token of no kind the table knows has no list, and is left out.
+ * its group (`colorGroupOf`), any other kind in its list, `spacing` as the spacing base. A token
+ * of no kind the table knows has no list, and is left out.
  */
 export const addTokens = (
   ds: DesignSystem,

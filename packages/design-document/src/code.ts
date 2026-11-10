@@ -254,20 +254,30 @@ const asAppComponentCode = (
 ): DesignNode => {
   const parent = w.base.endsWith("/ui") ? w.base.slice(0, -3) : w.base;
   w.modules.set(node.id, `${parent}/${applicationFileOf(node.component)}`);
-  const props = node.props
+  // What a breakpoint sets of a property is laid over the base's by name: both under the prop's.
+  const at = node.at
     ? Object.fromEntries(
-        Object.entries(node.props).map(([name, value]) => [
-          propNameOf(name),
-          value,
+        Object.entries(node.at).map(([breakpoint, fields]) => [
+          breakpoint,
+          fields.props ? { ...fields, props: asProps(fields.props) } : fields,
         ])
       )
     : undefined;
   return {
     ...node,
-    ...(props && { props }),
+    ...(node.props && { props: asProps(node.props) }),
+    ...(at && { at }),
     ...(node.children && { children }),
   };
 };
+
+/** Property values by the props they are written as. */
+const asProps = (
+  props: Readonly<Record<string, JsonValue>>
+): Record<string, JsonValue> =>
+  Object.fromEntries(
+    Object.entries(props).map(([name, value]) => [propNameOf(name), value])
+  );
 
 const isParent = (
   node: DesignNode

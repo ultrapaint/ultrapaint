@@ -131,6 +131,49 @@ describe("the token table", () => {
     ]);
   });
 
+  it("adds a detailed system's colour to the group of its namespace, and a plain system's as ever", () => {
+    const group = (name: string, token: string) => ({
+      name,
+      tokens: [{ name: token, value: "#000" }],
+    });
+    const detailed: DesignSystem = {
+      ...emptyDesignSystem(),
+      colors: [
+        group("Text", "text-color-default"),
+        group("Background", "background-color-default"),
+        group("Border", "border-color-default"),
+      ],
+    };
+    const warning = [
+      { name: "border-color-warning", value: "#fa0" },
+      { name: "background-color-warning", value: "#fe8" },
+      { name: "text-color-warning", value: "#a60" },
+      { name: "color-brand", value: "#00f" },
+    ];
+    expect(
+      addTokens(detailed, warning).colors.map((g) =>
+        g.tokens.map((t) => t.name)
+      )
+    ).toEqual([
+      ["text-color-default", "text-color-warning", "color-brand"],
+      ["background-color-default", "background-color-warning"],
+      ["border-color-default", "border-color-warning"],
+    ]);
+    // No group of the namespace's name: where every colour goes.
+    const plain: DesignSystem = {
+      ...emptyDesignSystem(),
+      colors: [group("Brand", "color-brand"), group("Semantic", "color-ink")],
+    };
+    expect(
+      addTokens(plain, warning.slice(0, 2)).colors.map((g) =>
+        g.tokens.map((t) => t.name)
+      )
+    ).toEqual([
+      ["color-brand"],
+      ["color-ink", "border-color-warning", "background-color-warning"],
+    ]);
+  });
+
   it("leaves out a token of no kind, and needs a default value to add one", () => {
     const ds = withTokenChanges(emptyDesignSystem(), [
       { name: "z-modal", value: "50" },

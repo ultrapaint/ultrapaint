@@ -187,4 +187,27 @@ describe("pageTargetNamed", () => {
   ] as const)("names %j as %j", (name, expected) => {
     expect(pageTargetNamed(pages, name)).toEqual(expected);
   });
+
+  it("names a page of a canvas inside another, by its URL, its file or one of its nodes", () => {
+    const nested = page("app/v2", "pricing.page.json", { route: "/pricing" });
+    const all = [...pages, nested];
+    expect(pageTargetNamed(all, "app/v2:/pricing")).toEqual({
+      _tag: "Page",
+      page: nested,
+    });
+    expect(pageTargetNamed(all, "app/v2:pricing.page.json")).toEqual({
+      _tag: "Page",
+      page: nested,
+    });
+    expect(pageTargetNamed(all, "app/v2:/pricing#c_1")).toEqual({
+      _tag: "Page",
+      nodeId: "c_1",
+      page: nested,
+    });
+    expect(pageTargetNamed(all, "app/v2:canvas#c_1")).toEqual({
+      _tag: "Loose",
+      canvas: "app/v2",
+      nodeId: "c_1",
+    });
+  });
 });

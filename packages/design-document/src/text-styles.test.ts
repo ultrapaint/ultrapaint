@@ -1,4 +1,7 @@
-import type { TextStyle } from "@ultrapaint/contracts/design-system";
+import {
+  starterTextStyles,
+  type TextStyle,
+} from "@ultrapaint/contracts/design-system";
 import type { TextNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
@@ -94,6 +97,24 @@ describe("matchTextStyle", () => {
       matchTextStyle(text({ font: "$font-mono", size: "$text-sm" }), styles)
         ?.name
     ).toBe("Code");
+  });
+
+  it("takes a text detached from a style back to it, not to one that says less", () => {
+    const token = (name: string) => ({ name, value: "1" });
+    const starter = starterTextStyles({
+      fonts: [token("font-mono")],
+      leading: [token("leading-normal"), token("leading-tight")],
+      sizes: [token("text-sm"), token("text-base")],
+      weights: [token("font-weight-normal"), token("font-weight-medium")],
+    });
+    // Body sm comes first and is Code without its font.
+    for (const name of ["Body sm", "Label", "Code"]) {
+      const style = starter.find((s) => s.name === name);
+      const detached = text(
+        detachTextStyle(text(), style) as Partial<TextNode>
+      );
+      expect(matchTextStyle(detached, starter)?.name).toBe(name);
+    }
   });
 
   it("falls back to the style for the role and level, then to the group", () => {

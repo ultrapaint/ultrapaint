@@ -23,7 +23,7 @@ import {
   tokenName,
   tokenValues,
 } from "@ultrapaint/design-document/tokens";
-import type { TokenGroups, Typography } from "./format.ts";
+import { pathParts, type TokenGroups, type Typography } from "./format.ts";
 import { documentPathOf, tokenKeyOf } from "./tokens.ts";
 import { familyOf, isDimension, isPlainNumber } from "./values.ts";
 
@@ -275,7 +275,7 @@ const componentGroup = (
   notes: string[]
 ): Record<string, Record<string, string>> => {
   const has = (path: string) => {
-    const [group = "", key = ""] = path.split(".");
+    const { group, key } = pathParts(path);
     return (
       (known as Record<string, Record<string, unknown>>)[group]?.[key] !==
       undefined

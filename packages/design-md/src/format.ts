@@ -88,6 +88,36 @@ export interface TokenGroups {
   readonly typography: Readonly<Record<string, Typography>>;
 }
 
+/** The groups whose tokens are maps of fields: a path into one ends in the field's name. */
+const FIELD_GROUPS: ReadonlySet<string> = new Set<MirroredGroup>([
+  "components",
+  "typography",
+]);
+
+/**
+ * A mirrored value's path in its parts: `colors.primary`, `typography.body.fontSize`. A key may
+ * hold dots (`spacing.0.5`), so the group ends at the first one, and the field of a token that
+ * has fields starts after the last.
+ */
+export const pathParts = (
+  path: string
+): {
+  readonly field?: string;
+  readonly group: string;
+  readonly key: string;
+} => {
+  const first = path.indexOf(".");
+  if (first < 0) {
+    return { group: path, key: "" };
+  }
+  const group = path.slice(0, first);
+  const rest = path.slice(first + 1);
+  const last = FIELD_GROUPS.has(group) ? rest.lastIndexOf(".") : -1;
+  return last < 0
+    ? { group, key: rest }
+    : { field: rest.slice(last + 1), group, key: rest.slice(0, last) };
+};
+
 export const emptyGroups = (): TokenGroups => ({
   colors: {},
   components: {},

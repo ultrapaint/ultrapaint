@@ -9,6 +9,7 @@ import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {
   MIRRORED_GROUPS,
   type MirroredGroup,
+  pathParts,
   type TokenGroups,
   type Typography,
 } from "./format.ts";
@@ -233,6 +234,35 @@ const codeNameOf = (group: keyof typeof PREFIXES, key: string): string =>
 
 const MAX_REF_DEPTH = 10;
 
+const isValue = (v: unknown): v is number | string =>
+  typeof v === "number" || typeof v === "string";
+
+/**
+ * What a path names in the front matter: the token of that key, which may hold dots
+ * (`spacing.0.5`), or its field; else the path walked a part at a time, as the format reads
+ * nested maps.
+ */
+const valueAt = (
+  values: Readonly<Record<string, unknown>>,
+  path: string
+): unknown => {
+  const { field, group, key } = pathParts(path);
+  const tokens = values[group];
+  const token = isRecord(tokens) ? tokens[key] : undefined;
+  let named = token;
+  if (field !== undefined) {
+    named = isRecord(token) ? token[field] : undefined;
+  }
+  if (isValue(named)) {
+    return named;
+  }
+  let node: unknown = values;
+  for (const part of path.split(".")) {
+    node = isRecord(node) ? node[part] : undefined;
+  }
+  return node;
+};
+
 /** A reference followed to a value, through other references; null when it goes nowhere. */
 export const follow = (
   values: Readonly<Record<string, unknown>>,
@@ -242,10 +272,7 @@ export const follow = (
   if (depth > MAX_REF_DEPTH) {
     return null;
   }
-  let node: unknown = values;
-  for (const part of path.split(".")) {
-    node = isRecord(node) ? node[part] : undefined;
-  }
+  const node = valueAt(values, path);
   if (typeof node === "number") {
     return String(node);
   }

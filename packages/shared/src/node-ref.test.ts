@@ -22,6 +22,57 @@ describe("node references", () => {
     expect(parseNodeRef("canvas#g_3")).toEqual({ nodeId: "g_3", page: null });
   });
 
+  it("read a canvas inside another, which the colon ends", () => {
+    expect(parseNodeRef("app/v2:/pricing#c_1")).toEqual({
+      canvas: "app/v2",
+      nodeId: "c_1",
+      page: "/pricing",
+    });
+    expect(parseNodeRef("app/v2:drafts/hero.page.json#c_1")).toEqual({
+      canvas: "app/v2",
+      nodeId: "c_1",
+      page: "drafts/hero.page.json",
+    });
+    expect(parseNodeRef("app/v2:canvas#g_3")).toEqual({
+      canvas: "app/v2",
+      nodeId: "g_3",
+      page: null,
+    });
+    expect(parseNodeRef("Café/v2.1:/pricing#c_1")).toMatchObject({
+      canvas: "Café/v2.1",
+    });
+  });
+
+  it("read a URL with a colon in it as a URL, never as a canvas", () => {
+    // A canvas never starts with a slash, so what does is a page's URL to its end.
+    expect(parseNodeRef("/app/v2:/pricing#c_1")).toEqual({
+      nodeId: "c_1",
+      page: "/app/v2:/pricing",
+    });
+    expect(parseNodeRef("/a/:/b#c_1")).toEqual({
+      nodeId: "c_1",
+      page: "/a/:/b",
+    });
+    expect(parseNodeRef("marketing:/invoices/:id#t_1")).toEqual({
+      canvas: "marketing",
+      nodeId: "t_1",
+      page: "/invoices/:id",
+    });
+  });
+
+  it("read no canvas out of a name no canvas can have", () => {
+    for (const text of [
+      "app//v2:/pricing#c_1",
+      "app/:/pricing#c_1",
+      "app/.git:/pricing#c_1",
+      "..:/pricing#c_1",
+      "app\\v2:/pricing#c_1",
+      ":/pricing#c_1",
+    ]) {
+      expect(parseNodeRef(text), text).toBeNull();
+    }
+  });
+
   it("read the file of a page without a URL", () => {
     expect(parseNodeRef("drafts/orders.page.json#c_1")).toEqual({
       nodeId: "c_1",
@@ -49,6 +100,16 @@ describe("node references", () => {
     ]) {
       const ref = parseNodeRef(text);
       expect(ref && formatNodeRef(ref)).toBe(text);
+    }
+  });
+
+  it("are read back as they were written, in a canvas inside another too", () => {
+    for (const ref of [
+      { canvas: "app/v2", nodeId: "c_1", page: "/pricing" },
+      { canvas: "app/v2", nodeId: "c_1", page: "drafts/hero.page.json" },
+      { canvas: "flows/sign-in/v2.1", nodeId: "g_3", page: null },
+    ]) {
+      expect(parseNodeRef(formatNodeRef(ref))).toEqual(ref);
     }
   });
 

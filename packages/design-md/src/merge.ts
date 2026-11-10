@@ -23,6 +23,7 @@ import {
 } from "@ultrapaint/contracts/agreement";
 import {
   MIRRORED_GROUPS,
+  pathParts,
   type TokenGroups,
   type Typography,
 } from "./format.ts";
@@ -59,7 +60,7 @@ export const unflatten = (flat: Flat): TokenGroups => {
     MIRRORED_GROUPS.map((g) => [g, {}])
   );
   for (const [path, value] of Object.entries(flat)) {
-    const [group = "", key = "", field] = path.split(".");
+    const { field, group, key } = pathParts(path);
     const target = groups[group];
     if (!target) {
       continue;

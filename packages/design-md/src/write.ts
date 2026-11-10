@@ -13,11 +13,33 @@ import {
   SECTIONS,
   type TokenGroups,
 } from "./format.ts";
-import { type DesignMd, parse, type TokenBlock } from "./parse.ts";
+import { type DesignMd, parse, type TokenBlock, UNCLOSED } from "./parse.ts";
 import { follow, groupsOf, refOf } from "./tokens.ts";
 
 const LEADING_BLANK_RE = /^\uFEFF?\s*\n/;
+const EOL_RE = /\r?\n/;
 const TO_STRING = { lineWidth: 0 } as const;
+const EMPTY_MAP = "{}\n";
+
+/** A block's YAML as it is written, its lines ended as `eol` says; nothing for one left without a key. */
+const yamlOf = (doc: Document, eol: string): string => {
+  const yaml = doc.toString(TO_STRING);
+  if (yaml === EMPTY_MAP) {
+    return "";
+  }
+  return eol === "\n" ? yaml : yaml.replaceAll("\n", eol);
+};
+
+/** How the line that ends at `at` ends: a block is written as the line that opens it is. */
+const eolBefore = (text: string, at: number): string =>
+  text.slice(at - 2, at) === "\r\n" ? "\r\n" : "\n";
+
+/** How the file's first line ends: a front matter added above it is written the same. */
+const firstEol = (text: string): string => {
+  // Typed by hand: the linter otherwise takes the result for non-null.
+  const first: RegExpExecArray | null = EOL_RE.exec(text);
+  return first?.[0] ?? "\n";
+};
 
 type Entry = TokenGroups[MirroredGroup][string];
 
@@ -105,6 +127,28 @@ const writeGroup = (
   }
 };
 
+/** Why a group cannot be written in the block it goes in (none: a new front matter), or null. */
+const refusalOf = (
+  doc: DesignMd,
+  group: MirroredGroup,
+  block: TokenBlock | null
+): string | null => {
+  if (block === null) {
+    // A front matter added above one that never closes would leave the file with two.
+    return doc.unclosed
+      ? `${UNCLOSED.slice(0, -1)}, so ${group} cannot be written in it.`
+      : null;
+  }
+  const [error] = block.doc.errors;
+  if (error) {
+    return `The YAML that holds ${group} does not read, so it cannot be rewritten: ${error.message}`;
+  }
+  const { contents } = block.doc;
+  return contents === null || isMap(contents)
+    ? null
+    : `The front matter is not a map of keys to tokens, so ${group} cannot be written in it.`;
+};
+
 export type WriteResult =
   | { readonly changed: boolean; readonly text: string }
   | { readonly problem: string };
@@ -136,15 +180,13 @@ export const withMirror = (text: string, groups: TokenGroups): WriteResult => {
     }
     const index = doc.keys.get(group);
     const block = index === undefined ? front : (doc.blocks[index] ?? null);
+    const problem = refusalOf(doc, group, block);
+    if (problem !== null) {
+      return { problem };
+    }
     const target = block ? block.doc : fresh;
     if (!target) {
       continue;
-    }
-    const [error] = target.errors;
-    if (error) {
-      return {
-        problem: `The YAML that holds ${group} does not read, so it cannot be rewritten: ${error.message}`,
-      };
     }
     writeGroup(target, group, current, wanted, same);
     dirty.add(block);
@@ -158,11 +200,12 @@ export const withMirror = (text: string, groups: TokenGroups): WriteResult => {
     .filter((b): b is TokenBlock => b !== null)
     .sort((a, b) => b.start - a.start);
   for (const block of blocks) {
-    out = `${out.slice(0, block.start)}${block.doc.toString(TO_STRING)}${out.slice(block.end)}`;
+    const yaml = yamlOf(block.doc, eolBefore(text, block.start));
+    out = `${out.slice(0, block.start)}${yaml}${out.slice(block.end)}`;
   }
   if (fresh && dirty.has(null)) {
-    const yaml = fresh.toString(TO_STRING);
-    out = `---\n${yaml}---\n\n${out.replace(LEADING_BLANK_RE, "")}`;
+    const eol = firstEol(text);
+    out = `---${eol}${yamlOf(fresh, eol)}---${eol}${eol}${out.replace(LEADING_BLANK_RE, "")}`;
   }
   return { changed: out !== text, text: out };
 };

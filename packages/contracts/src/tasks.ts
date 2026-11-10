@@ -7,6 +7,7 @@
  * server serves (`slashCommands`), `parseCommand` and `commandOf` derive from it, so the editor
  * that puts a command in a composer and the server that reads it back share one form.
  */
+import { CANVAS_ID_PATTERN } from "@ultrapaint/shared/node-ref";
 import { Schema } from "effect";
 import { DefineMode, SetupStepId } from "./design-system-setup.ts";
 import type { SlashCommand, ThreadPurpose } from "./threads.ts";
@@ -127,7 +128,9 @@ const ADOPT_FLAG = "--adopt";
 const WHITESPACE_RE = /\s+/;
 const COMMAND_RE = /^\/([a-z][\w-]*)(?:\s+([\s\S]*))?$/;
 /** `marketing:/pricing` or `marketing:pricing.page.json`: a page of a canvas, as node refs write it. */
-const IN_CANVAS_RE = /^([^\s:]+):(\/\S*|\S+\.page\.json)$/;
+const IN_CANVAS_RE = new RegExp(
+  String.raw`^(${CANVAS_ID_PATTERN}):(\/\S*|\S+\.page\.json)$`
+);
 
 /** A canvas as a command writes it: `""` for the designs directory's own. */
 const canvasWord = (id: string) => (id === "" ? ROOT_CANVAS : id);

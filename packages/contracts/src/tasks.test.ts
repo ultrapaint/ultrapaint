@@ -61,6 +61,22 @@ describe("parseCommand", () => {
     });
   });
 
+  it("reads as a canvas what a canvas id can be, and a URL with a colon in it as a URL", () => {
+    for (const canvas of ["v2/app", "Café", "v2.1", "flows/sign-in"]) {
+      expect(requestOf(`/implement ${canvas}:/pricing`)).toEqual({
+        _tag: "Implement",
+        canvas,
+        target: "/pricing",
+      });
+    }
+    for (const first of ["/app:/pricing", "a//b:/pricing", ".git:/pricing"]) {
+      expect(requestOf(`/implement ${first}`)).toEqual({
+        _tag: "Implement",
+        target: first,
+      });
+    }
+  });
+
   it('reads --adopt as linking pages, the designs directory\'s canvas as ""', () => {
     expect(requestOf('/implement --adopt "" orders.page.json')).toEqual({
       _tag: "Adopt",
