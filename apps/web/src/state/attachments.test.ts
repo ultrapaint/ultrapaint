@@ -1,7 +1,7 @@
 import "../testing/fake-browser.ts";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addChip,
   attachmentsOf,
@@ -10,9 +10,12 @@ import {
   chipOfAttachment,
   chipOfComment,
   clearChips,
+  fileOfFrame,
   imageChip,
   useAttachments,
 } from "./attachments.ts";
+import { viewFrameOf } from "./frame-ref.ts";
+import { useProject } from "./project.ts";
 
 vi.mock(
   "./connection.ts",
@@ -148,5 +151,29 @@ describe("chipOfAttachment", () => {
         name: "Home screenshot",
       },
     ]);
+  });
+});
+
+describe("fileOfFrame", () => {
+  afterEach(() => {
+    useProject.setState({ pages: [] });
+  });
+
+  it("names the page's file for a node selected in one of its views", () => {
+    useProject.setState({
+      pages: [
+        {
+          canvas: "",
+          file: "designs/home.page.json",
+          id: "home",
+          name: "Home",
+          path: "home.page.json",
+        } as Page,
+      ],
+    });
+    expect(fileOfFrame("home")).toBe("designs/home.page.json");
+    expect(fileOfFrame(viewFrameOf("home", "tablet"))).toBe(
+      "designs/home.page.json"
+    );
   });
 });

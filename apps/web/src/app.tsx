@@ -27,7 +27,7 @@ import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { preloadMarkdown } from "./components/markdown.tsx";
 import { PlaceSwitch } from "./components/place-switch.tsx";
-import { Rail, railItems } from "./components/rail.tsx";
+import { Rail } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
@@ -229,16 +229,6 @@ const leftPanels: Record<LeftTab, ComponentType> = {
   library: Library,
 };
 
-/** The left panels with a heading of their own. */
-const headsItself: readonly LeftTab[] = [
-  "changes",
-  "chat",
-  "comments",
-  "layers",
-  "designSystem",
-  "library",
-];
-
 const leftBounds = { defaultWidth: 288, max: 480, min: 200 };
 /** A conversation reads better wide; switching to any other panel caps the width again. */
 const chatBounds = { ...leftBounds, defaultWidth: 340, max: 960 };
@@ -282,11 +272,6 @@ const LeftPanel = ({
       >
         {/* The chat heads itself, its list and each thread; the pages, the layers, Design system
           and the Library have their own actions in their heading. */}
-        {prototype || headsItself.includes(leftTab) ? null : (
-          <div className="flex h-11 shrink-0 items-center px-3 font-heading-xsmall">
-            {railItems[leftTab].label}
-          </div>
-        )}
         <div className="min-h-0 flex-1 overflow-auto">
           <Suspense fallback={<PanelLoading />}>
             <Active />
@@ -424,10 +409,6 @@ const RightPanel = ({
   );
 };
 
-/**
- * The window's right column, floating over the canvas: the top actions, the right panel's row
- * (its layer and its toggle) and the panel when it is out.
- */
 const RIGHT_TAB_NAMES: Record<RightTab, string> = {
   code: "Code",
   design: "Design",
@@ -445,6 +426,10 @@ const useRightPanelName = () => {
 
 const RightPanelPutAway = () => <RightPanelBar name={useRightPanelName()} />;
 
+/**
+ * The window's right column, floating over the canvas: the top actions, the right panel's row
+ * (its layer and its toggle) and the panel when it is out.
+ */
 const RightColumn = ({
   hasRight,
   onWidthChange,

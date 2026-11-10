@@ -27,10 +27,6 @@
 }
 
 @theme {
-  /* Type is set by the type tokens below and nothing else (ADR 0072): Tailwind's sizes, weights,
-     line heights, letter spacing and faces are cleared, so `text-sm`, `font-medium`,
-     `leading-tight`, `tracking-wide` and `font-mono` draw nothing. What the theme cannot clear
-     (`leading-5`, arbitrary values) is kept out by `typography.test.ts`. */
   --animate-ray: ray 1s ease-in-out infinite;
   --animate-agent-sweep: agent-sweep 1.8s linear infinite;
   /* Motion: entering and leaving, moving on screen, sheets. */

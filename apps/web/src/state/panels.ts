@@ -72,8 +72,9 @@ export const usePanels = create<PanelsStore>((set, get) => ({
 
 /**
  * Whether the right panel has something to show (ADR 0058): on the canvas, a layer or a page
- * selected or several frames picked; on a board view, its inspector, which always has. With
- * nothing, the panel is not drawn at all, whether the user put it away or not.
+ * selected or several frames picked; on a board view, its inspector, which always has, except
+ * on the look page (`boardInspected`). With nothing, the panel is not drawn at all, whether the
+ * user put it away or not.
  */
 const subjectOf = (
   editor: Pick<
@@ -89,11 +90,15 @@ const subjectOf = (
     picks > 1 ||
     board);
 
+/** The look page's samples have nothing to inspect: the dials are on the left. */
+const boardInspected = (open: ReturnType<typeof useBoard.getState>["open"]) =>
+  open !== null && !(open.view === "system" && open.item === LOOK_ITEM);
+
 export const rightHasSubject = () =>
   subjectOf(
     useEditor.getState(),
     useCanvasPicks.getState().ids.length,
-    useBoard.getState().open !== null
+    boardInspected(useBoard.getState().open)
   );
 
 export const useRightSubject = () => {
@@ -105,12 +110,7 @@ export const useRightSubject = () => {
     }))
   );
   const picks = useCanvasPicks((s) => s.ids.length);
-  // The look page's samples have nothing to inspect: the dials are on the left.
-  const board = useBoard(
-    (s) =>
-      s.open !== null &&
-      !(s.open.view === "system" && s.open.item === LOOK_ITEM)
-  );
+  const board = useBoard((s) => boardInspected(s.open));
   return subjectOf(editor, picks, board);
 };
 

@@ -530,9 +530,3 @@ const PrototypeControls = () => {
     </div>
   );
 };
-
-/*
- * The prototype draws its own bar now, at the bottom centre where the canvas has its tools; the
- * column of tools beside the left card and the warning over the bar are part of it. These stay
- * until the shell stops placing them.
- */

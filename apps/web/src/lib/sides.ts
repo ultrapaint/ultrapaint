@@ -69,25 +69,3 @@ export const axesSplit = (value: Padding | undefined): boolean => {
   const s = sidesOf(value);
   return s.left !== s.right || s.top !== s.bottom;
 };
-
-/**
- * How the toolbar reads a padding: `12` for every side, `12, 6` for horizontal then vertical, as
- * the fields are laid out, else the four sides in CSS order. An unset side is `0`.
- */
-export const sidesLabel = (
-  value: Padding | undefined,
-  show: (v: Length) => string
-): string => {
-  const s = sidesOf(value);
-  const [top, right, bottom, left] = SIDES.map((k) => {
-    const v = s[k];
-    return v === undefined ? "0" : show(v);
-  });
-  if (top === right && top === bottom && top === left) {
-    return top ?? "0";
-  }
-  if (left === right && top === bottom) {
-    return `${left}, ${top}`;
-  }
-  return [top, right, bottom, left].join(", ");
-};

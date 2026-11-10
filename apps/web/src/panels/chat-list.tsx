@@ -128,7 +128,7 @@ export const ScopePicture = ({
 };
 
 /** Where a thread stands, when it says something: a status mark beside its word. */
-export const ThreadStatus = ({ thread }: { thread: Thread }) => {
+const ThreadStatus = ({ thread }: { thread: Thread }) => {
   const { label, tone } = threadView(thread);
   if (label === null || tone === null) {
     return null;

@@ -464,11 +464,9 @@ const SidesRows = ({
  * differ.
  */
 export const SpacingSection = ({
-  className,
   nodes,
   write,
 }: {
-  className?: string;
   nodes: readonly DesignNode[];
   write: WriteSides;
 }) => {
@@ -490,7 +488,6 @@ export const SpacingSection = ({
           <SidesIcon lit="all" />
         </IconButton>
       }
-      className={className}
       title="Spacing"
     >
       <SidesRows field="padding" four={four} nodes={nodes} write={write} />

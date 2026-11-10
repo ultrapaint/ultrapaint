@@ -5,7 +5,7 @@
  */
 
 /** One thing wrong with the file: where it is, if the message says, and what to do about it. */
-export interface ProblemPart {
+interface ProblemPart {
   /** The place in the file, as a path into its JSON (`root.children[0].type`). */
   readonly at: string | null;
   /** What is there and what to make it, as a sentence that follows the place. */

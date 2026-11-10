@@ -12,7 +12,3 @@ export const selectionKindOf = (node: DesignNode | null): SelectionKind =>
 /** The CSS colour of a kind, from the theme's `--selection` and `--component`. */
 export const kindColor = (kind: SelectionKind): string =>
   kind === "component" ? "var(--component)" : "var(--selection)";
-
-/** The same colour, faded for a hover. */
-export const kindHoverColor = (kind: SelectionKind): string =>
-  `color-mix(in srgb, ${kindColor(kind)} 60%, transparent)`;

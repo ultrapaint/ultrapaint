@@ -375,6 +375,10 @@ export const finishWork = (threadId: string) => {
     setTimeout(() => {
       doneTimers.delete(threadId);
       useAgents.setState((s) => {
+        // A turn begun since is the thread's work again: only work still done goes.
+        if (!s.working[threadId]?.done) {
+          return s;
+        }
         const { [threadId]: _gone, ...working } = s.working;
         return { working };
       });

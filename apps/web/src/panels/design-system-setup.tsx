@@ -91,13 +91,7 @@ export const useStepVariant = () =>
   useContext(StepIsCurrent) ? "default" : "outline";
 
 /** A step's number in its circle, a check once done. */
-export const StepMarker = ({
-  index,
-  tone,
-}: {
-  index: number;
-  tone: StepTone;
-}) => (
+const StepMarker = ({ index, tone }: { index: number; tone: StepTone }) => (
   <span
     className={cn(
       "flex size-5 shrink-0 items-center justify-center rounded-full font-body-small-medium",

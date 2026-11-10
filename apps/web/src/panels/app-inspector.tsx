@@ -256,6 +256,7 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
       <Section title="Notes">
         <Notes
           component={file}
+          key={file.name}
           parts={file.slots.map((s) => ({
             label: s.label ?? s.name,
             name: s.name,

@@ -27,7 +27,6 @@ const useComponentMeta = (node: InstanceNode) =>
  */
 export const ComponentProps = ({
   children,
-  className,
   node,
   mixed = NONE,
   onSet,
@@ -35,7 +34,6 @@ export const ComponentProps = ({
 }: {
   /** Rows before the props: the instance's text. */
   children?: React.ReactNode;
-  className?: string;
   node: InstanceNode;
   mixed?: ReadonlySet<string>;
   onSet: (name: string, value: JsonValue) => void;
@@ -54,7 +52,7 @@ export const ComponentProps = ({
     return null;
   }
   return (
-    <Section className={className} title={title}>
+    <Section title={title}>
       {children}
       {[...names].map((name) => {
         const propMeta = meta?.props.find((p) => p.name === name);

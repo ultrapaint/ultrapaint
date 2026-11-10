@@ -25,6 +25,15 @@ const defaults: Record<string, string> = { mode: "design", route: "/" };
 /** Values older links carry for what is now the default: Vibe and Design are one workspace. */
 const formerDefaults: Record<string, readonly string[]> = { mode: ["vibe"] };
 
+/**
+ * Whether a parameter holds what it means when absent. A link's parameters are anyone's to name,
+ * `constructor` included: only the tables' own keys are read.
+ */
+const isDefault = (key: string, value: string) =>
+  (Object.hasOwn(defaults, key) && defaults[key] === value) ||
+  (Object.hasOwn(formerDefaults, key) &&
+    formerDefaults[key]?.includes(value) === true);
+
 /** A board view as the URL says it: which one, and the item it shows. */
 export interface BoardUrl {
   item: string | null;
@@ -73,11 +82,7 @@ const writeQuery = (
   const params = new URLSearchParams(window.location.search);
   update(params);
   for (const [key, value] of [...params]) {
-    if (
-      value === "" ||
-      defaults[key] === value ||
-      formerDefaults[key]?.includes(value)
-    ) {
+    if (value === "" || isDefault(key, value)) {
       params.delete(key);
     }
   }

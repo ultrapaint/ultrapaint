@@ -5,6 +5,7 @@ import type {
   FileDiff,
   Snapshot,
 } from "@ultrapaint/contracts/snapshots";
+import { plural } from "@ultrapaint/shared/text";
 import { ArrowLeft, Ellipsis, Plus } from "lucide-react";
 import {
   type ChangeEvent,
@@ -162,9 +163,6 @@ export const changedSince = (count: number, point: Point) =>
 /** What git said when a command failed, without the server's "git commit exited 1:" before it. */
 export const gitSaid = (message: string) =>
   message.replace(GIT_EXITED_RE, "").trim() || message;
-
-const plural = (count: number, one: string, many: string) =>
-  `${count} ${count === 1 ? one : many}`;
 
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);

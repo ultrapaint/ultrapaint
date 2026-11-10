@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 const SRC = new URL(".", import.meta.url).pathname;
 
 /**
- * The demo pages and the look page's samples use the stock scale's token names on purpose: they
- * are sample designs, drawn in a design's look, not the editor.
+ * The look page's samples use the stock scale's token names on purpose: they are sample designs,
+ * drawn in a design's look, not the editor.
  */
-const SKIPPED = ["pages/", "boards/look-boards.ts"];
+const SKIPPED = ["boards/look-boards.ts"];
 
 /** A stock or arbitrary font size: `text-xs`, `md:text-sm/relaxed`, `text-[11px]`. Colours, such
  *  as `text-muted-foreground` or `text-[CanvasText]`, do not match. */

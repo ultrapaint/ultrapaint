@@ -19,13 +19,9 @@ import type {
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
-import {
-  frameOfCanvasNode,
-  isBoardFrame,
-  nodeIn,
-  useDocuments,
-} from "./documents.ts";
+import { frameOfCanvasNode, nodeIn, useDocuments } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
+import { frameRefOf, ownFrameOf } from "./frame-ref.ts";
 import { useProject } from "./project.ts";
 
 export type Chip =
@@ -181,10 +177,12 @@ export const fileOfFrame = (frame: string): string | null => {
       : `${designsDir}/${componentFileOf(component)}`;
   }
   // A board's frame is otherwise generated: it has no file of the designs (ADR 0045).
-  if (isBoardFrame(frame)) {
+  if (frameRefOf(frame).kind === "board") {
     return null;
   }
-  const page = useProject.getState().pages.find((p) => p.id === frame);
+  // A view draws its page again: a node selected in one lives in the page's file.
+  const own = ownFrameOf(frame);
+  const page = useProject.getState().pages.find((p) => p.id === own);
   if (page) {
     return page.file;
   }

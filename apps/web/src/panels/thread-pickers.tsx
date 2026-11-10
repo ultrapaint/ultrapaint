@@ -83,7 +83,7 @@ const setConfigOption = (threadId: string, optionId: string, value: string) =>
     .request("threads.setConfigOption", { optionId, threadId, value })
     .catch(reportError);
 
-export const currentName = (option: ConfigOption | undefined) =>
+const currentName = (option: ConfigOption | undefined) =>
   option?.options.find((o) => o.value === option.currentValue)?.name;
 
 const SwitchOptionItem = ({
@@ -338,7 +338,7 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
         render={
           <Button
             aria-label={`Agent and model: ${label}`}
-            className={pickerTrigger}
+            className={quietTrigger}
             variant="ghost"
           />
         }
@@ -387,12 +387,6 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
   );
 };
 
-/**
- * The composer's pickers, quiet selects: their value and a chevron in muted text, filled only
- * under the pointer or while open. They give up width before the send button does.
- */
-const pickerTrigger = quietTrigger;
-
 /** What each agent's modes let it do, drawn small enough to stand for the mode alone. */
 const MODE_ICONS: Record<string, LucideIcon> = {
   acceptEdits: FilePen,
@@ -406,7 +400,7 @@ const MODE_ICONS: Record<string, LucideIcon> = {
   "workspace-write": FolderPen,
 };
 
-export const ModeIcon = ({
+const ModeIcon = ({
   className,
   modeId,
 }: {

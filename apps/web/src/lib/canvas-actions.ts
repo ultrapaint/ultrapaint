@@ -3,6 +3,7 @@
  * the Pages panel and the context menu alike.
  */
 import type { Canvas, Page } from "@ultrapaint/contracts/pages";
+import { plural } from "@ultrapaint/shared/text";
 import { toast } from "sonner";
 import { promptDialog } from "../components/dialogs.tsx";
 
@@ -18,8 +19,6 @@ import { startTask } from "./start-thread.ts";
 
 export const canvasById = (id: string): Canvas | undefined =>
   useProject.getState().canvases.find((c) => c.id === id);
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 /** Where each canvas was looked at, so going back to one finds it as it was left. */
 const views = new Map<string, { x: number; y: number; zoom: number }>();

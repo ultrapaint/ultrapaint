@@ -3,6 +3,7 @@
  * each review round with who looked, what they scored, and what the designer did with it.
  */
 import type { RoundReviewer, ThreadItem } from "@ultrapaint/contracts/threads";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Check,
   ChevronRight,
@@ -90,8 +91,6 @@ const StepMark = ({ status }: { status: RunStep["status"] }) => {
     </>
   );
 };
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** One review model's line in a round: its name, then its score, "Looking" or "No score". */
 const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (

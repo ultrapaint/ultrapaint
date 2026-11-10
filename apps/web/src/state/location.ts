@@ -385,10 +385,13 @@ export const openStartCanvas = (): boolean => {
   const saved = localStorage.getItem(REMEMBERED);
   const ids = canvases.map((c) => c.id);
   // The designs directory's own canvas is named "", which the URL leaves out: a link with a
-  // route and no canvas is a route of that canvas.
+  // route or a node and no canvas is a route or a node of that canvas.
   const named =
     url.canvas ??
-    (ids.includes("") && (url.route !== "/" || url.page !== null) ? "" : null);
+    (ids.includes("") &&
+    (url.route !== "/" || url.page !== null || url.node !== null)
+      ? ""
+      : null);
   let canvas = ids[0] ?? "";
   if (named !== null && ids.includes(named)) {
     canvas = named;

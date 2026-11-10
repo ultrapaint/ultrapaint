@@ -13,12 +13,13 @@ const PROMPTED_BY_THE_PERSON: Record<string, string> = {
   "lib/first-prompt.ts":
     "the prompt they typed on the start screen, or sent once they chose its look",
   "lib/start-thread.ts": "Make from code, a button they pressed (`runTask`)",
-  "panels/thread-composer.tsx": "the composer's Send",
+  "panels/thread-composer.tsx":
+    "the composer's Send, and Send now on a prompt they queued",
   "panels/thread-review.tsx": "the run card's Go on",
   "state/comments.ts": "a comment's Send to agent",
 };
 
-const PROMPTS = /"threads\.prompt"/;
+const PROMPTS = /"threads\.(?:prompt|sendQueued)"/;
 const SOURCE = /\.tsx?$/;
 const TEST = /\.test\.tsx?$/;
 

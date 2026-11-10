@@ -8,6 +8,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import {
   Tooltip,
   TooltipContent,
@@ -134,10 +135,10 @@ const RailButton = ({ value }: { value: LeftTab }) => {
  */
 export const Rail = () => {
   // The mode's places (ADR 0053): Canvas's on the page canvas, Design System's on a board view,
-  // with Layers on an app component's, known once the components are.
+  // with Layers on an app component's, known once the components are: asked of the surface
+  // again when they change, as it reads them itself.
   const surface = useSurface();
-  useComponents((s) => s.components);
-  const tabs = surface.railTabs();
+  const tabs = useComponents(useShallow(() => surface.railTabs()));
   return (
     <nav
       aria-label="Panels"

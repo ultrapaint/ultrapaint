@@ -47,13 +47,13 @@ import {
   canvasNodes,
   docOfFrame,
   frameOfCanvasNode,
-  isNodeFrame,
   nodeIn,
   pathIn,
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
 import {
   asDrawnIn,
@@ -450,7 +450,7 @@ export const placeOf = (ctx: Context = liveContext()) => {
     return { current, parent, siblings: childrenOf(parent) };
   }
   // A node on the canvas is the root of its own frame; its siblings are the canvas's.
-  if (isNodeFrame(current.frame)) {
+  if (frameRefOf(current.frame).kind === "node") {
     return { current, parent: null, siblings: canvasNodes(docs, canvas) };
   }
   return null;

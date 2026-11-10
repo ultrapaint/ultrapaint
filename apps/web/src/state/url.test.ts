@@ -1,7 +1,7 @@
 import "../testing/fake-browser.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
-import { linkToNode, readUrl, writeBoard, writeUrl } from "./url.ts";
+import { linkToNode, readUrl, tidyUrl, writeBoard, writeUrl } from "./url.ts";
 
 beforeEach(() => {
   fakeBrowser.visit("/?canvas=main&route=/pricing");
@@ -52,5 +52,13 @@ describe("a board view in the URL", () => {
     expect(link.searchParams.get("view")).toBeNull();
     expect(link.searchParams.get("item")).toBeNull();
     expect(link.searchParams.get("node")).toBe("hero");
+  });
+});
+
+describe("tidyUrl", () => {
+  it("drops what is empty or at its default, and keeps a parameter it has no table for", () => {
+    fakeBrowser.visit("/?canvas=main&route=/&mode=vibe&variant=&constructor=x");
+    tidyUrl();
+    expect(window.location.search).toBe("?canvas=main&constructor=x");
   });
 });

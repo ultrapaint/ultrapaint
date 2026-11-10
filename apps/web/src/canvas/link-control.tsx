@@ -14,8 +14,9 @@ import { LinkField } from "../components/link-field.tsx";
 import { describeLink } from "../lib/links.ts";
 import { updateSelection } from "../lib/node-actions.ts";
 import { Row, Section } from "../panels/inspector-fields.tsx";
-import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
+import { useProject } from "../state/project.ts";
 
 /**
  * Where the element leads in the prototype, from the Vibe toolbar: the inspector's own field in a
@@ -26,6 +27,8 @@ import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
 export const LinkControl = ({ node }: { node: DesignNode }) => {
   const frame = useEditor((s) => s.selection?.frame ?? null);
   const canvas = useEditor((s) => s.canvas);
+  // Subscribed to so the description follows a page renamed or removed.
+  const pages = useProject((s) => s.pages);
   if (
     node.type === "page" ||
     frame === null ||
@@ -34,7 +37,10 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
     return null;
   }
   const described = node.link
-    ? describeLink(pagesOfCanvas(canvas), node.link)
+    ? describeLink(
+        pages.filter((p) => p.canvas === canvas),
+        node.link
+      )
     : null;
   return (
     <Popover>

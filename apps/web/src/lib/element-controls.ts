@@ -6,8 +6,6 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { shortName, spacingStepAt } from "@ultrapaint/contracts/token-table";
-import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import type { TokenFieldName } from "./node-fields.ts";
 
 export type Control =
@@ -92,27 +90,4 @@ export const propValue = (
     return String(set);
   }
   return options.includes("default") ? "default" : (options[0] ?? "");
-};
-
-/**
- * A field's value as the toolbar shows it: a token by its short name (`card`, `lg`), pixels on the
- * spacing scale as its step (`4` for 16px on a 4px base), `none` when unset.
- */
-export const tokenLabel = (
-  field: TokenFieldName,
-  value: JsonValue | undefined,
-  spacingBase: number
-): string => {
-  if (value === undefined || value === null || value === "") {
-    return "none";
-  }
-  if (typeof value === "object") {
-    return "mixed";
-  }
-  if (typeof value === "number") {
-    const step = field === "gap" ? spacingStepAt(value, spacingBase) : null;
-    return step === null ? `${value}px` : String(step);
-  }
-  const text = String(value);
-  return isToken(text) ? shortName(tokenName(text)) : text;
 };

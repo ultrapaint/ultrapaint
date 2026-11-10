@@ -12,6 +12,7 @@ import type {
   TokenDiff,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
+import { plural } from "@ultrapaint/shared/text";
 import { Check, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,8 +29,6 @@ import { applyPicks, Conflicts } from "./sync-tokens.tsx";
 type Picks = Readonly<Record<string, TokenDecision["take"]>>;
 
 const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 /** A token, its value on each side. */
 const Row = ({ diff }: { diff: TokenDiff }) => (

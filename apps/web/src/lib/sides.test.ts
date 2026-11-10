@@ -2,13 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   axesSplit,
   sharedSide,
-  sidesLabel,
   sidesOf,
   spacingOf,
   withSides,
 } from "./sides.ts";
-
-const show = (v: number | string) => String(v);
 
 describe("sidesOf and spacingOf", () => {
   it("opens one value to four sides and closes four equal sides to one", () => {
@@ -60,19 +57,5 @@ describe("axesSplit", () => {
     expect(axesSplit({ bottom: 6, left: 12, right: 12, top: 6 })).toBe(false);
     expect(axesSplit({ left: 8, right: 12 })).toBe(true);
     expect(axesSplit(undefined)).toBe(false);
-  });
-});
-
-describe("sidesLabel", () => {
-  it("reads one value, horizontal then vertical, or the four sides", () => {
-    expect(sidesLabel(16, show)).toBe("16");
-    expect(sidesLabel(undefined, show)).toBe("0");
-    expect(sidesLabel({ bottom: 6, left: 12, right: 12, top: 6 }, show)).toBe(
-      "12, 6"
-    );
-    expect(sidesLabel({ bottom: 6, left: 8, right: 12, top: 6 }, show)).toBe(
-      "6, 12, 6, 8"
-    );
-    expect(sidesLabel({ left: 4 }, show)).toBe("0, 0, 0, 4");
   });
 });

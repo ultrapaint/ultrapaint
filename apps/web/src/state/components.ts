@@ -28,7 +28,6 @@ interface ComponentsStore {
   /** Every component's file, read or with its problem. */
   entries: readonly ComponentEntry[];
   load: () => Promise<void>;
-  loaded: boolean;
 }
 
 const fromEntries = (entries: readonly ComponentEntry[]) => {
@@ -37,7 +36,6 @@ const fromEntries = (entries: readonly ComponentEntry[]) => {
     catalogue: catalogueOf(components),
     components,
     entries,
-    loaded: true,
   };
 };
 
@@ -46,7 +44,6 @@ export const useComponents = create<ComponentsStore>(() => ({
   components: [],
   entries: [],
   load: () => componentsData.read().catch(reportError),
-  loaded: false,
 }));
 
 const take = (list: ComponentList) =>

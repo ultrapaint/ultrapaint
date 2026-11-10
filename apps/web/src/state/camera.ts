@@ -246,14 +246,10 @@ const fitTo = (
   const x2 = Math.max(...boxes.map((b) => b.x + b.width));
   const y2 = Math.max(...boxes.map((b) => b.y + b.height));
   const pad = 60;
-  const zoom = Math.min(
-    4,
-    Math.max(
-      0.05,
-      Math.min(
-        (viewport.width - pad * 2) / (x2 - x1),
-        (viewport.height - pad * 2) / (y2 - y1)
-      )
+  const zoom = clampZoom(
+    Math.min(
+      (viewport.width - pad * 2) / (x2 - x1),
+      (viewport.height - pad * 2) / (y2 - y1)
     )
   );
   const view = {

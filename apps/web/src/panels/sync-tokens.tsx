@@ -18,6 +18,7 @@ import type {
   TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
+import { plural } from "@ultrapaint/shared/text";
 import { Check, ChevronDown, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -63,8 +64,6 @@ const matchedSource = (source: TokenSourceKind) =>
 const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
 
 const labelOf = (d: TokenDiff) => (d.theme ? `${d.name} (${d.theme})` : d.name);
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 const outcomes = (comparison: TokenComparison) => {
   const by = (outcome: TokenDiff["outcome"]) =>

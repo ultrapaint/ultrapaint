@@ -43,7 +43,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
   const pageError = useFrameError(frameId);
-  const inv = useInv();
   const canvas = useEditor((s) => s.canvas);
   // This frame's document only: an edit elsewhere has nothing to outline here. As the frame
   // draws it: a row from a breakpoint on is named a row there (ADR 0036).
@@ -108,7 +107,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
           targets={group.targets}
         />
       ) : null}
-      {pageError ? <FrameError inv={inv} message={pageError.message} /> : null}
+      {pageError ? <FrameError message={pageError.message} /> : null}
     </>
   );
 };
@@ -166,26 +165,29 @@ const GroupOutline = ({
  * What a part of the page threw and nothing caught, over the foot of the frame at its size on
  * screen, so it reads at any zoom; gone once the page draws again.
  */
-const FrameError = ({ inv, message }: { inv: number; message: string }) => (
-  <div
-    className="absolute bottom-0 left-0 flex max-h-40 flex-col gap-1 overflow-auto border-destructive/40 border-t bg-popover px-3 py-2.5 text-popover-foreground"
-    data-canvas-scroll
-    role="alert"
-    style={{
-      transform: `scale(${inv})`,
-      transformOrigin: "bottom left",
-      width: `${100 / inv}%`,
-    }}
-  >
-    <span className="flex items-center gap-1.5 font-body-medium">
-      <AlertTriangle className="size-4 shrink-0 text-destructive" />
-      Part of this page failed to draw
-    </span>
-    <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
-      {message}
-    </pre>
-  </div>
-);
+const FrameError = ({ message }: { message: string }) => {
+  const inv = useInv();
+  return (
+    <div
+      className="absolute bottom-0 left-0 flex max-h-40 flex-col gap-1 overflow-auto border-destructive/40 border-t bg-popover px-3 py-2.5 text-popover-foreground"
+      data-canvas-scroll
+      role="alert"
+      style={{
+        transform: `scale(${inv})`,
+        transformOrigin: "bottom left",
+        width: `${100 / inv}%`,
+      }}
+    >
+      <span className="flex items-center gap-1.5 font-body-medium">
+        <AlertTriangle className="size-4 shrink-0 text-destructive" />
+        Part of this page failed to draw
+      </span>
+      <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
+        {message}
+      </pre>
+    </div>
+  );
+};
 
 /** Where a node not measured yet is outlined, hidden. */
 const NO_RECT: Rect = { height: 0, width: 0, x: 0, y: 0 };

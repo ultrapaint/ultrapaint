@@ -39,17 +39,13 @@ const CANVAS_DRAG_TYPE = "application/x-ultrapaint-canvas";
 /** A name typed in place: Enter keeps it, Escape or leaving the field drops it. */
 export const InlineInput = ({
   className,
-  mono = false,
   onCancel,
   onSubmit,
-  placeholder,
   value,
 }: {
   className?: string;
-  mono?: boolean;
   onCancel: () => void;
   onSubmit: (value: string) => void;
-  placeholder?: string;
   value: string;
 }) => {
   const [draft, setDraft] = useState(value);
@@ -68,12 +64,11 @@ export const InlineInput = ({
   return (
     <Input
       autoFocus
-      className={cn("h-5", mono && "font-code", className)}
+      className={cn("h-5", className)}
       onBlur={onCancel}
       onChange={onChange}
       onClick={(e: MouseEvent) => e.stopPropagation()}
       onKeyDown={onKeyDown}
-      placeholder={placeholder}
       value={draft}
     />
   );

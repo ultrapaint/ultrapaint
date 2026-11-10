@@ -275,6 +275,23 @@ describe("openStartCanvas", () => {
     expect(outOfStep()).toEqual([]);
   });
 
+  it("reads a link to a node of the home page without a canvas as the designs directory's own", async () => {
+    const root = page("index.page.json", { route: "/" }, "");
+    useProject.setState({
+      canvases: [
+        { home: "/", id: "", name: "Designs", variants: [] },
+        { home: "/about", id: "other", name: "Other", variants: [] },
+      ],
+      pages: [root, about],
+    });
+    localStorage.setItem("ultrapaint:canvas", "other");
+    fakeBrowser.visit("/?route=/&node=c_1");
+    openStartCanvas();
+    await opened("");
+    expect(at()).toMatchObject({ activePage: root.id, canvas: "", route: "/" });
+    expect(readUrl().node).toBe("c_1");
+  });
+
   it("opens nothing while there are no canvases, or once one is open", async () => {
     useProject.setState({ canvases: [], pages: [] });
     expect(openStartCanvas()).toBe(false);

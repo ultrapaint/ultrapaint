@@ -1,7 +1,6 @@
 /**
- * Links as the editor uses them: followed when pressed in the prototype, named in the fields that
- * set them, and counted before a page they lead to goes away. The forms a link takes are in
- * `@ultrapaint/shared/link`.
+ * Links as the editor uses them: followed when pressed in the prototype, and named in the fields
+ * that set them. The forms a link takes are in `@ultrapaint/shared/link`.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
@@ -101,25 +100,6 @@ export const describeLink = (
 
 /** The link a field writes for a page: its file, which no change of URL breaks. */
 export const linkToPage = (page: Page) => page.path;
-
-/** How many nodes of the open canvas lead to the page, by its file or by a URL it serves. */
-export const linksToPage = (page: Page): number => {
-  const { canvas, docs } = useDocuments.getState();
-  if (canvas !== page.canvas) {
-    return 0;
-  }
-  const pages = pagesOfCanvas(canvas);
-  const base = basePathOf(page.path);
-  let count = 0;
-  for (const state of Object.values(docs)) {
-    for (const { link } of linksIn(state.root)) {
-      if (pageOfLink(pages, link)?.path === base) {
-        count += 1;
-      }
-    }
-  }
-  return count;
-};
 
 /** Every linked node of a document, for the prototype's hotspots. */
 export const linkedNodesOf = (doc: string | null): string[] => {

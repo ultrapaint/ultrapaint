@@ -1,7 +1,7 @@
 /**
- * Settings › Agents › Review (ADR 0063): how much review a design gets, which models review it in
- * which order, and whether their findings are kept. Saved with the project's configuration, so
- * the team shares it; a chat sets its own level from the composer's Review chip.
+ * Settings › Agents › Review (ADR 0063): how much review a design gets and which models review it
+ * in which order. Saved with the project's configuration, so the team shares it; a chat sets its
+ * own level from the composer's Review chip.
  */
 import {
   APPROVAL,

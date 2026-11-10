@@ -205,15 +205,6 @@ export const applyEdits = async (
 
 // ---- Frames ----
 
-/*
- * A frame's kind is `frame-ref.ts`'s, parsed from its id. These two are kept by name for the
- * modules that still ask them here; a new caller switches on `frameRefOf(id).kind`.
- */
-export const isNodeFrame = (frame: string) => frameRefOf(frame).kind === "node";
-
-export const isBoardFrame = (frame: string) =>
-  frameRefOf(frame).kind === "board";
-
 /**
  * A frame whose edits go to another document: an app component's tree edited in place in it
  * (ADR 0041, `isolation.ts`), at one of its variants (`size=lg`) or at its own fields.

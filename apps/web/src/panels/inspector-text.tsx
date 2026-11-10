@@ -194,7 +194,6 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
   ) => (
     <TokenField
       className={style ? "text-muted-foreground" : undefined}
-      field={key}
       kind={kind}
       numeric={numeric}
       onChange={onSetting(key)}

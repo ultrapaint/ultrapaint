@@ -29,6 +29,7 @@ import {
   wrapSelection,
 } from "./node-actions.ts";
 import { ALIGN } from "./node-fields.ts";
+import { spacingOf } from "./sides.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -197,6 +198,34 @@ describe("a field edited", () => {
     await updateSelection({ hidden: false });
     expect(applied()[0]?.edits[0]?.ops).toEqual([
       { at: "md", id: "a", op: "update", set: { hidden: null } },
+    ]);
+  });
+
+  it("takes the override away when sides are set back to what they inherit, in whatever order", async () => {
+    const padded = (padding: DesignNode["padding"]): DesignNode => ({
+      at: { md: { padding: "$spacing-6" } },
+      children: [],
+      id: "padded",
+      padding,
+      type: "column",
+    });
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, {
+          children: [padded({ bottom: "$spacing-2", top: "$spacing-4" })],
+          id: "home",
+          type: "page",
+        }),
+      },
+    }));
+    select({ frame: TABLET, nodeId: "padded" });
+    // As the fields write them: the sides in CSS order, not the order the document is read in.
+    await updateSelection({
+      padding: spacingOf({ bottom: "$spacing-2", top: "$spacing-4" }),
+    });
+    expect(applied()[0]?.edits[0]?.ops).toEqual([
+      { at: "md", id: "padded", op: "update", set: { padding: null } },
     ]);
   });
 

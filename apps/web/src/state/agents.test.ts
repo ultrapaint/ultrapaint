@@ -168,6 +168,25 @@ describe("finishWork", () => {
     await vi.advanceTimersByTimeAsync(4000);
     expect(useAgents.getState().working.t).toBeUndefined();
   });
+
+  it("leaves the work of a turn begun before the moment is over", async () => {
+    vi.useFakeTimers();
+    useAgents.setState({
+      working: {
+        t: { doc: "p", done: false, intent: ["a"], nodeIds: ["a"] },
+      },
+    });
+    finishWork("t");
+    await vi.advanceTimersByTimeAsync(1000);
+    fakeApi.emit("agent.focus", { nodeIds: ["b"], pageId: "p", threadId: "t" });
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(useAgents.getState().working.t).toEqual({
+      doc: "p",
+      done: false,
+      intent: ["b"],
+      nodeIds: ["b"],
+    });
+  });
 });
 
 describe("the agent events", () => {

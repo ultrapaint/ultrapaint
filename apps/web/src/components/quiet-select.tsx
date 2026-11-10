@@ -24,14 +24,14 @@ import { cn } from "@/lib/cn";
 export const quietTrigger =
   "min-w-0 shrink gap-1 px-1.5 text-muted-foreground has-data-[icon=inline-end]:pr-1";
 
-export interface QuietChoice {
+interface QuietChoice {
   /** Choices with the same group are listed together under its name. */
   readonly group?: string;
   readonly label: string;
   readonly value: string;
 }
 
-export interface QuietAction {
+interface QuietAction {
   readonly label: string;
   readonly run: () => unknown;
 }

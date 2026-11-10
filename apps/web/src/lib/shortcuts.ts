@@ -8,7 +8,7 @@ import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { cancelGesture } from "../canvas/frame-gesture.ts";
-import { nextView, setView, viewportSize } from "../state/camera.ts";
+import { clampZoom, nextView, setView, viewportSize } from "../state/camera.ts";
 import { clearCanvasPicks } from "../state/canvas-picks.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -222,7 +222,7 @@ export const zoomBy = (k: number) => {
   const { width, height, x } = viewportSize();
   const cx = x + width / 2;
   const cy = height / 2;
-  const next = Math.min(4, Math.max(0.05, view.zoom * k));
+  const next = clampZoom(view.zoom * k);
   const r = next / view.zoom;
   setView({
     x: cx - (cx - view.x) * r,

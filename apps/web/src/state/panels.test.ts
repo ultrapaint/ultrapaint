@@ -12,6 +12,7 @@ import { openBoard, useBoard } from "./board.ts";
 import { measureViewportWith } from "./camera.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { LOOK_ITEM } from "./look-page.ts";
 import {
   rightHasSubject,
   showLeftPanel,
@@ -256,6 +257,16 @@ describe("the right panel (ADR 0058)", () => {
     });
     openBoard({ item: "color", view: "system" }, "none");
     expect(rightHasSubject()).toBe(true);
+  });
+
+  it("has nothing on the look page, whose dials are on the left", () => {
+    useEditor.setState({
+      selectedPage: null,
+      selection: null,
+      workspace: "design",
+    });
+    openBoard({ item: LOOK_ITEM, view: "system" }, "none");
+    expect(rightHasSubject()).toBe(false);
   });
 });
 

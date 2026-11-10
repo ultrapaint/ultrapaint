@@ -11,11 +11,10 @@
  * lets it go. A picker's choice is committed as it is made.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import {
-  type DesignSystem,
-  TEXT_STYLE_SETTINGS,
-  type TextStyle,
-  type TextStyleSetting,
+import type {
+  DesignSystem,
+  TextStyle,
+  TextStyleSetting,
 } from "@ultrapaint/contracts/design-system";
 import { defaultTheme, themesOf } from "@ultrapaint/contracts/themes";
 import {
@@ -567,12 +566,9 @@ export const TextStyleInspector = ({
   return (
     <>
       <Section title="Type">
-        {STYLE_FIELDS.filter((f) =>
-          (TEXT_STYLE_SETTINGS as readonly string[]).includes(f.setting)
-        ).map((f) => (
+        {STYLE_FIELDS.map((f) => (
           <Row key={f.setting} label={f.label}>
             <TokenField
-              field={f.setting}
               kind={f.kind}
               numeric={f.setting !== "font"}
               onChange={(v) => set(f.setting, v)}

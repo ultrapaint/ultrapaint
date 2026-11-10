@@ -17,18 +17,15 @@ import { follow } from "./server-data.ts";
 interface ImplementationStore {
   byTarget: Readonly<Record<string, ImplementationItem>>;
   load: () => Promise<void>;
-  loaded: boolean;
 }
 
 const indexed = (list: ImplementationList) => ({
   byTarget: Object.fromEntries(list.items.map((i) => [i.target, i])),
-  loaded: true,
 });
 
 export const useImplementation = create<ImplementationStore>(() => ({
   byTarget: {},
   load: () => implementationData.read().catch(reportError),
-  loaded: false,
 }));
 
 const take = (list: ImplementationList) =>

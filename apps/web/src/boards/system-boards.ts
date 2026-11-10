@@ -94,8 +94,7 @@ const extrasOf = (ds: DesignSystem, id: string, q: string) => {
 
 /**
  * The foundations the design system has data for, with how many of their tokens a search finds;
- * while it searches, those it finds none in are left out. Without a design system, Color alone:
- * the neutral palette every design draws with until it has one.
+ * while it searches, those it finds none in are left out.
  */
 export const foundationsOf = (
   given: DesignSystem | null,

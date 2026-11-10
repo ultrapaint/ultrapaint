@@ -14,6 +14,7 @@ import {
   resolveAtBreakpoint,
   sourceOf,
 } from "@ultrapaint/design-document/breakpoints";
+import { sameJson } from "@ultrapaint/design-document/tree";
 import { currentBreakpoints } from "../state/design-system.ts";
 import { editedAtOf, useDocuments } from "../state/documents.ts";
 import { type EditorState, useEditor } from "../state/editor.ts";
@@ -46,9 +47,6 @@ export const useEditingBreakpoint = (frame: string): string | null => {
   const views = useEditor((s) => viewsIn(s.frames, frame));
   return variant ?? (views ? shown : null);
 };
-
-const sameJson = (a: unknown, b: unknown) =>
-  JSON.stringify(a) === JSON.stringify(b);
 
 type Fields = Record<string, JsonValue>;
 

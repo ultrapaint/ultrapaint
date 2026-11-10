@@ -12,9 +12,7 @@ import type { ShellPlatform } from "@ultrapaint/contracts/shell-bridge";
  * types here and the desktop app's preload and main process their channels and Schemas.
  */
 export type {
-  NewDesignInput,
   NewDesignStepId,
-  NewDesignUpdate,
   PlatformAgent,
   PlatformProject,
   ShellNotice,
@@ -31,9 +29,6 @@ export type AgentSetup = ShellPlatform["agents"];
 
 /** The shell's list of projects, for the switcher in the header. One project is open at a time. */
 export type ProjectSwitcher = ShellPlatform["projects"];
-
-/** Writing a new design and opening it, which the shell does without a server (the desktop app). */
-export type NewDesigns = ShellPlatform["newDesign"];
 
 /** The shell's status, as it changes. */
 export type ShellStatusSource = ShellPlatform["shellStatus"];

@@ -921,7 +921,7 @@ export const LookInspector = ({
       ) : null}
       <ComponentUsedIn from={SYSTEM_FROM} name={name} />
       <Section title="Behaviour notes">
-        <Notes component={file} parts={parts} />
+        <Notes component={file} key={file.name} parts={parts} />
       </Section>
     </>
   );

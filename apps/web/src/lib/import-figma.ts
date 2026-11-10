@@ -22,14 +22,22 @@ const upload = async (file: File): Promise<FigmaImport> => {
     },
     method: "POST",
   });
-  const body = (await response.json()) as FigmaImport | { message: string };
-  if (!(response.ok && "id" in body)) {
-    throw new Error("message" in body ? body.message : "the import failed");
+  // A request refused ahead of the import (the origin guard) is answered in plain text.
+  const body = (await response.json().catch(() => null)) as
+    | FigmaImport
+    | { message: string }
+    | null;
+  if (!(response.ok && body && "id" in body)) {
+    throw new Error(
+      body && "message" in body
+        ? body.message
+        : `the import failed (${response.status})`
+    );
   }
   return body;
 };
 
-/** Reads the file on the server, then opens a thread to convert it. */
+/** Reads the file on the server, then opens the Sync view on it. */
 export const importFigma = async (file: File) => {
   if (!ensureEditable()) {
     return;

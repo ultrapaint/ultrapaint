@@ -73,6 +73,7 @@ import {
   zoomBy,
 } from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
+import { openChat } from "./thread-actions.ts";
 import { threadView } from "./thread-view.ts";
 
 /** The sections of the palette and of the shortcut sheet, in the order they are shown. */
@@ -922,10 +923,7 @@ const chatCommand = (thread: Thread): Command => ({
   group: "Go to",
   id: `thread:${thread.id}`,
   keywords: "chat thread agent",
-  run: () => {
-    showLeftPanel("chat");
-    useAgents.getState().open(thread.id);
-  },
+  run: () => openChat(thread.id),
   title: thread.title,
 });
 

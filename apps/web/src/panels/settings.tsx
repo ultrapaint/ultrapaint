@@ -13,6 +13,7 @@ import {
 } from "@ultrapaint/contracts/setup";
 import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Bot,
   FolderGit2,
@@ -127,8 +128,6 @@ const sections: readonly {
   { icon: SlidersHorizontal, id: "editor", label: "Preferences" },
   { icon: Bot, id: "agents", label: "Agents", needsSaved: true },
 ];
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 /** DESIGN.md in a line: where it is, and what the format's linter says of it. */
 const documentDescription = (document: DesignDocument | null) => {

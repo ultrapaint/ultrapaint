@@ -51,7 +51,7 @@ const chatLevel = (level: ReviewLevel): ReviewSettings => {
 };
 
 /** The level's name and line, the warning dot before Off's. */
-export const LevelLine = ({
+const LevelLine = ({
   className,
   level,
   line = LEVEL_LINES[level],
@@ -86,7 +86,7 @@ export const LevelLine = ({
  * Off, Quick, Standard, Thorough on a stepped track: drag, click a stop or its name, or the
  * arrow keys. Custom sits on no stop.
  */
-export const LevelSlider = ({
+const LevelSlider = ({
   level,
   onChange,
 }: {

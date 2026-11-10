@@ -184,24 +184,18 @@ export const implementPage = (page: Page) =>
 const DEFAULT_TEMPLATE = "centered";
 
 /**
- * Makes a page in the open canvas and goes to it. The URL is optional: a page is drawn first,
- * and given one when the prototype should reach it.
+ * Makes a page in the open canvas and goes to it. It has no URL: a page is drawn first, and
+ * given one when the prototype should reach it.
  */
-const createPage = async (input: {
-  name: string;
-  route?: string;
-  template?: string;
-}) => {
+const createPage = async (name: string) => {
   if (!ensureEditable()) {
     return null;
   }
-  const route = typedUrl(input.route ?? "");
   try {
     const page = await api().request("pages.create", {
       canvas: useEditor.getState().canvas ?? "",
-      name: input.name.trim(),
-      template: input.template ?? DEFAULT_TEMPLATE,
-      ...(route !== null && { route }),
+      name: name.trim(),
+      template: DEFAULT_TEMPLATE,
     });
     await useProject.getState().load();
     goTo({ page: page.id });
@@ -224,7 +218,7 @@ export const newPage = async () => {
     title: "New page",
   });
   if (name !== null && name.trim() !== "") {
-    await createPage({ name });
+    await createPage(name);
   }
 };
 

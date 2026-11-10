@@ -1,11 +1,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import {
-  controlsOf,
-  propValue,
-  SHOWN_PROPS,
-  tokenLabel,
-} from "./element-controls.ts";
+import { controlsOf, propValue, SHOWN_PROPS } from "./element-controls.ts";
 
 const instance = {
   component: "Table",
@@ -65,16 +60,5 @@ describe("propValue", () => {
     expect(propValue({ size: "lg" }, "size", ["sm", "lg"])).toBe("lg");
     expect(propValue({}, "variant", ["outline", "default"])).toBe("default");
     expect(propValue(undefined, "size", ["sm", "lg"])).toBe("sm");
-  });
-});
-
-describe("tokenLabel", () => {
-  it("names tokens briefly and spacing by its step", () => {
-    expect(tokenLabel("fill", "$color-card", 4)).toBe("card");
-    expect(tokenLabel("radius", "$radius-lg", 4)).toBe("lg");
-    expect(tokenLabel("gap", 16, 4)).toBe("4");
-    expect(tokenLabel("gap", 6, 4)).toBe("1.5");
-    expect(tokenLabel("gap", 7, 4)).toBe("7px");
-    expect(tokenLabel("shadow", undefined, 4)).toBe("none");
   });
 });

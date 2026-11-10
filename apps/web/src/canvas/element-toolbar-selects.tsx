@@ -142,7 +142,7 @@ export const TRIGGER_CLASS =
   "flex h-7 max-w-44 items-center gap-1.5 rounded-md pr-1.5 pl-2 font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent";
 
 /** A colour's dot in a trigger or a menu; a dashed ring when there is none. */
-export const SwatchDot = ({
+const SwatchDot = ({
   color,
   className,
 }: {

@@ -5,6 +5,7 @@
  * rounds the editor adds. Pure, so the card is the same whoever draws it.
  */
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import { plural } from "@ultrapaint/shared/text";
 
 type PlanItem = Extract<ThreadItem, { kind: "plan" }>;
 export type ReviewItem = Extract<ThreadItem, { kind: "review" }>;
@@ -37,9 +38,6 @@ export const isRunPlan = (plan: PlanItem): boolean =>
   plan.entries.some(
     (e) => BUILD_RE.test(e.content) || OUTLINE_RE.test(e.content)
   );
-
-const plural = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`;
 
 /** The run's review so far, in a few words, and whether it is over. */
 export const reviewStep = (

@@ -10,8 +10,7 @@ import { cn } from "@/lib/cn";
 import { dragsFiles } from "../lib/attach-files.ts";
 
 /** The ring a drop target takes while files are over it, as a field's on focus. */
-export const droppingClass =
-  "border-ring ring-2 ring-ring/25 hover:border-ring";
+const droppingClass = "border-ring ring-2 ring-ring/25 hover:border-ring";
 
 /** Whether files are over the target, and the props that take them when dropped. */
 const useFileDrop = (onFiles: (files: File[]) => void) => {

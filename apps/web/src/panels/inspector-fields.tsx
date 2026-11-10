@@ -91,19 +91,12 @@ export const Section = ({
  */
 export const Row = ({
   children,
-  className,
   label,
 }: {
   children: ReactNode;
-  className?: string;
   label?: string;
 }) => (
-  <div
-    className={cn(
-      "grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2",
-      className
-    )}
-  >
+  <div className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2">
     <span
       className="truncate font-body-small text-muted-foreground"
       title={label}
@@ -310,7 +303,6 @@ export const Warning = ({ children }: { children: ReactNode }) => (
 );
 
 export const TokenField = ({
-  field,
   kind,
   value,
   placeholder,
@@ -319,13 +311,11 @@ export const TokenField = ({
   className,
   title,
 }: {
-  field: string;
   kind: FieldTokenKind;
   value: JsonValue | undefined;
   placeholder?: string;
   numeric?: boolean;
-  /** Instead of setting the field on the node directly. */
-  onChange?: (value: JsonValue) => void;
+  onChange: (value: JsonValue) => void;
   className?: string;
   title?: string;
 }) => {
@@ -334,7 +324,7 @@ export const TokenField = ({
     <ValueField
       accept={(q) => !numeric || CSS.supports("width", q)}
       className={className}
-      onChange={(v) => (onChange ? onChange(v) : set(field, v))}
+      onChange={onChange}
       options={options}
       placeholder={placeholder ?? "Default"}
       title={title}

@@ -7,16 +7,22 @@ import type { Page } from "@ultrapaint/contracts/pages";
 import { formatNodeRef, type NodeRef } from "@ultrapaint/shared/node-ref";
 import { toast } from "sonner";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { ownFrameOf } from "../state/frame-ref.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { linkToNode } from "../state/url.ts";
+
+/** The page a node of a frame is on, in its own frame or in a view of it; none beside the pages. */
+const pageOfSelection = (target: Selection): Page | undefined => {
+  const own = ownFrameOf(target.frame);
+  return useProject.getState().pages.find((p) => p.id === own);
+};
 
 /**
  * Where a node of a frame is: its page's route, or the canvas beside the pages; and which canvas,
  * when there are several.
  */
 const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
-  const { pages } = useProject.getState();
-  const page = pages.find((p) => p.id === target.frame);
+  const page = pageOfSelection(target);
   // A node beside the pages is on the canvas open.
   const canvas = page?.canvas ?? useEditor.getState().canvas ?? "";
   return {
@@ -72,7 +78,7 @@ export const copyNodeRef = async (target: Selection) => {
 };
 
 export const copyNodeLink = async (target: Selection) => {
-  const page = useProject.getState().pages.find((p) => p.id === target.frame);
+  const page = pageOfSelection(target);
   await copyLink(
     linkToNode({
       canvas: refOfSelection(target).canvas,

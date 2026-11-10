@@ -19,7 +19,7 @@ const optionOf = (value: JsonValue | undefined): string => {
   if (value === undefined || value === null) {
     return "";
   }
-  return typeof value === "number" ? String(value) : String(value);
+  return String(value);
 };
 
 /** The value an option string or a typed query stands for. */
