@@ -223,9 +223,12 @@ export const convertFrame = (
   options: ConvertOptions
 ): Conversion => {
   const converter = makeConverter(file, options);
-  const converted = converter.container(frame, converter.rootContext(), {
-    direction: null,
-  });
+  const context = converter.rootContext();
+  // A page of Figma's lists as a frame whatever is drawn on it: an instance, a text and a shape
+  // have no layers of their own to lay out, and are what a frame would hold them as.
+  const converted = CONTAINERS.has(frame.type)
+    ? converter.container(frame, context, { direction: null })
+    : converter.convert(frame, context, { direction: null });
   return converter.finish(converter.asPage(converted, frame.name));
 };
 
@@ -705,5 +708,5 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     warnings: [...warnings],
   });
 
-  return { asPage, container, finish, rootContext };
+  return { asPage, container, convert, finish, rootContext };
 };

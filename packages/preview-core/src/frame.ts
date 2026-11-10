@@ -8,13 +8,14 @@
  * screen are taken out of everything it measures.
  */
 
+import { themeWord } from "@ultrapaint/contracts/themes";
 import {
   makeStyleContext,
   pageDefaultsStyle,
 } from "@ultrapaint/design-document/css";
 import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
-import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
+import { clearHost, showHost, writeClasses, writeStyle } from "./frame-host.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import type {
   FrameRect,
@@ -42,6 +43,19 @@ const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
 /** A frame's host once its page has drawn: what it shows is the page's, not a blank. */
 const DRAWN_ATTRIBUTE = "data-ed-drawn";
+/** A frame's host while it is as big as what it draws (`fit`). */
+const FIT_ATTRIBUTE = "data-ed-fit";
+/** A frame's host that draws at once, without transitions. */
+const STILL_ATTRIBUTE = "data-ed-still";
+const THEME_ATTRIBUTE = "data-theme";
+/** What a frame marks its host with, taken off again when it is unmounted. */
+const HOST_MARKS = [
+  FRAME_HOST_ATTRIBUTE,
+  DRAWN_ATTRIBUTE,
+  FIT_ATTRIBUTE,
+  STILL_ATTRIBUTE,
+  THEME_ATTRIBUTE,
+];
 const INERT = "inert";
 
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
@@ -174,18 +188,16 @@ const buildFrame = (host: HTMLElement, theme: string) => {
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   shadow.replaceChildren();
   shadow.adoptedStyleSheets = frameSheets();
-  host.setAttribute("data-theme", theme);
+  host.setAttribute(THEME_ATTRIBUTE, themeWord(theme));
   const body = document.createElement("div");
   body.setAttribute(BODY_ATTRIBUTE, "");
-  body.setAttribute("data-theme", theme);
+  body.setAttribute(THEME_ATTRIBUTE, themeWord(theme));
   const root = document.createElement("div");
   root.id = "root";
   body.append(root);
   shadow.append(body);
   return { body, root, shadow };
 };
-
-const SPACE_RE = /\s+/;
 
 /**
  * What the canvas draws every page in, on the frame's body, as an application sets it on its
@@ -197,9 +209,11 @@ const applyDefaults = (
   theme: string
 ) => {
   const { defaults } = request;
-  body.setAttribute("data-theme", defaults?.theme ?? theme);
-  // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set.
-  writeClasses(body, (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean));
+  // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set, to the one
+  // word the theme's selector reads (`themeSelector`).
+  body.setAttribute(THEME_ATTRIBUTE, themeWord(defaults?.theme ?? theme));
+  const own = themeWord(defaults?.theme ?? "");
+  writeClasses(body, own === "" ? [] : [own]);
   writeStyle(
     body,
     defaults
@@ -231,7 +245,7 @@ const mountFrame = (
   // frame's host by.
   host.setAttribute(FRAME_HOST_ATTRIBUTE, options.frame);
   if (options.still) {
-    host.setAttribute("data-ed-still", "");
+    host.setAttribute(STILL_ATTRIBUTE, "");
   }
   let shown: FrameShown = { ...NOT_SHOWN, ...options.shown };
   showHost(host, shown);
@@ -261,9 +275,11 @@ const mountFrame = (
   /** Whether a `fit` render takes the frame's width, and wraps in it, rather than its own. */
   let fill = false;
 
+  /** Unmounted: what was waiting for the next frame has nobody left to tell. */
+  let unmounted = false;
   let lastSize = { height: -1, width: -1 };
   const sendSize = () => {
-    if (mode !== "fit") {
+    if (unmounted || mode !== "fit") {
       return;
     }
     const width = Math.ceil(canvas.offsetWidth);
@@ -279,12 +295,12 @@ const mountFrame = (
   const applyMode = (next: RenderRequest["mode"]) => {
     mode = next;
     if (next === "fit") {
-      host.setAttribute("data-ed-fit", "");
+      host.setAttribute(FIT_ATTRIBUTE, "");
       canvas.style.width = fill ? "100%" : "max-content";
       canvas.style.minHeight = "0";
       canvas.style.display = "block";
     } else {
-      host.removeAttribute("data-ed-fit");
+      host.removeAttribute(FIT_ATTRIBUTE);
       canvas.style.width = "";
       canvas.style.minHeight = "";
       canvas.style.display = "";
@@ -380,7 +396,7 @@ const mountFrame = (
   };
   const sendRects = () => {
     rectsScheduled = false;
-    if (watched.length === 0 || !events.rects) {
+    if (unmounted || watched.length === 0 || !events.rects) {
       return;
     }
     const rects = measure(watched);
@@ -630,12 +646,23 @@ const mountFrame = (
     },
     unmount: () => {
       finishTextEdit(false);
+      unmounted = true;
       mo.disconnect();
       resize.disconnect();
       hostResize.disconnect();
       host.removeEventListener("scroll", scheduleRects);
+      for (const type of GUARDED) {
+        shadow.removeEventListener(type, guard, true);
+      }
+      shadow.removeEventListener("click", interceptLinks);
       mounted.unmount();
+      // A shadow root cannot be taken off its host: it is left with nothing in it.
       shadow.replaceChildren();
+      shadow.adoptedStyleSheets = [];
+      for (const mark of HOST_MARKS) {
+        host.removeAttribute(mark);
+      }
+      clearHost(host);
     },
     watchRects: (nodeIds) => {
       watched = [...nodeIds];

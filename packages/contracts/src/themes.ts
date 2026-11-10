@@ -1,9 +1,9 @@
 /**
  * A design system's themes (ADR 0028, 0040): which there are, the default one its plain values
- * are in, a token's value in a theme, the selector a theme's values apply under, and whether a
- * theme is a dark one. Every package asks here rather than reading `themes` itself, so the
- * default, the fallback to it and the selector are one rule wherever a value is shown, drawn or
- * edited.
+ * are in, a token's value in a theme, the word a theme is put on an element by and the selector
+ * its values apply under, and whether a theme is a dark one. Every package asks here rather than
+ * reading `themes` itself, so the default, the fallback to it and the selector are one rule
+ * wherever a value is shown, drawn or edited.
  */
 import type { DesignSystem } from "./design-system.ts";
 import { tokenOf } from "./token-table.ts";
@@ -58,9 +58,17 @@ export const valueInTheme = (
 
 const THEME_NAME_RE = /[^\w-]/g;
 
+/**
+ * The one word a theme goes by where it is put on an element, as its class and its `data-theme`:
+ * its name, less what a class cannot hold. `dark` is `dark`, and `dark mode` is `darkmode`, a
+ * theme of its own that the `dark` one's values do not reach.
+ */
+export const themeWord = (theme: string): string =>
+  theme.replace(THEME_NAME_RE, "");
+
 /** What a theme's values apply under: its class (`.dark`, Tailwind's) and its `data-theme`. */
 export const themeSelector = (theme: string): string => {
-  const name = theme.replace(THEME_NAME_RE, "");
+  const name = themeWord(theme);
   return `.${name}, [data-theme~="${name}"]`;
 };
 

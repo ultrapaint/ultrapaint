@@ -67,3 +67,11 @@ export const showHost = (host: HTMLElement, shown: FrameShown) => {
     host.title = shown.title;
   }
 };
+
+/** Takes back what `showHost` wrote: the host has no class, style or title of a frame's. */
+export const clearHost = (host: HTMLElement) => {
+  styles.delete(host);
+  for (const name of ["class", "style", "title"]) {
+    host.removeAttribute(name);
+  }
+};

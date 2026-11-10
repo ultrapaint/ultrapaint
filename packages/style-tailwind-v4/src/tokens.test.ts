@@ -254,4 +254,25 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(text).toContain("@theme {\n  --color-brand: #2563eb;\n}");
     expect(text).toContain(".dark {\n  --color-brand: #60a5fa;\n}");
   });
+
+  it("reads back the block it made for a theme named in two words, and writes in it again", () => {
+    const ctx = project();
+    const file = path.join(ctx.root, "src/app.css");
+    const write = (value: string) =>
+      writeFileSync(
+        file,
+        writeTokens(ctx, [
+          { name: "color-brand", theme: "dark mode", value },
+        ])[0]?.text ?? ""
+      );
+    write("#60a5fa");
+    expect(readTokens(ctx).themes).toEqual(["dark", "dark mode"]);
+    expect(byName(ctx, "color-brand")?.values).toEqual({
+      "dark mode": "#60a5fa",
+    });
+    write("#93c5fd");
+    expect(readFileSync(file, "utf8")).toBe(
+      `${APP_CSS}\n[data-theme="dark mode"] {\n  --color-brand: #93c5fd;\n}\n`
+    );
+  });
 });

@@ -340,6 +340,69 @@ describe("converting a frame", () => {
       width: "fill",
     });
   });
+
+  it("makes a page of an instance or a text placed directly on a Figma page", () => {
+    const f = makeFixture();
+    const symbol = f.add(f.internal, {
+      name: "Badge",
+      size: { x: 80, y: 24 },
+      stackMode: "HORIZONTAL",
+      type: "SYMBOL",
+    });
+    f.add(symbol, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 12,
+      name: "Label",
+      size: { x: 40, y: 16 },
+      textData: { characters: "New" },
+      type: "TEXT",
+    });
+    f.add(f.page, {
+      name: "Badge",
+      size: { x: 80, y: 24 },
+      symbolData: { symbolID: symbol },
+      type: "INSTANCE",
+    });
+    f.add(f.page, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 14,
+      name: "Note",
+      size: { x: 200, y: 20 },
+      textData: { characters: "Ship on Friday" },
+      type: "TEXT",
+    });
+    const file = readFig(f.build());
+    const [badge, note] = file.pages[0]?.frames ?? [];
+    if (!(badge && note)) {
+      throw new Error("no frames");
+    }
+    const pageOf = (frame: typeof badge, mapping = {}) => {
+      const { root } = convertFrame(file, frame, { ...options(), mapping });
+      if (root.type !== "page") {
+        throw new Error("not a page");
+      }
+      return root;
+    };
+    // Unmapped, the instance is its component's layers, as it is inside a frame.
+    expect(pageOf(badge)).toMatchObject({
+      children: [
+        {
+          children: [{ text: "New", type: "text" }],
+          name: "Badge",
+          type: "row",
+        },
+      ],
+      name: "Badge",
+    });
+    expect(
+      pageOf(badge, { Badge: { component: "Badge", kind: "component" } })
+        .children
+    ).toMatchObject([{ component: "Badge", type: "instance" }]);
+    expect(pageOf(note)).toMatchObject({
+      children: [{ text: "Ship on Friday", type: "text" }],
+      name: "Note",
+    });
+  });
 });
 
 describe("the outline", () => {

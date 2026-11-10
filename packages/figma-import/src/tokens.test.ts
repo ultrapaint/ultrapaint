@@ -192,4 +192,38 @@ describe("the tokens of a Figma file", () => {
     expect(set.themes).toEqual(["dark"]);
     expect(set.notes.join(" ")).toContain("Primitives/Opacity/Disabled");
   });
+
+  it("takes the light mode as the default wherever it comes among a collection's modes", () => {
+    const fixture = makeFixture();
+    const semantic = fixture.add(fixture.internal, {
+      guid: guid(3),
+      name: "Semantic",
+      type: "VARIABLE_SET",
+      variableSetModes: [mode(4, "Dark"), mode(5, "Light"), mode(6, "Dim")],
+    } as never);
+    const variable = (localID: number, name: string, entries: unknown[]) =>
+      fixture.add(fixture.internal, {
+        guid: guid(localID),
+        name,
+        type: "VARIABLE",
+        variableDataValues: { entries },
+        variableResolvedType: "COLOR",
+        variableSetID: { guid: semantic },
+      } as never);
+    variable(20, "Color/Background", [
+      { modeID: guid(4), variableData: color(0, 0, 0) },
+      { modeID: guid(5), variableData: color(1, 1, 1) },
+      { modeID: guid(6), variableData: color(1, 1, 1) },
+    ]);
+    // A mode a variable says nothing in is the default's, the light one's.
+    variable(21, "Color/Border", [
+      { modeID: guid(5), variableData: color(0, 0, 1) },
+    ]);
+    const set = readFigmaTokens(readFig(fixture.build()));
+    expect(set.tokens.map((t) => [t.name, t.values])).toEqual([
+      ["color-background", { "": "#ffffff", dark: "#000000" }],
+      ["color-border", { "": "#0000ff" }],
+    ]);
+    expect(set.themes).toEqual(["dark"]);
+  });
 });

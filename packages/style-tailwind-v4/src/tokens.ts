@@ -38,7 +38,8 @@ const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
 const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
 const DARK_RE =
   /\.dark(?![\w-])|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@(?:custom-)?variant\s+dark(?![\w-])/;
-const OTHER_THEME_RE = /\[data-theme=["']?([\w-]+)["']?\]/;
+/** A theme's name in quotes is any text (`"dark mode"`, as `selectorOf` writes it); bare, one word. */
+const OTHER_THEME_RE = /\[data-theme=(?:"([^"]+)"|'([^']+)'|([\w-]+))\]/;
 const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
 /** A scope whose variables hold for the whole document: the default theme's. */
 const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
@@ -70,7 +71,8 @@ export const themeOf = (prelude: string): string | null => {
     return "dark";
   }
   const named: RegExpExecArray | null = OTHER_THEME_RE.exec(applies);
-  return named?.[1] && named[1] !== "light" ? named[1] : null;
+  const name = named?.[1] ?? named?.[2] ?? named?.[3];
+  return name && name !== "light" ? name : null;
 };
 
 /**

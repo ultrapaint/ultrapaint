@@ -114,17 +114,29 @@ const variableValueOf = (data: unknown): VariableValue => {
   return typeof text === "string" ? { text } : {};
 };
 
+/**
+ * A collection's modes as themes, the default one first: the first whose name says so (`Light`
+ * after `Dark` is still the default), else the collection's first. Every other mode is the theme
+ * of its name.
+ */
 const modesOf = (set: FigNode): Mode[] => {
-  const modes = (field(set, "variableSetModes") as unknown[] | undefined) ?? [];
-  return modes
-    .map((m, i) => {
-      const id = guidOf(field(m, "id") as never) ?? "";
-      const name = String(field(m, "name") ?? "");
-      const theme =
-        i === 0 || DEFAULT_MODE_RE.test(name) ? "" : name.toLowerCase().trim();
-      return { id, theme };
-    })
+  const modes = (
+    (field(set, "variableSetModes") as unknown[] | undefined) ?? []
+  )
+    .map((m) => ({
+      id: guidOf(field(m, "id") as never) ?? "",
+      name: String(field(m, "name") ?? ""),
+    }))
     .filter((m) => m.id !== "");
+  const base = modes.find((m) => DEFAULT_MODE_RE.test(m.name)) ?? modes[0];
+  return base === undefined
+    ? []
+    : [
+        { id: base.id, theme: "" },
+        ...modes
+          .filter((m) => m !== base)
+          .map((m) => ({ id: m.id, theme: m.name.toLowerCase().trim() })),
+      ];
 };
 
 const variableOf = (node: FigNode, setName: string): Variable | null => {

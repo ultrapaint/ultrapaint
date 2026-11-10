@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { themeSelector } from "@ultrapaint/contracts/themes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrameRuntime, FrameShown } from "./preview.ts";
 import { BODY_ATTRIBUTE } from "./styles.ts";
 import { scriptedPreview } from "./testing.ts";
@@ -18,7 +19,7 @@ afterEach(() => {
 /** A frame of the canvas, mounted and shown as `shown` (taking input), drawn in `theme`. */
 const open = (
   name: string,
-  theme: "dark" | "light",
+  theme: string,
   shown: Partial<FrameShown> = { interactive: true }
 ) => {
   const host = document.createElement("div");
@@ -112,6 +113,124 @@ describe("a frame's host", () => {
       document.removeEventListener("keydown", hear);
     }
     expect(fromFrame).toEqual([true, false, false]);
+  });
+});
+
+describe("a frame's theme", () => {
+  it("is on its body as the theme's selector reads it: one word, as a class and as data-theme", () => {
+    const { body, draw } = open("a", "dark");
+    draw(() => undefined);
+    expect(body.getAttribute("data-theme")).toBe("dark");
+    expect([...body.classList]).toEqual(["dark"]);
+    expect(body.matches(themeSelector("dark"))).toBe(true);
+  });
+
+  it("is its own when its name is two words, and not the theme one of them names", () => {
+    const { body, draw } = open("a", "dark mode");
+    draw(() => undefined);
+    expect(body.matches(themeSelector("dark mode"))).toBe(true);
+    expect(body.matches(themeSelector("dark"))).toBe(false);
+    expect(body.matches(themeSelector("mode"))).toBe(false);
+  });
+});
+
+describe("a frame unmounted", () => {
+  /** The callbacks waiting for the next frame, which `nextFrame` runs. */
+  const waiting: (() => void)[] = [];
+  const nextFrame = () => {
+    for (const callback of waiting.splice(0)) {
+      callback();
+    }
+  };
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (callback: () => void) =>
+      waiting.push(callback)
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    waiting.length = 0;
+  });
+
+  it("gives its host back with nothing of the frame's on it", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: {},
+      frame: "a",
+      shown: { className: "block", style: "left: 4px", title: "Home" },
+      still: true,
+    });
+    page(() => undefined);
+    runtime.render({
+      defaults: { theme: "dark" },
+      designSystem: null,
+      mode: "fit",
+      renderId: 1,
+      root: null,
+    });
+    expect(host.getAttributeNames()).toEqual(
+      expect.arrayContaining(["data-ed-drawn", "data-ed-fit", "data-ed-still"])
+    );
+    runtime.unmount();
+    expect(host.getAttributeNames()).toEqual([]);
+    expect(host.shadowRoot?.childNodes).toHaveLength(0);
+    expect(host.shadowRoot?.adoptedStyleSheets).toEqual([]);
+  });
+
+  it("leaves what is pressed in its host alone", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const events = { navigateTo: vi.fn(), pressed: vi.fn() };
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events,
+      frame: "a",
+      shown: { interactive: true },
+    });
+    const press = () => {
+      const link = document.createElement("a");
+      link.href = "/pricing";
+      host.shadowRoot?.append(link);
+      const click = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      });
+      link.dispatchEvent(click);
+      return click;
+    };
+    expect(press().defaultPrevented).toBe(true);
+    expect(events.navigateTo).toHaveBeenCalledTimes(1);
+    expect(events.pressed).toHaveBeenCalledTimes(1);
+    runtime.unmount();
+    expect(press().defaultPrevented).toBe(false);
+    expect(events.navigateTo).toHaveBeenCalledTimes(1);
+    expect(events.pressed).toHaveBeenCalledTimes(1);
+  });
+
+  it("says nothing more: a measure waiting for the next frame is dropped", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const events = { rects: vi.fn(), size: vi.fn() };
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events,
+      frame: "a",
+    });
+    page(() => undefined);
+    runtime.render({
+      designSystem: null,
+      mode: "fit",
+      renderId: 1,
+      root: null,
+    });
+    runtime.watchRects(["n"]);
+    runtime.unmount();
+    nextFrame();
+    expect(events.rects).not.toHaveBeenCalled();
+    expect(events.size).not.toHaveBeenCalled();
   });
 });
 
