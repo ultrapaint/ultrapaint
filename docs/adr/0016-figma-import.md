@@ -2,6 +2,12 @@
 
 Status: accepted, 2026-09-28. Extends 0014 and 0015.
 
+> Amended 2026-11-10: an import belongs to the repository it was uploaded for. The list, the
+> newest import Sync compares with and every read by id see only the open repository's; an
+> import stored before this, with no repository recorded, reads as the open one's. The three
+> newest of a repository are kept and older ones are removed when a new file is stored (a file
+> is up to 200 MB, and nothing removed one before).
+
 ## Context
 
 Designs often start in Figma, and a team that adopts this tool mid-project has frames there

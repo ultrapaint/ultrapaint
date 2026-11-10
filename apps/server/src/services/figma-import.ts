@@ -3,6 +3,8 @@
  * the fixed-rule reading found in it — pages, frames, components — and a mapping that grows as
  * an agent decides, component by component, what each becomes here. A frame is written as a
  * page with the mapping as it stands; the conversion itself is `@ultrapaint/figma-import`.
+ * The state directory can serve several repositories: an import belongs to the one it was
+ * uploaded in, and a repository keeps its last few.
  */
 
 import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
@@ -70,9 +72,26 @@ const FILE_NAME = "file.fig";
 const SUMMARY_NAME = "import.json";
 /** Parsed files kept in memory: a large file takes a while to read. */
 const LOADED_LIMIT = 2;
+/**
+ * How many imports a repository keeps: storing one more lets go of its oldest. Sync and the
+ * tools that name no import take the newest alone; the two before it are for a thread still
+ * working on an earlier upload, which it names by id, and for a second file of the same design
+ * (its library beside its screens). A file runs up to `MAX_FIG_BYTES`.
+ */
+const KEPT_PER_REPO = 3;
+
+/**
+ * An import as it is kept: with the repository it was uploaded in. One kept before that was
+ * recorded has none, and is any repository's: the state directory can serve several.
+ */
+const StoredImport = Schema.Struct({
+  ...FigmaImport.fields,
+  repo: Schema.optional(Schema.String),
+});
+type StoredImport = typeof StoredImport.Type;
 
 const decodeImport = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(FigmaImport)
+  Schema.fromJsonString(StoredImport)
 );
 
 /** A frame converted with the mapping as it stands. */
@@ -186,7 +205,10 @@ export class FigmaImportService extends Context.Service<
       id: string,
       key: string
     ) => Effect.Effect<ComponentPreview, ImportFailure>;
-    /** Reads the file, keeps it, and answers with what it holds. */
+    /**
+     * Reads the file, keeps it for the open repository, and answers with what it holds. The
+     * repository keeps its last few: its oldest are let go of.
+     */
     readonly create: (
       name: string,
       bytes: Uint8Array
@@ -197,7 +219,7 @@ export class FigmaImportService extends Context.Service<
       frame: string
     ) => Effect.Effect<FramePreview, ImportFailure>;
     readonly get: (id: string) => Effect.Effect<FigmaImport, ImportFailure>;
-    /** The most recent import, or null when there is none. */
+    /** The repository's most recent import, or null when there is none. */
     readonly latest: Effect.Effect<FigmaImport | null>;
     /**
      * The most recent import with its tokens, or null when there is none: what Sync compares
@@ -215,6 +237,7 @@ export class FigmaImportService extends Context.Service<
      * new application starts with. Empty when there is no import.
      */
     readonly theme: Effect.Effect<Record<string, string>, BadRequest>;
+    /** The repository's imports, newest first. */
     readonly list: Effect.Effect<readonly FigmaImport[]>;
     /**
      * Says what a component becomes; null forgets the decision. A component must be in the
@@ -271,15 +294,23 @@ export class FigmaImportService extends Context.Service<
           )
         );
 
-      const readSummary = Effect.fnUntraced(function* (id: string) {
+      const noImport = (id: string) =>
+        new NotFound({
+          message: `no Figma import ${id}; ${TOOLS.list_figma_imports} has the ones there are`,
+        });
+
+      /** Whether the import is the open repository's: one that names none is. */
+      const isOurs = (summary: StoredImport) =>
+        summary.repo === undefined || summary.repo === paths.root;
+
+      /** An import's summary as it is kept, whichever repository it was uploaded in. */
+      const readStored = Effect.fnUntraced(function* (id: string) {
         const dir = yield* dirOf(id);
         const text = yield* Effect.option(
           fs.readFileString(path.join(dir, SUMMARY_NAME))
         );
         if (text._tag === "None") {
-          return yield* new NotFound({
-            message: `no Figma import ${id}; ${TOOLS.list_figma_imports} has the ones there are`,
-          });
+          return yield* noImport(id);
         }
         // A summary that does not read is that import's problem alone: the list leaves it out,
         // and the other imports are still there.
@@ -293,6 +324,12 @@ export class FigmaImportService extends Context.Service<
         );
       });
 
+      /** The open repository's import: another repository's is not there for this one. */
+      const readSummary = Effect.fnUntraced(function* (id: string) {
+        const summary = yield* readStored(id);
+        return isOurs(summary) ? summary : yield* noImport(id);
+      });
+
       /** A disk that will not take a write, said as the request's failure. */
       const notSaved =
         (what: string) => (error: { readonly message: string }) =>
@@ -300,7 +337,7 @@ export class FigmaImportService extends Context.Service<
             message: `${what} could not be saved: ${error.message}`,
           });
 
-      const writeSummary = Effect.fnUntraced(function* (summary: FigmaImport) {
+      const writeSummary = Effect.fnUntraced(function* (summary: StoredImport) {
         // Its id was made here or read back with it: one that is not an id is a bug.
         const dir = yield* Effect.orDie(dirOf(summary.id));
         yield* Effect.andThen(
@@ -312,10 +349,14 @@ export class FigmaImportService extends Context.Service<
         ).pipe(Effect.mapError(notSaved(`${summary.name}'s import`)));
       });
 
-      /** The catalogue's guesses for each component, from the names. */
-      const withCandidates = Effect.fnUntraced(function* (
-        summary: FigmaImport
-      ) {
+      /**
+       * The import as it is answered: with the catalogue's guesses for each component, from the
+       * names, and without the repository it is kept for, which is the open one.
+       */
+      const withCandidates = Effect.fnUntraced(function* ({
+        repo: _repo,
+        ...summary
+      }: StoredImport) {
         const components = yield* catalogue;
         return {
           ...summary,
@@ -334,16 +375,19 @@ export class FigmaImportService extends Context.Service<
       /** Summaries as last read, with the stamp their file had then: a list reads only what changed. */
       const summaries = new Map<
         string,
-        { readonly stamp: string; readonly summary: FigmaImport }
+        { readonly stamp: string; readonly summary: StoredImport }
       >();
 
       /** Newest first; of two made in one millisecond, the one made later (`newestFirst`). */
-      const byTime = newestFirst<FigmaImport>(
+      const byTime = newestFirst<StoredImport>(
         (summary) => summary.createdAt,
         (summary) => summary.id
       );
 
-      /** Every import's summary, newest first, without the catalogue's guesses. */
+      /**
+       * The summary of every import of the open repository, newest first, without the
+       * catalogue's guesses.
+       */
       const listSummaries = Effect.gen(function* () {
         const root = path.join(yield* storage.stateDir, IMPORTS_DIR);
         const ids = yield* Effect.orElseSucceed(
@@ -363,7 +407,7 @@ export class FigmaImportService extends Context.Service<
             if (kept?.stamp === stamp) {
               return [kept.summary];
             }
-            const read = yield* Effect.option(readSummary(id));
+            const read = yield* Effect.option(readStored(id));
             if (read._tag === "None") {
               summaries.delete(id);
               return [];
@@ -372,7 +416,7 @@ export class FigmaImportService extends Context.Service<
             return [read.value];
           })
         );
-        return found.flat().sort(byTime);
+        return found.flat().filter(isOurs).sort(byTime);
       });
 
       const list = Effect.flatMap(listSummaries, (all) =>
@@ -408,6 +452,28 @@ export class FigmaImportService extends Context.Service<
         return file;
       });
 
+      /**
+       * Past the number a repository keeps, its oldest imports go, file and summary, whatever
+       * the clock said when `stored`, the one just kept, was made. One at a time with the
+       * summaries' writes, so that none is written back into a directory removed.
+       */
+      const letGoOfOldest = (stored: string) =>
+        writing.withPermits(1)(
+          Effect.gen(function* () {
+            const earlier = (yield* listSummaries).filter(
+              (summary) => summary.id !== stored
+            );
+            for (const { id } of earlier.slice(KEPT_PER_REPO - 1)) {
+              yield* Effect.flatMap(dirOf(id), (dir) =>
+                fs.remove(dir, { force: true, recursive: true })
+              )
+                // One that stays is still listed, and goes with the next one stored.
+                .pipe(Effect.ignore({ log: true }));
+              loaded.delete(id);
+            }
+          })
+        );
+
       const create = Effect.fn("FigmaImportService.create")(function* (
         name: string,
         bytes: Uint8Array
@@ -425,12 +491,13 @@ export class FigmaImportService extends Context.Service<
           try: () => readFig(bytes),
         });
         const id = yield* makeId("fig");
-        const summary: FigmaImport = {
+        const summary: StoredImport = {
           ...summarise(file),
           createdAt: yield* Clock.currentTimeMillis,
           id,
           mapping: {},
           name,
+          repo: paths.root,
         };
         const dir = yield* Effect.orDie(dirOf(id));
         yield* Effect.andThen(
@@ -439,6 +506,7 @@ export class FigmaImportService extends Context.Service<
         ).pipe(Effect.mapError(notSaved(name)));
         yield* writeSummary(summary);
         keep(id, file);
+        yield* letGoOfOldest(id);
         return yield* withCandidates(summary);
       });
 

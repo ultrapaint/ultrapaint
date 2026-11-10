@@ -16,7 +16,7 @@ import { PagesService } from "./services/pages.ts";
 import { eachTest } from "./testing/each-test.ts";
 import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
-import { ProjectTest } from "./testing/project.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 /** A login frame using a Button component set with a Label property, and a picture. */
 const loginFile = () => {
@@ -106,6 +106,21 @@ const loginFile = () => {
   f.addImage("ab".repeat(20), PNG_BYTES);
   return f.build();
 };
+
+/** An import as an earlier run left it in the state directory, of `repo` when it names one. */
+const kept = (id: string, name: string, createdAt: number, repo?: string) => ({
+  [`imports/${id}/file.fig`]: "",
+  [`imports/${id}/import.json`]: JSON.stringify({
+    components: [],
+    createdAt,
+    id,
+    mapping: {},
+    name,
+    pages: [],
+    ...(repo !== undefined && { repo }),
+    warnings: [],
+  }),
+});
 
 const upload = (port: number, name: string, bytes: Uint8Array) =>
   Effect.promise(() =>
@@ -468,6 +483,79 @@ describe("importing a Figma file", () => {
           before
         );
       })
+    );
+
+    it.effect("answers an import without the repository it is kept for", () =>
+      Effect.gen(function* () {
+        const figma = (yield* OpenProject).service(FigmaImportService);
+        const created = yield* figma((f) => f.create("a.fig", loginFile()));
+        assert.notProperty(created, "repo");
+        assert.notProperty(yield* figma((f) => f.get(created.id)), "repo");
+      })
+    );
+  });
+
+  eachTest(
+    ProjectTest({
+      state: {
+        ...kept("fig_before", "before.fig", 1),
+        ...kept("fig_other", "other.fig", 2, "/another/repository"),
+      },
+    })
+  )("in a state directory that serves several repositories", (it) => {
+    it.effect(
+      "lists the open repository's imports and those kept before the repository was recorded",
+      () =>
+        Effect.gen(function* () {
+          const figma = (yield* OpenProject).service(FigmaImportService);
+          assert.deepStrictEqual(
+            (yield* figma((f) => f.list)).map((i) => i.name),
+            ["before.fig"]
+          );
+          yield* figma((f) => f.create("ours.fig", loginFile()));
+          assert.deepStrictEqual(
+            (yield* figma((f) => f.list)).map((i) => i.name),
+            ["ours.fig", "before.fig"]
+          );
+        })
+    );
+
+    it.effect("takes the open repository's newest, not another's", () =>
+      Effect.gen(function* () {
+        const figma = (yield* OpenProject).service(FigmaImportService);
+        // The other repository's is the newest of the directory.
+        assert.strictEqual((yield* figma((f) => f.latest))?.name, "before.fig");
+        const error = yield* Effect.flip(figma((f) => f.get("fig_other")));
+        assert.strictEqual(error._tag, "NotFound");
+      })
+    );
+
+    it.effect(
+      "keeps a repository's last three, and leaves another's as they are",
+      () =>
+        Effect.gen(function* () {
+          const { home } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const figma = (yield* OpenProject).service(FigmaImportService);
+          const names = ["a.fig", "b.fig", "c.fig", "d.fig"];
+          const ids: string[] = [];
+          for (const name of names) {
+            ids.push((yield* figma((f) => f.create(name, loginFile()))).id);
+          }
+          assert.deepStrictEqual(
+            (yield* figma((f) => f.list)).map((i) => i.name),
+            ["d.fig", "c.fig", "b.fig"]
+          );
+          const [oldest = ""] = ids;
+          const gone = yield* Effect.flip(figma((f) => f.get(oldest)));
+          assert.strictEqual(gone._tag, "NotFound");
+          // The one kept before the repository was recorded counts as this one's, its oldest.
+          assert.deepStrictEqual(
+            (yield* fs.readDirectory(path.join(home, "imports"))).sort(),
+            ["fig_other", ...ids.slice(1)].sort()
+          );
+        })
     );
   });
 });
