@@ -42,3 +42,4 @@ each catches.
 - `rb-recall-before`: 2026-11-08, caught: shipped 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
 - `rb-recall-after`: 2026-11-08, caught: shipped 0/2 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
+- 2026-11-10: `pnpm evals measure` flags under 2× by default, the ratio ADR 0069 settled for the core ("groups at least 2× the gap within them everywhere"). At 2× this gap's own case is not flagged (27px against 10px, 2.7×); `--ratio 3` still flags it. Whether that case is now fine is the person's call (`decisions/design-research-nov10`).
