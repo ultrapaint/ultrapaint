@@ -889,9 +889,9 @@ const measureCommand = Command.make(
     ),
     ratio: Flag.Finite("ratio").pipe(
       Flag.withDescription(
-        "How many times the gap inside a group the gap between groups must be"
+        "How many times the gap inside a group the gap between groups must be: the skill's 2"
       ),
-      Flag.withDefault(3)
+      Flag.withDefault(2)
     ),
     root: Flag.String("root").pipe(
       Flag.withDescription("A CSS selector: the part of the page to measure"),
