@@ -2,6 +2,5 @@
   "designsDir": "docs/designs",
   "resolveFrom": "apps/web",
   "libraryDirs": ["apps/web/src/components"],
-  "hostCss": ["../../../apps/web/src/styles.css"],
-  "theme": "light"
+  "hostCss": ["../../../apps/web/src/styles.css"]
 }

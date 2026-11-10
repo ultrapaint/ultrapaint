@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.6.0",
-    "@effect/platform-node": "catalog:",
     "@ultrapaint/contracts": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "^24.0.0",
     "typescript": "7.0.2",

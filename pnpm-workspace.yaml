@@ -25,19 +25,3 @@ allowBuilds:
 ignoredOptionalDependencies:
   - '@anthropic-ai/claude-agent-sdk-*'
   - '@openai/codex-*'
-
-minimumReleaseAgeExclude:
-  - '@biomejs/biome@2.5.14'
-  - '@biomejs/cli-darwin-arm64@2.5.14'
-  - '@biomejs/cli-darwin-x64@2.5.14'
-  - '@biomejs/cli-linux-arm64-musl@2.5.14'
-  - '@biomejs/cli-linux-arm64@2.5.14'
-  - '@biomejs/cli-linux-x64-musl@2.5.14'
-  - '@biomejs/cli-linux-x64@2.5.14'
-  - '@biomejs/cli-win32-arm64@2.5.14'
-  - '@biomejs/cli-win32-x64@2.5.14'
-  - '@effect/platform-node-shared@4.0.0'
-  - '@effect/platform-node@4.0.0'
-  - '@effect/vitest@4.0.0'
-  - 'effect@4.0.0'
-  - '@agentclientprotocol/sdk@1.6.0'

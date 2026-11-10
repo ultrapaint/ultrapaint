@@ -51,36 +51,11 @@
       }
     },
     {
-      "includes": ["packages/framework-react-vite/src/catalogue-extract.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noBitwiseOperators": {
-              "level": "error",
-              "options": {
-                "allow": ["&", "|"]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
       "includes": ["apps/web/src/components/ui/**"],
       "linter": {
         "rules": {
           "a11y": {
             "useSemanticElements": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/web/src/components/ui/carousel.tsx"],
-      "linter": {
-        "rules": {
-          "nursery": {
-            "useReactCompiler": "off"
           }
         }
       }

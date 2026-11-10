@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@ultrapaint/contracts": "workspace:*",
-    "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/shared": "workspace:*"
   },
   "devDependencies": {
