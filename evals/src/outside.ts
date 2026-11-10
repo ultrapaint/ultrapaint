@@ -161,6 +161,12 @@ const decodeCodex = Schema.decodeUnknownOption(
 
 const mark = (wrong: boolean) => (wrong ? "- ✗ " : "- · ");
 
+/** A call on one line of the trace: a command that writes a file holds the file's lines too. */
+const oneLine = (call: string) => {
+  const [first = "", ...more] = call.split("\n");
+  return more.length > 0 ? `${first} …` : first;
+};
+
 /** A run of `codex exec --json`, from its lines: the items it completed and what its turns used. */
 export const readCodexEvents = (
   lines: readonly string[],
@@ -176,7 +182,7 @@ export const readCodexEvents = (
     switch (item.type) {
       case "command_execution":
         return [
-          `${mark(item.exit_code !== undefined && item.exit_code !== null && item.exit_code !== 0)}${item.command ?? ""}`,
+          `${mark(item.exit_code !== undefined && item.exit_code !== null && item.exit_code !== 0)}${oneLine(item.command ?? "")}`,
         ];
       case "file_change":
         return [
@@ -320,7 +326,7 @@ export const readClaudeEvents = (
     toolCalls: calls.length,
     trace: calls.map(
       (c) =>
-        `${mark(c.id !== undefined && failed.has(c.id))}${claudeCall(c.name ?? "", c.input ?? {}, app)}`
+        `${mark(c.id !== undefined && failed.has(c.id))}${oneLine(claudeCall(c.name ?? "", c.input ?? {}, app))}`
     ),
   };
 };

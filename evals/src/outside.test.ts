@@ -29,7 +29,11 @@ const codexLines = [
     type: "item.completed",
   }),
   JSON.stringify({
-    item: { command: "ls nowhere", exit_code: 2, type: "command_execution" },
+    item: {
+      command: "ls nowhere <<'EOF'\nthe lines of a file it writes\nEOF",
+      exit_code: 2,
+      type: "command_execution",
+    },
     type: "item.completed",
   }),
   JSON.stringify({
@@ -142,7 +146,7 @@ describe("a run outside the editor", () => {
     const run = readCodexEvents(codexLines, APP);
     assert.deepStrictEqual(run.trace, [
       `- · cat ${APP}/.agents/skills/ultrapaint/SKILL.md`,
-      "- ✗ ls nowhere",
+      "- ✗ ls nowhere <<'EOF' …",
       "- · edit update src/App.tsx",
     ]);
     assert.strictEqual(run.said, "The page is built.");
