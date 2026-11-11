@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,11 +21,29 @@ vi.mock(
 let mounted: Root;
 let container: HTMLElement;
 const before = useProject.getState().info;
+const beforeSettings = useProject.getState().settings;
 
 const titles = () =>
   [...container.querySelectorAll("section h3")].map((h) => h.textContent);
 const button = (text: string) =>
   [...container.querySelectorAll("button")].find((b) => b.textContent === text);
+/** The folded group's header: its title and count, and whether it is open. */
+const fold = () => {
+  const header = container.querySelector<HTMLButtonElement>(
+    "section h3 button[aria-expanded]"
+  );
+  return header
+    ? {
+        click: () => header.click(),
+        open: header.getAttribute("aria-expanded") === "true",
+        title: header.textContent,
+      }
+    : null;
+};
+const ticked = () =>
+  [...container.querySelectorAll("[role=checkbox][aria-checked=true]")].map(
+    (c) => c.getAttribute("aria-label")
+  );
 
 beforeEach(() => {
   fakeApi.reset();
@@ -56,23 +75,42 @@ afterEach(() => {
   vi.useRealTimers();
   act(() => mounted.unmount());
   container.remove();
-  useProject.setState({ error: null, info: before });
+  useProject.setState({ error: null, info: before, settings: beforeSettings });
 });
 
 describe("Changes › the files", () => {
-  it("lists Ultrapaint's files, and the others only when asked", async () => {
+  it("lists Ultrapaint's files, and folds the others under a header that opens them", async () => {
     act(() => mounted.render(<Changes />));
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
-    expect(titles()).not.toContain("Other files");
+    expect(fold()).toMatchObject({ open: false, title: "Other files 2" });
     expect(container.textContent).not.toContain("notes.txt");
 
-    act(() => button("Show 2 other files")?.click());
-    expect(titles()).toContain("Other files");
+    act(() => fold()?.click());
+    expect(fold()).toMatchObject({ open: true, title: "Other files 2" });
     expect(container.textContent).toContain("notes.txt");
 
-    act(() => button("Hide")?.click());
-    expect(titles()).not.toContain("Other files");
-    expect(button("Show 2 other files")).toBeDefined();
+    act(() => fold()?.click());
+    expect(fold()?.open).toBe(false);
+    expect(container.textContent).not.toContain("notes.txt");
+  });
+
+  it("unticks the other files as it folds them, so a commit takes only files in view", async () => {
+    useProject.setState({
+      settings: { ...defaultSettings("/repo"), git: "on" },
+    });
+    act(() => mounted.render(<Changes />));
+    await vi.waitFor(() => expect(titles()).toContain("Design files"));
+    act(() => fold()?.click());
+    act(() =>
+      container
+        .querySelector<HTMLElement>('[aria-label="Select notes.txt"]')
+        ?.click()
+    );
+    expect(ticked()).toEqual(["Select notes.txt"]);
+
+    act(() => fold()?.click());
+    act(() => fold()?.click());
+    expect(ticked()).toEqual([]);
   });
 
   it("calls the files Files when none of Ultrapaint's changed", async () => {
@@ -80,10 +118,10 @@ describe("Changes › the files", () => {
       files: [{ code: "??", design: false, path: "notes.txt" }],
     }));
     act(() => mounted.render(<Changes />));
-    await vi.waitFor(() => expect(button("Show 1 file")).toBeDefined());
+    await vi.waitFor(() => expect(fold()?.title).toBe("Files 1"));
 
-    act(() => button("Show 1 file")?.click());
-    expect(titles()).toEqual(["Files", "Snapshots", "Agent checkpoints"]);
+    act(() => fold()?.click());
+    expect(titles()).toEqual(["Files 1", "Snapshots", "Agent checkpoints"]);
   });
 
   it("says git didn't answer over the files it listed before, which stay", async () => {

@@ -6,7 +6,7 @@ import type {
   Snapshot,
 } from "@ultrapaint/contracts/snapshots";
 import { plural } from "@ultrapaint/shared/text";
-import { ArrowLeft, Ellipsis, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, Ellipsis, Plus } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -59,6 +59,8 @@ import { useSnapshotView } from "../state/snapshot-view.ts";
 const FILES_NAMED_RE = /^(\+\+\+ |@@)/;
 /** A line among a file's changes: added, removed, context, a range, or git's note on the last. */
 const CHANGE_LINE_RE = /^[-+ @\\]/;
+/** A line of a file's changes that git marks in its first column: added, removed or context. */
+const MARKED_LINE_RE = /^[-+ ]/;
 const TRAILING_NEWLINE_RE = /\n$/;
 const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
 const BEFORE_RE = /^Before: /;
@@ -372,8 +374,12 @@ export const Changes = () => {
   const files = shown?.files ?? [];
   const design = files.filter((f) => f.design);
   const other = files.filter((f) => !f.design);
-  // A ticked file stays in view: hiding the other files unticks them.
-  const hideOther = () => {
+  // A ticked file stays in view: folding the other files unticks them.
+  const toggleOther = () => {
+    if (!showOther) {
+      setShowOther(true);
+      return;
+    }
     setShowOther(false);
     setSelected(
       (prev) =>
@@ -428,26 +434,15 @@ export const Changes = () => {
           setSelected={setSelected}
           title="Design files"
         />
-        {showOther ? (
-          <FileGroup
-            action={
-              <Button onClick={hideOther} size="sm" variant="ghost">
-                Hide
-              </Button>
-            }
-            files={other}
-            onShow={showFile}
-            selected={writes ? selected : null}
-            setSelected={setSelected}
-            title={design.length > 0 ? "Other files" : "Files"}
-          />
-        ) : (
-          <ShowOtherFiles
-            count={other.length}
-            onShow={() => setShowOther(true)}
-            other={design.length > 0}
-          />
-        )}
+        {/* They are "other" only beside the design files. */}
+        <FileGroup
+          files={other}
+          fold={{ onToggle: toggleOther, open: showOther }}
+          onShow={showFile}
+          selected={writes ? selected : null}
+          setSelected={setSelected}
+          title={design.length > 0 ? "Other files" : "Files"}
+        />
         <Snapshots
           failed={snapshotsFailed}
           onOpen={showDiff}
@@ -1068,47 +1063,32 @@ const CheckpointRow = ({
 };
 
 /**
- * The way to the files Ultrapaint did not write, with how many there are; none without them.
- * They are "other" only beside the design files.
+ * A group of changed files under its title, with a select-all before it while they can be ticked.
+ * A folded group (the files Ultrapaint did not write) is a header alone until opened: its title,
+ * how many files it holds and a chevron, the whole header the toggle.
  */
-const ShowOtherFiles = ({
-  count,
-  onShow,
-  other,
-}: {
-  count: number;
-  onShow: () => void;
-  other: boolean;
-}) =>
-  count === 0 ? null : (
-    <div>
-      <Button onClick={onShow} size="sm" variant="ghost">
-        Show {plural(count, other ? "other file" : "file")}
-      </Button>
-    </div>
-  );
-
 const FileGroup = ({
-  action,
-  title,
   files,
+  fold,
+  onShow,
   selected,
   setSelected,
-  onShow,
+  title,
 }: {
-  /** At the end of the group's title row. */
-  action?: ReactNode;
-  title: string;
   files: GitStatus["files"];
+  /** Whether the group is open, and the way to open or fold it; none for a group always open. */
+  fold?: { onToggle: () => void; open: boolean };
+  onShow: (path: string) => void;
   /** The ticked files; null while there is nothing to commit with, and so no checkboxes. */
   selected: Set<string> | null;
   setSelected: Dispatch<SetStateAction<Set<string>>>;
-  onShow: (path: string) => void;
+  title: string;
 }) => {
   const id = useId();
   if (files.length === 0) {
     return null;
   }
+  const open = fold?.open ?? true;
   const paths = files.map((f) => f.path);
   const ticked = selected ? groupTicked(paths, selected) : "none";
   const toggleAll = () =>
@@ -1123,41 +1103,100 @@ const FileGroup = ({
       }
       return next;
     });
+  const selectAll =
+    selected && open ? (
+      <Checkbox
+        aria-label={`Select all ${title.toLowerCase()}`}
+        checked={ticked === "all"}
+        className="z-10"
+        indeterminate={ticked === "some"}
+        onCheckedChange={toggleAll}
+      />
+    ) : null;
   const shared = sharedFolder(paths);
   return (
     <section aria-labelledby={id} className={SECTION}>
-      <GroupLabel
-        action={action}
-        id={id}
-        lead={
-          selected ? (
-            <Checkbox
-              aria-label={`Select all ${title.toLowerCase()}`}
-              checked={ticked === "all"}
-              className="z-10"
-              indeterminate={ticked === "some"}
-              onCheckedChange={toggleAll}
+      {fold ? (
+        <FoldHeader
+          count={files.length}
+          id={id}
+          lead={selectAll}
+          onToggle={fold.onToggle}
+          open={open}
+        >
+          {title}
+        </FoldHeader>
+      ) : (
+        <GroupLabel id={id} lead={selectAll}>
+          {title}
+        </GroupLabel>
+      )}
+      {open ? (
+        <ul aria-labelledby={id} className={SECTION}>
+          {files.map((f) => (
+            <FileRow
+              file={f}
+              key={f.path}
+              onShow={onShow}
+              selected={selected ? selected.has(f.path) : null}
+              setSelected={setSelected}
+              shared={shared}
             />
-          ) : null
-        }
-      >
-        {title}
-      </GroupLabel>
-      <ul aria-labelledby={id} className={SECTION}>
-        {files.map((f) => (
-          <FileRow
-            file={f}
-            key={f.path}
-            onShow={onShow}
-            selected={selected ? selected.has(f.path) : null}
-            setSelected={setSelected}
-            shared={shared}
-          />
-        ))}
-      </ul>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 };
+
+/**
+ * A folded group's header: a section's title, its count beside it and a chevron at the row's end,
+ * pointing down while folded and up while open. Its button covers the whole header, as a row's
+ * does, so a click anywhere on it opens or folds the group; the select-all sits above it.
+ */
+const FoldHeader = ({
+  children,
+  count,
+  id,
+  lead,
+  onToggle,
+  open,
+}: {
+  children: ReactNode;
+  count: number;
+  /** The title's id, which names the section's list. */
+  id: string;
+  /** Before the title, in the column the rows' checkboxes are in. */
+  lead?: ReactNode;
+  onToggle: () => void;
+  open: boolean;
+}) => (
+  <div className={cn(ROW, "h-8 pr-2")}>
+    {lead}
+    <h3 className="min-w-0 flex-1 font-heading-xsmall" id={id}>
+      <button
+        aria-expanded={open}
+        className={cn(ROW_BUTTON, "w-full")}
+        data-row-button
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="min-w-0 truncate">{children}</span>
+        {/* Read as "Other files 5"; a flex row draws no space. */}{" "}
+        <span className="shrink-0 font-body-small-medium text-muted-foreground">
+          {count}
+        </span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-150",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+    </h3>
+  </div>
+);
 
 const FileRow = ({
   file,
@@ -1273,7 +1312,8 @@ const changeKind = (text: string): LineKind => {
  * The lines that name a file (`--- a/…` and `+++ b/…`, with git's `diff --git` and `index`
  * before them) are told by where they are, before the file's changes; from there a line is what
  * its first character says, so a removed `---` (`----`) or an added `++i;` (`+++i;`) is a
- * change. Git's diff of several files names each before its own changes.
+ * change. Git's diff of several files names each before its own changes. A line git marks in
+ * its first column (`+`, `-` or a space) is `marked`: the mark is drawn in a gutter of its own.
  */
 export const diffLines = (diff: string) => {
   let offset = 0;
@@ -1283,14 +1323,16 @@ export const diffLines = (diff: string) => {
     .split("\n")
     .map((text) => {
       let kind: LineKind = "context";
+      let marked = false;
       if (naming) {
         naming = !FILES_NAMED_RE.test(text);
       } else if (text === "" || CHANGE_LINE_RE.test(text)) {
         kind = changeKind(text);
+        marked = text === "" || MARKED_LINE_RE.test(text);
       } else {
         naming = true;
       }
-      const line = { kind, offset, text };
+      const line = { kind, marked, offset, text };
       offset += text.length + 1;
       return line;
     });
@@ -1325,10 +1367,24 @@ const DiffView = ({
             No text changes in this file
           </p>
         ) : (
-          <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
-            {diffLines(d.diff).map(({ kind, offset, text: line }) => (
-              <div className={LINE_CLASS[kind]} key={offset}>
-                {line || " "}
+          // A long line wraps: its mark keeps the gutter, the rest of it wraps beside the mark.
+          <pre className="wrap-anywhere whitespace-pre-wrap rounded-lg bg-muted p-2 font-code">
+            {diffLines(d.diff).map(({ kind, marked, offset, text: line }) => (
+              <div
+                className={cn(
+                  "grid grid-cols-[1ch_minmax(0,1fr)]",
+                  LINE_CLASS[kind]
+                )}
+                key={offset}
+              >
+                {marked ? (
+                  <>
+                    <span>{line.slice(0, 1) || " "}</span>
+                    <span>{line.slice(1) || " "}</span>
+                  </>
+                ) : (
+                  <span className="col-span-2">{line || " "}</span>
+                )}
               </div>
             ))}
           </pre>

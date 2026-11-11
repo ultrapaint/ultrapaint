@@ -15,8 +15,9 @@ which the editor writes and undoes (0027), was among the other files.
 **A file is Ultrapaint's when the editor writes it**: inside the designs directory, or the
 design system's `DESIGN.md` (`design` in git's status). The panel lists those as Design files.
 
-**The other files are listed only when asked**: a "Show N other files" button in their place,
-and the group, when shown, has Hide at the end of its title. Hiding them unticks them, so a
+**The other files are listed only when asked**: their group is folded, its header alone in their
+place, drawn as the panel's other group headers with how many files it holds beside its title
+and a chevron at its end; the whole header opens and folds it. Folding them unticks them, so a
 commit takes only files in view. Commit stays where it was: on the files ticked, with the
 setting on (0031).
 

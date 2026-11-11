@@ -214,4 +214,22 @@ describe("a diff's lines", () => {
         .map((line) => `${line.kind}|${line.text}`)
     ).toEqual(["removed|----", "added|+++j;"]);
   });
+
+  it("mark a change in a gutter of their own, and not a line that names a file, a range or a note", () => {
+    const diff = [
+      "--- a/one.md",
+      "+++ b/one.md",
+      "@@ -1,2 +1,2 @@",
+      " a",
+      "",
+      "-b",
+      "+c",
+      "\\ No newline at end of file",
+    ].join("\n");
+    expect(
+      diffLines(diff)
+        .filter((line) => line.marked)
+        .map((line) => line.text)
+    ).toEqual([" a", "", "-b", "+c"]);
+  });
 });
