@@ -1146,7 +1146,8 @@ const proposeCommand = Command.make(
     gaps: Flag.Boolean("gaps").pipe(
       Flag.withDescription(
         "Make the calls on the findings the judges matched with a gap instead, and count how many of the person's problems a call would leave"
-      )
+      ),
+      Flag.withDefault(false)
     ),
     model: Flag.String("model").pipe(
       Flag.withDescription("The model that makes the calls, with the skill"),
