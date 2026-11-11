@@ -42,6 +42,7 @@ import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { noteLanded } from "../state/recent-components.ts";
 import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { onPageCanvas } from "../state/surface.ts";
@@ -686,10 +687,14 @@ const runComponent = (
   act: ComponentAction
 ): unknown => {
   switch (act.kind) {
-    case "insert":
-      return insertNode(target.make());
-    case "insertCanvas":
-      return insertOnCanvas(target.make());
+    case "insert": {
+      const node = target.make();
+      return Promise.resolve(insertNode(node)).then(noteLanded(node));
+    }
+    case "insertCanvas": {
+      const node = target.make();
+      return insertOnCanvas(node).then(noteLanded(node));
+    }
     case "openBoard":
       return openBoard({ item: target.name, view: "library" });
     case "copyName":

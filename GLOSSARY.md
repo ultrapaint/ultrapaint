@@ -453,7 +453,9 @@ refactor and the board view left.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
   `library` in the code): **App components**, then **System components**. In Canvas mode it is
   the **insert list** (a click inserts into the selection, a drag places anywhere, its chevron or
-  its menu's Open board opens a component's board, + New makes an app component); in Design System mode the same list is the
+  its menu's Open board opens a component's board, + New makes an app component), led by
+  **Recent**, the four components placed from it last in this project, while there are any and
+  nothing is searched (`state/recent-components.ts`); in Design System mode the same list is the
   navigation, with an **Overview** of every component in its default look. The elements are not in it: the tools'
   **Insert** menu offers them.
 - **Board**: a generated document drawn as a frame, by the renderer that draws pages, to show one

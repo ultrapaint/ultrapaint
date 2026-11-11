@@ -32,6 +32,7 @@ import { docOfFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { holdUntil } from "../state/page-layout.ts";
+import { noteLanded } from "../state/recent-components.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
 import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
@@ -419,7 +420,9 @@ const carryOut = async (
   }
   if (dragged.kind === "new") {
     if (drop && created) {
-      await insertNodesAt(placeOfDrop(drop, at), [created]);
+      noteLanded(created)(
+        await insertNodesAt(placeOfDrop(drop, at), [created])
+      );
     }
     return;
   }

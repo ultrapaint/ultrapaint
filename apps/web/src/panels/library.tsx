@@ -2,8 +2,10 @@
  * The Library (ADR 0045): the components a design places, the App components then the System
  * components, as a list or as a grid of thumbnails. On a page canvas it is the insert list: a
  * click inserts into the selection, a drag puts one anywhere, on a page or on the canvas, and a
- * chevron, or Open board in its menu, opens the component's board. On a board view it is that view's navigation. The elements
- * (rows, columns, text, images) are the tools' Insert menu's.
+ * chevron, or Open board in its menu, opens the component's board; the components placed last lead
+ * it, as Recent. On a board view it is that view's navigation. Each group is one Tab stop, the
+ * arrow keys moving among its rows. The elements (rows, columns, text, images) are the tools'
+ * Insert menu's.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
@@ -50,13 +52,18 @@ import { insertNode, insertTarget } from "../lib/node-actions.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
-import { openMenuAt } from "../state/context-menu.ts";
+import {
+  type MenuTarget,
+  openMenuAt,
+  showMenu,
+} from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, pageOfRef } from "../state/frame-ref.ts";
 import { useDesignLook } from "../state/look.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { noteLanded, useRecentComponents } from "../state/recent-components.ts";
 import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
@@ -72,13 +79,24 @@ const instanceOf = (c: ComponentMeta) => newInstance(c, nextId());
 
 /**
  * Everything an entry of the Library does: a click inserts, a drag carries the node, a
- * right-click offers where else it can go.
+ * right-click, or the menu key on the row, offers where else it can go and its board.
  */
 const entryHandlers = (make: () => DesignNode, name: string) => ({
   draggable: true,
-  onClick: () => insertNode(make()),
-  onContextMenu: (e: React.MouseEvent) =>
-    openMenuAt(e, { kind: "component", make, name }),
+  onClick: () => {
+    const node = make();
+    Promise.resolve(insertNode(node)).then(noteLanded(node));
+  },
+  onContextMenu: (e: React.MouseEvent<HTMLElement>) => {
+    const target: MenuTarget = { kind: "component", make, name };
+    // From the keyboard there is no pointer: the menu opens against the row.
+    if (e.clientX === 0 && e.clientY === 0) {
+      e.preventDefault();
+      showMenu(target, e.currentTarget);
+      return;
+    }
+    openMenuAt(e, target);
+  },
   // Dropped somewhere that is not the canvas: nothing lands.
   onDragEnd: () => {
     if (useDrag.getState().dragged?.kind === "new") {
@@ -96,12 +114,16 @@ const entryHandlers = (make: () => DesignNode, name: string) => ({
   },
 });
 
-/** Opens a component's board (ADR 0045), from the Library's list or grid; shown on hover. */
+/**
+ * Opens a component's board (ADR 0045), from the Library's list or grid; shown on hover. No Tab
+ * stop of its own: from the keyboard, the row's menu has Open board.
+ */
 const OpenBoard = ({ name }: { name: string }) => (
   <IconButton
     className="invisible text-muted-foreground group-focus-within/item:visible group-hover/item:visible"
     onClick={() => openBoard({ item: name, view: "library" })}
     size="icon-sm"
+    tabIndex={-1}
     tooltip={`Open ${name}'s board`}
   >
     <ChevronRight />
@@ -147,19 +169,72 @@ const ComponentName = ({
 };
 
 /**
- * A Library entry's keyboard focus: the ring around the whole item when its insert button has it,
+ * A Library entry's keyboard focus: the ring around the whole item when its row button has it,
  * so the accent fill means hover alone (DESIGN.md, Components).
  */
 const ITEM_FOCUS =
-  "has-[[data-insert]:focus-visible]:ring-2 has-[[data-insert]:focus-visible]:ring-ring";
+  "has-[[data-row]:focus-visible]:ring-2 has-[[data-row]:focus-visible]:ring-ring";
 
-const ListItem = ({ component: c }: { component: ComponentMeta }) => (
+/**
+ * A group's rows as one Tab stop (a roving tabindex): the row focused last, else the first, and
+ * the arrow keys move among them, by `columns` up and down in a grid. Its rows are what is marked
+ * `data-row`.
+ */
+const useRovingRows = (count: number, columns = 1) => {
+  const [stop, setStop] = useState(0);
+  const at = Math.min(stop, count - 1);
+  const rowsOf = (list: HTMLElement) => [
+    ...list.querySelectorAll<HTMLElement>("[data-row]"),
+  ];
+  const onFocus = (e: React.FocusEvent<HTMLElement>) => {
+    const index = rowsOf(e.currentTarget).indexOf(e.target);
+    if (index >= 0) {
+      setStop(index);
+    }
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    const rows = rowsOf(e.currentTarget);
+    const from = rows.indexOf(e.target as HTMLElement);
+    const steps: Record<string, number> = {
+      ArrowDown: columns,
+      ArrowUp: -columns,
+      ...(columns > 1 && { ArrowLeft: -1, ArrowRight: 1 }),
+    };
+    const step = steps[e.key];
+    let to: number | undefined;
+    if (e.key === "Home") {
+      to = 0;
+    } else if (e.key === "End") {
+      to = rows.length - 1;
+    } else if (step !== undefined) {
+      to = from + step;
+    }
+    if (from < 0 || to === undefined) {
+      return;
+    }
+    e.preventDefault();
+    rows[Math.max(0, Math.min(rows.length - 1, to))]?.focus();
+  };
+  return {
+    list: { onFocus, onKeyDown },
+    tabIndexOf: (index: number) => (index === at ? 0 : -1),
+  };
+};
+
+const ListItem = ({
+  component: c,
+  tabIndex,
+}: {
+  component: ComponentMeta;
+  tabIndex: number;
+}) => (
   <li
     className={`group/item mx-2 flex h-7 items-center rounded-md pr-1 transition-colors hover:bg-accent ${ITEM_FOCUS}`}
   >
     <button
       className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body-medium outline-none"
-      data-insert
+      data-row
+      tabIndex={tabIndex}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
@@ -169,9 +244,15 @@ const ListItem = ({ component: c }: { component: ComponentMeta }) => (
   </li>
 );
 
+/** A tile's picture area; the picture's paper only under a picture, the panel's fill otherwise. */
+const TILE =
+  "flex h-20 w-full items-center justify-center overflow-hidden rounded-md p-2 ring-1 ring-border ring-inset";
+
 /**
- * A component's picture in its tile, never larger than it was drawn: pictures of small nodes are
- * taken at twice their size, so half the picture's own is the component's.
+ * A component's tile, its picture never larger than it was drawn: pictures of small nodes are
+ * taken at twice their size, so half the picture's own is the component's. The picture lies on
+ * the specimen paper, in its design's light look whatever the editor's theme; loading and no
+ * picture are the panel's own muted fill.
  */
 const Thumbnail = ({
   failed,
@@ -210,26 +291,36 @@ const Thumbnail = ({
     };
   }, [src]);
   if ((!src && failed) || (src && read?.src === src && read.failed)) {
-    // On the tile's white, whatever the theme; the caption under it names the component.
+    // The caption under it names the component.
     return (
-      <ImageOff aria-hidden className="size-4 text-black/50" data-no-picture />
+      <span className={`${TILE} bg-muted`}>
+        <ImageOff
+          aria-hidden
+          className="size-4 text-muted-foreground"
+          data-no-picture
+        />
+      </span>
     );
   }
   if (!src || read?.src !== src) {
     return (
-      <span className="size-full animate-pulse rounded bg-black/4 motion-reduce:animate-none" />
+      <span
+        className={`${TILE} animate-pulse bg-muted motion-reduce:animate-none`}
+      />
     );
   }
   return (
-    <img
-      alt={name}
-      className="size-full object-contain"
-      draggable={false}
-      height={80}
-      src={src}
-      style={{ maxHeight: read.height, maxWidth: read.width }}
-      width={160}
-    />
+    <span className={`${TILE} bg-specimen`}>
+      <img
+        alt={name}
+        className="size-full object-contain"
+        draggable={false}
+        height={80}
+        src={src}
+        style={{ maxHeight: read.height, maxWidth: read.width }}
+        width={160}
+      />
+    </span>
   );
 };
 
@@ -240,10 +331,12 @@ const Thumbnail = ({
 const GridItem = ({
   component: c,
   failed,
+  tabIndex,
   thumbnail,
 }: {
   component: ComponentMeta;
   failed: boolean;
+  tabIndex: number;
   thumbnail: string | undefined;
 }) => (
   <li
@@ -252,13 +345,12 @@ const GridItem = ({
     <button
       aria-label={c.name}
       className="flex w-full min-w-0 flex-col gap-1 p-1 text-left outline-none"
-      data-insert
+      data-row
+      tabIndex={tabIndex}
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
-      <span className="flex h-20 w-full items-center justify-center overflow-hidden rounded-md bg-white p-2 ring-1 ring-border ring-inset">
-        <Thumbnail failed={failed} name={c.name} src={thumbnail} />
-      </span>
+      <Thumbnail failed={failed} name={c.name} src={thumbnail} />
       <span className="flex h-6 w-full min-w-0 items-center pr-6 pl-2">
         <ComponentName
           className="min-w-0 flex-1 truncate font-body-medium"
@@ -362,11 +454,21 @@ const useThumbnails = (
   return { failed, thumbnails };
 };
 
-/** The catalogue's components matching a search, in the Library's two sections, each by name. */
+interface Section {
+  readonly items: readonly ComponentMeta[];
+  readonly title: string;
+}
+
+/**
+ * The catalogue's components matching a search, in the Library's two sections, each by name; with
+ * no search, the components placed last (`recent`, newest first) lead them as Recent, when there
+ * are any.
+ */
 const librarySections = (
   components: readonly ComponentMeta[],
-  query: string
-) => {
+  query: string,
+  recent: readonly string[] = []
+): readonly Section[] => {
   const q = query.trim().toLowerCase();
   const found = components
     .filter(
@@ -376,7 +478,11 @@ const librarySections = (
         c.category.toLowerCase().includes(q)
     )
     .toSorted((a, b) => a.name.localeCompare(b.name));
+  const placed = q
+    ? []
+    : recent.flatMap((name) => components.find((c) => c.name === name) ?? []);
   return [
+    ...(placed.length > 0 ? [{ items: placed, title: "Recent" }] : []),
     {
       items: found.filter((c) => c.importFrom === APP_FROM),
       title: "App components",
@@ -385,7 +491,7 @@ const librarySections = (
       items: found.filter((c) => c.importFrom !== APP_FROM),
       title: "System components",
     },
-  ] as const;
+  ];
 };
 
 /**
@@ -401,6 +507,47 @@ const SECTION = "flex flex-col gap-2";
 
 /** The Library's scrolling list of groups. */
 const GROUPS = "flex min-h-0 flex-1 flex-col gap-6 overflow-auto py-2";
+
+/** The skeleton rows of each group while the catalogue is read, each a different length. */
+const SKELETONS = [
+  { rows: ["w-20"], title: "App components" },
+  { rows: ["w-24", "w-16", "w-28", "w-20"], title: "System components" },
+] as const;
+
+/**
+ * The catalogue not read yet: its groups' names over skeleton rows; or, when the read failed, why,
+ * and Try again.
+ */
+const Unread = ({ failed }: { failed: boolean }) =>
+  failed ? (
+    <div className="mx-2 flex h-7 items-center justify-between gap-2 pl-2">
+      <span className="truncate font-body-small text-muted-foreground">
+        The components didn’t load
+      </span>
+      <Button
+        onClick={() => useComponents.getState().load()}
+        size="sm"
+        variant="ghost"
+      >
+        Try again
+      </Button>
+    </div>
+  ) : (
+    SKELETONS.map((group) => (
+      <section aria-busy className={SECTION} key={group.title}>
+        <SectionTitle>{group.title}</SectionTitle>
+        <ul>
+          {group.rows.map((width) => (
+            <li className="mx-2 flex h-7 items-center px-2" key={width}>
+              <span
+                className={`h-3 rounded-sm bg-foreground/10 motion-safe:animate-pulse ${width}`}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  );
 
 /**
  * A new app component, named in a prompt: an empty column placed nowhere (`components.create`),
@@ -550,20 +697,50 @@ const NavRow = ({
   children,
   item,
   lit,
+  tabIndex,
 }: {
   children: React.ReactNode;
   item: string;
   lit: boolean;
+  tabIndex?: number;
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
     className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    data-row
     onClick={() => openBoard({ item, view: "library" })}
+    tabIndex={tabIndex}
     type="button"
   >
     {children}
   </button>
 );
+
+/** A group of the navigation: one Tab stop, the arrow keys moving among its rows. */
+const NavRows = ({
+  items,
+  open,
+}: {
+  items: readonly ComponentMeta[];
+  open: string;
+}) => {
+  const roving = useRovingRows(items.length);
+  return (
+    <ul {...roving.list}>
+      {items.map((c, i) => (
+        <li key={c.name}>
+          <NavRow
+            item={c.name}
+            lit={open === c.name}
+            tabIndex={roving.tabIndexOf(i)}
+          >
+            <ComponentName className="truncate" component={c} />
+          </NavRow>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 /**
  * Components in Design System mode (ADR 0045, 0053): the same list, now the navigation. The
@@ -571,8 +748,10 @@ const NavRow = ({
  */
 const LibraryNav = ({ open }: { open: string }) => {
   const components = useComponents((s) => s.catalogue);
+  const status = useComponents((s) => s.status);
   const [query, setQuery] = useState("");
   const sections = librarySections(components, query);
+  const ready = status === "ready";
   const none = sections.every((s) => s.items.length === 0);
   return (
     <div className="flex h-full flex-col">
@@ -584,22 +763,15 @@ const LibraryNav = ({ open }: { open: string }) => {
             Overview
           </NavRow>
         )}
-        {none && query.trim() ? (
+        {ready ? null : <Unread failed={status === "failed"} />}
+        {ready && none && query.trim() ? (
           <NoMatch onClear={() => setQuery("")} query={query} />
         ) : null}
-        {sections.map((section) =>
+        {(ready ? sections : []).map((section) =>
           section.items.length === 0 ? null : (
             <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
-              <ul>
-                {section.items.map((c) => (
-                  <li key={c.name}>
-                    <NavRow item={c.name} lit={open === c.name}>
-                      <ComponentName className="truncate" component={c} />
-                    </NavRow>
-                  </li>
-                ))}
-              </ul>
+              <NavRows items={section.items} open={open} />
             </section>
           )
         )}
@@ -645,16 +817,61 @@ const InsertHint = () => {
   );
 };
 
+/**
+ * A group of the insert list, as rows or tiles: one Tab stop, the arrow keys moving among its
+ * entries.
+ */
+const InsertRows = ({
+  failed,
+  items,
+  thumbnails,
+  view,
+}: {
+  failed: ReadonlySet<string>;
+  items: readonly ComponentMeta[];
+  thumbnails: Readonly<Record<string, string>>;
+  view: View;
+}) => {
+  const roving = useRovingRows(items.length, view === "grid" ? 2 : 1);
+  return view === "list" ? (
+    <ul {...roving.list}>
+      {items.map((c, i) => (
+        <ListItem
+          component={c}
+          key={`${c.importFrom}:${c.name}`}
+          tabIndex={roving.tabIndexOf(i)}
+        />
+      ))}
+    </ul>
+  ) : (
+    <ul className="grid grid-cols-2 gap-1 px-1" {...roving.list}>
+      {items.map((c, i) => (
+        <GridItem
+          component={c}
+          failed={failed.has(c.name)}
+          key={`${c.importFrom}:${c.name}`}
+          tabIndex={roving.tabIndexOf(i)}
+          thumbnail={thumbnails[c.name]}
+        />
+      ))}
+    </ul>
+  );
+};
+
 /** The Library on a page canvas: the insert list. */
 const InsertList = () => {
   const components = useComponents((s) => s.catalogue);
+  const status = useComponents((s) => s.status);
+  const recent = useRecentComponents();
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>(storedView);
-  const sections = librarySections(components, query);
+  const sections = librarySections(components, query, recent);
+  // Recent's are drawn once, in their own group's place.
   const { failed, thumbnails } = useThumbnails(
-    sections.flatMap((s) => s.items),
+    sections.flatMap((s) => (s.title === "Recent" ? [] : s.items)),
     view === "grid"
   );
+  const ready = status === "ready";
   const searching = query.trim() !== "";
   const none = sections.every((s) => s.items.length === 0);
 
@@ -668,10 +885,11 @@ const InsertList = () => {
       <Title />
       <SearchBar onQuery={setQuery} onView={onView} query={query} view={view} />
       <div className={GROUPS}>
-        {none && searching ? (
+        {ready ? null : <Unread failed={status === "failed"} />}
+        {ready && none && searching ? (
           <NoMatch onClear={() => setQuery("")} query={query} />
         ) : null}
-        {sections.map((section) => {
+        {(ready ? sections : []).map((section) => {
           const empty = section.items.length === 0;
           // App components keep their place, empty, until there are some to search.
           if (empty && (searching || section.title !== "App components")) {
@@ -680,26 +898,16 @@ const InsertList = () => {
           return (
             <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
-              {empty ? <NoAppComponents /> : null}
-              {!empty && view === "list" ? (
-                <ul>
-                  {section.items.map((c) => (
-                    <ListItem component={c} key={`${c.importFrom}:${c.name}`} />
-                  ))}
-                </ul>
-              ) : null}
-              {!empty && view === "grid" ? (
-                <ul className="grid grid-cols-2 gap-1 px-1">
-                  {section.items.map((c) => (
-                    <GridItem
-                      component={c}
-                      failed={failed.has(c.name)}
-                      key={`${c.importFrom}:${c.name}`}
-                      thumbnail={thumbnails[c.name]}
-                    />
-                  ))}
-                </ul>
-              ) : null}
+              {empty ? (
+                <NoAppComponents />
+              ) : (
+                <InsertRows
+                  failed={failed}
+                  items={section.items}
+                  thumbnails={thumbnails}
+                  view={view}
+                />
+              )}
             </section>
           );
         })}

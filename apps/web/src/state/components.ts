@@ -27,7 +27,13 @@ interface ComponentsStore {
   components: readonly ComponentFile[];
   /** Every component's file, read or with its problem. */
   entries: readonly ComponentEntry[];
+  /** Reads them and follows them from then on; a failed read is reported, and `status` says so. */
   load: () => Promise<void>;
+  /**
+   * Whether they are read: loading until the first answer, failed while a read has failed and
+   * none has landed. Once read, a read that fails keeps what was read.
+   */
+  status: "failed" | "loading" | "ready";
 }
 
 const fromEntries = (entries: readonly ComponentEntry[]) => {
@@ -43,11 +49,25 @@ export const useComponents = create<ComponentsStore>(() => ({
   catalogue: catalogueOf([]),
   components: [],
   entries: [],
-  load: () => componentsData.read().catch(reportError),
+  load: () => {
+    if (useComponents.getState().status === "failed") {
+      useComponents.setState({ status: "loading" });
+    }
+    return componentsData.read().catch((error: unknown) => {
+      if (useComponents.getState().status !== "ready") {
+        useComponents.setState({ status: "failed" });
+      }
+      reportError(error);
+    });
+  },
+  status: "loading",
 }));
 
 const take = (list: ComponentList) =>
-  useComponents.setState(fromEntries(list.components));
+  useComponents.setState({
+    ...fromEntries(list.components),
+    status: "ready",
+  });
 
 const componentsData = follow({
   apply: take,

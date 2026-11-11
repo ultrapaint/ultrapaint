@@ -33,6 +33,7 @@ vi.mock("../lib/node-actions.ts", async (importOriginal) => ({
 
 const VIEW_KEY = "ultrapaint:library-view";
 const initialProject = useProject.getState();
+const initialComponents = useComponents.getState();
 
 let mounted: Root;
 let container: HTMLElement;
@@ -85,15 +86,23 @@ beforeEach(() => {
     info: { ...initialProject.info, configured: true, name: "shop" },
     settings: defaultSettings("/repo"),
   });
+  // The catalogue read: the system components, and no app component.
+  useComponents.setState({ status: "ready" });
+  // Nothing lands: no canvas takes it.
+  insertNode.mockReturnValue([]);
   drawNothing();
   container = document.createElement("div");
+  // In the document, so that focus moves.
+  document.body.append(container);
   mounted = createRoot(container);
 });
 
 afterEach(() => {
   act(() => mounted.unmount());
+  container.remove();
   localStorage.removeItem(VIEW_KEY);
   useProject.setState(initialProject, true);
+  useComponents.setState(initialComponents, true);
   drawSpecimen.mockReset();
   insertNode.mockReset();
 });
@@ -131,5 +140,164 @@ describe("the Library's grid", () => {
     expect(insertNode.mock.calls[0]?.[0]).toMatchObject({
       component: "Button",
     });
+  });
+});
+
+const sectionTitles = () =>
+  [...container.querySelectorAll("h3")].map((h) => h.textContent);
+const rowNamed = (name: string) =>
+  [...container.querySelectorAll<HTMLElement>("[data-row]")].find(
+    (r) => r.textContent === name || r.getAttribute("aria-label") === name
+  );
+/** Types into the search, as React hears it. */
+const search = (text: string) =>
+  act(() => {
+    const field = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Search components"]'
+    );
+    if (field) {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set?.call(field, text);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+const press = (target: HTMLElement | undefined, key: string) =>
+  act(() => {
+    target?.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key })
+    );
+  });
+
+describe("the Library's catalogue", () => {
+  it("draws skeleton rows under both groups while the catalogue is read", () => {
+    useComponents.setState({ status: "loading" });
+    act(() => mounted.render(<Library />));
+    expect(container.querySelectorAll("section[aria-busy]").length).toBe(2);
+    expect(sectionTitles()).toEqual(["App components", "System components"]);
+    expect(container.querySelectorAll("[data-row]").length).toBe(0);
+  });
+
+  it("says the catalogue didn’t load, and reads it again with Try again", async () => {
+    useComponents.setState({ status: "loading" });
+    localStorage.setItem(VIEW_KEY, "list");
+    act(() => mounted.render(<Library />));
+    // components.list has no answer: the read fails.
+    await act(() => useComponents.getState().load());
+    expect(container.textContent).toContain("The components didn’t load");
+    expect(container.querySelectorAll("[data-row]").length).toBe(0);
+
+    fakeApi.respond("components.list", () => ({ components: [] }));
+    const retry = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === "Try again"
+    );
+    await act(async () => {
+      retry?.click();
+      await fakeApi.requested("components.list", 2);
+    });
+    await act(() => Promise.resolve());
+    expect(container.textContent).not.toContain("didn’t load");
+    expect(rowNamed("Button")).toBeDefined();
+  });
+});
+
+describe("the Library's Recent group", () => {
+  it("is shown only once a component is placed, leads the list, and is kept for the project", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    useProject.setState({
+      info: { ...useProject.getState().info, repoPath: "/recent-shop" },
+    });
+    insertNode.mockReturnValue(Promise.resolve(["n1"]));
+    act(() => mounted.render(<Library />));
+    expect(sectionTitles()).not.toContain("Recent");
+
+    await act(async () => {
+      rowNamed("Card")?.click();
+      await Promise.resolve();
+    });
+    expect(sectionTitles()[0]).toBe("Recent");
+    expect(
+      container.querySelector("section")?.querySelector("[data-row]")
+        ?.textContent
+    ).toBe("Card");
+    expect(
+      localStorage.getItem("ultrapaint:recent-components:/recent-shop")
+    ).toBe(JSON.stringify(["Card"]));
+
+    // A search leaves it out.
+    search("card");
+    expect(sectionTitles()).not.toContain("Recent");
+    search("");
+    expect(sectionTitles()[0]).toBe("Recent");
+
+    // Another project has its own.
+    act(() =>
+      useProject.setState({
+        info: { ...useProject.getState().info, repoPath: "/other-shop" },
+      })
+    );
+    expect(sectionTitles()).not.toContain("Recent");
+    localStorage.removeItem("ultrapaint:recent-components:/recent-shop");
+  });
+
+  it("is not recorded for an insert that did not land", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    useProject.setState({
+      info: { ...useProject.getState().info, repoPath: "/nowhere-shop" },
+    });
+    act(() => mounted.render(<Library />));
+    await act(async () => {
+      rowNamed("Card")?.click();
+      await Promise.resolve();
+    });
+    expect(sectionTitles()).not.toContain("Recent");
+  });
+});
+
+describe("the Library's keyboard", () => {
+  it("is one Tab stop per group, the arrow keys moving among its rows", () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    act(() => mounted.render(<Library />));
+    const rows = [
+      ...container.querySelectorAll<HTMLElement>(
+        "section:last-child [data-row]"
+      ),
+    ];
+    expect(rows.map((r) => r.tabIndex).filter((t) => t === 0)).toHaveLength(1);
+    expect(rows[0]?.tabIndex).toBe(0);
+    // The board's chevron is no Tab stop: the row's menu has Open board.
+    expect(
+      [
+        ...container.querySelectorAll<HTMLElement>(
+          'section:last-child button[aria-label^="Open "]'
+        ),
+      ].every((b) => b.tabIndex === -1)
+    ).toBe(true);
+
+    act(() => rows[0]?.focus());
+    press(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[1]);
+    expect(rows[1]?.tabIndex).toBe(0);
+    expect(rows[0]?.tabIndex).toBe(-1);
+    press(rows[1], "ArrowUp");
+    expect(document.activeElement).toBe(rows[0]);
+    press(rows[0], "End");
+    expect(document.activeElement).toBe(rows.at(-1));
+  });
+
+  it("moves across and down a grid's tiles", async () => {
+    act(() => mounted.render(<Library />));
+    await settled();
+    const tiles = [
+      ...container.querySelectorAll<HTMLElement>(
+        "section:last-child [data-row]"
+      ),
+    ];
+    act(() => tiles[0]?.focus());
+    press(tiles[0], "ArrowRight");
+    expect(document.activeElement).toBe(tiles[1]);
+    press(tiles[1], "ArrowDown");
+    expect(document.activeElement).toBe(tiles[3]);
   });
 });
