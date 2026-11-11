@@ -30,3 +30,4 @@ must be what the section is for.
 - `rb-recall-before`: 2026-11-08, its sections' gaps caught: shipped 17/24 (+6 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
 - `rb-recall-after`: 2026-11-08, its sections' gaps caught: shipped 13/24 (+9 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, its sections' gaps caught: rb-check 11/24 (+10 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
+- `ep-1`: 2026-11-10, its sections' gaps caught: review-table@opus+untold 14/24 (+8 partly), review-table@opus+told 19/24 (+5 partly), review-table@gpt-6.1-sol+untold 7/24 (+12 partly), review-table@gpt-6.1-sol+told 14/24 (+7 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)

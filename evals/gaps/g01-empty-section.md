@@ -36,3 +36,4 @@ row tall and isn't among the three heaviest things on a squint.
 - `rb-recall-before`: 2026-11-08, caught: shipped 0/2 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
 - `rb-recall-after`: 2026-11-08, caught: shipped 1/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
+- `ep-1`: 2026-11-10, caught: review-table@opus+untold 1/2 (+1 partly), review-table@opus+told 2/2, review-table@gpt-6.1-sol+untold 1/2 (+1 partly), review-table@gpt-6.1-sol+told 0/2 (+2 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)

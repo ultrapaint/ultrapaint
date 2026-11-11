@@ -34,3 +34,4 @@ apply to inherited copy as much as to new copy.
 - `rb-recall-before`: 2026-11-08, its sections' gaps caught: shipped 14/16 (+2 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-before/report.md)
 - `rb-recall-after`: 2026-11-08, its sections' gaps caught: shipped 10/16 (+5 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, its sections' gaps caught: rb-check 11/16 (+5 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
+- `ep-1`: 2026-11-10, its sections' gaps caught: review-table@opus+untold 12/16 (+2 partly), review-table@opus+told 13/16 (+3 partly), review-table@gpt-6.1-sol+untold 5/16 (+7 partly), review-table@gpt-6.1-sol+told 12/16 (+4 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
