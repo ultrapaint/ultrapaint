@@ -304,13 +304,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         running={running}
         thread={thread}
       />
-      <OpenQuestion answering={answering} threadId={thread.id} />
       <FileDropBox
         className={composerBox}
         data-composer
         hint="Drop to attach"
         onFiles={(dropped) => attachFiles(thread.id, dropped)}
       >
+        {/* An agent's question is the composer's own top: answered below it, sent from its bar. */}
+        <OpenQuestion answering={answering} threadId={thread.id} />
         {images.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-2 pt-2">
             {images.map((chip) => (

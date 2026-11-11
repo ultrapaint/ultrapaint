@@ -297,9 +297,10 @@ export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
 };
 
 /**
- * Questions put to the user, one at a time, on a card over the composer so they stay in sight
- * while the thread scrolls on: the card shows the question and its choices, and the composer
- * takes an answer of one's own and steps to the next question, then sends them. When the agent
+ * Questions put to the user, one at a time, at the top of the composer's own box so they stay in
+ * sight while the thread scrolls on and read as one thing with the answer: the question and its
+ * choices over a hairline, then the field for an answer of one's own, then the bar that steps to
+ * the next question and sends them. When the agent
  * waits for the answers within its turn they are answered (or declined) at once; otherwise they
  * are sent as the next prompt, so they wait until the agent's turn has ended.
  */
@@ -321,7 +322,7 @@ const QuestionCard = ({
   const waiting = item.elicitation !== undefined;
   const hint = questionHint(question);
   return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 font-body">
+    <div className="flex flex-col gap-2 border-b px-3 pt-2.5 pb-3 font-body">
       <div className="-mr-1.5 flex h-6 items-center gap-1.5 font-body-small text-muted-foreground">
         <CircleHelp className="size-3.5 shrink-0 text-warning" />
         <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
