@@ -86,6 +86,7 @@ describe("propose", () => {
               ],
             },
           },
+          "runs/r/recall.json": { models: ["opus"] },
         });
         yield* writeDeck("rate-r", {
           cards: [card("Branch twice"), card("Stray hairline")],

@@ -130,7 +130,13 @@ export const propose = Effect.fn("propose")(function* (options: {
   }[] = [];
   for (const id of yield* listDir(out)) {
     const file = path.join(out, id, "unmatched.json");
-    if (!(yield* fs.exists(file))) {
+    // The round's own files sit beside its sections.
+    if (
+      !(
+        (yield* fs.exists(path.join(data.sections, id, "section.json"))) &&
+        (yield* fs.exists(file))
+      )
+    ) {
       continue;
     }
     const problems = (yield* readJson(
