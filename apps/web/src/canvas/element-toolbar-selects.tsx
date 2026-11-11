@@ -329,7 +329,7 @@ export const PropSelect = ({
               const picture = previewOf(option);
               return (
                 <DropdownMenuRadioItem key={option} value={option}>
-                  <span className="flex h-8 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-white ring-1 ring-border">
+                  <span className="flex h-8 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-specimen ring-1 ring-border ring-inset">
                     {picture ? (
                       <img
                         alt=""
