@@ -566,7 +566,7 @@ export const ReviewGroup = ({
         description={
           // Custom opened, nothing changed yet: the settings are still the level's.
           shown === "custom" && level !== "custom"
-            ? `Choose who reviews each round, who approves, and the goal. Until you change one, reviews run as ${LEVEL_NAMES[level]}.`
+            ? `Choose the rounds, approval and goal. Until then, reviews run as ${LEVEL_NAMES[level]}.`
             : LEVEL_LINES[shown]
         }
         title="Level"

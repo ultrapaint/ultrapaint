@@ -38,8 +38,7 @@ export const LEVEL_LINES: Record<ReviewLevel | "custom", string> = {
   custom: "You choose who reviews each round, who approves, and the goal.",
   off: "Not recommended. Nothing checks the design before it’s done.",
   quick: "Your first review model looks, then checks the fixes.",
-  standard:
-    "One review model looks, in turn; then all of them check the fixes.",
+  standard: "One model looks, in turn; then all check the fixes.",
   thorough:
     "All your review models look, then all check the fixes. Slower, and the most thorough.",
 };

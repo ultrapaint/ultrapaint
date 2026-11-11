@@ -49,11 +49,10 @@ const skillsBriefings = [
 
 /** What a design thread is told, for each way of telling the skills. */
 const briefingDescriptions: Record<SkillsBriefing, string> = {
-  full: "The design skill’s core and every reference, whole: about 145,000 characters before the first prompt.",
+  full: "The core and every reference, about 145,000 characters up front.",
   router:
-    "The design skill’s core, every rule and the steps, about 22,000 characters; a reference is read when the core sends the agent to it.",
-  summaries:
-    "Each skill’s title and summary, a few hundred characters; a skill is read whole before its work.",
+    "The core’s rules and steps, about 22,000 characters; references as needed.",
+  summaries: "Each skill’s summary; a skill is read whole before its work.",
 };
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
@@ -103,7 +102,7 @@ export const McpConnectionGroup = () => {
   return (
     <Group title="Outside the editor">
       <Row
-        description="Gives an agent in a terminal this project’s pages, components and comments. Anyone with the token can use them."
+        description="Lets an agent in a terminal use this project. Anyone with the token can."
         layout="below"
         title="Connect over MCP"
       >

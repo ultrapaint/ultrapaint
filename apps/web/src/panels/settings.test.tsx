@@ -99,7 +99,7 @@ describe("the settings save as they change (ADR 0079)", () => {
     expect(buttons).not.toContain("Done");
     expect(container.querySelector("button[aria-label=Close]")).not.toBeNull();
     expect(container.textContent).toContain(
-      "Configuration fileultrapaint.config.json"
+      "Configuration fileWhere these settings are saved, in the repository: ultrapaint.config.json"
     );
   });
 

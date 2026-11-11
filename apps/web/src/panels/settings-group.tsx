@@ -136,7 +136,8 @@ const RowLine = ({
     <div
       className={cn(
         "flex min-w-0 flex-col gap-0.5",
-        layout === "end" && "flex-1",
+        // Every row's words share the field rows' column; a row with no control takes the width.
+        layout === "end" && (children ? "@xl:w-[36%] @xl:shrink-0" : "flex-1"),
         // The title's line sits on the field's: both 20px lines, the field's 4px in.
         layout === "field" && "@xl:w-[36%] @xl:shrink-0 @xl:pt-1"
       )}
@@ -153,7 +154,7 @@ const RowLine = ({
       <div
         className={cn(
           "flex min-w-0 flex-col gap-1.5",
-          layout === "end" && "@xl:shrink-0 @xl:items-end",
+          layout === "end" && "@xl:ml-auto @xl:shrink-0 @xl:items-end",
           layout === "field" && "flex-1"
         )}
       >

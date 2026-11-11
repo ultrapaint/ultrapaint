@@ -387,9 +387,14 @@ const ConfigFileGroup = ({
       <Row
         description={
           path ? (
-            <code className="break-all font-code">
-              {shortPath(path, repoPath)}
-            </code>
+            <>
+              {shortPath(path, repoPath) === path
+                ? "Where these settings are saved:"
+                : "Where these settings are saved, in the repository:"}{" "}
+              <code className="break-all font-code">
+                {shortPath(path, repoPath)}
+              </code>
+            </>
           ) : undefined
         }
         message={
@@ -878,7 +883,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Fills in the fields below and the stylesheets from what it finds in this folder, replacing what you typed."
+          description="Fills the fields below from this folder, over what you typed."
           message={problemLine(detectProblem) ?? messageAt("detect")}
           title="Detect from the repository"
         >
@@ -971,7 +976,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       </Group>
       <Group>
         <Row
-          description="Saved beside each design file, so pull requests show them as image diffs."
+          description="Saved beside each design, so pull requests show image diffs."
           htmlFor="settings-page-pngs"
           message={messageAt("pagePngs")}
           title="Write a PNG of every design"
@@ -1012,7 +1017,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     <Group>
       {saved ? <DesignSystemRows /> : null}
       <Row
-        description="The Tailwind v4 entry and its fonts, one per line, relative to the designs directory’s .ultrapaint folder. Sync reads tokens from them and writes them back."
+        description="The Tailwind v4 entry and its fonts, one per line, from .ultrapaint. Sync reads and writes their tokens."
         htmlFor="settings-css"
         layout="field"
         message={
