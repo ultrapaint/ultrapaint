@@ -11,6 +11,7 @@
  * `runs/<round>/verify.md`.
  */
 import path from "node:path";
+import { toldRules } from "@ultrapaint/contracts/review";
 import { Effect, FileSystem, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { Answers } from "./decide.ts";
@@ -26,7 +27,6 @@ import {
   Saved,
   Section,
   settleJudgements,
-  toldRules,
   Unmatched,
 } from "./recall.ts";
 import { percent } from "./recall-stats.ts";

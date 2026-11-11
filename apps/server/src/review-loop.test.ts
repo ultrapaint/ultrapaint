@@ -14,7 +14,10 @@ import { Effect, FileSystem } from "effect";
 import { TestClock } from "effect/testing";
 import { ProfileService } from "./services/profile.ts";
 import { STOPPED } from "./services/review/review-loop.ts";
-import { REVIEWER_ROLE } from "./services/review/review-prompts.ts";
+import {
+  REVIEWER_ROLE,
+  REVIEWER_RULES,
+} from "./services/review/review-prompts.ts";
 import { TIMED_OUT, UNREADABLE } from "./services/review/review-rounds.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
@@ -137,6 +140,9 @@ describe("a design's review", () => {
       assert.isFalse(reviewer.writable?.startsWith(repo));
       const said = turn.texts.join("\n");
       assert.include(said, REVIEWER_ROLE);
+      // Told the skill's rules, as the lab's told reviewers are (ADR 0077).
+      assert.include(said, REVIEWER_RULES);
+      assert.include(said, "<rules>");
       assert.include(said, REQUEST);
       assert.include(said, PAGE);
       assert.include(said, "no editor is open to draw it");

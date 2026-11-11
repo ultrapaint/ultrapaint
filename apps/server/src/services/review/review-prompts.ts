@@ -1,12 +1,17 @@
 /**
- * What the review loop says (ADR 0063): to a review model, its role, the person's request and the
- * pages as it is shown them; to the designer, a round's findings to fix or decline. The wording
+ * What the review loop says (ADR 0063): to a review model, its role, the skill's rules (ADR 0077),
+ * the person's request and the pages as it is shown them; to the designer, a round's findings to fix or decline. The wording
  * and the answer's shape are the lab's (`evals/prompts/review-section.md`,
  * `evals/src/section-review.ts`), so the editor and the lab review a design alike.
  */
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
-import { CATEGORIES } from "@ultrapaint/contracts/review";
+import {
+  CATEGORIES,
+  REVIEW_TABLE_FILE,
+  toldRules,
+} from "@ultrapaint/contracts/review";
 import type { RoundFinding } from "@ultrapaint/contracts/threads";
+import { coreText, skillFiles } from "../../skills/index.ts";
 
 /** A page as a review model is shown it. */
 export interface PageView {
@@ -45,6 +50,15 @@ Answer with one fenced \`\`\`json block, and nothing after it:
 - \`reached\`: the categories the page has besides hierarchy, restraint, layout, spacing, typography and color (icons → \`iconography\`, words → \`content\`, a loading or empty state → \`states\`, …): what it is scored on.
 - \`signOff\`: \`done\` true when, for what the person asked, the page is good enough as it stands: nothing a careful designer wouldn't ship is left (no blocker or major finding); minor findings and nits are worth fixing and don't hold it back. Then \`left\` is empty. Else \`done\` false and \`left\` saying in a sentence what has to change first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower one.`;
 
+/**
+ * The skill's rules, told to a review model after its role (ADR 0077): it opens no file, so what
+ * it knows of the skill is what it is told, as the lab's `told` reviewers are.
+ */
+export const REVIEWER_RULES = toldRules(
+  coreText,
+  skillFiles[REVIEW_TABLE_FILE]
+);
+
 /** A page's name as the review says it. */
 export const pageName = (page: {
   readonly file: string;
@@ -76,6 +90,7 @@ export const reviewerPrompt = (
   open?: readonly RoundFinding[]
 ): ContentBlock[] => [
   { text: REVIEWER_ROLE, type: "text" },
+  { text: REVIEWER_RULES, type: "text" },
   {
     text: `## What the person asked\n\n<request>\n${request.trim() || "(nothing said)"}\n</request>`,
     type: "text",

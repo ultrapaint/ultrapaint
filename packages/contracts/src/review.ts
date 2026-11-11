@@ -592,3 +592,41 @@ export const formatReviewModel = (model: ReviewModel): string =>
   parseReviewModel(model.model).agentId === model.agentId
     ? model.model
     : `${model.agentId}:${model.model}`;
+
+/** The review table a version of the skill may have: its rows as a reviewer sees a problem. */
+export const REVIEW_TABLE_FILE = "references/review.md";
+
+const RULES_HEADING = "## The rules";
+const NEXT_HEADING_RE = /\n## /;
+
+/**
+ * The skill's rules as a review model is told them (ADR 0077), when it opens no file: the core's
+ * rule lines (its `## The rules`, the whole core where it has no such part) and the review table
+ * when the skill has one. The lab tells its `told` reviewers the same words, which caught twice
+ * what the same models caught with none (ep-1).
+ */
+export const toldRules = (core: string, table: string | undefined) => {
+  const from = core.indexOf(RULES_HEADING);
+  const after = from < 0 ? "" : core.slice(from + RULES_HEADING.length);
+  const end = after.search(NEXT_HEADING_RE);
+  const rules = from < 0 ? core : after.slice(0, end < 0 ? undefined : end);
+  return [
+    "",
+    "The skill's rules, which hold on every screen:",
+    "",
+    "<rules>",
+    rules.trim(),
+    "</rules>",
+    ...(table === undefined
+      ? []
+      : [
+          "",
+          "What to look for, row by row: each row is something you can see or read, and its fix.",
+          "",
+          "<review>",
+          table.trim(),
+          "</review>",
+        ]),
+    "",
+  ].join("\n");
+};

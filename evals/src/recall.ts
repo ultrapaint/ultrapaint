@@ -36,6 +36,7 @@
  */
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { REVIEW_TABLE_FILE, toldRules } from "@ultrapaint/contracts/review";
 import {
   Cause,
   Clock,
@@ -630,41 +631,8 @@ export const writeOutlines = Effect.fn("writeOutlines")(function* (options: {
   }
 });
 
-const RULES_HEADING = "## The rules";
-const NEXT_HEADING_RE = /\n## /;
-/** The review table a version of the skill may have: its rows as a reviewer sees a problem. */
-export const REVIEW_TABLE = path.join("references", "review.md");
-
-/**
- * The rules as a prompt tells them to a reviewer that opens no file: the core's rule lines (its
- * `## The rules`, the whole core where it has no such part) and the review table when there is
- * one.
- */
-export const toldRules = (core: string, table: string | undefined) => {
-  const from = core.indexOf(RULES_HEADING);
-  const after = from < 0 ? "" : core.slice(from + RULES_HEADING.length);
-  const end = after.search(NEXT_HEADING_RE);
-  const rules = from < 0 ? core : after.slice(0, end < 0 ? undefined : end);
-  return [
-    "",
-    "The skill's rules, which hold on every screen:",
-    "",
-    "<rules>",
-    rules.trim(),
-    "</rules>",
-    ...(table === undefined
-      ? []
-      : [
-          "",
-          "What to look for, row by row: each row is something you can see or read, and its fix.",
-          "",
-          "<review>",
-          table.trim(),
-          "</review>",
-        ]),
-    "",
-  ].join("\n");
-};
+/** The review table a version of the skill may have, as a path in its tree. */
+export const REVIEW_TABLE = path.join(...REVIEW_TABLE_FILE.split("/"));
 
 const picturesOf = (section: Section) =>
   section.pictures.map((p) => `- \`${p.file}\`: ${p.shows}`).join("\n");

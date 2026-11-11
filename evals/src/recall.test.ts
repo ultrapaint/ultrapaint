@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import { toldRules } from "@ultrapaint/contracts/review";
 import { Effect, FileSystem, Layer } from "effect";
 import { EvalsConfig } from "./config.ts";
 import { writeText } from "./layout.ts";
@@ -11,7 +12,6 @@ import {
   recall,
   settleJudgements,
   spentLines,
-  toldRules,
   unmatchedOf,
   versionsOf,
 } from "./recall.ts";
