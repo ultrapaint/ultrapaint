@@ -796,7 +796,23 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     }
   };
 
-  // Targets at least 24px: a control's box, its label's when it has one around it.
+  /**
+   * The labels a click on which is a click on the control: one around it, and those whose `for`
+   * names it (`labels`, for the elements a label can name).
+   */
+  const clickableLabels = (el: Element): readonly Element[] => {
+    const found = new Set<Element>();
+    const around = el.closest("label");
+    if (around) {
+      found.add(around);
+    }
+    for (const label of (el as HTMLInputElement).labels ?? []) {
+      found.add(label);
+    }
+    return [...found].filter((label) => shown(label));
+  };
+  // Targets at least 24px: a control's box, or with its clickable labels at least the area of
+  // 24×24, since a label that is clicked acts as the control (the person's rating, 11 November).
   const targetSizes = () => {
     for (const el of all.filter((e) =>
       e.matches(
@@ -806,8 +822,21 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       if (disabled(el)) {
         continue;
       }
+      const labels = clickableLabels(el);
       const target = el.closest("label") ?? el;
       const b = target.getBoundingClientRect();
+      if (labels.length > 0) {
+        const boxes = [el, ...labels].map((e) => e.getBoundingClientRect());
+        const width =
+          Math.max(...boxes.map((x) => x.right)) -
+          Math.min(...boxes.map((x) => x.left));
+        const height =
+          Math.max(...boxes.map((x) => x.bottom)) -
+          Math.min(...boxes.map((x) => x.top));
+        if (width * height >= 24 * 24) {
+          continue;
+        }
+      }
       if (b.width < 24 || b.height < 24) {
         add(
           {
