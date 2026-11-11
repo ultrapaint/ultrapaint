@@ -1,6 +1,7 @@
 # ADR 0079: Settings save as they change
 
-Status: accepted, 2026-11-11. Amends 0063 (item 8: every section's footer is now Done).
+Status: accepted, 2026-11-11. Amends 0063 (item 8: every section's footer is now Done). Amended
+2026-11-11: the dialog has no footer and no Done; the close button is its one way out.
 
 ## Context
 
@@ -26,8 +27,10 @@ also found the display name's save answer written back into the field while it w
   reasons about a row go under that row, as a refused save's did.
 - Detect saves what it fills in, with Undo in its toast. On a first run the proposal fills only
   the fields not changed meanwhile and is saved with the first change.
-- The footer says where changes are written, and holds Save to file… for a session with no
-  configuration file, and Done.
+- The dialog has no footer and no Done (amended): the close button, or Escape, is its one way out,
+  and closing saves what waits; a save that fails once the dialog is closed says why in a toast.
+  Where changes are written is the Configuration file row at the end of Repository, with Rename
+  while the file has its earlier name and Save to file… in a session with no configuration file.
 
 ## Consequences
 

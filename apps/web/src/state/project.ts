@@ -14,6 +14,8 @@ interface ProjectStore {
   error: string | null;
   info: ProjectInfo;
   load: () => Promise<void>;
+  /** Why the project info couldn't be read before it ever was: what the settings say instead. */
+  loadError: string | null;
   /** The project info and settings have been read once. */
   loaded: boolean;
   openSaveConfig: (open: boolean) => void;
@@ -47,6 +49,7 @@ export const useProject = create<ProjectStore>((set, get) => ({
       reportError(error);
     }
   },
+  loadError: null,
   loaded: false,
   openSaveConfig: (saveConfigOpen) => set({ saveConfigOpen }),
   openSettings: (settingsOpen, section) => {
@@ -71,6 +74,7 @@ const projectData = follow({
   apply: (info) =>
     useProject.setState({
       info,
+      loadError: null,
       loaded: true,
       settings: info.settings ?? null,
     }),
@@ -91,7 +95,18 @@ const projectData = follow({
       }
     },
   },
-  read: () => api().request("project.info", undefined),
+  // A read that fails before any has landed leaves nothing to show: the settings say why.
+  read: () =>
+    api()
+      .request("project.info", undefined)
+      .catch((error: unknown) => {
+        if (!useProject.getState().loaded) {
+          useProject.setState({
+            loadError: error instanceof Error ? error.message : String(error),
+          });
+        }
+        throw error;
+      }),
 });
 
 const takePages = ({ canvases, pages }: PageList) =>

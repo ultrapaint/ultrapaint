@@ -455,7 +455,8 @@ const RightColumn = ({
 
 /**
  * The settings, a dialog over the editor with their sections down its side (as T3 Code has
- * them): the editor stays as it was under it. Escape, the close button or Cancel close it.
+ * them): the editor stays as it was under it. Escape or the close button close it; nothing
+ * else does, as the settings save as they change (ADR 0079).
  */
 const SettingsDialog = () => {
   const open = useProject((s) => s.settingsOpen);

@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -69,12 +70,24 @@ export const ProfileRow = () => {
       savedName.current = profile.displayName ?? "";
       setStatus({ kind: "ready" });
     } catch (error) {
+      const why = (error as Error).message;
       setStatus({
         kind: "failed",
-        message: `Couldn’t save your name (${(error as Error).message}). Leave the field to try again.`,
+        message: `Couldn’t save your name (${why}). Leave the field to try again.`,
       });
+      // Saved as the dialog closed: the row is gone, so a toast says it.
+      if (!useProject.getState().settingsOpen) {
+        toast.error(`Couldn’t save your name (${why}).`);
+      }
     }
   });
+  // Closing, by the close button or Escape, saves what was typed.
+  const open = useProject((s) => s.settingsOpen);
+  useEffect(() => {
+    if (!open) {
+      saver.flush();
+    }
+  }, [open, saver]);
   const leave = () => {
     const trimmed = name.trim();
     setName(trimmed);

@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/cn";
 
 /**
- * Rows on one quiet surface a step above the dialog's ground, split by hairlines: the fill is
- * its only edge. The group's name, when the rows do not say it themselves, is a title above it,
+ * Rows on one quiet surface on the dialog's page, edged and split by hairlines. The group's name, when the rows do not say it themselves, is a title above it,
  * and a note that holds for every row sits under the title, at a reading measure. Both start
  * where the rows' words do.
  */
@@ -35,22 +34,18 @@ export const Group = ({
         ) : null}
       </div>
     ) : null}
-    {/* A raised surface: its fields fill a step above it in dark (Input, Select). */}
-    <div className="divide-y rounded-lg bg-card" data-surface="raised">
-      {children}
-    </div>
+    <div className="divide-y rounded-lg border bg-card">{children}</div>
     {message}
   </section>
 );
 
 /**
- * A select in a row: its value and a chevron, filled only under the pointer, at the row's right
- * edge (OptionSelect's `className`).
+ * A select in a row: its value and a chevron, with no edge and filled only under the pointer, at
+ * the row's right edge (OptionSelect's `className`).
  */
 export const rowSelect = [
   "w-fit max-w-full *:data-[slot=select-value]:flex-none",
-  "bg-transparent hover:border-transparent hover:bg-accent",
-  "dark:in-data-[surface=raised]:bg-transparent dark:in-data-[surface=raised]:hover:bg-accent",
+  "border-transparent bg-transparent hover:border-transparent hover:bg-accent",
 ].join(" ");
 
 /** A field in an `end` row: as wide as the column the selects end on. */

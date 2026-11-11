@@ -21,7 +21,6 @@ import {
   type LucideIcon,
   SlidersHorizontal,
   SwatchBook,
-  TriangleAlert,
   Wand2,
   X,
 } from "lucide-react";
@@ -220,57 +219,109 @@ export const SettingsPage = () => {
   const loaded = useProject((s) => s.loaded);
   // Mounted with the page, so every open starts from the saved settings. A reload that lands
   // here waits for them, and for the repository the server proposes.
-  return loaded ? <SettingsForm saved={saved} /> : null;
+  return loaded ? <SettingsForm saved={saved} /> : <SettingsLoading />;
 };
 
-/** The configuration file as the footer names it: from the repository when it lies inside it. */
+/** A line of text not read yet: the foreground at 10%. */
+const Bone = ({ className }: { className: string }) => (
+  <div className={cn("rounded-sm bg-foreground/10", className)} />
+);
+
+/**
+ * The dialog before the settings are read: its sections, and the page's rows as skeletons, or,
+ * when the read failed, why, with Try again.
+ */
+const SettingsLoading = () => {
+  const wanted = useProject((s) => s.settingsSection);
+  const loadError = useProject((s) => s.loadError);
+  const section: SectionId =
+    sections.find((s) => s.id === wanted && shown(s.id))?.id ?? "repository";
+  const tryAgain = () => {
+    useProject.setState({ loadError: null });
+    useProject.getState().load();
+  };
+  return (
+    <SettingsFrame
+      onSelect={(id) => useProject.getState().openSettings(true, id)}
+      section={section}
+      showAll={false}
+    >
+      {loadError ? (
+        <RowMessage kind="error">
+          <p>Couldn’t load the settings ({loadError}).</p>
+          <Button onClick={tryAgain} size="sm" variant="outline">
+            Try again
+          </Button>
+        </RowMessage>
+      ) : (
+        <div aria-busy="true" aria-label="Loading the settings" role="status">
+          <Group>
+            {["path", "detect", "designs"].map((row) => (
+              <div
+                className="flex @xl:flex-row flex-col @xl:items-center @xl:gap-6 gap-3 px-4 py-3"
+                key={row}
+              >
+                <div className="flex flex-1 flex-col gap-1.5 py-0.5">
+                  <Bone className="h-3 w-28" />
+                  <Bone className="h-3 w-48" />
+                </div>
+                <Bone className="h-7 @xl:w-52 w-full rounded-md" />
+              </div>
+            ))}
+          </Group>
+        </div>
+      )}
+    </SettingsFrame>
+  );
+};
+
+/**
+ * The dialog around a section: its header, Settings / the section and the close button, the one
+ * way out; the sections down its side on the frame ({rail}); the page raised on {sidebar}, with
+ * no footer, as everything saves as it changes (ADR 0079).
+ */
+const SettingsFrame = ({
+  children,
+  onSelect,
+  section,
+  showAll,
+}: {
+  children: React.ReactNode;
+  onSelect: (id: SectionId) => void;
+  section: SectionId;
+  showAll: boolean;
+}) => (
+  <div className="flex h-full min-w-0 flex-1 flex-col bg-rail">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-4 px-5">
+      <h2 className="flex min-w-0 items-center gap-2 font-body">
+        <span className="text-muted-foreground">Settings</span>
+        <span aria-hidden className="text-muted-foreground">
+          /
+        </span>
+        <span className="truncate">{labelOf(section)}</span>
+      </h2>
+      <IconButton
+        onClick={() => useProject.getState().openSettings(false)}
+        tooltip="Close"
+      >
+        <X />
+      </IconButton>
+    </header>
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
+      <div className="@container min-h-0 min-w-0 flex-1 overflow-y-auto bg-sidebar md:rounded-tl-lg">
+        <div className="flex max-w-3xl flex-col gap-12 p-5">{children}</div>
+      </div>
+    </div>
+  </div>
+);
+
+/** The configuration file as its row names it: from the repository when it lies inside it. */
 const shortPath = (configPath: string, repoPath: string) => {
   const root = `${repoPath.replace(TRAILING_SLASH_RE, "")}/`;
   return repoPath && configPath.startsWith(root)
     ? configPath.slice(root.length)
     : configPath;
-};
-
-/**
- * Where a change is saved, in the words of the storage mode the server runs in: the file it is
- * written to (in mono, from the repository when it lies inside it, else in full), or why nothing
- * is written. It wraps rather than hide what it says.
- */
-const StorageLine = ({
-  detected,
-  repoPath,
-  storage,
-}: {
-  detected: boolean;
-  repoPath: string;
-  storage: StorageInfo;
-}) => {
-  const warning = storage.mode === "ephemeral" || detected;
-  let words: React.ReactNode;
-  if (detected) {
-    words = "Detected, not saved yet.";
-  } else if (storage.mode === "ephemeral") {
-    words = storage.session
-      ? "No configuration file: kept until the command stops."
-      : "No configuration file: these settings are not kept.";
-  } else if (storage.configPath) {
-    words = (
-      <>
-        Saves to{" "}
-        <code className="break-all font-code">
-          {shortPath(storage.configPath, repoPath)}
-        </code>
-      </>
-    );
-  }
-  return (
-    <p className="flex min-w-0 items-start gap-1.5 font-body-small text-muted-foreground">
-      {warning ? (
-        <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
-      ) : null}
-      <span className="min-w-0">{words}</span>
-    </p>
-  );
 };
 
 /** Moves a configuration file still under its earlier name to the current one. */
@@ -279,6 +330,71 @@ const renameConfig = () =>
     .request("settings.renameConfig", undefined)
     .then((path) => toast.success(`Renamed to ${path}`))
     .catch(reportError);
+
+/**
+ * Where a change is written, in the words of the storage mode the server runs in: the file (in
+ * mono, from the repository when it lies inside it, else in full), Rename while it has its
+ * earlier name; or, as a notice, why nothing is written yet, with Save to file… in a session
+ * with no configuration file.
+ */
+const ConfigFileGroup = ({
+  detected,
+  onSaveToFile,
+  repoPath,
+  storage,
+}: {
+  detected: boolean;
+  onSaveToFile: () => void;
+  repoPath: string;
+  storage: StorageInfo;
+}) => {
+  const unsaved = storage.mode === "ephemeral";
+  let notice: string | null = null;
+  if (detected) {
+    notice = "Detected, not saved yet.";
+  } else if (unsaved) {
+    notice = storage.session
+      ? "No configuration file: kept until the command stops."
+      : "No configuration file: these settings are not kept.";
+  }
+  const path = notice ? undefined : storage.configPath;
+  if (!(notice || path)) {
+    return null;
+  }
+  let action: React.ReactNode = null;
+  if (unsaved) {
+    action = (
+      <Button onClick={onSaveToFile} variant="outline">
+        Save to file…
+      </Button>
+    );
+  } else if (path?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`)) {
+    action = (
+      <Button onClick={renameConfig} variant="outline">
+        Rename to {CONFIG_FILE_NAME}
+      </Button>
+    );
+  }
+  return (
+    <Group>
+      <Row
+        description={
+          path ? (
+            <code className="break-all font-code">
+              {shortPath(path, repoPath)}
+            </code>
+          ) : undefined
+        }
+        message={
+          notice ? <RowMessage kind="notice">{notice}</RowMessage> : null
+        }
+        title="Configuration file"
+      >
+        {action}
+      </Row>
+    </Group>
+  );
+};
 
 /** The Repository rows a refused save can name. */
 type ProblemRow = "application" | "components" | "designs" | "path";
@@ -425,7 +541,7 @@ const Sidebar = ({
     }
   };
   return (
-    <aside className="shrink-0 border-b md:w-52 md:border-r md:border-b-0">
+    <aside className="shrink-0 md:w-52">
       <nav
         aria-label="Settings sections"
         className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-5"
@@ -440,7 +556,7 @@ const Sidebar = ({
               className={cn(
                 "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-rail",
                 active
-                  ? "bg-card text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
+                  ? "bg-sidebar text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               )}
               data-section={id}
@@ -527,7 +643,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     "repository";
   const setSection = (id: SectionId) =>
     useProject.getState().openSettings(true, id);
-  const unsaved = storage.mode === "ephemeral";
   // A configuration file in the repository says where the repository is by where it lies.
   const repoFromFile = storage.mode === "file";
   /** Why the last change wasn't saved, and where it was made. */
@@ -543,18 +658,31 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         return;
       }
       sent.current = settings;
+      let refused: readonly string[];
       try {
-        const refused = await save(settings);
-        setRefusal(refused.length > 0 ? { at, problems: refused } : null);
-        if (refused.length > 0) {
-          sent.current = null;
-        }
+        refused = await save(settings);
       } catch (error) {
+        refused = [(error as Error).message];
+      }
+      setRefusal(refused.length > 0 ? { at, problems: refused } : null);
+      if (refused.length > 0) {
         sent.current = null;
-        setRefusal({ at, problems: [(error as Error).message] });
+        // Saved as the dialog closed: no row is left to say why, so a toast does.
+        if (!useProject.getState().settingsOpen) {
+          toast.error("Couldn’t save the settings", {
+            description: refused.join("\n"),
+          });
+        }
       }
     }
   );
+  // Closing, by the close button or Escape, saves what still waits.
+  const open = useProject((s) => s.settingsOpen);
+  useEffect(() => {
+    if (!open) {
+      saver.flush();
+    }
+  }, [open, saver]);
   /** A change made in the row `at`: saved `now` (a switch, a choice) or when its field is left. */
   const change = (
     patch: Partial<Settings>,
@@ -647,7 +775,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setCreating(false);
   };
 
-  const close = () => useProject.getState().openSettings(false);
   // A shell with a native folder picker offers it beside the typed path (Platform).
   const { pickFolder } = platform();
   const [pickProblem, setPickProblem] = useState<string | null>(null);
@@ -668,7 +795,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   };
   const saveToFile = () => {
     saver.flush();
-    close();
+    useProject.getState().openSettings(false);
     useProject.getState().openSaveConfig(true);
   };
 
@@ -865,6 +992,12 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
       </Group>
+      <ConfigFileGroup
+        detected={detected}
+        onSaveToFile={saveToFile}
+        repoPath={draft.repoPath}
+        storage={storage}
+      />
     </>
   );
 
@@ -922,81 +1055,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     repository,
   }[section];
 
-  // The footer's hairline is drawn only while the page runs on under it.
-  const scroller = useRef<HTMLDivElement>(null);
-  const end = useRef<HTMLDivElement>(null);
-  const [runsOn, setRunsOn] = useState(false);
-  useEffect(() => {
-    if (!(end.current && typeof IntersectionObserver !== "undefined")) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => setRunsOn(entry ? !entry.isIntersecting : false),
-      { root: scroller.current }
-    );
-    observer.observe(end.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // The left card's two levels: the sections and the page on its frame ({rail}), each group
-  // raised on {card}. The header names where the page is, Settings / its section.
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-rail">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
-        <h2 className="flex min-w-0 items-center gap-2 font-body">
-          <span className="text-muted-foreground">Settings</span>
-          <span aria-hidden className="text-muted-foreground">
-            /
-          </span>
-          <span className="truncate">{labelOf(section)}</span>
-        </h2>
-        <IconButton onClick={close} tooltip="Close">
-          <X />
-        </IconButton>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <Sidebar
-          onSelect={setSection}
-          section={section}
-          showAll={saved !== null}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div
-            className="@container min-h-0 flex-1 overflow-y-auto"
-            ref={scroller}
-          >
-            <div className="flex max-w-3xl flex-col gap-12 p-5">{body}</div>
-            <div aria-hidden ref={end} />
-          </div>
-          <footer
-            className={cn(
-              "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5",
-              runsOn && "border-t"
-            )}
-          >
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-              <StorageLine
-                detected={detected}
-                repoPath={draft.repoPath}
-                storage={storage}
-              />
-              {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
-                <Button onClick={renameConfig} size="sm" variant="ghost">
-                  Rename to {CONFIG_FILE_NAME}
-                </Button>
-              ) : null}
-            </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              {unsaved ? (
-                <Button onClick={saveToFile} variant="outline">
-                  Save to file…
-                </Button>
-              ) : null}
-              <Button onClick={close}>Done</Button>
-            </div>
-          </footer>
-        </div>
-      </div>
-    </div>
+    <SettingsFrame
+      onSelect={setSection}
+      section={section}
+      showAll={saved !== null}
+    >
+      {body}
+    </SettingsFrame>
   );
 };
