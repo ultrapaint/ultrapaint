@@ -30,6 +30,7 @@ describe("tells", () => {
         yield* writeData({
           "runs/r/home/run-1/pages/App.tsx": "export const App = () => null;\n",
           "runs/r/home/run-1/shots/desktop-01.jpg": "jpg",
+          "runs/r/proposals/01-a-proposal.md": "A proposal.\n",
           "runs/r/round.json": { name: "r" },
         });
         const options = {

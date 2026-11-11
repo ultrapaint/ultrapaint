@@ -84,7 +84,11 @@ const runsOf = Effect.fnUntraced(function* (out: string) {
       continue;
     }
     for (const run of yield* listDir(at)) {
-      if (yield* fs.exists(path.join(at, run, "shots"))) {
+      // A round keeps files of its own beside its runs (`proposals/*.md`).
+      if (
+        (yield* fs.stat(path.join(at, run))).type === "Directory" &&
+        (yield* fs.exists(path.join(at, run, "shots")))
+      ) {
         runs.push(path.join(reference, run));
       }
     }
