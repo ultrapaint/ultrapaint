@@ -448,6 +448,28 @@ const LayersLoading = () => (
 );
 
 /**
+ * The canvas's documents not read yet: their rows loading, or, when the read failed, that they
+ * didn't load and the way to read them again.
+ */
+const LayersUnloaded = ({ canvas }: { canvas: string }) =>
+  useDocuments((s) => s.failed) ? (
+    <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-2">
+      <p className="font-body-small text-muted-foreground">
+        The layers didn’t load.
+      </p>
+      <Button
+        onClick={() => useDocuments.getState().load(canvas)}
+        size="sm"
+        variant="secondary"
+      >
+        Try again
+      </Button>
+    </div>
+  ) : (
+    <LayersLoading />
+  );
+
+/**
  * A line of the list: a row, or the heading over the nodes placed on the canvas, or over the app
  * component edited in place.
  */
@@ -680,7 +702,7 @@ export const Layers = () => {
           onQuery={onQuery}
           query=""
         />
-        <LayersLoading />
+        <LayersUnloaded canvas={canvas} />
       </div>
     );
   }

@@ -34,6 +34,8 @@ interface DocumentsStore {
   docs: Record<string, DocumentState>;
   /** The frame whose edits go to an app component's tree, while one does (`editFrameAs`). */
   edited: EditedAs | null;
+  /** The canvas's documents couldn't be read: the Layers panel says so, with Try again. */
+  failed: boolean;
   /** Opens a canvas's documents: every one of them, read. */
   load: (canvas: string) => Promise<void>;
   loaded: boolean;
@@ -49,9 +51,16 @@ export const useDocuments = create<DocumentsStore>((set) => ({
   canvas: null,
   docs: {},
   edited: null,
+  failed: false,
   load: async (canvas) => {
-    set({ canvas, docs: {}, loaded: false });
-    await documentsData.read().catch(reportError);
+    set({ canvas, docs: {}, failed: false, loaded: false });
+    await documentsData.read().catch((error: unknown) => {
+      // Only the canvas still open: one left meanwhile is not the panel's to say.
+      if (useDocuments.getState().canvas === canvas) {
+        set({ failed: true });
+      }
+      reportError(error);
+    });
   },
   loaded: false,
   put: (state) =>
@@ -145,6 +154,7 @@ const documentsData = follow({
   apply: (states: readonly DocumentState[]) =>
     useDocuments.setState(({ docs }) => ({
       docs: Object.fromEntries(states.map((s) => [s.doc, sharedWith(docs, s)])),
+      failed: false,
       loaded: true,
     })),
   key: () => useDocuments.getState().canvas,
