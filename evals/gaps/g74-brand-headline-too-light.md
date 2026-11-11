@@ -18,3 +18,5 @@ sections: []
 **Test.** The held-out pages' headlines, judged; the person's look at the in-sample AlignUI runs.
 
 **Result.**
+
+- `held-ship`, `held-pp`: 2026-11-11, six `held-*` pages from facts briefs, 2 runs each, Opus designs and judges. The per-run judge raised a display weight lighter than the brand: shipped 2 ("Thin literary serif where the brand asks for bold type", held-bloom), candidate 3 ("Display weight not read from the brand", held-videoask ×2, held-workos-atlas). Still no rule: the person's reading of the in-sample AlignUI headlines comes first.

@@ -2,7 +2,7 @@
 id: g71
 title: A field's border darkened to pass 3:1
 kind: missing
-status: open
+status: testing
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [SKILL.md, references/system/foundations.md, references/accessibility.md]
@@ -18,3 +18,5 @@ sections: []
 **Test.** In-sample: `out-land` against `candidates/public-pages` on the three references, 3 runs each; the per-run judge's gap should be gone, and the pairwise level no worse. The person looks at the fields of the in-sample AlignUI runs.
 
 **Result.**
+
+- `pp-in`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). alignui-waitlist: shipped 3/3 ("3:1 field-border rule darkens resting outlines"), candidate 1/3. No held-out page has a resting field. The person's look at these fields is still to do: on 11 November they asked that it be checked against how semantic tokens and palettes are handled (`decisions/skill-plan-nov11`, field-border).

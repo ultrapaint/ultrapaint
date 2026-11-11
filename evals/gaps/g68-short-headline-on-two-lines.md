@@ -2,7 +2,7 @@
 id: g68
 title: A short headline broken onto two lines at a fixed size
 kind: missing
-status: open
+status: testing
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [references/pages/landing.md, references/typography.md]
@@ -18,3 +18,5 @@ sections: []
 **Test.** In-sample: `out-land` against `candidates/public-pages` on the three references, 3 runs each; the per-run judge's gap should be gone, and the pairwise level no worse. Held-out: the six `held-*` pages' heroes.
 
 **Result.**
+
+- `pp-in`, `held-pp`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). Tracking: shipped 2/3 on hcare-landing ("tracked tighter than the range"), candidate 0/9; held-out, shipped 6 of 12 ("Tight tracking stacked on tight, condensed or serif faces"), candidate 0 of 12. Line breaks: shipped 2 of 9 ("undersized and wrapped by a narrow column"), candidate 3 of 9 ("Line breaks left to balance or a width cap"); held-out, 2 of 12 each. Pairwise hcare-landing hierarchy: candidate 2, tie 1. Reading: the tracking bound works on both sets; the one-line rule doesn't stop width-cap breaks. Split them.
