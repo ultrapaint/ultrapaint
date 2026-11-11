@@ -129,23 +129,7 @@ bottom toolbar, Linear's restraint.
 Dials: warm temperature, compact density, soft shape (6px controls, 12px cards), restrained accent,
 geometric type voice, no imagery, terse tone.
 
-The editor has two themes on one set of roles, light (warm paper) and dark (warm graphite), and
-follows the system's unless the person picks one in Settings › Preferences.
-
-## Navigation
-
-- **Left card**: the project (mark, name over branch), search (⌘K) and the panel's toggle; the
-  canvas shown, a filled select of its own with 8px under it; then an icon rail beside the panel.
-  Rail: Agents, Layers (Foundations in the design system), Components, Comments (on the canvas);
-  at its foot Changes, Settings and who the user is. A rail icon is named by its
-  tooltip and by the panel's own title. Put away, the card is the project's row alone.
-- **Place switch**, top centre: Canvas · Design system · Prototype, the three places of the editor.
-- **Tools**, bottom centre of the window, one row: Insert, the tools, undo and redo, the zoom.
-- **Element toolbar**, over the tools while something is selected: its design-system selects and
-  its menu, in one place at every zoom. On the canvas the selection keeps only its tag, its name
-  and the agent's ✦, never wider than the element.
-- **Right card**: Design · Code as a segmented control, and the panel's toggle; drawn only while
-  something is selected (a layer, a page, several frames, or a board's pick), gone otherwise.
+The editor has two themes on one set of roles, light (warm paper) and dark (warm graphite).
 
 ## Colors
 
@@ -169,11 +153,9 @@ follows the system's unless the person picks one in Settings › Preferences.
 
 ## Typography
 
-Atlassian's semantic type tokens: seven headings and three bodies, each a `font-<token>` utility
-carrying the face, size, line height, weight and tracking, and the only way the editor sets type:
-Tailwind's sizes, weights, line heights, letter spacing and faces are cleared from its theme.
-Headings are Cal Sans (`@fontsource/cal-sans`), bodies Figtree (`@fontsource-variable/figtree`),
-values, tokens, routes in code and code Geist Mono. Cal Sans has one weight, its 400, never made
+Atlassian's semantic type tokens: seven headings and three bodies, each carrying the face, size,
+line height, weight and tracking, and the only way the editor sets type. Headings are Cal Sans,
+bodies Figtree, values, tokens, routes in code and code Geist Mono. Cal Sans has one weight, its 400, never made
 bold, and is spaced for display sizes, so the headings to 20px open it.
 
 - `font-heading-xxlarge` 32/36, `-xlarge` 28/32, `-large` 24/28, `-medium` 20/24: for a page
@@ -191,13 +173,11 @@ bold, and is spaced for display sizes, so the headings to 20px open it.
 - `font-code` 12/20 mono: a value on its row, or a block of lines.
 
 Emphasis is a token of its own, a body at Atlassian's `font.weight.medium` or `semibold`, never a
-weight added to a token. Class lists are merged with the editor's `cn`
-(`apps/web/src/lib/cn.ts`), where a later token replaces an earlier one.
+weight added to a token.
 
 A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
 label in `font-body-small` muted and their value in the foreground. A group's name over a list of
-names (Components' App components, Design system's Foundations) is `font-body-small` muted, quieter
-than the names it groups.
+names is `font-body-small` muted, quieter than the names it groups.
 
 ## Layout
 
@@ -214,16 +194,12 @@ The canvas is the ground. The left card, the right card, the place switch and th
 it: {colors.sidebar}, a hairline border, `shadow-floating`. The left card has two levels: its frame
 (the project, the canvas picker, the rail) on {colors.rail}, a step down, and the panel raised
 inside it on {colors.sidebar}, flush with the card's edges, a hairline and a 10px corner only where
-it meets the frame. The
-rail's current place is raised the same way, so it reads as the panel it opens. Menus, popovers and tooltips sit above
-with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a 30% (light) or 60%
-(dark) black backdrop, no blur. Inside a card, depth is a filled field or a hairline, never a shadow.
-The settings dialog has the left card's frame: its sections on {colors.rail} down its whole side,
-its page raised on {colors.sidebar} beside them, flush with the dialog's edges, so square and
-parted from them by a hairline (a corner only where a frame wraps a panel on two sides, as the
-left card's does); the page's header (Settings / the section, the close) over a hairline, each
-group drawn by its hairline alone on the page's tone. A field and a track ({colors.muted}) sit a
-full step over it.
+it meets the frame. A dialog with a list of its own sections takes the same two levels. The current
+item of such a list is raised the same way, so it reads as the panel it opens. Menus, popovers and
+tooltips sit above with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a
+30% (light) or 60% (dark) black backdrop, no blur. Inside a card, depth is a filled field or a
+hairline, never a shadow; a group of rows on a panel is drawn by its hairline alone, and a field
+or a track ({colors.muted}) sits a full step over the panel.
 
 ## Shapes
 
@@ -246,10 +222,8 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   fields; Dialog for a task that needs the whole attention; Toast for a result elsewhere or an undo.
 - Tooltips: a short name and the keys. One that has more to say than a name (why a control is
   off, where a value comes from, what a status means) says it in a sentence or two, the
-  name first when there is one. No arrows. Undo and Redo with nothing to take back say why in
-  theirs when the history was dropped ("Nothing to undo: … changed outside the editor").
+  name first when there is one. No arrows.
 - An empty panel's state is centred in it, a muted icon above its text and buttons.
-- A hint about the selection ("Inserts into …") sits at the panel's foot.
 - A row's actions are all in its ⋯ menu.
 - What can be undone runs at once with Undo in its toast; no confirm. A busy button shows a
   spinner and its verb ("Committing…").
@@ -258,22 +232,15 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   checkbox's focus is a 2px ring 2px off it.
 - A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
   its 10% tint; context muted.
-- A select in a settings row is the default select, filled and edged as a field, never a quiet
-  value and chevron; it and a field there are 13rem wide, on the row's right edge.
+- A select in a form row is the default select, filled and edged as a field, never a quiet value
+  and chevron; it and a field there are 13rem wide, on the row's right edge.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
-- An error tied to a row sits under it in full, across the row, on a 10% red box; a file's schema
-  error names the place in the file in mono, never the validator's text. A notice takes the same
-  place, muted, with a warning icon. A status that blocks the action (a conflict) is in the
-  foreground with a warning dot.
+- An error tied to a row sits under it in full, across the row, on a 10% red box. A notice takes
+  the same place, muted, with a warning icon. A status that blocks the action (a conflict) is in
+  the foreground with a warning dot.
 - Skeleton rows are the foreground at 10%; a retry is named Try again.
 - A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
   28rem wide.
-- Settings save as they change, with no Save (ADR 0079): a switch or a select at once, a name
-  after a pause, a path when its field is left; nothing says saved, a failure says why under its
-  row. The settings dialog's header is a breadcrumb, Settings muted / the section, and the close
-  button, its only way out; it has no footer. Where changes are written is the Configuration file
-  row of Repository. It opens with focus on the dialog; the section shown is raised like the
-  rail's current place.
 
 ## Motion
 
