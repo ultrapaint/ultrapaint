@@ -61,7 +61,7 @@ import { CutText } from "../components/cut-text.tsx";
 import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { ImageThumb } from "../components/image-thumb.tsx";
-import { useBoardChip } from "../lib/add-to-chat.ts";
+import { useImplicitChip } from "../lib/add-to-chat.ts";
 import { pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import type { ImageChip } from "../lib/file-chips.ts";
@@ -74,15 +74,13 @@ import {
   chipKey,
   chipOfAttachment,
   clearChips,
-  isPlace,
-  nodeChip,
+  dismissChip,
   pageChip,
   removeChip,
   useChips,
 } from "../state/attachments.ts";
 import { api } from "../state/connection.ts";
 import { showSetup } from "../state/design-system-setup.ts";
-import { nodeIn, useDocuments } from "../state/documents.ts";
 import { setDraft, useDraft } from "../state/drafts.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { useRequest } from "../state/panels.ts";
@@ -199,8 +197,6 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     el.setSelectionRange(el.value.length, el.value.length);
   }, [placed]);
   const chips = useChips(thread.id);
-  /** Implicit context the user took out of this prompt, by chip key. */
-  const [dismissed, setDismissed] = useState<readonly string[]>([]);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
   /** Why the last send didn't go, said under the composer until the next one. */
@@ -209,32 +205,13 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const activePage = useEditor((s) => s.activePage);
   const pages = useProject((s) => s.pages);
   const page = pages.find((p) => p.id === (selection?.frame ?? activePage));
-  const selectedNode = useDocuments((s) =>
-    selection
-      ? nodeIn(
-          s.docs,
-          useEditor.getState().canvas,
-          selection.frame,
-          selection.nodeId
-        )
-      : null
-  );
   // Nothing attached but images: the selection goes along, shown dashed, or on a board what is
   // picked there. The page only when attached.
-  const boardChip = useBoardChip();
-  const selectedChip =
-    (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
-    boardChip;
+  const { implicit, selected: selectedChip } = useImplicitChip(thread.id);
   // Pictures show as themselves, over the chips of the places the prompt is about and its files.
   const images = chips.filter(isImage);
-  const places = chips.filter(isPlace);
   const tags = chips.filter((chip) => !isImage(chip));
-  const implicit =
-    places.length > 0 ||
-    selectedChip === null ||
-    dismissed.includes(chipKey(selectedChip))
-      ? []
-      : [selectedChip];
+  const sentWith = implicit ? [...chips, implicit] : chips;
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
@@ -266,7 +243,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     const sentChips = chips;
     try {
       const attachments = await collectAttachments(
-        [...chips, ...implicit],
+        sentWith,
         attachShot && page ? { frameId: shotFrame, name: page.name } : null
       );
       await api().request("threads.prompt", {
@@ -277,7 +254,6 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       // What was typed while it went is the next prompt, and stays.
       setText((current) => (current === sent ? "" : current));
       clearChips(thread.id, sentChips);
-      setDismissed([]);
     } catch (error) {
       // A folder that is no longer one is the editor's to say; any other failure is this
       // prompt's, said under it with the draft kept to try again.
@@ -346,7 +322,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             ))}
           </div>
         ) : null}
-        {tags.length > 0 || implicit.length > 0 || showShot ? (
+        {tags.length > 0 || implicit || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
             {tags.map((chip) => (
               <AttachmentChip
@@ -355,14 +331,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                 onRemove={() => removeChip(thread.id, chipKey(chip))}
               />
             ))}
-            {implicit.map((chip) => (
+            {implicit ? (
               <AttachmentChip
-                chip={chip}
+                chip={implicit}
                 implicit
-                key={chipKey(chip)}
-                onRemove={() => setDismissed((d) => [...d, chipKey(chip)])}
+                key={chipKey(implicit)}
+                onRemove={() => dismissChip(thread.id, chipKey(implicit))}
               />
-            ))}
+            ) : null}
             {showShot && page ? (
               <ChipTag
                 icon={<Camera />}

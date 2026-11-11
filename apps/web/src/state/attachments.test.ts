@@ -11,6 +11,8 @@ import {
   chipOfAttachment,
   chipOfComment,
   clearChips,
+  dismissChip,
+  dropChips,
   fileOfFrame,
   useAttachments,
 } from "./attachments.ts";
@@ -39,7 +41,7 @@ const node = (pageId: string, nodeId: string, component = false): Chip => ({
 });
 
 beforeEach(() => {
-  useAttachments.setState({ byThread: {} });
+  useAttachments.setState({ byThread: {}, dismissed: {} });
 });
 
 describe("clearChips", () => {
@@ -55,6 +57,17 @@ describe("clearChips", () => {
     addChip("t1", page("home"));
     clearChips("t1", [page("home")]);
     expect(useAttachments.getState().byThread).toEqual({});
+  });
+
+  it("lets what was taken out of the prompt go along with the next one", () => {
+    dismissChip("t1", chipKey(node("home", "cta")));
+    dismissChip("t2", chipKey(node("home", "cta")));
+    clearChips("t1", []);
+    expect(useAttachments.getState().dismissed).toEqual({
+      t2: [chipKey(node("home", "cta"))],
+    });
+    dropChips("t2");
+    expect(useAttachments.getState().dismissed).toEqual({});
   });
 });
 

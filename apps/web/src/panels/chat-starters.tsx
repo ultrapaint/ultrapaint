@@ -2,7 +2,7 @@
  * A new thread before its first prompt: a few ways to start that can act now, just above the
  * composer they fill, offered while nothing is typed there. Each one only writes the prompt into
  * the composer; nothing is sent until the user sends it. With something attached (or selected,
- * which goes along), they work on it, in words for what it is and how many: elements, pages, a
+ * which goes along unless taken out of the composer), they work on it, in words for what it is and how many: elements, pages, a
  * board's tokens, components or guidelines. With nothing, on a new page or the page shown. A
  * folder whose settings were detected and not saved is offered its setup first (`/setup`), which
  * nothing starts on its own (ADR 0073).
@@ -11,7 +11,7 @@ import { commandOf } from "@ultrapaint/contracts/tasks";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { Button } from "@/components/ui/button";
 import { CutText } from "../components/cut-text.tsx";
-import { useBoardChip } from "../lib/add-to-chat.ts";
+import { useImplicitChip } from "../lib/add-to-chat.ts";
 import { type Chip, isPlace, useChips } from "../state/attachments.ts";
 import { useDraft } from "../state/drafts.ts";
 import { useEditor } from "../state/editor.ts";
@@ -142,20 +142,17 @@ const attachedStarters = (
 };
 
 const useStarters = (threadId: string): readonly Starter[] => {
-  const selection = useEditor((s) => s.selection);
-  const boardChip = useBoardChip();
+  const { implicit } = useImplicitChip(threadId);
   const places = useChips(threadId).filter(isPlace);
   const activePage = useEditor((s) => s.activePage);
   const pages = useProject((s) => s.pages);
   const page = pages.find((p) => p.id === activePage);
   const info = useProject((s) => s.info);
-  // What is attached, or else what goes along with the prompt: the selection, a board's pick.
-  let subjects: Subject[] = places.map(subjectOf);
-  if (subjects.length === 0 && selection) {
-    subjects = ["element"];
-  } else if (subjects.length === 0 && boardChip) {
-    subjects = [subjectOf(boardChip)];
-  }
+  // What is attached, or else what goes along with the prompt, as the composer shows it: the
+  // selection or a board's pick, unless taken out of it.
+  const about: readonly Chip[] =
+    places.length > 0 || implicit === null ? places : [implicit];
+  const subjects = about.map(subjectOf);
   if (subjects.length > 0) {
     const [only] = places;
     const attachedPage =

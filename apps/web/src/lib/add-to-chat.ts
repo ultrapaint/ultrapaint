@@ -10,14 +10,20 @@ import {
   addChip,
   type Chip,
   canvasOfFile,
+  chipKey,
   chipOfSelection,
+  isPlace,
+  nodeChip,
   nodeKey,
   removeChip,
+  useChips,
+  useDismissed,
 } from "../state/attachments.ts";
 import { pickOf, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import type { Selection } from "../state/editor.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -93,6 +99,36 @@ export const useBoardChip = (): BoardAttachment | null => {
         : null,
     [open, pick, ds, document, catalogue, components, designsDir, editedOn]
   );
+};
+
+/**
+ * What goes along with a thread's next prompt without being attached, shown dashed in its
+ * composer: with no place attached, the element selected, or else what is picked on a board,
+ * unless the user took it out. `selected` is that element or pick, taken out or not.
+ */
+export const useImplicitChip = (threadId: string) => {
+  const selection = useEditor((s) => s.selection);
+  const selectedNode = useDocuments((s) =>
+    selection
+      ? nodeIn(
+          s.docs,
+          useEditor.getState().canvas,
+          selection.frame,
+          selection.nodeId
+        )
+      : null
+  );
+  const boardChip = useBoardChip();
+  const placed = useChips(threadId).some(isPlace);
+  const dismissed = useDismissed(threadId);
+  const selected =
+    (selection && selectedNode ? nodeChip(selection, selectedNode) : null) ??
+    boardChip;
+  const implicit =
+    placed || selected === null || dismissed.includes(chipKey(selected))
+      ? null
+      : selected;
+  return { implicit, selected };
 };
 
 /** Takes elements back out of the open thread's composer. */

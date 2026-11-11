@@ -1,13 +1,22 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addChip, pageChip, useAttachments } from "../state/attachments.ts";
+import {
+  addChip,
+  dismissChip,
+  nodeKey,
+  pageChip,
+  useAttachments,
+} from "../state/attachments.ts";
+import { useDocuments } from "../state/documents.ts";
 import { setDraft, useDrafts } from "../state/drafts.ts";
+import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -62,8 +71,10 @@ afterEach(() => {
   container.remove();
   fakeApi.reset();
   vi.mocked(showLeftPanel).mockReset();
-  useAttachments.setState({ byThread: {} });
+  useAttachments.setState({ byThread: {}, dismissed: {} });
+  useDocuments.setState({ docs: {} });
   useDrafts.setState({ byThread: {} });
+  useEditor.setState({ selection: null });
   useProject.setState({ pages: [] });
 });
 
@@ -149,6 +160,30 @@ describe("a new chat's starters on what is attached", () => {
       "Match them to the design system",
       "Implement them as components",
     ]);
+  });
+});
+
+describe("a new chat's starters on what is selected", () => {
+  it("follow the selection while the composer takes it along, and leave it once taken out", () => {
+    const home = page("home", "/");
+    const root = {
+      children: [{ id: "cta", text: "Buy", type: "text" }],
+      id: "root",
+      type: "page",
+    } as unknown as DesignNode;
+    useProject.setState({ pages: [home] });
+    useDocuments.setState({ docs: { home: { doc: "home", hash: "h", root } } });
+    useEditor.setState({
+      activePage: null,
+      selection: { frame: "home", nodeId: "cta" },
+    });
+    opened("saved");
+    expect(starters()).toContain("Implement it as a component");
+
+    // The composer's chip of it removed: the prompt no longer speaks of it.
+    act(() => dismissChip(thread.id, nodeKey("home", "cta")));
+    expect(starters()).toContain("Design a new page for…");
+    expect(starters()).not.toContain("Implement it as a component");
   });
 });
 

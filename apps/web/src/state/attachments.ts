@@ -81,16 +81,44 @@ export const chipKey = (chip: Chip): string => {
 
 interface AttachmentsStore {
   byThread: Record<string, readonly Chip[]>;
+  /**
+   * The keys of what would go along unattached (the selection, a board's pick) that the user
+   * took out of each thread's next prompt (`useImplicitChip`).
+   */
+  dismissed: Record<string, readonly string[]>;
 }
 
 export const useAttachments = create<AttachmentsStore>(() => ({
   byThread: {},
+  dismissed: {},
 }));
 
 const NONE: readonly Chip[] = [];
+const NO_KEYS: readonly string[] = [];
 
 export const useChips = (threadId: string | null) =>
   useAttachments((s) => (threadId ? s.byThread[threadId] : undefined) ?? NONE);
+
+/** What the user took out of a thread's next prompt that would have gone along unattached. */
+export const useDismissed = (threadId: string) =>
+  useAttachments((s) => s.dismissed[threadId] ?? NO_KEYS);
+
+/** Takes what would go along unattached out of a thread's next prompt, by its chip's key. */
+export const dismissChip = (threadId: string, key: string) =>
+  useAttachments.setState((s) => ({
+    dismissed: {
+      ...s.dismissed,
+      [threadId]: [...(s.dismissed[threadId] ?? []), key],
+    },
+  }));
+
+const withoutThread = <T>(
+  byThread: Record<string, T>,
+  threadId: string
+): Record<string, T> => {
+  const { [threadId]: _gone, ...rest } = byThread;
+  return rest;
+};
 
 export const addChip = (threadId: string, chip: Chip) =>
   useAttachments.setState((s) => {
@@ -113,7 +141,7 @@ export const removeChip = (threadId: string, key: string) =>
 
 /**
  * Takes off the chips a prompt was sent with. One attached while it was on its way goes with
- * the next prompt instead, and stays.
+ * the next prompt instead, and stays. What was taken out of it goes along with the next again.
  */
 export const clearChips = (threadId: string, sent: readonly Chip[]) =>
   useAttachments.setState((s) => {
@@ -122,18 +150,20 @@ export const clearChips = (threadId: string, sent: readonly Chip[]) =>
     const left = chips.filter((c) => !gone.has(chipKey(c)));
     return {
       byThread: left.length > 0 ? { ...rest, [threadId]: left } : rest,
+      dismissed: withoutThread(s.dismissed, threadId),
     };
   });
 
 /** Takes off every chip of a thread that is gone: no prompt of it is left to send them with. */
 export const dropChips = (threadId: string) =>
-  useAttachments.setState((s) => {
-    if (!Object.hasOwn(s.byThread, threadId)) {
-      return s;
-    }
-    const { [threadId]: _gone, ...byThread } = s.byThread;
-    return { byThread };
-  });
+  useAttachments.setState((s) =>
+    Object.hasOwn(s.byThread, threadId) || Object.hasOwn(s.dismissed, threadId)
+      ? {
+          byThread: withoutThread(s.byThread, threadId),
+          dismissed: withoutThread(s.dismissed, threadId),
+        }
+      : s
+  );
 
 /** A canvas's own file, which holds its nodes beside the pages: its `canvas.json`. */
 const canvasFileOf = (designsDir: string, canvas: string) =>
