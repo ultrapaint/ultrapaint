@@ -381,6 +381,19 @@ in `triage/<name>/` of the data directory and resumes; nothing reaches `gaps/` u
 Run again under a name already applied, it drafts what was logged since, and the answers given
 to the earlier deck do not answer the new one (below, "Decisions").
 
+A skeptic can then try to knock down what a round's reviewers found:
+
+```sh
+pnpm evals verify <round> --skeptics opus,gpt-6.1-sol
+```
+
+Each saved review's findings go to the first skeptic that did not write them, with the section's
+pictures, its code and the version's rules, and it confirms a finding only where it can point at
+what shows it. `runs/<round>/verify.md` says, per version, how much it kept: of the findings the
+judges matched with a gap (refuting one costs recall), and of the problems rated in the round's
+deck, the real ones kept and the noise refuted (what the skeptic is for). Its verdicts are kept
+beside each review (`verify@<model>.json`), so after more ratings it runs again without asking.
+
 The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
 from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
 `told` with the core's rules and the version's review table (`references/review.md`, when it has

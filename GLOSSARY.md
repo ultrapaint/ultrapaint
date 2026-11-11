@@ -240,6 +240,10 @@ refactor and the board view left.
   `design-checks` (`in-page.ts` runs in the page, `findings.ts` reads what it gave). The lab runs
   them with `pnpm evals measure`; a check reaches an agent only once its false alarms were
   counted on sections a person rated.
+- **Skeptic**: in the lab, a model that did not write a review and tries to knock down each of
+  its findings, keeping one only where it can point at what shows it (evals' `verify.ts`). It is
+  measured on what it costs (gap findings refuted) and buys (rated noise refuted) before any
+  review in the editor is filtered by one.
 - **Outside run**: a lab round in a host that is a plain app, not an Ultrapaint project (a
   `host.json` of kind `outside`; evals' `outside.ts`): the skill installed as a project installs
   one and the agent's own command run there, never told the skill's name (ADR 0069). It says

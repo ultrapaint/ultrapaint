@@ -193,7 +193,7 @@ const problemsAnswer = {
 };
 
 /** What no gap matched in one section, grouped: each problem with the findings it groups by id. */
-const Unmatched = Schema.Struct({
+export const Unmatched = Schema.Struct({
   /** The findings that were grouped, so a new review groups them again. */
   keys: Schema.Array(Schema.String),
   problems: Schema.Array(
@@ -206,7 +206,7 @@ const Unmatched = Schema.Struct({
 });
 type Unmatched = typeof Unmatched.Type;
 
-const Saved = <S extends Schema.Top>(schema: S) =>
+export const Saved = <S extends Schema.Top>(schema: S) =>
   Schema.Struct({
     costUsd: Schema.Number,
     /** How long it took; absent in steps saved before it was kept. */

@@ -77,6 +77,7 @@ import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
 import { applyTriage, triage } from "./triage.ts";
+import { verify } from "./verify.ts";
 
 const refs = Argument.String("refs").pipe(
   Argument.withDescription(
@@ -1094,6 +1095,36 @@ const recallCommand = Command.make(
   )
 );
 
+const verifyCommand = Command.make(
+  "verify",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the skeptics think"),
+      Flag.withDefault("high")
+    ),
+    name,
+    skeptics: Flag.String("skeptics").pipe(
+      Flag.withDescription(
+        "The models that try to knock the findings down, comma-separated: each review gets the first that did not write it"
+      ),
+      Flag.withDefault("opus,gpt-6.1-sol")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* verify({
+      concurrency: input.concurrency,
+      effort: input.effort,
+      round: input.name,
+      skeptics: modelList(input.skeptics),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Have a skeptic that did not write a recall round's reviews try to knock down each finding, and count what it kept"
+  )
+);
+
 const catchableCommand = Command.make(
   "catchable",
   {
@@ -1280,6 +1311,7 @@ Command.make("design-evals").pipe(
     pairwiseCommand,
     gapsCommand,
     recallCommand,
+    verifyCommand,
     panelCommand,
     decideCommand,
     measureCommand,
