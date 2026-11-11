@@ -23,7 +23,7 @@ import { CallingThread } from "../services/mcp/access.ts";
 import { rawTools } from "../services/mcp/raw-tools.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
-import { makeFixture, TestEnv } from "./harness.ts";
+import { countFollows, makeFixture, TestEnv } from "./harness.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** The port a test's server says it listens on: nothing does, and no scripted agent connects. */
@@ -178,7 +178,8 @@ export const ProjectRpc = (options: ProjectTestOptions = {}) =>
       const { home, repo, settings } = yield* ProjectFixture;
       const client = yield* RpcTest.makeClient(UltrapaintRpcs);
       const { followed } = yield* EventBus;
-      return { client, followed, home, port: 0, repo, settings };
+      const follows = yield* countFollows(followed);
+      return { client, follows, home, port: 0, repo, settings };
     })
   ).pipe(Layer.provide(RpcHandlers), Layer.provideMerge(ProjectTest(options)));
 

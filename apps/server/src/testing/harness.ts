@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { type EventName, UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
@@ -11,6 +11,7 @@ import {
   Path,
   type PlatformError,
   Stream,
+  SubscriptionRef,
 } from "effect";
 import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
@@ -102,14 +103,33 @@ export class TestEnv extends Context.Service<
       typeof UltrapaintRpcs,
       RpcClientError.RpcClientError
     >;
-    /** The events the client starts following, once the server holds each subscription. */
-    readonly followed: Stream.Stream<EventName>;
+    /**
+     * How many subscriptions the server has held since it started: an editor's stream is heard
+     * from once this goes up, counted from the start so that none is missed.
+     */
+    readonly follows: SubscriptionRef.SubscriptionRef<number>;
     readonly home: string;
     readonly port: number;
     readonly repo: string;
     readonly settings: Settings;
   }
 >()("ultrapaint/server/testing/TestEnv") {}
+
+/**
+ * The subscriptions the server holds, counted in the background from now (`TestEnv.follows`):
+ * counted from before any test runs, one held the moment a test asks for it is counted all the
+ * same, where one listened for only then may be missed.
+ */
+export const countFollows = Effect.fnUntraced(function* (
+  followed: Stream.Stream<unknown>
+) {
+  const follows = yield* SubscriptionRef.make(0);
+  yield* followed.pipe(
+    Stream.runForEach(() => SubscriptionRef.update(follows, (n) => n + 1)),
+    Effect.forkScoped({ startImmediately: true })
+  );
+  return follows;
+});
 
 /** The RPC protocol over a WebSocket of its own to the server on `port`, as an editor has. */
 const socketProtocol = (port: number) =>
@@ -197,11 +217,16 @@ export const makeTestServer = (
       const protocol = Layer.unwrap(Effect.map(listening, socketProtocol));
       const env = Layer.effect(
         TestEnv,
-        Effect.map(
-          Effect.all([RpcClient.make(UltrapaintRpcs), listening, EventBus]),
-          ([client, port, events]) => ({
+        Effect.gen(function* () {
+          const [client, port, events] = yield* Effect.all([
+            RpcClient.make(UltrapaintRpcs),
+            listening,
+            EventBus,
+          ]);
+          const follows = yield* countFollows(events.followed);
+          return {
             client,
-            followed: events.followed,
+            follows,
             home,
             port,
             repo,
@@ -211,8 +236,8 @@ export const makeTestServer = (
               libraryDirs: [],
               repoPath: repo,
             } satisfies Settings,
-          })
-        )
+          };
+        })
       );
       // The client connects only after the server layer is up. Its `ListenPort` and its
       // `EventBus` are the server's: a layer is built once for the whole of a build.
@@ -231,19 +256,21 @@ export const TestServer = makeTestServer(({ home }) =>
 
 /**
  * Consumes an event stream in the background once the server holds its subscription, as the
- * server says (`followed`): an answer to a request sent after it says only that the server has
- * the request, and a stream subscribes when first pulled, which may come later.
+ * server counts them (`follows`): an answer to a request sent after it says only that the server
+ * has the request, and a stream subscribes when first pulled, which may come later.
  */
 export const subscribed = <A, E, R>(consume: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
-    const { followed } = yield* TestEnv;
-    // Started at once, the fiber has subscribed by the time the fork returns.
-    const holds = yield* Effect.forkScoped(Stream.runHead(followed), {
-      startImmediately: true,
-    });
+    const { follows } = yield* TestEnv;
+    const before = yield* SubscriptionRef.get(follows);
     const fiber = yield* Effect.forkScoped(consume, { startImmediately: true });
+    // The count's changes start with its value now: one the server took meanwhile is seen.
+    const holds = SubscriptionRef.changes(follows).pipe(
+      Stream.filter((n) => n > before),
+      Stream.runHead
+    );
     // A stream that ends before the server holds it has nothing more to wait for.
-    yield* Effect.raceFirst(Fiber.join(holds), Fiber.await(fiber));
+    yield* Effect.raceFirst(holds, Fiber.await(fiber));
     return fiber;
   });
 
@@ -270,6 +297,8 @@ export const waitForThread = (
     waitFor(
       Effect.all({
         items: client["threads.items"]({ threadId }),
+        // The thread first: the server writes an item before the status it leads to, so a
+        // transcript read after the thread holds whatever led to the status read.
         thread: Effect.map(client["threads.list"](), (all) =>
           all.find((t) => t.id === threadId)
         ),
