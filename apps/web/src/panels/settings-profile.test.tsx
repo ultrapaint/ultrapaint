@@ -22,8 +22,8 @@ let container: HTMLElement;
 const field = () =>
   container.querySelector<HTMLInputElement>("#settings-display-name");
 
-/** Types into the field as React hears it, then leaves it. */
-const typeAndLeave = async (value: string) => {
+/** Types into the field as React hears it. */
+const type = (value: string) => {
   const input = field();
   if (!input) {
     throw new Error("no field");
@@ -35,8 +35,13 @@ const typeAndLeave = async (value: string) => {
     )?.set?.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+};
+
+/** Types into the field, then leaves it. */
+const typeAndLeave = async (value: string) => {
+  type(value);
   act(() => {
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    field()?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
   });
   await act(async () => {
     await fakeApi.requested("profile.set");
@@ -68,6 +73,7 @@ beforeEach(() => {
 
 afterEach(() => {
   act(() => mounted.unmount());
+  vi.useRealTimers();
 });
 
 describe("the display name", () => {
@@ -81,7 +87,7 @@ describe("the display name", () => {
     );
   });
 
-  it("says under the field that it was saved", async () => {
+  it("saves the name when the field is left", async () => {
     fakeApi.respond("profile.get", () => ({}));
     fakeApi.respond("profile.set", (input) => input);
     await render();
@@ -89,7 +95,74 @@ describe("the display name", () => {
     expect(fakeApi.calls.filter((c) => c.method === "profile.set")).toEqual([
       { input: { displayName: "Ada" }, method: "profile.set" },
     ]);
-    expect(container.textContent).toContain("Saved");
+    expect(container.textContent).not.toContain("Saved");
+  });
+
+  it("saves the name after a pause in typing", async () => {
+    // fake clock: the pause the row waits for before it saves
+    vi.useFakeTimers();
+    fakeApi.respond("profile.get", () => ({}));
+    fakeApi.respond("profile.set", (input) => input);
+    await render();
+    type("Ada");
+    expect(fakeApi.calls.some((c) => c.method === "profile.set")).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(fakeApi.calls.filter((c) => c.method === "profile.set")).toEqual([
+      { input: { displayName: "Ada" }, method: "profile.set" },
+    ]);
+    expect(container.textContent).toContain(
+      "Signs your comments and draws your avatar."
+    );
+  });
+
+  it("never writes a save's answer into what is typed after it", async () => {
+    // fake clock: the pause the row waits for before it saves
+    vi.useFakeTimers();
+    let answer: (profile: { displayName: string }) => void = () => undefined;
+    fakeApi.respond("profile.get", () => ({}));
+    fakeApi.respond("profile.set", (input) =>
+      new Promise((resolve) => {
+        answer = resolve;
+      }).then(() => input)
+    );
+    await render();
+    await typeAndLeave("Ada");
+    type("Ada Lovelace");
+    await act(async () => {
+      answer({ displayName: "Ada" });
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(field()?.value).toBe("Ada Lovelace");
+    await act(async () => {
+      await fakeApi.requested("profile.set", 2);
+    });
+    expect(
+      fakeApi.calls
+        .filter((c) => c.method === "profile.set")
+        .map((c) => c.input)
+    ).toEqual([{ displayName: "Ada" }, { displayName: "Ada Lovelace" }]);
+  });
+
+  it("offers Try again when it could not be read", async () => {
+    let reads = 0;
+    fakeApi.respond("profile.get", () => {
+      reads += 1;
+      return reads === 1
+        ? Promise.reject(new Error("offline"))
+        : { displayName: "Ada" };
+    });
+    await render();
+    const again = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === "Try again"
+    );
+    act(() => again?.click());
+    await act(async () => {
+      await fakeApi.requested("profile.get", 2);
+    });
+    expect(field()?.value).toBe("Ada");
+    expect(container.querySelector("[role=alert]")).toBeNull();
   });
 
   it("stays usable when it could not be read, and says why under the row", async () => {

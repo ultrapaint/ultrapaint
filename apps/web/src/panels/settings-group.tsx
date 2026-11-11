@@ -13,10 +13,13 @@ import { cn } from "@/lib/cn";
  */
 export const Group = ({
   children,
+  message,
   note,
   title,
 }: {
   children: React.ReactNode;
+  /** What the group says of itself under its rows: why a change to one of them wasn't saved. */
+  message?: React.ReactNode;
   /** What holds for every row of the group, said once under it. */
   note?: React.ReactNode;
   title?: string;
@@ -36,6 +39,7 @@ export const Group = ({
     <div className="divide-y rounded-lg bg-card" data-surface="raised">
       {children}
     </div>
+    {message}
   </section>
 );
 

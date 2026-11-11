@@ -257,9 +257,11 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - Skeleton rows are the foreground at 10%; a retry is named Try again.
 - A group's title is `font-heading-xsmall` in the foreground, its note under the title, at most
   28rem wide.
-- A section that applies at once has Done in its footer in place of Cancel and Save, and says
-  nothing of applying; the footer names only any other section's unsaved edits. The settings dialog opens with focus on the dialog;
-  the section shown is raised like the rail's current place.
+- Settings save as they change, with no Save (ADR 0079): a switch or a select at once, a name
+  after a pause, a path when its field is left; nothing says saved, a failure says why under its
+  row. The settings dialog's header is a breadcrumb, Settings muted / the section, and the close
+  button; its footer says where changes go, and Done. It opens with focus on the dialog; the
+  section shown is raised like the rail's current place.
 
 ## Motion
 

@@ -1,130 +1,133 @@
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/cn";
+import { useAutosave } from "../lib/autosave.ts";
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 import { Row, RowMessage, rowField } from "./settings-group.tsx";
 
-/**
- * Where the name is between the field and the user's own directory: saving and saved under the
- * field, a failure under the row.
- */
+/** Where the name is between the field and the user's own directory. */
 type Status =
   | { kind: "loading" }
   | { kind: "ready" }
-  | { kind: "saving" }
-  | { kind: "saved" }
+  | { kind: "unread"; message: string }
   | { kind: "failed"; message: string };
 
-const statusLine = (status: Status) => {
-  switch (status.kind) {
-    case "saving":
-      return "Saving…";
-    case "saved":
-      return "Saved";
-    default:
-      return null;
-  }
-};
-
 /**
- * What the name does, and what stands in for it when the field is left empty: git's name, which
+ * What the name does, and, while the field is empty, what stands in for it: git's name, which
  * the field shows as its placeholder (the person's choice), so the words only say where it is from.
  */
-const describe = (gitName: string | undefined) =>
-  gitName
+const describe = (gitName: string | undefined, typed: boolean) =>
+  gitName && !typed
     ? "Signs your comments. Left empty, your name from git is used."
     : "Signs your comments and draws your avatar.";
 
 /**
- * Who the user is to the tool. The name is the user's, not the project's: it is saved as soon as
- * the field is left, into the user's own directory, and is the same in every project. Under the
- * field, what became of it: saving or saved; under the row, why it could not be read or saved.
+ * Who the user is to the tool. The name is the user's, not the project's: kept in the user's own
+ * directory, the same in every project, and saved as it is typed (ADR 0079), after a pause or when
+ * the field is left. A save never writes into the field; under the row, why the name could not be
+ * read (with Try again) or saved.
  */
 export const ProfileRow = () => {
   const gitName = useProject((s) => s.info.gitUser?.name);
   const [name, setName] = useState("");
-  const [savedName, setSavedName] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "loading" });
-  useEffect(() => {
+  /** The name the user's directory holds, as the server trims it. */
+  const savedName = useRef("");
+  const read = () =>
     api()
       .request("profile.get", undefined)
       .then((profile) => {
         setName(profile.displayName ?? "");
-        setSavedName(profile.displayName ?? "");
+        savedName.current = profile.displayName ?? "";
         setStatus({ kind: "ready" });
       })
       // The field stays usable: a name typed in replaces whatever could not be read.
       .catch((error: Error) =>
         setStatus({
-          kind: "failed",
-          message: `Couldn’t read your name (${error.message}). One typed here replaces it.`,
+          kind: "unread",
+          message: `Couldn’t read your name (${error.message}).`,
         })
       );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read once, as the row opens
+  useEffect(() => {
+    read();
   }, []);
-  const save = () => {
-    if (status.kind === "loading" || name === savedName) {
+  const readAgain = () => {
+    setStatus({ kind: "loading" });
+    read();
+  };
+  const saver = useAutosave(async (typed: string) => {
+    const displayName = typed.trim();
+    if (displayName === savedName.current) {
       return;
     }
-    setStatus({ kind: "saving" });
-    api()
-      .request("profile.set", { displayName: name })
-      .then((profile) => {
-        setName(profile.displayName ?? "");
-        setSavedName(profile.displayName ?? "");
-        setStatus({ kind: "saved" });
-      })
-      .catch((error: Error) =>
-        setStatus({
-          kind: "failed",
-          message: `Couldn’t save your name (${error.message}). Leave the field to try again.`,
-        })
-      );
+    try {
+      const profile = await api().request("profile.set", { displayName });
+      savedName.current = profile.displayName ?? "";
+      setStatus({ kind: "ready" });
+    } catch (error) {
+      setStatus({
+        kind: "failed",
+        message: `Couldn’t save your name (${(error as Error).message}). Leave the field to try again.`,
+      });
+    }
+  });
+  const leave = () => {
+    const trimmed = name.trim();
+    setName(trimmed);
+    saver.now(trimmed);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      save();
+      leave();
     }
   };
-  const line = statusLine(status);
+  const problem =
+    status.kind === "failed" || status.kind === "unread" ? status : null;
   return (
     <Row
-      description={describe(gitName)}
+      description={describe(gitName, name.trim() !== "")}
       htmlFor="settings-display-name"
       message={
-        status.kind === "failed" ? (
+        problem ? (
           <RowMessage id="settings-display-name-status" kind="error">
-            {status.message}
+            <p>{problem.message}</p>
+            {problem.kind === "unread" ? (
+              <Button onClick={readAgain} size="sm" variant="outline">
+                Try again
+              </Button>
+            ) : null}
           </RowMessage>
         ) : null
       }
       title="Display name"
     >
-      <Input
-        aria-describedby={
-          line || status.kind === "failed"
-            ? "settings-display-name-status"
-            : undefined
-        }
-        aria-invalid={status.kind === "failed" || undefined}
-        className={rowField}
-        disabled={status.kind === "loading"}
-        id="settings-display-name"
-        onBlur={save}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={status.kind === "loading" ? "Loading…" : gitName}
-        value={name}
-      />
-      {line ? (
-        <p
-          aria-live="polite"
-          className="@xl:w-52 font-body-small text-muted-foreground"
-          id="settings-display-name-status"
-        >
-          {line}
-        </p>
-      ) : null}
+      {status.kind === "loading" ? (
+        <div
+          aria-hidden
+          className={cn("h-7 w-full rounded-md bg-foreground/10", rowField)}
+        />
+      ) : (
+        <Input
+          aria-describedby={
+            problem ? "settings-display-name-status" : undefined
+          }
+          aria-invalid={problem?.kind === "failed" || undefined}
+          className={rowField}
+          id="settings-display-name"
+          onBlur={leave}
+          onChange={(e) => {
+            setName(e.target.value);
+            saver.soon(e.target.value);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={gitName}
+          value={name}
+        />
+      )}
     </Row>
   );
 };

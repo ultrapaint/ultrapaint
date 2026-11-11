@@ -24,7 +24,13 @@ import {
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { ChevronDown, GripVertical, Search, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -515,11 +521,16 @@ const GoalRow = ({
   );
 };
 
-/** The Review group of Settings › Agents, editing the project's `review` (saved with Save). */
+/**
+ * The Review group of Settings › Agents, editing the project’s `review`, saved as it changes
+ * (ADR 0079); `message`, why a change wasn't saved.
+ */
 export const ReviewGroup = ({
+  message,
   onChange,
   review,
 }: {
+  message?: ReactNode;
   onChange: (review: ReviewSettings | undefined) => void;
   review: ReviewSettings | undefined;
 }) => {
@@ -552,7 +563,7 @@ export const ReviewGroup = ({
     rotate: "They take turns in this order.",
   }[eachRound ?? "rotate"];
   return (
-    <Group title="Review">
+    <Group message={message} title="Review">
       <Row
         description={
           // Custom opened, nothing changed yet: the settings are still the level's.

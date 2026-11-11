@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
+import { useAutosave } from "../lib/autosave.ts";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
@@ -75,6 +76,7 @@ const list = (v: string) =>
 const ListField = ({
   id,
   invalid,
+  onBlur,
   onChange,
   placeholder,
   value,
@@ -82,6 +84,8 @@ const ListField = ({
   id: string;
   /** Its ties to the reasons a refused save gave under its row. */
   invalid?: React.AriaAttributes;
+  /** Left: what was typed is saved. */
+  onBlur: () => void;
   onChange: (value: string[]) => void;
   placeholder: string;
   value: readonly string[];
@@ -97,6 +101,7 @@ const ListField = ({
     <Textarea
       className="min-h-16 font-code"
       id={id}
+      onBlur={onBlur}
       onChange={(e) => {
         setText(e.target.value);
         onChange(list(e.target.value));
@@ -227,9 +232,9 @@ const shortPath = (configPath: string, repoPath: string) => {
 };
 
 /**
- * Where a save goes, in the words of the storage mode the server runs in: the file a save writes
- * to (in mono, from the repository when it lies inside it, else in full), or why nothing is
- * written.
+ * Where a change is saved, in the words of the storage mode the server runs in: the file it is
+ * written to (in mono, from the repository when it lies inside it, else in full), or why nothing
+ * is written. It wraps rather than hide what it says.
  */
 const StorageLine = ({
   detected,
@@ -243,7 +248,7 @@ const StorageLine = ({
   const warning = storage.mode === "ephemeral" || detected;
   let words: React.ReactNode;
   if (detected) {
-    words = "Detected, not saved. Apply keeps them until the editor stops.";
+    words = "Detected, not saved yet.";
   } else if (storage.mode === "ephemeral") {
     words = storage.session
       ? "No configuration file: kept until the command stops."
@@ -252,39 +257,20 @@ const StorageLine = ({
     words = (
       <>
         Saves to{" "}
-        <code className="font-code">
+        <code className="break-all font-code">
           {shortPath(storage.configPath, repoPath)}
         </code>
       </>
     );
   }
   return (
-    <p className="flex min-w-0 flex-1 items-center gap-1.5 font-body-small text-muted-foreground">
+    <p className="flex min-w-0 items-start gap-1.5 font-body-small text-muted-foreground">
       {warning ? (
-        <TriangleAlert className="size-3.5 shrink-0 text-warning" />
+        <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
       ) : null}
-      <span className="truncate">{words}</span>
+      <span className="min-w-0">{words}</span>
     </p>
   );
-};
-
-/** The primary button's words: Apply where nothing is kept, Save and open on the first run. */
-const saveLabelOf = ({
-  busy,
-  saved,
-  unsaved,
-}: {
-  busy: boolean;
-  saved: boolean;
-  unsaved: boolean;
-}) => {
-  if (busy) {
-    return "Saving…";
-  }
-  if (unsaved) {
-    return "Apply";
-  }
-  return saved ? "Save" : "Save and open";
 };
 
 /** Moves a configuration file still under its earlier name to the current one. */
@@ -294,8 +280,18 @@ const renameConfig = () =>
     .then((path) => toast.success(`Renamed to ${path}`))
     .catch(reportError);
 
-/** The Repository rows a refused save can name; the rest of its reasons go in the footer. */
+/** The Repository rows a refused save can name. */
 type ProblemRow = "application" | "components" | "designs" | "path";
+
+/** Where a change was made: the row whose control saved it. */
+type ChangedAt =
+  | ProblemRow
+  | "detect"
+  | "git"
+  | "pagePngs"
+  | "review"
+  | "skills"
+  | "stylesheets";
 
 /** The row a refused save's reason is about (the server's words, SettingsService.validate). */
 export const problemRow = (problem: string): ProblemRow | null => {
@@ -314,12 +310,6 @@ export const problemRow = (problem: string): ProblemRow | null => {
   return null;
 };
 
-/** The reasons a refused save gives for one row, under it; nothing when it gave none. */
-const rowProblems = (problems: readonly string[], row: ProblemRow) => {
-  const mine = problems.filter((p) => problemRow(p) === row);
-  return mine.length > 0 ? mine : null;
-};
-
 /**
  * Stylesheets no style system the tool has reads, said under them before anything is saved, in
  * the style system's words: a notice, as nothing is wrong with the settings.
@@ -332,18 +322,26 @@ const StylesNotice = ({ found }: { found: SetupSuggestions | null }) =>
     </RowMessage>
   ) : null;
 
+/** A path field's own: saved when it is left, Enter included (ADR 0079). */
+interface Leaves {
+  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}
+
 /**
  * The repository's folder. Set by where the configuration file lies, it is read, not typed: all
  * of it as text, the folder's own name at the end included.
  */
 const PathField = ({
   invalid,
+  leaves,
   onChange,
   onChoose,
   readOnly,
   value,
 }: {
   invalid: React.AriaAttributes;
+  leaves: Leaves;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** The shell's folder picker, where it has one (Platform). */
   onChoose: (() => void) | undefined;
@@ -362,6 +360,7 @@ const PathField = ({
         spellCheck={false}
         value={value}
         {...invalid}
+        {...leaves}
       />
       {onChoose ? (
         <Button onClick={onChoose} variant="outline">
@@ -370,17 +369,6 @@ const PathField = ({
       ) : null}
     </div>
   );
-
-/** Why a save was refused, in the footer: the reasons no row holds. */
-const SaveProblems = ({ problems }: { problems: readonly string[] }) => {
-  const general = problems.filter((p) => problemRow(p) === null);
-  return general.length > 0 ? (
-    <RowMessage kind="error">
-      <p>Couldn’t save the settings.</p>
-      <Reasons reasons={general} />
-    </RowMessage>
-  ) : null;
-};
 
 /** Reasons, one per line. */
 const Reasons = ({ reasons }: { reasons: readonly string[] }) => (
@@ -399,9 +387,17 @@ const shown = (id: SectionId) =>
   !sections.find((s) => s.id === id)?.needsSaved ||
   (id === "agents" && platform().agents !== undefined);
 
+const SIDEBAR_STEPS: Record<string, number> = {
+  ArrowDown: 1,
+  ArrowLeft: -1,
+  ArrowRight: 1,
+  ArrowUp: -1,
+};
+
 /**
- * The sections down the dialog's side, under its title. The first run hides what needs a
- * project. Tab reaches the section shown alone; the arrows move between them, showing each.
+ * The sections, down the dialog's side, or in a row over the page where the dialog is narrow. The
+ * first run hides what needs a project. Tab reaches the section shown alone; the arrows move
+ * between them, showing each.
  */
 const Sidebar = ({
   onSelect,
@@ -414,7 +410,7 @@ const Sidebar = ({
 }) => {
   const listed = sections.filter((s) => showAll || shown(s.id));
   const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    const step = SIDEBAR_STEPS[e.key];
     if (step === undefined) {
       return;
     }
@@ -429,11 +425,10 @@ const Sidebar = ({
     }
   };
   return (
-    <aside className="flex w-52 shrink-0 flex-col border-r">
-      <h2 className="shrink-0 px-5 pt-5 pb-3 font-heading-small">Settings</h2>
+    <aside className="shrink-0 border-b md:w-52 md:border-r md:border-b-0">
       <nav
         aria-label="Settings sections"
-        className="flex flex-col gap-0.5 px-3"
+        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-5"
       >
         {listed.map(({ icon: Icon, id, label }) => {
           const active = id === section;
@@ -441,9 +436,9 @@ const Sidebar = ({
             <button
               aria-current={active ? "page" : undefined}
               // The section shown is raised as the groups are, as the left card's rail raises
-              // its place; the focus is the ring alone.
+              // its place; the focus is the ring alone, 2px off the row.
               className={cn(
-                "flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-rail",
                 active
                   ? "bg-card text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
                   : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
@@ -467,12 +462,14 @@ const Sidebar = ({
 
 /** The agents: before anything is saved, only those on this computer, which need no project. */
 const AgentsSection = ({
+  messageAt,
   onReview,
   onSkills,
   review,
   saved,
   skills,
 }: {
+  messageAt: (at: ChangedAt) => React.ReactNode;
   onReview: (review: ReviewSettings | undefined) => void;
   onSkills: (skills: SkillsConfig | undefined) => void;
   review: ReviewSettings | undefined;
@@ -483,8 +480,16 @@ const AgentsSection = ({
     <>
       <MachineAgentsGroup />
       <ChatDefaultsGroup />
-      <ReviewGroup onChange={onReview} review={review} />
-      <SkillsGroup config={skills} onChange={onSkills} />
+      <ReviewGroup
+        message={messageAt("review")}
+        onChange={onReview}
+        review={review}
+      />
+      <SkillsGroup
+        config={skills}
+        message={messageAt("skills")}
+        onChange={onSkills}
+      />
       <McpConnectionGroup />
     </>
   ) : (
@@ -494,120 +499,27 @@ const AgentsSection = ({
 const labelOf = (id: SectionId) =>
   sections.find((s) => s.id === id)?.label ?? id;
 
-/** Names in a sentence: "A", "A and B", "A, B and C". */
-const listOf = (names: readonly string[]) =>
-  names.length < 2
-    ? (names[0] ?? "")
-    : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /**
- * The sections holding edits a save has not kept, in the sidebar's order. Settings detected or
- * never saved wait as a whole, under the Repository.
+ * The settings, saved as they change (ADR 0079): a switch, a choice or a select at once, a path
+ * when its field is left, and what waits when the dialog closes. Nothing says a change was saved;
+ * one that wasn't says why under the row it was made in, and under the rows the reasons name.
  */
-export const waitingSections = ({
-  detected,
-  draft,
-  saved,
-}: {
-  detected: boolean;
-  draft: Settings;
-  saved: Settings | null;
-}): SectionId[] => {
-  if (draft === saved && !detected) {
-    return [];
-  }
-  const repository =
-    detected ||
-    saved === null ||
-    !same(
-      [
-        draft.repoPath,
-        draft.designsDir,
-        draft.resolveFrom,
-        draft.libraryDirs,
-        draft.pagePngs,
-        draft.git,
-      ],
-      [
-        saved.repoPath,
-        saved.designsDir,
-        saved.resolveFrom,
-        saved.libraryDirs,
-        saved.pagePngs,
-        saved.git,
-      ]
-    );
-  const designSystem =
-    saved !== null &&
-    !same(
-      [draft.hostCss, draft.styleSystem],
-      [saved.hostCss, saved.styleSystem]
-    );
-  const agents =
-    saved !== null &&
-    !same([draft.skills, draft.review], [saved.skills, saved.review]);
-  return (
-    [
-      ["repository", repository],
-      ["designSystem", designSystem],
-      ["agents", agents],
-    ] as const
-  )
-    .filter(([, waits]) => waits)
-    .map(([id]) => id);
-};
-
-/**
- * The footer of a section that applies at once: Done, with nothing said of applying (ADR 0063).
- * Edits other sections hold are not undone by it, so it names them, with the way to the first.
- */
-const InstantFooter = ({
-  onDone,
-  onShow,
-  waiting,
-}: {
-  onDone: () => void;
-  onShow: (id: SectionId) => void;
-  waiting: readonly SectionId[];
-}) => {
-  const [first] = waiting;
-  return (
-    <div className="flex items-center gap-4">
-      <p className="min-w-0 flex-1 font-body-small text-muted-foreground">
-        {first
-          ? `Your edits in ${listOf(waiting.map(labelOf))} aren’t saved yet.`
-          : null}
-      </p>
-      <div className="flex shrink-0 gap-2">
-        {first ? (
-          <Button onClick={() => onShow(first)} variant="outline">
-            Show {labelOf(first)}
-          </Button>
-        ) : null}
-        <Button onClick={onDone}>Done</Button>
-      </div>
-    </div>
-  );
-};
-
-/** Whether a section's footer is Done alone: nothing in it waits for a save. */
-const appliesAtOnce = (
-  section: SectionId,
-  saved: boolean,
-  waiting: readonly SectionId[]
-) =>
-  section === "editor" ||
-  (section === "agents" && saved && !waiting.includes("agents"));
-
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const detected = useProject((s) => s.info.setup === "detected");
-  const [draft, setDraft] = useState<Settings>(
-    saved ?? defaultSettings(storage.defaultRepoPath ?? "")
+  const [opened] = useState<Settings>(
+    () => saved ?? defaultSettings(storage.defaultRepoPath ?? "")
   );
+  const [draft, setDraft] = useState(opened);
+  /** The draft as the last change left it, for handlers that run before React draws it. */
+  const latest = useRef(opened);
+  /** The fields the person changed since the dialog opened: detection on its own leaves them. */
+  const touched = useRef(new Set<keyof Settings>());
+  /** The settings last sent, so a field left unchanged sends nothing. */
+  const sent = useRef<Settings | null>(saved);
   const wanted = useProject((s) => s.settingsSection);
   // The URL may name a section that does not exist, or one the first run hides.
   const section: SectionId =
@@ -618,60 +530,88 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const unsaved = storage.mode === "ephemeral";
   // A configuration file in the repository says where the repository is by where it lies.
   const repoFromFile = storage.mode === "file";
-  const [problems, setProblems] = useState<readonly string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const saveLabel = saveLabelOf({ busy, saved: saved !== null, unsaved });
+  /** Why the last change wasn't saved, and where it was made. */
+  const [refusal, setRefusal] = useState<{
+    at: ChangedAt;
+    problems: readonly string[];
+  } | null>(null);
+  const problems = refusal?.problems ?? [];
 
-  /**
-   * What a save answered: nothing refused closes the dialog; reasons about rows show the
-   * Repository, whose rows they are, with each under its row.
-   */
-  const refuse = (refused: readonly string[]) => {
-    setProblems(refused);
-    if (refused.length === 0) {
-      useProject.getState().openSettings(false);
-    } else if (refused.some((p) => problemRow(p) !== null)) {
-      setSection("repository");
+  const saver = useAutosave(
+    async ({ at, settings }: { at: ChangedAt; settings: Settings }) => {
+      if (same(settings, sent.current)) {
+        return;
+      }
+      sent.current = settings;
+      try {
+        const refused = await save(settings);
+        setRefusal(refused.length > 0 ? { at, problems: refused } : null);
+        if (refused.length > 0) {
+          sent.current = null;
+        }
+      } catch (error) {
+        sent.current = null;
+        setRefusal({ at, problems: [(error as Error).message] });
+      }
     }
-  };
-  const apply = async (): Promise<boolean> => {
-    setBusy(true);
-    let ok = false;
-    try {
-      const refused = await save(draft);
-      refuse(refused);
-      ok = refused.length === 0;
-    } catch (error) {
-      setProblems([(error as Error).message]);
+  );
+  /** A change made in the row `at`: saved `now` (a switch, a choice) or when its field is left. */
+  const change = (
+    patch: Partial<Settings>,
+    at: ChangedAt,
+    when: "later" | "now"
+  ) => {
+    const next = { ...latest.current, ...patch };
+    latest.current = next;
+    for (const key of Object.keys(patch)) {
+      touched.current.add(key as keyof Settings);
     }
-    setBusy(false);
-    return ok;
+    setDraft(next);
+    saver[when]({ at, settings: next });
   };
-  // A folder opened is set up in its chat (ADR 0062); the design system waits until it is made.
-  const saveAndOpen = async () => {
-    await apply();
+  /** Puts settings the person didn't type in the form (detection, its undo), saved at once. */
+  const replace = (next: Settings) => {
+    latest.current = next;
+    setDraft(next);
+    saver.now({ at: "detect", settings: next });
   };
-  const saveToFile = async () => {
-    if (await apply()) {
-      useProject.getState().openSaveConfig(true);
-    }
+  const leaves: Leaves = {
+    onBlur: saver.flush,
+    onKeyDown: (e) => {
+      if (e.key === "Enter") {
+        saver.flush();
+      }
+    },
   };
 
-  // ---- first-run setup: what the repository looks like ----
+  // ---- what the repository looks like ----
   const [found, setFound] = useState<SetupSuggestions | null>(null);
-  const detectNow = () => {
-    if (!draft.repoPath) {
+  const [detecting, setDetecting] = useState(false);
+  const [detectProblem, setDetectProblem] = useState<string | null>(null);
+  /** Detect: the fields filled from the repository and saved, with Undo in its toast. */
+  const detectNow = async () => {
+    const before = latest.current;
+    if (!before.repoPath) {
       return;
     }
-    detect(draft.repoPath)
-      .then((detection) => {
-        setFound(detection.found);
-        setDraft(detection.onto);
-        setProblems([]);
-      })
-      .catch((error: Error) => setProblems([error.message]));
+    setDetecting(true);
+    setDetectProblem(null);
+    try {
+      const detection = await detect(before.repoPath);
+      setFound(detection.found);
+      replace(detection.onto(latest.current));
+      toast("Detected from the repository", {
+        action: { label: "Undo", onClick: () => replace(before) },
+      });
+    } catch (error) {
+      setDetectProblem(
+        `Couldn’t detect the repository: ${(error as Error).message}`
+      );
+    }
+    setDetecting(false);
   };
-  // Nothing is configured yet and the server knows a repository: propose a setup for it.
+  // Nothing is configured yet and the server knows a repository: propose a setup for it, into
+  // the fields the person hasn't changed meanwhile. A proposal is saved with the first change.
   const firstRepoPath = saved ? "" : (storage.defaultRepoPath ?? "");
   useEffect(() => {
     if (!firstRepoPath) {
@@ -680,77 +620,92 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     detect(firstRepoPath)
       .then((detection) => {
         setFound(detection.found);
-        setDraft(detection.onto);
+        const now = latest.current;
+        const kept = Object.fromEntries(
+          [...touched.current].map((key) => [key, now[key]])
+        );
+        const next = { ...detection.onto(now), ...kept };
+        latest.current = next;
+        setDraft(next);
       })
       // The form works without suggestions; a repository that cannot be read says so on save.
       .catch(() => setFound(null));
   }, [firstRepoPath]);
 
+  const [creating, setCreating] = useState(false);
   const createDesigns = async () => {
-    setBusy(true);
+    setCreating(true);
     try {
-      refuse(await setUpDesigns(draft));
+      const refused = await setUpDesigns(latest.current);
+      sent.current = refused.length > 0 ? null : latest.current;
+      setRefusal(
+        refused.length > 0 ? { at: "designs", problems: refused } : null
+      );
     } catch (error) {
-      setProblems([(error as Error).message]);
+      setRefusal({ at: "designs", problems: [(error as Error).message] });
     }
-    setBusy(false);
+    setCreating(false);
   };
 
-  const cancel = () => useProject.getState().openSettings(false);
-  const onRepoPath = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const repoPath = e.target.value;
-    setDraft((d) => ({ ...d, repoPath }));
-  };
+  const close = () => useProject.getState().openSettings(false);
   // A shell with a native folder picker offers it beside the typed path (Platform).
   const { pickFolder } = platform();
-  const chooseFolder = () =>
+  const [pickProblem, setPickProblem] = useState<string | null>(null);
+  const chooseFolder = () => {
+    setPickProblem(null);
     pickFolder?.({
-      defaultPath: draft.repoPath || undefined,
+      defaultPath: latest.current.repoPath || undefined,
       title: "The project’s folder",
     })
       .then((repoPath) => {
         if (repoPath) {
-          setDraft((d) => ({ ...d, repoPath }));
+          change({ repoPath }, "path", "now");
         }
       })
-      .catch((error: Error) => setProblems([error.message]));
-  const onResolveFrom = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const resolveFrom = e.target.value.trim() || undefined;
-    setDraft((d) => ({ ...d, resolveFrom }));
+      .catch((error: Error) =>
+        setPickProblem(`Couldn’t open the folder picker: ${error.message}`)
+      );
   };
-  const onDesignsDir = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const designsDir = e.target.value;
-    setDraft((d) => ({ ...d, designsDir }));
+  const saveToFile = () => {
+    saver.flush();
+    close();
+    useProject.getState().openSaveConfig(true);
   };
-  const onHostCss = (hostCss: string[]) => setDraft((d) => ({ ...d, hostCss }));
-  const onLibraryDirs = (libraryDirs: string[]) =>
-    setDraft((d) => ({ ...d, libraryDirs }));
-  const onPagePngs = (on: boolean) =>
-    setDraft((d) => ({ ...d, pagePngs: on || undefined }));
-  const onGit = (on: boolean) =>
-    setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
-  const onSkills = (skills: SkillsConfig | undefined) =>
-    setDraft((d) => ({ ...d, skills }));
-  const onReview = (review: ReviewSettings | undefined) =>
-    setDraft((d) => ({ ...d, review }));
 
-  const errorFor = (row: ProblemRow, extra?: React.ReactNode) => {
-    const reasons = rowProblems(problems, row);
-    return reasons ? (
-      <RowMessage id={`settings-problem-${row}`} kind="error">
-        <Reasons reasons={reasons} />
-        {extra}
+  /**
+   * What a row says of a refused save: the reasons about it, and, in the row the change was made
+   * in, that it wasn't saved, with the reasons no row on this page shows.
+   */
+  const messageAt = (at: ChangedAt, extra?: React.ReactNode) => {
+    const own = problems.filter((p) => problemRow(p) === at);
+    const here = refusal?.at === at;
+    const others = here
+      ? problems.filter((p) => {
+          const row = problemRow(p);
+          return row !== at && (row === null || section !== "repository");
+        })
+      : [];
+    if (own.length === 0 && others.length === 0 && !here) {
+      return null;
+    }
+    return (
+      <RowMessage id={`settings-problem-${at}`} kind="error">
+        {own.length === 0 ? <p>Couldn’t save this change.</p> : null}
+        <Reasons reasons={[...own, ...others]} />
+        {own.length > 0 ? extra : null}
       </RowMessage>
-    ) : null;
+    );
   };
   /** A field's ties to the reasons under its row, when a save gave some. */
   const invalid = (row: ProblemRow) =>
-    rowProblems(problems, row)
+    problems.some((p) => problemRow(p) === row)
       ? {
           "aria-describedby": `settings-problem-${row}`,
           "aria-invalid": true,
         }
       : {};
+  const problemLine = (problem: string | null) =>
+    problem ? <RowMessage kind="error">{problem}</RowMessage> : null;
 
   const repository = (
     <>
@@ -769,12 +724,20 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           }
           htmlFor={repoFromFile ? undefined : "settings-repo"}
           layout="field"
-          message={errorFor("path")}
+          message={
+            <>
+              {problemLine(pickProblem)}
+              {messageAt("path")}
+            </>
+          }
           title="Path"
         >
           <PathField
             invalid={invalid("path")}
-            onChange={onRepoPath}
+            leaves={leaves}
+            onChange={(e) =>
+              change({ repoPath: e.target.value }, "path", "later")
+            }
             onChoose={pickFolder ? chooseFolder : undefined}
             readOnly={repoFromFile}
             value={draft.repoPath}
@@ -782,14 +745,15 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Row>
         <Row
           description="Fills in the fields below and the stylesheets from what it finds in this folder, replacing what you typed."
+          message={problemLine(detectProblem) ?? messageAt("detect")}
           title="Detect from the repository"
         >
           <Button
-            disabled={!draft.repoPath}
+            disabled={!draft.repoPath || detecting}
             onClick={detectNow}
             variant="outline"
           >
-            <FolderSearch />
+            {detecting ? <Spinner /> : <FolderSearch />}
             Detect
           </Button>
         </Row>
@@ -797,14 +761,15 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           description="Where pages are saved, relative to the repository. Pages already written stay put."
           htmlFor="settings-designs"
           layout="field"
-          message={errorFor(
+          message={messageAt(
             "designs",
             <Button
-              disabled={busy}
+              disabled={creating}
               onClick={createDesigns}
               size="sm"
               variant="outline"
             >
+              {creating ? <Spinner /> : null}
               Create {draft.designsDir}
             </Button>
           )}
@@ -813,11 +778,14 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <Input
             className="font-code"
             id="settings-designs"
-            onChange={onDesignsDir}
+            onChange={(e) =>
+              change({ designsDir: e.target.value }, "designs", "later")
+            }
             placeholder="docs/designs"
             spellCheck={false}
             value={draft.designsDir}
             {...invalid("designs")}
+            {...leaves}
           />
         </Row>
       </Group>
@@ -829,30 +797,40 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           description="The package designs are built in. Leave it empty when the designs directory is that package."
           htmlFor="settings-resolve"
           layout="field"
-          message={errorFor("application")}
+          message={messageAt("application")}
           title="Application"
         >
           <Input
             className="font-code"
             id="settings-resolve"
-            onChange={onResolveFrom}
+            onChange={(e) =>
+              change(
+                { resolveFrom: e.target.value.trim() || undefined },
+                "application",
+                "later"
+              )
+            }
             placeholder="apps/web"
             spellCheck={false}
             value={draft.resolveFrom ?? ""}
             {...invalid("application")}
+            {...leaves}
           />
         </Row>
         <Row
           description="Your own components, one path per line."
           htmlFor="settings-libs"
           layout="field"
-          message={errorFor("components")}
+          message={messageAt("components")}
           title="Component directories"
         >
           <ListField
             id="settings-libs"
             invalid={invalid("components")}
-            onChange={onLibraryDirs}
+            onBlur={saver.flush}
+            onChange={(libraryDirs) =>
+              change({ libraryDirs }, "components", "later")
+            }
             placeholder="src/components"
             value={draft.libraryDirs}
           />
@@ -862,23 +840,29 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         <Row
           description="Saved beside each page file, so pull requests show screens as image diffs."
           htmlFor="settings-page-pngs"
+          message={messageAt("pagePngs")}
           title="Write a PNG of every page"
         >
           <Switch
             checked={draft.pagePngs === true}
             id="settings-page-pngs"
-            onCheckedChange={onPagePngs}
+            onCheckedChange={(on) =>
+              change({ pagePngs: on || undefined }, "pagePngs", "now")
+            }
           />
         </Row>
         <Row
           description="Lets the Changes panel commit. Off, git is only read."
           htmlFor="settings-git"
+          message={messageAt("git")}
           title="Write to git"
         >
           <Switch
             checked={writesGit(draft)}
             id="settings-git"
-            onCheckedChange={onGit}
+            onCheckedChange={(on) =>
+              change({ git: on ? "on" : undefined }, "git", "now")
+            }
           />
         </Row>
       </Group>
@@ -892,12 +876,18 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         description="The Tailwind v4 entry and its fonts, one per line, relative to the designs directory’s .ultrapaint folder. Sync reads tokens from them and writes them back."
         htmlFor="settings-css"
         layout="field"
-        message={<StylesNotice found={found} />}
+        message={
+          <>
+            <StylesNotice found={found} />
+            {messageAt("stylesheets")}
+          </>
+        }
         title="Stylesheets"
       >
         <ListField
           id="settings-css"
-          onChange={onHostCss}
+          onBlur={saver.flush}
+          onChange={(hostCss) => change({ hostCss }, "stylesheets", "later")}
           placeholder="../../src/index.css"
           value={draft.hostCss}
         />
@@ -905,7 +895,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     </Group>
   );
 
-  // Applied at once, in every project: the footer has Done in place of a save.
+  // The person's own, in every project, each saved by its row.
   const editor = (
     <Group>
       <ThemeRow />
@@ -917,8 +907,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const agents = (
     <AgentsSection
-      onReview={onReview}
-      onSkills={onSkills}
+      messageAt={messageAt}
+      onReview={(review) => change({ review }, "review", "now")}
+      onSkills={(skills) => change({ skills }, "skills", "now")}
       review={draft.review}
       saved={saved !== null}
       skills={draft.skills}
@@ -931,75 +922,81 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     editor,
     repository,
   }[section];
-  // The preferences apply as they are picked, into the user's own directory: their footer has
-  // nothing to save, and names the sections whose edits still wait for a save.
-  const waiting = waitingSections({ detected, draft, saved });
-  // Agents too, while its shared settings (review, design skills) hold no edit: its New chats
-  // apply as they are picked.
-  const instant = appliesAtOnce(section, saved !== null, waiting);
+
+  // The footer's hairline is drawn only while the page runs on under it.
+  const scroller = useRef<HTMLDivElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const [runsOn, setRunsOn] = useState(false);
+  useEffect(() => {
+    if (!(end.current && typeof IntersectionObserver !== "undefined")) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setRunsOn(entry ? !entry.isIntersecting : false),
+      { root: scroller.current }
+    );
+    observer.observe(end.current);
+    return () => observer.disconnect();
+  }, []);
 
   // The left card's two levels: the sections and the page on its frame ({rail}), each group
-  // raised on {card}.
+  // raised on {card}. The header names where the page is, Settings / its section.
   return (
-    <div className="flex h-full min-w-0 flex-1 bg-rail">
-      <Sidebar
-        onSelect={setSection}
-        section={section}
-        showAll={saved !== null}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* The page is named by its section, selected beside it: the header holds the close
-            button alone, centred on the dialog's title, and the page starts level with the
-            sections. */}
-        <header className="flex h-14 shrink-0 items-start justify-end pt-4.5 pr-4">
-          <IconButton onClick={cancel} tooltip="Close">
-            <X />
-          </IconButton>
-        </header>
-        <div className="@container min-h-0 flex-1 overflow-y-auto">
-          <div className="flex max-w-3xl flex-col gap-12 px-5 pb-5">{body}</div>
-        </div>
-        <footer className="flex shrink-0 flex-col gap-3 border-t px-5 py-3">
-          {instant ? null : <SaveProblems problems={problems} />}
-          {instant ? (
-            <InstantFooter
-              onDone={cancel}
-              onShow={setSection}
-              waiting={waiting}
-            />
-          ) : (
-            <div className="flex items-center gap-4">
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-rail">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
+        <h2 className="flex min-w-0 items-center gap-2 font-body">
+          <span className="text-muted-foreground">Settings</span>
+          <span aria-hidden className="text-muted-foreground">
+            /
+          </span>
+          <span className="truncate">{labelOf(section)}</span>
+        </h2>
+        <IconButton onClick={close} tooltip="Close">
+          <X />
+        </IconButton>
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <Sidebar
+          onSelect={setSection}
+          section={section}
+          showAll={saved !== null}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            className="@container min-h-0 flex-1 overflow-y-auto"
+            ref={scroller}
+          >
+            <div className="flex max-w-3xl flex-col gap-12 p-5">{body}</div>
+            <div aria-hidden ref={end} />
+          </div>
+          <footer
+            className={cn(
+              "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5",
+              runsOn && "border-t"
+            )}
+          >
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
               <StorageLine
                 detected={detected}
                 repoPath={draft.repoPath}
                 storage={storage}
               />
-              <div className="flex shrink-0 gap-2">
-                {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
-                  <Button onClick={renameConfig} variant="ghost">
-                    Rename to {CONFIG_FILE_NAME}
-                  </Button>
-                ) : null}
-                <Button onClick={cancel} variant="outline">
-                  Cancel
+              {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
+                <Button onClick={renameConfig} size="sm" variant="ghost">
+                  Rename to {CONFIG_FILE_NAME}
                 </Button>
-                {unsaved ? (
-                  <Button
-                    disabled={busy}
-                    onClick={saveToFile}
-                    variant="outline"
-                  >
-                    Save to file…
-                  </Button>
-                ) : null}
-                <Button disabled={busy} onClick={saveAndOpen}>
-                  {busy ? <Spinner /> : null}
-                  {saveLabel}
-                </Button>
-              </div>
+              ) : null}
             </div>
-          )}
-        </footer>
+            <div className="ml-auto flex flex-wrap gap-2">
+              {unsaved ? (
+                <Button onClick={saveToFile} variant="outline">
+                  Save to file…
+                </Button>
+              ) : null}
+              <Button onClick={close}>Done</Button>
+            </div>
+          </footer>
+        </div>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ import {
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -172,9 +172,12 @@ const SkillRow = ({
  */
 export const SkillsGroup = ({
   config,
+  message,
   onChange,
 }: {
   config: SkillsConfig | undefined;
+  /** Why a change wasn't saved. */
+  message?: ReactNode;
   onChange: (config: SkillsConfig | undefined) => void;
 }) => {
   const dir = useSkills((s) => s.dir);
@@ -198,6 +201,7 @@ export const SkillsGroup = ({
   const briefing = config?.briefing ?? "router";
   return (
     <Group
+      message={message}
       note={
         <>
           Told to every agent before it designs. Each file in{" "}
