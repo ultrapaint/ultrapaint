@@ -85,7 +85,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -261,9 +261,28 @@ export const iconOf = ({ act }: MenuAction): LucideIcon | undefined => {
   }
 };
 
+/**
+ * An element keeps the menu against it while it moves, and where it last was once it is gone: a
+ * ⋮ shown only on hover is hidden as soon as the pointer leaves for the menu, and an element out
+ * of the layout measures nothing, at the window's corner.
+ */
+const elementAnchor = (element: Element) => {
+  let last = element.getBoundingClientRect();
+  return {
+    contextElement: element,
+    getBoundingClientRect: () => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        last = rect;
+      }
+      return last;
+    },
+  };
+};
+
 const pointAnchor = (anchor: MenuAnchor) =>
   anchor instanceof Element
-    ? anchor
+    ? elementAnchor(anchor)
     : {
         getBoundingClientRect: () =>
           DOMRect.fromRect({ height: 0, width: 0, x: anchor.x, y: anchor.y }),
@@ -464,13 +483,18 @@ export const ContextMenuHost = () => {
   // What the menu holds is read when it opens; it is not a view that follows the editor.
   const entries = target ? menuFor(target) : null;
   const onElement = request?.anchor instanceof Element;
+  // Made once a request, so an element's last place outlives the renders after it is hidden.
+  const anchor = useMemo(
+    () => (request ? pointAnchor(request.anchor) : null),
+    [request]
+  );
   return (
     <ContextMenu onOpenChange={onOpenChange} open={open && !!entries}>
-      {request && entries ? (
+      {request && anchor && entries ? (
         <ContextMenuContent
           align={onElement ? "end" : "start"}
           alignOffset={onElement ? 0 : 4}
-          anchor={pointAnchor(request.anchor)}
+          anchor={anchor}
           className="min-w-52 max-w-80"
           finalFocus={finalFocus}
           key={request.id}

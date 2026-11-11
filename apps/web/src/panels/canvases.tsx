@@ -34,7 +34,7 @@ import {
   reorderCanvases,
 } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
-import { showMenu } from "../state/context-menu.ts";
+import { showMenu, useContextMenu } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { useEditorMode } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -169,6 +169,13 @@ const CanvasRow = ({
           p.state === undefined
       ).length
   );
+  // Its ⋮ stays while its menu is open, the pointer having left the row for the menu.
+  const menuOpen = useContextMenu(
+    (s) =>
+      s.open &&
+      s.request?.target.kind === "canvasEntry" &&
+      s.request.target.canvasId === canvas.id
+  );
   const menu = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -241,11 +248,16 @@ const CanvasRow = ({
       )}
       {renaming ? null : (
         <>
-          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums group-hover:hidden">
+          <span
+            className={cn(
+              "shrink-0 font-body-small text-muted-foreground tabular-nums group-hover:hidden",
+              menuOpen && "hidden"
+            )}
+          >
             {count} {count === 1 ? "page" : "pages"}
           </span>
           <IconButton
-            className="hidden group-hover:flex"
+            className={menuOpen ? "flex" : "hidden group-hover:flex"}
             onClick={menu}
             size="icon-xs"
             tooltip="Canvas actions"
