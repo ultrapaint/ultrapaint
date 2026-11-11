@@ -217,6 +217,29 @@ describe("the settings before they are read", () => {
     expect(container.querySelector("input")).toBeNull();
   });
 
+  it("list the sections a saved project has, so none appears when the read lands", async () => {
+    const listed = () =>
+      [
+        ...container.querySelectorAll(
+          "nav[aria-label='Settings sections'] button"
+        ),
+      ].map((b) => b.textContent);
+    const before = listed();
+    expect(before).toContain("Agents");
+    fakeApi.respond("project.info", () => ({
+      configured: true,
+      settings: defaultSettings("/repo"),
+      storage: { mode: "managed" },
+    }));
+    fakeApi.respond("pages.list", () => ({ canvases: [], pages: [] }));
+    fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: false }));
+    await act(async () => {
+      await useProject.getState().load();
+    });
+    expect(useProject.getState().loaded).toBe(true);
+    expect(listed()).toEqual(before);
+  });
+
   it("say why a failed read failed, and Try again reads them", async () => {
     fakeApi.respond("project.info", () =>
       Promise.reject(new Error("the server is away"))

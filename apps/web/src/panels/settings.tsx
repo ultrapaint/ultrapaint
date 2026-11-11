@@ -234,8 +234,10 @@ const Bone = ({ className }: { className: string }) => (
 const SettingsLoading = () => {
   const wanted = useProject((s) => s.settingsSection);
   const loadError = useProject((s) => s.loadError);
+  // Every section is listed while the settings are read, as a project with settings has them
+  // all: a first run is the one that loses those needing a project once the read lands.
   const section: SectionId =
-    sections.find((s) => s.id === wanted && shown(s.id))?.id ?? "repository";
+    sections.find((s) => s.id === wanted)?.id ?? "repository";
   const tryAgain = () => {
     useProject.setState({ loadError: null });
     useProject.getState().load();
@@ -244,7 +246,7 @@ const SettingsLoading = () => {
     <SettingsFrame
       onSelect={(id) => useProject.getState().openSettings(true, id)}
       section={section}
-      showAll={false}
+      showAll
     >
       {loadError ? (
         <RowMessage kind="error">
@@ -298,11 +300,14 @@ const SettingsFrame = ({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
         <h2 className="flex min-w-0 items-center gap-2 font-body">
-          <span className="text-muted-foreground">Settings</span>
-          <span aria-hidden className="text-muted-foreground">
+          <span className="text-muted-foreground max-md:text-foreground">
+            Settings
+          </span>
+          {/* Narrow, the row of sections over the page already names the one shown. */}
+          <span aria-hidden className="text-muted-foreground max-md:hidden">
             /
           </span>
-          <span className="truncate">{labelOf(section)}</span>
+          <span className="truncate max-md:sr-only">{labelOf(section)}</span>
         </h2>
         <IconButton
           onClick={() => useProject.getState().openSettings(false)}
