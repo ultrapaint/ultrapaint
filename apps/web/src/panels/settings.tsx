@@ -278,9 +278,9 @@ const SettingsLoading = () => {
 };
 
 /**
- * The dialog around a section: the sections down its whole side on the frame ({rail}); beside
- * them the page on {sidebar}, headed by Settings / the section and the close button, the one way
- * out, over a hairline the page scrolls under. Flush with the dialog's edges, the page is square
+ * The dialog around a section: the sections down its whole side on the frame ({rail}), headed by
+ * Settings; beside them the page on {sidebar}, headed by the section's name and the close button,
+ * the one way out, over a hairline the page scrolls under. Flush with the dialog's edges, the page is square
  * and parted from the sections by a hairline. No footer, as everything saves as it changes
  * (ADR 0079).
  */
@@ -299,15 +299,11 @@ const SettingsFrame = ({
     <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
-        <h2 className="flex min-w-0 items-center gap-2 font-body">
-          <span className="text-muted-foreground max-md:text-foreground">
-            Settings
-          </span>
-          {/* Narrow, the row of sections over the page already names the one shown. */}
-          <span aria-hidden className="text-muted-foreground max-md:hidden">
-            /
-          </span>
-          <span className="truncate max-md:sr-only">{labelOf(section)}</span>
+        {/* Wide, Settings heads the sections and the page names its section. Narrow, the row
+            of sections over the page names the one shown, and the page says Settings. */}
+        <h2 className="min-w-0 truncate font-heading-xsmall">
+          <span className="md:hidden">Settings</span>
+          <span className="max-md:sr-only">{labelOf(section)}</span>
         </h2>
         <IconButton
           onClick={() => useProject.getState().openSettings(false)}
@@ -554,9 +550,16 @@ const Sidebar = ({
   };
   return (
     <aside className="shrink-0 md:w-52">
+      {/* The dialog's title is said once, by its DialogTitle; this one is what is seen. */}
+      <div
+        aria-hidden
+        className="hidden h-12 items-center px-5 font-heading-xsmall md:flex"
+      >
+        Settings
+      </div>
       <nav
         aria-label="Settings sections"
-        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-2.5"
+        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-0"
       >
         {listed.map(({ icon: Icon, id, label }) => {
           const active = id === section;
