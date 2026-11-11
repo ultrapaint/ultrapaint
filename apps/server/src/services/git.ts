@@ -1,3 +1,4 @@
+import { DESIGN_MD_FILE } from "@ultrapaint/contracts/design-system";
 import { BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
 import type { GitFileStatus, GitStatus } from "@ultrapaint/contracts/git";
 import { writesGit } from "@ultrapaint/contracts/settings";
@@ -118,7 +119,12 @@ export class GitService extends Context.Service<
 
       const status = Effect.map(
         run(["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
-        (out) => parseStatus(out, paths.isInDesigns)
+        (out) =>
+          parseStatus(
+            out,
+            // Ultrapaint's own: the designs, and the design system's document (ADR 0027).
+            (p) => paths.isInDesigns(p) || p === DESIGN_MD_FILE
+          )
       ).pipe(Effect.withSpan("GitService.status"));
 
       /** The editor told the status after a change made here; the change stands if it cannot be read. */

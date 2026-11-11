@@ -663,6 +663,31 @@ describe("writing to git", () => {
     })
   );
 
+  onAServer(
+    "marks the files Ultrapaint writes, the designs and DESIGN.md, apart from the others",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["settings.set"](settings);
+        const designMd = path.join(repo, "DESIGN.md");
+        const had = (yield* fs.exists(designMd))
+          ? yield* fs.readFileString(designMd)
+          : undefined;
+        yield* fs.writeFileString(designMd, `${had ?? ""}\nA change.\n`);
+        yield* fs.writeFileString(path.join(repo, "notes.txt"), "mine\n");
+        const design = Object.fromEntries(
+          (yield* client["git.status"]()).files.map((f) => [f.path, f.design])
+        );
+        assert.strictEqual(design["DESIGN.md"], true);
+        assert.strictEqual(design["notes.txt"], false);
+        yield* fs.remove(path.join(repo, "notes.txt"));
+        yield* had === undefined
+          ? fs.remove(designMd)
+          : fs.writeFileString(designMd, had);
+      })
+  );
+
   onAServer("commits the files it is given, not what a pattern matches", () =>
     Effect.gen(function* () {
       const { client, repo, settings } = yield* TestEnv;

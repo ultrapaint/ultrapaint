@@ -189,6 +189,8 @@ export const Changes = () => {
   const [open, setOpen] = useState<OpenDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
+  // Files Ultrapaint did not write are listed only when asked for.
+  const [showOther, setShowOther] = useState(false);
   const checkpoints = useKept((s) => s.checkpoints);
   const checkpointsFailed = useKept((s) => s.checkpointsFailed);
   const snapshots = useKept((s) => s.snapshots);
@@ -333,6 +335,14 @@ export const Changes = () => {
   const files = shown?.files ?? [];
   const design = files.filter((f) => f.design);
   const other = files.filter((f) => !f.design);
+  // A ticked file stays in view: hiding the other files unticks them.
+  const hideOther = () => {
+    setShowOther(false);
+    setSelected(
+      (prev) =>
+        new Set([...prev].filter((p) => !other.some((f) => f.path === p)))
+    );
+  };
   const retryGit = () => {
     setGitFailed(false);
     readGit.current?.();
@@ -353,7 +363,7 @@ export const Changes = () => {
             onInit={writes ? init : null}
           />
         )}
-        {repository && writes && files.length > 0 ? (
+        {repository && writes && (design.length > 0 || showOther) ? (
           <CommitBar
             busy={busy}
             failure={failure}
@@ -382,13 +392,25 @@ export const Changes = () => {
           setSelected={setSelected}
           title="Design files"
         />
-        <FileGroup
-          files={other}
-          onShow={showDiff}
-          selected={writes ? selected : null}
-          setSelected={setSelected}
-          title="Other files"
-        />
+        {showOther ? (
+          <FileGroup
+            action={
+              <Button onClick={hideOther} size="sm" variant="ghost">
+                Hide
+              </Button>
+            }
+            files={other}
+            onShow={showDiff}
+            selected={writes ? selected : null}
+            setSelected={setSelected}
+            title="Other files"
+          />
+        ) : (
+          <ShowOtherFiles
+            count={other.length}
+            onShow={() => setShowOther(true)}
+          />
+        )}
         <Snapshots
           failed={snapshotsFailed}
           onRetry={readHistory}
@@ -923,13 +945,32 @@ const CheckpointRow = ({
   );
 };
 
+/** The way to the files Ultrapaint did not write, with how many there are; none without them. */
+const ShowOtherFiles = ({
+  count,
+  onShow,
+}: {
+  count: number;
+  onShow: () => void;
+}) =>
+  count === 0 ? null : (
+    <div>
+      <Button onClick={onShow} size="sm" variant="ghost">
+        Show {plural(count, "other file")}
+      </Button>
+    </div>
+  );
+
 const FileGroup = ({
+  action,
   title,
   files,
   selected,
   setSelected,
   onShow,
 }: {
+  /** At the end of the group's title row. */
+  action?: ReactNode;
   title: string;
   files: GitStatus["files"];
   /** The ticked files; null while there is nothing to commit with, and so no checkboxes. */
@@ -959,6 +1000,7 @@ const FileGroup = ({
   return (
     <section aria-labelledby={id} className={SECTION}>
       <GroupLabel
+        action={action}
         id={id}
         lead={
           selected ? (
