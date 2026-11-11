@@ -280,7 +280,7 @@ input[type="number"]::-webkit-inner-spin-button {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--input);
+  background: color-mix(in oklab, var(--foreground) 15%, transparent);
   background-clip: padding-box;
   border: 3px solid transparent;
   border-radius: 999px;
@@ -374,7 +374,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --accent-foreground: oklch(0.21 0.006 60);
   --destructive: oklch(0.55 0.21 27);
   --border: oklch(0.21 0.006 60 / 10%);
-  --input: oklch(0.21 0.006 60 / 16%);
+  /* A field's edge: 3:1 on a card (3.11:1), as a control's boundary needs. */
+  --input: oklch(0.66 0.005 70);
   --ring: oklch(0.53 0.21 263);
   --chart-1: oklch(0.53 0.21 263);
   --chart-2: oklch(0.7 0.13 200);
@@ -433,7 +434,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --accent-foreground: oklch(0.965 0.003 80);
   --destructive: oklch(0.68 0.18 25);
   --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 13%);
+  /* 3:1 on a card (3.29:1) and on a popover (3.21:1). */
+  --input: oklch(0.54 0.005 70);
   --ring: oklch(0.66 0.17 263);
   --chart-1: oklch(0.66 0.17 263);
   --chart-2: oklch(0.75 0.12 200);
