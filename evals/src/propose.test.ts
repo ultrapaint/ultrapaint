@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { Deck, writeDeck } from "./decide.ts";
 import { type Asked, Models } from "./models.ts";
-import { proposalText, propose } from "./propose.ts";
+import { proposalText, propose, proposeOnGaps } from "./propose.ts";
 import { ratingId } from "./recall.ts";
 import { readData, TestData, writeData } from "./test-data.ts";
 
@@ -134,6 +134,76 @@ describe("propose", () => {
         assert.strictEqual(asked.length, 1);
         const again = JSON.parse(yield* readData("decisions/rate-r.json"));
         assert.strictEqual(again.intro.split("Each card shows").length, 2);
+      }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(model))));
+    }
+  );
+
+  it.effect(
+    "asks the call on the findings matched with a gap, and counts what it would leave of the person's problems",
+    () => {
+      const asked: Asked[] = [];
+      const model = (question: Asked) => {
+        asked.push(question);
+        return {
+          calls: [{ call: "leave", n: 1, rule: "", what: "Taste." }],
+        };
+      };
+      const dir = "runs/g/panel/table@opus+told/run-1";
+      return Effect.gen(function* () {
+        yield* writeData({
+          [`${dir}/judgement.json`]: {
+            costUsd: 0,
+            value: {
+              gaps: [
+                { findings: [2], id: "g01", verdict: "caught", why: "" },
+                { findings: [], id: "g02", verdict: "missed", why: "" },
+              ],
+            },
+          },
+          [`${dir}/review.json`]: {
+            costUsd: 0,
+            value: {
+              findings: [
+                {
+                  fix: "",
+                  problem: "A hairline.",
+                  title: "Hairline",
+                  where: "the list",
+                },
+                {
+                  fix: "",
+                  problem: "The group is heavy.",
+                  title: "Heavy group",
+                  where: "the panel",
+                },
+              ],
+              read: [],
+            },
+          },
+          "gaps/sections/panel/section.json": {
+            code: ["code/DESIGN.md"],
+            commit: "abc1234",
+            name: "Panel",
+            pictures: [{ file: "pictures/panel@2x.png", shows: "the panel" }],
+            where: "A panel of the editor.",
+          },
+          "runs/g/recall.json": { models: ["opus"] },
+        });
+        yield* proposeOnGaps({
+          concurrency: 1,
+          effort: "high",
+          model: "opus",
+          round: "g",
+        });
+        assert.strictEqual(asked.length, 1);
+        assert.include(
+          asked[0]?.prompt ?? "",
+          "1. **Heavy group**: the panel: The group is heavy."
+        );
+        assert.notInclude(asked[0]?.prompt ?? "", "Hairline");
+        const report = yield* readData("runs/g/propose-gaps.md");
+        assert.include(report, "Findings fixed: 0/1. Gaps kept: 0/1.");
+        assert.include(report, "| g01 | 0/1 |");
       }).pipe(Effect.provide(Layer.merge(TestData, Models.layerTest(model))));
     }
   );

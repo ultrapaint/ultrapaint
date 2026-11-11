@@ -64,7 +64,7 @@ import { generateOutside, outsideHostOf } from "./outside.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
-import { propose } from "./propose.ts";
+import { propose, proposeOnGaps } from "./propose.ts";
 import {
   RECALL_INPUTS,
   type RecallInput,
@@ -1134,6 +1134,11 @@ const proposeCommand = Command.make(
       Flag.withDescription("How hard the model thinks"),
       Flag.withDefault("high")
     ),
+    gaps: Flag.Boolean("gaps").pipe(
+      Flag.withDescription(
+        "Make the calls on the findings the judges matched with a gap instead, and count how many of the person's problems a call would leave"
+      )
+    ),
     model: Flag.String("model").pipe(
       Flag.withDescription("The model that makes the calls, with the skill"),
       Flag.withDefault("opus")
@@ -1141,7 +1146,7 @@ const proposeCommand = Command.make(
     name,
   },
   Effect.fn(function* (input) {
-    yield* propose({
+    yield* (input.gaps ? proposeOnGaps : propose)({
       concurrency: input.concurrency,
       effort: input.effort,
       model: input.model,

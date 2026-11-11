@@ -409,6 +409,11 @@ answer as real or noise as before, so recall and verify read it unchanged. Answe
 the calls stay. A person agreeing with a call leans towards it: read a rating given against a
 call (`recommend` in the deck) as that, not as one given blind.
 
+What the calls cost is read on the problems the person found: `propose <round> --gaps` asks the
+same call on the findings the judges matched with a gap (up to four a gap, from several
+versions), and `runs/<round>/propose-gaps.md` says how many it would fix and how many gaps keep
+at least one fixed finding. A leave there is a real problem the designer would let through.
+
 The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
 from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
 `told` with the core's rules and the version's review table (`references/review.md`, when it has
