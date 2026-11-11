@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/cn";
 
 /**
- * Rows on one quiet surface on the dialog's page, edged and split by hairlines. The group's name, when the rows do not say it themselves, is a title above it,
+ * Rows on the dialog's page, edged and split by hairlines: a line, not a second surface, which
+ * would sit too close to the page's own tone to read. The group's name, when the rows do not say it themselves, is a title above it,
  * and a note that holds for every row sits under the title, at a reading measure. Both start
  * where the rows' words do.
  */
@@ -34,7 +35,7 @@ export const Group = ({
         ) : null}
       </div>
     ) : null}
-    <div className="divide-y rounded-lg border bg-card">{children}</div>
+    <div className="divide-y rounded-lg border">{children}</div>
     {message}
   </section>
 );

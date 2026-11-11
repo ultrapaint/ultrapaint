@@ -374,8 +374,11 @@ input[type="number"]::-webkit-inner-spin-button {
   --accent-foreground: oklch(0.21 0.006 60);
   --destructive: oklch(0.55 0.21 27);
   --border: oklch(0.21 0.006 60 / 10%);
-  /* A field's edge: 3:1 on a card (3.11:1), as a control's boundary needs. */
-  --input: oklch(0.66 0.005 70);
+  /*
+   * A field's edge: about 1.4:1 on a card (1.44:1), a quiet line under what it holds. The fill,
+   * the value and the chevron say it is a field; only the focus ring is held to 3:1.
+   */
+  --input: oklch(0.88 0.005 70);
   --ring: oklch(0.53 0.21 263);
   --chart-1: oklch(0.53 0.21 263);
   --chart-2: oklch(0.7 0.13 200);
@@ -428,14 +431,15 @@ input[type="number"]::-webkit-inner-spin-button {
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.28 0.004 70);
   --secondary-foreground: oklch(0.965 0.003 80);
-  --muted: oklch(0.255 0.004 70);
+  /* A field's fill and a track: a full step (0.045) over the page ({sidebar}), in dark as in light. */
+  --muted: oklch(0.267 0.004 70);
   --muted-foreground: oklch(0.67 0.008 75);
   --accent: oklch(0.285 0.004 70);
   --accent-foreground: oklch(0.965 0.003 80);
   --destructive: oklch(0.68 0.18 25);
   --border: oklch(1 0 0 / 8%);
-  /* 3:1 on a card (3.29:1) and on a popover (3.21:1). */
-  --input: oklch(0.54 0.005 70);
+  /* About 1.4:1 on a card (1.42:1), as in light. */
+  --input: oklch(0.34 0.005 70);
   --ring: oklch(0.66 0.17 263);
   --chart-1: oklch(0.66 0.17 263);
   --chart-2: oklch(0.75 0.12 200);

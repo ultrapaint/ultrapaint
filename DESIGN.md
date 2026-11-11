@@ -15,7 +15,7 @@ colors:
   card: oklch(1 0 0)
   popover: oklch(1 0 0)
   border: oklch(0.21 0.006 60 / 10%)
-  input: oklch(0.66 0.005 70)
+  input: oklch(0.88 0.005 70)
   ring: oklch(0.53 0.21 263)
   destructive: oklch(0.55 0.21 27)
   success: oklch(0.6 0.15 155)
@@ -218,9 +218,10 @@ it meets the frame. The
 rail's current place is raised the same way, so it reads as the panel it opens. Menus, popovers and tooltips sit above
 with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a 30% (light) or 60%
 (dark) black backdrop, no blur. Inside a card, depth is a filled field or a hairline, never a shadow.
-The settings dialog has the left card's frame: its header and sections on {colors.rail}, its page
-raised on {colors.sidebar} with a 10px corner where it meets them and no line between, each group
-on {colors.card} edged with a hairline.
+The settings dialog has the left card's frame: its sections on {colors.rail} down its whole side,
+its page raised on {colors.sidebar} with a 10px corner where it meets them and no line between,
+the page's header (Settings / the section, the close) over a hairline, each group drawn by its
+hairline alone on the page's tone. A field and a track ({colors.muted}) sit a full step over it.
 
 ## Shapes
 
@@ -234,8 +235,10 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   action; `outline` beside a primary; `ghost` for toolbar and panel actions (the most common);
   `destructive` for delete, apart from the others.
 - A text field, a text area and a select are filled ({colors.muted}) and edged in {colors.input},
-  3:1 on {colors.card} in both themes, {colors.muted-foreground} on hover; the ring on focus. A
-  composer or a search that sits in a panel's chrome stays borderless until hovered.
+  a quiet line about 1.4:1 on {colors.card} in both themes, never held to 3:1: the fill, the value
+  and the chevron say it is a field. {colors.muted-foreground} on hover; on focus a 2px solid
+  edge in {colors.ring} (the border and a 1px ring), the one part held to 3:1. A composer or a
+  search that sits in a panel's chrome stays borderless until hovered.
 - Tabs: a segmented control (muted track, raised chip) to switch views inside a card.
 - Menu for actions on a thing; Popover for a few fields edited in place, reusing the inspector's
   fields; Dialog for a task that needs the whole attention; Toast for a result elsewhere or an undo.
