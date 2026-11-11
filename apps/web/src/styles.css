@@ -314,6 +314,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
@@ -379,6 +380,8 @@ input[type="number"]::-webkit-inner-spin-button {
    * the value and the chevron say it is a field; only the focus ring is held to 3:1.
    */
   --input: oklch(0.88 0.005 70);
+  /* The edge under the pointer: a step darker, about 2:1 (1.97:1), quieter than the focus ring. */
+  --input-hover: oklch(0.78 0.005 70);
   --ring: oklch(0.53 0.21 263);
   --chart-1: oklch(0.53 0.21 263);
   --chart-2: oklch(0.7 0.13 200);
@@ -441,6 +444,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --border: oklch(1 0 0 / 8%);
   /* About 1.4:1 on a card (1.42:1), as in light. */
   --input: oklch(0.34 0.005 70);
+  /* About 2:1 under the pointer (2.04:1), as in light. */
+  --input-hover: oklch(0.42 0.005 70);
   --ring: oklch(0.66 0.17 263);
   --chart-1: oklch(0.66 0.17 263);
   --chart-2: oklch(0.75 0.12 200);

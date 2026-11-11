@@ -16,6 +16,7 @@ colors:
   popover: oklch(1 0 0)
   border: oklch(0.21 0.006 60 / 10%)
   input: oklch(0.88 0.005 70)
+  input-hover: oklch(0.78 0.005 70)
   ring: oklch(0.53 0.21 263)
   destructive: oklch(0.55 0.21 27)
   success: oklch(0.6 0.15 155)
@@ -216,7 +217,7 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   `destructive` for delete, apart from the others.
 - A text field, a text area and a select are filled ({colors.muted}) and edged in {colors.input},
   a quiet line about 1.4:1 on {colors.card} in both themes, never held to 3:1: the fill, the value
-  and the chevron say it is a field. {colors.muted-foreground} on hover; on focus a 2px solid
+  and the chevron say it is a field. On hover a step darker, {colors.input-hover} (about 2:1); on focus a 2px solid
   edge in {colors.ring} (the border and a 1px ring), the one part held to 3:1. A composer or a
   search that sits in a panel's chrome stays borderless until hovered.
 - Tabs: a segmented control (muted track, raised chip) to switch views inside a card.
