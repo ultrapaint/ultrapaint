@@ -39,7 +39,7 @@ import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
-import { Group, Row, rowSelect } from "./settings-group.tsx";
+import { Group, Row, rowField } from "./settings-group.tsx";
 
 const skillsBriefings = [
   { label: "Core", value: "router" },
@@ -217,7 +217,7 @@ export const SkillsGroup = ({
         title="Told as"
       >
         <OptionSelect
-          className={rowSelect}
+          className={rowField}
           id="settings-skills-told-as"
           onChange={(value) =>
             onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
@@ -253,7 +253,7 @@ export const SendKeyRow = () => {
       title="Send key"
     >
       <OptionSelect
-        className={rowSelect}
+        className={rowField}
         id="settings-send-key"
         onChange={(v) => setSendKey(v as SendKey)}
         options={sendKeys}
@@ -365,7 +365,7 @@ export const ChatDefaultsGroup = () => {
     <Group title="New chats">
       <Row htmlFor="settings-chat-agent" title="Agent">
         <OptionSelect
-          className={rowSelect}
+          className={rowField}
           id="settings-chat-agent"
           onChange={onAgent}
           options={agents.map((a) => {
@@ -385,7 +385,7 @@ export const ChatDefaultsGroup = () => {
         title="Model"
       >
         <OptionSelect
-          className={rowSelect}
+          className={rowField}
           disabled={models.length === 0}
           id="settings-chat-model"
           onChange={(model) => save({ ...kept, model })}
@@ -416,7 +416,7 @@ export const ChatDefaultsGroup = () => {
           title="Permissions"
         >
           <OptionSelect
-            className={rowSelect}
+            className={rowField}
             id="settings-chat-permissions"
             onChange={(value) => save({ ...kept, modeId: value })}
             options={modes.map((m) => ({ label: m.name, value: m.id }))}

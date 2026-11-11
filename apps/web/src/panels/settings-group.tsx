@@ -39,16 +39,7 @@ export const Group = ({
   </section>
 );
 
-/**
- * A select in a row: its value and a chevron, with no edge and filled only under the pointer, at
- * the row's right edge (OptionSelect's `className`).
- */
-export const rowSelect = [
-  "w-fit max-w-full *:data-[slot=select-value]:flex-none",
-  "border-transparent bg-transparent hover:border-transparent hover:bg-accent",
-].join(" ");
-
-/** A field in an `end` row: as wide as the column the selects end on. */
+/** A field or a select in an `end` row: the default control, one width, on the row's right edge. */
 export const rowField = "@xl:w-52";
 
 /**

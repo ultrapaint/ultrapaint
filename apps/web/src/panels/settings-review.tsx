@@ -38,6 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { selectTriggerClass } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -48,7 +49,7 @@ import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { LEVEL_LINES, LEVEL_NAMES } from "./review-level.tsx";
-import { Group, Row, rowSelect } from "./settings-group.tsx";
+import { Group, Row, rowField } from "./settings-group.tsx";
 
 const EACH_ROUND_NAMES: Record<EachRound, string> = {
   all: "All",
@@ -227,7 +228,7 @@ const ChosenRow = ({
       {efforts.length > 0 ? (
         <OptionSelect
           aria-label={`Effort of ${name}`}
-          className={cn(rowSelect, "h-6 font-body-small text-muted-foreground")}
+          className="w-fit"
           onChange={onEffort}
           options={efforts.map((e) => ({ label: e.name, value: e.value }))}
           size="sm"
@@ -298,16 +299,13 @@ const ReviewModelsPicker = ({
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
-        render={
-          <Button
-            aria-label={`Review models: ${summary}`}
-            className="max-w-72 justify-end gap-1 px-2 font-body-medium hover:bg-accent"
-            variant="ghost"
-          />
-        }
+        aria-label={`Review models: ${summary}`}
+        // A select's look, as the row's other controls: it opens the list of models.
+        className={cn(selectTriggerClass, "w-full min-w-0", rowField)}
+        data-size="default"
       >
         <span className="truncate">{summary}</span>
-        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 gap-0 p-1" side="top">
         {models.length > 0 ? (
@@ -611,7 +609,7 @@ export const ReviewGroup = ({
           </Row>
           <Row htmlFor="settings-review-approval" title="Approval">
             <OptionSelect
-              className={rowSelect}
+              className={rowField}
               id="settings-review-approval"
               onChange={(value) =>
                 set({ approval: value as Approval, on: true })

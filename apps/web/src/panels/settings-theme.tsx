@@ -1,7 +1,7 @@
 /** The editor's theme, in Settings › Preferences: the person's, kept in the browser. */
 import { OptionSelect } from "../components/option-select.tsx";
 import { type ThemePreference, useTheme } from "../state/theme.ts";
-import { Row, rowSelect } from "./settings-group.tsx";
+import { Row, rowField } from "./settings-group.tsx";
 
 const themes = [
   { label: "System", value: "system" },
@@ -18,7 +18,7 @@ export const ThemeRow = () => {
       title="Theme"
     >
       <OptionSelect
-        className={rowSelect}
+        className={rowField}
         id="settings-theme"
         onChange={(v) => useTheme.getState().set(v as ThemePreference)}
         options={themes}

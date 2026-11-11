@@ -253,8 +253,8 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
   checkbox's focus is a 2px ring 2px off it.
 - A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
   its 10% tint; context muted.
-- A select in a settings row is its value and a chevron, filled only on hover; a field there is
-  13rem wide, on the row's right edge.
+- A select in a settings row is the default select, filled and edged as a field, never a quiet
+  value and chevron; it and a field there are 13rem wide, on the row's right edge.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
 - An error tied to a row sits under it in full, across the row, on a 10% red box; a file's schema
   error names the place in the file in mono, never the validator's text. A notice takes the same
