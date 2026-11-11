@@ -78,6 +78,7 @@ import { review } from "./review.ts";
 import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
+import { tells } from "./tells.ts";
 import { applyTriage, triage } from "./triage.ts";
 import { verify } from "./verify.ts";
 
@@ -1196,6 +1197,38 @@ const fixesCommand = Command.make(
   )
 );
 
+const tellsCommand = Command.make(
+  "tells",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the model thinks"),
+      Flag.withDefault("medium")
+    ),
+    model: Flag.String("model").pipe(
+      Flag.withDescription("The model that counts the marks"),
+      Flag.withDefault("opus")
+    ),
+    name,
+    rounds: Flag.String("rounds").pipe(
+      Flag.withDescription("The rounds whose runs are counted, comma-separated")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* tells({
+      concurrency: input.concurrency,
+      effort: input.effort,
+      model: input.model,
+      name: input.name,
+      rounds: modelList(input.rounds),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Count the marks of a generated page (eyebrows, gradient text, icon tiles, …) in rounds' runs, per round"
+  )
+);
+
 const catchableCommand = Command.make(
   "catchable",
   {
@@ -1385,6 +1418,7 @@ Command.make("design-evals").pipe(
     verifyCommand,
     proposeCommand,
     fixesCommand,
+    tellsCommand,
     panelCommand,
     decideCommand,
     measureCommand,

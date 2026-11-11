@@ -303,6 +303,19 @@ pnpm evals round <name>-none [refs…] --host plain --agent codex --agent-model 
 pnpm evals pairwise <name>-none <name>
 ```
 
+The marks a model gives a public page by default (an eyebrow over each heading, gradient-filled
+words, an icon tile over each card, a one-sided accent border, a coloured glow, a border with a
+wide shadow, "01 / 02" over sections, "Not X. Y." copy, stock adjectives; gaps g53 to g60) are
+counted per run without a judge:
+
+```sh
+pnpm evals tells <name> --rounds <name>-none,<name>,<name>-<candidate>
+```
+
+Each run's pictures and source go to one model (Opus), which lists every place the page has each
+mark (`tells@<model>.json` beside the run); `runs/<name>/tells.md` gives per round the mean
+count per page and how many pages have one.
+
 ```json
 { "kind": "outside", "entry": "src/App.tsx", "modules": "../blank/app/node_modules" }
 ```
