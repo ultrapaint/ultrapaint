@@ -86,9 +86,12 @@ export const InlineInput = ({
 const CanvasList = ({
   canvases,
   current,
+  onOpen,
 }: {
   canvases: readonly Canvas[];
   current: string | null;
+  /** After a click opens another canvas: the list it was picked from closes. */
+  onOpen: () => void;
 }) => {
   const [dropAt, setDropAt] = useState<number | null>(null);
   const onDrop = (e: DragEvent) => {
@@ -130,6 +133,7 @@ const CanvasList = ({
               );
             }
           }}
+          onOpen={onOpen}
         />
       ))}
     </div>
@@ -143,6 +147,7 @@ const CanvasRow = ({
   dropBelow,
   onDragEnd,
   onDragOver,
+  onOpen,
 }: {
   canvas: Canvas;
   current: boolean;
@@ -151,6 +156,7 @@ const CanvasRow = ({
   dropBelow: boolean;
   onDragEnd: () => void;
   onDragOver: (e: DragEvent) => void;
+  onOpen: () => void;
 }) => {
   const [renaming, setRenaming] = useState(false);
   // Its pages as the Pages panel lists them: a page's variants and states are not pages.
@@ -176,7 +182,13 @@ const CanvasRow = ({
     setRenaming(false);
     renameCanvas(canvas, name);
   };
-  const open = () => openCanvas(canvas.id);
+  // The canvas shown stays open on a click, so a double click on it still renames it in place.
+  const open = () => {
+    if (!current) {
+      openCanvas(canvas.id);
+      onOpen();
+    }
+  };
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here.
     <div
@@ -271,49 +283,64 @@ const CanvasPickerPopover = ({
 }: {
   canvases: readonly Canvas[];
   current: string | null;
-}) => (
-  <Popover>
-    <PopoverTrigger
-      className="group mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-md bg-foreground/5 px-2 text-left outline-none ring-1 ring-border transition-colors hover:bg-foreground/8 focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-foreground/8"
-      title="Canvases"
-    >
-      <Frame className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-body-medium">
-        {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
-      </span>
-      <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
-    </PopoverTrigger>
-    <PopoverContent
-      align="start"
-      className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-0.5 overflow-auto p-1"
-      sideOffset={4}
-    >
-      <div className="px-2 pt-1.5 pb-1 font-body-small text-muted-foreground">
-        Canvases
-      </div>
-      <CanvasList canvases={canvases} current={current} />
-      <div className="my-0.5 h-px bg-border" />
-      <button className={MENU_ROW} onClick={newCanvas} type="button">
-        <Plus />
-        New canvas
-      </button>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              className={MENU_ROW}
-              onClick={pickFigmaFile}
-              type="button"
-            />
-          }
+}) => {
+  const [open, setOpen] = useState(false);
+  // What a row of the list starts, a canvas opened or a dialog, closes the list behind it.
+  const close = () => setOpen(false);
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        className="group mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-md bg-foreground/5 px-2 text-left outline-none ring-1 ring-border transition-colors hover:bg-foreground/8 focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-foreground/8"
+        title="Canvases"
+      >
+        <Frame className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-body-medium">
+          {canvases.find((c) => c.id === current)?.name ?? "No canvas"}
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180" />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="max-h-[min(28rem,var(--available-height))] w-(--anchor-width) gap-0.5 overflow-auto p-1"
+        sideOffset={4}
+      >
+        <div className="px-2 pt-1.5 pb-1 font-body-small text-muted-foreground">
+          Canvases
+        </div>
+        <CanvasList canvases={canvases} current={current} onOpen={close} />
+        <div className="my-0.5 h-px bg-border" />
+        <button
+          className={MENU_ROW}
+          onClick={() => {
+            close();
+            newCanvas();
+          }}
+          type="button"
         >
-          <FileUp />
-          Import a Figma file…
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          An agent turns the frames of a .fig file into pages of this canvas
-        </TooltipContent>
-      </Tooltip>
-    </PopoverContent>
-  </Popover>
-);
+          <Plus />
+          New canvas
+        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                className={MENU_ROW}
+                onClick={() => {
+                  close();
+                  pickFigmaFile();
+                }}
+                type="button"
+              />
+            }
+          >
+            <FileUp />
+            Import a Figma file…
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            An agent turns the frames of a .fig file into pages of this canvas
+          </TooltipContent>
+        </Tooltip>
+      </PopoverContent>
+    </Popover>
+  );
+};
