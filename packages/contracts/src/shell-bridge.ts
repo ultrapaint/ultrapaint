@@ -141,6 +141,33 @@ export const FirstPrompt = Schema.Struct({
 });
 export type FirstPrompt = typeof FirstPrompt.Type;
 
+/** A release of the app since the one installed, as its GitHub release says it. */
+export const AppRelease = Schema.Struct({
+  /** When it was published, as ISO 8601. */
+  date: Schema.String,
+  /** Its notes, Markdown: what it brings, without how to install it. */
+  notes: Schema.String,
+  version: Schema.String,
+});
+export type AppRelease = typeof AppRelease.Type;
+
+/**
+ * A newer release of the app (ADR 0078), once there is something to do about it: `restart` when
+ * it is downloaded and the app replaces itself on a restart, `download` when this copy cannot (a
+ * deb, a macOS app in a folder it cannot write), with `reason` saying why when there is one.
+ */
+export const AppUpdate = Schema.Struct({
+  /** The version running. */
+  current: Schema.String,
+  install: Schema.Literals(["restart", "download"]),
+  reason: Schema.optional(Schema.String),
+  /** Every release since the one running, newest first: the first is the one installed. */
+  releases: Schema.NonEmptyArray(AppRelease),
+  /** The newest release's page, where it is downloaded by hand. */
+  url: Schema.String,
+});
+export type AppUpdate = typeof AppUpdate.Type;
+
 /** What a folder the person chose holds, before anything is written in it. */
 export const FolderKind = Schema.Struct({
   /**
@@ -298,6 +325,11 @@ export const SHELL_BRIDGE = {
   /** Signs in through the shell (`chatgpt`): the browser opens, and this ends once it is done. */
   "agents.signIn": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /**
+   * Restarts the app into the update it downloaded (`update`), once agents at work are stopped
+   * with the person's agreement; nothing when they would rather let them finish.
+   */
+  installUpdate: invoke([], Schema.Void),
+  /**
    * Writes a new design, telling the listener how each step goes, then opens it in place of the
    * open project, which the shell stops (asking first when an agent is working). Answers with the
    * step that failed, when one does: what the steps before it did stays.
@@ -376,6 +408,8 @@ export const SHELL_BRIDGE = {
   "projects.takeFirstPrompt": invoke([], Schema.NullOr(FirstPrompt)),
   /** What the shell is doing for the open project; null when nothing. */
   shellStatus: state(Schema.NullOr(ShellStatus)),
+  /** A newer release of the app, when there is something to do about it; null otherwise. */
+  update: state(Schema.NullOr(AppUpdate)),
   /** The window's buttons over the page; not shown where the system draws the frame. */
   windowControls: state(WindowControlsState),
 } as const satisfies Record<string, Capability>;

@@ -31,6 +31,9 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The tags and the commits since the previous release, for its notes.
+          fetch-depth: 0
       # pnpm at the version package.json names, Node.js, the store's cache and `pnpm install`.
       - uses: pnpm/setup@v3
         with:
@@ -94,23 +97,30 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         # A draft until the desktop app is attached: nothing updates to a release without it.
         # The package twice: by its version, and as `ultrapaint.tgz`, which `releases/latest/download/`
-        # always finds.
+        # always finds. The notes: what the release brings, from the commits since the previous
+        # one, which the desktop app shows (ADR 0078); after the install mark, how to install it.
         run: |
           cp "dist/ultrapaint-$VERSION.tgz" dist/ultrapaint.tgz
-          gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" dist/ultrapaint.tgz \
-            --draft \
-            --title "v$VERSION" \
-            --generate-notes \
-            --notes "**The command** needs Node.js 24 or newer. Install it, then run \`ultrapaint\` in any repository:
+          previous=$(git describe --tags --abbrev=0 "v$VERSION^" 2>/dev/null || true)
+          node scripts/release-notes.ts "$previous" "v$VERSION" > "$RUNNER_TEMP/notes.md"
+          cat >> "$RUNNER_TEMP/notes.md" <<NOTES
+
+          **The command** needs Node.js 24 or newer. Install it, then run \`ultrapaint\` in any repository:
 
           \`\`\`bash
           npm install -g https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/ultrapaint-$VERSION.tgz
           \`\`\`
 
-          **The desktop app**, unsigned for now:
+          **The desktop app**, unsigned for now. It updates itself from the next release on: a restart from the item at the foot of its rail.
 
           - macOS (Apple silicon): \`brew install --cask ultrapaint/tap/ultrapaint\`, or the \`.dmg\` below. Unsigned, it opens once you run \`xattr -dr com.apple.quarantine /Applications/Ultrapaint.app\`.
-          - Linux: the AppImage, which updates itself, or the \`.deb\`."
+          - Linux: the AppImage, or the \`.deb\`, which is updated by hand.
+          NOTES
+          gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" dist/ultrapaint.tgz \
+            --draft \
+            --title "v$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --generate-notes
 
   desktop:
     needs: release

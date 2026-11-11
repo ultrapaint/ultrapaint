@@ -46,6 +46,7 @@ import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 import { RemoteServers } from "./ssh-server.ts";
+import { type InstallMode, Updater } from "./updater.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -91,6 +92,7 @@ const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 12;
  */
 const states: BridgeStates = {
   shellStatus: null,
+  update: null,
   ...(ownTitleBar
     ? { windowControls: { fullScreen: false, inset: CONTROLS_INSET } }
     : {}),
@@ -238,14 +240,38 @@ const ElectronSecrets = Layer.sync(Secrets, () =>
 );
 
 /**
- * An AppImage replaces itself with the latest release (electron-updater, from GitHub Releases).
- * Elsewhere the app is told of one by a notice (ADR 0051): the macOS app is unsigned, which
- * Squirrel will not update, and a deb is installed again.
+ * How this copy updates (ADR 0078): the macOS app replaces its own bundle, wherever it runs from
+ * (unsigned, Squirrel will not); an AppImage through electron-updater; a deb by hand. Nothing in
+ * development.
  */
-const selfUpdating =
-  app.isPackaged &&
-  process.platform === "linux" &&
-  Boolean(process.env.APPIMAGE);
+const installMode = ((): InstallMode => {
+  if (!app.isPackaged) {
+    return { _tag: "None" };
+  }
+  if (process.platform === "darwin") {
+    return {
+      _tag: "Swap",
+      executable: app.getPath("exe"),
+      stageDir: path.join(dataDir, "updates"),
+    };
+  }
+  if (process.platform === "linux" && process.env.APPIMAGE) {
+    return {
+      _tag: "Feed",
+      // Downloaded in the background; `update-downloaded` says when it is there.
+      check: Effect.promise(() =>
+        autoUpdater.checkForUpdates().then(
+          () => undefined,
+          (error: unknown) =>
+            console.error(
+              `[desktop] the update could not be checked: ${String(error)}`
+            )
+        )
+      ),
+    };
+  }
+  return { _tag: "Download" };
+})();
 
 const serverLaunch = {
   args: serverArgs,
@@ -258,7 +284,13 @@ const runtime = ManagedRuntime.make(
     NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
       Layer.provideMerge(OpenProject.layer(dataDir))
     ),
-    Notices.layer({ fetch, selfUpdating, version: app.getVersion() })
+    Notices.layer,
+    Updater.layer({
+      current: app.getVersion(),
+      fetch,
+      mode: installMode,
+      publish: (update) => tell("update", update),
+    })
   ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
     Layer.provideMerge(
@@ -307,6 +339,7 @@ serveBridge({
   fromWindow,
   handlers: bridgeHandlers({
     home: app.getPath("home"),
+    installUpdate: Effect.sync(() => quit(true, true)),
     sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
   }),
   ipc: ipcMain,
@@ -376,12 +409,11 @@ const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
   window = makeWindow();
-  if (selfUpdating) {
-    // Downloaded in the background and installed when the app quits; the system says so.
-    autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
-      console.error(
-        `[desktop] the update could not be checked: ${String(error)}`
-      );
+  if (installMode._tag === "Feed") {
+    autoUpdater.on("update-downloaded", ({ version }) => {
+      runtime
+        .runPromise(Updater.use((u) => u.downloaded(version)))
+        .catch(() => undefined);
     });
   }
   const folder = folderArgument(process.argv);
@@ -420,10 +452,11 @@ if (app.requestSingleInstanceLock()) {
  * Closing the window quits (D13). The server the app started stops first, once the user agreed
  * to stop agents at work in it (a second close or Cmd-Q meanwhile has the same answer); a signal
  * does not wait for an answer, and answers no to a question already on screen (`OpenProject`).
- * `quitting` lets the close and the quit through once that is done.
+ * `quitting` lets the close and the quit through once that is done. With `update`, the app
+ * comes back as the release it downloaded (ADR 0078).
  */
 let quitting = false;
-const quit = (ask: boolean) => {
+const quit = (ask: boolean, update = false) => {
   if (quitting) {
     return;
   }
@@ -435,7 +468,15 @@ const quit = (ask: boolean) => {
         return;
       }
       quitting = true;
+      // The macOS app: a script waits for it to exit, then puts the new bundle in its place.
+      if (update) {
+        await runtime.runPromise(Updater.use((u) => u.install));
+      }
       await runtime.dispose();
+      if (update && installMode._tag === "Feed") {
+        autoUpdater.quitAndInstall(false, true);
+        return;
+      }
       app.quit();
     })
     .catch(() => {

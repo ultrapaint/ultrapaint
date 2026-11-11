@@ -30,6 +30,11 @@ import { readSshHosts } from "./ssh-hosts.ts";
 interface HandlerOptions {
   /** The user's home directory, which `~` in the SSH configuration names. */
   readonly home: string;
+  /**
+   * Restarts the app into its update (ADR 0078): the window's own business, as a quit is, so
+   * the main process gives it. Nothing without.
+   */
+  readonly installUpdate?: Effect.Effect<void>;
   /** The SSH configuration whose hosts are suggested. */
   readonly sshConfig: string;
 }
@@ -132,6 +137,7 @@ export const bridgeHandlers = (
     ),
   // The agent keeps its sign-in itself: nothing to start again.
   "agents.signIn": (id) => Agents.use((a) => a.signIn(id)),
+  installUpdate: () => options.installUpdate ?? Effect.void,
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),
   "newDesign.folderFor": (name) => NewDesigns.use((n) => n.folderFor(name)),

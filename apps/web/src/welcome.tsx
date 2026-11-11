@@ -38,6 +38,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { UpdateButton } from "./components/app-update.tsx";
 import { TextFileChip } from "./components/chip.tsx";
 import { composerBox, composerText } from "./components/composer-style.ts";
 import { DialogHost } from "./components/dialogs.tsx";
@@ -638,6 +639,7 @@ const Welcome = () => {
           Back to {back}
         </Button>
       ) : null}
+      <UpdateButton className="fixed top-12 right-4 text-muted-foreground" />
       <section className="flex flex-col gap-6">
         <header className="flex flex-col gap-4">
           <Lockup className="h-7 self-start" />

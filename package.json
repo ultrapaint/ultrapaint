@@ -20,7 +20,7 @@
     "prepare": "effect-tsgo patch --typescript --skip-missing",
     "start": "node scripts/cli.ts",
     "test": "pnpm -r test && pnpm test:guards",
-    "test:guards": "node --test scripts/test-guards.test.ts",
+    "test:guards": "node --test scripts/test-guards.test.ts scripts/release-notes.test.ts",
     "test:shuffle": "pnpm -r --no-bail test -- --sequence.shuffle",
     "typecheck": "tsc --noEmit -p . && pnpm -r typecheck"
   },

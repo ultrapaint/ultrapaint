@@ -483,10 +483,13 @@ refactor and the board view left.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
-- **Notice**: what the desktop app tells the editor it found missing or out of date on this
-  machine, shown as a banner over it until dismissed or the editor loads again
-  (`Platform.notices`, the desktop's `Notices`): Node.js, and a newer release where the app does
-  not update itself (`updates.ts`, ADR 0051).
+- **Notice**: what the desktop app tells the editor it found missing on this machine, shown as
+  a banner over it until dismissed or the editor loads again (`Platform.notices`, the desktop's
+  `Notices`): Node.js.
+- **App update**: a newer release of the desktop app, once there is something to do about it:
+  a restart into the release it downloaded, or a download by hand where this copy cannot replace
+  itself (`Platform.update`, the desktop's `Updater`, `updates.ts`; the editor's `app-update.tsx`,
+  ADR 0078). Its **release notes** are what comes before the release's install mark.
 
 ## Server
 

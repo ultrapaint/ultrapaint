@@ -22,6 +22,7 @@ import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
+import { UpdateRailItem } from "./app-update.tsx";
 import { GitUserButton } from "./git-user.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
 
@@ -131,7 +132,8 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 
 /**
  * The left panels the workspace offers, in a column of icons at the left card's edge: the agents
- * always first. What changed, the settings and who the user is sit at its foot.
+ * always first. What changed, the settings and who the user is sit at its foot, under a newer
+ * release of the app while there is one (ADR 0078).
  */
 export const Rail = () => {
   // The mode's places (ADR 0053): Canvas's on the page canvas, Design System's on a board view,
@@ -150,6 +152,7 @@ export const Rail = () => {
           <RailButton key={value} value={value} />
         ))}
       <div className="flex-1" />
+      <UpdateRailItem />
       {tabs.includes("changes") ? <RailButton value="changes" /> : null}
       <RailItem
         command="settings"
