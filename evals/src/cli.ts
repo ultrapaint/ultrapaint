@@ -936,6 +936,12 @@ const measureCommand = Command.make(
       Flag.withDescription("A CSS selector: the part of the page to measure"),
       Flag.withDefault("body")
     ),
+    section: Flag.String("section").pipe(
+      Flag.withDescription(
+        "A gap's section (gaps/sections/<name>) whose checks.json takes this theme's findings, for recall --inputs checks; the page drawn at the section's commit"
+      ),
+      Flag.optional
+    ),
     steps: Flag.String("steps").pipe(
       Flag.withDescription(
         "A module of steps run on the page first: export default [async (page) => {}]"
@@ -973,6 +979,7 @@ const measureCommand = Command.make(
       out: Option.getOrUndefined(input.out),
       ratio: input.ratio,
       root: input.root,
+      section: Option.getOrUndefined(input.section),
       steps: Option.getOrUndefined(input.steps),
       theme: input.theme,
     });
@@ -1030,7 +1037,7 @@ const recallCommand = Command.make(
     ),
     inputs: Flag.String("inputs").pipe(
       Flag.withDescription(
-        "What the reviewers are shown, comma-separated: pictures (and code, with the skill to open), outline (a text outline, from `outline`), told (pictures and code, the rules in the prompt, no skill to open), untold (the same with no rules)"
+        "What the reviewers are shown, comma-separated: pictures (and code, with the skill to open), outline (a text outline, from `outline`), told (pictures and code, the rules in the prompt, no skill to open), untold (the same with no rules), checks (pictures and code with the skill, and what the checks measured: the section's checks.json, from `measure --section`)"
       ),
       Flag.withDefault("pictures")
     ),

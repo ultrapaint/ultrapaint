@@ -517,6 +517,28 @@ judgement, and `recall --inputs outline` shows a reviewer that outline instead o
 code (`shipped+outline`), to see which gaps the outline alone shows. Its report ends with what a review took on
 average, per version: findings, seconds and, where the model counts them, tokens.
 
+What the checks measure can be shown to a reviewer too, as the editor shows its review models
+what the checks measured on a document (ADR 0061): `recall --inputs pictures,checks` reviews each
+section with its pictures and code, then again with the checks' findings beside them as facts
+(`shipped+checks`). The findings are the section's `checks.json`, written by `measure --section`
+on an editor run at the section's commit, one measurement per theme:
+
+```sh
+git worktree add --detach .work/checks/<commit> <commit> && pnpm -C .work/checks/<commit> install
+# in the worktree, in a process group of its own: pnpm dev -- --ephemeral
+pnpm evals measure http://127.0.0.1:<port>/ --section <section> --root '<the section's element>' \
+  --steps <steps.mjs> --checks --hover --stress --grid 4 --ratio 3 --theme dark   # and light
+pnpm evals recall <round> --inputs pictures,checks <sections…>
+```
+
+A section with no `checks.json` stops the round with the command to write it; one the checks
+could not run on holds `{ "commit": …, "measured": [], "notRun": "<why>" }`, and its reviewer is
+told so. A reviewer is told each finding once, with the elements it was found on, and that a
+clean measurement is not a good design. The sections measured so far are the ones of g02
+(`components-panel`), g08 (`tools-bar`), g34 (`layers`) and g37 (`changes`), the gaps every
+version missed by eye; their steps are `runs/checks-2/steps/`, and their commits, from before the
+history was rewritten, map through `~/Backups/ultrapaint-history/commit-map-2026-11-07.txt`.
+
 ## Studies
 
 Two commands count what well-made interfaces do, each in two steps: `annotate` has a model look

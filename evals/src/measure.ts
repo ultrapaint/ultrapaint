@@ -16,6 +16,7 @@ import { axeFindings } from "./axe.ts";
 import { Browser } from "./browser.ts";
 import { EvalsError } from "./errors.ts";
 import { writeJson } from "./layout.ts";
+import { type Measurement, recordSectionChecks } from "./section-checks.ts";
 
 export interface MeasureOptions {
   /**
@@ -41,10 +42,59 @@ export interface MeasureOptions {
   readonly ratio: number;
   /** What to measure: a CSS selector, the whole page by default. */
   readonly root: string;
+  /**
+   * A gap's section (`gaps/sections/<name>`) whose `checks.json` takes this theme's findings,
+   * for `recall --inputs checks`: the page must be drawn at the section's commit.
+   */
+  readonly section?: string | undefined;
   /** A module of steps to run first, `export default [async (page) => {}]`, as the capture scripts. */
   readonly steps: string | undefined;
   readonly theme: "dark" | "light";
 }
+
+/** What one theme's measure found, as a section's `checks.json` keeps it. */
+const measurementOf = (
+  options: MeasureOptions,
+  found: {
+    readonly checked: Measurement["checks"];
+    readonly dividers: Measurement["dividers"];
+    readonly fromAxe: NonNullable<Measurement["axe"]>;
+    readonly spacing: Measurement["spacing"];
+  }
+): Measurement => ({
+  ...(options.checks?.axe && { axe: found.fromAxe }),
+  checks: found.checked,
+  dividers: found.dividers,
+  grid: options.checks?.grid ?? 0,
+  ratio: options.ratio,
+  root: options.root,
+  spacing: found.spacing,
+  theme: options.theme,
+});
+
+/** Writes what was found where the options say: a section's `checks.json`, a JSON file. */
+const keep = Effect.fnUntraced(function* (
+  url: string,
+  options: MeasureOptions,
+  found: Parameters<typeof measurementOf>[1]
+) {
+  if (options.section) {
+    yield* recordSectionChecks(options.section, measurementOf(options, found));
+    yield* Console.log(
+      `written into the section ${options.section}'s checks.json (${options.theme})`
+    );
+  }
+  if (options.out) {
+    yield* writeJson(options.out, {
+      ...(options.checks?.axe && { axe: found.fromAxe }),
+      checks: found.checked,
+      dividers: found.dividers,
+      spacing: found.spacing,
+      theme: options.theme,
+      url,
+    });
+  }
+});
 
 export const measure = Effect.fn("measure")(function* (
   url: string,
@@ -104,14 +154,5 @@ export const measure = Effect.fn("measure")(function* (
   yield* Console.log(
     `${spacing.length} spacing and ${dividers.length} divider findings; ${layout.rules.length} dividers measured${options.checks ? `; ${checked.length} from the checks` : ""}${options.checks?.axe ? `; ${fromAxe.length} from axe` : ""}`
   );
-  if (options.out) {
-    yield* writeJson(options.out, {
-      ...(options.checks?.axe && { axe: fromAxe }),
-      checks: checked,
-      dividers,
-      spacing,
-      theme: options.theme,
-      url,
-    });
-  }
+  yield* keep(url, options, { checked, dividers, fromAxe, spacing });
 });

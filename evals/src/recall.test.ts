@@ -460,6 +460,68 @@ describe("recall", () => {
     }
   );
 
+  it.effect(
+    "shows a reviewer what the checks measured on the section, as facts beside its pictures",
+    () => {
+      const asked: Asked[] = [];
+      const recording = (question: Asked) => {
+        asked.push(question);
+        return scripted(question);
+      };
+      return Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "gaps/sections/panel/checks.json": {
+            commit: "abc1234",
+            measured: [
+              {
+                checks: [],
+                dividers: [{ bar: "Tools", off: -6 }],
+                grid: 0,
+                ratio: 2,
+                root: "body",
+                spacing: [],
+                theme: "dark",
+              },
+            ],
+          },
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        yield* recall({
+          concurrency: 1,
+          effort: "high",
+          inputs: ["pictures", "checks"],
+          judgeModel: "opus",
+          models: ["opus"],
+          round: "r",
+          runs: 1,
+          sections: [],
+          skills: ["built-in"],
+        });
+
+        const reviews = asked.filter((a) => a.prompt.startsWith("You review"));
+        const [plain, checked] = reviews;
+        assert.notInclude(plain?.prompt ?? "", "What the checks measured");
+        assert.include(
+          checked?.prompt ?? "",
+          "- divider: -6px off its bar's line, in “Tools”"
+        );
+        assert.deepStrictEqual(checked?.dirs?.length, 1);
+        assert.include(
+          yield* readData("runs/r/report.md"),
+          "| Gap | Kind | Section | shipped | shipped+checks |"
+        );
+      }).pipe(
+        Effect.provide(Layer.merge(TestData, Models.layerTest(recording)))
+      );
+    }
+  );
+
   it("settles several judges' verdicts on the one most of them gave, the lower of two", () => {
     const by = (
       verdict: "caught" | "partly" | "missed",

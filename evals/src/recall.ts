@@ -19,6 +19,11 @@
  * the core's rules and the version's review table (`references/review.md`, when it has one) in
  * the prompt. Comparing them says what giving the rules to the editor's review models is worth.
  *
+ * `checks` shows the pictures and code with what the lab's checks measured on the section
+ * (`checks.json`, written by `measure --section`) as facts, as the editor shows its review models
+ * what the checks measured on a document (ADR 0061): whether a measurement makes a reviewer name
+ * what it misses by eye (groups as close as their rows, a divider off its line).
+ *
  * It resumes: a review, a judgement or a grouping already made is kept. It ends on
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status
  * `testing`.
@@ -67,6 +72,7 @@ import {
   RESAMPLES,
   showInterval,
 } from "./recall-stats.ts";
+import { checkFacts, readSectionChecks } from "./section-checks.ts";
 
 export const Section = Schema.Struct({
   /** The files under `code/`, the design system's `DESIGN.md` first. */
@@ -221,11 +227,18 @@ export const Saved = <S extends Schema.Top>(schema: S) =>
 export const versionName = (skills: string) =>
   skills === "built-in" ? "shipped" : path.basename(skills);
 
-export const RECALL_INPUTS = ["pictures", "outline", "told", "untold"] as const;
+export const RECALL_INPUTS = [
+  "pictures",
+  "outline",
+  "told",
+  "untold",
+  "checks",
+] as const;
 /**
  * What a reviewer is shown of a section: its pictures and code with the skill to open
- * (`pictures`), a text outline of it (`outline`), or its pictures and code with no skill to open,
- * the rules in the prompt (`told`) or not (`untold`).
+ * (`pictures`), a text outline of it (`outline`), its pictures and code with no skill to open,
+ * the rules in the prompt (`told`) or not (`untold`), or its pictures and code with the skill to
+ * open and what the checks measured on it (`checks`, from its `checks.json`).
  */
 export type RecallInput = (typeof RECALL_INPUTS)[number];
 
@@ -722,13 +735,17 @@ const askReview = Effect.fn("askReview")(function* (
       value: answer.value,
     };
   }
+  const checks =
+    version.input === "checks"
+      ? `\nWhat the checks measured on it, as facts: a finding of yours may rest on them, and none needs repeating them one by one.\n\n${checkFacts(yield* readSectionChecks(path.basename(copy.dir)))}\n`
+      : "";
   const answer = yield* models.ask({
     cwd: copy.dir,
     dirs: [tree],
     effort: options.effort,
     images: section.pictures.map((p) => p.file),
     model,
-    prompt: yield* prompt("recall-review", { ...shown, skill: tree }),
+    prompt: yield* prompt("recall-review", { ...shown, checks, skill: tree }),
     ...reviewAnswer,
   });
   return {

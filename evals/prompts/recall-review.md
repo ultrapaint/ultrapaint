@@ -14,7 +14,7 @@ Its code as it was when the pictures were taken, for the values, the states and 
 pictures do not show; the design system's `DESIGN.md` first:
 
 {{code}}
-
+{{checks}}
 List every problem in this section that a careful designer would fix: one finding per problem,
 each with what is wrong, where, and what fixes it. Leave out what is fine and what lies outside
 the section.
