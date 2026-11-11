@@ -8,14 +8,11 @@
 import { TEXT_ATTACHMENT_LIMIT } from "@ultrapaint/contracts/threads";
 import { toast } from "sonner";
 import {
-  addChip,
-  type Chip,
   type ImageChip,
   imageChip,
   type TextChip,
   textChip,
-  useAttachments,
-} from "../state/attachments.ts";
+} from "./file-chips.ts";
 
 /** The image types every agent's model reads. */
 const TAKEN = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
@@ -38,8 +35,15 @@ export const MAX_TEXT_BYTES = 2 * TEXT_ATTACHMENT_LIMIT;
 /** What the files are attached to: a chat's prompt, or the look page's, which takes pictures. */
 export type Takes = "files" | "pictures";
 
+/** A chip a prompt already carries: a file from disk, or anything else of the chat's. */
+interface Carried {
+  readonly kind: string;
+}
+
+const isText = (chip: Carried): chip is TextChip => chip.kind === "text";
+
 /** What a set of files became: the chips to attach, and a sentence for each that could not be. */
-export interface Attached<C extends Chip = Chip> {
+export interface Attached<C extends Carried = ImageChip | TextChip> {
   readonly chips: readonly C[];
   readonly refused: readonly string[];
 }
@@ -200,15 +204,15 @@ export const readFiles = async (
   };
 };
 
-const textBytes = (chips: readonly Chip[]) =>
-  chips.reduce((sum, c) => sum + (c.kind === "text" ? c.size : 0), 0);
+const textBytes = (chips: readonly Carried[]) =>
+  chips.reduce((sum, c) => sum + (isText(c) ? c.size : 0), 0);
 
 /**
  * The chips a prompt that already has `existing` can take on, in order, within its pictures and
  * its text; a sentence for each kind that did not fit.
  */
-export const admit = <C extends Chip>(
-  existing: readonly Chip[],
+export const admit = <C extends ImageChip | TextChip>(
+  existing: readonly Carried[],
   incoming: readonly C[]
 ): Attached<C> => {
   let pictures = existing.filter((c) => c.kind === "image").length;
@@ -245,19 +249,4 @@ export const tellRefused = (refused: readonly string[]) => {
   for (const line of refused) {
     toast.error(line);
   }
-};
-
-/**
- * Attaches `files` to the thread's next prompt, in their order, beside what it already carries;
- * says which could not be, and why.
- */
-export const attachFiles = async (threadId: string, files: readonly File[]) => {
-  const read = await readFiles(files, "files");
-  // Admitted against the chips as they are once read: another drop may have landed meanwhile.
-  const existing = useAttachments.getState().byThread[threadId] ?? [];
-  const admitted = admit(existing, read.chips);
-  for (const chip of admitted.chips) {
-    addChip(threadId, chip);
-  }
-  tellRefused([...read.refused, ...admitted.refused]);
 };

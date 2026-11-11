@@ -40,7 +40,7 @@ import {
   TitleRow,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
-import { sendFirstPrompt, takeFirstPrompt } from "./lib/first-prompt.ts";
+import { sendFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openLookPage, startLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
@@ -542,8 +542,7 @@ export const App = () => {
   // opened for the first time is not set up on its own; a new chat suggests it (ADR 0073).
   useEffect(() => {
     if (loaded) {
-      const start = takeFirstPrompt();
-      sendFirstPrompt(start, openLookPage);
+      sendFirstPrompt(openLookPage);
     }
   }, [loaded]);
 

@@ -4,7 +4,8 @@ import type { QueuedPrompt, Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addChip, imageChip, useAttachments } from "../state/attachments.ts";
+import { imageChip } from "../lib/file-chips.ts";
+import { addChip, useAttachments } from "../state/attachments.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Composer } from "./thread-composer.tsx";
 

@@ -1,38 +1,32 @@
 /**
  * The start screen's prompt (ADR 0062), sent in the project's first chat once it opens. The
- * desktop app opens the project with it on the editor's address (`first-prompt`); it is taken
- * off it, so a reload sends nothing again.
+ * desktop app keeps it, with its pictures and text files, for the project it opens, and gives it
+ * once (`projects.takeFirstPrompt`), so a reload sends nothing again.
  */
-import {
-  FIRST_PROMPT_PARAM,
-  FirstPrompt,
-} from "@ultrapaint/contracts/shell-bridge";
+import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import {
   isModelOption,
   type PromptAttachment,
 } from "@ultrapaint/contracts/threads";
-import { Option, Schema } from "effect";
+import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError } from "../state/project.ts";
 
-const decode = Schema.decodeUnknownOption(Schema.fromJsonString(FirstPrompt));
-
-/** The prompt the editor was opened with, taken off the address. */
-export const takeFirstPrompt = (): FirstPrompt | null => {
-  const url = new URL(window.location.href);
-  const raw = url.searchParams.get(FIRST_PROMPT_PARAM);
-  if (raw === null) {
+/** The prompt the shell kept for this project, taken: none in a browser, or once it was taken. */
+const takeFirstPrompt = async (): Promise<FirstPrompt | null> => {
+  try {
+    return (await platform().projects?.takeFirstPrompt()) ?? null;
+  } catch (error) {
+    reportError(error);
     return null;
   }
-  url.searchParams.delete(FIRST_PROMPT_PARAM);
-  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-  return Option.getOrNull(decode(raw));
 };
 
 /**
  * Sends a prompt in a new chat with the agent and model it names (the agent's own when it has no
- * such model), opened in the left panel, with what it carries (the look page's pictures).
+ * such model), opened in the left panel, with what it carries: what was attached on the start
+ * screen, then the look page's pictures.
  */
 export const sendPrompt = async (
   start: FirstPrompt,
@@ -57,7 +51,7 @@ export const sendPrompt = async (
     }
     await showLeftPanel({ chat: thread, draft: "" });
     await api().request("threads.prompt", {
-      attachments: [...attachments],
+      attachments: [...(start.attachments ?? []), ...attachments],
       text: start.prompt,
       threadId: thread.id,
     });
@@ -71,9 +65,9 @@ export const sendPrompt = async (
  * picks it on the look page first (`openLook`), which sends the prompt once it is chosen.
  */
 export const sendFirstPrompt = async (
-  start = takeFirstPrompt(),
   openLook: (pending: FirstPrompt) => void = () => undefined
 ) => {
+  const start = await takeFirstPrompt();
   if (!start) {
     return;
   }

@@ -10,6 +10,10 @@ import { type Platform, setPlatform } from "./platform.ts";
 
 /** A shell whose folder picker fails once, and whose project never opens. */
 let picks = 0;
+const PNG_DATA = /^data:image\/png;base64,/;
+
+/** What the project was to be opened with. */
+const opened: unknown[] = [];
 setPlatform({
   pickFolder: () => {
     picks += 1;
@@ -21,7 +25,10 @@ setPlatform({
     current: () => Promise.resolve(null),
     inspect: () => Promise.resolve({ kind: "project", name: "Shop" }),
     list: () => Promise.resolve([]),
-    openFolder: () => Promise.reject(new Error("Its server did not start")),
+    openFolder: (_folder: string, start: unknown) => {
+      opened.push(start);
+      return Promise.reject(new Error("Its server did not start"));
+    },
   },
   serverUrl: "",
 } as unknown as Platform);
@@ -45,6 +52,30 @@ const button = (name: string) =>
 const alerts = () =>
   [...document.body.querySelectorAll("[role=alert]")].map((a) => a.textContent);
 
+/** Types into the prompt as a person would, through React's own setter. */
+const typePrompt = (value: string) =>
+  act(() => {
+    const field = document.querySelector("textarea") as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    )?.set?.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+/** Picks `files` in the system's file picker that the + button opens. */
+const pickFiles = async (files: File[]) => {
+  const input = document.querySelector(
+    "input[type=file][multiple]"
+  ) as HTMLInputElement;
+  Object.defineProperty(input, "files", { configurable: true, value: files });
+  await act(() => {
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  // Read as the chat reads them, a picture as a data URL.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+};
+
 afterAll(() => {
   setPlatform(null);
   document.body.innerHTML = "";
@@ -63,5 +94,32 @@ describe("the start screen", () => {
     press(button("Open Shop"));
     await settled();
     expect(alerts().join()).toContain("Its server did not start");
+  });
+
+  it("sends the pictures and text files attached to the prompt with it", async () => {
+    await typePrompt("A bike shop");
+    await pickFiles([
+      new File([new Uint8Array([137, 80, 78, 71])], "sketch.png", {
+        type: "image/png",
+      }),
+      new File(["Warm and quiet"], "brief.md", { type: "text/markdown" }),
+    ]);
+    expect(
+      document.querySelector('img[alt="sketch.png"]')?.getAttribute("src")
+    ).toMatch(PNG_DATA);
+    expect(document.body.textContent).toContain("brief.md");
+
+    press(button("New folder in ~/Ultrapaint"));
+    press(button("Choose a folder…"));
+    await settled();
+    press(button("Open Shop"));
+    await settled();
+    expect(opened.at(-1)).toMatchObject({
+      attachments: [
+        { kind: "image", name: "sketch.png" },
+        { kind: "text", name: "brief.md", text: "Warm and quiet" },
+      ],
+      prompt: "A bike shop",
+    });
   });
 });

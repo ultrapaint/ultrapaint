@@ -6,9 +6,9 @@ import {
 } from "@ultrapaint/design-document/look-dials";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lookBoards } from "../boards/look-boards.ts";
-import { imageChip } from "../state/attachments.ts";
 import { hideLookPage, LOOK_ITEM, useLookPage } from "../state/look-page.ts";
 import { fakeApi } from "../testing/fake-api.ts";
+import { imageChip } from "./file-chips.ts";
 import {
   describeTheLook,
   lookFrom,

@@ -406,20 +406,56 @@ describe("the bridge's handlers", () => {
   );
 
   it.effect(
-    "open a folder with the start screen's prompt on the editor's address",
+    "open a folder with the start screen's prompt, which its editor takes once",
     () =>
       withHandlers((handlers, recorded) =>
         Effect.gen(function* () {
+          const start = {
+            attachments: [
+              {
+                dataUrl: "data:image/png;base64,AAAA",
+                kind: "image" as const,
+                name: "Sketch",
+              },
+            ],
+            look: "agent" as const,
+            prompt: "A bike shop",
+          };
+          yield* handlers["projects.openFolder"]("/work/shop", start);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+          assert.deepStrictEqual(
+            yield* handlers["projects.takeFirstPrompt"](),
+            start
+          );
+          // Taken, a reload of the editor sends nothing again.
+          assert.strictEqual(
+            yield* handlers["projects.takeFirstPrompt"](),
+            null
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "give no prompt to a project opened from the list after one it was not taken in",
+    () =>
+      withHandlers((handlers) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const shop = yield* store.add("/work/shop");
+          const cafe = yield* store.add("/work/cafe");
           yield* handlers["projects.openFolder"]("/work/shop", {
             look: "agent",
             prompt: "A bike shop",
           });
-          const editor = recorded.views.at(-1);
-          assert.strictEqual(editor?._tag, "Editor");
-          const url = new URL(editor?._tag === "Editor" ? editor.url : "");
-          assert.deepStrictEqual(
-            JSON.parse(url.searchParams.get("first-prompt") ?? "null"),
-            { look: "agent", prompt: "A bike shop" }
+          yield* handlers["projects.open"](cafe.id);
+          yield* handlers["projects.open"](shop.id);
+          assert.strictEqual(
+            yield* handlers["projects.takeFirstPrompt"](),
+            null
           );
         })
       )
@@ -460,15 +496,12 @@ describe("the bridge's handlers", () => {
             look: "agent",
             prompt: "A bike shop",
           });
-          const editor = recorded.views.at(-1);
-          assert.strictEqual(editor?._tag, "Editor");
-          const url = new URL(editor?._tag === "Editor" ? editor.url : "");
-          assert.strictEqual(
-            url.origin + url.pathname,
-            "http://127.0.0.1/shop"
-          );
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
           assert.deepStrictEqual(
-            JSON.parse(url.searchParams.get("first-prompt") ?? "null"),
+            yield* handlers["projects.takeFirstPrompt"](),
             { look: "agent", prompt: "A bike shop" }
           );
           // The server it had goes on: nothing started again.

@@ -2,6 +2,7 @@ import "../testing/fake-browser.ts";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { imageChip } from "../lib/file-chips.ts";
 import {
   addChip,
   attachmentsOf,
@@ -11,7 +12,6 @@ import {
   chipOfComment,
   clearChips,
   fileOfFrame,
-  imageChip,
   useAttachments,
 } from "./attachments.ts";
 import { viewFrameOf } from "./frame-ref.ts";

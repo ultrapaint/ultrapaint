@@ -54,25 +54,27 @@ import {
 import { cn } from "@/lib/cn";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
+import { ChipRemove, chipClass } from "../components/chip.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
 import { CutText } from "../components/cut-text.tsx";
 import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { ImageThumb } from "../components/image-thumb.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
-import { attachFiles, pastedImages, sizeLabel } from "../lib/attach-files.ts";
+import { pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
+import type { ImageChip } from "../lib/file-chips.ts";
 import { importFigma } from "../lib/import-figma.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
   addChip,
+  attachFiles,
   attachmentsOf,
   type Chip,
   chipKey,
   chipOfAttachment,
   clearChips,
-  type ImageChip,
   isPlace,
   nodeChip,
   pageChip,
@@ -711,28 +713,6 @@ const ChipIcon = ({ chip, component }: { chip: Chip; component: boolean }) => {
 };
 
 const isImage = (chip: Chip): chip is ImageChip => chip.kind === "image";
-
-/** The chips' look: a raised neutral tag in the composer's well; dashed when only implied. */
-const chipClass =
-  "flex h-6 min-w-0 items-center gap-1 rounded-md pr-0.5 pl-1.5 font-body-small [&_svg]:size-3.5 [&_svg]:shrink-0";
-
-/** A chip's ×, muted until the pointer is on it. */
-const ChipRemove = ({
-  name,
-  onRemove,
-}: {
-  name: string;
-  onRemove: () => void;
-}) => (
-  <button
-    aria-label={`Remove ${name}`}
-    className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3"
-    onClick={onRemove}
-    type="button"
-  >
-    <X />
-  </button>
-);
 
 /**
  * An attachment of the next prompt: a raised tag with its icon, an element, a component, a page

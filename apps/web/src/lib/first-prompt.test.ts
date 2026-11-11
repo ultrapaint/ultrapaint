@@ -1,6 +1,8 @@
 import "../testing/fake-browser.ts";
+import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { type Platform, setPlatform } from "../platform.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { sendFirstPrompt } from "./first-prompt.ts";
 
@@ -11,19 +13,20 @@ vi.mock(
 // The chat panel is the threads' own business; here it is only opened.
 vi.mock("../state/panels.ts", () => ({ showLeftPanel: vi.fn() }));
 
-const location = window.location as { href?: string; search: string };
-const replaced: string[] = [];
-window.history.replaceState = (_state, _title, url) => {
-  replaced.push(String(url));
+/** The desktop app, keeping `start` for the project until the editor takes it. */
+const withPrompt = (start: FirstPrompt | null) => {
+  let kept = start;
+  setPlatform({
+    projects: {
+      takeFirstPrompt: () => {
+        const taken = kept;
+        kept = null;
+        return Promise.resolve(taken);
+      },
+    },
+    serverUrl: "ws://127.0.0.1:4770",
+  } as unknown as Platform);
 };
-
-const openedWith = (search: string) => {
-  location.search = search;
-  location.href = `http://127.0.0.1:4770/${search}`;
-};
-
-const withPrompt = (start: object) =>
-  openedWith(`?first-prompt=${encodeURIComponent(JSON.stringify(start))}`);
 
 const thread: Thread = {
   agentId: "claude-code",
@@ -57,12 +60,11 @@ const call = (method: string) =>
 
 afterEach(() => {
   fakeApi.reset();
-  replaced.length = 0;
-  openedWith("");
+  setPlatform(null);
 });
 
 describe("the start screen's prompt", () => {
-  it("is sent in a new chat with the agent and model chosen, and taken off the address", async () => {
+  it("is sent in a new chat with the agent and model chosen, once", async () => {
     withPrompt({
       agentId: "claude-code",
       look: "agent",
@@ -83,7 +85,28 @@ describe("the start screen's prompt", () => {
       threadId: "t1",
     });
     // A reload sends nothing again.
-    expect(replaced).toEqual(["/"]);
+    fakeApi.reset();
+    await sendFirstPrompt();
+    expect(fakeApi.calls).toEqual([]);
+  });
+
+  it("carries the pictures and files attached on the start screen", async () => {
+    const attachments = [
+      {
+        dataUrl: "data:image/png;base64,AAAA",
+        kind: "image" as const,
+        name: "Sketch",
+      },
+      { kind: "text" as const, name: "brief.md", text: "Warm, quiet" },
+    ];
+    withPrompt({ attachments, look: "agent", prompt: "A café" });
+    answerThreads();
+    await sendFirstPrompt();
+    expect(call("threads.prompt")).toEqual({
+      attachments,
+      text: "A café",
+      threadId: "t1",
+    });
   });
 
   it("keeps the agent's model when the one chosen is not among its models", async () => {
@@ -99,15 +122,16 @@ describe("the start screen's prompt", () => {
     withPrompt({ look: "pick", prompt: "A shop" });
     answerThreads();
     const opened: unknown[] = [];
-    await sendFirstPrompt(undefined, (pending) => opened.push(pending));
+    await sendFirstPrompt((pending) => opened.push(pending));
     expect(opened).toEqual([{ look: "pick", prompt: "A shop" }]);
     expect(call("threads.prompt")).toBeUndefined();
   });
 
-  it("leaves any other opening of the editor as it is", async () => {
-    openedWith("?page=home.page.json");
+  it("sends nothing when the project was opened without one, or in a browser", async () => {
+    withPrompt(null);
+    await sendFirstPrompt();
+    setPlatform(null);
     await sendFirstPrompt();
     expect(fakeApi.calls).toEqual([]);
-    expect(replaced).toEqual([]);
   });
 });

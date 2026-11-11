@@ -6,13 +6,12 @@
  * the project list and opens in place of the open project.
  */
 import { NewDesignProgressLine } from "@ultrapaint/contracts/new-design";
-import {
-  type FirstPrompt,
-  firstPromptQuery,
-  type NewDesignInput,
-  type NewDesignOutcome,
-  type NewDesignStepId,
-  type NewDesignUpdate,
+import type {
+  FirstPrompt,
+  NewDesignInput,
+  NewDesignOutcome,
+  NewDesignStepId,
+  NewDesignUpdate,
 } from "@ultrapaint/contracts/shell-bridge";
 import {
   Context,
@@ -209,37 +208,35 @@ export class NewDesigns extends Context.Service<
           start?: FirstPrompt
         ) {
           yield* report({ state: "active", step: "open" });
-          return yield* projects
-            .openFolder(folder, name, firstPromptQuery(start))
-            .pipe(
-              Effect.flatMap(({ opened }) =>
-                Effect.as(
-                  report(
-                    opened
-                      ? { state: "done", step: "open" }
-                      : {
-                          detail:
-                            "The open project stays open, for its agent to finish. The design is in the list.",
-                          state: "skipped",
-                          step: "open",
-                        }
-                  ),
-                  {} satisfies NewDesignOutcome
-                )
-              ),
-              Effect.catch((error) =>
-                Effect.as(
-                  report({
-                    detail: error.message,
-                    state: "failed",
-                    step: "open",
-                  }),
-                  {
-                    failed: { message: error.message, step: "open" },
-                  } satisfies NewDesignOutcome
-                )
+          return yield* projects.openFolder(folder, name, start).pipe(
+            Effect.flatMap(({ opened }) =>
+              Effect.as(
+                report(
+                  opened
+                    ? { state: "done", step: "open" }
+                    : {
+                        detail:
+                          "The open project stays open, for its agent to finish. The design is in the list.",
+                        state: "skipped",
+                        step: "open",
+                      }
+                ),
+                {} satisfies NewDesignOutcome
               )
-            );
+            ),
+            Effect.catch((error) =>
+              Effect.as(
+                report({
+                  detail: error.message,
+                  state: "failed",
+                  step: "open",
+                }),
+                {
+                  failed: { message: error.message, step: "open" },
+                } satisfies NewDesignOutcome
+              )
+            )
+          );
         });
 
         return NewDesigns.of({

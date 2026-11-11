@@ -19,6 +19,14 @@ import type {
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
+import { admit, readFiles, tellRefused } from "../lib/attach-files.ts";
+import {
+  attachmentOfFile,
+  type ImageChip,
+  imageChip,
+  type TextChip,
+  textChip,
+} from "../lib/file-chips.ts";
 import { frameOfCanvasNode, nodeIn, useDocuments } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
 import { frameRefOf, ownFrameOf } from "./frame-ref.ts";
@@ -46,48 +54,6 @@ export type Chip =
   | ImageChip
   /** A text file from disk, sent as its text (ADR 0064). */
   | TextChip;
-
-export interface ImageChip {
-  readonly dataUrl: string;
-  /** Tells two pictures apart, whatever their names. */
-  readonly id: string;
-  readonly kind: "image";
-  readonly name: string;
-}
-
-export interface TextChip {
-  /** Tells two files apart, whatever their names. */
-  readonly id: string;
-  readonly kind: "text";
-  readonly name: string;
-  /** Its size in bytes, as the chip's tooltip says it. */
-  readonly size: number;
-  readonly text: string;
-}
-
-let attached = 0;
-
-const attachedId = () => {
-  attached += 1;
-  return `${Date.now()}-${attached}`;
-};
-
-/** The chip of a picture, as a data URL. */
-export const imageChip = (name: string, dataUrl: string): ImageChip => ({
-  dataUrl,
-  id: attachedId(),
-  kind: "image",
-  name,
-});
-
-/** The chip of a text file, read. */
-export const textChip = (name: string, text: string): TextChip => ({
-  id: attachedId(),
-  kind: "text",
-  name,
-  size: new TextEncoder().encode(text).length,
-  text,
-});
 
 /** Whether a chip says where in the designs the prompt is about, which a file from disk does not. */
 export const isPlace = (chip: Chip) =>
@@ -318,16 +284,8 @@ export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
       attachments.push(chip);
       continue;
     }
-    if (chip.kind === "image") {
-      attachments.push({
-        dataUrl: chip.dataUrl,
-        kind: "image",
-        name: chip.name,
-      });
-      continue;
-    }
-    if (chip.kind === "text") {
-      attachments.push({ kind: "text", name: chip.name, text: chip.text });
+    if (chip.kind === "image" || chip.kind === "text") {
+      attachments.push(attachmentOfFile(chip));
       continue;
     }
     if (!files.has(chip.file)) {
@@ -345,4 +303,19 @@ export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
     }
   }
   return attachments;
+};
+
+/**
+ * Attaches `files` to the thread's next prompt, in their order, beside what it already carries;
+ * says which could not be, and why.
+ */
+export const attachFiles = async (threadId: string, files: readonly File[]) => {
+  const read = await readFiles(files, "files");
+  // Admitted against the chips as they are once read: another drop may have landed meanwhile.
+  const existing = useAttachments.getState().byThread[threadId] ?? [];
+  const admitted = admit(existing, read.chips);
+  for (const chip of admitted.chips) {
+    addChip(threadId, chip);
+  }
+  tellRefused([...read.refused, ...admitted.refused]);
 };

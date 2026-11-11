@@ -22,7 +22,11 @@
 import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
 import { ScaffoldTemplate } from "./setup.ts";
-import { BuiltInAgentId, ChatPreferencesFile } from "./threads.ts";
+import {
+  BuiltInAgentId,
+  ChatPreferencesFile,
+  PromptAttachment,
+} from "./threads.ts";
 
 /**
  * What the shell is doing for the open project that the editor cannot see: reconnecting to the
@@ -120,11 +124,15 @@ const RemoteProjectRequest = Schema.Struct({
 
 /**
  * What the start screen asks for besides the folder (ADR 0062): the prompt, sent in the
- * project's first chat once it opens, who picks the look, and the agent and model to send it
- * with. The editor takes it off its address (`apps/web/src/lib/first-prompt.ts`).
+ * project's first chat once it opens, with the pictures and text files attached to it, who picks
+ * the look, and the agent and model to send it with. The shell keeps it for the project it opens,
+ * and the editor takes it once (`projects.takeFirstPrompt`, `apps/web/src/lib/first-prompt.ts`):
+ * an address could not hold its pictures.
  */
 export const FirstPrompt = Schema.Struct({
   agentId: Schema.optional(Schema.String),
+  /** Pasted, dropped or picked on the start screen, as the chat's composer attaches them. */
+  attachments: Schema.optional(Schema.Array(PromptAttachment)),
   /** `agent`: the agent settles it from the prompt; `pick`: the person picks it first. */
   look: Schema.Literals(["agent", "pick"]),
   /** A value of the agent's model option, as the chat remembers it. */
@@ -132,15 +140,6 @@ export const FirstPrompt = Schema.Struct({
   prompt: Schema.String,
 });
 export type FirstPrompt = typeof FirstPrompt.Type;
-
-/** The editor's address carries it as JSON in this parameter, taken off once read. */
-export const FIRST_PROMPT_PARAM = "first-prompt";
-
-/** The parameters a project opens with to send `start`: none without one. */
-export const firstPromptQuery = (
-  start: FirstPrompt | undefined
-): Readonly<Record<string, string>> =>
-  start ? { [FIRST_PROMPT_PARAM]: JSON.stringify(start) } : {};
 
 /** What a folder the person chose holds, before anything is written in it. */
 export const FolderKind = Schema.Struct({
@@ -370,6 +369,11 @@ export const SHELL_BRIDGE = {
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
   /** Stops the project opening (its machine not answering, say) and shows the list instead. */
   "projects.stopOpening": invoke([], Schema.Void),
+  /**
+   * The start screen's prompt for the open project, given once: the editor sends it in its first
+   * chat as it loads. Null when there is none, or it was taken.
+   */
+  "projects.takeFirstPrompt": invoke([], Schema.NullOr(FirstPrompt)),
   /** What the shell is doing for the open project; null when nothing. */
   shellStatus: state(Schema.NullOr(ShellStatus)),
   /** The window's buttons over the page; not shown where the system draws the frame. */

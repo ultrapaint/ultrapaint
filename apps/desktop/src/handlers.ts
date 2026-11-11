@@ -7,10 +7,9 @@
  */
 import { BUILT_IN_AGENTS } from "@ultrapaint/acp/built-in";
 import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
-import {
-  type FirstPrompt,
-  type FolderKind,
-  firstPromptQuery,
+import type {
+  FirstPrompt,
+  FolderKind,
 } from "@ultrapaint/contracts/shell-bridge";
 import {
   type BuiltInAgentId,
@@ -183,12 +182,11 @@ export const bridgeHandlers = (
   "projects.open": (id) => OpenProject.use((o) => o.open(id)),
   "projects.openFolder": (folder, start?: FirstPrompt) =>
     Effect.asVoid(
-      OpenProject.use((o) =>
-        o.openFolder(folder, undefined, firstPromptQuery(start))
-      )
+      OpenProject.use((o) => o.openFolder(folder, undefined, start))
     ),
   "projects.remove": (id) => OpenProject.use((o) => o.remove(id)),
   "projects.showStart": () => OpenProject.use((o) => o.showStart),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
   "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),
+  "projects.takeFirstPrompt": () => OpenProject.use((o) => o.takeFirstPrompt),
 });

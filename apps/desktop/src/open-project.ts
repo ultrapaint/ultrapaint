@@ -9,6 +9,7 @@
  * answer leaves no blank window, and the user can stop it for the list or pick another project.
  */
 import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
+import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import {
   Context,
   Deferred,
@@ -72,8 +73,6 @@ type StopReason = "list" | "switch" | "quit";
 interface EditorView {
   /** The page the window is on stays, on the server's new address. */
   readonly keepLocation?: boolean;
-  /** For the editor, on its address. */
-  readonly query?: Readonly<Record<string, string>> | undefined;
 }
 
 interface Open {
@@ -107,13 +106,13 @@ export class OpenProject extends Context.Service<
      * Adds a folder (named on the command line, or a new design) when it is not in the list yet,
      * under `name` or the folder's own, and opens it. Whether it is open: the user may rather
      * let an agent at work in the open project finish, and the folder then waits in the list.
-     * The open project's own folder shows its editor again, from the start screen, with `query`.
+     * The open project's own folder shows its editor again, from the start screen, with `start`.
      */
     readonly openFolder: (
       folder: string,
       name?: string,
-      /** For the editor, on its address: the start screen's prompt. */
-      query?: Readonly<Record<string, string>>
+      /** The start screen's prompt, kept for the editor to take (`takeFirstPrompt`). */
+      start?: FirstPrompt
     ) => Effect.Effect<
       { readonly opened: boolean; readonly project: Project },
       StoreError | ServerStartError
@@ -147,6 +146,11 @@ export class OpenProject extends Context.Service<
      * the user says no, nor for a server the app only attached to.
      */
     readonly restart: Effect.Effect<void, StoreError | ServerStartError>;
+    /**
+     * The start screen's prompt for the open project, once: the editor takes it as it loads.
+     * None when the project was opened without one, or it was taken.
+     */
+    readonly takeFirstPrompt: Effect.Effect<FirstPrompt | null>;
     /** At start: the project opened last, or the page that asks for one. */
     readonly start: Effect.Effect<void, StoreError>;
     /**
@@ -252,23 +256,27 @@ export class OpenProject extends Context.Service<
         /** Whether the start screen is shown over the open project's editor (`showStart`). */
         let behindStart = false;
 
-        /** Shows a server's editor, with the view's `query` on its address. */
-        const showEditor = (server: RunningServer, view: EditorView = {}) => {
-          const url = new URL(server.url);
-          for (const [key, value] of Object.entries(view.query ?? {})) {
-            url.searchParams.set(key, value);
-          }
-          return Effect.andThen(
+        /**
+         * The start screen's prompt and the project it is for, until that project's editor takes
+         * it. Kept here rather than on the editor's address, which could not hold its pictures.
+         */
+        let firstPrompt: {
+          readonly projectId: string;
+          readonly start: FirstPrompt;
+        } | null = null;
+
+        /** Shows a server's editor. */
+        const showEditor = (server: RunningServer, view: EditorView = {}) =>
+          Effect.andThen(
             Effect.sync(() => {
               behindStart = false;
             }),
             shell.show({
               _tag: "Editor",
               ...(view.keepLocation ? { keepLocation: true } : {}),
-              url: view.query ? url.href : server.url,
+              url: server.url,
             })
           );
-        };
 
         const launch = Effect.fn("OpenProject.launch")(function* (
           project: Project,
@@ -351,10 +359,7 @@ export class OpenProject extends Context.Service<
          * Launches `project`, the window saying so meanwhile; false when it was stopped first,
          * for the list (shown then), for another project or for a quit.
          */
-        const launchShown = Effect.fnUntraced(function* (
-          project: Project,
-          query?: Readonly<Record<string, string>>
-        ) {
+        const launchShown = Effect.fnUntraced(function* (project: Project) {
           const stopped = yield* stoppable(
             { id: project.id, shown: true },
             Effect.andThen(
@@ -363,7 +368,7 @@ export class OpenProject extends Context.Service<
                 detail: projectDetail(project),
                 name: project.name,
               }),
-              launch(project, { query })
+              launch(project)
             )
           );
           if (Option.isSome(stopped) && stopped.value === "list") {
@@ -387,16 +392,13 @@ export class OpenProject extends Context.Service<
          * Opens a project in place of the open one, stopping one still opening; false when the
          * user kept the open one, or the opening was stopped.
          */
-        const openProject = (
-          project: Project,
-          query?: Readonly<Record<string, string>>
-        ) =>
+        const openProject = (project: Project) =>
           Effect.andThen(
             stopLaunch("switch"),
             switching.withPermits(1)(
               Effect.flatMap(release("switch", true), (released) =>
                 released
-                  ? showFailure(launchShown(project, query))
+                  ? showFailure(launchShown(project))
                   : Effect.succeed(false)
               )
             )
@@ -405,19 +407,32 @@ export class OpenProject extends Context.Service<
         const openFolder = Effect.fn("OpenProject.openFolder")(function* (
           folder: string,
           name?: string,
-          query?: Readonly<Record<string, string>>
+          start?: FirstPrompt
         ) {
           const project = yield* store.add(folder, name);
+          firstPrompt = start ? { projectId: project.id, start } : null;
           // The one open shows its editor again, from the start screen, with what it is given.
           // On screen already (a second launch naming its folder), it is left as it is: showing
           // it loads the page again.
           if (open?.project.id === project.id) {
-            if (behindStart || Object.keys(query ?? {}).length > 0) {
-              yield* showEditor(open.server, { query });
+            if (behindStart || start) {
+              yield* showEditor(open.server);
             }
             return { opened: true, project };
           }
-          return { opened: yield* openProject(project, query), project };
+          // Not opened (an agent at work kept the open project, the launch was stopped or
+          // failed), the prompt goes: the project opened later is opened for something else.
+          const opened = yield* openProject(project).pipe(
+            Effect.onError(() => forgetFirstPrompt)
+          );
+          if (!opened) {
+            yield* forgetFirstPrompt;
+          }
+          return { opened, project };
+        });
+
+        const forgetFirstPrompt = Effect.sync(() => {
+          firstPrompt = null;
         });
 
         const addRemote = Effect.fn("OpenProject.addRemote")(function* (
@@ -539,9 +554,13 @@ export class OpenProject extends Context.Service<
               if (open?.project.id === id) {
                 return showEditor(open.server);
               }
+              // Opened from the list, it is opened for no prompt: one it never took goes.
               return launching?.shown && launching.id === id
                 ? Effect.void
-                : Effect.asVoid(openProject(project));
+                : Effect.andThen(
+                    forgetFirstPrompt,
+                    Effect.asVoid(openProject(project))
+                  );
             }),
           openFolder,
           remove,
@@ -579,6 +598,14 @@ export class OpenProject extends Context.Service<
           }),
           stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
           stopOpening: stopLaunch("list"),
+          takeFirstPrompt: Effect.sync(() => {
+            const kept = firstPrompt;
+            if (!kept || open?.project.id !== kept.projectId) {
+              return null;
+            }
+            firstPrompt = null;
+            return kept.start;
+          }),
           unsaved,
         });
       })

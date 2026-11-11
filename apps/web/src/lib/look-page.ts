@@ -11,7 +11,7 @@ import {
   lookSystem,
   presetOf,
 } from "@ultrapaint/design-document/look-dials";
-import { attachmentsOf, type ImageChip } from "../state/attachments.ts";
+import { attachmentsOf } from "../state/attachments.ts";
 import {
   fitBoardsWhenLaidOut,
   leaveBoard,
@@ -27,6 +27,7 @@ import {
   useLookPage,
 } from "../state/look-page.ts";
 import { reportError } from "../state/project.ts";
+import type { ImageChip } from "./file-chips.ts";
 import { sendPrompt } from "./first-prompt.ts";
 import { startNewLook } from "./start-thread.ts";
 

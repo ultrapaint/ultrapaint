@@ -14,6 +14,7 @@ import {
   CircleAlert,
   Ellipsis,
   Folder,
+  Plus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -37,9 +38,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { TextFileChip } from "./components/chip.tsx";
 import { composerBox, composerText } from "./components/composer-style.ts";
 import { DialogHost } from "./components/dialogs.tsx";
+import { FileDropBox, FilesInput } from "./components/file-drop.tsx";
 import { IconButton } from "./components/icon-button.tsx";
+import { ImageThumb } from "./components/image-thumb.tsx";
 import { Lockup } from "./components/logo.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
 import {
@@ -47,6 +51,8 @@ import {
   openRemoteProject,
   RemoteProjectDialog,
 } from "./components/remote-project-dialog.tsx";
+import { admit, pastedImages, readFiles } from "./lib/attach-files.ts";
+import { attachmentOfFile, type FileChip } from "./lib/file-chips.ts";
 import { removeFromList } from "./lib/remove-project.ts";
 import {
   firstStartModel,
@@ -209,6 +215,23 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
   // Pressed with nothing written: what is missing, under the prompt, until something is.
   const [missing, setMissing] = useState(false);
   const promptField = useRef<HTMLTextAreaElement>(null);
+  // Pictures and text files for the first chat, as its composer takes them (ADR 0064).
+  const [files, setFiles] = useState<readonly FileChip[]>([]);
+  // Why files were not attached, under the prompt, until more are added.
+  const [refused, setRefused] = useState<readonly string[]>([]);
+  const picker = useRef<HTMLInputElement>(null);
+  const attach = async (picked: readonly File[]) => {
+    const read = await readFiles(picked, "files");
+    const admitted = admit(files, read.chips);
+    setFiles((now) => [...now, ...admitted.chips]);
+    setRefused([...read.refused, ...admitted.refused]);
+  };
+  const detach = (chip: FileChip) => {
+    setFiles((now) => now.filter((f) => f.id !== chip.id));
+    setRefused([]);
+  };
+  const pictures = files.filter((f) => f.kind === "image");
+  const texts = files.filter((f) => f.kind === "text");
   const [project, setProject] = useState<{
     readonly name: string;
     readonly path: string;
@@ -241,6 +264,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
   const startOf = (prompt: string): FirstPrompt => ({
     look,
     prompt,
+    ...(files.length > 0 && { attachments: files.map(attachmentOfFile) }),
     ...(chosen && { agentId: chosen.agentId }),
     ...(chosen?.model !== undefined && { model: chosen.model }),
   });
@@ -301,12 +325,36 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div
+      <FileDropBox
         className={cn(
           composerBox,
           doing !== null && "pointer-events-none opacity-60"
         )}
+        hint="Drop to attach"
+        onFiles={attach}
       >
+        {pictures.length > 0 ? (
+          <div className="flex flex-wrap gap-2 px-2 pt-2">
+            {pictures.map((chip) => (
+              <ImageThumb
+                chip={chip}
+                key={chip.id}
+                onRemove={() => detach(chip)}
+              />
+            ))}
+          </div>
+        ) : null}
+        {texts.length > 0 ? (
+          <div className="flex flex-wrap gap-1 px-2 pt-2">
+            {texts.map((chip) => (
+              <TextFileChip
+                chip={chip}
+                key={chip.id}
+                onRemove={() => detach(chip)}
+              />
+            ))}
+          </div>
+        ) : null}
         <textarea
           aria-label="What do you want to make?"
           autoFocus
@@ -322,11 +370,28 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
               send();
             }
           }}
+          onPaste={(e) => {
+            // An image on the clipboard is attached rather than pasted as text.
+            const pasted = pastedImages(e.clipboardData);
+            if (pasted.length > 0) {
+              e.preventDefault();
+              attach(pasted);
+            }
+          }}
           placeholder="A booking app for a climbing gym…"
           ref={promptField}
           value={text}
         />
         <div className="@container flex min-w-0 items-center gap-0.5 p-1.5 pt-0">
+          <IconButton
+            className="shrink-0 text-muted-foreground"
+            disabled={doing !== null}
+            onClick={() => picker.current?.click()}
+            tooltip="Add pictures or files"
+          >
+            <Plus />
+          </IconButton>
+          <FilesInput onFiles={attach} ref={picker} />
           {pickFolder ? (
             <QuietSelect
               actions={[{ label: "Choose a folder…", run: chooseFolder }]}
@@ -372,7 +437,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
             {doing === null ? <ArrowUp /> : <Spinner />}
           </IconButton>
         </div>
-      </div>
+      </FileDropBox>
       {doing === null ? null : (
         <span
           className="px-1 font-body-small text-muted-foreground"
@@ -381,6 +446,14 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
           {doing}
         </span>
       )}
+      {refused.length > 0 ? (
+        <span
+          className="whitespace-pre-line px-1 font-body-small text-muted-foreground"
+          role="status"
+        >
+          {refused.join("\n")}
+        </span>
+      ) : null}
       {missing && doing === null ? (
         <span
           className="px-1 font-body-small text-muted-foreground"

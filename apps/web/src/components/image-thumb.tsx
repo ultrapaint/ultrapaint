@@ -8,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { ImageChip } from "../state/attachments.ts";
+import type { ImageChip } from "../lib/file-chips.ts";
 
 /** A picture sent with the next prompt, as itself; its × shows over its corner on hover. */
 export const ImageThumb = ({

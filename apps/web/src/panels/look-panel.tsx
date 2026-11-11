@@ -32,12 +32,12 @@ import {
   readFiles,
   tellRefused,
 } from "../lib/attach-files.ts";
+import type { ImageChip } from "../lib/file-chips.ts";
 import {
   describeTheLook,
   letTheAgentDecide,
   saveTheLook,
 } from "../lib/look-page.ts";
-import type { ImageChip } from "../state/attachments.ts";
 import { leaveBoard } from "../state/board.ts";
 import { hideLookPage, setDials, useLookPage } from "../state/look-page.ts";
 

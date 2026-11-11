@@ -3,14 +3,12 @@ import "../testing/fake-browser.ts";
 import { TEXT_ATTACHMENT_LIMIT } from "@ultrapaint/contracts/threads";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  attachFiles,
   attachmentsOf,
-  imageChip,
-  textChip,
   useAttachments,
 } from "../state/attachments.ts";
 import {
   admit,
-  attachFiles,
   dragsFiles,
   fitWithin,
   MAX_PICTURES,
@@ -20,6 +18,7 @@ import {
   readFiles,
   sizeLabel,
 } from "./attach-files.ts";
+import { imageChip, textChip } from "./file-chips.ts";
 
 vi.mock(
   "../state/connection.ts",
