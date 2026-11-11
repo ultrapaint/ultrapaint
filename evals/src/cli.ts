@@ -51,6 +51,7 @@ import { EvalsConfig } from "./config.ts";
 import { decide } from "./decide.ts";
 import { EvalsError } from "./errors.ts";
 import { extract, freeze } from "./extract.ts";
+import { fixes } from "./fixes.ts";
 import { GALLERY_SETS, gallery } from "./gallery.ts";
 import { listGaps } from "./gap.ts";
 import { editorReviewOf, generate } from "./generate.ts";
@@ -1159,6 +1160,42 @@ const proposeCommand = Command.make(
   )
 );
 
+const fixesCommand = Command.make(
+  "fixes",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the model thinks"),
+      Flag.withDefault("high")
+    ),
+    model: Flag.String("model").pipe(
+      Flag.withDescription(
+        "The model that checks the problems against today's code"
+      ),
+      Flag.withDefault("opus")
+    ),
+    name,
+    rounds: Flag.String("rounds").pipe(
+      Flag.withDescription(
+        "The recall rounds whose rating decks say what is real, comma-separated"
+      )
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* fixes({
+      concurrency: input.concurrency,
+      effort: input.effort,
+      model: input.model,
+      name: input.name,
+      rounds: modelList(input.rounds),
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Check what recall rounds' rating decks found real in the editor's panels against today's code, and write the fixes that still hold as a deck"
+  )
+);
+
 const catchableCommand = Command.make(
   "catchable",
   {
@@ -1347,6 +1384,7 @@ Command.make("design-evals").pipe(
     recallCommand,
     verifyCommand,
     proposeCommand,
+    fixesCommand,
     panelCommand,
     decideCommand,
     measureCommand,

@@ -414,6 +414,13 @@ same call on the findings the judges matched with a gap (up to four a gap, from 
 versions), and `runs/<round>/propose-gaps.md` says how many it would fix and how many gaps keep
 at least one fixed finding. A leave there is a real problem the designer would let through.
 
+The held-out sections are the editor's own panels, so what their decks call real is a list of
+fixes to the editor, as it was then. `pnpm evals fixes <name> --rounds ep-1,rt-2` checks it
+against today's code: each panel's real problems (its sections grouped by the code they share) go
+to one model with the old pictures and code and today's files, which says which repeat one
+another, which still hold, where, and what the fix takes now. The deck `<name>` has a card for
+each that still holds, the smallest fix first, with the fix as the agent's call.
+
 The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
 from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
 `told` with the core's rules and the version's review table (`references/review.md`, when it has
