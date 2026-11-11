@@ -51,7 +51,37 @@ describe("decide", () => {
     );
     assert.strictEqual(
       answerTo(card, { comment: "  " }, "t"),
-      "g05: an answer needs an option or words of its own"
+      "g05: an answer needs an option, or words or images of its own"
+    );
+  });
+
+  it("keeps the images added to an answer, and takes images alone as the person's own answer", () => {
+    assert.deepStrictEqual(
+      answerTo(
+        card,
+        { choice: "rule", images: ["decisions/d.images/g05-a.png"] },
+        "t"
+      ),
+      {
+        at: "t",
+        choice: "rule",
+        images: ["decisions/d.images/g05-a.png"],
+        label: "Write a rule",
+        title: "Is more depth a rule or your taste?",
+      }
+    );
+    assert.deepStrictEqual(
+      answerTo(card, { images: ["decisions/d.images/g05-b.png"] }, "t"),
+      {
+        at: "t",
+        images: ["decisions/d.images/g05-b.png"],
+        label: OWN_ANSWER,
+        title: "Is more depth a rule or your taste?",
+      }
+    );
+    assert.notProperty(
+      answerTo(card, { choice: "rule", images: [] }, "t"),
+      "images"
     );
   });
 });

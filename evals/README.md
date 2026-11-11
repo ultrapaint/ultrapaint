@@ -528,7 +528,7 @@ What a book says the skill should change is evidence for a gap, never a change t
 When an agent needs several decisions from the person, it writes them as a deck and the person
 answers in the browser, one card at a time: a number key answers and moves on, and the answers
 are saved as they are given. When no option fits, the person writes their own answer and sends it
-(⌘/Ctrl+Enter); words written before a number key go with that option as a comment. The page follows the system's light or dark theme; its header's
+(⌘/Ctrl+Enter); words written before a number key go with that option as a comment. Images go with an answer too: pasted or dropped on the comment, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. The page follows the system's light or dark theme; its header's
 switch (or T) sets one, kept in that browser.
 
 ```sh

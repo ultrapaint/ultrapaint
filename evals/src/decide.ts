@@ -5,7 +5,9 @@
  * as they are given, so the person can stop and go on, and the agent reads them back.
  *
  * The page is `evals/viewers/decide.html`; the pictures a card shows are files of the data
- * directory, named by their path from it.
+ * directory, named by their path from it. An answer can carry images the person added (pasted,
+ * dropped or picked): each is saved as it is added, in `decisions/<deck>.images/`, and the answer
+ * names them by their path from the data directory.
  */
 import { createServer } from "node:http";
 import path from "node:path";
@@ -84,10 +86,20 @@ export const Answer = Schema.Struct({
   /** The option chosen; none when the person answered in their own words, the comment. */
   choice: Schema.optional(Schema.String),
   comment: Schema.optional(Schema.String),
+  /** Images the person added, by their path from the data directory. */
+  images: Schema.optional(Schema.Array(Schema.String)),
   /** The option's label, or `OWN_ANSWER`, so the file reads without the deck. */
   label: Schema.String,
   title: Schema.String,
 });
+
+/** The images an answer takes, by their type, with the extension each is saved under. */
+const IMAGE_TYPES: Readonly<Record<string, string>> = {
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 /** The label of an answer given in the person's own words, with no option chosen. */
 export const OWN_ANSWER = "Own answer";
@@ -98,25 +110,35 @@ const AnswerInput = Schema.Struct({
   choice: Schema.optional(Schema.String),
   comment: Schema.optional(Schema.String),
   id: Schema.String,
+  images: Schema.optional(Schema.Array(Schema.String)),
 });
 
 /**
- * An answer to a card, or why it isn't one: one of the card's options, with a comment or not, or
- * the person's own words alone, as an agent's question takes an answer none of its options gave.
+ * An answer to a card, or why it isn't one: one of the card's options, with a comment, images or
+ * neither, or the person's own words or images alone, as an agent's question takes an answer none
+ * of its options gave.
  */
 export const answerTo = (
   card: Card,
   input: {
     readonly choice?: string | undefined;
     readonly comment?: string | undefined;
+    readonly images?: readonly string[] | undefined;
   },
   at: string
 ): typeof Answer.Type | string => {
   const comment = input.comment?.trim();
+  const images = input.images?.length ? { images: [...input.images] } : {};
   if (input.choice === undefined) {
-    return comment
-      ? { at, comment, label: OWN_ANSWER, title: card.title }
-      : `${card.id}: an answer needs an option or words of its own`;
+    return comment || images.images
+      ? {
+          at,
+          ...(comment ? { comment } : {}),
+          ...images,
+          label: OWN_ANSWER,
+          title: card.title,
+        }
+      : `${card.id}: an answer needs an option, or words or images of its own`;
   }
   const option = card.options.find((o) => o.key === input.choice);
   if (option === undefined) {
@@ -126,6 +148,7 @@ export const answerTo = (
     at,
     choice: option.key,
     ...(comment ? { comment } : {}),
+    ...images,
     label: option.label,
     title: card.title,
   };
@@ -215,6 +238,39 @@ export const decide = Effect.fn("decide")(function* (
       : {};
   });
 
+  const imagesDir = path.join(dir, `${deckName}.images`);
+  const imagesFrom = data.fromData(imagesDir);
+
+  // An image the person adds to an answer, saved as it comes: its path goes in the answer.
+  const addImage = Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = new URL(request.url, "http://deck");
+    const id = url.searchParams.get("id") ?? "";
+    const ext = IMAGE_TYPES[request.headers["content-type"] ?? ""];
+    if (!byId.has(id) || ext === undefined) {
+      return HttpServerResponse.jsonUnsafe(
+        { message: byId.has(id) ? "not an image" : `no card ${id}` },
+        { status: 400 }
+      );
+    }
+    const bytes = new Uint8Array(yield* request.arrayBuffer);
+    const name = `${id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+    yield* fs.makeDirectory(imagesDir, { recursive: true });
+    yield* fs.writeFile(path.join(imagesDir, name), bytes);
+    return HttpServerResponse.jsonUnsafe({
+      path: `${imagesFrom}/${name}`,
+    });
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed(
+        HttpServerResponse.jsonUnsafe(
+          { message: String(error) },
+          { status: 400 }
+        )
+      )
+    )
+  );
+
   const session = Effect.map(readAnswers, (answers) =>
     HttpServerResponse.jsonUnsafe({ answers, deck })
   );
@@ -222,10 +278,17 @@ export const decide = Effect.fn("decide")(function* (
   const save = Effect.gen(function* () {
     const input = yield* HttpServerRequest.schemaBodyJson(AnswerInput);
     const card = byId.get(input.id);
-    const answer =
-      card === undefined
-        ? `no card ${input.id}`
-        : answerTo(card, input, new Date().toISOString());
+    const strange = input.images?.find(
+      (image) => !image.startsWith(`${imagesFrom}/`) || image.includes("..")
+    );
+    let answer: typeof Answer.Type | string;
+    if (card === undefined) {
+      answer = `no card ${input.id}`;
+    } else if (strange === undefined) {
+      answer = answerTo(card, input, new Date().toISOString());
+    } else {
+      answer = `${strange} is not an image of this deck`;
+    }
     if (typeof answer === "string") {
       return HttpServerResponse.jsonUnsafe(
         { message: answer },
@@ -257,6 +320,7 @@ export const decide = Effect.fn("decide")(function* (
   const routes = Layer.mergeAll(
     HttpRouter.add("GET", "/api/session", session),
     HttpRouter.add("POST", "/api/answer", save),
+    HttpRouter.add("POST", "/api/image", addImage),
     HttpRouter.add("GET", "/", Effect.succeed(HttpServerResponse.html(page))),
     HttpStaticServer.layer({ prefix: "/data", root: data.root })
   );

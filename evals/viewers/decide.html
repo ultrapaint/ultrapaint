@@ -126,6 +126,9 @@
       border: 1px solid var(--line);
       border-radius: 8px;
     }
+    label.ghost {
+      cursor: pointer;
+    }
     .ghost:disabled {
       color: var(--line-strong);
       cursor: default;
@@ -439,6 +442,45 @@
     body.calls main {
       padding-bottom: 104px;
     }
+    /* Images added to the answer: thumbnails under the comment, each with its remove. */
+    .attached {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .thumb {
+      position: relative;
+    }
+    .attached .thumb img {
+      display: block;
+      width: 88px;
+      height: 64px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .thumb button {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 50%;
+    }
+    .thumb svg {
+      width: 12px;
+      height: 12px;
+    }
+    textarea.over {
+      border-color: var(--accent);
+    }
     .saved {
       min-height: 18px;
       font-size: 13px;
@@ -616,7 +658,7 @@
               .map((c, j) => {
                 const a = answers[c.id];
                 return `<button type="button" class="row" data-j="${j}"><span>${esc(c.title)}</span>
-                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label + ofCall(c, a)) : "not answered"}</span>
+                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label + ofCall(c, a) + (a.images?.length ? ` · ${a.images.length} image${a.images.length === 1 ? "" : "s"}` : "")) : "not answered"}</span>
                   ${a?.comment ? `<span class="said">“${esc(a.comment)}”</span>` : ""}</button>`;
               })
               .join("")}</div>`;
@@ -657,9 +699,38 @@
                   )
                   .join("")}</div>`
           }
-          <div><textarea id="comment" placeholder="${called ? "A comment that goes with Right or Wrong; or your own answer" : "Your own answer, if none of these fits; or a comment that goes with the option you pick"}">${esc(given?.comment ?? "")}</textarea>
+          <div><textarea id="comment" placeholder="${called ? "A comment that goes with Right or Wrong, or your own answer. Paste or drop an image here" : "Your own answer, if none of these fits, or a comment that goes with the option you pick. Paste or drop an image here"}">${esc(given?.comment ?? "")}</textarea>
+          <div class="attached" id="attached"></div>
           <div class="under"><span class="saved" id="saved">${savedLine(card, given)}</span>
-          <button type="button" class="ghost" id="own">Send as my answer</button></div></div>`;
+          <span class="nav"><label class="ghost" for="pick">Add image</label>
+          <input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="pick" multiple type="file" />
+          <button type="button" class="ghost" id="own">Send as my answer</button></span></div></div>`;
+      images = [...(given?.images ?? [])];
+      showImages();
+      $("pick").onchange = (event) => {
+        addImages([...event.target.files]);
+        event.target.value = "";
+      };
+      const comment = $("comment");
+      comment.addEventListener("paste", (event) => {
+        const files = [...(event.clipboardData?.files ?? [])];
+        if (files.length > 0) {
+          event.preventDefault();
+          addImages(files);
+        }
+      });
+      comment.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        comment.classList.add("over");
+      });
+      comment.addEventListener("dragleave", () =>
+        comment.classList.remove("over")
+      );
+      comment.addEventListener("drop", (event) => {
+        event.preventDefault();
+        comment.classList.remove("over");
+        addImages([...(event.dataTransfer?.files ?? [])]);
+      });
       for (const button of el.querySelectorAll(".option")) {
         button.onclick = () => choose(button.dataset.key);
       }
@@ -681,6 +752,65 @@
         };
       }
       window.scrollTo(0, 0);
+    }
+
+    // The images added to the shown card's answer, by their path from the data directory.
+    let images = [];
+    const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    const REMOVE_ICON =
+      '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
+
+    function showImages() {
+      const el = $("attached");
+      el.innerHTML = images
+        .map(
+          (src, k) =>
+            `<span class="thumb"><img alt="Added image ${k + 1}" src="/data/${encodeURI(src)}" /><button type="button" aria-label="Remove image ${k + 1}" data-k="${k}">${REMOVE_ICON}</button></span>`
+        )
+        .join("");
+      for (const button of el.querySelectorAll("button")) {
+        button.onclick = () => {
+          images.splice(Number(button.dataset.k), 1);
+          showImages();
+        };
+      }
+    }
+
+    /** Saves each image as it is added; it goes with the answer when the answer is sent. */
+    async function addImages(files) {
+      const card = deck.cards[at];
+      const wrong = files.find((file) => !IMAGE_TYPES.includes(file.type));
+      if (wrong) {
+        $("saved").textContent =
+          `${wrong.name || "That file"} is not a PNG, JPEG, WebP or GIF.`;
+        return;
+      }
+      if (files.length === 0) {
+        return;
+      }
+      $("saved").textContent = "Adding…";
+      const saved = await Promise.all(
+        files.map(async (file) => {
+          const response = await fetch(
+            `/api/image?id=${encodeURIComponent(card.id)}`,
+            {
+              body: file,
+              headers: { "content-type": file.type },
+              method: "POST",
+            }
+          );
+          return { ok: response.ok, ...(await response.json()) };
+        })
+      );
+      if (deck.cards[at] !== card) {
+        return;
+      }
+      images.push(...saved.filter((r) => r.ok).map((r) => r.path));
+      showImages();
+      const failed = saved.find((r) => !r.ok);
+      $("saved").textContent = failed
+        ? `Not added: ${failed.message}`
+        : "Added: it goes with your answer, an option or your own.";
     }
 
     /** What the line under the comment says: how to answer, or what was saved. */
@@ -705,13 +835,14 @@
     async function choose(key) {
       const card = deck.cards[at];
       const comment = $("comment").value;
-      if (key === undefined && !comment.trim()) {
-        $("saved").textContent = "Write your answer first, or press a number.";
+      if (key === undefined && !comment.trim() && images.length === 0) {
+        $("saved").textContent =
+          "Write your answer or add an image first, or press a number.";
         $("comment").focus();
         return;
       }
       const response = await fetch("/api/answer", {
-        body: JSON.stringify({ choice: key, comment, id: card.id }),
+        body: JSON.stringify({ choice: key, comment, id: card.id, images }),
         headers: { "content-type": "application/json" },
         method: "POST",
       });
@@ -723,6 +854,7 @@
       answers[card.id] = {
         choice: key,
         comment: comment.trim() || undefined,
+        images: images.length > 0 ? [...images] : undefined,
         label:
           key === undefined
             ? "Own answer"
