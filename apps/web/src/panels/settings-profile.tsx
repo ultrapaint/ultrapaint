@@ -174,7 +174,7 @@ export const KeepFindingsRow = () => {
   };
   return (
     <Row
-      description="Saves review findings to ~/.ultrapaint/findings, for the design skill."
+      description="Saves review findings for the design skill, in ~/.ultrapaint/findings."
       htmlFor="settings-keep-findings"
       message={failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
       title="Keep findings"
