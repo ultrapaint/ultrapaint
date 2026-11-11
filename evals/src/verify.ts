@@ -221,7 +221,11 @@ export const verify = Effect.fn("verify")(function* (options: {
         continue;
       }
       for (const run of yield* listDir(at)) {
-        if (yield* fs.exists(path.join(at, run, "review.json"))) {
+        // A model the round no longer reviews with left reviews behind: they are not its.
+        const ofRound = reviewers.includes(
+          reviewerOf(version, reviewers) ?? ""
+        );
+        if (ofRound && (yield* fs.exists(path.join(at, run, "review.json")))) {
           jobs.push({ dir: path.join(at, run), run, section, version });
         }
       }
