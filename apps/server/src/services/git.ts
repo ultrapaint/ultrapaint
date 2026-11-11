@@ -158,6 +158,28 @@ export class GitService extends Context.Service<
               })
             );
 
+      /** Takes files out of the index again; with no commit yet, there is no HEAD to reset to. */
+      const unstage = (files: readonly string[]) =>
+        files.length === 0
+          ? Effect.void
+          : run(["rev-parse", "--verify", "-q", "HEAD"]).pipe(
+              Effect.flatMap(() =>
+                run(["--literal-pathspecs", "reset", "-q", "--", ...files])
+              ),
+              Effect.catch(() =>
+                run([
+                  "--literal-pathspecs",
+                  "rm",
+                  "-q",
+                  "--cached",
+                  "--",
+                  ...files,
+                ])
+              ),
+              // Unstaging is a courtesy after the failure the person is shown: its own failure isn't theirs.
+              Effect.ignore
+            );
+
       const commit = Effect.fn("GitService.commit")(function* (
         message: string,
         files: readonly string[]
@@ -165,6 +187,19 @@ export class GitService extends Context.Service<
         yield* writable("commit");
         yield* Effect.forEach(files, paths.resolve, { discard: true });
         // Paths, not pathspecs: `:/` or `*` would commit far more than the files the user picked.
+        const stagedBefore = new Set(
+          (yield* run([
+            "--literal-pathspecs",
+            "diff",
+            "--cached",
+            "--name-only",
+            "-z",
+            "--",
+            ...files,
+          ]))
+            .split("\0")
+            .filter(Boolean)
+        );
         yield* run(["--literal-pathspecs", "add", "--", ...files]);
         yield* run([
           "--literal-pathspecs",
@@ -173,7 +208,11 @@ export class GitService extends Context.Service<
           message,
           "--",
           ...files,
-        ]);
+        ]).pipe(
+          // A commit that fails (a hook, an empty message) leaves the index as it found it: what
+          // it staged itself is unstaged, what the person had staged stays.
+          Effect.tapError(() => unstage(files.filter((f) => !stagedBefore.has(f))))
+        );
         const sha = (yield* run(["rev-parse", "HEAD"])).trim();
         yield* publishStatus;
         return sha;

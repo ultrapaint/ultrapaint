@@ -1,3 +1,4 @@
+import { runCommand } from "./process.ts";
 import { request } from "node:http";
 import { connect, type Socket } from "node:net";
 import path from "node:path";
@@ -685,6 +686,41 @@ describe("writing to git", () => {
         yield* had === undefined
           ? fs.remove(designMd)
           : fs.writeFileString(designMd, had);
+      })
+  );
+
+  onAServer(
+    "leaves the index as it was when a commit fails, the files the person staged still staged",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["settings.set"]({ ...settings, git: "on" });
+        const hook = path.join(repo, ".git", "hooks", "pre-commit");
+        yield* fs.makeDirectory(path.dirname(hook), { recursive: true });
+        yield* fs.writeFileString(hook, "#!/bin/sh\nexit 1\n");
+        yield* fs.chmod(hook, 0o755);
+        yield* fs.writeFileString(path.join(repo, "picked.txt"), "picked\n");
+        yield* fs.writeFileString(path.join(repo, "staged.txt"), "staged\n");
+        yield* runCommand("git", ["add", "--", "staged.txt"], { cwd: repo });
+        const error = yield* Effect.flip(
+          client["git.commit"]({
+            message: "blocked",
+            paths: ["picked.txt", "staged.txt"],
+          })
+        );
+        assert.strictEqual(error._tag, "CommandFailed");
+        const codes = Object.fromEntries(
+          (yield* client["git.status"]()).files.map((f) => [f.path, f.code])
+        );
+        assert.strictEqual(codes["picked.txt"], "??");
+        assert.strictEqual(codes["staged.txt"], "A ");
+        yield* fs.remove(hook);
+        yield* runCommand("git", ["reset", "-q", "--", "staged.txt"], {
+          cwd: repo,
+        });
+        yield* fs.remove(path.join(repo, "picked.txt"));
+        yield* fs.remove(path.join(repo, "staged.txt"));
       })
   );
 
