@@ -50,5 +50,6 @@ with code in it is as high as one without.
 - No panel holds the reason for a failed read yet: the stores keep only that it failed, and the
   reason goes to the editor's error report. A store that keeps one passes it as `PanelFailed`'s
   children.
-- The design-system tokens' failed read (`sync-tokens.tsx`) still has its own line and is the
-  next to move to `PanelFailed`.
+- The Sync view's token steps (`sync-tokens.tsx`, the code's tokens in `sync-code.tsx`) say a
+  failed read with `PanelFailed` too, "The tokens didn’t load", in the step's body where the
+  comparison would be.

@@ -31,6 +31,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { CutText } from "../components/cut-text.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
+import { PanelFailed } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
@@ -495,7 +496,10 @@ export const useComparison = (plan: SyncPlan, source: TokenSourceKind) => {
   return { comparison, failed, retry };
 };
 
-/** A comparison on its way, or one whose read failed: said in place, with the way to read again. */
+/**
+ * A comparison on its way, or one whose read failed: said where the comparison would be, in the
+ * empty state's form, with Try again (ADR 0080).
+ */
 export const Unread = ({
   failed,
   onRetry,
@@ -504,14 +508,7 @@ export const Unread = ({
   onRetry: () => void;
 }) =>
   failed ? (
-    <div className="flex items-center justify-between gap-2">
-      <span className="truncate font-body-small text-muted-foreground">
-        The tokens didn’t load
-      </span>
-      <Button onClick={onRetry} size="sm" variant="ghost">
-        Try again
-      </Button>
-    </div>
+    <PanelFailed onRetry={onRetry} title="The tokens didn’t load" />
   ) : (
     <Spinner />
   );
