@@ -85,6 +85,30 @@ describe("saving and deleting a snapshot", () => {
     ]);
     expect(reported).toEqual([]);
   });
+
+  it("deletes at once, and the toast's Undo brings it back", async () => {
+    await useKept.getState().load();
+    fakeApi.respond("snapshots.delete", () => {
+      fakeApi.emit("snapshots", []);
+    });
+    fakeApi.respond("snapshots.undelete", () => {
+      fakeApi.emit("snapshots", [made]);
+    });
+
+    await deleteSnapshot(made);
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(toasts.map((t) => t.message)).toEqual([
+      "Deleted Shown to the client",
+    ]);
+    expect(useKept.getState().snapshots).toEqual([]);
+
+    await toasts.at(-1)?.action?.onClick();
+    expect(fakeApi.calls.at(-1)).toMatchObject({
+      method: "snapshots.undelete",
+    });
+    expect(useKept.getState().snapshots).toEqual([made]);
+    expect(reported).toEqual([]);
+  });
 });
 
 describe("restoring a snapshot", () => {

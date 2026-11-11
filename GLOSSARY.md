@@ -129,11 +129,12 @@ refactor and the board view left.
   namespace in the tool's **snapshot store**. A **checkpoint**, the designs before an agent's
   turn (ADR 0008), is a ref of its `checkpoints` namespace, the last 30 kept. Both keep every
   design file but the comments, are compared with now and put back one way (`design-refs`: one
-  undo step), and keeping a checkpoint as a snapshot names its files again. Whenever one is kept
-  or let go of, the server publishes the open repository's list of that kind (`checkpoints`,
-  `snapshots`), which the Changes panel follows (`kept`). A checkpoint and a file's diff are
-  contracts' `snapshots` (`Checkpoint`, `FileDiff`), the diff worked out by the server's
-  `file-diff`.
+  undo step), and keeping a checkpoint as a snapshot names its files again. A snapshot deleted is
+  named again under `designs-deleted`, the last ten kept, so its delete can be undone. Whenever
+  one is kept or let go of, the server publishes the open repository's list of that kind
+  (`checkpoints`, `snapshots`), which the Changes panel follows (`kept`). A checkpoint and a
+  file's diff are contracts' `snapshots` (`Checkpoint`, `FileDiff`), the diff worked out by the
+  server's `file-diff`.
 
 ## Agents
 

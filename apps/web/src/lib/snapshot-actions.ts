@@ -1,11 +1,12 @@
 /**
  * Named points in the history of the designs (ADR 0019): saved from the Changes panel, opened
- * to look at as they were, compared with now, and restored as one undo step. The list follows
+ * to look at as they were, compared with now, restored as one undo step, and deleted with an
+ * Undo. The list follows
  * the server's news of it (`state/kept.ts`): nothing here reads it again.
  */
 import type { Checkpoint, Snapshot } from "@ultrapaint/contracts/snapshots";
 import { toast } from "sonner";
-import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
+import { promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
@@ -108,20 +109,23 @@ export const restoreSnapshot = async (snapshot: Snapshot) => {
   }
 };
 
+/** Deletes it at once, the design files left as they are: the toast's Undo brings it back. */
 export const deleteSnapshot = async (snapshot: Snapshot) => {
-  const ok = await confirmDialog({
-    confirmLabel: "Delete snapshot",
-    description: "The design files stay as they are; only the snapshot goes.",
-    destructive: true,
-    title: `Delete the snapshot ${snapshot.name}?`,
-  });
-  if (!ok) {
-    return;
+  try {
+    if (useSnapshotView.getState().view?.snapshot.id === snapshot.id) {
+      await closeSnapshot();
+    }
+    await api().request("snapshots.delete", { id: snapshot.id });
+    toast.success(`Deleted ${snapshot.name}`, {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          api()
+            .request("snapshots.undelete", { id: snapshot.id })
+            .catch(reportError),
+      },
+    });
+  } catch (error) {
+    reportError(error);
   }
-  if (useSnapshotView.getState().view?.snapshot.id === snapshot.id) {
-    await closeSnapshot();
-  }
-  await api()
-    .request("snapshots.delete", { id: snapshot.id })
-    .catch(reportError);
 };

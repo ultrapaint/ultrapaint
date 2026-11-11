@@ -70,12 +70,20 @@ const FILES_SETTLE_MS = 250;
 type Point = "snapshot" | "checkpoint";
 
 /**
- * What the panel shows in place of its lists: one file's diff, under its path, or all since a
- * point, under the point's name (a checkpoint's is a sentence: "Before the header pass").
+ * What the panel can show in place of its lists, and how it is read: one file's diff, under its
+ * path, or all since a point, under the point's name (a checkpoint's is a sentence: "Before the
+ * header pass").
  */
-type OpenDiff =
-  | { diffs: readonly FileDiff[]; kind: "file"; path: string }
-  | { diffs: readonly FileDiff[]; kind: Point; name: string };
+type DiffTarget = { read: () => Promise<readonly FileDiff[]> } & (
+  | { kind: "file"; path: string }
+  | { kind: Point; name: string }
+);
+
+/** A diff shown, from the moment it is asked for: its lines once read, or that they weren't. */
+type OpenDiff = DiffTarget & {
+  diffs: readonly FileDiff[] | null;
+  failed: boolean;
+};
 
 /** The files still ticked after a commit: those ticked while it was on its way stay ticked. */
 export const tickedAfterCommit = (
@@ -272,20 +280,26 @@ export const Changes = () => {
     };
   }, [configured, repository]);
 
-  const showDiff = async (path: string) => {
-    try {
-      const diff = await api().request("git.diff", { path });
-      setOpen({ diffs: [diff], kind: "file", path: diff.path });
-    } catch (error) {
-      reportError(error);
-    }
+  /** Shows a diff at once, read as it shows; what lands for one no longer shown is dropped. */
+  const showDiff = (target: DiffTarget) => {
+    setOpen({ ...target, diffs: null, failed: false });
+    const landed = (diffs: readonly FileDiff[] | null) =>
+      setOpen((now) =>
+        now?.read === target.read
+          ? { ...now, diffs, failed: diffs === null }
+          : now
+      );
+    target.read().then(landed, () => landed(null));
   };
+  const showFile = (path: string) =>
+    showDiff({
+      kind: "file",
+      path,
+      read: async () => [await api().request("git.diff", { path })],
+    });
 
   // A file asked for from elsewhere, before the panel was open or while it is.
-  useRequest("diff", showDiff, configured);
-
-  const showSince: ShowSince = (kind, name, diffs) =>
-    setOpen({ diffs, kind, name });
+  useRequest("diff", showFile, configured);
 
   /** Runs a git command from the panel: busy while it goes, what git said under it if it fails. */
   const run = async (request: () => Promise<unknown>) => {
@@ -344,7 +358,13 @@ export const Changes = () => {
   }
 
   if (open) {
-    return <OpenDiffView onBack={() => setOpen(null)} open={open} />;
+    return (
+      <OpenDiffView
+        onBack={() => setOpen(null)}
+        onRetry={() => showDiff(open)}
+        open={open}
+      />
+    );
   }
 
   // Without a repository, a status read before is not this folder's.
@@ -403,7 +423,7 @@ export const Changes = () => {
         ) : null}
         <FileGroup
           files={design}
-          onShow={showDiff}
+          onShow={showFile}
           selected={writes ? selected : null}
           setSelected={setSelected}
           title="Design files"
@@ -416,7 +436,7 @@ export const Changes = () => {
               </Button>
             }
             files={other}
-            onShow={showDiff}
+            onShow={showFile}
             selected={writes ? selected : null}
             setSelected={setSelected}
             title={design.length > 0 ? "Other files" : "Files"}
@@ -430,15 +450,15 @@ export const Changes = () => {
         )}
         <Snapshots
           failed={snapshotsFailed}
+          onOpen={showDiff}
           onRetry={readHistory}
-          onShowSince={showSince}
           snapshots={snapshots}
         />
         <Checkpoints
           checkpoints={checkpoints}
           failed={checkpointsFailed}
+          onOpen={showDiff}
           onRetry={readHistory}
-          onShowSince={showSince}
         />
       </div>
     </div>
@@ -447,13 +467,16 @@ export const Changes = () => {
 
 /**
  * One file's diff, or all since a point, in place of the lists, with the way back to them: Back,
- * or Escape inside the view. It takes the focus the row it was opened from took with it.
+ * or Escape inside the view. It opens at once, its lines drawn as they load, and says in place
+ * when they didn't, with Try again. It takes the focus the row it was opened from took with it.
  */
 const OpenDiffView = ({
   onBack,
+  onRetry,
   open,
 }: {
   onBack: () => void;
+  onRetry: () => void;
   open: OpenDiff;
 }) => {
   const view = useRef<HTMLDivElement>(null);
@@ -492,10 +515,20 @@ const OpenDiffView = ({
         </h2>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        <DiffView
-          diffs={open.diffs}
-          since={open.kind === "file" ? null : open.kind}
-        />
+        {open.diffs ? (
+          <DiffView
+            diffs={open.diffs}
+            since={open.kind === "file" ? null : open.kind}
+          />
+        ) : (
+          <div className="px-2 pb-3">
+            {open.failed ? (
+              <Unread onRetry={onRetry}>The changes didn’t load</Unread>
+            ) : (
+              <LoadingDiff />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -726,6 +759,19 @@ const LoadingRows = ({ history = false }: { history?: boolean }) => (
   </div>
 );
 
+const DIFF_SKELETON_WIDTHS = ["w-2/5", "w-4/5", "w-3/5", "w-3/4", "w-1/2"];
+
+/** A diff's lines on their way: bars on its block, one per line, as tall as a line. */
+const LoadingDiff = () => (
+  <div aria-label="Loading" className="rounded-lg bg-muted p-2" role="status">
+    {DIFF_SKELETON_WIDTHS.map((width) => (
+      <div className="flex h-5 items-center" key={width}>
+        <span className={cn(BAR, "block", width)} />
+      </div>
+    ))}
+  </div>
+);
+
 /**
  * A row of a list: its button covers the whole row, so a click anywhere on it shows what changed,
  * and keyboard focus rings the whole row. What else the row holds sits above the button.
@@ -735,12 +781,8 @@ const ROW =
 const ROW_BUTTON =
   "flex min-w-0 flex-1 items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-md";
 
-/** What the panel calls to show all that changed since a point. */
-type ShowSince = (
-  kind: Point,
-  name: string,
-  diffs: readonly FileDiff[]
-) => void;
+/** What the panel calls to show what changed, in place of its lists. */
+type ShowDiff = (target: DiffTarget) => void;
 
 /** What can be done to a row of the history, in a menu at its end, there at rest. */
 const RowMenu = ({ children, name }: { children: ReactNode; name: string }) => (
@@ -851,13 +893,13 @@ const HistoryRow = ({
  */
 const Snapshots = ({
   failed,
+  onOpen,
   onRetry,
-  onShowSince,
   snapshots,
 }: {
   failed: boolean;
+  onOpen: ShowDiff;
   onRetry: () => void;
-  onShowSince: ShowSince;
   snapshots: readonly Snapshot[] | null;
 }) => {
   const id = useId();
@@ -884,11 +926,7 @@ const Snapshots = ({
         label={id}
         onRetry={onRetry}
         row={(snapshot) => (
-          <SnapshotRow
-            key={snapshot.id}
-            onShowSince={onShowSince}
-            snapshot={snapshot}
-          />
+          <SnapshotRow key={snapshot.id} onOpen={onOpen} snapshot={snapshot} />
         )}
       />
     </section>
@@ -927,18 +965,19 @@ const HistoryRows = <T,>({
 };
 
 const SnapshotRow = ({
-  onShowSince,
+  onOpen,
   snapshot,
 }: {
-  onShowSince: ShowSince;
+  onOpen: ShowDiff;
   snapshot: Snapshot;
 }) => {
   const open = useSnapshotView((s) => s.view?.snapshot.id === snapshot.id);
   const show = () =>
-    api()
-      .request("snapshots.diff", { id: snapshot.id })
-      .then((diffs) => onShowSince("snapshot", snapshot.name, diffs))
-      .catch(reportError);
+    onOpen({
+      kind: "snapshot",
+      name: snapshot.name,
+      read: () => api().request("snapshots.diff", { id: snapshot.id }),
+    });
   return (
     <HistoryRow
       at={snapshot.at}
@@ -957,7 +996,7 @@ const SnapshotRow = ({
         onClick={() => deleteSnapshot(snapshot)}
         variant="destructive"
       >
-        Delete…
+        Delete
       </DropdownMenuItem>
     </HistoryRow>
   );
@@ -967,13 +1006,13 @@ const SnapshotRow = ({
 const Checkpoints = ({
   checkpoints,
   failed,
+  onOpen,
   onRetry,
-  onShowSince,
 }: {
   checkpoints: readonly Checkpoint[] | null;
   failed: boolean;
+  onOpen: ShowDiff;
   onRetry: () => void;
-  onShowSince: ShowSince;
 }) => {
   const id = useId();
   return (
@@ -984,9 +1023,7 @@ const Checkpoints = ({
         items={checkpoints}
         label={id}
         onRetry={onRetry}
-        row={(c) => (
-          <CheckpointRow checkpoint={c} key={c.id} onShowSince={onShowSince} />
-        )}
+        row={(c) => <CheckpointRow checkpoint={c} key={c.id} onOpen={onOpen} />}
       />
     </section>
   );
@@ -1006,17 +1043,18 @@ const restoreCheckpoint = async (checkpoint: Checkpoint) => {
 
 const CheckpointRow = ({
   checkpoint,
-  onShowSince,
+  onOpen,
 }: {
   checkpoint: Checkpoint;
-  onShowSince: ShowSince;
+  onOpen: ShowDiff;
 }) => {
   const name = checkpointName(checkpoint);
   const show = () =>
-    api()
-      .request("checkpoints.diff", { id: checkpoint.id })
-      .then((diffs) => onShowSince("checkpoint", name, diffs))
-      .catch(reportError);
+    onOpen({
+      kind: "checkpoint",
+      name,
+      read: () => api().request("checkpoints.diff", { id: checkpoint.id }),
+    });
   return (
     <HistoryRow at={checkpoint.at} name={name} onShow={show}>
       <DropdownMenuItem onClick={() => saveSnapshot(checkpoint)}>

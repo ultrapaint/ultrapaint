@@ -115,10 +115,10 @@ describe("Changes › a file's diff", () => {
         .find((b) => b.textContent === "DESIGN.md")
         ?.click()
     );
+    expect(container.querySelector("h2")?.textContent).toBe("DESIGN.md");
     await vi.waitFor(() =>
-      expect(container.querySelector("h2")?.textContent).toBe("DESIGN.md")
+      expect(container.textContent).toContain("No text changes in this file")
     );
-    expect(container.textContent).toContain("No text changes in this file");
     expect(container.querySelector("pre")).toBeNull();
 
     act(() =>
@@ -127,5 +127,39 @@ describe("Changes › a file's diff", () => {
       )
     );
     expect(titles()).toContain("Design files");
+  });
+});
+
+describe("Changes › a diff on its way", () => {
+  it("opens at once under its title, loading, and says in place when it didn't load", async () => {
+    let fail: (error: Error) => void = () => undefined;
+    fakeApi.respond(
+      "git.diff",
+      () =>
+        new Promise((_, reject) => {
+          fail = reject;
+        })
+    );
+    act(() => mounted.render(<Changes />));
+    await vi.waitFor(() => expect(titles()).toContain("Design files"));
+
+    act(() => button("DESIGN.md")?.click());
+    expect(container.querySelector("h2")?.textContent).toBe("DESIGN.md");
+    expect(container.querySelector("[role=status]")).not.toBeNull();
+
+    await act(async () => fail(new Error("git diff exited 128")));
+    expect(container.textContent).toContain("The changes didn’t loadTry again");
+    expect(useProject.getState().error).toBeNull();
+
+    // Try again reads it again: the diff takes the place of what said it failed.
+    fakeApi.respond("git.diff", ({ path }) => ({
+      diff: "--- a/DESIGN.md\n+++ b/DESIGN.md\n@@ -1 +1 @@\n-old\n+new\n",
+      path,
+    }));
+    act(() => button("Try again")?.click());
+    await vi.waitFor(() =>
+      expect(container.querySelector("pre")).not.toBeNull()
+    );
+    expect(container.textContent).not.toContain("didn’t load");
   });
 });

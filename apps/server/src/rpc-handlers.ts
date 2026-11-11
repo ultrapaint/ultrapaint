@@ -249,6 +249,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.diff": ({ id }) => snapshots.diff(id),
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
+      "snapshots.undelete": ({ id }) => snapshots.undelete(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
       "sync.apply": ({ decisions, only, source, tokens }) =>
         sync.apply(source, decisions, only, tokens),

@@ -89,4 +89,37 @@ eachTest(TestServer, {
       }),
     30_000
   );
+
+  test.effect(
+    "brings a deleted snapshot back with its files, once",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        yield* client["settings.set"](settings);
+        const kept = yield* client["snapshots.create"]({ name: "Kept" });
+        yield* client["snapshots.delete"]({ id: kept.id });
+        // Another deleted after it: whatever the store let go of meanwhile, its files stay.
+        const other = yield* client["snapshots.create"]({ name: "Other" });
+        yield* client["snapshots.delete"]({ id: other.id });
+        yield* fs.writeFileString(
+          path.join(repo, HOME_FILE),
+          pageSaying("Now")
+        );
+
+        yield* client["snapshots.undelete"]({ id: kept.id });
+        assert.deepStrictEqual(yield* client["snapshots.list"](), [kept]);
+        assert.deepStrictEqual(
+          (yield* client["snapshots.diff"]({ id: kept.id })).map((d) => d.path),
+          [HOME_FILE]
+        );
+
+        const twice = yield* Effect.flip(
+          client["snapshots.undelete"]({ id: kept.id })
+        );
+        assert.strictEqual(twice._tag, "NotFound");
+      }),
+    30_000
+  );
 });

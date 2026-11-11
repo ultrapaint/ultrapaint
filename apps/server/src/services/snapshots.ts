@@ -26,6 +26,10 @@ import { Checkpoints } from "./threads/checkpoints.ts";
 /** The snapshot store's namespace for the named snapshots of the designs. */
 const NAMESPACE = "designs";
 
+/** The namespace of the snapshots deleted, the last few kept so a delete can be undone. */
+const DELETED = "designs-deleted";
+const DELETED_KEPT = 10;
+
 /**
  * What the store's ref of a snapshot notes beside the files: the snapshot as it is listed, and
  * the repository it was taken in.
@@ -117,8 +121,9 @@ const documentsOf = Effect.fnUntraced(function* (
  * is a ref named by its id whose note is its name, date and repository, written as a
  * checkpoint's is (`design-refs`). Keeping a checkpoint names its files again rather than
  * copying them. The editor is told the list whenever one is saved or deleted (`snapshots`),
- * from whichever tab. What is here is the designs' view of one: its pages, canvases and
- * documents.
+ * from whichever tab. A snapshot deleted is named again under `designs-deleted`, the last ten
+ * kept, so the delete can be undone. What is here is the designs' view of one: its pages,
+ * canvases and documents.
  */
 export class Snapshots extends Context.Service<
   Snapshots,
@@ -128,6 +133,8 @@ export class Snapshots extends Context.Service<
       checkpoint?: string
     ) => Effect.Effect<Snapshot, NotFound | NotConfigured>;
     readonly delete: (id: string) => Effect.Effect<void, NotFound>;
+    /** A snapshot deleted back in the list, while it is among the last deleted. */
+    readonly undelete: (id: string) => Effect.Effect<void, NotFound>;
     readonly diff: (
       id: string
     ) => Effect.Effect<FileDiff[], NotFound | NotConfigured>;
@@ -151,6 +158,15 @@ export class Snapshots extends Context.Service<
         note: Schema.fromJsonString(Note),
         publish: (list) => events.publish("snapshots", list),
         what: "snapshot",
+      });
+      const deleted = yield* makeDesignRefs({
+        idOf: (note: Note) => note.snapshot.id,
+        keepLast: DELETED_KEPT,
+        listed: (note) => note.snapshot,
+        namespace: DELETED,
+        note: Schema.fromJsonString(Note),
+        publish: () => Effect.void,
+        what: "deleted snapshot",
       });
 
       const snapshotOf = Effect.fnUntraced(function* (
@@ -185,9 +201,17 @@ export class Snapshots extends Context.Service<
         return snapshot;
       });
 
+      /** Out of the list, its files named among the deleted ones: no copy. */
       const remove = Effect.fn("Snapshots.delete")(function* (id: string) {
-        yield* refs.find(id);
+        const { tree, ...note } = yield* refs.find(id);
+        yield* deleted.name(note, tree);
         yield* refs.release([id]);
+      });
+
+      const undelete = Effect.fn("Snapshots.undelete")(function* (id: string) {
+        const { tree, ...note } = yield* deleted.find(id);
+        yield* refs.name(note, tree);
+        yield* deleted.release([id]);
       });
 
       const diff = Effect.fn("Snapshots.diff")(function* (id: string) {
@@ -233,6 +257,7 @@ export class Snapshots extends Context.Service<
         diff,
         list: refs.list,
         restore,
+        undelete,
         view,
       });
     })

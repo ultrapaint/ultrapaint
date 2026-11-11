@@ -709,7 +709,12 @@ const requestRpcs = [
     },
     success: Snapshot,
   }),
+  /** Out of the list, the last few deleted kept a while: `snapshots.undelete` brings one back. */
   Rpc.make("snapshots.delete", {
+    error: CheckpointError,
+    payload: { id: Schema.String },
+  }),
+  Rpc.make("snapshots.undelete", {
     error: CheckpointError,
     payload: { id: Schema.String },
   }),
