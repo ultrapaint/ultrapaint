@@ -2,13 +2,16 @@ import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
 import {
   changedSince,
+  checkpointName,
   commitBlocked,
+  commitLabel,
   diffLines,
   gitSaid,
   groupTicked,
   sharedFolder,
   statusWord,
   tickedAfterCommit,
+  whenTaken,
 } from "./changes.tsx";
 
 vi.mock(
@@ -76,6 +79,61 @@ describe("a file's status in a word", () => {
     expect(statusWord("UU")).toBe("Conflict");
     expect(statusWord(" M")).toBeNull();
     expect(statusWord("MM")).toBeNull();
+  });
+
+  it("calls a conflict a conflict, though git writes some with a new or deleted file's letters", () => {
+    for (const code of ["AA", "DD", "AU", "UA", "DU", "UD"]) {
+      expect(statusWord(code)).toBe("Conflict");
+    }
+  });
+});
+
+describe("Commit's button", () => {
+  it("says how many files it takes once some are ticked, and its verb while it goes", () => {
+    expect(commitLabel(false, 0)).toBe("Commit");
+    expect(commitLabel(false, 1)).toBe("Commit 1 file");
+    expect(commitLabel(false, 3)).toBe("Commit 3 files");
+    expect(commitLabel(true, 3)).toBe("Committing…");
+  });
+});
+
+describe("a checkpoint's name", () => {
+  it("is its turn's prompt, without the Before: the server keeps it under", () => {
+    const checkpoint = { at: 1, files: [], id: "c_1", threadId: "t_1" };
+    expect(
+      checkpointName({ ...checkpoint, label: "Before: Tighten the header" })
+    ).toBe("Tighten the header");
+    expect(checkpointName({ ...checkpoint, label: "Tighten the header" })).toBe(
+      "Tighten the header"
+    );
+  });
+});
+
+describe("when a point of the history was taken", () => {
+  const now = new Date(2026, 10, 11, 18, 0);
+  const at = (...date: [number, number, number, number, number]) =>
+    new Date(...date).getTime();
+  const time = (t: number) =>
+    new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(t);
+
+  it("is the time alone today", () => {
+    const today = at(2026, 10, 11, 9, 5);
+    expect(whenTaken(today, now)).toBe(time(today));
+  });
+
+  it("tells apart the turns of an earlier day by their time", () => {
+    const morning = at(2026, 10, 3, 9, 5);
+    const afternoon = at(2026, 10, 3, 14, 20);
+    expect(whenTaken(morning, now)).toContain(time(morning));
+    expect(whenTaken(morning, now)).not.toBe(whenTaken(afternoon, now));
+    expect(whenTaken(morning, now)).not.toContain("2026");
+  });
+
+  it("says the year of a point taken in another", () => {
+    expect(whenTaken(at(2025, 10, 2, 9, 5), now)).toContain("2025");
   });
 });
 

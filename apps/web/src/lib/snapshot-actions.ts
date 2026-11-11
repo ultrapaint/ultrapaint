@@ -26,7 +26,7 @@ export const saveSnapshot = async (
       ? "The designs as they were before that agent turn, kept under a name until you delete it."
       : "The designs as they are now, kept under a name until you delete it: to look at again, or to come back to.",
     placeholder: "Shown to the client",
-    title: checkpoint ? "Save as snapshot" : "Save snapshot",
+    title: "Save snapshot",
   });
   if (name === null) {
     return null;

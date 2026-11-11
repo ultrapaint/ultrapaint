@@ -61,6 +61,7 @@ const FILES_NAMED_RE = /^(\+\+\+ |@@)/;
 const CHANGE_LINE_RE = /^[-+ @\\]/;
 const TRAILING_NEWLINE_RE = /\n$/;
 const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
+const BEFORE_RE = /^Before: /;
 
 /** How long the files are left to settle before the panel asks again what changed. */
 const FILES_SETTLE_MS = 250;
@@ -134,10 +135,14 @@ export const sharedFolder = (paths: readonly string[]) => {
 
 /**
  * What git says of a file, in a word, from its status code. A modified file says nothing: the
- * list is of changed files.
+ * list is of changed files. A conflict comes first: git writes some (`AA`, `DD`, `AU`, `DU`)
+ * with the letters of a new or deleted file.
  */
 export const statusWord = (code: string): string | null => {
   const c = code.trim();
+  if (c.includes("U") || c === "AA" || c === "DD") {
+    return "Conflict";
+  }
   if (c === "??" || c.startsWith("A")) {
     return "New";
   }
@@ -147,11 +152,15 @@ export const statusWord = (code: string): string | null => {
   if (c.startsWith("R")) {
     return "Renamed";
   }
-  if (c.includes("U")) {
-    return "Conflict";
-  }
   return null;
 };
+
+/**
+ * A checkpoint's name: its turn's prompt, without the "Before: " the server keeps it under,
+ * which the Agent checkpoints title already says.
+ */
+export const checkpointName = (checkpoint: Checkpoint) =>
+  checkpoint.label.replace(BEFORE_RE, "");
 
 /**
  * What a diff since a point says above the files: how many changed since it, or that none did.
@@ -160,6 +169,14 @@ export const changedSince = (count: number, point: Point) =>
   count === 0
     ? `No design file has changed since this ${point}.`
     : `${plural(count, "design file", "design files")} changed since this ${point}.`;
+
+/** Commit's button: how many files it takes, once some are ticked; its verb while it goes. */
+export const commitLabel = (busy: boolean, ticked: number) => {
+  if (busy) {
+    return "Committing…";
+  }
+  return ticked === 0 ? "Commit" : `Commit ${plural(ticked, "file", "files")}`;
+};
 
 /** What git said when a command failed, without the server's "git commit exited 1:" before it. */
 export const gitSaid = (message: string) =>
@@ -373,17 +390,16 @@ export const Changes = () => {
             onCommit={commit}
             onMessageChange={onMessageChange}
             onMessageKeyDown={onMessageKeyDown}
+            ticked={selected.size}
           />
         ) : null}
-        {repository && files.length === 0 ? (
-          <section className={SECTION}>
-            <GroupLabel>Changed files</GroupLabel>
-            <FilesState
-              failed={gitFailed}
-              loading={shown === null}
-              onRetry={retryGit}
-            />
-          </section>
+        {repository ? (
+          <FilesState
+            failed={gitFailed}
+            listed={files.length > 0}
+            loading={shown === null}
+            onRetry={retryGit}
+          />
         ) : null}
         <FileGroup
           files={design}
@@ -403,12 +419,13 @@ export const Changes = () => {
             onShow={showDiff}
             selected={writes ? selected : null}
             setSelected={setSelected}
-            title="Other files"
+            title={design.length > 0 ? "Other files" : "Files"}
           />
         ) : (
           <ShowOtherFiles
             count={other.length}
             onShow={() => setShowOther(true)}
+            other={design.length > 0}
           />
         )}
         <Snapshots
@@ -428,36 +445,61 @@ export const Changes = () => {
   );
 };
 
-/** One file's diff, or all since a point, in place of the lists, with the way back to them. */
+/**
+ * One file's diff, or all since a point, in place of the lists, with the way back to them: Back,
+ * or Escape inside the view. It takes the focus the row it was opened from took with it.
+ */
 const OpenDiffView = ({
   onBack,
   open,
 }: {
   onBack: () => void;
   open: OpenDiff;
-}) => (
-  <div className="flex h-full flex-col">
-    {/* A long path or name wraps: the title is the only place it is read in full. */}
-    <div className="flex min-h-11 shrink-0 items-center gap-1 py-1.5 pr-3 pl-1.5">
-      <IconButton
-        className="shrink-0 text-muted-foreground"
-        onClick={onBack}
-        tooltip="Back"
-      >
-        <ArrowLeft />
-      </IconButton>
-      <h2 className="wrap-anywhere min-w-0 font-heading-xsmall">
-        {open.kind === "file" ? open.path : open.name}
-      </h2>
+}) => {
+  const view = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      view.current?.focus({ preventScroll: true });
+    }
+  }, []);
+  // An Escape something inside took (a tooltip put away) is not Back.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape" && !e.defaultPrevented) {
+      e.preventDefault();
+      e.stopPropagation();
+      onBack();
+    }
+  };
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: Escape is a shortcut for Back, the view's own button.
+    <div
+      className="flex h-full flex-col outline-none"
+      onKeyDown={onKeyDown}
+      ref={view}
+      tabIndex={-1}
+    >
+      {/* A long path or name wraps: the title is the only place it is read in full. */}
+      <div className="flex min-h-11 shrink-0 items-center gap-1 py-2 pr-3 pl-2">
+        <IconButton
+          className="shrink-0 text-muted-foreground"
+          onClick={onBack}
+          tooltip="Back"
+        >
+          <ArrowLeft />
+        </IconButton>
+        <h2 className="wrap-anywhere min-w-0 font-heading-xsmall">
+          {open.kind === "file" ? open.path : open.name}
+        </h2>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <DiffView
+          diffs={open.diffs}
+          since={open.kind === "file" ? null : open.kind}
+        />
+      </div>
     </div>
-    <div className="min-h-0 flex-1 overflow-auto">
-      <DiffView
-        diffs={open.diffs}
-        since={open.kind === "file" ? null : open.kind}
-      />
-    </div>
-  </div>
-);
+  );
+};
 
 /** A section of the panel: its title, then its rows, 2px apart so their fills never touch. */
 const SECTION = "flex flex-col gap-0.5";
@@ -505,18 +547,26 @@ const GitFailure = ({ children, what }: { children: string; what: string }) => (
   </div>
 );
 
-/** The changed files while there are none to list: being read, unread, or none. */
+/**
+ * What the changed files' read says above them: that it failed, over the files listed before
+ * since they may no longer be so; or, with none to list, being read or none.
+ */
 const FilesState = ({
   failed,
+  listed,
   loading,
   onRetry,
 }: {
   failed: boolean;
+  listed: boolean;
   loading: boolean;
   onRetry: () => void;
 }) => {
   if (failed) {
     return <Unread onRetry={onRetry}>Git didn’t answer</Unread>;
+  }
+  if (listed) {
+    return null;
   }
   if (loading) {
     return <LoadingRows />;
@@ -537,11 +587,14 @@ const CommitBar = ({
   onCommit,
   onMessageChange,
   onMessageKeyDown,
+  ticked,
 }: {
   busy: boolean;
   failure: string | null;
   message: string;
   messageField: RefObject<HTMLInputElement | null>;
+  /** How many files are ticked: the commit's scope, on its button. */
+  ticked: number;
   /** What Commit, pressed, said is missing, while it still is. */
   missing: string | null;
   onCommit: () => void;
@@ -570,7 +623,7 @@ const CommitBar = ({
           />
           <Button aria-busy={busy} disabled={busy} onClick={onCommit}>
             {busy ? <Spinner /> : null}
-            {busy ? "Committing…" : "Commit"}
+            {commitLabel(busy, ticked)}
           </Button>
         </div>
       </div>
@@ -619,7 +672,10 @@ const NoneRow = ({ children }: { children: ReactNode }) => (
   </p>
 );
 
-/** A section whose read failed: what happened, and the way to read it again. */
+/**
+ * A section whose read failed: what happened, in full on the errors' red box, and the way to read
+ * it again.
+ */
 const Unread = ({
   children,
   onRetry,
@@ -627,11 +683,11 @@ const Unread = ({
   children: ReactNode;
   onRetry: () => void;
 }) => (
-  <div className="flex h-7 items-center justify-between gap-2 pl-2">
-    <span className="truncate font-body-small text-muted-foreground">
+  <div className="flex min-h-7 items-center justify-between gap-2 rounded-md bg-destructive/10 py-0.5 pr-0.5 pl-2">
+    <span className="wrap-anywhere min-w-0 font-body-small text-destructive">
       {children}
     </span>
-    <Button onClick={onRetry} size="sm" variant="ghost">
+    <Button className="shrink-0" onClick={onRetry} size="sm" variant="ghost">
       Try again
     </Button>
   </div>
@@ -714,19 +770,34 @@ const RowMenu = ({ children, name }: { children: ReactNode; name: string }) => (
   </DropdownMenu>
 );
 
-const dateFormat = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "short",
-});
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
   minute: "2-digit",
 });
-/** The time of a point taken today, the day of an older one. */
-const whenTaken = (at: number, now = new Date()) =>
-  new Date(at).toDateString() === now.toDateString()
-    ? timeFormat.format(at)
-    : dateFormat.format(at);
+const dayTimeFormat = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  month: "short",
+});
+const yearFormat = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+/**
+ * When a point was taken: the time today, the day and the time earlier this year, so the turns
+ * of one day are told apart, and the day and the year before that.
+ */
+export const whenTaken = (at: number, now = new Date()) => {
+  const taken = new Date(at);
+  if (taken.toDateString() === now.toDateString()) {
+    return timeFormat.format(at);
+  }
+  return taken.getFullYear() === now.getFullYear()
+    ? dayTimeFormat.format(at)
+    : yearFormat.format(at);
+};
 
 /** A point of the history: its name, when it was taken, its menu. */
 const HistoryRow = ({
@@ -745,19 +816,31 @@ const HistoryRow = ({
   onShow: () => void;
 }) => (
   <li className={cn(ROW, "pr-1", current && "bg-accent hover:bg-accent")}>
-    <button
-      aria-current={current ? "true" : undefined}
-      className={ROW_BUTTON}
-      data-row-button
-      onClick={onShow}
-      type="button"
-    >
-      <span className="min-w-0 flex-1 truncate font-body-medium">{name}</span>
-      {current ? <span className="shrink-0 font-body-small">Open</span> : null}
-      <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
-        {whenTaken(at)}
-      </span>
-    </button>
+    {/* The row has room for part of the name; its tooltip has the whole of it. */}
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-current={current ? "true" : undefined}
+            className={ROW_BUTTON}
+            data-row-button
+            onClick={onShow}
+            type="button"
+          >
+            <span className="min-w-0 flex-1 truncate font-body-medium">
+              {name}
+            </span>
+            {current ? (
+              <span className="shrink-0 font-body-small">Open</span>
+            ) : null}
+            <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
+              {whenTaken(at)}
+            </span>
+          </button>
+        }
+      />
+      <TooltipContent className="wrap-anywhere">{name}</TooltipContent>
+    </Tooltip>
     <RowMenu name={name}>{children}</RowMenu>
   </li>
 );
@@ -928,15 +1011,16 @@ const CheckpointRow = ({
   checkpoint: Checkpoint;
   onShowSince: ShowSince;
 }) => {
+  const name = checkpointName(checkpoint);
   const show = () =>
     api()
       .request("checkpoints.diff", { id: checkpoint.id })
-      .then((diffs) => onShowSince("checkpoint", checkpoint.label, diffs))
+      .then((diffs) => onShowSince("checkpoint", name, diffs))
       .catch(reportError);
   return (
-    <HistoryRow at={checkpoint.at} name={checkpoint.label} onShow={show}>
+    <HistoryRow at={checkpoint.at} name={name} onShow={show}>
       <DropdownMenuItem onClick={() => saveSnapshot(checkpoint)}>
-        Save as snapshot…
+        Save snapshot…
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => restoreCheckpoint(checkpoint)}>
         Restore
@@ -945,18 +1029,23 @@ const CheckpointRow = ({
   );
 };
 
-/** The way to the files Ultrapaint did not write, with how many there are; none without them. */
+/**
+ * The way to the files Ultrapaint did not write, with how many there are; none without them.
+ * They are "other" only beside the design files.
+ */
 const ShowOtherFiles = ({
   count,
   onShow,
+  other,
 }: {
   count: number;
   onShow: () => void;
+  other: boolean;
 }) =>
   count === 0 ? null : (
     <div>
       <Button onClick={onShow} size="sm" variant="ghost">
-        Show {plural(count, "other file")}
+        Show {plural(count, other ? "other file" : "file")}
       </Button>
     </div>
   );
@@ -1093,24 +1182,28 @@ const FileRow = ({
                   {folder}
                 </span>
               ) : null}
+              {/* On the name's baseline, at the row's end. */}
+              {word ? (
+                <span
+                  className={cn(
+                    "ml-auto shrink-0 font-body-small",
+                    conflict ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {conflict ? (
+                    <span
+                      aria-hidden
+                      className="mr-1 inline-block size-1.5 rounded-full bg-warning align-middle"
+                    />
+                  ) : null}
+                  {word}
+                </span>
+              ) : null}
             </button>
           }
         />
         <TooltipContent className="wrap-anywhere">{path}</TooltipContent>
       </Tooltip>
-      {word ? (
-        <span
-          className={cn(
-            "flex shrink-0 items-center gap-1 font-body-small",
-            conflict ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          {conflict ? (
-            <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-          ) : null}
-          {word}
-        </span>
-      ) : null}
     </li>
   );
 };
@@ -1120,12 +1213,14 @@ type LineKind = "added" | "removed" | "context";
 
 /**
  * Added lines are raised in the foreground over the muted context; removed ones are deleting, in
- * the destructive red on its tint.
+ * the destructive red on its tint, the red taken a fifth of the way to the foreground so the
+ * code's small text reads at 4.5:1 on the tint in both themes (the red alone is about 4.1:1).
  */
 const LINE_CLASS: Record<LineKind, string> = {
   added: "bg-accent text-foreground",
   context: "text-muted-foreground",
-  removed: "bg-destructive/10 text-destructive",
+  removed:
+    "bg-destructive/10 text-[color-mix(in_oklab,var(--color-destructive)_80%,var(--color-foreground))]",
 };
 
 const changeKind = (text: string): LineKind => {
@@ -1187,13 +1282,19 @@ const DiffView = ({
             {d.path}
           </div>
         ) : null}
-        <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
-          {diffLines(d.diff).map(({ kind, offset, text: line }) => (
-            <div className={LINE_CLASS[kind]} key={offset}>
-              {line || " "}
-            </div>
-          ))}
-        </pre>
+        {d.diff.trim() === "" ? (
+          <p className="px-2 font-body-small text-muted-foreground">
+            No text changes in this file
+          </p>
+        ) : (
+          <pre className="overflow-auto rounded-lg bg-muted p-2 font-code">
+            {diffLines(d.diff).map(({ kind, offset, text: line }) => (
+              <div className={LINE_CLASS[kind]} key={offset}>
+                {line || " "}
+              </div>
+            ))}
+          </pre>
+        )}
       </div>
     ))}
   </div>
