@@ -15,6 +15,7 @@ import {
   ArrowUp,
   BookText,
   Camera,
+  CircleAlert,
   Component,
   FilePlus,
   FileText,
@@ -199,7 +200,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const chips = useChips(thread.id);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
-  /** Why the last send didn't go, said under the composer until the next one. */
+  /** Why the last send didn't go, said over the composer until the next one. */
   const [failed, setFailed] = useState<string | null>(null);
   const selection = useEditor((s) => s.selection);
   const activePage = useEditor((s) => s.activePage);
@@ -256,7 +257,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       clearChips(thread.id, sentChips);
     } catch (error) {
       // A folder that is no longer one is the editor's to say; any other failure is this
-      // prompt's, said under it with the draft kept to try again.
+      // prompt's, said over the composer with the draft kept to try again.
       if (error instanceof RequestError && error.code === "not_configured") {
         reportError(error);
       } else {
@@ -304,6 +305,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         running={running}
         thread={thread}
       />
+      {/* Over the composer, so the composer stays where it is when it comes and goes. */}
+      {failed ? (
+        <SendFailed busy={busy} message={failed} onRetry={send} />
+      ) : null}
       <FileDropBox
         className={composerBox}
         data-composer
@@ -371,18 +376,19 @@ export const Composer = ({ thread }: { thread: Thread }) => {
             value={text}
           />
         )}
+        {/* Attach at the start; the pickers of how it is done, then Send, at the end. */}
         <div className="@container flex min-w-0 items-center gap-1 p-2 pt-0">
-          <ModelPicker thread={thread} />
-          <ReviewChip thread={thread} />
+          <AttachMenu
+            attachShot={attachShot}
+            onAttachShot={setAttachShot}
+            page={page}
+            selectedChip={selectedChip}
+            threadId={thread.id}
+          />
           <div className="min-w-1 flex-1" />
+          <ReviewChip thread={thread} />
+          <ModelPicker thread={thread} />
           <div className="flex shrink-0 items-center gap-1">
-            <AttachMenu
-              attachShot={attachShot}
-              onAttachShot={setAttachShot}
-              page={page}
-              selectedChip={selectedChip}
-              threadId={thread.id}
-            />
             {answering ? (
               <AnswerButtons
                 answering={answering}
@@ -402,9 +408,6 @@ export const Composer = ({ thread }: { thread: Thread }) => {
           </div>
         </div>
       </FileDropBox>
-      {failed ? (
-        <SendFailed busy={busy} message={failed} onRetry={send} />
-      ) : null}
     </div>
   );
 };
@@ -510,7 +513,7 @@ const CommandList = ({ menu }: { menu: CommandMenu }) =>
   ) : null;
 
 /**
- * Attach, beside Send: what there is to attach (the selection, the page shown, its screenshot),
+ * Attach, at the composer's start: what there is to attach (the selection, the page shown, its screenshot),
  * each drawn only when there is one, then pictures or files from disk.
  */
 const AttachMenu = ({
@@ -549,7 +552,7 @@ const AttachMenu = ({
           </TooltipTrigger>
           <TooltipContent>Attach</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end" className="w-72" side="top">
+        <DropdownMenuContent align="start" className="w-72" side="top">
           {selectedChip || page ? (
             <>
               <DropdownMenuGroup>
@@ -600,7 +603,11 @@ const AttachMenu = ({
   );
 };
 
-/** Why a prompt didn't go, under the composer on a red tint, with the draft kept to try again. */
+/**
+ * Why a prompt didn't go, over the composer on a red tint, as a setting's error is said: its icon,
+ * the reason in full in red, and Try again under it on the reason's edge, the draft kept to send
+ * again.
+ */
 const SendFailed = ({
   busy,
   message,
@@ -611,13 +618,23 @@ const SendFailed = ({
   onRetry: () => void;
 }) => (
   <div
-    className="flex items-start gap-2 rounded-lg bg-destructive/10 py-1 pr-1 pl-3 text-destructive"
+    className="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 font-body-small text-destructive"
     role="alert"
   >
-    <span className="min-w-0 flex-1 py-1 font-body-small">{message}</span>
-    <Button disabled={busy} onClick={onRetry} size="sm" variant="ghost">
-      Try again
-    </Button>
+    <CircleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+    <div className="flex min-w-0 flex-col items-start gap-2">
+      <p className="wrap-anywhere">{message}</p>
+      {/* An action's label is the foreground's, so hovering it only fills it. */}
+      <Button
+        className="text-foreground"
+        disabled={busy}
+        onClick={onRetry}
+        size="sm"
+        variant="outline"
+      >
+        Try again
+      </Button>
+    </div>
   </div>
 );
 

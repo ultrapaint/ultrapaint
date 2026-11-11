@@ -164,7 +164,7 @@ describe("Send", () => {
     expect(document.activeElement).toBe(prompt());
   });
 
-  it("says under the composer why a prompt didn't go, keeps it, and tries again", async () => {
+  it("says over the composer why a prompt didn't go, keeps it, and tries again", async () => {
     show(idle);
     let sends = 0;
     fakeApi.respond("threads.prompt", () => {
@@ -180,6 +180,10 @@ describe("Send", () => {
     });
     const alert = container.querySelector("[role='alert']");
     expect(alert?.textContent).toContain("The agent is gone");
+    // Right over the composer, which stays where it was.
+    expect(
+      container.querySelector("[data-composer]")?.previousElementSibling
+    ).toBe(alert);
     expect(prompt()?.value).toBe("Make the header taller");
     await act(async () => {
       [...(alert?.querySelectorAll("button") ?? [])]
@@ -189,6 +193,18 @@ describe("Send", () => {
     });
     expect(container.querySelector("[role='alert']")).toBeNull();
     expect(prompt()?.value).toBe("");
+  });
+});
+
+describe("the composer's bar", () => {
+  it("has Attach at its start, then Review, the model and Send at its end", () => {
+    show(idle);
+    const names = [
+      ...container.querySelectorAll<HTMLButtonElement>(
+        "[data-composer] button[aria-label]"
+      ),
+    ].map((b) => b.getAttribute("aria-label")?.split(":")[0]);
+    expect(names).toEqual(["Attach", "Review", "Agent and model", "Send"]);
   });
 });
 

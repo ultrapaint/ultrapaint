@@ -274,11 +274,11 @@ const PermissionsSub = ({ thread }: { thread: Thread }) => {
 };
 
 /**
- * Agent, model, effort, permissions and the agent's other options in one menu below the prompt;
- * its switches below a divider. The trigger names the model and effort, led by the permission
- * mode's icon, which stays in view in every mode so full access is never out of sight. Before the
- * thread's session exists the options are the ones the agent offered last time, applied when it
- * starts.
+ * Agent, model, effort, permissions and the agent's other options in one menu below the prompt,
+ * beside Send; its switches below a divider. The trigger names the model and effort, led by the
+ * permission mode's icon, which stays in view in every mode so full access is never out of sight.
+ * Before the thread's session exists the options are the ones the agent offered last time, applied
+ * when it starts.
  */
 export const ModelPicker = ({ thread }: { thread: Thread }) => {
   const agents = useAgents((s) => s.agents);
@@ -349,7 +349,7 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
         ) : null}
         <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-60" side="top">
+      <DropdownMenuContent align="end" className="w-60" side="top">
         <DropdownMenuGroup>
           <AgentSub thread={thread} />
           {model ? (
