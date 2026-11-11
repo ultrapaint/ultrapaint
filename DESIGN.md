@@ -2,7 +2,7 @@
 colors:
   background: oklch(0.99 0.001 80)
   foreground: oklch(0.21 0.006 60)
-  muted-foreground: oklch(0.515 0.01 65)
+  muted-foreground: oklch(0.53 0.01 65)
   primary: oklch(0.53 0.21 263)
   primary-foreground: oklch(0.99 0 0)
   brand: oklch(0.53 0.21 263)
@@ -22,7 +22,7 @@ colors:
   warning: oklch(0.7 0.15 70)
   canvas: oklch(0.945 0.004 80)
   board: oklch(0.95 0.012 262)
-  specimen: oklch(1 0 0)
+  specimen: oklch(0.965 0.003 80)
   sidebar: oklch(0.995 0.001 80)
   rail: oklch(0.955 0.004 80)
   selection: "#3d7bff"
@@ -137,16 +137,18 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   canvas, panel, card, popover. In light the panels are warm white over a paper-grey canvas.
 - Two text colours: {colors.foreground} for what is read first (names, values, titles, labels of
   actions); {colors.muted-foreground} for what qualifies it (sizes, routes, times, hints,
-  descriptions, placeholders, idle icons).
+  descriptions, placeholders, idle icons). Light's {colors.muted-foreground} is chosen quiet: about
+  4.4:1 on a selected row, and kept there rather than darkened to 4.5.
 - {colors.primary} (ultramarine) is the one colour of the chrome: the one primary button of a view,
   a checked switch or checkbox, the active tool, the focus ring. Never on headings, icons or rows.
 - Selected and hovered rows, the active tab, the current rail item: a neutral fill
   ({colors.accent}), never a wash of blue.
 - {colors.destructive} for deleting and errors: red text on a 10–15% tint. {colors.success} and
   {colors.warning} are status dots and icons beside a word, never fills.
-- {colors.specimen} is the paper a component's picture lies on (the Library's tiles): white in
-  light, `oklch(0.9 0.003 80)` in dark, so a tile is never the brightest thing in the chrome. The
-  pictures are drawn in the design's light look, so it stays paper in both themes.
+- {colors.specimen} is the paper a component's picture lies on (the Library's tiles): a dimmed
+  paper in both themes, `oklch(0.965 0.003 80)` in light and `oklch(0.9 0.003 80)` in dark, so a
+  tile is never the brightest thing in the chrome. The pictures are drawn in the design's light
+  look, so it stays paper in both themes.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
   component instance, {colors.agent} on an agent's work and an agent working (the rail's dot). These
   stay off the panels' chrome otherwise.

@@ -368,7 +368,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --secondary-foreground: oklch(0.21 0.006 60);
   /* A field's fill, a well, the track of a segmented control. */
   --muted: oklch(0.955 0.003 80);
-  --muted-foreground: oklch(0.515 0.01 65);
+  --muted-foreground: oklch(0.53 0.01 65);
   /* A hovered or selected row: a neutral fill, never a wash of the accent. */
   --accent: oklch(0.935 0.004 80);
   --accent-foreground: oklch(0.21 0.006 60);
@@ -401,8 +401,9 @@ input[type="number"]::-webkit-inner-spin-button {
   /* A board view (ADR 0045): a blue-tinted canvas, never taken for the page canvas. */
   --board: oklch(0.95 0.012 262);
   --board-grid: oklch(0.3 0.03 262 / 20%);
-  /* The paper a component's picture lies on: the pictures are drawn in the design's light look. */
-  --specimen: oklch(1 0 0);
+  /* The paper a component's picture lies on, a step under the panel: the pictures are drawn in the
+     design's light look, and a white card in one still shows its edge. */
+  --specimen: oklch(0.965 0.003 80);
   --sidebar: oklch(0.995 0.001 80);
   /* The left card's frame, a step under the panel raised inside it. */
   --rail: oklch(0.955 0.004 80);
