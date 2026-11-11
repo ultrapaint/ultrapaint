@@ -82,7 +82,7 @@ describe("agent turn checkpoints", () => {
       () =>
         Effect.gen(function* () {
           const home = yield* read(HOME_FILE);
-          const id = yield* checkpoint("Before: one step");
+          const id = yield* checkpoint("one step");
           yield* write(HOME_FILE, "{}\n");
           yield* write(ABOUT_FILE, "{}\n");
 
@@ -110,7 +110,7 @@ describe("agent turn checkpoints", () => {
     it.effect("tells the editor of a file the revert removes", () =>
       Effect.gen(function* () {
         const events = yield* EventBus;
-        const id = yield* checkpoint("Before: a new page");
+        const id = yield* checkpoint("a new page");
         yield* write(NEW_FILE, "export default function Agent() {}\n");
         // Started at once, the fiber has subscribed by the time the fork returns.
         const removed = yield* Effect.forkScoped(
@@ -133,7 +133,7 @@ describe("agent turn checkpoints", () => {
 
     it.effect("leaves the comments written since as they are", () =>
       Effect.gen(function* () {
-        const id = yield* checkpoint("Before: comments");
+        const id = yield* checkpoint("comments");
         const comments = '{ "comments": [], "version": 1 }\n';
         yield* write(COMMENTS, comments);
         assert.notInclude(
@@ -152,9 +152,9 @@ describe("agent turn checkpoints", () => {
       () =>
         Effect.gen(function* () {
           const store = yield* SnapshotStore;
-          const first = yield* checkpoint("Before: the first turn");
+          const first = yield* checkpoint("the first turn");
           yield* write(SECOND_FILE, "{}\n");
-          const second = yield* checkpoint("Before: the second turn");
+          const second = yield* checkpoint("the second turn");
           const refs = yield* store.named("checkpoints");
           const manifest = (id: string) => {
             const ref = refs.find((r) => r.name === id);
@@ -173,7 +173,7 @@ describe("agent turn checkpoints", () => {
     it.effect("is kept as a snapshot under a name of the same files", () =>
       Effect.gen(function* () {
         const store = yield* SnapshotStore;
-        const id = yield* checkpoint("Before: kept");
+        const id = yield* checkpoint("kept");
         yield* write(KEPT_FILE, "{}\n");
         const snapshot = yield* Effect.flatMap(Snapshots, (s) =>
           s.create("Shown to the client", id)
@@ -199,24 +199,37 @@ describe("agent turn checkpoints", () => {
     it.effect("lists two taken at the same instant newest first", () =>
       Effect.gen(function* () {
         const checkpoints = yield* Checkpoints;
-        yield* checkpoints.create("t-4", "Before: the first");
-        yield* checkpoints.create("t-4", "Before: the second");
+        yield* checkpoints.create("t-4", "the first");
+        yield* checkpoints.create("t-4", "the second");
         assert.deepStrictEqual(
           (yield* checkpoints.list).map((c) => c.label),
-          ["Before: the second", "Before: the first"]
+          ["the second", "the first"]
         );
       })
+    );
+
+    it.effect(
+      "lists one taken before 11 Nov 2026 by its prompt, without the Before: it was kept under",
+      () =>
+        Effect.gen(function* () {
+          const checkpoints = yield* Checkpoints;
+          yield* checkpoints.create("t-6", "Before: Tighten the header");
+          assert.deepStrictEqual(
+            (yield* checkpoints.list).map((c) => c.label),
+            ["Tighten the header"]
+          );
+        })
     );
 
     it.effect("lets go of the first of those taken at the same instant", () =>
       Effect.gen(function* () {
         const checkpoints = yield* Checkpoints;
         for (let i = 0; i < KEPT + 1; i += 1) {
-          yield* checkpoints.create("t-5", `Before: turn ${i}`);
+          yield* checkpoints.create("t-5", `turn ${i}`);
         }
         assert.deepStrictEqual(
           (yield* checkpoints.list).map((c) => c.label),
-          Array.from({ length: KEPT }, (_, i) => `Before: turn ${KEPT - i}`)
+          Array.from({ length: KEPT }, (_, i) => `turn ${KEPT - i}`)
         );
       })
     );
@@ -226,7 +239,7 @@ describe("agent turn checkpoints", () => {
         const checkpoints = yield* Checkpoints;
         const store = yield* SnapshotStore;
         for (let i = 0; i < KEPT + 1; i += 1) {
-          yield* takeTurn("t-2", `Before: turn ${i}`);
+          yield* takeTurn("t-2", `turn ${i}`);
         }
         assert.lengthOf(yield* checkpoints.list, KEPT);
         assert.lengthOf(yield* store.named("checkpoints"), KEPT);
@@ -242,9 +255,9 @@ describe("agent turn checkpoints", () => {
           const checkpoints = yield* Checkpoints;
           const store = yield* SnapshotStore;
           yield* write(ONLY_FILE, "only one turn had this\n");
-          const first = yield* checkpoint("Before: the turn with a file");
+          const first = yield* checkpoint("the turn with a file");
           yield* write(ONLY_FILE, "a snapshot has this\n");
-          const second = yield* checkpoint("Before: the turn kept");
+          const second = yield* checkpoint("the turn kept");
           const snapshot = yield* Effect.flatMap(Snapshots, (s) =>
             s.create("Kept by the user", second)
           );
@@ -260,7 +273,7 @@ describe("agent turn checkpoints", () => {
           const shared = yield* hashOf(second);
           // Enough turns that both are let go of, and the store collected since.
           for (let i = 0; i < KEPT + COLLECT_EVERY; i += 1) {
-            yield* takeTurn("t-3", `Before: later turn ${i}`);
+            yield* takeTurn("t-3", `later turn ${i}`);
           }
           const ids = (yield* checkpoints.list).map((c) => c.id);
           assert.notInclude(ids, first);
@@ -347,7 +360,7 @@ describe("agent turn checkpoints", () => {
             );
             assert.deepStrictEqual(
               list?.map((c) => [c.label, c.threadId]),
-              [["Before: Only look", id]]
+              [["Only look", id]]
             );
             assert.deepStrictEqual(
               list,

@@ -25,6 +25,15 @@ const Note = Schema.Struct({
 });
 type Note = typeof Note.Type;
 
+/** What checkpoints taken before 11 Nov 2026 began their names with, the turn's prompt after it. */
+const OLD_PREFIX_RE = /^Before: /;
+
+/** A checkpoint named by its turn's prompt alone, as one kept under the old prefix is too. */
+const named = (checkpoint: Checkpoint): Checkpoint =>
+  OLD_PREFIX_RE.test(checkpoint.label)
+    ? { ...checkpoint, label: checkpoint.label.replace(OLD_PREFIX_RE, "") }
+    : checkpoint;
+
 /**
  * The designs as they were before each agent turn (ADR 0008), to compare with now and to go
  * back to. Each is a ref of the snapshot store's `checkpoints` namespace, as a named snapshot is
@@ -63,7 +72,7 @@ export class Checkpoints extends Context.Service<
       const refs = yield* makeDesignRefs({
         idOf: (note: Note) => note.checkpoint.id,
         keepLast: yield* CheckpointsKept,
-        listed: (note) => note.checkpoint,
+        listed: (note) => named(note.checkpoint),
         namespace: NAMESPACE,
         note: Schema.fromJsonString(Note),
         publish: (list) => events.publish("checkpoints", list),
@@ -97,7 +106,7 @@ export class Checkpoints extends Context.Service<
         const ref = yield* refs.find(id);
         yield* refs.putBack(
           ref,
-          `Revert to the checkpoint ${ref.checkpoint.label}`
+          `Revert to the checkpoint ${named(ref.checkpoint).label}`
         );
       });
 

@@ -63,7 +63,6 @@ const CHANGE_LINE_RE = /^[-+ @\\]/;
 const MARKED_LINE_RE = /^[-+ ]/;
 const TRAILING_NEWLINE_RE = /\n$/;
 const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
-const BEFORE_RE = /^Before: /;
 
 /** How long the files are left to settle before the panel asks again what changed. */
 const FILES_SETTLE_MS = 250;
@@ -164,13 +163,6 @@ export const statusWord = (code: string): string | null => {
   }
   return null;
 };
-
-/**
- * A checkpoint's name: its turn's prompt, without the "Before: " the server keeps it under,
- * which the Agent checkpoints title already says.
- */
-export const checkpointName = (checkpoint: Checkpoint) =>
-  checkpoint.label.replace(BEFORE_RE, "");
 
 /**
  * What a diff since a point says above the files: how many changed since it, or that none did.
@@ -1043,7 +1035,7 @@ const CheckpointRow = ({
   checkpoint: Checkpoint;
   onOpen: ShowDiff;
 }) => {
-  const name = checkpointName(checkpoint);
+  const name = checkpoint.label;
   const show = () =>
     onOpen({
       kind: "checkpoint",

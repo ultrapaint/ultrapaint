@@ -636,7 +636,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
         // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
         yield* Effect.uninterruptible(
-          checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
+          checkpoints.create(threadId, input.text.slice(0, 60))
         );
         yield* turn.atAgent(before, witness);
       }).pipe(Effect.onError(() => witness.close));

@@ -113,7 +113,7 @@ const checkpoint = (id: string): Checkpoint => ({
   at: 1,
   files: [],
   id,
-  label: `Before: ${id}`,
+  label: `Turn ${id}`,
   threadId: "t1",
 });
 

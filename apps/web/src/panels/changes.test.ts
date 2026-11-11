@@ -2,7 +2,6 @@ import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
 import {
   changedSince,
-  checkpointName,
   commitBlocked,
   commitLabel,
   diffLines,
@@ -94,18 +93,6 @@ describe("Commit's button", () => {
     expect(commitLabel(false, 1)).toBe("Commit 1 file");
     expect(commitLabel(false, 3)).toBe("Commit 3 files");
     expect(commitLabel(true, 3)).toBe("Committing…");
-  });
-});
-
-describe("a checkpoint's name", () => {
-  it("is its turn's prompt, without the Before: the server keeps it under", () => {
-    const checkpoint = { at: 1, files: [], id: "c_1", threadId: "t_1" };
-    expect(
-      checkpointName({ ...checkpoint, label: "Before: Tighten the header" })
-    ).toBe("Tighten the header");
-    expect(checkpointName({ ...checkpoint, label: "Tighten the header" })).toBe(
-      "Tighten the header"
-    );
   });
 });
 
