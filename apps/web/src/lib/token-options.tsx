@@ -17,7 +17,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 
 export const Swatch = ({ color }: { color: string | undefined }) => (
   <span
-    className="size-3 shrink-0 rounded-sm border border-input"
+    className="size-3 shrink-0 rounded-sm border border-foreground/15"
     style={{ background: color }}
   />
 );

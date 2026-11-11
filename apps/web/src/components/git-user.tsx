@@ -30,7 +30,7 @@ export const GitUserButton = () => {
         render={
           <button
             aria-label={`Git user: ${name}`}
-            className="flex size-7 items-center justify-center rounded-full bg-secondary font-body-small-medium text-secondary-foreground outline-none ring-1 ring-border transition-shadow hover:ring-input focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:ring-2 data-popup-open:ring-ring/50"
+            className="flex size-7 items-center justify-center rounded-full bg-secondary font-body-small-medium text-secondary-foreground outline-none ring-1 ring-border transition-shadow hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:ring-2 data-popup-open:ring-ring/50"
             type="button"
           />
         }

@@ -387,7 +387,7 @@ const ThemeSwitch = () => {
 
 /** A short rule between the tools' groups, centred on their line. */
 const ToolbarDivider = () => (
-  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-input" />
+  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-foreground/15" />
 );
 
 /**

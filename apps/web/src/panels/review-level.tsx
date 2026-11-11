@@ -114,7 +114,7 @@ const LevelSlider = ({
         value={Math.max(at, 0)}
       >
         <SliderPrimitive.Control className="relative flex h-6 cursor-pointer touch-none items-center">
-          <SliderPrimitive.Track className="relative h-1 w-full rounded-full bg-input">
+          <SliderPrimitive.Track className="relative h-1 w-full rounded-full bg-foreground/15">
             {at >= 0 ? (
               <SliderPrimitive.Indicator className="rounded-full bg-primary" />
             ) : null}

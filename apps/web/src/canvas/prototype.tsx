@@ -485,7 +485,7 @@ const DeviceSwitch = () => {
 };
 
 const BarDivider = () => (
-  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-input" />
+  <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-foreground/15" />
 );
 
 /**

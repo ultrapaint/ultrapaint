@@ -64,7 +64,7 @@ export const ChipTag = ({
     className={cn(
       chipClass,
       implicit
-        ? "border border-input border-dashed text-muted-foreground"
+        ? "border border-foreground/15 border-dashed text-muted-foreground"
         : "bg-background text-foreground"
     )}
   >
