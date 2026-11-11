@@ -33,3 +33,4 @@ named: shipped skill 1/2, redesign-gaps 1/2. The person rated it real
 - `rb-recall-check`: 2026-11-08, caught: rb-check 0/2 (+1 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
 - `rt-2`: 2026-11-11, caught: shipped 0/3, review-table 1/3, review-inventory 1/3 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2/report.md)
 - `ep-1`: 2026-11-11, caught: review-table@opus+untold 0/2, review-table@opus+told 0/2, review-table@gpt-6.1-sol+untold 0/2, review-table@gpt-6.1-sol+told 0/2 (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
+- `chk-1`: 2026-11-11, caught: shipped 1/3, shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)

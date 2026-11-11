@@ -33,3 +33,4 @@ must be what the section is for.
 - `rt-2`: 2026-11-11, its sections' gaps caught: shipped 24/36 (+7 partly), review-table 28/36 (+6 partly), review-inventory 30/36 (+2 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2/report.md)
 - `ep-1`: 2026-11-11, its sections' gaps caught: review-table@opus+untold 14/24 (+8 partly), review-table@opus+told 19/24 (+5 partly), review-table@gpt-6.1-sol+untold 7/24 (+12 partly), review-table@gpt-6.1-sol+told 14/24 (+7 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `g02-2`: 2026-11-11, its sections' gaps caught: shipped 7/12 (+4 partly), g02-three-times 9/12 (+2 partly) (opus, effort high; runs/g02-2/report.md)
+- `chk-1`: 2026-11-11, its sections' gaps caught: shipped 8/12 (+3 partly), shipped+checks 6/12 (+5 partly) (opus, effort high; runs/chk-1/report.md)

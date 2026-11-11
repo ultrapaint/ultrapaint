@@ -61,3 +61,4 @@ problems.
 - `rt-2`: 2026-11-11, its sections' gaps caught: shipped 93/138 (+17 partly), review-table 106/138 (+16 partly), review-inventory 110/138 (+9 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2/report.md)
 - `ep-1`: 2026-11-11, its sections' gaps caught: review-table@opus+untold 31/92 (+31 partly), review-table@opus+told 60/92 (+17 partly), review-table@gpt-6.1-sol+untold 25/92 (+34 partly), review-table@gpt-6.1-sol+told 57/92 (+17 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `g02-2`: 2026-11-11, its sections' gaps caught: shipped 7/12 (+4 partly), g02-three-times 9/12 (+2 partly) (opus, effort high; runs/g02-2/report.md)
+- `chk-1`: 2026-11-11, its sections' gaps caught: shipped 69/90 (+10 partly), shipped+checks 63/90 (+8 partly) (opus, effort high; runs/chk-1/report.md)
