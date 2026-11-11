@@ -23,8 +23,9 @@ The problems, numbered:
 For each problem, by its number:
 
 - `call`: `fix` when it is there as it says and a careful designer would change it here; `leave`
-  when it isn't there, isn't wrong, is taste the skill doesn't settle, or the change would make
-  the design worse;
+  only when it isn't there, isn't wrong, or the change would make the design worse. A problem no
+  rule of the skill names can still be one: call it by what a careful designer would do, not by
+  whether a rule asks for it;
 - `what`: for `fix`, the change you would make, in one concrete sentence ("Drop the branch name
   from the status row: the header already shows it"); for `leave`, why, in one sentence;
 - `rule`: the skill's rule the call rests on, as its file and a few of its words
