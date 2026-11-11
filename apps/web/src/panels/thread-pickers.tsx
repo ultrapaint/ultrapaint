@@ -332,7 +332,10 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
         }
       >
         {lead}
-        <span className="truncate">{modelName ?? agentName}</span>
+        {/* The value is read first, in the foreground; what qualifies it stays muted. */}
+        <span className="truncate text-foreground">
+          {modelName ?? agentName}
+        </span>
         {effortName ? (
           // The menu names it; a narrow composer keeps the model and the review legible.
           <span className="@max-sm:hidden shrink-0 opacity-70">

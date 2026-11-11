@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { ImageChip } from "../lib/file-chips.ts";
 
-/** A picture sent with the next prompt, as itself; its × shows over its corner on hover. */
+/** A picture sent with the next prompt, as itself, with its × over its corner. */
 export const ImageThumb = ({
   chip,
   onRemove,
@@ -18,7 +18,7 @@ export const ImageThumb = ({
   chip: ImageChip;
   onRemove: () => void;
 }) => (
-  <span className="group/thumb relative size-14 shrink-0">
+  <span className="relative size-14 shrink-0">
     <Tooltip>
       <TooltipTrigger
         render={
@@ -33,13 +33,23 @@ export const ImageThumb = ({
       />
       <TooltipContent>{chip.name}</TooltipContent>
     </Tooltip>
-    <button
-      aria-label={`Remove ${chip.name}`}
-      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-foreground text-background opacity-0 outline-none transition-opacity duration-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/thumb:opacity-100 [&_svg]:size-3"
-      onClick={onRemove}
-      type="button"
-    >
-      <X />
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label={`Remove ${chip.name}`}
+            className="group/remove absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full outline-none"
+            onClick={onRemove}
+            type="button"
+          />
+        }
+      >
+        {/* A 20px disc in a 24px target, so the corner stays light and the × easy to hit. */}
+        <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-background group-focus-visible/remove:ring-2 group-focus-visible/remove:ring-ring [&_svg]:size-3">
+          <X />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>Remove</TooltipContent>
+    </Tooltip>
   </span>
 );

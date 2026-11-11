@@ -15,6 +15,7 @@ import { threadView } from "../lib/thread-view.ts";
 import { forgetAnswers } from "./answers.ts";
 import { dropChips } from "./attachments.ts";
 import { api } from "./connection.ts";
+import { dropDraft } from "./drafts.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
 
@@ -179,6 +180,7 @@ const withoutThread = (s: AgentsStore, threadId: string) => {
 const forgetThread = (threadId: string) => {
   const items = useAgents.getState().items[threadId] ?? [];
   dropChips(threadId);
+  dropDraft(threadId);
   forgetAnswers(items.flatMap((i) => (i.kind === "question" ? [i.id] : [])));
 };
 

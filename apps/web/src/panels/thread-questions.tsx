@@ -563,10 +563,10 @@ export const SendKeyHint = () => {
   return <Kbd>{chordLabel(sendKey === "enter" ? "enter" : "mod+enter")}</Kbd>;
 };
 
-/** Stops the agent's turn: a square, as a media player's, round like the send button. */
+/** Stops the agent's turn: a square, as a media player's, in a control the send button's shape. */
 export const StopButton = ({ onStop }: { onStop: () => void }) => (
   <IconButton
-    className="rounded-full bg-foreground text-background hover:bg-foreground/85 hover:text-background"
+    className="bg-foreground text-background hover:bg-foreground/85 hover:text-background"
     onClick={onStop}
     onMouseDown={keepFocus}
     tooltip="Stop"

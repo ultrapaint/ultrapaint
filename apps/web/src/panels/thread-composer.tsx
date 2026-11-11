@@ -2,6 +2,7 @@
  * Where a prompt is written: the composer with its chips, slash commands and attachments, and the
  * prompts queued while the agent works.
  */
+import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { parseCommand } from "@ultrapaint/contracts/tasks";
 import type {
@@ -15,13 +16,12 @@ import {
   BookText,
   Camera,
   Component,
-  FileInput,
+  FilePlus,
   FileText,
   ListPlus,
   Palette,
   Paperclip,
   Pencil,
-  Plus,
   SquareDashedMousePointer,
   Type,
   X,
@@ -30,8 +30,8 @@ import {
   type ChangeEvent,
   type ClipboardEvent,
   type KeyboardEvent,
-  type ReactNode,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -46,6 +46,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
   TooltipContent,
@@ -54,7 +55,7 @@ import {
 import { cn } from "@/lib/cn";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
-import { ChipRemove, chipClass } from "../components/chip.tsx";
+import { ChipTag } from "../components/chip.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
 import { CutText } from "../components/cut-text.tsx";
 import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
@@ -64,9 +65,7 @@ import { useBoardChip } from "../lib/add-to-chat.ts";
 import { pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import type { ImageChip } from "../lib/file-chips.ts";
-import { importFigma } from "../lib/import-figma.ts";
 import { threadView } from "../lib/thread-view.ts";
-import { useAgents } from "../state/agents.ts";
 import {
   addChip,
   attachFiles,
@@ -84,8 +83,9 @@ import {
 import { api } from "../state/connection.ts";
 import { showSetup } from "../state/design-system-setup.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
+import { setDraft, useDraft } from "../state/drafts.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
-import { takeRequest, useRequest } from "../state/panels.ts";
+import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
@@ -103,20 +103,26 @@ import {
 } from "./thread-questions.tsx";
 
 /**
- * What a prompt carries, from the composer's chips, and a screenshot when one was asked for.
+ * What a prompt carries, from the composer's chips, and a screenshot when one was asked for. A
+ * screenshot that can't be taken stops the prompt, which would otherwise go without what its chip
+ * promised.
  */
 const collectAttachments = async (
   chips: readonly Chip[],
   shotOf: { frameId: string; name: string } | null
 ): Promise<PromptAttachment[]> => {
   const attachments = attachmentsOf(chips);
-  const dataUrl = shotOf ? await frameOf(shotOf.frameId).screenshot() : null;
-  return shotOf && dataUrl
-    ? [
-        ...attachments,
-        { dataUrl, kind: "image", name: `${shotOf.name} screenshot` },
-      ]
-    : attachments;
+  if (!shotOf) {
+    return attachments;
+  }
+  const dataUrl = await frameOf(shotOf.frameId).screenshot();
+  if (!dataUrl) {
+    throw new Error(`The screenshot of ${shotOf.name} couldn’t be taken`);
+  }
+  return [
+    ...attachments,
+    { dataUrl, kind: "image", name: `${shotOf.name} screenshot` },
+  ];
 };
 
 /** `/sync` with no source asks where the sync stands, which the editor shows: its Sync view. */
@@ -170,19 +176,35 @@ const useCommands = (thread: Thread) => {
 };
 
 export const Composer = ({ thread }: { thread: Thread }) => {
-  const [text, setText] = useState(
-    () => takeRequest({ draft: thread.id }) ?? ""
-  );
+  // The draft is the thread's, kept while the chat is closed or another one is open.
+  const text = useDraft(thread.id);
+  const setText = (next: string | ((current: string) => string)) =>
+    setDraft(thread.id, next);
+  const field = useRef<HTMLTextAreaElement>(null);
+  /** Counts the drafts written in from elsewhere (a starter, a task), each placed for typing on. */
+  const [placed, setPlaced] = useState(0);
   const sendKey = useSendKey((s) => s.sendKey);
-  // A draft that arrives after the composer is on screen, from a thread started elsewhere.
-  useRequest({ draft: thread.id }, setText);
+  // A draft asked for, as the composer mounts or while it is on screen (a starter, a thread
+  // started elsewhere): it lands with the caret at its end, to be added to.
+  useRequest({ draft: thread.id }, (draft) => {
+    setText(draft);
+    setPlaced((n) => n + 1);
+  });
+  useEffect(() => {
+    const el = field.current;
+    if (placed === 0 || !el) {
+      return;
+    }
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [placed]);
   const chips = useChips(thread.id);
   /** Implicit context the user took out of this prompt, by chip key. */
   const [dismissed, setDismissed] = useState<readonly string[]>([]);
   const [attachShot, setAttachShot] = useState(false);
-  const figma = useRef<HTMLInputElement>(null);
-  const picker = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  /** Why the last send didn't go, said under the composer until the next one. */
+  const [failed, setFailed] = useState<string | null>(null);
   const selection = useEditor((s) => s.selection);
   const activePage = useEditor((s) => s.activePage);
   const pages = useProject((s) => s.pages);
@@ -213,19 +235,23 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     dismissed.includes(chipKey(selectedChip))
       ? []
       : [selectedChip];
-  const commands = useCommands(thread);
-  const [commandIndex, setCommandIndex] = useState(0);
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
   const running = threadView(thread).busy;
   const answering = useAnswering(thread.id);
+  const menu = useCommandMenu(thread, text, setText, answering === null);
 
   // While the agent works, what is sent waits in the thread's queue. One prompt at a time: a
   // screenshot to attach can take a while, and Enter again meanwhile must not send it twice.
+  // Send with nothing typed puts the caret in the prompt, where what is missing goes.
   const send = async () => {
     const sent = text;
-    if (busy || !sent.trim()) {
+    if (busy) {
+      return;
+    }
+    if (!sent.trim()) {
+      field.current?.focus();
       return;
     }
     // Where the sync stands is the editor's to show: the Sync view opens rather than a turn.
@@ -236,6 +262,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       return;
     }
     setBusy(true);
+    setFailed(null);
     const sentChips = chips;
     try {
       const attachments = await collectAttachments(
@@ -252,42 +279,27 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       clearChips(thread.id, sentChips);
       setDismissed([]);
     } catch (error) {
-      reportError(error);
+      // A folder that is no longer one is the editor's to say; any other failure is this
+      // prompt's, said under it with the draft kept to try again.
+      if (error instanceof RequestError && error.code === "not_configured") {
+        reportError(error);
+      } else {
+        setFailed(error instanceof Error ? error.message : String(error));
+      }
     }
     setBusy(false);
   };
 
   const onTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
-    setCommandIndex(0);
-  };
-  // A `/` at the start offers the commands, the server's and the agent's, until the name is typed.
-  const commandMatch: RegExpExecArray | null = COMMAND_QUERY_RE.exec(text);
-  const commandQuery = commandMatch?.[1];
-  const offered =
-    commandQuery === undefined
-      ? []
-      : commands.filter((c) => c.name.startsWith(commandQuery.toLowerCase()));
-  const complete = (name: string) => setText(`/${name} `);
-  /** The command menu's keys: arrows move through it, Tab or Enter picks. Whether it took one. */
-  const onMenuKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      const step = e.key === "ArrowDown" ? 1 : -1;
-      setCommandIndex((i) => (i + step + offered.length) % offered.length);
-      return true;
-    }
-    if ((e.key === "Tab" || e.key === "Enter") && !(e.metaKey || e.ctrlKey)) {
-      complete((offered[commandIndex] ?? offered[0])?.name ?? "");
-      return true;
-    }
-    return false;
+    menu.reset();
   };
   const onTextKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (answering) {
       onAnswerKey(e, answering, thread.id, sendKey, running);
       return;
     }
-    if (offered.length > 0 && onMenuKey(e)) {
+    if (menu.onKey(e)) {
       e.preventDefault();
       return;
     }
@@ -307,21 +319,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const cancel = () =>
     api().request("threads.cancel", { threadId: thread.id }).catch(reportError);
 
-  const agentName =
-    useAgents((s) => s.agents.find((a) => a.id === thread.agentId)?.name) ??
-    "the agent";
-
   const showShot = Boolean(page && attachShot);
-  const attachSelection = () => {
-    if (selectedChip) {
-      addChip(thread.id, selectedChip);
-    }
-  };
-  const attachPage = () => {
-    if (page) {
-      addChip(thread.id, pageChip(page));
-    }
-  };
 
   return (
     <div className="flex flex-col gap-2 px-2 pb-2">
@@ -366,137 +364,48 @@ export const Composer = ({ thread }: { thread: Thread }) => {
               />
             ))}
             {showShot && page ? (
-              <ContextChip
+              <ChipTag
                 icon={<Camera />}
-                label={`Screenshot of ${page.name}`}
+                name={`Screenshot of ${page.name}`}
                 onRemove={() => setAttachShot(false)}
+                tip={`Screenshot of ${page.name}`}
               />
             ) : null}
           </div>
         ) : null}
-        {offered.length > 0 && !answering ? (
-          <div
-            className="mx-1 mt-1 flex max-h-56 flex-col overflow-y-auto border-b pb-1"
-            role="listbox"
-          >
-            {offered.map((command, i) => (
-              <button
-                aria-selected={i === commandIndex}
-                className={cn(
-                  "flex flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-accent",
-                  i === commandIndex && "bg-accent"
-                )}
-                key={command.name}
-                onClick={() => complete(command.name)}
-                onMouseDown={(e) => e.preventDefault()}
-                role="option"
-                type="button"
-              >
-                <span className="font-code text-foreground">
-                  /{command.name}
-                  {command.argument ? (
-                    <span className="ml-1.5 text-muted-foreground">
-                      {command.argument}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="font-body-small text-muted-foreground">
-                  {command.description}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <CommandList menu={menu} />
         {answering ? (
           <AnswerField answering={answering} onKeyDown={onTextKeyDown} />
         ) : (
+          // The commands' list is the prompt's: the arrows move through it while the caret stays.
           <textarea
+            aria-activedescendant={menu.activeId}
+            aria-autocomplete="list"
+            aria-controls={menu.id}
+            aria-expanded={menu.offered.length > 0}
             aria-label="Prompt"
             className={composerText}
             onChange={onTextChange}
             onKeyDown={onTextKeyDown}
             onPaste={onPaste}
-            placeholder={placeholderOf(running, agentName)}
+            placeholder={placeholderOf(running)}
+            ref={field}
+            role="combobox"
             value={text}
           />
         )}
-        <div className="@container flex min-w-0 items-center gap-0.5 p-1.5 pt-0">
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        aria-label="Attach"
-                        className="text-muted-foreground"
-                        size="icon"
-                        variant="ghost"
-                      />
-                    }
-                  />
-                }
-              >
-                <Plus />
-              </TooltipTrigger>
-              <TooltipContent>Attach</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="start" className="w-64" side="top">
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  disabled={!selectedChip}
-                  onClick={attachSelection}
-                >
-                  <SquareDashedMousePointer />
-                  <span className="truncate">{attachLabel(selectedChip)}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={!page} onClick={attachPage}>
-                  <AppWindow />
-                  <span className="truncate">
-                    {page ? `Attach the page ${page.name}` : "Attach the page"}
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuCheckboxItem
-                  checked={attachShot}
-                  disabled={!page}
-                  onCheckedChange={setAttachShot}
-                >
-                  <Camera />
-                  Screenshot of the page
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => picker.current?.click()}>
-                <Paperclip />
-                Add pictures or files…
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => figma.current?.click()}>
-                <FileInput />
-                Import a .fig file…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <input
-            accept=".fig"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                importFigma(file);
-              }
-              e.target.value = "";
-            }}
-            ref={figma}
-            type="file"
-          />
-          <FilesInput
-            onFiles={(picked) => attachFiles(thread.id, picked)}
-            ref={picker}
-          />
+        <div className="@container flex min-w-0 items-center gap-1 p-2 pt-0">
           <ModelPicker thread={thread} />
           <ReviewChip thread={thread} />
           <div className="min-w-1 flex-1" />
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1">
+            <AttachMenu
+              attachShot={attachShot}
+              onAttachShot={setAttachShot}
+              page={page}
+              selectedChip={selectedChip}
+              threadId={thread.id}
+            />
             {answering ? (
               <AnswerButtons
                 answering={answering}
@@ -506,7 +415,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
               />
             ) : (
               <SendButtons
-                canSend={!busy && Boolean(text.trim())}
+                busy={busy}
+                canSend={Boolean(text.trim())}
                 onSend={send}
                 onStop={cancel}
                 running={running}
@@ -515,9 +425,224 @@ export const Composer = ({ thread }: { thread: Thread }) => {
           </div>
         </div>
       </FileDropBox>
+      {failed ? (
+        <SendFailed busy={busy} message={failed} onRetry={send} />
+      ) : null}
     </div>
   );
 };
+
+type CommandMenu = ReturnType<typeof useCommandMenu>;
+
+/**
+ * The slash commands offered as the prompt is typed: a `/` at the start offers the commands, the
+ * server's and the agent's, until the name is typed or Escape closes the list for that query. The
+ * list is the prompt's (a combobox): the arrows move through it while the caret stays.
+ */
+const useCommandMenu = (
+  thread: Thread,
+  text: string,
+  setText: (text: string) => void,
+  open: boolean
+) => {
+  const commands = useCommands(thread);
+  const [index, setIndex] = useState(0);
+  /** The query Escape closed the list on; it opens again once the query changes. */
+  const [closedFor, setClosedFor] = useState<string | null>(null);
+  const id = useId();
+  const match: RegExpExecArray | null = COMMAND_QUERY_RE.exec(text);
+  const query = match?.[1];
+  const offered =
+    query === undefined || query === closedFor || !open
+      ? []
+      : commands.filter((c) => c.name.startsWith(query.toLowerCase()));
+  const complete = (name: string) => setText(`/${name} `);
+  const optionId = (i: number) => `${id}-${i}`;
+  const shown = offered.length > 0;
+  /** The list's keys: arrows move through it, Tab or Enter picks, Escape closes it. Whether it took one. */
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!shown) {
+      return false;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setIndex((i) => (i + step + offered.length) % offered.length);
+    } else if (
+      (e.key === "Tab" || e.key === "Enter") &&
+      !(e.metaKey || e.ctrlKey)
+    ) {
+      complete((offered[index] ?? offered[0])?.name ?? "");
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      setClosedFor(query ?? null);
+    } else {
+      return false;
+    }
+    return true;
+  };
+  return {
+    /** The option the arrows are on, for the prompt to say. */
+    activeId: shown ? optionId(index) : undefined,
+    complete,
+    id,
+    index,
+    offered,
+    onKey,
+    optionId,
+    reset: () => setIndex(0),
+  };
+};
+
+/** The commands offered, over the prompt, the one the arrows are on filled. */
+const CommandList = ({ menu }: { menu: CommandMenu }) =>
+  menu.offered.length > 0 ? (
+    <div
+      className="mx-1 mt-1 flex max-h-56 flex-col overflow-y-auto border-b pb-1"
+      id={menu.id}
+      role="listbox"
+    >
+      {menu.offered.map((command, i) => (
+        <button
+          aria-selected={i === menu.index}
+          className={cn(
+            "flex flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-accent",
+            i === menu.index && "bg-accent"
+          )}
+          id={menu.optionId(i)}
+          key={command.name}
+          onClick={() => menu.complete(command.name)}
+          onMouseDown={(e) => e.preventDefault()}
+          role="option"
+          tabIndex={-1}
+          type="button"
+        >
+          <span className="font-code text-foreground">
+            /{command.name}
+            {command.argument ? (
+              <span className="ml-1.5 text-muted-foreground">
+                {command.argument}
+              </span>
+            ) : null}
+          </span>
+          <span className="font-body-small text-muted-foreground">
+            {command.description}
+          </span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+/**
+ * Attach, beside Send: what there is to attach (the selection, the page shown, its screenshot),
+ * each drawn only when there is one, then pictures or files from disk.
+ */
+const AttachMenu = ({
+  attachShot,
+  onAttachShot,
+  page,
+  selectedChip,
+  threadId,
+}: {
+  attachShot: boolean;
+  onAttachShot: (on: boolean) => void;
+  page: Page | undefined;
+  selectedChip: Chip | null;
+  threadId: string;
+}) => {
+  const picker = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label="Attach"
+                    className="text-muted-foreground"
+                    size="icon"
+                    variant="ghost"
+                  />
+                }
+              />
+            }
+          >
+            <Paperclip />
+          </TooltipTrigger>
+          <TooltipContent>Attach</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-72" side="top">
+          {selectedChip || page ? (
+            <>
+              <DropdownMenuGroup>
+                {selectedChip ? (
+                  <DropdownMenuItem
+                    onClick={() => addChip(threadId, selectedChip)}
+                  >
+                    <SquareDashedMousePointer />
+                    <span className="truncate">
+                      {attachLabel(selectedChip)}
+                    </span>
+                  </DropdownMenuItem>
+                ) : null}
+                {page ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => addChip(threadId, pageChip(page))}
+                    >
+                      <AppWindow />
+                      <span className="truncate">
+                        Attach the page {page.name}
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuCheckboxItem
+                      checked={attachShot}
+                      onCheckedChange={onAttachShot}
+                    >
+                      <Camera />
+                      Attach a screenshot of the page
+                    </DropdownMenuCheckboxItem>
+                  </>
+                ) : null}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
+          <DropdownMenuItem onClick={() => picker.current?.click()}>
+            <FilePlus />
+            Attach pictures or files…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <FilesInput
+        onFiles={(picked) => attachFiles(threadId, picked)}
+        ref={picker}
+      />
+    </>
+  );
+};
+
+/** Why a prompt didn't go, under the composer on a red tint, with the draft kept to try again. */
+const SendFailed = ({
+  busy,
+  message,
+  onRetry,
+}: {
+  busy: boolean;
+  message: string;
+  onRetry: () => void;
+}) => (
+  <div
+    className="flex items-start gap-2 rounded-lg bg-destructive/10 py-1 pr-1 pl-3 text-destructive"
+    role="alert"
+  >
+    <span className="min-w-0 flex-1 py-1 font-body-small">{message}</span>
+    <Button disabled={busy} onClick={onRetry} size="sm" variant="ghost">
+      Try again
+    </Button>
+  </div>
+);
 
 /**
  * What was sent while the agent worked, waiting for its turn to end, oldest first. Each goes when
@@ -616,42 +741,50 @@ const QueuedPrompts = ({
   );
 };
 
-const placeholderOf = (running: boolean, agentName: string) =>
-  running ? "Queue a follow-up…" : `Ask ${agentName}, or type / for commands…`;
+/** The thread's header names its agent, so the prompt's placeholder says what to write. */
+const placeholderOf = (running: boolean) =>
+  running ? "Queue a follow-up…" : "Describe a change, or type / for commands…";
 
 /**
  * Send; while the agent works, Stop, and Queue beside it once there is something to queue. One
- * round button at the composer's corner in each case, so the pickers keep their width.
+ * button at the composer's corner in each case, so the pickers keep their width. Send is never
+ * drawn off: with nothing typed it puts the caret in the prompt, and while a prompt goes (its
+ * screenshot taken, the request on its way) it spins.
  */
 const SendButtons = ({
+  busy,
   canSend,
   onSend,
   onStop,
   running,
 }: {
+  busy: boolean;
   canSend: boolean;
   onSend: () => void;
   onStop: () => void;
   running: boolean;
 }) => {
   const label = running ? "Queue" : "Send";
+  let icon = running ? <ListPlus /> : <ArrowUp />;
+  if (busy) {
+    icon = <Spinner />;
+  }
   return (
     <>
       {running ? <StopButton onStop={onStop} /> : null}
-      {running && !canSend ? null : (
+      {running && !(canSend || busy) ? null : (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
+                aria-busy={busy}
                 aria-label={label}
-                className="rounded-full"
-                disabled={!canSend}
                 onClick={onSend}
                 size="icon"
               />
             }
           >
-            {running ? <ListPlus /> : <ArrowUp />}
+            {icon}
           </TooltipTrigger>
           <TooltipContent>
             {label} <SendKeyHint />
@@ -716,8 +849,8 @@ const isImage = (chip: Chip): chip is ImageChip => chip.kind === "image";
 
 /**
  * An attachment of the next prompt: a raised tag with its icon, an element, a component, a page
- * or a board's pick. The context sent because nothing was attached (the selection) is dashed,
- * and removing it keeps it out of this prompt.
+ * or a board's pick, its whole name and file in its tooltip. The context sent because nothing was
+ * attached (the selection) is dashed, and removing it keeps it out of this prompt.
  */
 const AttachmentChip = ({
   chip,
@@ -732,50 +865,17 @@ const AttachmentChip = ({
     (chip.kind === "node" && chip.component) ||
     (chip.kind === "board" &&
       (chip.pick === "systemComponent" || chip.pick === "appComponent"));
-  const name = chip.kind === "board" ? boardChipLabel(chip) : chip.name;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            className={cn(
-              chipClass,
-              implicit
-                ? "border border-input border-dashed text-muted-foreground"
-                : "bg-background text-foreground [&>svg]:text-muted-foreground"
-            )}
-          />
-        }
-      >
-        <ChipIcon chip={chip} component={component} />
-        <span className="max-w-48 truncate">{name}</span>
-        <ChipRemove name={name} onRemove={onRemove} />
-      </TooltipTrigger>
-      <TooltipContent className="max-w-72">
-        {implicit ? "The selection, sent with the prompt" : chipTitle(chip)}
-      </TooltipContent>
-    </Tooltip>
+    <ChipTag
+      icon={<ChipIcon chip={chip} component={component} />}
+      implicit={implicit}
+      name={chip.kind === "board" ? boardChipLabel(chip) : chip.name}
+      onRemove={onRemove}
+      tip={
+        implicit
+          ? `${chipTitle(chip)}, sent with the prompt as it is selected`
+          : chipTitle(chip)
+      }
+    />
   );
 };
-
-/** Context sent with the prompt; removing it keeps it out until re-added from the + menu. */
-const ContextChip = ({
-  icon,
-  label,
-  onRemove,
-}: {
-  icon: ReactNode;
-  label: string;
-  onRemove: () => void;
-}) => (
-  <span
-    className={cn(
-      chipClass,
-      "bg-background text-foreground [&>svg]:text-muted-foreground"
-    )}
-  >
-    {icon}
-    <span className="max-w-48 truncate">{label}</span>
-    <ChipRemove name={label} onRemove={onRemove} />
-  </span>
-);

@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import type { Page } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { addChip, pageChip, useAttachments } from "../state/attachments.ts";
+import { setDraft, useDrafts } from "../state/drafts.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -59,6 +62,27 @@ afterEach(() => {
   container.remove();
   fakeApi.reset();
   vi.mocked(showLeftPanel).mockReset();
+  useAttachments.setState({ byThread: {} });
+  useDrafts.setState({ byThread: {} });
+  useProject.setState({ pages: [] });
+});
+
+const page = (name: string, route: string): Page => ({
+  canvas: "",
+  file: `designs/${name}.page.json`,
+  id: name,
+  name,
+  path: `${name}.page.json`,
+  route,
+});
+
+const node = (nodeId: string) => ({
+  component: false,
+  file: "designs/home.page.json",
+  frame: "home",
+  kind: "node" as const,
+  name: nodeId,
+  nodeId,
 });
 
 describe("a new chat's starters", () => {
@@ -78,6 +102,53 @@ describe("a new chat's starters", () => {
   it("suggest no setup once the settings are saved", () => {
     opened("saved");
     expect(starters()).not.toContain("Set up bike-shop");
+  });
+});
+
+describe("a new chat's starters and its draft", () => {
+  it("are offered only while nothing is typed, so none takes the place of a draft", () => {
+    opened("saved");
+    expect(starters()).toContain("Design a new page for…");
+    act(() => setDraft(thread.id, "Make the header"));
+    expect(starters()).toEqual([]);
+    act(() => setDraft(thread.id, ""));
+    expect(starters()).toContain("Design a new page for…");
+  });
+});
+
+describe("a new chat's starters on what is attached", () => {
+  it("offer a page attached its own implementation, by its URL", () => {
+    const vibe = page("Vibe", "/vibe");
+    useProject.setState({ pages: [vibe] });
+    addChip(thread.id, pageChip(vibe));
+    opened("saved");
+    expect(starters()).toEqual([
+      "Make three variants of it",
+      "Design its empty, loading and error states",
+      "Match it to the design system",
+      "Implement it",
+    ]);
+    act(() =>
+      [...container.querySelectorAll("button")]
+        .find((b) => b.textContent === "Implement it")
+        ?.click()
+    );
+    expect(showLeftPanel).toHaveBeenCalledWith({
+      chat: "t1",
+      draft: "/implement /vibe",
+    });
+  });
+
+  it("speak of several elements as them", () => {
+    addChip(thread.id, node("a"));
+    addChip(thread.id, node("b"));
+    opened("saved");
+    expect(starters()).toEqual([
+      "Make three variants of each",
+      "Design their empty, loading and error states",
+      "Match them to the design system",
+      "Implement them as components",
+    ]);
   });
 });
 
