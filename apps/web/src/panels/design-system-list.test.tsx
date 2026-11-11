@@ -98,7 +98,7 @@ describe("Foundations › a file of the design system that does not read", () =>
   it("says where a file that is not JSON stops being it, without the parser's name", async () => {
     await listOf({ designSystem: null, document: null, problem: NOT_JSON });
     expect(problem()).toContain(
-      "not JSON: Expected double-quoted property name in JSON at position 18 (line 3 column 1)"
+      "The file isn’t JSON: expected double-quoted property name in JSON at position 18 (line 3 column 1)."
     );
     expect(problem()).not.toContain("SyntaxError");
     expect(problem()).not.toContain("is not valid");
@@ -124,7 +124,7 @@ describe("Foundations › a file of the design system that does not read", () =>
     });
     expect(problem()).toBe(
       "Not a valid tokens file." +
-        "not JSON: Expected property name or '}' in JSON at position 1 (line 1 column 2)" +
+        "The file isn’t JSON: expected property name or } in JSON at position 1 (line 1 column 2)." +
         "Fix it in docs/designs/design.tokens.json: the values are design-system.json’s and the code’s until then."
     );
     expect(rows()).toContain("Colour");

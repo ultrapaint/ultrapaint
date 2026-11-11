@@ -225,7 +225,9 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - Tooltips: a short name and the keys. One that has more to say than a name (why a control is
   off, where a value comes from, what a status means) says it in a sentence or two, the
   name first when there is one. No arrows.
-- An empty panel's state is centred in it, a muted icon above its text and buttons.
+- An empty panel's state is centred in it, a muted icon above its text and buttons. A panel whose
+  content didn't load says so in the same form: a muted alert icon, what didn't load in the
+  panel's words, the reason muted when known, Try again as its button; no red.
 - A row's actions are all in its ⋯ menu.
 - What can be undone runs at once with Undo in its toast; no confirm. A busy button shows a
   spinner and its verb ("Committing…").

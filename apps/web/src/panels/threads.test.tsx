@@ -111,7 +111,9 @@ describe("a chat opened", () => {
       read.fail(new RequestError("internal", "the file is gone"))
     );
     expect(button(STARTER)).toBeUndefined();
-    expect(container.textContent).toContain("The chat didn’t load");
+    expect(container.querySelector("[role='alert']")?.textContent).toBe(
+      "The chat didn’t loadTry again"
+    );
     const asked = fakeApi.calls.filter((c) => c.method === "threads.items");
     await act(async () => {
       button("Try again")?.click();

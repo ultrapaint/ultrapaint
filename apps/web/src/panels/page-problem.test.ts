@@ -48,18 +48,34 @@ describe("an invalid page's problem in plain words", () => {
   });
 
   it("keeps a message it does not know as it is, in words", () => {
+    expect(problemParts("the file is gone")).toEqual([
+      { at: null, says: [{ code: false, text: "the file is gone" }] },
+    ]);
+  });
+
+  it("says a file the parser refused in one sentence, the text it quotes in code", () => {
     expect(
-      problemParts("not JSON: Unexpected token } in JSON at position 4")
+      readAll(
+        'not JSON: Unexpected token \'<\', ..."ldren": [\n<<<<<<< HE"... is not valid JSON'
+      )
     ).toEqual([
       {
         at: null,
-        says: [
-          {
-            code: false,
-            text: "not JSON: Unexpected token } in JSON at position 4",
-          },
-        ],
+        says: 'The file isn’t JSON: unexpected token `<` in `ldren": [ <<<<<<< HE`.',
       },
+    ]);
+    expect(
+      readAll(
+        "not JSON: Expected ',' or '}' after property value in JSON at position 7 (line 1 column 8)"
+      )
+    ).toEqual([
+      {
+        at: null,
+        says: "The file isn’t JSON: expected `,` or `}` after property value in JSON at position 7 (line 1 column 8).",
+      },
+    ]);
+    expect(readAll("not JSON: Unexpected end of JSON input")).toEqual([
+      { at: null, says: "The file isn’t JSON: unexpected end of JSON input." },
     ]);
   });
 });

@@ -185,7 +185,9 @@ describe("the Library's catalogue", () => {
     act(() => mounted.render(<Library />));
     // components.list has no answer: the read fails.
     await act(() => useComponents.getState().load());
-    expect(container.textContent).toContain("The components didn’t load");
+    expect(container.querySelector("[role='alert']")?.textContent).toBe(
+      "The components didn’t loadTry again"
+    );
     expect(container.querySelectorAll("[data-row]").length).toBe(0);
 
     fakeApi.respond("components.list", () => ({ components: [] }));

@@ -27,6 +27,7 @@ import { AgentIcon } from "../components/agent-icon.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
+import { PanelFailed } from "../components/panel.tsx";
 import { PanelLoading } from "../components/splash.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
 import { roundsByPlan, stoppedRuns } from "../lib/design-run.ts";
@@ -246,7 +247,7 @@ const useRunContext = (
 
 /**
  * In the transcript's place while nothing is held of it: it is being read, or its read failed,
- * which is said there with the way to read it again.
+ * which is said there with the way to read it again (ADR 0080).
  */
 const Unread = ({
   failed,
@@ -257,14 +258,7 @@ const Unread = ({
 }) => (
   <div className="min-h-0 flex-1">
     {failed ? (
-      <div className="mx-3 mt-3 flex h-7 items-center justify-between gap-2">
-        <span className="truncate font-body-small text-muted-foreground">
-          The chat didn’t load
-        </span>
-        <Button onClick={onRetry} size="sm" variant="ghost">
-          Try again
-        </Button>
-      </div>
+      <PanelFailed onRetry={onRetry} title="The chat didn’t load" />
     ) : (
       <PanelLoading />
     )}

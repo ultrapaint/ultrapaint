@@ -51,7 +51,10 @@ describe("Layers while the canvas's documents are read", () => {
     await act(() => useDocuments.getState().load(""));
     act(() => mounted.render(<Layers />));
     expect(container.querySelector("[aria-label='Loading layers']")).toBeNull();
-    expect(container.textContent).toContain("The layers didn’t load.");
+    // Said as an alert in the list's place, as every panel says a failed load (ADR 0080).
+    expect(container.querySelector("[role='alert']")?.textContent).toBe(
+      "The layers didn’t loadTry again"
+    );
 
     fakeApi.respond("documents.list", () => []);
     act(() =>

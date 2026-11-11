@@ -59,7 +59,7 @@ import { CutText } from "../components/cut-text.tsx";
 import { FileProblem } from "../components/file-problem.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
+import { PanelEmpty, PanelFailed } from "../components/panel.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { newCanvas } from "../lib/canvas-actions.ts";
 import { scopeKeyDown } from "../lib/keymap.ts";
@@ -449,22 +449,14 @@ const LayersLoading = () => (
 
 /**
  * The canvas's documents not read yet: their rows loading, or, when the read failed, that they
- * didn't load and the way to read them again.
+ * didn't load and the way to read them again (ADR 0080).
  */
 const LayersUnloaded = ({ canvas }: { canvas: string }) =>
   useDocuments((s) => s.failed) ? (
-    <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-2">
-      <p className="font-body-small text-muted-foreground">
-        The layers didn’t load.
-      </p>
-      <Button
-        onClick={() => useDocuments.getState().load(canvas)}
-        size="sm"
-        variant="secondary"
-      >
-        Try again
-      </Button>
-    </div>
+    <PanelFailed
+      onRetry={() => useDocuments.getState().load(canvas)}
+      title="The layers didn’t load"
+    />
   ) : (
     <LayersLoading />
   );

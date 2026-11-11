@@ -70,8 +70,63 @@ const sentenceOf = (message: string): Said[] | null => {
   return null;
 };
 
+/** A file `JSON.parse` refused, and what it said (`not JSON: Unexpected token …`). */
+const NOT_JSON = /^not JSON: ([\s\S]*)$/;
+/**
+ * A parser's message with the text around the error, quoted and cut at either end:
+ * `Unexpected token '<', ..."ldren": [<<<<<<< HE"... is not valid JSON`.
+ */
+const EXCERPT =
+  /^([\s\S]*?), (?:\.\.\.)?"([\s\S]*)"(?:\.\.\.)? is not valid JSON$/;
+/** What a parser quotes of the file: a character or a token (`'<'`, `','`). */
+const QUOTED = /'([^'\s]+)'/g;
+
+/** A parser's own words, what it quotes of the file set in code. */
+const quoted = (text: string): Said[] => {
+  const said: Said[] = [];
+  let from = 0;
+  for (const match of text.matchAll(QUOTED)) {
+    if (match.index > from) {
+      said.push(words(text.slice(from, match.index)));
+    }
+    said.push(value(match[1] ?? ""));
+    from = match.index + match[0].length;
+  }
+  if (from < text.length) {
+    said.push(words(text.slice(from)));
+  }
+  return said;
+};
+
+/**
+ * What a file the parser refused says: its message as a sentence after "The file isn’t JSON", what
+ * it quotes of the file in code, and the text around the error in code as one line, without the
+ * parser's quotes and dots around it.
+ */
+const notJsonOf = (message: string): Said[] => {
+  const lead = words("The file isn’t JSON: ");
+  const excerpt: RegExpExecArray | null = EXCERPT.exec(message);
+  if (excerpt === null) {
+    const said = message.charAt(0).toLowerCase() + message.slice(1);
+    return [lead, ...quoted(said), ...(said.endsWith(".") ? [] : [words(".")])];
+  }
+  const [, what = "", around = ""] = excerpt;
+  return [
+    lead,
+    ...quoted(what.charAt(0).toLowerCase() + what.slice(1)),
+    words(" in "),
+    value(around.replaceAll("\n", " ")),
+    words("."),
+  ];
+};
+
 /** The parts of a page's problem, each with its place in the file when the message gives one. */
 export const problemParts = (problem: string): readonly ProblemPart[] => {
+  // The parser's message is one, whatever lines the text it quotes runs over.
+  const notJson: RegExpExecArray | null = NOT_JSON.exec(problem);
+  if (notJson !== null) {
+    return [{ at: null, says: notJsonOf(notJson[1] ?? "") }];
+  }
   const parts: { at: string | null; message: string }[] = [];
   for (const line of problem.split("\n")) {
     const at: RegExpExecArray | null = AT.exec(line);

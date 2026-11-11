@@ -45,7 +45,7 @@ import { CutText } from "../components/cut-text.tsx";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
+import { PanelEmpty, PanelFailed } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { makeAppOf } from "../lib/menu-actions.ts";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
@@ -515,23 +515,15 @@ const SKELETONS = [
 ] as const;
 
 /**
- * The catalogue not read yet: its groups' names over skeleton rows; or, when the read failed, why,
- * and Try again.
+ * The catalogue not read yet: its groups' names over skeleton rows; or, when the read failed, that
+ * it didn't load, in the list's place, and Try again (ADR 0080).
  */
 const Unread = ({ failed }: { failed: boolean }) =>
   failed ? (
-    <div className="mx-2 flex h-7 items-center justify-between gap-2 pl-2">
-      <span className="truncate font-body-small text-muted-foreground">
-        The components didn’t load
-      </span>
-      <Button
-        onClick={() => useComponents.getState().load()}
-        size="sm"
-        variant="ghost"
-      >
-        Try again
-      </Button>
-    </div>
+    <PanelFailed
+      onRetry={() => useComponents.getState().load()}
+      title="The components didn’t load"
+    />
   ) : (
     SKELETONS.map((group) => (
       <section aria-busy className={SECTION} key={group.title}>

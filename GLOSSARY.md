@@ -486,6 +486,10 @@ refactor and the board view left.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
+- **Failed load**: a panel whose content could not be read, said where the content would be in
+  its empty state's form, with Try again (`PanelFailed` in `components/panel.tsx`, ADR 0080);
+  never the red box, which is for what the person can read and fix (git's words, a file's
+  problem).
 - **Notice**: what the desktop app tells the editor it found missing on this machine, shown as
   a banner over it until dismissed or the editor loads again (`Platform.notices`, the desktop's
   `Notices`): Node.js.
