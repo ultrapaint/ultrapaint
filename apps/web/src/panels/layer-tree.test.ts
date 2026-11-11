@@ -273,6 +273,24 @@ describe("page groups", () => {
       false,
     ]);
   });
+
+  it("sets a page that draws its message under its row apart from a folded page above it", () => {
+    const rows = visibleRows(
+      pages,
+      openUnless(new Set([pageKey("a"), pageKey("b"), pageKey("c")]))
+    );
+    const invalid = (row: VisibleRow) => row.key === pageKey("b");
+    expect(rows.map((r) => r.key)).toEqual([
+      pageKey("a"),
+      pageKey("b"),
+      pageKey("c"),
+    ]);
+    expect(rows.map((_, i) => startsPageGroup(rows, i, invalid))).toEqual([
+      false,
+      true,
+      true,
+    ]);
+  });
 });
 
 /** The keys of the rows that can be seen with these folds. */

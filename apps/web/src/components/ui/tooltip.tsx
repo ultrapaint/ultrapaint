@@ -143,13 +143,26 @@ const both =
 function TooltipTrigger({
   render,
   children,
+  shownAt,
 }: {
   children?: ReactNode;
   /** The element that shows the tooltip, given as it is: the tooltip only adds handlers to it. */
   render: ReactElement<HTMLAttributes<HTMLElement>>;
+  /**
+   * The trigger, while the tooltip is shown without a pointer on it or the focus in it: a tree's
+   * row has the keyboard's focus, and its name is the trigger. It closes when this goes null.
+   */
+  shownAt?: HTMLElement | null;
 }) {
   const { close, show } = useControl("TooltipTrigger");
   const delay = use(DelayContext);
+  useEffect(() => {
+    if (!shownAt) {
+      return;
+    }
+    show(shownAt, 0);
+    return close;
+  }, [shownAt, show, close]);
   const own = render.props;
   const props: HTMLAttributes<HTMLElement> = {
     onBlur: both(own.onBlur, close),

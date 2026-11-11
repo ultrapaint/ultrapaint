@@ -435,8 +435,9 @@ export const oneLevelFolded = (rows: readonly VisibleRow[]): string[] => {
 
 /**
  * Whether the row at `index` starts a group of its own: a page's row under the rows of the page
- * before it, or under a page that draws something beneath its row (`hasBody`: an invalid page's
- * message), so each page and what is under it read as one group.
+ * before it, under a page that draws something beneath its row (`hasBody`: an invalid page's
+ * message), or that draws something beneath its own, so each page and what is under it read as
+ * one group, set apart above as below even among folded pages.
  */
 export const startsPageGroup = (
   rows: readonly VisibleRow[],
@@ -447,7 +448,9 @@ export const startsPageGroup = (
   return (
     rows[index]?.item.page !== undefined &&
     before !== undefined &&
-    (before.item.page === undefined || hasBody(before))
+    (before.item.page === undefined ||
+      hasBody(before) ||
+      hasBody(rows[index] as VisibleRow))
   );
 };
 

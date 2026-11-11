@@ -1,11 +1,12 @@
 import type * as React from "react";
+import { Fragment } from "react";
 import { cn } from "@/lib/cn";
 
 /**
  * A file of the designs that does not read, said in full where what it holds would be drawn, on
  * the red tint: what it is not (`title`), each thing wrong with it at its place in the file
- * (`parts`), and where to fix it (`children`). It has no action: the server reads the file again
- * when it is saved, and what it holds takes this place.
+ * (`parts`), its values in code as the file writes them, and where to fix it (`children`). It has
+ * no action: the server reads the file again when it is saved, and what it holds takes this place.
  */
 export const FileProblem = ({
   children,
@@ -15,7 +16,10 @@ export const FileProblem = ({
   ...props
 }: Omit<React.ComponentProps<"div">, "title"> & {
   /** What is wrong, each with its place in the file when it is known (`problemParts`). */
-  parts: readonly { readonly at: string | null; readonly says: string }[];
+  parts: readonly {
+    readonly at: string | null;
+    readonly says: readonly { readonly code: boolean; readonly text: string }[];
+  }[];
   title: string;
 }) => (
   <div
@@ -34,7 +38,16 @@ export const FileProblem = ({
             <code className="font-code">{part.at}</code>{" "}
           </>
         )}
-        {part.says}
+        {part.says.map((said, j) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: the pieces of one sentence, in its order.
+          <Fragment key={j}>
+            {said.code ? (
+              <code className="font-code">{said.text}</code>
+            ) : (
+              said.text
+            )}
+          </Fragment>
+        ))}
       </p>
     ))}
     <p className="text-muted-foreground">{children}</p>
