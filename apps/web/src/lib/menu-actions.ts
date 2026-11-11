@@ -16,6 +16,7 @@ import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
+import { openBoard } from "../state/board.ts";
 import { viewportSize } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
@@ -689,6 +690,8 @@ const runComponent = (
       return insertNode(target.make());
     case "insertCanvas":
       return insertOnCanvas(target.make());
+    case "openBoard":
+      return openBoard({ item: target.name, view: "library" });
     case "copyName":
       return copyText(target.name);
     default:

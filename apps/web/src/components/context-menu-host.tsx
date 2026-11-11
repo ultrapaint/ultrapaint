@@ -145,6 +145,7 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
   markImplemented: FileCheck,
   note: StickyNote,
   open: MessageSquare,
+  openBoard: ArrowRight,
   openCanvas: ArrowRight,
   paste: ClipboardPaste,
   ready: CheckCheck,

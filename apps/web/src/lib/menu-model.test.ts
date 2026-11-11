@@ -454,4 +454,13 @@ describe("the Library's menu", () => {
     expect(find(got, "insert")).toMatchObject({ disabled: true });
     expect(find(got, "copyName")).toMatchObject({ label: "Copy Card" });
   });
+
+  it("opens the component's board, as its row's chevron does under the pointer", () => {
+    const got = componentEntries({
+      name: "Card",
+      onCanvas: false,
+      target: "the page",
+    });
+    expect(find(got, "openBoard")).toMatchObject({ label: "Open board" });
+  });
 });

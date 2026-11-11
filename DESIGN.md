@@ -191,7 +191,9 @@ weight added to a token. Class lists are merged with the editor's `cn`
 (`apps/web/src/lib/cn.ts`), where a later token replaces an earlier one.
 
 A panel's section title is `font-heading-xsmall` in the foreground; the rows under it carry their
-label in `font-body-small` muted and their value in the foreground.
+label in `font-body-small` muted and their value in the foreground. A group's name over a list of
+names (Components' App components, Design system's Foundations) is `font-body-small` muted, quieter
+than the names it groups.
 
 ## Layout
 

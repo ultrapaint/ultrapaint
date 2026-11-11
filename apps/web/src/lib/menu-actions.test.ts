@@ -507,6 +507,17 @@ describe("a node's menu", () => {
     ]);
   });
 
+  it("opens a component's board from the Library's menu (ADR 0045)", async () => {
+    await choose(
+      { kind: "component", make: () => text("made"), name: "Card" },
+      { kind: "openBoard" }
+    );
+    expect(useBoard.getState().open).toMatchObject({
+      item: "Card",
+      view: "library",
+    });
+  });
+
   it("in a view, lands at the view's breakpoint (ADR 0036)", async () => {
     const title = nodeAt(TABLET, "title");
     // A view of a page is the page: comments and links are there.
@@ -776,7 +787,12 @@ const EVERY_ACTION = {
     selectElement: true,
     send: true,
   },
-  component: { copyName: true, insert: true, insertCanvas: true },
+  component: {
+    copyName: true,
+    insert: true,
+    insertCanvas: true,
+    openBoard: true,
+  },
   node: {
     arrange: true,
     ask: true,

@@ -683,6 +683,7 @@ export const commentEntries = (f: CommentFacts): Entry<CommentAction>[] =>
 export type ComponentAction =
   | { kind: "insert" }
   | { kind: "insertCanvas" }
+  | { kind: "openBoard" }
   | { kind: "copyName" };
 
 interface ComponentFacts {
@@ -699,6 +700,7 @@ export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
     }),
     f.onCanvas && item({ kind: "insertCanvas" }, "Insert on the canvas"),
     separator,
+    item({ kind: "openBoard" }, "Open board"),
     item({ kind: "copyName" }, `Copy ${f.name}`),
   ]);
 

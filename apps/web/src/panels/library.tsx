@@ -2,7 +2,7 @@
  * The Library (ADR 0045): the components a design places, the App components then the System
  * components, as a list or as a grid of thumbnails. On a page canvas it is the insert list: a
  * click inserts into the selection, a drag puts one anywhere, on a page or on the canvas, and a
- * ↗ opens the component's board. On a board view it is that view's navigation. The elements
+ * chevron, or Open board in its menu, opens the component's board. On a board view it is that view's navigation. The elements
  * (rows, columns, text, images) are the tools' Insert menu's.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
@@ -10,7 +10,14 @@ import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import { ArrowUpRight, LayoutGrid, List, Plus, Search } from "lucide-react";
+import {
+  ChevronRight,
+  ImageOff,
+  LayoutGrid,
+  List,
+  Plus,
+  Search,
+} from "lucide-react";
 import type * as React from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -97,13 +104,16 @@ const OpenBoard = ({ name }: { name: string }) => (
     size="icon-sm"
     tooltip={`Open ${name}'s board`}
   >
-    <ArrowUpRight />
+    <ChevronRight />
   </IconButton>
 );
 
+/** Whether a one-line name is cut short by its `truncate`. */
+const isCut = (el: HTMLElement) => el.scrollWidth > el.clientWidth;
+
 /**
- * A component's name in the Library: its description in the tooltip when it has one, otherwise its
- * whole name when it is cut short.
+ * A component's name in the Library: its whole name in the tooltip when it is cut short, then its
+ * description when it has one; the description alone when the name fits.
  */
 const ComponentName = ({
   className,
@@ -111,29 +121,52 @@ const ComponentName = ({
 }: {
   className: string;
   component: ComponentMeta;
-}) =>
-  c.description ? (
+}) => {
+  const [cut, setCut] = useState(false);
+  if (!c.description) {
+    return <CutText className={className}>{c.name}</CutText>;
+  }
+  return (
     <Tooltip>
-      <TooltipTrigger render={<span className={className} />}>
+      <TooltipTrigger
+        render={
+          <span
+            className={className}
+            onPointerEnter={(e) => setCut(isCut(e.currentTarget))}
+          />
+        }
+      >
         {c.name}
       </TooltipTrigger>
-      <TooltipContent>{c.description}</TooltipContent>
+      <TooltipContent>
+        {cut ? <span className="block">{c.name}</span> : null}
+        {c.description}
+      </TooltipContent>
     </Tooltip>
-  ) : (
-    <CutText className={className}>{c.name}</CutText>
   );
+};
+
+/**
+ * A Library entry's keyboard focus: the ring around the whole item when its insert button has it,
+ * so the accent fill means hover alone (DESIGN.md, Components).
+ */
+const ITEM_FOCUS =
+  "has-[[data-insert]:focus-visible]:ring-2 has-[[data-insert]:focus-visible]:ring-ring";
 
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
-  <div className="group/item mx-2 flex h-7 items-center rounded-md pr-0.5 transition-colors hover:bg-accent has-focus-visible:bg-accent">
+  <li
+    className={`group/item mx-2 flex h-7 items-center rounded-md pr-1 transition-colors hover:bg-accent ${ITEM_FOCUS}`}
+  >
     <button
       className="flex h-full min-w-0 flex-1 items-center pl-2 text-left font-body-medium outline-none"
+      data-insert
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
       <ComponentName className="truncate" component={c} />
     </button>
     <OpenBoard name={c.name} />
-  </div>
+  </li>
 );
 
 /**
@@ -141,9 +174,12 @@ const ListItem = ({ component: c }: { component: ComponentMeta }) => (
  * taken at twice their size, so half the picture's own is the component's.
  */
 const Thumbnail = ({
+  failed,
   name,
   src,
 }: {
+  /** Not drawn and not to be drawn while the grid stays open. */
+  failed: boolean;
   name: string;
   src: string | undefined;
 }) => {
@@ -173,11 +209,16 @@ const Thumbnail = ({
       image.onerror = null;
     };
   }, [src]);
-  if (!src || read?.src !== src) {
-    return <span className="size-full animate-pulse rounded bg-black/4" />;
+  if ((!src && failed) || (src && read?.src === src && read.failed)) {
+    // On the tile's white, whatever the theme; the caption under it names the component.
+    return (
+      <ImageOff aria-hidden className="size-4 text-black/50" data-no-picture />
+    );
   }
-  if (read.failed) {
-    return <span className="font-body-small text-black/50">{name}</span>;
+  if (!src || read?.src !== src) {
+    return (
+      <span className="size-full animate-pulse rounded bg-black/4 motion-reduce:animate-none" />
+    );
   }
   return (
     <img
@@ -192,35 +233,49 @@ const Thumbnail = ({
   );
 };
 
+/**
+ * A tile: its picture and its name are one button that inserts it, and the board's chevron sits
+ * beside the name, outside that button. The name starts on the list's text edge.
+ */
 const GridItem = ({
   component: c,
+  failed,
   thumbnail,
 }: {
   component: ComponentMeta;
+  failed: boolean;
   thumbnail: string | undefined;
 }) => (
-  <div className="group/item flex min-w-0 flex-col gap-0.5 rounded-lg p-1 transition-colors hover:bg-accent has-focus-visible:bg-accent">
+  <li
+    className={`group/item relative min-w-0 rounded-lg transition-colors hover:bg-accent ${ITEM_FOCUS}`}
+  >
     <button
       aria-label={c.name}
-      className="flex h-20 items-center justify-center overflow-hidden rounded-md bg-white p-2 outline-none ring-1 ring-border ring-inset"
+      className="flex w-full min-w-0 flex-col gap-1 p-1 text-left outline-none"
+      data-insert
       type="button"
       {...entryHandlers(() => instanceOf(c), c.name)}
     >
-      <Thumbnail name={c.name} src={thumbnail} />
+      <span className="flex h-20 w-full items-center justify-center overflow-hidden rounded-md bg-white p-2 ring-1 ring-border ring-inset">
+        <Thumbnail failed={failed} name={c.name} src={thumbnail} />
+      </span>
+      <span className="flex h-6 w-full min-w-0 items-center pr-6 pl-2">
+        <ComponentName
+          className="min-w-0 flex-1 truncate font-body-medium"
+          component={c}
+        />
+      </span>
     </button>
-    <div className="flex h-6 items-center pl-1">
-      <ComponentName
-        className="min-w-0 flex-1 truncate font-body-medium"
-        component={c}
-      />
+    <span className="absolute right-1 bottom-1 flex">
       <OpenBoard name={c.name} />
-    </div>
-  </div>
+    </span>
+  </li>
 );
 
 /**
  * Thumbnails of the components, drawn once per design system and components and kept by the
- * server. Missing ones are drawn one at a time while the grid is open.
+ * server. Missing ones are drawn one at a time while the grid is open; one that draws nothing is
+ * failed until the grid opens again, and with no stored ones to read every one is drawn here.
  */
 const useThumbnails = (
   components: readonly ComponentMeta[],
@@ -233,12 +288,17 @@ const useThumbnails = (
     `${JSON.stringify(designSystem?.colors ?? [])}:${css}:${JSON.stringify(files)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  // Made afresh by each read, so that the grid opened again draws again what failed.
+  const [loaded, setLoaded] = useState<{ readonly key: string } | null>(null);
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
   // What is drawn follows the names shown, not the identity of the list holding them, and skips
   // what is drawn already, as it stands when the drawing starts.
   const names = components.map((c) => c.name).join("\n");
   const missingOf = useEffectEvent((wanted: readonly string[]) =>
-    components.filter((c) => wanted.includes(c.name) && !thumbnails[c.name])
+    components.filter(
+      (c) =>
+        wanted.includes(c.name) && !thumbnails[c.name] && !failed.has(c.name)
+    )
   );
   const draw = useEffectEvent((c: ComponentMeta) =>
     drawSpecimen(instanceOf(c), designSystem)
@@ -249,22 +309,26 @@ const useThumbnails = (
       return;
     }
     let cancelled = false;
+    // Opening the grid again tries again what failed, once the stored ones are read.
+    const read = (stored: Record<string, string>) => {
+      if (!cancelled) {
+        setThumbnails(stored);
+        setFailed(new Set());
+        setLoaded({ key });
+      }
+    };
     api()
       .request("thumbnails.get", { key })
-      .then((stored) => {
-        if (!cancelled) {
-          setThumbnails(stored);
-          setLoadedKey(key);
-        }
-      })
-      .catch(() => undefined);
+      .then(read)
+      // None read: every one is drawn here.
+      .catch(() => read({}));
     return () => {
       cancelled = true;
     };
   }, [key, active]);
 
   useEffect(() => {
-    if (!(active && loadedKey === key)) {
+    if (!(active && loaded?.key === key)) {
       return;
     }
     let cancelled = false;
@@ -275,8 +339,12 @@ const useThumbnails = (
           return;
         }
         // biome-ignore lint/performance/noAwaitInLoops: one frame draws one thumbnail at a time.
-        const dataUrl = await draw(c);
-        if (cancelled || !dataUrl) {
+        const dataUrl = await draw(c).catch(() => null);
+        if (cancelled) {
+          return;
+        }
+        if (!dataUrl) {
+          setFailed((f) => new Set(f).add(c.name));
           continue;
         }
         setThumbnails((t) => ({ ...t, [c.name]: dataUrl }));
@@ -289,9 +357,9 @@ const useThumbnails = (
     return () => {
       cancelled = true;
     };
-  }, [active, loadedKey, key, names]);
+  }, [active, loaded, key, names]);
 
-  return thumbnails;
+  return { failed, thumbnails };
 };
 
 /** The catalogue's components matching a search, in the Library's two sections, each by name. */
@@ -321,17 +389,18 @@ const librarySections = (
 };
 
 /**
- * A group's name over its rows, a section's title: above the details of its rows, and with a group
- * after another set three times as far from it as its rows are from each other.
+ * A group's name over its rows: small and muted, quieter than the names it groups, as the Design
+ * system's are. The space around it is its section's and the list's gaps.
  */
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="flex h-9 items-end px-4 pb-1.5 font-heading-xsmall">
-    {children}
-  </h3>
+  <h3 className="px-4 font-body-small text-muted-foreground">{children}</h3>
 );
 
-/** The Library's groups, each after the first set apart by space. */
-const SECTION = "[&+&]:pt-6";
+/** A group: its name 8px over its rows; the list sets groups 24px apart. */
+const SECTION = "flex flex-col gap-2";
+
+/** The Library's scrolling list of groups. */
+const GROUPS = "flex min-h-0 flex-1 flex-col gap-6 overflow-auto py-2";
 
 /**
  * A new app component, named in a prompt: an empty column placed nowhere (`components.create`),
@@ -366,7 +435,7 @@ const newAppComponent = async () => {
 
 /** The panel's title, as the rail names it, and New. */
 const Title = () => (
-  <div className="flex h-11 shrink-0 items-center gap-0.5 pr-2 pl-4">
+  <div className="flex h-11 shrink-0 items-center pr-2 pl-4">
     <h2 className="flex-1 font-heading-xsmall">Components</h2>
     <IconButton
       className="text-muted-foreground"
@@ -393,7 +462,7 @@ const SearchBar = ({
   query: string;
   view?: View;
 }) => (
-  <div className="flex shrink-0 items-center gap-1.5 px-2 pb-2">
+  <div className="flex shrink-0 items-center gap-2 px-2 pb-2">
     <InputGroup>
       <InputGroupAddon>
         <Search />
@@ -407,29 +476,28 @@ const SearchBar = ({
             onQuery("");
           }
         }}
-        placeholder="Search"
+        placeholder="Search by name or category"
         value={query}
       />
     </InputGroup>
     {onView && view ? (
-      <div className="w-16 shrink-0">
-        <Segmented
-          onChange={onView}
-          options={[
-            {
-              label: <List className="size-3.5" />,
-              title: "List",
-              value: "list",
-            },
-            {
-              label: <LayoutGrid className="size-3.5" />,
-              title: "Grid",
-              value: "grid",
-            },
-          ]}
-          value={view}
-        />
-      </div>
+      <Segmented
+        className="w-auto shrink-0"
+        onChange={onView}
+        options={[
+          {
+            label: <List className="size-3.5" />,
+            title: "List",
+            value: "list",
+          },
+          {
+            label: <LayoutGrid className="size-3.5" />,
+            title: "Grid",
+            value: "grid",
+          },
+        ]}
+        value={view}
+      />
     ) : null}
   </div>
 );
@@ -489,7 +557,7 @@ const NavRow = ({
 }) => (
   <button
     aria-current={lit ? "page" : undefined}
-    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+    className="mx-2 flex h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 text-left font-body-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
     onClick={() => openBoard({ item, view: "library" })}
     type="button"
   >
@@ -510,10 +578,9 @@ const LibraryNav = ({ open }: { open: string }) => {
     <div className="flex h-full flex-col">
       <Title />
       <SearchBar onQuery={setQuery} query={query} />
-      <div className="min-h-0 flex-1 overflow-auto pb-2">
+      <div className={GROUPS}>
         {query.trim() ? null : (
           <NavRow item={OVERVIEW} lit={open === OVERVIEW}>
-            <LayoutGrid className="size-4 shrink-0" />
             Overview
           </NavRow>
         )}
@@ -524,11 +591,15 @@ const LibraryNav = ({ open }: { open: string }) => {
           section.items.length === 0 ? null : (
             <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
-              {section.items.map((c) => (
-                <NavRow item={c.name} key={c.name} lit={open === c.name}>
-                  <ComponentName className="truncate" component={c} />
-                </NavRow>
-              ))}
+              <ul>
+                {section.items.map((c) => (
+                  <li key={c.name}>
+                    <NavRow item={c.name} lit={open === c.name}>
+                      <ComponentName className="truncate" component={c} />
+                    </NavRow>
+                  </li>
+                ))}
+              </ul>
             </section>
           )
         )}
@@ -580,7 +651,7 @@ const InsertList = () => {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>(storedView);
   const sections = librarySections(components, query);
-  const thumbnails = useThumbnails(
+  const { failed, thumbnails } = useThumbnails(
     sections.flatMap((s) => s.items),
     view === "grid"
   );
@@ -596,7 +667,7 @@ const InsertList = () => {
     <div className="flex h-full flex-col">
       <Title />
       <SearchBar onQuery={setQuery} onView={onView} query={query} view={view} />
-      <div className="min-h-0 flex-1 overflow-auto pb-2">
+      <div className={GROUPS}>
         {none && searching ? (
           <NoMatch onClear={() => setQuery("")} query={query} />
         ) : null}
@@ -610,21 +681,25 @@ const InsertList = () => {
             <section className={SECTION} key={section.title}>
               <SectionTitle>{section.title}</SectionTitle>
               {empty ? <NoAppComponents /> : null}
-              {view === "list" ? (
-                section.items.map((c) => (
-                  <ListItem component={c} key={`${c.importFrom}:${c.name}`} />
-                ))
-              ) : (
-                <div className="grid grid-cols-2 gap-1 px-1">
+              {!empty && view === "list" ? (
+                <ul>
+                  {section.items.map((c) => (
+                    <ListItem component={c} key={`${c.importFrom}:${c.name}`} />
+                  ))}
+                </ul>
+              ) : null}
+              {!empty && view === "grid" ? (
+                <ul className="grid grid-cols-2 gap-1 px-1">
                   {section.items.map((c) => (
                     <GridItem
                       component={c}
+                      failed={failed.has(c.name)}
                       key={`${c.importFrom}:${c.name}`}
                       thumbnail={thumbnails[c.name]}
                     />
                   ))}
-                </div>
-              )}
+                </ul>
+              ) : null}
             </section>
           );
         })}
