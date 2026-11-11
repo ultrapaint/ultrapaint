@@ -219,9 +219,11 @@ rail's current place is raised the same way, so it reads as the panel it opens. 
 with `shadow-overlay` and a hairline ring; dialogs with `shadow-overlay` over a 30% (light) or 60%
 (dark) black backdrop, no blur. Inside a card, depth is a filled field or a hairline, never a shadow.
 The settings dialog has the left card's frame: its sections on {colors.rail} down its whole side,
-its page raised on {colors.sidebar} with a 10px corner where it meets them and no line between,
-the page's header (Settings / the section, the close) over a hairline, each group drawn by its
-hairline alone on the page's tone. A field and a track ({colors.muted}) sit a full step over it.
+its page raised on {colors.sidebar} beside them, flush with the dialog's edges, so square and
+parted from them by a hairline (a corner only where a frame wraps a panel on two sides, as the
+left card's does); the page's header (Settings / the section, the close) over a hairline, each
+group drawn by its hairline alone on the page's tone. A field and a track ({colors.muted}) sit a
+full step over it.
 
 ## Shapes
 

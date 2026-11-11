@@ -278,7 +278,8 @@ const SettingsLoading = () => {
 /**
  * The dialog around a section: the sections down its whole side on the frame ({rail}); beside
  * them the page on {sidebar}, headed by Settings / the section and the close button, the one way
- * out, over a hairline the page scrolls under; the page meets the frame with a 10px corner and no line, with no footer, as everything saves as it changes
+ * out, over a hairline the page scrolls under. Flush with the dialog's edges, the page is square
+ * and parted from the sections by a hairline. No footer, as everything saves as it changes
  * (ADR 0079).
  */
 const SettingsFrame = ({
@@ -294,7 +295,7 @@ const SettingsFrame = ({
 }) => (
   <div className="flex h-full min-w-0 flex-1 flex-col bg-rail md:flex-row">
     <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:rounded-l-lg">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
       <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
         <h2 className="flex min-w-0 items-center gap-2 font-body">
           <span className="text-muted-foreground">Settings</span>
