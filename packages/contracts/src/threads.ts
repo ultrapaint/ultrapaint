@@ -107,6 +107,14 @@ const EFFORT_RE = /effort|thought|thinking|reasoning/i;
 export const isEffortOption = (option: ConfigOption): boolean =>
   option.category === "thought_level" || EFFORT_RE.test(option.id);
 
+/**
+ * Whether an option is Claude Code's main-thread persona (`agent`): one of the person's own
+ * subagents (`~/.claude/agents`) to run the whole chat as. A chat here is the agent itself, and
+ * the picker already has an Agent row, so it is never offered.
+ */
+export const isPersonaOption = (agentId: string, option: ConfigOption) =>
+  agentId === "claude-code" && option.id === "agent";
+
 /** The choices an option offers by name, without the agent's unnamed default. */
 export const namedChoices = (option: ConfigOption): readonly Choice[] => {
   const named = option.options.filter((c) => !isUnnamed(c));

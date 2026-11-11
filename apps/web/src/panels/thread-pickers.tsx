@@ -8,6 +8,7 @@ import {
   isBusy,
   isEffortOption,
   isModelOption,
+  isPersonaOption,
   namedChoices,
   type Thread,
   withNamedChoices,
@@ -285,9 +286,13 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
   const modes = thread.modes ?? [];
   const hasModes = modes.length > 0;
   // The agent's unnamed default is never shown: the thread starts on the first model it names.
-  // A mode offered as an option too is Permissions' to show.
+  // A mode offered as an option too is Permissions' to show; Claude Code's persona is never shown.
   const options = withNamedChoices(thread.configOptions ?? []).filter(
-    (o) => !(hasModes && o.category === "mode")
+    (o) =>
+      !(
+        (hasModes && o.category === "mode") ||
+        isPersonaOption(thread.agentId, o)
+      )
   );
   const model = options.find(isModelOption);
   const effort = options.find(isEffortOption);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ConfigOption,
   defaultChoice,
+  isPersonaOption,
   namedChoices,
   PromptAttachment,
   startingMode,
@@ -47,6 +48,24 @@ const fast: ConfigOption = {
     { name: "Off", value: "off" },
   ],
 };
+
+describe("isPersonaOption", () => {
+  const persona: ConfigOption = {
+    currentValue: "default",
+    id: "agent",
+    name: "Agent",
+    options: [
+      { name: "Default", value: "default" },
+      { name: "web-fetch", value: "web-fetch" },
+    ],
+  };
+
+  it("is Claude Code's main-thread agent, and no other agent's option of that id", () => {
+    expect(isPersonaOption("claude-code", persona)).toBe(true);
+    expect(isPersonaOption("claude-code", claudeModels)).toBe(false);
+    expect(isPersonaOption("codex", persona)).toBe(false);
+  });
+});
 
 describe("withNamedChoices", () => {
   it("replaces the agent's unnamed defaults with the choices they stand for", () => {
