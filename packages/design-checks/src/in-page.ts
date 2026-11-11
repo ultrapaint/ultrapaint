@@ -8,7 +8,18 @@
  * from the skill or the design system.
  */
 
-/** A line of text, top to bottom, in CSS pixels of the window. */
+/**
+ * Where a finding is: a box in CSS pixels from the measured root's top left corner, so a picture
+ * of the root can be cropped and boxed around it.
+ */
+export interface Box {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** A line of text, top to bottom, in CSS pixels from the root's top. */
 export interface InkLine {
   readonly bottom: number;
   readonly top: number;
@@ -21,6 +32,8 @@ export interface InkLine {
  */
 export interface LaidBlock {
   readonly bottom: number;
+  /** Its box, from the root's top left corner. */
+  readonly box: Box;
   readonly children: readonly LaidBlock[];
   /** Its first words, to name it in a finding. */
   readonly label: string;
@@ -31,13 +44,25 @@ export interface LaidBlock {
 /** A thin vertical rule (a divider) and the vertical centre of what sits beside it in its bar. */
 export interface LaidRule {
   readonly bar: string;
+  /** The rule's box, from the root's top left corner. */
+  readonly box: Box;
   readonly centre: number;
   readonly sideCentre: number;
 }
 
-/** The layout under `root`: its blocks of text, and its vertical rules beside their neighbours. */
+/**
+ * The layout under `root`: its blocks of text, and its vertical rules beside their neighbours,
+ * every position from the root's top left corner; and the root's own box in the window.
+ */
 export const layoutInBrowser = (root: string) => {
   const rootEl = document.querySelector(root) ?? document.body;
+  const origin = rootEl.getBoundingClientRect();
+  const boxOf = (r: DOMRect) => ({
+    height: Math.round(r.height * 10) / 10,
+    width: Math.round(r.width * 10) / 10,
+    x: Math.round((r.left - origin.left) * 10) / 10,
+    y: Math.round((r.top - origin.top) * 10) / 10,
+  });
   const shown = (el: Element) => {
     const style = getComputedStyle(el);
     return (
@@ -73,7 +98,7 @@ export const layoutInBrowser = (root: string) => {
     range.selectNodeContents(node);
     return [...range.getClientRects()]
       .filter((r) => r.width > 0 && r.height > 0)
-      .map((r) => ({ bottom: r.bottom, top: r.top }));
+      .map((r) => ({ bottom: r.bottom - origin.top, top: r.top - origin.top }));
   };
   const walk = (el: Element): LaidBlock | null => {
     if (!shown(el)) {
@@ -97,14 +122,15 @@ export const layoutInBrowser = (root: string) => {
     }
     const box = el.getBoundingClientRect();
     return {
-      bottom: box.bottom,
+      bottom: box.bottom - origin.top,
+      box: boxOf(box),
       children,
       label: ((el as HTMLElement).innerText ?? el.textContent ?? "")
         .trim()
         .replace(/\s+/g, " ")
         .slice(0, 40),
       lines,
-      top: box.top,
+      top: box.top - origin.top,
     };
   };
   /** A thin vertical rule, with the median centre of what sits beside it in its bar. */
@@ -127,19 +153,31 @@ export const layoutInBrowser = (root: string) => {
           bar:
             bar.getAttribute("aria-label") ??
             (bar.textContent ?? "").trim().slice(0, 40),
-          centre: (r.top + r.bottom) / 2,
-          sideCentre: middle,
+          box: boxOf(r),
+          centre: (r.top + r.bottom) / 2 - origin.top,
+          sideCentre: middle - origin.top,
         };
   };
   const rules = [...rootEl.querySelectorAll("*")].flatMap((el) => {
     const rule = ruleOf(el);
     return rule ? [rule] : [];
   });
-  return { block: walk(rootEl), rules };
+  return {
+    block: walk(rootEl),
+    root: {
+      height: origin.height,
+      width: origin.width,
+      x: origin.left,
+      y: origin.top,
+    },
+    rules,
+  };
 };
 
 /** What a design check of `auditInBrowser` found, and the measured value it fails on. */
 export interface AuditFinding {
+  /** Where the element is, from the root's top left corner. */
+  readonly box?: Box;
   readonly check:
     | "contrast"
     | "control-edge"
@@ -180,6 +218,8 @@ export interface AuditOptions {
 
 /** What `auditInBrowser` gives back: its findings, and the controls a person can see. */
 export interface Audited {
+  /** Where each of those controls is, by its name, from the root's top left corner. */
+  readonly controlBoxes?: Readonly<Record<string, Box>>;
   /** The visible controls by their names: compared at rest and on hover, it finds hover-only ones. */
   readonly controls: readonly string[];
   readonly findings: readonly AuditFinding[];
@@ -263,13 +303,24 @@ export const markHoverableInBrowser = (mark: string) => {
  */
 export const auditInBrowser = (options: AuditOptions): Audited => {
   const rootEl = document.querySelector(options.root) ?? document.body;
+  const origin = rootEl.getBoundingClientRect();
+  const boxOf = (el: Element): Box => {
+    const r = el.getBoundingClientRect();
+    return {
+      height: Math.round(r.height * 10) / 10,
+      width: Math.round(r.width * 10) / 10,
+      x: Math.round((r.left - origin.left) * 10) / 10,
+      y: Math.round((r.top - origin.top) * 10) / 10,
+    };
+  };
   const findings: AuditFinding[] = [];
   const seen = new Set<string>();
-  const add = (f: AuditFinding) => {
+  /** A finding once, by its check, element and detail, with where its element is. */
+  const add = (f: Omit<AuditFinding, "box">, el: Element) => {
     const key = `${f.check}|${f.label}|${f.detail}`;
     if (!seen.has(key)) {
       seen.add(key);
-      findings.push(f);
+      findings.push({ ...f, box: boxOf(el) });
     }
   };
   const canvas = document.createElement("canvas");
@@ -414,12 +465,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     const need = neededFor(style);
     const got = ratio(text, bg);
     if (got < need) {
-      add({
-        check: "contrast",
-        detail: `${field ? "placeholder" : "text"} ${got.toFixed(2)}:1, under ${need}:1`,
-        label: `${labelOf(el)}${field ? " (placeholder)" : ""}`,
-        value: Number(got.toFixed(2)),
-      });
+      add(
+        {
+          check: "contrast",
+          detail: `${field ? "placeholder" : "text"} ${got.toFixed(2)}:1, under ${need}:1`,
+          label: `${labelOf(el)}${field ? " (placeholder)" : ""}`,
+          value: Number(got.toFixed(2)),
+        },
+        el
+      );
     }
   };
   const textContrast = () => {
@@ -451,12 +505,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
           : 1;
       const got = Math.max(ratio(fill, under), border);
       if (got < 3) {
-        add({
-          check: "control-edge",
-          detail: `edge ${got.toFixed(2)}:1 against what it sits on, under 3:1`,
-          label: labelOf(el),
-          value: Number(got.toFixed(2)),
-        });
+        add(
+          {
+            check: "control-edge",
+            detail: `edge ${got.toFixed(2)}:1 against what it sits on, under 3:1`,
+            label: labelOf(el),
+            value: Number(got.toFixed(2)),
+          },
+          el
+        );
       }
     }
   };
@@ -479,12 +536,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
           : 1;
       const got = ratio(filled, under);
       if (got > 1.001 && got < 1.1 && edge < 1.5) {
-        add({
-          check: "control-fill",
-          detail: `its fill ${got.toFixed(2)}:1 against what it sits on, under 1.1:1: it doesn't separate`,
-          label: labelOf(el),
-          value: Number(got.toFixed(3)),
-        });
+        add(
+          {
+            check: "control-fill",
+            detail: `its fill ${got.toFixed(2)}:1 against what it sits on, under 1.1:1: it doesn't separate`,
+            label: labelOf(el),
+            value: Number(got.toFixed(3)),
+          },
+          el
+        );
       }
     }
   };
@@ -506,12 +566,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     }
     const delta = Math.abs(lightness(over(fill, under)) - lightness(under));
     if (delta > 0.002 && delta < options.nearTone) {
-      add({
-        check: "surface-tone",
-        detail: `${delta.toFixed(3)} lightness from its container, under a tone step (${options.nearTone})`,
-        label: labelOf(el),
-        value: Number(delta.toFixed(3)),
-      });
+      add(
+        {
+          check: "surface-tone",
+          detail: `${delta.toFixed(3)} lightness from its container, under a tone step (${options.nearTone})`,
+          label: labelOf(el),
+          value: Number(delta.toFixed(3)),
+        },
+        el
+      );
     }
   };
   /**
@@ -551,12 +614,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       const inside = backdrop(inner);
       const delta = inside ? Math.abs(lightness(inside) - lightness(tone)) : 1;
       if (delta < options.nearTone) {
-        add({
-          check: "surface-tone",
-          detail: `${delta.toFixed(3)} lightness from the floating card it sits in: one sheet (under ${options.nearTone})`,
-          label: labelOf(inner).slice(0, 40),
-          value: Number(delta.toFixed(3)),
-        });
+        add(
+          {
+            check: "surface-tone",
+            detail: `${delta.toFixed(3)} lightness from the floating card it sits in: one sheet (under ${options.nearTone})`,
+            label: labelOf(inner).slice(0, 40),
+            value: Number(delta.toFixed(3)),
+          },
+          inner
+        );
       }
     }
   };
@@ -593,12 +659,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       for (const s of surfaces) {
         const tone = backdrop(s);
         if (tone && lightness(tone) < lightness(page) - 0.005) {
-          add({
-            check: "overlay-tone",
-            detail: `${(lightness(page) - lightness(tone)).toFixed(3)} lightness below the page it covers`,
-            label: labelOf(s).slice(0, 30),
-            value: Number((lightness(page) - lightness(tone)).toFixed(3)),
-          });
+          add(
+            {
+              check: "overlay-tone",
+              detail: `${(lightness(page) - lightness(tone)).toFixed(3)} lightness below the page it covers`,
+              label: labelOf(s).slice(0, 30),
+              value: Number((lightness(page) - lightness(tone)).toFixed(3)),
+            },
+            s
+          );
         }
       }
     }
@@ -633,12 +702,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
           Math.abs(value / options.grid - Math.round(value / options.grid)) >
             0.01
         ) {
-          add({
-            check: "off-scale",
-            detail: `${prop} ${Math.round(value * 100) / 100}px, not on the ${options.grid}px scale`,
-            label: labelOf(el),
-            value,
-          });
+          add(
+            {
+              check: "off-scale",
+              detail: `${prop} ${Math.round(value * 100) / 100}px, not on the ${options.grid}px scale`,
+              label: labelOf(el),
+              value,
+            },
+            el
+          );
         }
       }
     }
@@ -682,12 +754,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       typical <= 48 &&
       rows.some((row, i) => i > 0 && touch(rows[i - 1], row, typical))
     ) {
-      add({
-        check: "touching-rows",
-        detail: `rows of ${typical}px, rounded or filled, with no gap between them`,
-        label: labelOf(el).slice(0, 40),
-        value: 0,
-      });
+      add(
+        {
+          check: "touching-rows",
+          detail: `rows of ${typical}px, rounded or filled, with no gap between them`,
+          label: labelOf(el).slice(0, 40),
+          value: 0,
+        },
+        el
+      );
     }
   };
   const touchingRows = () => {
@@ -708,12 +783,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
         el.scrollWidth > el.clientWidth + 1 &&
         style.textOverflow !== "ellipsis"
       ) {
-        add({
-          check: "clipped-text",
-          detail: `${el.scrollWidth - el.clientWidth}px of its text cut off, no ellipsis`,
-          label: labelOf(el),
-          value: el.scrollWidth - el.clientWidth,
-        });
+        add(
+          {
+            check: "clipped-text",
+            detail: `${el.scrollWidth - el.clientWidth}px of its text cut off, no ellipsis`,
+            label: labelOf(el),
+            value: el.scrollWidth - el.clientWidth,
+          },
+          el
+        );
       }
     }
   };
@@ -731,12 +809,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       const target = el.closest("label") ?? el;
       const b = target.getBoundingClientRect();
       if (b.width < 24 || b.height < 24) {
-        add({
-          check: "target-size",
-          detail: `${Math.round(b.width)}×${Math.round(b.height)}, under 24×24`,
-          label: labelOf(el),
-          value: Math.round(Math.min(b.width, b.height)),
-        });
+        add(
+          {
+            check: "target-size",
+            detail: `${Math.round(b.width)}×${Math.round(b.height)}, under 24×24`,
+            label: labelOf(el),
+            value: Math.round(Math.min(b.width, b.height)),
+          },
+          target
+        );
       }
     }
   };
@@ -823,12 +904,15 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
         .slice(0, 4);
       const long = texts.find((t) => overrunsWhenLong(row, t));
       if (long) {
-        add({
-          check: "cant-truncate",
-          detail: "a long text overruns its row or what sits beside it",
-          label: (long.textContent ?? "").trim().slice(0, 40),
-          value: 1,
-        });
+        add(
+          {
+            check: "cant-truncate",
+            detail: "a long text overruns its row or what sits beside it",
+            label: (long.textContent ?? "").trim().slice(0, 40),
+            value: 1,
+          },
+          row
+        );
       }
     }
   };
@@ -850,10 +934,16 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       run();
     }
   }
-  const controls = all
-    .filter((el) =>
-      el.matches("button, a[href], [role=button], [role=menuitem]")
-    )
-    .map(labelOf);
-  return { controls: [...new Set(controls)], findings };
+  const controlEls = all.filter((el) =>
+    el.matches("button, a[href], [role=button], [role=menuitem]")
+  );
+  const controlBoxes: Record<string, Box> = {};
+  for (const el of controlEls) {
+    controlBoxes[labelOf(el)] ??= boxOf(el);
+  }
+  return {
+    controlBoxes,
+    controls: [...new Set(controlEls.map(labelOf))],
+    findings,
+  };
 };

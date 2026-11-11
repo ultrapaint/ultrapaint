@@ -142,13 +142,19 @@ export class Browser extends Context.Service<
       url: string,
       options: {
         readonly root: string;
+        /** Whether to take a picture of the root at 2×, in the same page the layout is read in. */
+        readonly shot?: boolean;
         readonly steps: readonly ((page: Page) => Promise<unknown>)[];
         readonly theme: "dark" | "light";
       }
     ) => Effect.Effect<
       {
         readonly block: LaidBlock | null;
+        /** The root's box in the window. */
+        readonly root: Box;
         readonly rules: readonly LaidRule[];
+        /** The root at 2×, a PNG, when asked for. */
+        readonly shot?: Uint8Array;
       },
       EvalsError
     >;
@@ -409,6 +415,7 @@ export class Browser extends Context.Service<
         url: string,
         options: {
           readonly root: string;
+          readonly shot?: boolean;
           readonly steps: readonly ((page: Page) => Promise<unknown>)[];
           readonly theme: "dark" | "light";
         }
@@ -416,6 +423,8 @@ export class Browser extends Context.Service<
         withPage(
           {
             colorScheme: options.theme,
+            // Twice the pixels for the picture; the layout is read in CSS pixels all the same.
+            deviceScaleFactor: options.shot ? 2 : 1,
             viewport: { height: 1000, width: 1600 },
           },
           async (page) => {
@@ -430,7 +439,16 @@ export class Browser extends Context.Service<
                   .then(() => page.waitForTimeout(800)),
               Promise.resolve()
             );
-            return page.evaluate(layoutInBrowser, options.root);
+            const laid = await page.evaluate(layoutInBrowser, options.root);
+            if (!options.shot) {
+              return laid;
+            }
+            const { height, width, x, y } = laid.root;
+            const shot = await page.screenshot({
+              clip: { height, width, x, y },
+              type: "png",
+            });
+            return { ...laid, shot: new Uint8Array(shot) };
           },
           `measuring ${url}`
         );
@@ -519,6 +537,10 @@ export class Browser extends Context.Service<
                 .map((f) => [`${f.check}|${f.label}|${f.detail}`, f] as const)
             );
             const hovered = {
+              controlBoxes: Object.assign(
+                {},
+                ...found.map((f) => f.controlBoxes ?? {})
+              ),
               controls: [...new Set(found.flatMap((f) => f.controls))],
               findings: [...byKey.values()],
             };

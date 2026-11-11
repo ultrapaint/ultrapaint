@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
+import { EvalsConfig } from "./config.ts";
 import {
   checkFacts,
   type Measurement,
@@ -133,6 +134,42 @@ describe("section checks", () => {
         assert.include(
           yield* readData("gaps/sections/panel/checks.json"),
           '"commit": "abc1234"'
+        );
+      }).pipe(Effect.provide(TestData))
+  );
+
+  it.effect(
+    "keeps the picture of the root taken with a theme's measurement beside it, and names it",
+    () =>
+      Effect.gen(function* () {
+        yield* writeData({
+          "gaps/sections/panel/section.json": { commit: "abc1234" },
+        });
+        const box = { height: 20, width: 80, x: 12, y: 40 };
+        yield* recordSectionChecks(
+          "panel",
+          measured("dark", {
+            checks: [
+              {
+                box,
+                check: "target-size",
+                detail: "16×16, under 24×24",
+                label: "Collapse",
+                on: "rest",
+              },
+            ],
+            rootBox: { height: 900, width: 300, x: 8, y: 48 },
+          }),
+          new Uint8Array([137, 80, 78, 71])
+        );
+        const [dark] = (yield* readSectionChecks("panel")).measured;
+        assert.strictEqual(dark?.shot, "checks-dark@2x.png");
+        assert.deepStrictEqual(dark?.checks[0]?.box, box);
+        assert.deepStrictEqual(dark?.rootBox?.width, 300);
+        const fs = yield* FileSystem.FileSystem;
+        const { data } = yield* EvalsConfig;
+        assert.isTrue(
+          yield* fs.exists(`${data.sections}/panel/checks-dark@2x.png`)
         );
       }).pipe(Effect.provide(TestData))
   );

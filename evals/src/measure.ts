@@ -59,6 +59,7 @@ const measurementOf = (
     readonly checked: Measurement["checks"];
     readonly dividers: Measurement["dividers"];
     readonly fromAxe: NonNullable<Measurement["axe"]>;
+    readonly root: NonNullable<Measurement["rootBox"]>;
     readonly spacing: Measurement["spacing"];
   }
 ): Measurement => ({
@@ -68,6 +69,7 @@ const measurementOf = (
   grid: options.checks?.grid ?? 0,
   ratio: options.ratio,
   root: options.root,
+  rootBox: found.root,
   spacing: found.spacing,
   theme: options.theme,
 });
@@ -76,10 +78,16 @@ const measurementOf = (
 const keep = Effect.fnUntraced(function* (
   url: string,
   options: MeasureOptions,
-  found: Parameters<typeof measurementOf>[1]
+  found: Parameters<typeof measurementOf>[1] & {
+    readonly shot: Uint8Array | undefined;
+  }
 ) {
   if (options.section) {
-    yield* recordSectionChecks(options.section, measurementOf(options, found));
+    yield* recordSectionChecks(
+      options.section,
+      measurementOf(options, found),
+      found.shot
+    );
     yield* Console.log(
       `written into the section ${options.section}'s checks.json (${options.theme})`
     );
@@ -115,6 +123,7 @@ export const measure = Effect.fn("measure")(function* (
     : undefined;
   const layout = yield* browser.layout(url, {
     root: options.root,
+    shot: options.section !== undefined,
     steps: Array.isArray(steps) ? steps : [],
     theme: options.theme,
   });
@@ -154,5 +163,12 @@ export const measure = Effect.fn("measure")(function* (
   yield* Console.log(
     `${spacing.length} spacing and ${dividers.length} divider findings; ${layout.rules.length} dividers measured${options.checks ? `; ${checked.length} from the checks` : ""}${options.checks?.axe ? `; ${fromAxe.length} from axe` : ""}`
   );
-  yield* keep(url, options, { checked, dividers, fromAxe, spacing });
+  yield* keep(url, options, {
+    checked,
+    dividers,
+    fromAxe,
+    root: layout.root,
+    shot: layout.shot,
+    spacing,
+  });
 });

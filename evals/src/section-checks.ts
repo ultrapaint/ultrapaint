@@ -15,6 +15,14 @@ import { readJson, writeJson } from "./layout.ts";
 /** A section's checks: `checks.json` beside its `section.json`. */
 export const CHECKS_FILE = "checks.json";
 
+/** Where a finding is, in CSS pixels from the measured root's top left corner. */
+const Box = Schema.Struct({
+  height: Schema.Number,
+  width: Schema.Number,
+  x: Schema.Number,
+  y: Schema.Number,
+});
+
 const Measurement = Schema.Struct({
   axe: Schema.optional(
     Schema.Array(
@@ -28,6 +36,7 @@ const Measurement = Schema.Struct({
   ),
   checks: Schema.Array(
     Schema.Struct({
+      box: Schema.optional(Box),
       check: Schema.String,
       detail: Schema.String,
       label: Schema.String,
@@ -35,18 +44,27 @@ const Measurement = Schema.Struct({
     })
   ),
   dividers: Schema.Array(
-    Schema.Struct({ bar: Schema.String, off: Schema.Number })
-  ),
-  /** The spacing scale's step the off-scale check used; 0 when it was left out. */
+    Schema.Struct({
+      bar: Schema.String,
+      box: Schema.optional(Box),
+      off: Schema.Number,
+    })
+  ) /** The spacing scale's step the off-scale check used; 0 when it was left out. */,
   grid: Schema.Number,
   /** How many times the gap within a group the gap between groups had to be. */
   ratio: Schema.Number,
   /** The part of the page measured: a CSS selector. */
   root: Schema.String,
+  /** The root's box in the window (1600×1000), where the measurement put it. */
+  rootBox: Schema.optional(Box),
+  /** The root drawn at 2× in the page the layout was read in, beside `checks.json`. */
+  shot: Schema.optional(Schema.String),
   spacing: Schema.Array(
     Schema.Struct({
       above: Schema.String,
+      aboveBox: Schema.optional(Box),
       below: Schema.String,
+      belowBox: Schema.optional(Box),
       between: Schema.Number,
       within: Schema.Number,
     })
@@ -211,10 +229,17 @@ export const readSectionChecks = Effect.fn("readSectionChecks")(function* (
   return yield* readJson(SectionChecks, file);
 });
 
-/** Writes one theme's measurement into a section's `checks.json`, at the section's commit. */
+/** The picture of a section's measured root in a theme, beside its `checks.json`. */
+export const shotFile = (theme: "dark" | "light") => `checks-${theme}@2x.png`;
+
+/**
+ * Writes one theme's measurement into a section's `checks.json`, at the section's commit, with
+ * the picture of the root taken with it.
+ */
 export const recordSectionChecks = Effect.fn("recordSectionChecks")(function* (
   id: string,
-  measurement: Measurement
+  measurement: Measurement,
+  shot?: Uint8Array
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
@@ -223,9 +248,18 @@ export const recordSectionChecks = Effect.fn("recordSectionChecks")(function* (
     Schema.Struct({ commit: Schema.String }),
     path.join(dir, "section.json")
   );
+  if (shot) {
+    yield* fs.writeFile(path.join(dir, shotFile(measurement.theme)), shot);
+  }
   const file = path.join(dir, CHECKS_FILE);
   const before = (yield* fs.exists(file))
     ? yield* readJson(SectionChecks, file)
     : undefined;
-  yield* writeJson(file, withMeasurement(before, commit, measurement));
+  yield* writeJson(
+    file,
+    withMeasurement(before, commit, {
+      ...measurement,
+      ...(shot && { shot: shotFile(measurement.theme) }),
+    })
+  );
 });

@@ -9,12 +9,21 @@ const lines = (top: number, count: number, gap: number): InkLine[] =>
     top: top + i * (18 + gap),
   }));
 
+/** A block's box from its lines: 200px wide at the root's left edge. */
+const boxOf = (ink: readonly InkLine[]) => ({
+  height: (ink.at(-1)?.bottom ?? 0) - (ink[0]?.top ?? 0),
+  width: 200,
+  x: 0,
+  y: ink[0]?.top ?? 0,
+});
+
 const block = (
   label: string,
   ink: readonly InkLine[],
   children: readonly LaidBlock[] = []
 ): LaidBlock => ({
   bottom: ink.at(-1)?.bottom ?? 0,
+  box: boxOf(ink),
   children,
   label,
   lines: ink,
@@ -39,11 +48,13 @@ const panel = block(
 );
 
 describe("measure", () => {
-  it("flags two groups set closer than the ratio times the gap between the rows below", () => {
+  it("flags two groups set closer than the ratio times the gap between the rows below, with where both are", () => {
     assert.deepStrictEqual(spacingFindings(panel, 3), [
       {
         above: "App components",
+        aboveBox: { height: 102, width: 200, x: 0, y: 259 },
         below: "System components",
+        belowBox: { height: 158, width: 200, x: 0, y: 388 },
         between: 27,
         within: 10,
       },
@@ -83,13 +94,14 @@ describe("measure", () => {
     );
   });
 
-  it("flags a divider whose centre is off its bar's line, and not one within a pixel and a half", () => {
+  it("flags a divider whose centre is off its bar's line, with where it is, and not one within a pixel and a half", () => {
+    const rule = { height: 16, width: 1, x: 120, y: 42 };
     assert.deepStrictEqual(
       dividerFindings([
-        { bar: "Tools", centre: 50, sideCentre: 56 },
-        { bar: "Tools", centre: 55, sideCentre: 56 },
+        { bar: "Tools", box: rule, centre: 50, sideCentre: 56 },
+        { bar: "Tools", box: rule, centre: 55, sideCentre: 56 },
       ]),
-      [{ bar: "Tools", off: -6 }]
+      [{ bar: "Tools", box: rule, off: -6 }]
     );
   });
 });
@@ -123,5 +135,18 @@ describe("the hover pass", () => {
       ["hover-only", "Rename", "hover"],
       ["hover-only", "Delete", "hover"],
     ]);
+  });
+
+  it("puts a control shown only on hover where the hover pass found it", () => {
+    const box = { height: 24, width: 24, x: 300, y: 80 };
+    const [found] = hoverFindings({
+      hover: {
+        controlBoxes: { Rename: box },
+        controls: ["Rename"],
+        findings: [],
+      },
+      rest: { controls: [], findings: [] },
+    });
+    expect(found?.box).toEqual(box);
   });
 });

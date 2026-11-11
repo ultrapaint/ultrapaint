@@ -12,6 +12,7 @@
 import type {
   Audited,
   AuditFinding,
+  Box,
   InkLine,
   LaidBlock,
   LaidRule,
@@ -19,7 +20,11 @@ import type {
 
 export interface SpacingFinding {
   readonly above: string;
+  /** The block above, from the root's top left corner. */
+  readonly aboveBox: Box;
   readonly below: string;
+  /** The block below, from the root's top left corner. */
+  readonly belowBox: Box;
   /** From the last line of the block above to the first of the block below. */
   readonly between: number;
   /** The median gap between the lines of the block below. */
@@ -28,6 +33,8 @@ export interface SpacingFinding {
 
 export interface DividerFinding {
   readonly bar: string;
+  /** The rule, from the root's top left corner. */
+  readonly box: Box;
   /** How far the rule's centre is from its neighbours', down positive. */
   readonly off: number;
 }
@@ -99,7 +106,9 @@ export const spacingFindings = (
     ) {
       found.push({
         above: above.label,
+        aboveBox: above.box,
         below: below.label,
+        belowBox: below.box,
         between: Math.round(between),
         within: Math.round(within),
       });
@@ -115,6 +124,7 @@ export const dividerFindings = (
   rules
     .map((r) => ({
       bar: r.bar,
+      box: r.box,
       off: Math.round((r.centre - r.sideCentre) * 10) / 10,
     }))
     .filter((r) => Math.abs(r.off) > DIVIDER_TOLERANCE);
@@ -150,6 +160,7 @@ export const hoverFindings = (audited: {
     ...hover.controls
       .filter((c) => !seen.has(c))
       .map((label) => ({
+        box: hover.controlBoxes?.[label],
         check: "hover-only" as const,
         detail: "a control shown only under the pointer",
         label,
