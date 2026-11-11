@@ -521,7 +521,10 @@ What the checks measure can be shown to a reviewer too, as the editor shows its 
 what the checks measured on a document (ADR 0061): `recall --inputs pictures,checks` reviews each
 section with its pictures and code, then again with the checks' findings beside them as facts
 (`shipped+checks`). The findings are the section's `checks.json`, written by `measure --section`
-on an editor run at the section's commit, one measurement per theme:
+on an editor run at the section's commit, one measurement per theme, each finding with its
+element's box from the measured root's corner, the root's box in the window, and a picture of the
+root at 2× taken in the same page (`checks-<theme>@2x.png` beside it), so a finding can be cropped
+and boxed:
 
 ```sh
 git worktree add --detach .work/checks/<commit> <commit> && pnpm -C .work/checks/<commit> install
