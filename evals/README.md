@@ -610,6 +610,11 @@ A site:
 }
 ```
 
+`"brief": "facts"` has `brief` write the page's facts and none of its words (`prompts/brief-facts.md`):
+who it is for, what it offers, its figures, plans and sections, with every heading, line of copy and
+button label left to the agent, so the words an agent writes by habit (an eyebrow, a stock phrase;
+gaps g53 and g59) can be counted with `tells`.
+
 Pick screens of every kind the product is used for (landing pages, dashboards, app screens,
 settings, forms, empty states), from anywhere: a public site, a prototype, a gallery. Prefer a
 page that is the screen alone; a page that frames it (a docs site around an example) puts the

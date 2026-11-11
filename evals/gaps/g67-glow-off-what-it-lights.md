@@ -1,0 +1,20 @@
+---
+id: g67
+title: A glow placed off what it lights
+kind: missing
+status: open
+found: 2026-11-11
+source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
+skill: [references/pages/landing.md]
+sections: []
+---
+
+**What happened.** On `alignui-waitlist` (both runs) and `hcare-landing` run 2 the hero's glow was centred above the content, started under a white header and left a straight seam, or had its rim behind the eyebrow. The per-run judge found it in 3 runs. Pictures: `gaps/g67/`.
+
+**The skill now.** `landing.md`, Check: "A glow or pattern behind several sections → One, behind the hero, or none". Nothing on where the one goes.
+
+**Proposed.** A Check row: "A glow whose centre is above the content it lights, whose rim crosses text, or that stops in a straight edge at the header → Centred on the mark or picture it lights, fading to the ground before any text or edge".
+
+**Test.** In-sample: `out-land` against `candidates/public-pages` on the three references, 3 runs each; the per-run judge's gap should be gone, and the pairwise level no worse.
+
+**Result.**

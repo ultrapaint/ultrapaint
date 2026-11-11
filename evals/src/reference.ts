@@ -32,6 +32,13 @@ export type ViewportName = typeof ViewportName.Type;
 
 export const Reference = Schema.Struct({
   /**
+   * What the brief hands the agent: the screen's words as written (`copy`, the default), or its
+   * facts alone (`facts`): who it is for, what it offers, its figures and its sections, with the
+   * headings, eyebrows, taglines and button words left to the agent, so the words an agent writes
+   * by habit (an eyebrow, a stock phrase) can be counted.
+   */
+  brief: Schema.optional(Schema.Literals(["copy", "facts"])),
+  /**
    * The product, or design system, the screen belongs to: references of one family share one
    * extracted design system and one library to compose with.
    */

@@ -1,7 +1,8 @@
 /**
  * `brief`: what the agent is told about a reference, its content without its design. Written
  * once by a model from the capture, then read and corrected by a person, and kept: every round
- * gives the agent the same brief, so rounds can be compared.
+ * gives the agent the same brief, so rounds can be compared. A reference whose `brief` is `facts`
+ * is briefed with its facts and none of its words (`prompts/brief-facts.md`).
  */
 import path from "node:path";
 import { Effect, FileSystem, Schema } from "effect";
@@ -49,12 +50,15 @@ export const writeBrief = Effect.fn("writeBrief")(function* (
   const answer = yield* models.ask({
     cwd: data.referenceDir(reference.id),
     model: options.model,
-    prompt: yield* prompt("brief", {
-      files: files.map((f) => `- ${f}`).join("\n"),
-      kind: reference.kind,
-      name: reference.name,
-      viewports: describeViewports(viewportsOf(reference)),
-    }),
+    prompt: yield* prompt(
+      reference.brief === "facts" ? "brief-facts" : "brief",
+      {
+        files: files.map((f) => `- ${f}`).join("\n"),
+        kind: reference.kind,
+        name: reference.name,
+        viewports: describeViewports(viewportsOf(reference)),
+      }
+    ),
     ...briefAnswer,
   });
   const { brief } = answer.value;

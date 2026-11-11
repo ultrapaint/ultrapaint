@@ -13,6 +13,8 @@ sections: []
 
 **The skill now.** `SKILL.md`, Colour: "A gradient is light on a public page, never a surface for navigation, cards or controls." `references/color.md`, Gradients: "A gradient is light: a glow behind a product screenshot, a wash in a hero…". Nothing about text.
 
+The person, on 11 November, of the AlignUI reference (`decisions/skill-plan-nov11`, brand-colour): its words are filled on purpose, the first line "a top to bottom gradient where on top it's more grey and at the bottom is white", the second "a left-to-right blue to purple", and the judges' accounts of it (one blue-to-violet gradient) missed the first. So a gradient fill a brand chose is a design, and a remake from its picture keeps it (g74); the tell is the fill a model adds by default.
+
 **Proposed.** Emphasis in a headline is weight, size, one word in the accent or the italic, never a gradient fill. A check: `background-clip: text` with a gradient image.
 
 **Test.** A no-skill outside round on landing references: whether it appears at all, then the same with the candidate.
