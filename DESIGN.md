@@ -22,6 +22,7 @@ colors:
   warning: oklch(0.7 0.15 70)
   canvas: oklch(0.945 0.004 80)
   board: oklch(0.95 0.012 262)
+  specimen: oklch(1 0 0)
   sidebar: oklch(0.995 0.001 80)
   rail: oklch(0.955 0.004 80)
   selection: "#3d7bff"
@@ -159,6 +160,9 @@ follows the system's unless the person picks one in Settings › Preferences.
   ({colors.accent}), never a wash of blue.
 - {colors.destructive} for deleting and errors: red text on a 10–15% tint. {colors.success} and
   {colors.warning} are status dots and icons beside a word, never fills.
+- {colors.specimen} is the paper a component's picture lies on (the Library's tiles): white in
+  light, `oklch(0.9 0.003 80)` in dark, so a tile is never the brightest thing in the chrome. The
+  pictures are drawn in the design's light look, so it stays paper in both themes.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
   component instance, {colors.agent} on an agent's work and an agent working (the rail's dot). These
   stay off the panels' chrome otherwise.
