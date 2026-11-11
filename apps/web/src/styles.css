@@ -367,7 +367,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --secondary-foreground: oklch(0.21 0.006 60);
   /* A field's fill, a well, the track of a segmented control. */
   --muted: oklch(0.955 0.003 80);
-  --muted-foreground: oklch(0.53 0.01 65);
+  --muted-foreground: oklch(0.515 0.01 65);
   /* A hovered or selected row: a neutral fill, never a wash of the accent. */
   --accent: oklch(0.935 0.004 80);
   --accent-foreground: oklch(0.21 0.006 60);

@@ -2,7 +2,7 @@
 colors:
   background: oklch(0.99 0.001 80)
   foreground: oklch(0.21 0.006 60)
-  muted-foreground: oklch(0.53 0.01 65)
+  muted-foreground: oklch(0.515 0.01 65)
   primary: oklch(0.53 0.21 263)
   primary-foreground: oklch(0.99 0 0)
   brand: oklch(0.53 0.21 263)
