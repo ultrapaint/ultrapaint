@@ -482,7 +482,10 @@ input[type="number"]::-webkit-inner-spin-button {
   ::selection {
     background: oklch(0.56 0.2 263 / 35%);
   }
-  /* Tailwind v4 gives buttons the default cursor; the pointer back, as shadcn's docs have it. */
+  /*
+   * Tailwind v4 gives buttons the default cursor; the pointer back, as shadcn's docs have it.
+   * The rows of menus, selects and the palette take it too, in their own classes.
+   */
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;

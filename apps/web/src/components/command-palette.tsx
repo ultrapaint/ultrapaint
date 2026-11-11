@@ -91,7 +91,7 @@ const Row = ({
     <div
       aria-selected={active}
       className={cn(
-        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-2 font-body-medium",
+        "flex h-8 cursor-pointer items-center gap-2.5 rounded-md px-2 font-body-medium",
         active && "bg-accent",
         command.destructive && "text-destructive"
       )}
