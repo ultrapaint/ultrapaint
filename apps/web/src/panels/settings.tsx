@@ -719,8 +719,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         <Row
           description={
             repoFromFile
-              ? "The repository’s folder: the one the configuration file is in."
-              : "The repository’s folder, as an absolute path. Git and a package.json are optional."
+              ? "The folder the configuration file is in."
+              : "Git and a package.json are optional."
           }
           htmlFor={repoFromFile ? undefined : "settings-repo"}
           layout="field"
@@ -758,7 +758,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           </Button>
         </Row>
         <Row
-          description="Where pages are saved, relative to the repository. Pages already written stay put."
+          description="Relative to the repository. Designs stay put."
           htmlFor="settings-designs"
           layout="field"
           message={messageAt(
@@ -790,11 +790,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         </Row>
       </Group>
       <Group
-        note="Hints for the agents that build a design. The canvas draws Ultrapaint’s own components either way."
+        note="Hints for the agents that build a design. The canvas draws Ultrapaint’s own components either way. Paths are relative to the repository."
         title="Your code"
       >
         <Row
-          description="The package designs are built in. Leave it empty when the designs directory is that package."
+          description="The application designs are built in."
           htmlFor="settings-resolve"
           layout="field"
           message={messageAt("application")}
@@ -818,7 +818,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Your own components, one path per line."
           htmlFor="settings-libs"
           layout="field"
           message={messageAt("components")}
@@ -831,17 +830,17 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             onChange={(libraryDirs) =>
               change({ libraryDirs }, "components", "later")
             }
-            placeholder="src/components"
+            placeholder={"src/components\npackages/ui/src"}
             value={draft.libraryDirs}
           />
         </Row>
       </Group>
       <Group>
         <Row
-          description="Saved beside each page file, so pull requests show screens as image diffs."
+          description="Saved beside each design file, so pull requests show them as image diffs."
           htmlFor="settings-page-pngs"
           message={messageAt("pagePngs")}
-          title="Write a PNG of every page"
+          title="Write a PNG of every design"
         >
           <Switch
             checked={draft.pagePngs === true}
