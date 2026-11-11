@@ -59,3 +59,4 @@ problems.
 - `rb-recall-after`: 2026-11-08, its sections' gaps caught: shipped 57/92 (+21 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-after/report.md)
 - `rb-recall-check`: 2026-11-08, its sections' gaps caught: rb-check 57/92 (+24 partly) (cursor:grok-4.7-high, effort high; runs/rb-recall-check/report.md)
 - `ep-1`: 2026-11-10, its sections' gaps caught: review-table@opus+untold 31/92 (+31 partly), review-table@opus+told 60/92 (+17 partly), review-table@gpt-6.1-sol+untold 25/92 (+34 partly), review-table@gpt-6.1-sol+told 57/92 (+17 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
+- `rt-2`: 2026-11-11, its sections' gaps caught: shipped 93/138 (+17 partly), review-table 106/138 (+16 partly), review-inventory 110/138 (+9 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2/report.md)
