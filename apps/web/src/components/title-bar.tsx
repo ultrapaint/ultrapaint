@@ -99,7 +99,8 @@ const Unsaved = () => {
         Not saved
       </TooltipTrigger>
       <TooltipContent className="max-w-64" side="bottom">
-        Chats are lost when Ultrapaint stops. Save the configuration to keep them.
+        Chats are lost when Ultrapaint stops. Save the configuration to keep
+        them.
       </TooltipContent>
     </Tooltip>
   );
