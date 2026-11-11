@@ -15,6 +15,8 @@ import { coreText, skillFiles } from "../../skills/index.ts";
 
 /** A page as a review model is shown it. */
 export interface PageView {
+  /** What the checks measured on its document, as facts (ADR 0061); none when it wasn't read. */
+  readonly checks?: string | undefined;
   /** Its design document, compact JSON. */
   readonly document: string;
   readonly file: string;
@@ -117,6 +119,14 @@ export const reviewerPrompt = (
       text: `Its design document (\`${page.file}\`):\n\n\`\`\`json\n${page.document}\n\`\`\``,
       type: "text",
     },
+    ...(page.checks === undefined
+      ? []
+      : [
+          {
+            text: `What the checks measured on its document, as facts: a finding of yours may rest on them, and none needs repeating them one by one.\n\n${page.checks}`,
+            type: "text" as const,
+          },
+        ]),
   ]),
   ...(open === undefined
     ? []

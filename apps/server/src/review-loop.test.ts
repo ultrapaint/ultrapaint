@@ -93,7 +93,9 @@ const designed = Effect.fnUntraced(function* (
   const designer = yield* agents.next;
   const turn = yield* designer.nextTurn;
   yield* designer.host.writeTextFile({
-    content: '{ "root": { "id": "c_1", "type": "main" } }\n',
+    // A page with one value set by hand: 13px is off the spacing scale.
+    content:
+      '{ "version": 1, "root": { "id": "c_1", "type": "page", "padding": 13, "children": [] } }\n',
     path: path.join(repo, options.file ?? PAGE),
     sessionId: turn.sessionId,
   });
@@ -146,7 +148,10 @@ describe("a design's review", () => {
       assert.include(said, REQUEST);
       assert.include(said, PAGE);
       assert.include(said, "no editor is open to draw it");
-      assert.include(said, '"type":"main"');
+      assert.include(said, '"type":"page"');
+      // The checks on its document, as facts (ADR 0061).
+      assert.include(said, "What the checks measured on its document");
+      assert.include(said, "1 values are set by hand");
       yield* turn.say(answer([], true));
       yield* turn.end();
       yield* reviewer.stopped;

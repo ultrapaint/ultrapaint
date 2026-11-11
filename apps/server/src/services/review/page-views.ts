@@ -4,7 +4,12 @@
  * editor draws the pictures: with none open, or one that can't, the page goes without one and
  * the review says why.
  */
+import { PageDocument } from "@ultrapaint/contracts/document";
 import { presetSize } from "@ultrapaint/contracts/pages";
+import {
+  type OffSystemValue,
+  offSystemValues,
+} from "@ultrapaint/design-document/off-system";
 import {
   Effect,
   FileSystem,
@@ -26,6 +31,36 @@ const encodeDocument = Schema.encodeEffect(
 const decodeDocument = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Unknown)
 );
+
+/** How many of the values off the system a reviewer is shown, the rest counted. */
+const SHOWN_OFF_SYSTEM = 12;
+
+/**
+ * What the checks measured on a page's document (ADR 0061), as facts for the reviewer: the
+ * values set by hand where the design system has a token, counted by kind, the first few named.
+ */
+export const documentChecks = (values: readonly OffSystemValue[]): string => {
+  if (values.length === 0) {
+    return "No value is set by hand where the design system has a token.";
+  }
+  const kinds = new Map<string, number>();
+  for (const v of values) {
+    kinds.set(v.kind, (kinds.get(v.kind) ?? 0) + 1);
+  }
+  const counted = [...kinds].map(([kind, n]) => `${n} ${kind}`).join(", ");
+  const named = values
+    .slice(0, SHOWN_OFF_SYSTEM)
+    .map((v) => `- ${v.node}: \`${v.field}\` ${JSON.stringify(v.value)}`);
+  return [
+    `${values.length} values are set by hand where the design system has a token (${counted}):`,
+    ...named,
+    ...(values.length > SHOWN_OFF_SYSTEM
+      ? [`- and ${values.length - SHOWN_OFF_SYSTEM} more.`]
+      : []),
+  ].join("\n");
+};
+
+const decodePage = Schema.decodeUnknownEffect(PageDocument);
 
 /** Why a page has no picture when no editor is open. */
 const NO_EDITOR = "no editor is open to draw it.";
@@ -122,14 +157,29 @@ export const makePageViews = Effect.fnUntraced(function* () {
         .readFileString(path.join(root, file))
         .pipe(Effect.option);
       if (Option.isSome(text)) {
+        const json = yield* decodeDocument(text.value).pipe(Effect.option);
         // Compact: the reviewer reads it whole, an image inlined as data said only by its size.
         const document = withoutDataUrls(
-          yield* decodeDocument(text.value).pipe(
-            Effect.flatMap(encodeDocument),
-            Effect.orElseSucceed(() => text.value)
-          )
+          yield* Option.match(json, {
+            onNone: () => Effect.succeed(text.value),
+            onSome: (value) =>
+              encodeDocument(value).pipe(
+                Effect.orElseSucceed(() => text.value)
+              ),
+          })
         );
-        views.push({ document, file, ...(yield* pictureOf(file, editors)) });
+        // A document that doesn't read as a page goes without its checks, not without review.
+        const page = Option.isSome(json)
+          ? yield* decodePage(json.value).pipe(Effect.option)
+          : Option.none();
+        views.push({
+          ...(Option.isSome(page)
+            ? { checks: documentChecks(offSystemValues(page.value.root)) }
+            : {}),
+          document,
+          file,
+          ...(yield* pictureOf(file, editors)),
+        });
       }
     }
     return views;
