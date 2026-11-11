@@ -1,4 +1,3 @@
-import { runCommand } from "./process.ts";
 import { request } from "node:http";
 import { connect, type Socket } from "node:net";
 import path from "node:path";
@@ -22,6 +21,7 @@ import {
   Scope,
   Stream,
 } from "effect";
+import { runCommand } from "./process.ts";
 import {
   anotherClient,
   nextEvent,

@@ -211,7 +211,9 @@ export class GitService extends Context.Service<
         ]).pipe(
           // A commit that fails (a hook, an empty message) leaves the index as it found it: what
           // it staged itself is unstaged, what the person had staged stays.
-          Effect.tapError(() => unstage(files.filter((f) => !stagedBefore.has(f))))
+          Effect.tapError(() =>
+            unstage(files.filter((f) => !stagedBefore.has(f)))
+          )
         );
         const sha = (yield* run(["rev-parse", "HEAD"])).trim();
         yield* publishStatus;
