@@ -369,6 +369,76 @@
       justify-content: space-between;
       margin-top: 6px;
     }
+    /* The agent's own call, when it made one: what the person says is right or wrong. */
+    .call {
+      max-width: 72ch;
+      padding: 14px 16px;
+      background: var(--soft);
+      border-radius: 10px;
+    }
+    .call p {
+      margin: 0 0 6px;
+    }
+    .call p:last-child {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .call code {
+      font:
+        13px / 1 ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        monospace;
+    }
+    /* Right and Wrong stay in reach: fixed at the bottom, or in the header on a phone. */
+    .verdict {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      z-index: 3;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow:
+        0 1px 2px var(--shadow),
+        0 8px 30px var(--shadow);
+      transform: translateX(-50%);
+    }
+    .verdict[hidden] {
+      display: none;
+    }
+    .verdict button {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      min-width: 150px;
+      padding: 12px 20px;
+      font-weight: 600;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .verdict button:hover {
+      border-color: var(--line-strong);
+    }
+    .verdict button[aria-pressed="true"] {
+      color: var(--card);
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+    .verdict kbd {
+      font: inherit;
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.6;
+    }
+    body.calls main {
+      padding-bottom: 104px;
+    }
     .saved {
       min-height: 18px;
       font-size: 13px;
@@ -394,6 +464,24 @@
       }
       .pictures {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .verdict {
+        position: static;
+        flex: 1 1 100%;
+        padding: 0;
+        background: none;
+        box-shadow: none;
+        transform: none;
+      }
+      .verdict button {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      .verdict kbd {
+        display: none;
+      }
+      body.calls main {
+        padding-bottom: 24px;
       }
     }
     </style>
@@ -422,6 +510,10 @@
           Dark
         </button>
       </span>
+      <div class="verdict" hidden id="verdict">
+        <button id="wrong" type="button">Wrong <kbd>W</kbd></button>
+        <button id="right" type="button">Right <kbd>R</kbd></button>
+      </div>
     </header>
     <main><div class="card" id="card"></div></main>
     <div class="lightbox" id="lightbox"></div>
@@ -476,6 +568,21 @@
             }</div>`
         )
         .join("")}</div>`;
+    /** A card the agent made the call on: the person says only whether it is right. */
+    const hasCall = (card) =>
+      card?.proposal !== undefined &&
+      card.options.length === 2 &&
+      card.options.some((o) => o.key === card.recommend);
+    /** The option a verdict on the call stands for: Right its own, Wrong the other. */
+    const optionFor = (card, right) =>
+      card.options.find((o) => (o.key === card.recommend) === right).key;
+    /** What an answer said of the card's call, for the summary. */
+    const ofCall = (card, a) => {
+      if (!(hasCall(card) && a?.choice)) {
+        return "";
+      }
+      return a.choice === card.recommend ? " · call right" : " · call wrong";
+    };
     const answered = () => deck.cards.filter((c) => answers[c.id]).length;
     const firstOpen = () => {
       const i = deck.cards.findIndex((c) => !answers[c.id]);
@@ -493,6 +600,9 @@
     function show(i) {
       at = Math.max(deck.intro ? -1 : 0, Math.min(i, deck.cards.length));
       header();
+      const called = hasCall(deck.cards[at]);
+      $("verdict").hidden = !called;
+      document.body.classList.toggle("calls", called);
       const el = $("card");
       if (at === -1) {
         el.innerHTML = `<h2>${esc(deck.title)}</h2><div class="body">${markdown(deck.intro)}</div>
@@ -506,7 +616,7 @@
               .map((c, j) => {
                 const a = answers[c.id];
                 return `<button type="button" class="row" data-j="${j}"><span>${esc(c.title)}</span>
-                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label) : "not answered"}</span>
+                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label + ofCall(c, a)) : "not answered"}</span>
                   ${a?.comment ? `<span class="said">“${esc(a.comment)}”</span>` : ""}</button>`;
               })
               .join("")}</div>`;
@@ -520,6 +630,7 @@
       el.innerHTML = `
           <div>${card.eyebrow ? `<div class="eyebrow">${esc(card.eyebrow)}</div>` : ""}<h2>${esc(card.title)}</h2></div>
           ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
+          ${called ? `<div class="call">${markdown(card.proposal)}</div>` : ""}
           ${
             card.pictures?.length
               ? `<div class="pictures">${card.pictures
@@ -530,25 +641,39 @@
                   .join("")}</div>`
               : ""
           }
-          <div class="options">${card.options
-            .map(
-              (
-                o,
-                k
-              ) => `<button type="button" class="option" data-key="${esc(o.key)}" aria-pressed="${given?.choice === o.key}">
+          ${
+            called
+              ? ""
+              : `<div class="options">${card.options
+                  .map(
+                    (
+                      o,
+                      k
+                    ) => `<button type="button" class="option" data-key="${esc(o.key)}" aria-pressed="${given?.choice === o.key}">
                 <span class="key">${k + 1}</span>
                 <span><span class="label">${esc(o.label)}</span>${o.leads ? `<br /><span class="then">${esc(o.leads)}</span>` : ""}</span>
                 ${card.recommend === o.key ? `<span class="tag">Recommended</span>` : ""}
               </button>`
-            )
-            .join("")}</div>
-          <div><textarea id="comment" placeholder="Your own answer, if none of these fits; or a comment that goes with the option you pick">${esc(given?.comment ?? "")}</textarea>
+                  )
+                  .join("")}</div>`
+          }
+          <div><textarea id="comment" placeholder="${called ? "A comment that goes with Right or Wrong; or your own answer" : "Your own answer, if none of these fits; or a comment that goes with the option you pick"}">${esc(given?.comment ?? "")}</textarea>
           <div class="under"><span class="saved" id="saved">${savedLine(card, given)}</span>
           <button type="button" class="ghost" id="own">Send as my answer</button></div></div>`;
       for (const button of el.querySelectorAll(".option")) {
         button.onclick = () => choose(button.dataset.key);
       }
       $("own").onclick = () => choose(undefined);
+      if (called) {
+        $("right").setAttribute(
+          "aria-pressed",
+          String(given?.choice === card.recommend)
+        );
+        $("wrong").setAttribute(
+          "aria-pressed",
+          String(given?.choice !== undefined && given.choice !== card.recommend)
+        );
+      }
       for (const picture of el.querySelectorAll("figure .frame")) {
         picture.onclick = () => {
           $("lightbox").replaceChildren(picture.cloneNode(true));
@@ -562,6 +687,11 @@
     function savedLine(card, given) {
       if (given && given.choice === undefined) {
         return "Saved as your own answer.";
+      }
+      if (hasCall(card)) {
+        return given
+          ? "Saved."
+          : `Press R if my call is right, W if it is wrong, or write your own and press ${MOD}↵; ← and → to move.`;
       }
       return given
         ? "Saved."
@@ -664,6 +794,11 @@
         setTheme(isDark() ? "light" : "dark");
       } else if (event.key.toLowerCase() === "a") {
         show(deck.cards.length);
+      } else if (
+        (event.key.toLowerCase() === "r" || event.key.toLowerCase() === "w") &&
+        hasCall(deck.cards[at])
+      ) {
+        choose(optionFor(deck.cards[at], event.key.toLowerCase() === "r"));
       } else if (event.key.toLowerCase() === "c" && $("comment")) {
         event.preventDefault();
         $("comment").focus();
@@ -682,6 +817,8 @@
     $("back").onclick = () => show(at - 1);
     $("next").onclick = () => show(at + 1);
     $("all").onclick = () => show(deck.cards.length);
+    $("right").onclick = () => choose(optionFor(deck.cards[at], true));
+    $("wrong").onclick = () => choose(optionFor(deck.cards[at], false));
 
     fetch("/api/session")
       .then((r) => r.json())

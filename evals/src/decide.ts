@@ -59,6 +59,12 @@ export const Card = Schema.Struct({
    * asks about: a close-up of the item reads faster than a whole screen.
    */
   pictures: Schema.optional(Schema.Array(Picture)),
+  /**
+   * What the agent would do, in markdown, when it has made the call itself: with `recommend` and
+   * two options, the page asks only whether the call is right (Right takes `recommend`, Wrong the
+   * other option).
+   */
+  proposal: Schema.optional(Schema.String),
   /** The option the agent recommends, by its key. */
   recommend: Schema.optional(Schema.String),
   title: Schema.String,
@@ -125,8 +131,12 @@ export const answerTo = (
   };
 };
 
-/** A card as its file holds it: what an answer was given to. */
-const asWritten = (card: Card): unknown => JSON.parse(JSON.stringify(card));
+/**
+ * A card as its file holds it, less the agent's own call: what an answer was given to. A call
+ * added or changed later leaves the question as it was.
+ */
+const asWritten = ({ proposal, recommend, ...card }: Card): unknown =>
+  JSON.parse(JSON.stringify(card));
 
 /** The answers as any writer left them: read whole, so setting them aside loses none. */
 const AnswersAsWritten = Schema.Record(Schema.String, Schema.Unknown);

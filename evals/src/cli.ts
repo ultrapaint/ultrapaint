@@ -64,6 +64,7 @@ import { generateOutside, outsideHostOf } from "./outside.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
+import { propose } from "./propose.ts";
 import {
   RECALL_INPUTS,
   type RecallInput,
@@ -1125,6 +1126,34 @@ const verifyCommand = Command.make(
   )
 );
 
+const proposeCommand = Command.make(
+  "propose",
+  {
+    concurrency: judgeFlags.concurrency,
+    effort: Flag.String("effort").pipe(
+      Flag.withDescription("How hard the model thinks"),
+      Flag.withDefault("high")
+    ),
+    model: Flag.String("model").pipe(
+      Flag.withDescription("The model that makes the calls, with the skill"),
+      Flag.withDefault("opus")
+    ),
+    name,
+  },
+  Effect.fn(function* (input) {
+    yield* propose({
+      concurrency: input.concurrency,
+      effort: input.effort,
+      model: input.model,
+      round: input.name,
+    });
+  })
+).pipe(
+  Command.withDescription(
+    "Have a model with the skill make the call on each problem of a round's rating deck, fix or leave, so the person says only whether it is right"
+  )
+);
+
 const catchableCommand = Command.make(
   "catchable",
   {
@@ -1312,6 +1341,7 @@ Command.make("design-evals").pipe(
     gapsCommand,
     recallCommand,
     verifyCommand,
+    proposeCommand,
     panelCommand,
     decideCommand,
     measureCommand,

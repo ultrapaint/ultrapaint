@@ -394,6 +394,21 @@ judges matched with a gap (refuting one costs recall), and of the problems rated
 deck, the real ones kept and the noise refuted (what the skeptic is for). Its verdicts are kept
 beside each review (`verify@<model>.json`), so after more ratings it runs again without asking.
 
+Rating a round's deck card by card is long. A model with the skill can make the call on each
+problem first, so the person says only whether it is right:
+
+```sh
+pnpm evals propose <round> [--model opus]
+```
+
+Each section's problems go to the model with its pictures, its code and the checkout's skill to
+open, and it answers per problem: fix it (the change, and the rule it rests on) or leave it (why).
+The calls are kept in `runs/<round>/<section>/proposals@<model>.json`, and `rate-<round>` is
+written again with each card's call; the page then asks Right or Wrong (R, W), and saves the
+answer as real or noise as before, so recall and verify read it unchanged. Answers given before
+the calls stay. A person agreeing with a call leans towards it: read a rating given against a
+call (`recommend` in the deck) as that, not as one given blind.
+
 The editor's review models open no file (ADR 0063). `--inputs untold,told` reviews as they do,
 from the pictures and code with no skill to open: `untold` with no rules, as they are today, and
 `told` with the core's rules and the version's review table (`references/review.md`, when it has
@@ -522,7 +537,9 @@ A deck is `{ title, intro?, cards }`. Each card has:
   are boxes drawn around what the card asks about, `{ x, y, width, height, label?, at? }` in
   fractions of the picture, the label `above`, `below`, `right` or `inside` it;
 - `options`: `{ key, label, leads? }`, where `leads` says what choosing it leads to;
-- `recommend?`: an option's key.
+- `recommend?`: an option's key;
+- `proposal?`: the agent's own call, in markdown. With `recommend` and two options, the page
+  shows it and asks only Right or Wrong (R, W), from a bar that stays in reach.
 
 The answers land in `decisions/<deck>.answers.json`, each with its label, the card's title and
 any comment, for the agent to read back and act on. An answer in the person's own words has no
