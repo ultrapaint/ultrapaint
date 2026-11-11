@@ -276,9 +276,10 @@ const SettingsLoading = () => {
 };
 
 /**
- * The dialog around a section: its header, Settings / the section and the close button, the one
- * way out; the sections down its side on the frame ({rail}); the page raised on {sidebar}, with
- * no footer, as everything saves as it changes (ADR 0079).
+ * The dialog around a section: the sections down its whole side on the frame ({rail}); beside
+ * them the page on {sidebar}, headed by Settings / the section and the close button, the one way
+ * out, over a hairline the page scrolls under, with no footer, as everything saves as it changes
+ * (ADR 0079).
  */
 const SettingsFrame = ({
   children,
@@ -291,25 +292,25 @@ const SettingsFrame = ({
   section: SectionId;
   showAll: boolean;
 }) => (
-  <div className="flex h-full min-w-0 flex-1 flex-col bg-rail">
-    <header className="flex h-12 shrink-0 items-center justify-between gap-4 px-5">
-      <h2 className="flex min-w-0 items-center gap-2 font-body">
-        <span className="text-muted-foreground">Settings</span>
-        <span aria-hidden className="text-muted-foreground">
-          /
-        </span>
-        <span className="truncate">{labelOf(section)}</span>
-      </h2>
-      <IconButton
-        onClick={() => useProject.getState().openSettings(false)}
-        tooltip="Close"
-      >
-        <X />
-      </IconButton>
-    </header>
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
-      <div className="@container min-h-0 min-w-0 flex-1 overflow-y-auto bg-sidebar md:rounded-tl-lg">
+  <div className="flex h-full min-w-0 flex-1 flex-col bg-rail md:flex-row">
+    <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
+        <h2 className="flex min-w-0 items-center gap-2 font-body">
+          <span className="text-muted-foreground">Settings</span>
+          <span aria-hidden className="text-muted-foreground">
+            /
+          </span>
+          <span className="truncate">{labelOf(section)}</span>
+        </h2>
+        <IconButton
+          onClick={() => useProject.getState().openSettings(false)}
+          tooltip="Close"
+        >
+          <X />
+        </IconButton>
+      </header>
+      <div className="@container min-h-0 flex-1 overflow-y-auto">
         <div className="flex max-w-3xl flex-col gap-12 p-5">{children}</div>
       </div>
     </div>
@@ -544,7 +545,7 @@ const Sidebar = ({
     <aside className="shrink-0 md:w-52">
       <nav
         aria-label="Settings sections"
-        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-5"
+        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-2.5"
       >
         {listed.map(({ icon: Icon, id, label }) => {
           const active = id === section;
