@@ -63,7 +63,23 @@ const typePrompt = (value: string) =>
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
-/** Picks `files` in the system's file picker that the + button opens. */
+/** Resolves once `drawn` holds, as the page changes: what a click set off has landed. */
+const until = (drawn: () => boolean) =>
+  new Promise<void>((resolve) => {
+    if (drawn()) {
+      resolve();
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (drawn()) {
+        observer.disconnect();
+        resolve();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+/** Picks `files` in the system's file picker that the + button opens, until they are shown. */
 const pickFiles = async (files: File[]) => {
   const input = document.querySelector(
     "input[type=file][multiple]"
@@ -72,8 +88,14 @@ const pickFiles = async (files: File[]) => {
   await act(() => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  // Read as the chat reads them, a picture as a data URL.
-  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  // Read as the chat reads them, a picture as a data URL, then drawn as chips.
+  await until(() =>
+    files.every(
+      (file) =>
+        document.body.textContent?.includes(file.name) ||
+        document.querySelector(`img[alt="${file.name}"]`)
+    )
+  );
 };
 
 afterAll(() => {
