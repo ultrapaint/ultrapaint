@@ -83,8 +83,11 @@ let window: BrowserWindow | null = null;
  */
 const ownTitleBar = process.platform === "darwin";
 const TRAFFIC_LIGHTS = { x: 22, y: 26 };
-/** Where the editor's content may begin past the buttons: their width (52px) and a gap. */
-const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 12;
+/**
+ * Where the editor's content may begin past the buttons: their width (52px) and a gap wide
+ * enough that the mark reads as the project's row, not a fourth button.
+ */
+const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 24;
 
 /**
  * What the window tells the page as it changes (the bridge's states), kept for a page that loads

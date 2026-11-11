@@ -68,9 +68,10 @@ const SwitcherMenu = ({ switcher }: { switcher: Switcher }) => {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
+          // As Figma's file name: the name and its chevron, a fill only under the pointer or open.
           <Button
-            className="w-full min-w-0 justify-between bg-muted font-heading-xsmall hover:border-input hover:bg-muted aria-expanded:bg-muted"
-            size="sm"
+            className="max-w-full font-heading-xsmall"
+            size="lg"
             variant="ghost"
           />
         }

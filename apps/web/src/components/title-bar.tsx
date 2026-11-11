@@ -12,9 +12,9 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Search,
-  TriangleAlert,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -26,7 +26,6 @@ import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { openCommandPalette } from "./command-palette.tsx";
-import { IconButton } from "./icon-button.tsx";
 import { Logo } from "./logo.tsx";
 import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
@@ -77,27 +76,32 @@ const ProjectName = () => {
   );
 };
 
+/**
+ * A project whose settings are not saved: a status, not an error, so the system's neutral badge
+ * with the warning's dot beside its words, quieter than the name. It opens Save configuration.
+ */
 const Unsaved = () => {
   const info = useProject((s) => s.info);
   if (info.storage.mode !== "ephemeral") {
     return null;
   }
   return (
-    <IconButton
-      className="window-no-drag size-7 text-warning hover:text-warning"
-      label="Not saved: save the settings"
-      onClick={openSaveConfig}
-      side="bottom"
-      tooltip={
-        <span className="block max-w-64">
-          {info.setup === "detected"
-            ? "Settings detected, not saved: chats are lost when Ultrapaint stops. Save them to keep them."
-            : "Started without settings: chats are lost when Ultrapaint stops. Save the settings to keep them."}
-        </span>
-      }
-    >
-      <TriangleAlert />
-    </IconButton>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Badge
+            className="window-no-drag h-6 shrink-0 gap-1.5 bg-foreground/6 px-2 text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
+            render={<button onClick={openSaveConfig} type="button" />}
+          />
+        }
+      >
+        <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+        Not saved
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64" side="bottom">
+        Chats are lost when Ultrapaint stops. Save the configuration to keep them.
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -163,10 +167,10 @@ export const TitleRow = () => {
       style={style}
     >
       <Logo />
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* A shell with a list of projects puts its switcher where the name is (Platform). */}
         {hasProjectSwitcher() ? (
-          <div className="window-no-drag min-w-0 max-w-64 flex-1">
+          <div className="window-no-drag min-w-0 max-w-64">
             <ProjectSwitcher />
           </div>
         ) : (
