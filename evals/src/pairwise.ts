@@ -271,15 +271,19 @@ const judgeRun = Effect.fn("judgeRun")(function* (
   const models = yield* Models;
   const reference = key.slice(0, key.indexOf("/"));
   const [first, second] = order;
+  const shown = yield* pictures(data.captureDir(reference));
   const answer = yield* models.ask({
     cwd: data.root,
     effort: "high",
     model: options.model,
-    prompt: yield* prompt("pairwise", {
+    // A fresh brief has no screen behind it (ADR 0082): the designs are judged against each other
+    // and the brief alone.
+    prompt: yield* prompt(shown === "" ? "pairwise-fresh" : "pairwise", {
       a: yield* pictures(path.join(data.runs, first, key, "shots")),
       b: yield* pictures(path.join(data.runs, second, key, "shots")),
+      brief: data.fromData(data.briefFile(reference)),
       principles: options.principles,
-      reference: yield* pictures(data.captureDir(reference)),
+      reference: shown,
     }),
     ...verdictAnswer,
   });

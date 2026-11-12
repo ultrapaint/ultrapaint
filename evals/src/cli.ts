@@ -17,6 +17,7 @@
  *   pnpm evals review <round> [rounds…]            judge what rounds made yourself, by swiping
  *   pnpm evals compare <baseline> <candidate>      two rounds' scores
  *   pnpm evals pairwise <a> <b>                    two rounds judged blind, run by run
+ *   pnpm evals variety <round>                     how alike a round's runs of one brief are
  *   pnpm evals gaps                                the design gaps, with kind and status
  *   pnpm evals decide <deck>                       answer the decisions an agent asks of you
  *   pnpm evals measure <url>                       measure a rendered page's group gaps and dividers
@@ -80,6 +81,7 @@ import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
 import { tells } from "./tells.ts";
 import { applyTriage, triage } from "./triage.ts";
+import { variety } from "./variety.ts";
 import { verify } from "./verify.ts";
 
 const refs = Argument.String("refs").pipe(
@@ -864,6 +866,23 @@ const pairwiseCommand = Command.make(
   )
 );
 
+const varietyCommand = Command.make(
+  "variety",
+  {
+    judgeModel: judgeFlags.judgeModel,
+    round: Argument.String("round").pipe(
+      Argument.withDescription("A round with two runs or more of each brief")
+    ),
+  },
+  Effect.fn(function* (input) {
+    yield* variety(input.round, { model: input.judgeModel });
+  })
+).pipe(
+  Command.withDescription(
+    "How alike a round's runs of one brief are, 1 to 5: a skill that gives every product the same page scores high"
+  )
+);
+
 const decideCommand = Command.make(
   "decide",
   {
@@ -1421,6 +1440,7 @@ Command.make("design-evals").pipe(
     learnCommand,
     compareCommand,
     pairwiseCommand,
+    varietyCommand,
     gapsCommand,
     recallCommand,
     verifyCommand,

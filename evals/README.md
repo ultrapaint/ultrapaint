@@ -337,6 +337,30 @@ its source, `trace.md`, `agent.md`, `run.json`, and the agent's events as they c
 files a run opened are counted from the installed path. The agent and the dev server are stopped
 with their process group, at `--minutes` too. Run a bulk round as a long job (above, "Long jobs").
 
+### Fresh briefs
+
+The design skill is measured on briefs with no screen behind them (ADR 0082): an invented
+product's facts, written by hand in `references/fresh-*/brief.md`, its `reference.json` saying
+`"brief": "fresh"` and having no `capture/`. A fresh round only generates, since there is no
+reference to judge a run beside; the versions are judged against each other:
+
+```sh
+pnpm evals generate <name>-none [fresh refs…] --host plain --agent claude-code --agent-model opus --skill none
+pnpm evals generate <name> [fresh refs…] --host plain --agent claude-code --agent-model opus
+pnpm evals generate <name>-<fix> [fresh refs…] --host plain --agent claude-code --agent-model opus --skill candidates/<fix>
+pnpm evals pairwise <name> <name>-<fix>
+pnpm evals tells <name> --rounds <name>-none,<name>,<name>-<fix>
+pnpm evals variety <name>-<fix>
+```
+
+`pairwise` judges a brief with no capture with `prompts/pairwise-fresh.md`: the two designs and
+the brief, with fit to the brief as a level of its own and no look counted as the right one.
+`variety` gives each brief run twice or more to one model with the runs' first screens, which
+rates how alike they are, 1 (unrelated pages) to 5 (the same page with other words), and what
+they share (`runs/<round>/variety.json`): a skill that gives every product one page wins pairs
+and still fails here. A skill gap in what the skill makes is tested this way, on briefs it did not
+come from (`evals/gaps/README.md`).
+
 ## Gaps and recall
 
 The design skill's known gaps are files in `gaps/` (`pnpm evals gaps` lists them): what a

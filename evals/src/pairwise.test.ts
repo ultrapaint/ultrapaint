@@ -203,6 +203,31 @@ describe("pairwise", () => {
   );
 
   it.effect(
+    "judges a fresh brief's designs against each other and its brief, with no reference shown",
+    () =>
+      Effect.gen(function* () {
+        const prompts: string[] = [];
+        const seeing = (question: Asked) => {
+          prompts.push(question.prompt);
+          return firstShown(question);
+        };
+        yield* Effect.gen(function* () {
+          yield* writeData({
+            "references/fresh-shop/brief.md": "# A shop",
+            "runs/a/fresh-shop/run-1/shots/desktop-fold.jpg": "jpg",
+            "runs/b/fresh-shop/run-1/shots/desktop-fold.jpg": "jpg",
+          });
+          yield* pairwise("a", "b", { model: "opus", oneOrder: true });
+        }).pipe(
+          Effect.provide(Layer.merge(TestData, Models.layerTest(seeing)))
+        );
+        assert.strictEqual(prompts.length, 1);
+        assert.include(prompts[0], "references/fresh-shop/brief.md");
+        assert.notInclude(prompts[0], "The reference");
+      })
+  );
+
+  it.effect(
     "asks only the order a run lacks: a run judged one way before is judged the other way, once",
     () =>
       Effect.gen(function* () {

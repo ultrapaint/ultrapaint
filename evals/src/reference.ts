@@ -35,9 +35,11 @@ export const Reference = Schema.Struct({
    * What the brief hands the agent: the screen's words as written (`copy`, the default), or its
    * facts alone (`facts`): who it is for, what it offers, its figures and its sections, with the
    * headings, eyebrows, taglines and button words left to the agent, so the words an agent writes
-   * by habit (an eyebrow, a stock phrase) can be counted.
+   * by habit (an eyebrow, a stock phrase) can be counted. A `fresh` brief is written by hand from
+   * an invented product's facts, with no screen behind it (ADR 0082): it has no `capture/`, and
+   * its designs are judged against each other alone.
    */
-  brief: Schema.optional(Schema.Literals(["copy", "facts"])),
+  brief: Schema.optional(Schema.Literals(["copy", "facts", "fresh"])),
   /**
    * The product, or design system, the screen belongs to: references of one family share one
    * extracted design system and one library to compose with.
