@@ -35,6 +35,13 @@ execFileSync(process.execPath, [path.join(desktopDir, "scripts", "stage.ts")], {
 /** The app icon: the mark on its tile, on Apple's grid, from `resources/icon.svg`. */
 const icon = path.join(desktopDir, "resources", "icon.png");
 
+/**
+ * The macOS icon as Icon Composer makes it (`resources/icon.icon`: the black fill and the mark as
+ * its layer), compiled into the app's asset catalog by Xcode's actool. macOS 26 draws an app that
+ * has only an icns inside a grey tile of its own, whatever the icns's shape.
+ */
+const macIcon = path.join(desktopDir, "resources", "icon.icon");
+
 const config = {
   appId: "dev.ultrapaint.desktop",
   artifactName: `ultrapaint-${placeholder("version")}-${placeholder("os")}-${placeholder("arch")}.${placeholder("ext")}`,
@@ -42,6 +49,7 @@ const config = {
   // binds: plain files, not an archive.
   asar: false,
   buildVersion: version,
+  copyright: `Copyright © ${new Date().getFullYear()} Ultrapaint`,
   deb: {
     // The agents run inside bubblewrap where it is installed (ADR 0013).
     recommends: ["bubblewrap", "git"],
@@ -60,7 +68,7 @@ const config = {
   mac: {
     category: "public.app-category.developer-tools",
     hardenedRuntime: false,
-    icon,
+    icon: macIcon,
     // Unsigned until there is an Apple Developer account (PLAN-desktop, open questions).
     identity: null,
     target: onlyDir ? ["dir"] : ["dmg", "zip"],
