@@ -14,13 +14,13 @@
       --ink: #18181b;
       --muted: #71717a;
       --line: #e4e4e7;
-      --soft: #f4f4f5;
+      --soft: #ececea;
       --accent: #2563eb;
+      --accent-soft: #e8effd;
       --mark: #e11d48;
       --line-strong: #a1a1aa;
       --error: #dc2626;
       --shadow: rgb(0 0 0 / 0.06);
-      --radius: 14px;
       font:
         15px / 1.5 ui-sans-serif,
         system-ui,
@@ -31,7 +31,7 @@
       color-scheme: light;
       background: var(--bg);
     }
-    /* Dark follows the system unless the page is set to a theme (the header's switch). */
+    /* Dark follows the system unless the page is set to a theme (the bar's switch). */
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
         --bg: #121214;
@@ -39,8 +39,9 @@
         --ink: #ececee;
         --muted: #9f9fa9;
         --line: #2f2f35;
-        --soft: #27272b;
+        --soft: #17171a;
         --accent: #7aa5ff;
+        --accent-soft: #1b2438;
         --mark: #f43f5e;
         --line-strong: #5b5b66;
         --error: #f87171;
@@ -54,8 +55,9 @@
       --ink: #ececee;
       --muted: #9f9fa9;
       --line: #2f2f35;
-      --soft: #27272b;
+      --soft: #17171a;
       --accent: #7aa5ff;
+      --accent-soft: #1b2438;
       --mark: #f43f5e;
       --line-strong: #5b5b66;
       --error: #f87171;
@@ -65,55 +67,47 @@
     * {
       box-sizing: border-box;
     }
+    /* The card fills the window above the bar: its text on the left, its pictures on the right,
+       each scrolling on its own. */
     body {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: minmax(0, 1fr) auto;
       grid-template-columns: minmax(0, 1fr);
-      min-height: 100dvh;
+      height: 100dvh;
       margin: 0;
-    }
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      padding: 12px 20px;
       background: var(--bg);
     }
-    header h1 {
-      min-width: 0;
-      margin: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: 15px;
-      font-weight: 600;
-      white-space: nowrap;
+    main {
+      display: grid;
+      grid-template-columns: minmax(360px, 36%) minmax(0, 1fr);
+      min-height: 0;
     }
-    .progress {
-      font-variant-numeric: tabular-nums;
-      color: var(--muted);
-      white-space: nowrap;
+    main.solo {
+      grid-template-columns: minmax(0, 1fr);
     }
-    .bar {
-      flex: 0 0 140px;
-      height: 4px;
-      overflow: hidden;
-      background: var(--line);
-      border-radius: 2px;
-    }
-    .bar i {
-      display: block;
-      width: 0;
-      height: 100%;
-      background: var(--ink);
-      transition: width 0.2s;
-    }
-    .nav {
+    .text {
       display: flex;
-      gap: 4px;
-      margin-left: auto;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 0;
+      padding: 24px 28px 32px;
+      overflow-y: auto;
+    }
+    main.solo .text {
+      justify-self: center;
+      width: min(760px, 100%);
+    }
+    .pictures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+      gap: 16px;
+      align-content: start;
+      min-height: 0;
+      padding: 24px 24px 32px 4px;
+      overflow-y: auto;
+    }
+    .pictures:empty {
+      display: none;
     }
     button {
       font: inherit;
@@ -121,10 +115,17 @@
       cursor: pointer;
     }
     .ghost {
-      padding: 6px 12px;
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 7px 14px;
+      white-space: nowrap;
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 8px;
+    }
+    .ghost:hover:not(:disabled) {
+      border-color: var(--line-strong);
     }
     label.ghost {
       cursor: pointer;
@@ -133,49 +134,41 @@
       color: var(--line-strong);
       cursor: default;
     }
-    main {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      justify-items: center;
-      padding: 0 20px 40px;
+    .ghost[hidden] {
+      display: none;
     }
-    .card {
-      display: grid;
-      gap: 20px;
-      align-self: start;
-      width: min(1100px, 100%);
-      padding: 28px 32px;
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow:
-        0 1px 2px var(--shadow),
-        0 8px 30px var(--shadow);
+    kbd {
+      font: inherit;
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.6;
     }
-    .eyebrow {
+    .kicker {
+      margin-bottom: 6px;
       font-size: 13px;
       color: var(--muted);
     }
     h2 {
-      margin: 2px 0 0;
-      font-size: 21px;
-      font-weight: 600;
+      margin: 0;
+      font-size: 22px;
+      font-weight: 650;
       line-height: 1.3;
       text-wrap: balance;
     }
-    .body {
-      max-width: 72ch;
-    }
     .body p {
       margin: 0 0 10px;
+    }
+    .body p:last-child {
+      margin-bottom: 0;
     }
     .body ul {
       padding-left: 20px;
       margin: 0 0 10px;
     }
     .body li {
-      margin: 2px 0;
+      margin: 4px 0;
     }
-    .body code {
+    code {
       padding: 2px 5px;
       font:
         13px / 1 ui-monospace,
@@ -185,31 +178,44 @@
       background: var(--soft);
       border-radius: 4px;
     }
-    .pictures {
+    /* A picture in its panel: the caption on top, the picture centred below it. */
+    .shot {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-    }
-    figure {
-      display: grid;
-      gap: 6px;
-      align-content: start;
+      grid-template-rows: auto 1fr;
       margin: 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .shot figcaption {
+      padding: 9px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      border-bottom: 1px solid var(--line);
+    }
+    .shot figcaption b {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .stage {
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      background: var(--soft);
+      border-radius: 0 0 10px 10px;
     }
     /* The frame wraps the picture exactly, so a mark's fractions are fractions of the picture. */
     .frame {
       position: relative;
-      align-self: start;
-      justify-self: start;
       max-width: 100%;
       cursor: zoom-in;
     }
     .frame img {
       display: block;
       max-width: 100%;
-      max-height: 520px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      max-height: calc(100dvh - 190px);
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px var(--line);
     }
     .mark {
       position: absolute;
@@ -244,13 +250,17 @@
       bottom: auto;
       left: 2px;
     }
-    .lightbox .frame {
-      align-self: center;
-      justify-self: center;
+    /* The agent's own call, when it made one: what the person says is right or wrong. */
+    .call {
+      padding: 14px 16px;
+      background: var(--accent-soft);
+      border-radius: 10px;
     }
-    figcaption {
-      font-size: 13px;
-      color: var(--muted);
+    .call p {
+      margin: 0 0 6px;
+    }
+    .call p:last-child {
+      margin: 0;
     }
     .options {
       display: grid;
@@ -258,7 +268,7 @@
     }
     .option {
       display: grid;
-      grid-template-columns: 28px 1fr auto;
+      grid-template-columns: 24px 1fr auto;
       gap: 12px;
       align-items: start;
       padding: 12px 14px;
@@ -271,8 +281,8 @@
       border-color: var(--line-strong);
     }
     .option[aria-pressed="true"] {
-      border-color: var(--ink);
-      box-shadow: inset 0 0 0 1px var(--ink);
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
     }
     .key {
       display: grid;
@@ -283,11 +293,13 @@
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       background: var(--soft);
+      border: 1px solid var(--line);
       border-radius: 6px;
     }
     .option[aria-pressed="true"] .key {
       color: var(--card);
-      background: var(--ink);
+      background: var(--accent);
+      border-color: var(--accent);
     }
     .label {
       font-weight: 600;
@@ -304,7 +316,7 @@
     }
     textarea {
       width: 100%;
-      min-height: 64px;
+      min-height: 72px;
       padding: 10px 12px;
       font: inherit;
       color: inherit;
@@ -313,134 +325,25 @@
       border: 1px solid var(--line);
       border-radius: 10px;
     }
-    .hint {
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .summary {
-      display: grid;
-      gap: 2px;
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 16px;
-      align-items: baseline;
-      padding: 10px 12px;
-      text-align: left;
-      background: none;
-      border: 0;
-      border-radius: 8px;
-    }
-    .row:hover {
-      background: var(--soft);
-    }
-    .row .answer {
-      color: var(--muted);
-    }
-    .row .answer.none {
-      color: var(--error);
-    }
-    .row .said {
-      grid-column: 1 / -1;
-      font-size: 14px;
-      color: var(--muted);
-    }
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 5;
-      display: none;
-      place-items: center;
-      padding: 20px;
-      cursor: zoom-out;
-      background: rgb(0 0 0 / 0.85);
-    }
-    .lightbox.open {
-      display: grid;
-    }
-    .lightbox .frame {
-      cursor: zoom-out;
-    }
-    .lightbox .frame img {
-      max-height: calc(100dvh - 40px);
+    textarea.over {
+      border-color: var(--accent);
     }
     .under {
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 8px 12px;
       align-items: center;
       justify-content: space-between;
-      margin-top: 6px;
+      margin-top: 8px;
     }
-    /* The agent's own call, when it made one: what the person says is right or wrong. */
-    .call {
-      max-width: 72ch;
-      padding: 14px 16px;
-      background: var(--soft);
-      border-radius: 10px;
+    .actions {
+      display: flex;
+      gap: 6px;
     }
-    .call p {
-      margin: 0 0 6px;
-    }
-    .call p:last-child {
-      margin: 0;
-      font-size: 14px;
+    .saved {
+      min-height: 18px;
+      font-size: 13px;
       color: var(--muted);
-    }
-    .call code {
-      font:
-        13px / 1 ui-monospace,
-        SFMono-Regular,
-        Menlo,
-        monospace;
-    }
-    /* Right and Wrong stay in reach: fixed at the bottom, or in the header on a phone. */
-    .verdict {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      z-index: 3;
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      background: var(--card);
-      border-radius: 14px;
-      box-shadow:
-        0 1px 2px var(--shadow),
-        0 8px 30px var(--shadow);
-      transform: translateX(-50%);
-    }
-    .verdict[hidden] {
-      display: none;
-    }
-    .verdict button {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: center;
-      min-width: 150px;
-      padding: 12px 20px;
-      font-weight: 600;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-    .verdict button:hover {
-      border-color: var(--line-strong);
-    }
-    .verdict button[aria-pressed="true"] {
-      color: var(--card);
-      background: var(--ink);
-      border-color: var(--ink);
-    }
-    .verdict kbd {
-      font: inherit;
-      font-size: 12px;
-      font-weight: 400;
-      opacity: 0.6;
-    }
-    body.calls main {
-      padding-bottom: 104px;
     }
     /* Images added to the answer: thumbnails under the comment, each with its remove. */
     .attached {
@@ -448,6 +351,8 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+    }
+    .attached:not(:empty) {
       margin-top: 8px;
     }
     .thumb {
@@ -478,86 +383,242 @@
       width: 12px;
       height: 12px;
     }
-    textarea.over {
-      border-color: var(--accent);
+    .summary {
+      display: grid;
+      gap: 2px;
     }
-    .saved {
-      min-height: 18px;
-      font-size: 13px;
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: baseline;
+      padding: 10px 12px;
+      text-align: left;
+      background: none;
+      border: 0;
+      border-radius: 8px;
+    }
+    .row:hover {
+      background: var(--card);
+    }
+    .row .answer {
       color: var(--muted);
     }
-    @media (max-width: 640px) {
-      header {
-        flex-wrap: wrap;
-        gap: 4px 12px;
-        padding: 10px 12px;
+    .row .answer.none {
+      color: var(--error);
+    }
+    .row .said {
+      grid-column: 1 / -1;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    /* The bar: moving through the deck on the left, Right and Wrong in the middle when the card
+       has a call, the progress and the page's switches on the right. */
+    .bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+      background: var(--card);
+      border-top: 1px solid var(--line);
+    }
+    .count {
+      min-width: 64px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .spacer {
+      flex: 1 1 0;
+    }
+    .verdict {
+      display: flex;
+      gap: 8px;
+    }
+    .verdict[hidden] {
+      display: none;
+    }
+    .verdict button {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      min-width: 140px;
+      padding: 8px 18px;
+      font-weight: 600;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .verdict button:hover {
+      border-color: var(--line-strong);
+    }
+    .verdict button[aria-pressed="true"] {
+      color: var(--card);
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+    .progress {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .meter {
+      flex: 0 0 96px;
+      height: 4px;
+      overflow: hidden;
+      background: var(--line);
+      border-radius: 2px;
+    }
+    .meter i {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.2s;
+    }
+    .ghost svg {
+      width: 16px;
+      height: 16px;
+    }
+    .ghost.icon {
+      padding: 7px 9px;
+    }
+    .icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      cursor: zoom-out;
+      background: rgb(0 0 0 / 0.85);
+    }
+    .lightbox.open {
+      display: grid;
+    }
+    .lightbox .frame {
+      cursor: zoom-out;
+    }
+    .lightbox .frame img {
+      max-height: calc(100dvh - 40px);
+    }
+    /* Narrower: one column that scrolls as a whole, the pictures under the text. */
+    @media (max-width: 960px) {
+      main,
+      main.solo {
+        display: block;
+        overflow-y: auto;
       }
-      header h1 {
-        flex: 1 1 100%;
-      }
-      main {
-        padding: 0 8px 24px;
-      }
-      .card {
-        padding: 20px 16px;
-      }
-      .bar {
-        display: none;
+      .text,
+      .pictures {
+        overflow: visible;
       }
       .pictures {
-        grid-template-columns: minmax(0, 1fr);
+        padding: 0 16px 24px;
+      }
+      .text {
+        padding: 20px 16px 24px;
+      }
+      main.solo .text {
+        margin: 0 auto;
+      }
+    }
+    @media (max-width: 640px) {
+      .bar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
       }
       .verdict {
-        position: static;
         flex: 1 1 100%;
-        padding: 0;
-        background: none;
-        box-shadow: none;
-        transform: none;
+        order: -1;
       }
       .verdict button {
         flex: 1 1 0;
         min-width: 0;
       }
-      .verdict kbd {
+      .word,
+      #intro,
+      kbd,
+      .meter,
+      .progress {
         display: none;
       }
-      body.calls main {
-        padding-bottom: 24px;
+      .spacer {
+        display: none;
+      }
+      .count {
+        flex: 1 1 auto;
       }
     }
     </style>
   </head>
   <body>
-    <header>
-      <h1 id="title">Decisions</h1>
-      <span class="progress" id="progress"></span>
-      <span class="bar"><i id="bar"></i></span>
-      <span class="nav">
-        <button class="ghost" id="back" title="Previous (←)" type="button">
-          ←
-        </button>
-        <button class="ghost" id="next" title="Next (→)" type="button">
-          →
-        </button>
-        <button class="ghost" id="all" title="Every answer (A)" type="button">
-          All
-        </button>
-        <button
-          class="ghost"
-          id="theme"
-          title="Light or dark (T)"
-          type="button"
-        >
-          Dark
-        </button>
-      </span>
+    <main id="main">
+      <section class="text" id="text"></section>
+      <section aria-label="Pictures" class="pictures" id="pictures"></section>
+    </main>
+    <footer class="bar">
+      <button class="ghost" id="back" title="Previous (←)" type="button">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+          <path
+            d="M13 8H3m4-4L3 8l4 4"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+          />
+        </svg><span class="word">Previous</span>
+      </button>
+      <span class="count" id="count"></span>
+      <button class="ghost" id="next" title="Next (→)" type="button">
+        <span class="word">Next</span
+        ><svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+          <path
+            d="M3 8h10M9 4l4 4-4 4"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+          />
+        </svg>
+      </button>
+      <span class="spacer"></span>
       <div class="verdict" hidden id="verdict">
         <button id="wrong" type="button">Wrong <kbd>W</kbd></button>
         <button id="right" type="button">Right <kbd>R</kbd></button>
       </div>
-    </header>
-    <main><div class="card" id="card"></div></main>
+      <span class="spacer"></span>
+      <span class="progress" id="progress"></span>
+      <span class="meter"><i id="meter"></i></span>
+      <button class="ghost" hidden id="intro" type="button">Intro</button>
+      <button class="ghost" id="all" title="Every answer (A)" type="button">
+        Answers <kbd>A</kbd>
+      </button>
+      <button
+        class="ghost icon"
+        id="theme"
+        title="Light or dark (T)"
+        type="button"
+      >
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+          <circle
+            cx="10"
+            cy="10"
+            r="7.25"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <path d="M10 2.75a7.25 7.25 0 0 1 0 14.5z" fill="currentColor" />
+        </svg>
+      </button>
+    </footer>
     <div class="lightbox" id="lightbox"></div>
     <script>
     "use strict";
@@ -610,6 +671,13 @@
             }</div>`
         )
         .join("")}</div>`;
+    /** A caption whose first part names the picture (`Figma 05.1/03 · Paused`): that part stands out. */
+    const caption = (text) => {
+      const cut = text.indexOf(" · ");
+      return cut > 0 && cut < 60
+        ? `<b>${esc(text.slice(0, cut))}</b> · ${esc(text.slice(cut + 3))}`
+        : esc(text);
+    };
     /** A card the agent made the call on: the person says only whether it is right. */
     const hasCall = (card) =>
       card?.proposal !== undefined &&
@@ -631,29 +699,44 @@
       return i < 0 ? deck.cards.length : i;
     };
 
-    function header() {
+    function bar() {
       const n = deck.cards.length;
       $("progress").textContent = `${answered()} of ${n} answered`;
-      $("bar").style.width = `${(answered() / n) * 100}%`;
+      $("meter").style.width = `${(answered() / n) * 100}%`;
+      const where = { [-1]: "Intro", [n]: "Answers" };
+      $("count").textContent = where[at] ?? `${at + 1} / ${n}`;
       $("back").disabled = at <= (deck.intro ? -1 : 0);
       $("next").disabled = at >= n;
+      $("intro").hidden = !deck.intro || at === -1;
     }
 
+    /** Shows the card, the intro or the summary: text on the left, the card's pictures beside it. */
     function show(i) {
       at = Math.max(deck.intro ? -1 : 0, Math.min(i, deck.cards.length));
-      header();
-      const called = hasCall(deck.cards[at]);
+      bar();
+      const card = deck.cards[at];
+      const called = hasCall(card);
       $("verdict").hidden = !called;
-      document.body.classList.toggle("calls", called);
-      const el = $("card");
+      const el = $("text");
+      const pictures = $("pictures");
+      pictures.innerHTML = (card?.pictures ?? [])
+        .map(
+          (p) =>
+            `<figure class="shot"><figcaption>${caption(p.caption)}</figcaption><div class="stage">${frame(p)}</div></figure>`
+        )
+        .join("");
+      $("main").classList.toggle("solo", !card?.pictures?.length);
+      for (const scroller of [$("main"), el, pictures]) {
+        scroller.scrollTop = 0;
+      }
       if (at === -1) {
         el.innerHTML = `<h2>${esc(deck.title)}</h2><div class="body">${markdown(deck.intro)}</div>
-            <div><button type="button" class="ghost" id="start">Start (Enter)</button></div>`;
+            <div><button type="button" class="ghost" id="start">Start <kbd>Enter</kbd></button></div>`;
         $("start").onclick = () => show(firstOpen());
         return;
       }
       if (at === deck.cards.length) {
-        el.innerHTML = `<div><div class="eyebrow">${answered()} of ${deck.cards.length} answered · saved as you went</div>
+        el.innerHTML = `<div><div class="kicker">${esc(deck.title)} · ${answered()} of ${deck.cards.length} answered · saved as you went</div>
             <h2>Your answers</h2></div><div class="summary">${deck.cards
               .map((c, j) => {
                 const a = answers[c.id];
@@ -667,22 +750,11 @@
         }
         return;
       }
-      const card = deck.cards[at];
       const given = answers[card.id];
       el.innerHTML = `
-          <div>${card.eyebrow ? `<div class="eyebrow">${esc(card.eyebrow)}</div>` : ""}<h2>${esc(card.title)}</h2></div>
+          <div><div class="kicker">${esc(deck.title)}${card.eyebrow ? ` · ${esc(card.eyebrow)}` : ""}</div><h2>${esc(card.title)}</h2></div>
           ${called ? `<div class="call">${markdown(card.proposal)}</div>` : ""}
           ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
-          ${
-            card.pictures?.length
-              ? `<div class="pictures">${card.pictures
-                  .map(
-                    (p) =>
-                      `<figure>${frame(p)}<figcaption>${esc(p.caption)}</figcaption></figure>`
-                  )
-                  .join("")}</div>`
-              : ""
-          }
           ${
             called
               ? ""
@@ -699,10 +771,10 @@
                   )
                   .join("")}</div>`
           }
-          <div><textarea id="comment" placeholder="${called ? "A comment that goes with Right or Wrong, or your own answer. Paste or drop an image here" : "Your own answer, if none of these fits, or a comment that goes with the option you pick. Paste or drop an image here"}">${esc(given?.comment ?? "")}</textarea>
+          <div><textarea id="comment" placeholder="${called ? "A comment with Right or Wrong, or your own answer. Paste or drop an image here" : "Your own answer, or a comment with the option you pick. Paste or drop an image here"}">${esc(given?.comment ?? "")}</textarea>
           <div class="attached" id="attached"></div>
           <div class="under"><span class="saved" id="saved">${savedLine(card, given)}</span>
-          <span class="nav"><label class="ghost" for="pick">Add image</label>
+          <span class="actions"><label class="ghost" for="pick">Add image</label>
           <input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="pick" multiple type="file" />
           <button type="button" class="ghost" id="own">Send as my answer</button></span></div></div>`;
       images = [...(given?.images ?? [])];
@@ -745,13 +817,12 @@
           String(given?.choice !== undefined && given.choice !== card.recommend)
         );
       }
-      for (const picture of el.querySelectorAll("figure .frame")) {
+      for (const picture of pictures.querySelectorAll(".frame")) {
         picture.onclick = () => {
           $("lightbox").replaceChildren(picture.cloneNode(true));
           $("lightbox").classList.add("open");
         };
       }
-      window.scrollTo(0, 0);
     }
 
     // The images added to the shown card's answer, by their path from the data directory.
@@ -872,7 +943,9 @@
       document.documentElement.dataset.theme === "dark" ||
       (document.documentElement.dataset.theme !== "light" && systemDark());
     const showTheme = () => {
-      $("theme").textContent = isDark() ? "Light" : "Dark";
+      const label = isDark() ? "Light (T)" : "Dark (T)";
+      $("theme").title = label;
+      $("theme").setAttribute("aria-label", label);
     };
     const setTheme = (theme) => {
       document.documentElement.dataset.theme = theme;
@@ -948,6 +1021,7 @@
     $("lightbox").onclick = () => $("lightbox").classList.remove("open");
     $("back").onclick = () => show(at - 1);
     $("next").onclick = () => show(at + 1);
+    $("intro").onclick = () => show(-1);
     $("all").onclick = () => show(deck.cards.length);
     $("right").onclick = () => choose(optionFor(deck.cards[at], true));
     $("wrong").onclick = () => choose(optionFor(deck.cards[at], false));
@@ -957,7 +1031,6 @@
       .then((session) => {
         ({ answers, deck } = session);
         document.title = deck.title;
-        $("title").textContent = deck.title;
         show(deck.intro && answered() === 0 ? -1 : firstOpen());
       });
     </script>
