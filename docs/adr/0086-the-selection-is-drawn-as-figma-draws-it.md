@@ -21,7 +21,8 @@ over what is selected, opening a place to ask; on the left edge, in Ultrapaint's
   only the bar had moves there: a page's views (Page, Views) and its behaviour notes. The
   menu is the right-click's; a parent is reached by Layers or its shortcut.
 - **The selection's chrome** (`selection-chrome`), drawn outside the page's clip at its size on
-  screen whatever the zoom:
+  screen whatever the zoom, through a zoom gesture as at rest (`useExactInv`: the layer's `--inv`
+  follows a gesture only once the zoom has drifted 15%, this box's at every frame):
   - its outline, and a handle on each corner of an element inside a page. Dragging one gives the
     element a fixed width and height at the view's breakpoint, drawn live (the element's **held
     size**, `node-sizing`) and saved in one "Resize" edit when let go. A page's frame and a node

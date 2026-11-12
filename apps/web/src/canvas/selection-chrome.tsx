@@ -26,7 +26,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
-import { screenPx } from "./camera.ts";
+import { screenPx, useExactInv } from "./camera.ts";
 import type { Corner } from "./frame.tsx";
 import { beginNodeResize } from "./frame-gesture.ts";
 
@@ -156,20 +156,28 @@ const Handle = ({
   );
 };
 
-/** The box the chrome hangs on, in the frame's own pixels. */
-const Box = ({ children, rect }: { children: ReactNode; rect: Rect }) => (
-  <div
-    className="pointer-events-none absolute z-30"
-    style={{
-      height: rect.height,
-      left: rect.x,
-      top: rect.y,
-      width: rect.width,
-    }}
-  >
-    {children}
-  </div>
-);
+/**
+ * The box the chrome hangs on, in the frame's own pixels. Its `--inv` is kept exact as the view
+ * zooms, so what it holds keeps its size on screen through a gesture.
+ */
+const Box = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useExactInv(ref);
+  return (
+    <div
+      className="pointer-events-none absolute z-30"
+      ref={ref}
+      style={{
+        height: rect.height,
+        left: rect.x,
+        top: rect.y,
+        width: rect.width,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 /** One element inside the page: its handles, its size and the button. */
 const ElementChrome = ({

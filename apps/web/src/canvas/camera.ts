@@ -49,6 +49,29 @@ export const UNZOOM = "scale(var(--inv))";
 /** A length of the canvas as it is on screen, in what `UNZOOM` scales back to screen size. */
 export const onScreen = (n: number) => `calc(${n}px / var(--inv))`;
 
+/**
+ * Keeps `--inv` exact on one element at every frame of a gesture, where the layer's follows the
+ * zoom only once it has drifted: for the few things that must not grow or shrink as the view
+ * zooms, as Figma's do not (the selection's size and agent's button, ADR 0086). Only that
+ * element's own subtree is styled again each frame.
+ */
+export const useExactInv = (ref: RefObject<HTMLElement | null>) => {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    const write = (zoom: number) =>
+      el.style.setProperty("--inv", String(1 / zoom));
+    write(useEditor.getState().view.zoom);
+    return useEditor.subscribe((s, prev) => {
+      if (s.view.zoom !== prev.view.zoom) {
+        write(s.view.zoom);
+      }
+    });
+  }, [ref]);
+};
+
 /** How long after the view last moved it counts as resting. */
 const SETTLE_MS = 200;
 
