@@ -14,7 +14,11 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 import product from "../../../package.json" with { type: "json" };
-import { ServerConfig, type StorageTarget } from "./config.ts";
+import {
+  interfaceAddresses,
+  ServerConfig,
+  type StorageTarget,
+} from "./config.ts";
 import { EditorsConnected } from "./editors-connected.ts";
 import { mcpCommand } from "./mcp-command.ts";
 import { newCommand } from "./new-command.ts";
@@ -239,9 +243,7 @@ const serve = Command.make(
       machine: {
         // Read on every request: a network joined since the start brings an address.
         addresses: () => [
-          ...Object.values(networkInterfaces()).flatMap((nets) =>
-            (nets ?? []).map((net) => net.address)
-          ),
+          ...interfaceAddresses(networkInterfaces),
           hostname(),
           // The name mDNS gives the machine on the local network.
           `${hostname()}.local`,

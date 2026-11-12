@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentRuntime } from "@ultrapaint/acp/runtime";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 
 /**
  * Where settings and tool state go, decided once at startup.
@@ -56,6 +56,25 @@ const LOOPBACK_ADDRESSES = ["localhost", "127.0.0.1", "::1"];
  * of the machine and its names. Beyond those, the names the user allowed (`--allowed-host`), for
  * a proxy or a name the machine has elsewhere: a name with a leading dot allows its subdomains.
  */
+/**
+ * The addresses of the machine's network interfaces, as `os.networkInterfaces` reads them, or none
+ * where they cannot be read: a service barred from netlink sockets, as mcp-hub's unit is
+ * (`RestrictAddressFamilies`), is answered with an error for asking. Loopback is allowed without
+ * them, and only a server listening on every interface needs them.
+ */
+export const interfaceAddresses = (
+  read: () => Readonly<
+    Record<string, readonly { readonly address: string }[] | undefined>
+  >
+): readonly string[] =>
+  Option.match(Option.liftThrowable(read)(), {
+    onNone: () => [],
+    onSome: (interfaces) =>
+      Object.values(interfaces).flatMap((nets) =>
+        (nets ?? []).map((net) => net.address)
+      ),
+  });
+
 export const isAllowedHost = (
   name: string,
   host: string,

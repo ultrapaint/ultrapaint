@@ -1,7 +1,12 @@
 import { existsSync } from "node:fs";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { hostNameOf, isAllowedHost, ServerConfig } from "./config.ts";
+import {
+  hostNameOf,
+  interfaceAddresses,
+  isAllowedHost,
+  ServerConfig,
+} from "./config.ts";
 
 const allowed = (
   name: string,
@@ -43,6 +48,23 @@ describe("the names the server answers to", () => {
     assert.isTrue(allowed("tailnet.ts.net", "0.0.0.0", [], extra));
     assert.isFalse(allowed("eviltailnet.ts.net", "0.0.0.0", [], extra));
     assert.isFalse(allowed("example.com", "0.0.0.0", [], extra));
+  });
+
+  it("is loopback still where the machine's addresses cannot be read, as under mcp-hub's unit", () => {
+    const unreadable = interfaceAddresses(() => {
+      throw new Error(
+        "uv_interface_addresses returned Unknown system error 97"
+      );
+    });
+    assert.deepStrictEqual(unreadable, []);
+    assert.isTrue(allowed("127.0.0.1", "127.0.0.1", unreadable));
+    assert.deepStrictEqual(
+      interfaceAddresses(() => ({
+        lo: [{ address: "127.0.0.1" }],
+        wlan0: undefined,
+      })),
+      ["127.0.0.1"]
+    );
   });
 
   it("reads the name out of a Host header and refuses anything else", () => {
