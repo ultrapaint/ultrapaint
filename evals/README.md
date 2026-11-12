@@ -622,8 +622,9 @@ key opens a field they write in and send (⌘/Ctrl+Enter), and an option picked 
 words out. On a card with a call, the field is a comment that goes with Right or Wrong instead, or
 the own answer when sent alone (Esc, then R or W, sends it with the verdict). Backspace, or
 Clear answer, takes an answer back, with an Undo until the card is left. Images go with
-the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the bottom
-moves through the deck (← →, A for every answer). The page follows the system's light or dark
+the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the top
+moves through the deck (← →, A for every answer), the share of cards answered drawn as a line on
+its bottom border. The page follows the system's light or dark
 theme; the bar's switch (or T) sets one, kept in that browser.
 
 ```sh
@@ -640,7 +641,7 @@ A deck is `{ title, intro?, cards }`. Each card has:
   adds the person's own answer after them, so no option asks for words ("Change it: say how");
 - `recommend?`: an option's key;
 - `proposal?`: the agent's own call, in markdown. With `recommend` and two options, the page
-  shows it and asks only Right or Wrong (R, W), from a bar that stays in reach.
+  shows it and asks only Right or Wrong, as two options keyed R and W.
 
 The answers land in `decisions/<deck>.answers.json`, each with its label, the card's title and
 any comment, for the agent to read back and act on. An answer in the person's own words has no
