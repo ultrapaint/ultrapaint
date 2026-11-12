@@ -49,3 +49,9 @@ skill. `pnpm evals recall --skills candidates/<fix>` lays a candidate over the s
 its path, and measures it against the shipped one; a design round tries a candidate from a
 worktree through `ULTRAPAINT_CHECKOUT` (`evals/README.md`). A change that lands names the gaps it
 closes, and their status becomes `done`.
+
+A rule holds for any product, never for one page. It describes the device, not where it was seen:
+the skill never names a company, product, site, library or person from the lab's references or
+corpus. Faces, icon packages and tools the agent is told to use (Inter, Lucide, Figma) are named
+because they are instructions, not sources.
+

@@ -84,7 +84,9 @@ Pictures stay outside git, in the evals' data directory (`~/Code/ultrapaint-data
 3. Write a candidate: copies of the skill's files with the proposed change, in
    `candidates/<fix>/` of the data directory, each at its path in the skill (`SKILL.md`, the
    core; `references/kinds/dialog.md`). A file named without `references/` is a reference by its
-   path there (`states.md`).
+   path there (`states.md`). A candidate's lines hold for any product: one reference's layout is
+   evidence, never a recipe, and no line names a company, product, site, library or person from the
+   references or the corpus (the skill's `README.md`).
 4. Run `pnpm evals recall <round> --skills built-in,candidates/<fix>`. The run writes its line
    under **Result.** in each gap it measured, shipped against candidate, and sets an `open` gap
    to `testing`. Its report, with the findings no gap matched, is in `runs/<round>/report.md`.
