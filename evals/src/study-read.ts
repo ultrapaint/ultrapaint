@@ -492,12 +492,13 @@ export const studyRead = Effect.fn("studyRead")(function* (options: {
   const notes = path.join(dir, "notes");
   yield* fs.makeDirectory(notes, { recursive: true });
   const all = yield* pagesOf(options.sources);
+  // App screens first: they are the scarcer part, and a run stopped at a quota keeps them.
   const chosen = [
+    ...all.filter((p) => p.kind === "app-screen"),
     ...spread(
       all.filter((p) => p.kind === "public-page"),
       options.sample
     ),
-    ...all.filter((p) => p.kind === "app-screen"),
   ];
   const pending: Page[] = [];
   for (const page of chosen) {
