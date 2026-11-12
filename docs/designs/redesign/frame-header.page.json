@@ -1,8 +1,8 @@
 {
   "root": {"type": "page", "id": "root", "fill": "$color-background", "padding": {"bottom": 56, "left": 64, "right": 64, "top": 56}, "children": [
-    {"type": "column", "id": "c_fh482", "gap": 8, "padding": {"bottom": 8}, "children": [
-      {"type": "text", "id": "t_fh480", "color": "$color-foreground", "role": "paragraph", "size": 26, "text": "Frame header", "weight": 700},
-      {"type": "text", "id": "t_fh481", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 820, "role": "paragraph", "size": 13, "text": "What is said over a page's frame on the canvas. It names the page and is pressed to select it and dragged to move it; everything else on it is either said elsewhere or covers the design. These keep the name, keep the breakpoint while a page has views, and move notes pinned to the page as a whole off its corner."}
+    {"type": "column", "id": "c_fh728", "gap": 8, "padding": {"bottom": 8}, "children": [
+      {"type": "text", "id": "t_fh726", "color": "$color-foreground", "role": "paragraph", "size": 26, "text": "Frame header", "weight": 700},
+      {"type": "text", "id": "t_fh727", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 820, "role": "paragraph", "size": 13, "text": "What is said over a page's frame on the canvas. It names the page and is pressed to select it and dragged to move it; everything else on it is either said elsewhere or covers the design. These keep the name, keep the breakpoint while a page has views, and move notes pinned to the page as a whole off its corner."}
     ]},
     {"type": "column", "id": "c_fh071", "name": "Variant · Now", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "gap": 18, "padding": {"bottom": 40, "top": 40}, "width": "fill", "children": [
       {"type": "column", "id": "c_fh070", "gap": 6, "children": [
@@ -533,7 +533,7 @@
         ]}
       ]}
     ]},
-    {"type": "column", "id": "c_fh479", "name": "Variant · D · Views named by their breakpoint", "gap": 18, "padding": {"bottom": 40, "top": 40}, "width": "fill", "children": [
+    {"type": "column", "id": "c_fh479", "name": "Variant · D · Views named by their breakpoint", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "gap": 18, "padding": {"bottom": 40, "top": 40}, "width": "fill", "children": [
       {"type": "column", "id": "c_fh478", "gap": 6, "children": [
         {"type": "text", "id": "t_fh476", "color": "$color-foreground", "role": "paragraph", "size": 16, "text": "D · Views named by their breakpoint", "weight": 600},
         {"type": "text", "id": "t_fh477", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 820, "role": "paragraph", "size": 13, "text": "As A, and a view no longer repeats the page's name: the page's frame carries the name, each view beside it only its breakpoint. The breakpoint is the view's name, so it is pressed and dragged as the name is. A page without views shows its name alone, with no 'base'."}
@@ -672,6 +672,310 @@
             ]}
           ]},
           {"type": "text", "id": "t_fh473", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "A page without views"}
+        ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_fh598", "name": "Variant · Now, with views", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "gap": 18, "padding": {"bottom": 40, "top": 40}, "width": "fill", "children": [
+      {"type": "column", "id": "c_fh597", "gap": 6, "children": [
+        {"type": "text", "id": "t_fh595", "color": "$color-foreground", "role": "paragraph", "size": 16, "text": "Now, with views", "weight": 600},
+        {"type": "text", "id": "t_fh596", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 820, "role": "paragraph", "size": 13, "text": "The header as it is: the name, then the breakpoint right after it, on the page's frame and on each view. The pointer over a view adds the button that takes the view away."}
+      ]},
+      {"type": "row", "id": "r_fh594", "name": "Scene", "crossAlign": "start", "fill": "#0f0e0c", "gap": 32, "padding": {"bottom": 28, "left": 32, "right": 32, "top": 40}, "radius": 12, "width": "fill", "children": [
+        {"type": "column", "id": "c_fh507", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh505", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh483", "name": "Header", "crossAlign": "center", "gap": 6, "height": 24, "width": 320, "children": [
+              {"type": "text", "id": "t_fh480", "name": "Name", "color": "#989590", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"},
+              {"type": "row", "id": "r_fh482", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                {"type": "text", "id": "t_fh481", "color": "#989590", "role": "paragraph", "size": 12, "text": "base", "weight": 500}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh504", "name": "Frame", "fill": "#ffffff", "height": 150, "width": 320, "children": [
+              {"type": "row", "id": "r_fh488", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh484", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh487", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh485", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh486", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh503", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh495", "fill": "#fafaf9", "gap": 9, "height": "fill", "padding": {"left": 10, "right": 10, "top": 10}, "width": 96, "children": [
+                  {"type": "row", "id": "r_fh490", "border": {"color": "#e7e5e4", "style": "solid", "width": 1}, "fill": "#ffffff", "padding": 6, "radius": 4, "children": [
+                    {"type": "row", "id": "r_fh489", "fill": "#d6d3d1", "height": 8, "radius": 3, "width": 56, "children": []}
+                  ]},
+                  {"type": "row", "id": "r_fh491", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 48, "children": []},
+                  {"type": "row", "id": "r_fh492", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 56, "children": []},
+                  {"type": "row", "id": "r_fh493", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 40, "children": []},
+                  {"type": "row", "id": "r_fh494", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 52, "children": []}
+                ]},
+                {"type": "column", "id": "c_fh502", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh496", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 107, "children": []},
+                  {"type": "row", "id": "r_fh497", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 166, "children": []},
+                  {"type": "row", "id": "r_fh498", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 137, "children": []},
+                  {"type": "row", "id": "r_fh501", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh499", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh500", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh506", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "The page"}
+        ]},
+        {"type": "column", "id": "c_fh535", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh533", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh511", "name": "Header", "crossAlign": "center", "gap": 6, "height": 24, "width": 230, "children": [
+              {"type": "text", "id": "t_fh508", "name": "Name", "color": "#989590", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"},
+              {"type": "row", "id": "r_fh510", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                {"type": "text", "id": "t_fh509", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh532", "name": "Frame", "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh516", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh512", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh515", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh513", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh514", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh531", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh530", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh524", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh525", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh526", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh529", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh527", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh528", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh534", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "A view"}
+        ]},
+        {"type": "column", "id": "c_fh565", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh563", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh541", "name": "Header", "crossAlign": "center", "gap": 6, "height": 24, "width": 230, "children": [
+              {"type": "text", "id": "t_fh536", "name": "Name", "color": "#f4f3f1", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"},
+              {"type": "row", "id": "r_fh538", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                {"type": "text", "id": "t_fh537", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+              ]},
+              {"type": "row", "id": "r_fh540", "name": "Remove view", "align": "center", "crossAlign": "center", "height": 16, "radius": 3, "width": 16, "children": [
+                {"type": "image", "id": "img_fh539", "name": "x", "height": 12, "src": "assets/icons/x.svg", "tint": "#989590", "width": 12}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh562", "name": "Frame", "border": {"color": "#4f8cff", "style": "solid", "width": 1}, "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh546", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh542", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh545", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh543", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh544", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh561", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh560", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh554", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh555", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh556", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh559", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh557", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh558", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh564", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "The pointer over a view"}
+        ]},
+        {"type": "column", "id": "c_fh593", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh591", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh569", "name": "Header", "crossAlign": "center", "gap": 6, "height": 24, "width": 230, "children": [
+              {"type": "text", "id": "t_fh566", "name": "Name", "color": "#4f8cff", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"},
+              {"type": "row", "id": "r_fh568", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                {"type": "text", "id": "t_fh567", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh590", "name": "Frame", "border": {"color": "#4f8cff", "style": "solid", "width": 2}, "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh574", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh570", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh573", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh571", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh572", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh589", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh588", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh582", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh583", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh584", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh587", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh585", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh586", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh592", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "A view, selected"}
+        ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_fh725", "name": "Variant · The breakpoint at the far right", "gap": 18, "padding": {"bottom": 40, "top": 40}, "width": "fill", "children": [
+      {"type": "column", "id": "c_fh724", "gap": 6, "children": [
+        {"type": "text", "id": "t_fh722", "color": "$color-foreground", "role": "paragraph", "size": 16, "text": "The breakpoint at the far right", "weight": 600},
+        {"type": "text", "id": "t_fh723", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 820, "role": "paragraph", "size": 13, "text": "The name alone at the left; the breakpoint at the frame's right edge, where the eye finds it down a row of views. The button that takes a view away sits just before it."}
+      ]},
+      {"type": "row", "id": "r_fh721", "name": "Scene", "crossAlign": "start", "fill": "#0f0e0c", "gap": 32, "padding": {"bottom": 28, "left": 32, "right": 32, "top": 40}, "radius": 12, "width": "fill", "children": [
+        {"type": "column", "id": "c_fh628", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh626", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh604", "name": "Header", "align": "between", "crossAlign": "center", "height": 24, "width": 320, "children": [
+              {"type": "row", "id": "r_fh602", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "text", "id": "t_fh599", "name": "Name", "color": "#989590", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"}
+              ]},
+              {"type": "row", "id": "r_fh603", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "row", "id": "r_fh601", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                  {"type": "text", "id": "t_fh600", "color": "#989590", "role": "paragraph", "size": 12, "text": "base", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh625", "name": "Frame", "fill": "#ffffff", "height": 150, "width": 320, "children": [
+              {"type": "row", "id": "r_fh609", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh605", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh608", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh606", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh607", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh624", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh616", "fill": "#fafaf9", "gap": 9, "height": "fill", "padding": {"left": 10, "right": 10, "top": 10}, "width": 96, "children": [
+                  {"type": "row", "id": "r_fh611", "border": {"color": "#e7e5e4", "style": "solid", "width": 1}, "fill": "#ffffff", "padding": 6, "radius": 4, "children": [
+                    {"type": "row", "id": "r_fh610", "fill": "#d6d3d1", "height": 8, "radius": 3, "width": 56, "children": []}
+                  ]},
+                  {"type": "row", "id": "r_fh612", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 48, "children": []},
+                  {"type": "row", "id": "r_fh613", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 56, "children": []},
+                  {"type": "row", "id": "r_fh614", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 40, "children": []},
+                  {"type": "row", "id": "r_fh615", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 52, "children": []}
+                ]},
+                {"type": "column", "id": "c_fh623", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh617", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 107, "children": []},
+                  {"type": "row", "id": "r_fh618", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 166, "children": []},
+                  {"type": "row", "id": "r_fh619", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 137, "children": []},
+                  {"type": "row", "id": "r_fh622", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh620", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh621", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh627", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "The page"}
+        ]},
+        {"type": "column", "id": "c_fh658", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh656", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh634", "name": "Header", "align": "between", "crossAlign": "center", "height": 24, "width": 230, "children": [
+              {"type": "row", "id": "r_fh632", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "text", "id": "t_fh629", "name": "Name", "color": "#989590", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"}
+              ]},
+              {"type": "row", "id": "r_fh633", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "row", "id": "r_fh631", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                  {"type": "text", "id": "t_fh630", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh655", "name": "Frame", "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh639", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh635", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh638", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh636", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh637", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh654", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh653", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh647", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh648", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh649", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh652", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh650", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh651", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh657", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "A view"}
+        ]},
+        {"type": "column", "id": "c_fh690", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh688", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh666", "name": "Header", "align": "between", "crossAlign": "center", "height": 24, "width": 230, "children": [
+              {"type": "row", "id": "r_fh664", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "text", "id": "t_fh659", "name": "Name", "color": "#f4f3f1", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"}
+              ]},
+              {"type": "row", "id": "r_fh665", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "row", "id": "r_fh661", "name": "Remove view", "align": "center", "crossAlign": "center", "height": 16, "radius": 3, "width": 16, "children": [
+                  {"type": "image", "id": "img_fh660", "name": "x", "height": 12, "src": "assets/icons/x.svg", "tint": "#989590", "width": 12}
+                ]},
+                {"type": "row", "id": "r_fh663", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                  {"type": "text", "id": "t_fh662", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh687", "name": "Frame", "border": {"color": "#4f8cff", "style": "solid", "width": 1}, "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh671", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh667", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh670", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh668", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh669", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh686", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh685", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh679", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh680", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh681", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh684", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh682", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh683", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh689", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "The pointer over a view"}
+        ]},
+        {"type": "column", "id": "c_fh720", "gap": 14, "children": [
+          {"type": "column", "id": "c_fh718", "gap": 4, "children": [
+            {"type": "row", "id": "r_fh696", "name": "Header", "align": "between", "crossAlign": "center", "height": 24, "width": 230, "children": [
+              {"type": "row", "id": "r_fh694", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "text", "id": "t_fh691", "name": "Name", "color": "#4f8cff", "role": "paragraph", "size": 12, "text": "Percorsi dettaglio"}
+              ]},
+              {"type": "row", "id": "r_fh695", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "row", "id": "r_fh693", "name": "Breakpoint", "crossAlign": "center", "fill": "#24221f", "height": 16, "padding": {"left": 4, "right": 4}, "radius": 3, "children": [
+                  {"type": "text", "id": "t_fh692", "color": "#989590", "role": "paragraph", "size": 12, "text": "lg", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_fh717", "name": "Frame", "border": {"color": "#4f8cff", "style": "solid", "width": 2}, "fill": "#ffffff", "height": 150, "width": 230, "children": [
+              {"type": "row", "id": "r_fh701", "align": "between", "border": {"color": "#e7e5e4", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 28, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "text", "id": "t_fh697", "color": "#1c1917", "role": "paragraph", "size": 11, "text": "arCO₂", "weight": 700},
+                {"type": "row", "id": "r_fh700", "gap": 8, "children": [
+                  {"type": "row", "id": "r_fh698", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []},
+                  {"type": "row", "id": "r_fh699", "fill": "#e7e5e4", "height": 10, "radius": 999, "width": 10, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_fh716", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_fh715", "gap": 10, "padding": 14, "width": "fill", "children": [
+                  {"type": "row", "id": "r_fh709", "fill": "#d6d3d1", "height": 9, "radius": 3, "width": 111, "children": []},
+                  {"type": "row", "id": "r_fh710", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 171, "children": []},
+                  {"type": "row", "id": "r_fh711", "fill": "#e7e5e4", "height": 6, "radius": 3, "width": 141, "children": []},
+                  {"type": "row", "id": "r_fh714", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_fh712", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []},
+                    {"type": "row", "id": "r_fh713", "fill": "#f5f5f4", "height": 40, "radius": 6, "width": "fill", "children": []}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "text", "id": "t_fh719", "color": "#6b6864", "role": "paragraph", "size": 11.5, "text": "A view, selected"}
         ]}
       ]}
     ]}
