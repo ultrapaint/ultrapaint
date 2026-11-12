@@ -88,9 +88,10 @@
     .text {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 20px;
       min-height: 0;
-      padding: 24px 28px 32px;
+      padding: 28px 32px 36px;
+      font-size: 17px;
       overflow-y: auto;
     }
     main.solo .text {
@@ -127,6 +128,9 @@
     .ghost:hover:not(:disabled) {
       border-color: var(--line-strong);
     }
+    .text .ghost {
+      font-size: 15px;
+    }
     label.ghost {
       cursor: pointer;
     }
@@ -145,12 +149,12 @@
     }
     .kicker {
       margin-bottom: 6px;
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
     }
     h2 {
       margin: 0;
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 650;
       line-height: 1.3;
       text-wrap: balance;
@@ -171,7 +175,7 @@
     code {
       padding: 2px 5px;
       font:
-        13px / 1 ui-monospace,
+        0.85em / 1 ui-monospace,
         SFMono-Regular,
         Menlo,
         monospace;
@@ -268,7 +272,7 @@
     }
     .option {
       display: grid;
-      grid-template-columns: 24px 1fr auto;
+      grid-template-columns: 26px 1fr auto;
       gap: 12px;
       align-items: start;
       padding: 12px 14px;
@@ -287,9 +291,9 @@
     .key {
       display: grid;
       place-items: center;
-      width: 24px;
-      height: 24px;
-      font-size: 13px;
+      width: 26px;
+      height: 26px;
+      font-size: 14px;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       background: var(--soft);
@@ -305,12 +309,12 @@
       font-weight: 600;
     }
     .then {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
     }
     .tag {
-      padding-top: 2px;
-      font-size: 12px;
+      padding-top: 3px;
+      font-size: 13px;
       color: var(--accent);
       white-space: nowrap;
     }
@@ -342,7 +346,7 @@
     }
     .saved {
       min-height: 18px;
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
     }
     /* Images added to the answer: thumbnails under the comment, each with its remove. */
@@ -409,7 +413,7 @@
     }
     .row .said {
       grid-column: 1 / -1;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
     }
     /* The bar: moving through the deck on the left, Right and Wrong in the middle when the card
