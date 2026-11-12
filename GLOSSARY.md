@@ -294,6 +294,10 @@ refactor and the board view left.
   (`linkToNode`) and opens on it, and which agents take wherever a node reference is taken
   (shared's `parseEditorLink`). A node reference names a variant's page by its file
   (`vibe@bold.page.json#c_1`): a URL alone names the base page (`pageNamed`).
+- **Outside agent**: an agent not started by the editor (a terminal's, T3 Code's), which reaches
+  a project through **`ultrapaint mcp`**, a stdio command it starts in its working folder: the
+  folder (or a project named by an editor link) says which project, and the command passes the
+  messages to that project's server's `/mcp` with the project's token (ADR 0083).
 - **Tool kind**: whether an MCP tool reads, edits or takes something away, and whether doing it
   twice is doing it once (`doing`), which sets its hints; the editor is a closed world. A tool
   answered with a picture or a form is a **raw tool** (`rawTool`), decoded and failed the same
