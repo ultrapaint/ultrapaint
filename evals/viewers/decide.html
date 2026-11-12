@@ -501,12 +501,14 @@
       font-size: var(--small);
       color: var(--muted);
     }
-    /* The bar: moving through the deck on the left, the progress and the page's switches on the
-       right, and the share of cards answered as a line drawn over its bottom border. */
+    /* The bar: the deck's name on the left, moving through it in the middle, the progress and the
+       page's switches on the right, and the share of cards answered as a line drawn over its
+       bottom border. The two sides share the width left, so the middle stays centred. */
     .bar {
       position: relative;
-      display: flex;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 16px;
       align-items: center;
       padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
       background: var(--card);
@@ -533,8 +535,22 @@
       text-align: center;
       white-space: nowrap;
     }
-    .spacer {
-      flex: 1 1 0;
+    .deck {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: var(--small);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .nav,
+    .side {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .side {
+      justify-content: flex-end;
     }
     .progress {
       margin-right: 8px;
@@ -587,65 +603,67 @@
     }
     @media (max-width: 640px) {
       .bar {
+        grid-template-columns: auto minmax(0, 1fr);
         padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
       }
       .word,
+      .deck,
       #intro,
       kbd,
-      .progress,
-      .spacer {
+      .progress {
         display: none;
-      }
-      .count {
-        flex: 1 1 auto;
       }
     }
     </style>
   </head>
   <body>
     <header class="bar">
-      <button class="ghost" id="back" title="Previous (←)" type="button">
-        <svg
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-        >
-          <path d="m12 19-7-7 7-7" />
-          <path d="M19 12H5" />
-        </svg><span class="word">Previous</span>
-      </button>
-      <span class="count" id="count"></span>
-      <button class="ghost" id="next" title="Next (→)" type="button">
-        <span class="word">Next</span
-        ><svg
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-        >
-          <path d="M5 12h14" />
-          <path d="m12 5 7 7-7 7" />
-        </svg>
-      </button>
-      <span class="spacer"></span>
-      <span class="progress" id="progress"></span>
-      <button class="ghost" hidden id="intro" type="button">Intro</button>
-      <button class="ghost" id="all" title="Every answer (A)" type="button">
-        Answers <kbd>A</kbd>
-      </button>
-      <button
-        class="ghost icon"
-        id="theme"
-        title="Light or dark (T)"
-        type="button"
-      ></button>
+      <h1 class="deck" id="deck">Decisions</h1>
+      <nav aria-label="Cards" class="nav">
+        <button class="ghost" id="back" title="Previous (←)" type="button">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="m12 19-7-7 7-7" />
+            <path d="M19 12H5" />
+          </svg><span class="word">Previous</span>
+        </button>
+        <span class="count" id="count"></span>
+        <button class="ghost" id="next" title="Next (→)" type="button">
+          <span class="word">Next</span
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+      </nav>
+      <div class="side">
+        <span class="progress" id="progress"></span>
+        <button class="ghost" hidden id="intro" type="button">Intro</button>
+        <button class="ghost" id="all" title="Every answer (A)" type="button">
+          Answers <kbd>A</kbd>
+        </button>
+        <button
+          class="ghost icon"
+          id="theme"
+          title="Light or dark (T)"
+          type="button"
+        ></button>
+      </div>
       <div aria-hidden="true" class="track"><i id="track"></i></div>
     </header>
     <main id="main">
@@ -1235,6 +1253,8 @@
       }
       ({ answers, deck } = session);
       document.title = deck.title;
+      $("deck").textContent = deck.title;
+      $("deck").title = deck.title;
       show(deck.intro && answered() === 0 ? -1 : firstOpen());
     });
     </script>
