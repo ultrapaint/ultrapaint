@@ -152,7 +152,8 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   look, so it stays paper in both themes.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
   component instance, {colors.agent} on an agent's work and an agent working (the rail's dot). These
-  stay off the panels' chrome otherwise.
+  stay off the panels' chrome otherwise; the one bar that says a component is edited in place is
+  edged in {colors.component}, the instance's own outline.
 
 ## Typography
 
@@ -264,6 +265,7 @@ exclamation marks.
 - Do use a neutral fill for selection in lists, menus, rails and tabs.
 - Do reuse the inspector's fields in a plain popover rather than drawing a bespoke diagram.
 - Don't put a shadow on anything inside a card.
-- Don't use the canvas's selection, component or agent colours on the chrome.
+- Don't use the canvas's selection, component or agent colours on the chrome; the bar of a
+  component edited in place is the one exception.
 - Don't draw a tree's guide lines across a row's fill.
 - Don't use the browser's `title` for a tooltip: the system Tooltip.

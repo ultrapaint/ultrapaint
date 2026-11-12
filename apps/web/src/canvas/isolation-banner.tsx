@@ -22,7 +22,9 @@ import { Banner } from "./banner.tsx";
 
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, Escape (the `escape` command), or a click anywhere outside it. On its
+ * on, and the way out: Done, Escape (the `escape` command, its key on Done), or a click anywhere
+ * outside it. It sits just over the tools, where the hand already is while editing, the top left
+ * to the place, edged in the component colour the canvas outlines an instance in. On its
  * board (ADR 0045) the board edited says the member, its title a variant's, and the banner only
  * names the component.
  */
@@ -42,6 +44,8 @@ export const IsolationBanner = () => {
     : "";
   return (
     <Banner
+      at="bottom"
+      className="border-component"
       icon={<Component className="text-component" />}
       label={`Editing ${file.name}`}
     >
@@ -88,18 +92,13 @@ export const IsolationBanner = () => {
           <TooltipContent>Edits land on</TooltipContent>
         </Tooltip>
       ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button className="shrink-0" onClick={leaveIsolation} size="sm">
-              Done
-            </Button>
-          }
+      <Button className="shrink-0 pr-1" onClick={leaveIsolation} size="sm">
+        Done
+        <CommandKeys
+          className="h-4 bg-primary-foreground/15 text-primary-foreground/80 ring-0"
+          id="escape"
         />
-        <TooltipContent>
-          Stop editing <CommandKeys id="escape" />
-        </TooltipContent>
-      </Tooltip>
+      </Button>
     </Banner>
   );
 };

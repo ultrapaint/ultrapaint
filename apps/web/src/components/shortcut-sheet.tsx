@@ -16,9 +16,15 @@ export const openShortcutSheet = () =>
   useShortcutSheet.setState({ open: true });
 
 /** A command's keys, as this platform writes them, for a tooltip or a menu; nothing for none. */
-export const CommandKeys = ({ id }: { id: string }) => {
+export const CommandKeys = ({
+  className,
+  id,
+}: {
+  className?: string;
+  id: string;
+}) => {
   const keys = keysOf(id);
-  return keys ? <Kbd>{keys}</Kbd> : null;
+  return keys ? <Kbd className={className}>{keys}</Kbd> : null;
 };
 
 /** The sheet `?` opens: what every key does, as this platform writes it. */

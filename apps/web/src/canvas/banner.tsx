@@ -4,17 +4,20 @@ import { cn } from "@/lib/cn";
 /**
  * A compact note floating over the canvas, as the place switch and the tools do: what the canvas
  * is showing at the top, just under the place switch, with its way out at its right end; what
- * the editor is waiting on at the bottom, just over the tools. One line, never wider than the
- * canvas; what it names is cut short first.
+ * the editor is waiting on, or a mode the tools work in, at the bottom, just over the tools. One
+ * line, never wider than the canvas; what it names is cut short first.
  */
 export const Banner = ({
   at = "top",
   children,
+  className,
   icon,
   label,
 }: {
   at?: "bottom" | "top";
   children: ReactNode;
+  /** The card's own look besides the floating one's: a mode's edge in its colour. */
+  className?: string;
   /** Before the text, in its colour when it is a status. */
   icon: ReactNode;
   /** What a screen reader says of it. */
@@ -28,7 +31,10 @@ export const Banner = ({
   >
     <div
       aria-label={label}
-      className="floating pointer-events-auto flex h-9 min-w-0 max-w-full items-center gap-2 pr-1.5 pl-3 [&>svg]:size-4 [&>svg]:shrink-0"
+      className={cn(
+        "floating pointer-events-auto flex h-9 min-w-0 max-w-full items-center gap-2 pr-1.5 pl-3 [&>svg]:size-4 [&>svg]:shrink-0",
+        className
+      )}
       role="status"
     >
       {icon}
