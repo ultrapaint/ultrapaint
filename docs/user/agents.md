@@ -54,7 +54,8 @@ codex mcp add ultrapaint -- ultrapaint mcp
 Every tool asks the agent for the folder it works in (`cwd`), and that folder says which project:
 the nearest `ultrapaint.config.json` from there upwards. So a hub that shares one `ultrapaint mcp`
 among all your agents, such as mcp-hub, works too: give it `ultrapaint mcp` as a local server,
-with the command's whole path. When the project is open in Ultrapaint,
+with the command's whole path, and have it skip the agents Ultrapaint starts itself, which have
+the tools already (`"skipWhenEnv": "ULTRAPAINT_AGENT"` in mcp-hub). When the project is open in Ultrapaint,
 the agent works on that editor's server, and what it changes shows there as it changes. When it
 is not, the command starts the project's server without a window; opening the project then
 attaches to it, and it stops once the agent and every editor on it are gone. A link the editor

@@ -57,6 +57,13 @@ const LISTING_ONLY = "the editor is only listing models";
 /** What a review model is refused, whatever it asks: it changes nothing (ADR 0063). */
 const ONLY_LOOKS = "a review model only looks and changes nothing";
 
+/**
+ * Set for every agent the editor starts (ADR 0083). It reaches the editor's tools directly, so a
+ * hub it shares with agents outside the editor leaves out its copy of them for it (mcp-hub's
+ * `skipWhenEnv`): the same tools twice, one of them without the thread's presence.
+ */
+export const EDITOR_AGENT_ENV = "ULTRAPAINT_AGENT";
+
 /** The editor's side of an agent without a thread: everything refused, its updates heard if asked. */
 export const hostless = (options: AgentLaunchOptions): AcpHandlers =>
   options.listen
@@ -107,7 +114,7 @@ export class AgentLauncher extends Context.Service<
           return yield* spawnAcpAgent(confined.launch, {
             clientVersion: version,
             cwd: root,
-            env: machine.env,
+            env: { ...machine.env, [EDITOR_AGENT_ENV]: "1" },
             handlers,
           }).pipe(
             Effect.provideService(

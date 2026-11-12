@@ -102,6 +102,9 @@ token is no longer shown.
   PATH with Node on it.
 - Every outside agent passes its folder on every call, a cost in tokens the editor's own agents
   do not pay.
+- The editor's own agents may load the same hub, and would find the editor's tools there a
+  second time, without their thread's presence. Every agent the editor starts has
+  `ULTRAPAINT_AGENT` set, and the hub's entry skips them on it (`"skipWhenEnv"`).
 - An agent outside the editor has no thread: its edits show on the canvas, its presence does not
   (`focus` needs a thread). A presence for outside agents is left for later.
 - The plan is `docs/plans/done/PLAN-outside-agents.md`.
