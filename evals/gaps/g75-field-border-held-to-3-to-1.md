@@ -33,3 +33,4 @@ borders as failing contrast; the candidate leaves them and still flags a bare te
 at 1.4:1 with no fill and no label.
 
 **Result.**
+- 12 November: g71 merged here: on `alignui-waitlist` both outside runs darkened the resting field border to 3.2–3.4:1, and the person found it too dark (`decisions/public-pages-ship`). Tested on fresh briefs with fields, and on `settings` as **Test.** says.

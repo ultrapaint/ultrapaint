@@ -87,8 +87,14 @@ Pictures stay outside git, in the evals' data directory (`~/Code/ultrapaint-data
    path there (`states.md`). A candidate's lines hold for any product: one reference's layout is
    evidence, never a recipe, and no line names a company, product, site, library or person from the
    references or the corpus (the skill's `README.md`).
-4. Run `pnpm evals recall <round> --skills built-in,candidates/<fix>`. The run writes its line
-   under **Result.** in each gap it measured, shipped against candidate, and sets an `open` gap
-   to `testing`. Its report, with the findings no gap matched, is in `runs/<round>/report.md`.
+4. Measure it where it can recur (ADR 0082):
+   - A gap a review should catch, with `sections`: run `pnpm evals recall <round> --skills
+     built-in,candidates/<fix>`. The run writes its line under **Result.** in each gap it
+     measured, shipped against candidate, and sets an `open` gap to `testing`. Its report, with
+     the findings no gap matched, is in `runs/<round>/report.md`.
+   - A gap in what the skill makes, on a page or a screen: a fresh-brief round, the candidate
+     against the shipped skill on briefs the gap did not come from. It counts whether the fault
+     recurs, never whether a design resembles the one corrected. The tells (g53–g60) are counted
+     on every such round.
 5. Once the person accepts a change into the skill, the change names the gaps it closes, and
    they become `done`.

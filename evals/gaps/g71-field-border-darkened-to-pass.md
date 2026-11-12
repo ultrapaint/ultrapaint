@@ -2,7 +2,7 @@
 id: g71
 title: A field's border darkened to pass 3:1
 kind: missing
-status: testing
+status: wontfix
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [SKILL.md, references/system/foundations.md, references/accessibility.md]
@@ -21,3 +21,4 @@ sections: []
 
 - `pp-in`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). alignui-waitlist: shipped 3/3 ("3:1 field-border rule darkens resting outlines"), candidate 1/3. No held-out page has a resting field. The person's look at these fields is still to do: on 11 November they asked that it be checked against how semantic tokens and palettes are handled (`decisions/skill-plan-nov11`, field-border).
 - The person, 11 November (`public-pages-ship`): the resting border must not be `3:1`; the candidate's border is too dark. Rework toward a lighter step of the system's neutrals.
+- 12 November: merged into g75, the same fault on the editor's own fields. g75's proposal is the person's rule (a quiet line about 1.3–1.6:1, 3:1 only when the border is the field's only sign); the evidence above is its case on a public page.

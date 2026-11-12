@@ -2,7 +2,7 @@
 id: g62
 title: The recommended plan marked weakly, or many times
 kind: missing
-status: testing
+status: wontfix
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [references/pages/landing.md]
@@ -21,3 +21,4 @@ sections: []
 
 - `pp-in`, `held-pp`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). untitled-pricing: shipped 3/3 ("marked weakly or many times"); candidate 3/3 in a new form, "Recommended plan dissolved into a pale tinted column". Pairwise, the candidate won all 3 pricing runs, hierarchy 3–0, and the reasons name the band through the Growth column. held-attio-pricing: shipped 2/2 ("marked many ways, with mixed check styles", and the filled button on Free); candidate 2/2 "tint runs through empty space": in run 1 the column ran past its card, through the gap and the "Compare plans" heading, into the table, while in run 2 the judge read it as the plan. Shipped won both held-out pricing pairs, on the fold (the candidate put a landing hero before the plans), not on the mark. Reading: the one column wins where the table sits directly under the cards, so bound it to that layout and give its tint a floor that reads.
 - Set aside 12 November (`lab-direction-nov12`): a recipe from one reference page. The person asked why the tint runs below the cards and why the plan's details repeat in the table.
+- 12 November: set aside under ADR 0082. It is one reference's recipe, and the skill is no longer measured against the page a rule came from; a fault of this kind that recurs on fresh briefs opens a gap of its own.
