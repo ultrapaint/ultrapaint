@@ -12,8 +12,9 @@ Each slice ships on its own, tested, and leaves the product working.
    (`--port 0 --ready-json --stop-with-stdin`) and holds it. A server an editor is connected to
    outlives its stdin and stops when the last editor leaves; the app attaches to it as it
    attaches to any running server.
-3. **Install Command Line Tool.** The desktop app's menu links `ultrapaint` into the PATH, on
-   macOS and Linux; the Settings row says to use it when the command is not found.
+3. (Done, 2026-11-12.) **Install the command.** The desktop app writes an `ultrapaint` launcher
+   of its own server into the PATH, on macOS and Linux, from the Settings row, which offers it
+   when the command is not found (the app has no menu of its own).
 4. **Links name the project.** The copied link carries the project's folder; the command routes a
    call given a link to that project's server; tools take the whole link. Folders the app keeps a
    session for are found through its project list.

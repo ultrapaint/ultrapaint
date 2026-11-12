@@ -298,6 +298,19 @@ const state = <Value extends Schema.Constraint>(
 ): State<Value> => ({ kind: "state", remote: options.remote ?? true, value });
 
 /**
+ * The `ultrapaint` command an agent outside the editor starts (`ultrapaint mcp`, ADR 0083): where
+ * it is found on the PATH, and whether it is the one this app installed (a checkout links its
+ * own).
+ */
+export const InstalledCommand = Schema.Struct({
+  /** Whether the folder it is in is on the PATH agents get; a new terminal is then needed. */
+  onPath: Schema.Boolean,
+  ours: Schema.Boolean,
+  path: Schema.String,
+});
+export type InstalledCommand = typeof InstalledCommand.Type;
+
+/**
  * Every capability, by its name, which is its path in `Platform`. A group (`agents`, `projects`,
  * `newDesign`) is shown or hidden whole (`shell-bridge.test.ts`): a part the editor finds is all
  * there.
@@ -324,6 +337,13 @@ export const SHELL_BRIDGE = {
   ),
   /** Signs in through the shell (`chatgpt`): the browser opens, and this ends once it is done. */
   "agents.signIn": invoke([BuiltInAgentId], Schema.Void, LOCAL),
+  /**
+   * Writes the `ultrapaint` command into a folder on the PATH, a launcher of this app's own
+   * server (ADR 0083), asking for the administrator's password where that folder needs it.
+   */
+  "command.install": invoke([], InstalledCommand, LOCAL),
+  /** The `ultrapaint` command on the PATH, this app's or another; null when there is none. */
+  "command.installed": invoke([], Schema.NullOr(InstalledCommand), LOCAL),
   /**
    * Restarts the app into the update it downloaded (`update`), once agents at work are stopped
    * with the person's agreement; nothing when they would rather let them finish.

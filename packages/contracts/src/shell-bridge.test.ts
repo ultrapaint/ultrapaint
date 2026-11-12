@@ -17,7 +17,7 @@ describe("the shell bridge's table", () => {
     }
   });
 
-  it("hides only this machine's agents and notices from a project on another machine", () => {
+  it("hides only this machine's agents, command and notices from a project on another machine", () => {
     expect(names.filter((name) => !SHELL_BRIDGE[name].remote)).toEqual([
       "agents.choosePath",
       "agents.clearPath",
@@ -26,6 +26,8 @@ describe("the shell bridge's table", () => {
       "agents.preferences",
       "agents.setApiKey",
       "agents.signIn",
+      "command.install",
+      "command.installed",
       "notices",
     ]);
   });

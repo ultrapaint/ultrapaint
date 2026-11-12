@@ -35,6 +35,7 @@ import {
   serveBridge,
   stateMessage,
 } from "./bridge-server.ts";
+import { CommandLine, commandApp } from "./command-line.ts";
 import { bridgeHandlers, remoteOpen } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesigns } from "./new-design.ts";
@@ -311,6 +312,24 @@ const runtime = ManagedRuntime.make(
     Layer.provideMerge(RemoteProjects.layer),
     Layer.provideMerge(
       RemoteServers.layer({ configFile: sshConfig, ssh: "ssh" })
+    ),
+    Layer.provideMerge(
+      CommandLine.layer({
+        app: commandApp({
+          appDir,
+          // An AppImage says where it is and where it mounted itself.
+          appImage:
+            process.env.APPIMAGE && process.env.APPDIR
+              ? Option.some({
+                  dir: process.env.APPDIR,
+                  file: process.env.APPIMAGE,
+                })
+              : Option.none(),
+          executable: process.execPath,
+        }),
+        home: app.getPath("home"),
+        platform: process.platform,
+      })
     ),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),

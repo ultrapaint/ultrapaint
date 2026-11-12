@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents, makeRuntime } from "./agents.ts";
+import { CommandLine } from "./command-line.ts";
 import {
   bridgeHandlers,
   type HandlerServices,
@@ -82,7 +83,17 @@ const withHandlers = <A, E>(
           ]),
         })
       ),
-      OpenProject.layer(dir)
+      OpenProject.layer(dir),
+      CommandLine.layer({
+        app: {
+          _tag: "Bundle",
+          executable: "/app/ultrapaint",
+          serverBin: "/app/server/bin.mjs",
+          webDist: "/app/web",
+        },
+        home: dir,
+        platform: "linux",
+      })
     ).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
       Layer.provideMerge(AgentSettings.layer(dir)),

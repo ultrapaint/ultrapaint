@@ -12,6 +12,7 @@ import type { ShellPlatform } from "@ultrapaint/contracts/shell-bridge";
  * types here and the desktop app's preload and main process their channels and Schemas.
  */
 export type {
+  InstalledCommand,
   NewDesignStepId,
   PlatformAgent,
   PlatformProject,

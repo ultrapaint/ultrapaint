@@ -57,7 +57,8 @@ the agent works on that editor's server, and what it changes shows there as it c
 is not, the command starts the project's server without a window; opening the project then
 attaches to it, and it stops once the agent and every editor on it are gone. In a folder with no
 project the agent sees no Ultrapaint tools, and is told why. The `ultrapaint` command has to be
-on the agent's `PATH` ([Install and start](install.md)).
+on the agent's `PATH`: in the desktop app, the same Settings row offers **Install the command**
+when this computer has none; from a checkout, `pnpm install:cli` ([Install and start](install.md)).
 
 ## Chats
 

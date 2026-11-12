@@ -56,9 +56,14 @@ take a page or a node take the whole link, as they take `/vibe#c_1` today.
 the project: a read-only tool returns it as node references, which every tool takes. It is the
 one tool this adds, paid for within the budget test.
 
-**The app puts the command on the PATH.** The desktop app's menu has **Install Command Line
-Tool**, which links `ultrapaint` into a directory on the PATH (as VS Code's `code`); a checkout has
-`pnpm install:cli`.
+**The app puts the command on the PATH.** The desktop app has no menu of its own, so the offer
+is where the lines are: Settings › Agents › Connect over MCP says when this computer has no
+`ultrapaint`, with **Install the command**. It writes a launcher of the app's own server bundle,
+run with Electron's binary as Node (in an AppImage, the AppImage itself, which finds the bundle
+under `$APPDIR`), into the first folder on the PATH the user can write (`~/.local/bin`,
+Homebrew's `bin`, `/usr/local/bin`); on a Mac with none, `/usr/local/bin` with the
+administrator's password; on Linux, `~/.local/bin`, saying when it is not on the PATH. A checkout
+has `pnpm install:cli`.
 
 **Settings show the one-time line.** Settings › Agents › Connect over MCP shows the `claude mcp
 add` line and Codex's, the same for every project, each with Copy. The URL with a port and a

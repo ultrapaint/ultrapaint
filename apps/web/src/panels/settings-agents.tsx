@@ -21,6 +21,7 @@ import { Check, Copy } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -32,14 +33,19 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { type AgentSetup, type PlatformAgent, platform } from "../platform.ts";
+import {
+  type AgentSetup,
+  type InstalledCommand,
+  type PlatformAgent,
+  platform,
+} from "../platform.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
-import { Group, Row, rowField } from "./settings-group.tsx";
+import { Group, Row, RowMessage, rowField } from "./settings-group.tsx";
 
 const skillsBriefings = [
   { label: "Core", value: "router" },
@@ -119,6 +125,63 @@ const CopyLine = ({ command, label }: { command: string; label: string }) => {
   );
 };
 
+/**
+ * Whether the `ultrapaint` command the lines start is on this computer, where the shell can tell
+ * (the desktop app), with the way to install it when it is not (ADR 0083).
+ */
+const CommandStatus = () => {
+  const { command } = platform();
+  const [installed, setInstalled] = useState<InstalledCommand | null>();
+  const [installing, setInstalling] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => {
+    command?.installed().then(setInstalled).catch(reportError);
+  }, [command]);
+  if (!command || installed === undefined) {
+    return null;
+  }
+  if (installed && !installed.onPath) {
+    return (
+      <RowMessage kind="notice">
+        <p>
+          Installed in <code className="font-code">{installed.path}</code>, a
+          folder not on your PATH yet: add it, then start the agent again.
+        </p>
+      </RowMessage>
+    );
+  }
+  if (installed) {
+    return null;
+  }
+  const install = () => {
+    setInstalling(true);
+    setProblem(null);
+    command
+      .install()
+      .then(setInstalled, (error: unknown) =>
+        setProblem(error instanceof Error ? error.message : String(error))
+      )
+      .finally(() => setInstalling(false));
+  };
+  return (
+    <RowMessage kind={problem ? "error" : "notice"}>
+      <p>
+        {problem ??
+          "The lines start the ultrapaint command, which this computer doesn’t have yet."}
+      </p>
+      <Button
+        disabled={installing}
+        onClick={install}
+        size="sm"
+        variant="outline"
+      >
+        {installing ? <Spinner /> : null}
+        Install the command
+      </Button>
+    </RowMessage>
+  );
+};
+
 /** The lines that connect an agent outside the editor, unless the server offers no MCP. */
 export const McpConnectionGroup = () => {
   const [connection, setConnection] = useState<McpConnection | null>(null);
@@ -143,6 +206,7 @@ export const McpConnectionGroup = () => {
             <CopyLine command={command} key={agent} label={agent} />
           ))}
         </div>
+        <CommandStatus />
       </Row>
     </Group>
   );

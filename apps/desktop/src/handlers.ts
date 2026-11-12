@@ -19,6 +19,7 @@ import { Effect, FileSystem, Option, Path, Schema } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
 import type { BridgeHandlers } from "./bridge-server.ts";
+import { CommandLine } from "./command-line.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
@@ -43,6 +44,7 @@ interface HandlerOptions {
 export type HandlerServices =
   | AgentSettings
   | Agents
+  | CommandLine
   | FileSystem.FileSystem
   | NewDesigns
   | Notices
@@ -137,6 +139,8 @@ export const bridgeHandlers = (
     ),
   // The agent keeps its sign-in itself: nothing to start again.
   "agents.signIn": (id) => Agents.use((a) => a.signIn(id)),
+  "command.install": () => CommandLine.use((c) => c.install),
+  "command.installed": () => CommandLine.use((c) => c.installed),
   installUpdate: () => options.installUpdate ?? Effect.void,
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),
