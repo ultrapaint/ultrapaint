@@ -1,8 +1,8 @@
 /**
- * A node's fields that the inspector and the element toolbar both edit, each declared once: how
+ * A node's fields that the inspector edits, each declared once: how
  * the nodes selected read as one value (`MIXED` when they differ), what a value written sets on a
- * node (`null` takes a field off), what its undo step is called and which tokens it offers. Both
- * surfaces draw a field from here; neither reads nor writes it by hand. The nodes are read as
+ * node (`null` takes a field off), what its undo step is called and which tokens it offers. The
+ * inspector draws a field from here and never reads or writes it by hand. The nodes are read as
  * their view draws them, and a write lands at the view's breakpoint (`node-actions`, ADR 0036).
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -60,7 +60,7 @@ export const TEXT_STYLE: NodeField<string, TextStyle> = {
   write: attachTextStyle,
 };
 
-/** The fields picked from tokens, by the name the element toolbar's controls give them. */
+/** The fields picked from tokens, by the name their controls give them. */
 export const TOKEN_FIELDS = {
   color: tokenValue("color", "colour", "color", (node) =>
     node.type === "text" ? node.color : undefined

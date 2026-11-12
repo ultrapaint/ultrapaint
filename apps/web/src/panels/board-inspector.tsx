@@ -6,7 +6,7 @@
  * project without a design system sees its Set up. On the Library: a system component's look at
  * the cell picked (`look-inspector.tsx`), an app component's properties, variants and slots
  * (`app-inspector.tsx`), and on the Overview the way to a component's board. Its title has the
- * chat button the element toolbar has on a page: what is picked goes to the chat (B11).
+ * agent's button: what is picked goes to the chat (B11).
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
@@ -24,7 +24,7 @@ import { OVERVIEW } from "../boards/library-boards.ts";
 import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
 import { useItemName } from "../canvas/board-canvas.tsx";
-import { BoardChatButton } from "../canvas/element-toolbar-chat.tsx";
+import { BoardChatButton } from "../canvas/board-chat-button.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { HideRightPanel } from "../components/title-bar.tsx";

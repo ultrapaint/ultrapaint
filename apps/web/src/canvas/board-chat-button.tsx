@@ -1,8 +1,7 @@
 /**
- * The agent's button: it adds what is selected to the open chat, takes it out again, opens the
- * chat it is in, or with ⌘ starts a new one. On the canvas it sits on the selection's tag (ADR
- * 0058). A board has no tag of its own: its inspector's title has the button for what is picked
- * there (ADR 0045, B11).
+ * A board's agent button, on its inspector's title: it adds what is picked on the board to the
+ * open chat, takes it out again, or with ⌘ starts a new one (ADR 0045, B11). On the canvas the
+ * selection has its own (`ask-agent`, ADR 0086).
  */
 import type { BoardAttachment } from "@ultrapaint/contracts/threads";
 import {
@@ -23,38 +22,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
-import {
-  addChipsToChat,
-  addToChat,
-  removeFromChat,
-} from "../lib/add-to-chat.ts";
-import { chatLinkOf, isAttached } from "../lib/chat-link.ts";
+import { addChipsToChat } from "../lib/add-to-chat.ts";
 import { useAgents } from "../state/agents.ts";
-import {
-  chipKey,
-  fileOfFrame,
-  removeChip,
-  useAttachments,
-} from "../state/attachments.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
-import { showLeftPanel } from "../state/panels.ts";
-
-/** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
-export const useChatLink = () => {
-  const selection = useEditor((s) => s.selection);
-  const threads = useAgents((s) => s.threads);
-  const current = useAgents((s) => s.current);
-  const byThread = useAttachments((s) => s.byThread);
-  return selection
-    ? chatLinkOf(
-        threads,
-        byThread,
-        current,
-        selection,
-        fileOfFrame(selection.frame)
-      )
-    : null;
-};
+import { chipKey, removeChip, useAttachments } from "../state/attachments.ts";
 
 /** ⌘ on a Mac, Ctrl elsewhere: the key that sends an element to a new chat. */
 const withMod = (e: { ctrlKey: boolean; metaKey: boolean }) =>
@@ -127,13 +97,6 @@ const AGENT_BUTTON =
   "relative flex h-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
- * On the selection's tag: a tab of the tag's height on the element's edge, solid whatever it does,
- * since it sits over the design; its icon says what a click does.
- */
-const TAG_BUTTON =
-  "relative flex size-5 shrink-0 items-center justify-center rounded-t-sm bg-agent text-agent-foreground outline-none transition-colors duration-100 hover:bg-agent/85 focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3";
-
-/**
  * Solid to add, to the open thread or a new one; outlined when attached to the open thread, which a
  * click undoes; tinted when a thread was started on it, which a click opens.
  */
@@ -159,106 +122,6 @@ const ChatIcon = ({
     return <MessageSquareText className="size-3.5" />;
   }
   return <Sparkles className="size-3.5" />;
-};
-
-/**
- * Add to chat, in the agents' colour, on the selection's tag. Once attached to the open thread, a click takes the element
- * back out; once a thread was started on it, a click opens that thread. With ⌘ held it goes to a
- * new thread, whatever it is in already.
- */
-export const ChatButton = ({ selection }: { selection: Selection }) => {
-  const link = useChatLink();
-  const { handlers, hovered, newChat } = useNewChatHover();
-  const action = chatAction(newChat, link?.attached ?? false, link !== null);
-  const onClick = (e: ReactMouseEvent) => {
-    if (withMod(e)) {
-      addToChat(selection, { newThread: true });
-    } else if (link?.attached) {
-      removeFromChat(selection);
-    } else if (link) {
-      showLeftPanel({ chat: link.thread.id });
-    } else {
-      addToChat(selection);
-    }
-  };
-  const title = link?.thread.title ?? "";
-  const label = {
-    add: "Add to chat",
-    new: "Add to a new chat",
-    open: `Open “${title}”`,
-    remove: `Remove from “${title}”`,
-  }[action];
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            aria-label={label}
-            className={TAG_BUTTON}
-            onClick={onClick}
-            type="button"
-            {...handlers}
-          />
-        }
-      >
-        <ChatIcon action={action} hovered={hovered} />
-        {action === "new" ? <NewChatBadge /> : null}
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-};
-
-/**
- * On the tag of several selected elements, which says how many: all of them to the chat, or back out of it once every one is attached to the
- * open thread; with ⌘ held, all of them to a new thread.
- */
-export const GroupChatButton = ({
-  targets,
-}: {
-  targets: readonly Selection[];
-}) => {
-  const current = useAgents((s) => s.current);
-  const allAttached = useAttachments((s) =>
-    targets.every((t) => isAttached(s.byThread, current, t))
-  );
-  const { handlers, hovered, newChat } = useNewChatHover();
-  const action = chatAction(newChat, allAttached, false);
-  const onClick = (e: ReactMouseEvent) => {
-    if (withMod(e)) {
-      addToChat(targets, { newThread: true });
-    } else if (allAttached) {
-      removeFromChat(targets);
-    } else {
-      addToChat(targets);
-    }
-  };
-  const count = targets.length;
-  const label = {
-    add: `Add ${count} to chat`,
-    new: `Add ${count} to a new chat`,
-    open: `Add ${count} to chat`,
-    remove: `Remove ${count} from chat`,
-  }[action];
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            aria-label={label}
-            className={TAG_BUTTON}
-            onClick={onClick}
-            type="button"
-            {...handlers}
-          />
-        }
-      >
-        <ChatIcon action={action} hovered={hovered} />
-        {action === "new" ? <NewChatBadge /> : null}
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
 };
 
 /**

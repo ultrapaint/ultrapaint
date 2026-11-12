@@ -17,7 +17,6 @@ import { placedFramesDrawn } from "./canvas/editor-frame.ts";
 import { IsolationBanner } from "./canvas/isolation-banner.tsx";
 import { thePreview } from "./canvas/preview-module.ts";
 import { Prototype } from "./canvas/prototype.tsx";
-import { SelectionDockSlot } from "./canvas/selection-dock.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
 import { provideCanvasDefaults } from "./canvas/specimens.ts";
 import { CanvasStatus } from "./canvas/status.tsx";
@@ -641,7 +640,6 @@ export const App = () => {
                 with the selection, and the tools stay where they are. */}
             {workspace === "prototype" ? null : (
               <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-2">
-                <SelectionDockSlot />
                 <Toolbar />
               </div>
             )}

@@ -10,6 +10,8 @@ const SRC = new URL(".", import.meta.url).pathname;
  * the editor notices. What the editor would have an agent do it drafts instead (`startTask`).
  */
 const PROMPTED_BY_THE_PERSON: Record<string, string> = {
+  "canvas/ask-agent.tsx":
+    "the prompt they typed in the selection's Ask an agent popover and sent",
   "lib/first-prompt.ts":
     "the prompt they typed on the start screen, or sent once they chose its look",
   "lib/start-thread.ts": "Make from code, a button they pressed (`runTask`)",

@@ -13,6 +13,7 @@ import {
   resolveAtBreakpoint,
 } from "@ultrapaint/design-document/breakpoints";
 import { breakpointsFor } from "../state/design-system.ts";
+import { type HeldSize, withHeldSize } from "../state/node-sizing.ts";
 import type { RenderRequest } from "./editor-frame.ts";
 
 interface PageDrawing {
@@ -23,6 +24,8 @@ interface PageDrawing {
   readonly designSystem: DesignSystem | null;
   /** A node on the canvas held where the pointer put it: drawn at its size while it has one. */
   readonly held?: Partial<Box> | undefined;
+  /** An element of the page held at the size its corner is dragged to (ADR 0086). */
+  readonly heldSize?: HeldSize | undefined;
   /** An app component's instance edited in place in the frame (ADR 0041). */
   readonly isolate?: RenderRequest["isolate"];
   /** A page fills its frame; a node on the canvas is drawn as large as it is (`fit`). */
@@ -82,7 +85,12 @@ export const pageRequest = (page: PageDrawing): RenderRequest => {
     designSystem,
     ...(page.isolate && { isolate: page.isolate }),
     mode: page.mode,
-    root: sized && resolveAtBreakpoint(sized, breakpoints, breakpoint ?? null),
+    root:
+      sized &&
+      withHeldSize(
+        resolveAtBreakpoint(sized, breakpoints, breakpoint ?? null),
+        page.heldSize
+      ),
     ...(message !== undefined && { message }),
   };
 };

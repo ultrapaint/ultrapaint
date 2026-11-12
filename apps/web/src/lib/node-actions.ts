@@ -651,7 +651,7 @@ export const updateNodes = (
   applyToEach(targets, (node) => [{ id: node.id, op: "update", set }], label);
 
 /**
- * Sets a field of the table both the inspector and the element toolbar edit (`node-fields`) on
+ * Sets a field of the table the inspector edits (`node-fields`) on
  * these nodes, the selection's when none are given, under the field's own undo label.
  */
 export const setField = <Write>(

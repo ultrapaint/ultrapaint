@@ -4,8 +4,8 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import {
+  behaviourNotesOf,
   openComment,
-  pageNotesOf,
   postDraft,
   startComment,
   useComments,
@@ -103,7 +103,7 @@ describe("a comment started on a view of a page", () => {
   });
 });
 
-describe("the notes on a page as a whole", () => {
+describe("the behaviour notes of what is selected", () => {
   const note = (id: string, change: Partial<Comment>): Comment => ({
     ...posted({
       element: null,
@@ -117,22 +117,34 @@ describe("the notes on a page as a whole", () => {
     kind: "behaviour",
     ...change,
   });
+  const comments = [
+    note("page", {}),
+    note("on-root", { nodeId: "root", x: 40, y: 12 }),
+    note("title", { nodeId: "title" }),
+    note("talk", { kind: "comment" }),
+    note("done", { resolved: true }),
+    note("elsewhere", { page: "about.page.json" }),
+  ];
+  const ids = (notes: readonly Comment[]) => notes.map((c) => c.id);
 
-  it("are the page's open comments that were never placed on it", () => {
-    const comments = [
-      note("tool", {}),
-      note("placed", { x: 40, y: 12 }),
-      note("done", { resolved: true }),
-      note("elsewhere", { page: "about.page.json" }),
-    ];
-    expect(pageNotesOf(comments, HOME).map((c) => c.id)).toEqual(["tool"]);
+  it("of the page are its open notes on no element or on its root", () => {
+    expect(ids(behaviourNotesOf(comments, HOME, { rootId: "root" }))).toEqual([
+      "page",
+      "on-root",
+    ]);
+  });
+
+  it("of an element are its open notes, placed or not", () => {
+    expect(ids(behaviourNotesOf(comments, HOME, { nodeId: "title" }))).toEqual([
+      "title",
+    ]);
   });
 
   it("open their card with the comments shown", () => {
     useComments.setState({ visible: false });
-    openComment("tool");
+    openComment("page");
     expect(useComments.getState()).toMatchObject({
-      open: "tool",
+      open: "page",
       visible: true,
     });
   });

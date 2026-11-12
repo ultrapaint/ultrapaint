@@ -1,5 +1,5 @@
 /**
- * The selection as the canvas, the inspector, the element toolbar and the layers read it. A
+ * The selection as the canvas, the inspector and the layers read it. A
  * selection is of nodes of a page, and every view of the page shows it (ADR 0036): one rule says
  * whether a node is selected wherever it is drawn. It was made in one view, which it remembers
  * (`selection.frame`): that view's breakpoint is the one its fields are shown and edited at, and
@@ -339,8 +339,7 @@ const drawnAt = (
 
 /**
  * The nodes named, as their frame draws them: a selection's, all of one frame, and the same list
- * while the nodes stay the same. The element toolbar shows their values, which are those of its
- * view.
+ * while the nodes stay the same. The inspector shows their values, which are those of its view.
  */
 export const useDrawnNodes = (
   targets: readonly Selection[]

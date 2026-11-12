@@ -1,5 +1,6 @@
 /**
- * Frame gestures: moving and sizing a page's frame, and sizing a node on the canvas, from the
+ * Frame gestures: moving and sizing a page's frame, sizing a node on the canvas or an element
+ * inside a page (`beginNodeResize`), from the
  * press on the frame's name or corner to the release. The gesture follows the pointer on the
  * window, snaps to the grid or the frames around it, and is saved once when it is let go: a page's
  * frame rounded to the pixel (`setFrame`), a node in one "Resize" edit. A cancelled pointer or
@@ -15,6 +16,7 @@ import { snapsToGrid } from "../state/canvas-grid.ts";
 import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
+import { holdSize, holdSizeUntil } from "../state/node-sizing.ts";
 import {
   doneDrawingFrame,
   drawingFrame,
@@ -324,6 +326,48 @@ const followNodeResize = (
       const { height, width, x, y } = resized;
       holdUntil(frame, resized, () =>
         updateNodes([{ frame, nodeId }], { height, width, x, y }, "Resize")
+      );
+    },
+  });
+};
+
+/**
+ * Sizes an element inside a page by a corner of its selection (ADR 0086), which gives it a fixed
+ * width and height at the view's breakpoint: drawn at the size the pointer gives it while it
+ * moves, saved in one "Resize" edit when let go. Put back, it keeps its size.
+ */
+export const beginNodeResize = (
+  e: Press,
+  frame: string,
+  nodeId: string,
+  corner: Corner,
+  rect: Box
+) => {
+  const s = useEditor.getState();
+  if (e.button !== 0 || s.spacePan || s.mode === "pan") {
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  (e.currentTarget as Element | null)
+    ?.closest?.("[data-canvas]")
+    ?.setPointerCapture(e.pointerId);
+  let to: Box | null = null;
+  follow({
+    cancel: () => holdSize(frame, null),
+    move: (ev) => {
+      const { dx, dy } = movedBy(e, ev);
+      to = roundBox(resizeFrom(rect, corner, dx, dy, 1, ev.shiftKey));
+      holdSize(frame, { height: to.height, nodeId, width: to.width });
+    },
+    up: () => {
+      const resized = to;
+      if (!resized) {
+        return;
+      }
+      const { height, width } = resized;
+      holdSizeUntil(frame, { height, nodeId, width }, () =>
+        updateNodes([{ frame, nodeId }], { height, width }, "Resize")
       );
     },
   });

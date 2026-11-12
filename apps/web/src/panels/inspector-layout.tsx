@@ -481,7 +481,7 @@ const SidesRows = ({
 };
 
 /**
- * Padding and margin, the inspector's and the element toolbar's: a field for each axis, or for
+ * Padding and margin: a field for each axis, or for
  * each side once the section's toggle asks for it, as it does on its own when an axis's two sides
  * differ.
  */

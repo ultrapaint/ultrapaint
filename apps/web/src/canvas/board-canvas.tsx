@@ -341,8 +341,8 @@ BoardFrame.displayName = "BoardFrame";
 /**
  * An app component's tree edited in place on a board: the pointer as a page's frame has it (a
  * hover, a click, a drag, a marquee, a menu, text typed where it is) over the frame's preview, and
- * the outlines of what is hovered and selected. The element toolbar is a page's: the inspector on
- * the right edits what is selected here.
+ * the outlines of what is hovered and selected. The inspector on the right edits what is selected
+ * here.
  */
 const BoardTree = ({
   box,

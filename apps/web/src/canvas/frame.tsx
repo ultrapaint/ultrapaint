@@ -34,6 +34,7 @@ import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
+import { useHeldSizes } from "../state/node-sizing.ts";
 import { removeView } from "../state/page-layout.ts";
 import {
   select,
@@ -50,6 +51,7 @@ import { pickedFramesMoved } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
+import { SelectionChrome } from "./selection-chrome.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 /**
@@ -153,6 +155,7 @@ export const Frame = memo(
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
     const held = useEditor((s) => s.held[frameId]);
+    const heldSize = useHeldSizes((s) => s.byFrame[frameId]);
     const holdsCard = useComments(
       (s) =>
         s.draft?.pageId === ownFrameOf(frameId) ||
@@ -187,6 +190,7 @@ export const Frame = memo(
         defaults,
         designSystem,
         held,
+        heldSize,
         isolate,
         mode: isNode ? "fit" : "page",
         problem,
@@ -296,7 +300,9 @@ export const Frame = memo(
           <Highlights frameId={frameId} />
         </div>
 
-        {page ? <FrameComments page={page} /> : null}
+        {page ? <FrameComments frameId={frameId} page={page} /> : null}
+
+        <SelectionChrome frame={frame} frameId={frameId} isNode={isNode} />
 
         <ResizeHandles
           frameId={frameId}

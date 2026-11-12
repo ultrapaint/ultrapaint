@@ -108,6 +108,7 @@ import {
   SpacingSection,
   type WriteSides,
 } from "./inspector-layout.tsx";
+import { BehaviourSection, ViewsRow } from "./inspector-page.tsx";
 import { SlotsSection } from "./inspector-slots.tsx";
 import { TextSection } from "./inspector-text.tsx";
 
@@ -138,6 +139,7 @@ export const Inspector = () => {
         {node.type === "page" && nodes.length === 1 && (
           <PageSection frame={frame} />
         )}
+        {nodes.length === 1 && <BehaviourSection frame={frame} node={node} />}
         {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
         {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
         {allOf(nodes, "text") && <TextSection nodes={nodes} />}
@@ -432,6 +434,7 @@ const PageSection = ({ frame }: { frame: string }) => {
             value={presetOf(layout)}
           />
         </Row>
+        <ViewsRow pageId={frame} />
       </Section>
       <CodeLink page={page} />
     </>

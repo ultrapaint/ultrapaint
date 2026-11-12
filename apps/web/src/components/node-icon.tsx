@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 /**
- * The icon of a node's type, as the layers and the selection's tag show it: one glyph per kind,
+ * The icon of a node's type, as the layers show it: one glyph per kind,
  * drawn so a row reads as its layout. A row lays its children side by side, a column one under
  * the other, a group stacks them freely.
  */

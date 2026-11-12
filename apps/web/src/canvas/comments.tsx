@@ -166,9 +166,12 @@ const stop = (e: ReactPointerEvent) => e.stopPropagation();
  * pixels and scaled back by `inv` so they keep their size at any zoom.
  */
 export const FrameComments = ({
+  frameId,
   inv,
   page,
 }: {
+  /** The frame drawn in, whose elements' places a note without a spot is drawn at. */
+  frameId?: string;
   /** The prototype's own scale; on the canvas, the canvas's zoom (`--inv`). */
   inv?: number;
   page: Page;
@@ -179,6 +182,9 @@ export const FrameComments = ({
     s.draft?.pageId === page.id ? s.draft : null
   );
   const all = useComments((s) => s.comments);
+  const rects = useEditor((s) =>
+    frameId === undefined ? undefined : s.rects[frameId]
+  );
   if (!visible) {
     return null;
   }
@@ -190,18 +196,25 @@ export const FrameComments = ({
   );
   return (
     <>
-      {shown.map((comment) => (
-        <Anchor
-          inv={inv}
-          key={comment.id}
-          raised={comment.id === open}
-          x={comment.x}
-          y={comment.y}
-        >
-          <Pin comment={comment} open={comment.id === open} />
-          {comment.id === open ? <Card comment={comment} /> : null}
-        </Anchor>
-      ))}
+      {shown.map((comment) => {
+        // A note without a spot, open, is drawn at its element when it has one, else the corner.
+        const at =
+          !hasSpot(comment) && comment.nodeId !== null
+            ? rects?.[comment.nodeId]
+            : undefined;
+        return (
+          <Anchor
+            inv={inv}
+            key={comment.id}
+            raised={comment.id === open}
+            x={at?.x ?? comment.x}
+            y={at?.y ?? comment.y}
+          >
+            <Pin comment={comment} open={comment.id === open} />
+            {comment.id === open ? <Card comment={comment} /> : null}
+          </Anchor>
+        );
+      })}
       {draft ? (
         <Anchor inv={inv} raised x={draft.x} y={draft.y}>
           <span className={cn(PIN, "size-8 bg-primary")} />

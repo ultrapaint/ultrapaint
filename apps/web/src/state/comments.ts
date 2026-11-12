@@ -93,18 +93,30 @@ export const pageOfComment = (comment: Comment): Page | undefined =>
 
 /**
  * Whether a comment has a spot on its page. One written through a tool (an agent's behaviour
- * note, ADR 0030) was never placed and sits at the page's corner, 0 0: it is the page's own, not
- * pinned on the canvas but said in the page's toolbar and listed in the Comments panel (ADR 0085).
+ * note, ADR 0030) was never placed and sits at the page's corner, 0 0: it is not pinned on the
+ * canvas but listed in the inspector of what it is on and in the Comments panel (ADR 0085, 0086).
  */
 export const hasSpot = (comment: Pick<Comment, "x" | "y">) =>
   comment.x !== 0 || comment.y !== 0;
 
-/** A page's open comments without a spot on it, oldest first, as the file keeps them. */
-export const pageNotesOf = (
+/**
+ * The open behaviour notes on one thing of a page, oldest first: on the page as a whole
+ * (`nodeId` null, or the page's root `rootId`), or on one element.
+ */
+export const behaviourNotesOf = (
   comments: readonly Comment[],
-  pagePath: string
+  pagePath: string,
+  on: { nodeId: string } | { rootId: string }
 ): Comment[] =>
-  comments.filter((c) => c.page === pagePath && !c.resolved && !hasSpot(c));
+  comments.filter(
+    (c) =>
+      c.page === pagePath &&
+      c.kind === "behaviour" &&
+      !c.resolved &&
+      ("nodeId" in on
+        ? c.nodeId === on.nodeId
+        : c.nodeId === null || c.nodeId === on.rootId)
+  );
 
 const currentCanvas = () => useComments.getState().canvas ?? "";
 
@@ -193,7 +205,7 @@ const showComments = () => {
   }
 };
 
-/** Opens a comment's card where it is, without moving the canvas: a page's note from its toolbar. */
+/** Opens a comment's card where it is, without moving the canvas: a note from the inspector. */
 export const openComment = (id: string) => {
   showComments();
   useComments.getState().setOpen(id);

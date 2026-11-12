@@ -190,8 +190,8 @@ refactor and the board view left.
   (`pageTargetNamed`), a miss worded the same (`pageMissed`). The link to the code keys it by its **canonical target**, a
   page's id or `component:<Name>`. A design's **behaviour notes** (ADR 0030) are read and added
   through it whichever way they are kept: a page's are comments pinned on it, resolved when done
-  (written through a tool, with no **spot**, `hasSpot`, they are said in the page's toolbar, not
-  pinned on the canvas: ADR 0085);
+  (written through a tool, with no **spot**, `hasSpot`, they are not pinned on the canvas: ADR
+  0085), and listed in the inspector's Behaviour section of what they are on (ADR 0086);
   a component's are in its file, deleted when done.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`), decided per session: the server offers its tools and the
@@ -429,19 +429,20 @@ refactor and the board view left.
   rule and changed by one module (the web's `selection`: `select`, `selectMany`,
   `toggleSelected`, `selectPage`, `selectForMenu`): a Shift-click in another view adds to it. It is in the view it was
   made in, whose breakpoint its fields are shown and edited at; a node of it Shift-clicked or
-  right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
-  and Layers read the selected nodes as that view draws them, and what several share as one value
+  right-clicked in another view takes it there. The inspector, the outlines and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
-- **Element toolbar**: the selection's design-system controls and its menu, in a bar docked over
-  the tools at the bottom centre while something is selected (the web's `ElementToolbar`,
-  `GroupToolbar` and `PageToolbar`, drawn through `selection-dock`), the same at every zoom (ADR
-  0058). On the canvas the selection keeps only its **tag**: its name, which walks to its parents
-  and children, and the agent's ✦ button, never wider than the element.
-- **Field**: one of a node's fields that the inspector and the element toolbar both edit (align,
+- **Selection chrome**: what the selection carries on the canvas, as Figma draws it (the web's
+  `selection-chrome`, ADR 0086): a handle on each corner of an element inside a page, which
+  sizes it (`beginNodeResize`, drawn at its **held size** until the document has it); its size
+  under it ("52 Hug × 15 Hug", `sizeLabel`); and the agent's ✦ button on its top-left edge
+  while the pointer is over it, which opens **Ask an agent** (`ask-agent`): a prompt sent in a
+  new chat with the selection attached. Only a page is named on the canvas, by its frame's
+  header; its fields are the inspector's alone.
+- **Field**: one of a node's fields that the inspector edits (align,
   text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's
   align is `start`), what setting a value writes (`null` takes it off), its undo label and the
-  kind of token it offers. Both surfaces draw it; an edit lands at the view's breakpoint, where
+  kind of token it offers. An edit lands at the view's breakpoint, where
   unset is the value a node is drawn with.
 - **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
   of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
@@ -480,7 +481,7 @@ refactor and the board view left.
 - **Board view**: the main area in Design System mode, a Foundations or Components item open
   (ADR 0045, 0053): the
   canvas's pan and zoom over that item's boards only, on a tinted dotted background of its own
-  and with a camera of its own, no element toolbar, the URL saying the item
+  and with a camera of its own, no selection chrome, the URL saying the item
   (`?view=system&item=color`, `?view=library&item=Button`). Leaving it goes back to the page and
   its camera as they were. Its boards are laid out in its own state (`showBoards`,
   `setBoardSize`), and it is started explicitly (`startBoardView`): nothing subscribes at
