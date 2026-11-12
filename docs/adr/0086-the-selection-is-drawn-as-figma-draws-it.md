@@ -31,8 +31,8 @@ over what is selected, opening a place to ask; on the left edge, in Ultrapaint's
     ("52 Hug × 15 Hug"); a page's frame its width and height. Several selected: the box around
     them.
   - the agent's ✦ against its left edge at its top, shown only while the pointer is over what is
-    selected (and a moment after it leaves, so it can be reached), an icon in the agents' colour
-    that fills only under the pointer.
+    selected (and a moment after it leaves, so it can be reached), an icon in the selection's blue
+    that fills only under the pointer (the canvas's pink stays for an agent's work).
 - **Nothing names an element on the canvas.** A page is named by its frame's header (0085); an
   element by Layers and the inspector.
 - **Ask an agent.** The ✦ opens a popover to the left of the selection: the composer's field,

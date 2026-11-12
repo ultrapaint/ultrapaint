@@ -233,8 +233,8 @@ export const AskAgent = ({
                 <button
                   aria-label="Ask an agent"
                   className={cn(
-                    "flex size-6 items-center justify-center rounded-md text-agent outline-none transition-colors duration-100 hover:bg-agent hover:text-agent-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                    open && "bg-agent text-agent-foreground"
+                    "flex size-6 items-center justify-center rounded-md text-selection outline-none transition-colors duration-100 hover:bg-selection hover:text-white focus-visible:ring-2 focus-visible:ring-ring",
+                    open && "bg-selection text-white"
                   )}
                   // A press here is not a press on the canvas or the frame under it.
                   onPointerDown={(e) => e.stopPropagation()}
