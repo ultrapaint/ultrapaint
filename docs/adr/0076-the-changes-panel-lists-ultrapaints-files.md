@@ -2,6 +2,9 @@
 
 Status: accepted, 2026-11-11. Amends 0031 (the Changes panel reads git's status).
 
+> Amended by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md), 2026-11-12: the
+> files are listed in the panel's git tab, there only in a repository, beside its History.
+
 ## Context
 
 The Changes panel listed every file git calls changed, in two groups: the designs, and "Other

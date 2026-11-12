@@ -47,6 +47,7 @@ import type { EditService } from "./services/edit.ts";
 import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
+import type { History } from "./services/history.ts";
 import type { ImplementationService } from "./services/implementation.ts";
 import type { PagePngs } from "./services/page-pngs.ts";
 import type { PagesService } from "./services/pages.ts";
@@ -56,6 +57,7 @@ import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import type { SkillsService } from "./services/skills.ts";
+import type { SnapshotStore } from "./services/snapshot-store.ts";
 import { Storage } from "./services/storage.ts";
 import type { ProjectStyleSystem } from "./services/style-system.ts";
 import type { Thumbnails } from "./services/thumbnails.ts";
@@ -75,6 +77,7 @@ export type ProjectServices =
   | FigmaBaseline
   | FigmaImportService
   | GitService
+  | History
   | ImplementationService
   | PagePngs
   | ProjectStyleSystem
@@ -94,6 +97,7 @@ export type ProjectRequirements =
   | ProfileService
   | Screenshots
   | ServerConfig
+  | SnapshotStore
   | Storage;
 
 /** The services of the project the settings describe, as `composition.ts` builds them. */
@@ -338,12 +342,6 @@ export class ProjectManager extends Context.Service<
                   Effect.onError(() => Scope.close(scope, Exit.void))
                 );
                 current = { scope, services, settings };
-                // A repository made is what the project's info reads.
-                const git = Context.get(services, GitService);
-                yield* git.changes.pipe(
-                  Stream.runForEach(() => publishInfo),
-                  Effect.forkIn(scope, { startImmediately: true })
-                );
               })
             )
             .pipe(

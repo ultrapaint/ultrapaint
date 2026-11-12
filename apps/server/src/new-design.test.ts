@@ -178,10 +178,9 @@ describe("a new design", () => {
   );
 
   it.effect(
-    "commits itself when the git integration is on, and turns the setting on",
+    "makes a repository with a first commit when asked to",
     () =>
       Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
         const folder = yield* tempDir;
         const { result, steps } = yield* create({ folder, git: true });
         assert.isTrue(result._tag === "Success");
@@ -199,10 +198,6 @@ describe("a new design", () => {
           cwd: folder,
         });
         assert.strictEqual(status.stdout, "");
-        const config = yield* decodeConfig(
-          yield* fs.readFileString(path.join(folder, "ultrapaint.config.json"))
-        );
-        assert.strictEqual(config.git, "on");
       }).pipe(Effect.scoped, Effect.provide(Live)),
     30_000
   );

@@ -33,7 +33,7 @@ The agent's own slash commands are listed after these.
 | **Agents**, on the rail | Your chats, and a new one; **Set up** and the folder's name while its settings are not saved |
 | **Components**, on the rail | Your components, as a list or a grid: click to insert, drag onto the canvas, ↗ for its board, + for a new app component |
 | **Comments**, on the rail | The comments left on the canvas's pages |
-| **Changes**, on the rail | The files changed, the snapshots and the agents' checkpoints to compare with or go back to, and a commit when **Write to git** is on |
+| **Changes**, on the rail | **History**: your edits, each agent's turn and the versions you saved, each to see before and after and to restore; **Save version** names the designs as they are. In a git repository, a second tab by its branch lists the files git sees changed and commits the ones you tick |
 | Design system → **Foundations** | The foundations and the guidelines; click a token, a group or a text style to edit it in the inspector |
 | Foundations → ⟳ **Sync with the code** | Bring the design system and the code together, whatever you start from |
 | Foundations → the wand, **Run /init with an agent** | `/init` in a new chat's composer |
@@ -44,7 +44,7 @@ The agent's own slash commands are listed after these.
 | The composer → the **Review** chip | This design's review level ([Agents](agents.md#designs-are-reviewed)) |
 | The ⚠ beside the project's name | Save the settings to `ultrapaint.config.json` |
 | A dot on **Design system** and on **Foundations** | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
-| **Settings** › **Repository** | Where the repository, the designs and your code are; **Write a PNG of every page**; **Write to git**, off unless you want the Changes panel to commit |
+| **Settings** › **Repository** | Where the repository, the designs and your code are; **Write a PNG of every page** |
 | **Settings** › **Design system** | The design system and `DESIGN.md`, with an agent to set them up or update them; the stylesheets Sync reads and writes |
 | **Settings** › **Preferences** | The editor's **Theme**, your **Display name** (for comments when git has none), the **Send key**, and **Keep findings** |
 | **Settings** › **Agents** | In the desktop app, **On this computer**; **New chats** (the agent, model, effort and permissions a chat starts with), **Review**, **Design skills**, and **Connect over MCP** for an agent outside the editor |
@@ -65,7 +65,6 @@ The agent's own slash commands are listed after these.
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `codeTokens` | `auto` to write a token changed in the design to the code at once; `manual` (the default) leaves it waiting in Sync for an export |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
-| `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `review` | How designs are reviewed: `on`, `reviewModels` (each an `agentId`, a `model` and an optional `effort`, in the order they take turns), `eachRound` (`one`, `rotate` or `all`), `approval` (`all` or `one`) and a `goal`. Absent, Standard with the strongest model of each agent signed in |
 | `skills.disabled` | Design skills agents are not told: `ultrapaint` for the design skill, a project file's name for its own |
 | `skills.briefing` | How a design thread is told the design skill: `router` (the default) tells its core whole and has the agent read its references when the core sends it there; `full` tells the core and every reference whole; `summaries` tells each skill by its title and summary, read whole when needed |

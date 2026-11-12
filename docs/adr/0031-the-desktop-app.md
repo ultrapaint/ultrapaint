@@ -5,6 +5,10 @@ here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010
 work is planned in [PLAN-desktop](../plans/done/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
+> Writing to git amended by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md),
+> 2026-11-12: there is no setting; in a repository the Changes panel commits what the person
+> ticks when they press Commit, and nothing makes a folder a repository but `ultrapaint new --git`.
+
 > Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26: the editor imports the
 > preview through its own server (`/preview/`), so over SSH the app forwards the server's port
 > alone. `Platform.mapPreviewUrl`, the preload's synchronous IPC and the forward made again when

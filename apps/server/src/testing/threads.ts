@@ -34,6 +34,8 @@ import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
 import { OpenProject, type ProjectServices } from "../project.ts";
 import { DesignFiles } from "../services/design-files.ts";
+import { EditService } from "../services/edit.ts";
+import { History } from "../services/history.ts";
 import { RepoPaths } from "../services/repo-paths.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "../services/threads/briefing.ts";
@@ -80,7 +82,10 @@ const projectOf = (repo: string, settings: Partial<Settings>) =>
     Effect.gen(function* () {
       const managerScope = yield* Effect.scope;
       const services = yield* Layer.build(
-        Layer.mergeAll(WorkingTree.layer, DesignFiles.layerTest).pipe(
+        Layer.mergeAll(WorkingTree.layer, History.layer).pipe(
+          // The history, which a turn tells as it begins and ends (ADR 0087), on its journal.
+          Layer.provideMerge(EditService.layer),
+          Layer.provideMerge(DesignFiles.layerTest),
           Layer.provideMerge(
             RepoPaths.layer({
               ...defaultSettings(repo),

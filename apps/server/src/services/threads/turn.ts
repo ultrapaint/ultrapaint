@@ -119,6 +119,8 @@ export interface Turn {
 export const makeTurn = (
   threadId: string,
   deps: {
+    /** Told once the turn is over, when it had reached the agent, whichever way it ended. */
+    readonly ended: Effect.Effect<void>;
     readonly log: AppLog["Service"];
     readonly newItemId: Effect.Effect<string>;
     readonly project: OpenProject["Service"];
@@ -126,15 +128,22 @@ export const makeTurn = (
     readonly transition: (event: TurnStatusEvent) => Effect.Effect<void>;
   }
 ): Turn => {
-  const { log, newItemId, project, store, transition } = deps;
+  const { ended, log, newItemId, project, store, transition } = deps;
   let state: TurnState = { _tag: "None" };
 
-  /** Over: a cancel that sees no turn leaves the status alone. Set before the status moves. */
-  const over = Effect.sync(() => {
-    const was = state;
-    state = { _tag: "None" };
-    return was;
-  });
+  /**
+   * Over: a cancel that sees no turn leaves the status alone. Set before the status moves; a
+   * turn that reached the agent is told ended.
+   */
+  const over: Effect.Effect<TurnState> = Effect.flatMap(
+    Effect.sync((): TurnState => {
+      const was = state;
+      state = { _tag: "None" };
+      return was;
+    }),
+    (was): Effect.Effect<TurnState> =>
+      was._tag === "AtAgent" ? Effect.as(ended, was) : Effect.succeed(was)
+  );
 
   /** Over, with nothing to say of its files. */
   const overSilently = Effect.flatMap(over, (was) =>

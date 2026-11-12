@@ -4,6 +4,7 @@
  * settings are where one is chosen. A missing design system asks nothing: the default look draws.
  */
 import { toast } from "sonner";
+import { pointTitle } from "../lib/history-words.ts";
 import { onNotConfigured, useProject } from "./project.ts";
 import { setupNeedOf } from "./setup-need.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
@@ -16,9 +17,9 @@ const chooseFolder = () =>
  * in its way was shown instead.
  */
 export const ensureEditable = (): boolean => {
-  const snapshot = viewedSnapshot();
-  if (snapshot) {
-    toast.info(`The snapshot ${snapshot.snapshot.name} is open`, {
+  const viewed = viewedSnapshot();
+  if (viewed) {
+    toast.info(`“${pointTitle(viewed.point)}” is open`, {
       description:
         "It is there to look at. Go back to now to change the designs, or restore it.",
     });

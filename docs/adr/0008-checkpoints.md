@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-09-17.
 
+> Replaced by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md), 2026-11-12: an
+> agent's turn is a point of the designs' history, taken when it ends, the person's edits closed
+> into a point of their own before it; nothing is let go of. The checkpoints kept were brought in.
+
 > Amended 2026-11-10: checkpoints in the old format are no longer imported. That format was
 > replaced before the first release (v0.1.0, 2026-11-08), and no state on the machines the tool
 > ran on still held it.

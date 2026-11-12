@@ -1,7 +1,6 @@
 import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
 import {
-  changedSince,
   commitBlocked,
   commitLabel,
   diffLines,
@@ -10,8 +9,8 @@ import {
   sharedFolder,
   statusWord,
   tickedAfterCommit,
-  whenTaken,
 } from "./changes.tsx";
+import { dayOf } from "./changes-history.tsx";
 
 vi.mock(
   "../state/connection.ts",
@@ -96,45 +95,16 @@ describe("Commit's button", () => {
   });
 });
 
-describe("when a point of the history was taken", () => {
+describe("the day a point of the history is listed under", () => {
   const now = new Date(2026, 10, 11, 18, 0);
   const at = (...date: [number, number, number, number, number]) =>
     new Date(...date).getTime();
-  const time = (t: number) =>
-    new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(t);
 
-  it("is the time alone today", () => {
-    const today = at(2026, 10, 11, 9, 5);
-    expect(whenTaken(today, now)).toBe(time(today));
-  });
-
-  it("tells apart the turns of an earlier day by their time", () => {
-    const morning = at(2026, 10, 3, 9, 5);
-    const afternoon = at(2026, 10, 3, 14, 20);
-    expect(whenTaken(morning, now)).toContain(time(morning));
-    expect(whenTaken(morning, now)).not.toBe(whenTaken(afternoon, now));
-    expect(whenTaken(morning, now)).not.toContain("2026");
-  });
-
-  it("says the year of a point taken in another", () => {
-    expect(whenTaken(at(2025, 10, 2, 9, 5), now)).toContain("2025");
-  });
-});
-
-describe("what a diff since a point says above its files", () => {
-  it("counts the design files changed since the snapshot or checkpoint, or says none did", () => {
-    expect(changedSince(3, "snapshot")).toBe(
-      "3 design files changed since this snapshot."
-    );
-    expect(changedSince(1, "checkpoint")).toBe(
-      "1 design file changed since this checkpoint."
-    );
-    expect(changedSince(0, "snapshot")).toBe(
-      "No design file has changed since this snapshot."
-    );
+  it("is Today, Yesterday, the date, and the year when not this one", () => {
+    expect(dayOf(at(2026, 10, 11, 9, 5), now)).toBe("Today");
+    expect(dayOf(at(2026, 10, 10, 9, 5), now)).toBe("Yesterday");
+    expect(dayOf(at(2026, 10, 3, 9, 5), now)).not.toContain("2026");
+    expect(dayOf(at(2025, 10, 2, 9, 5), now)).toContain("2025");
   });
 });
 

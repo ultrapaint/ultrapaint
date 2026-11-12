@@ -79,7 +79,14 @@ import {
   SetupSuggestions,
 } from "./setup.ts";
 import { SkillList } from "./skills.ts";
-import { Checkpoint, FileDiff, Snapshot, SnapshotView } from "./snapshots.ts";
+import {
+  FileDiff,
+  History,
+  HistoryPoint,
+  PageChange,
+  PendingEdits,
+  PointView,
+} from "./snapshots.ts";
 import {
   SyncPlan,
   TokenComparison,
@@ -138,7 +145,7 @@ const GitWriteError = Schema.Union([
   CommandFailed,
   BadRequest,
 ]);
-const CheckpointError = Schema.Union([NotConfigured, NotFound, ForbiddenPath]);
+const HistoryError = Schema.Union([NotConfigured, NotFound, ForbiddenPath]);
 /** A step out of order, or a snapshot that cannot be taken or put back, is a BadRequest. */
 const SetupError = Schema.Union([
   NotConfigured,
@@ -694,60 +701,41 @@ const requestRpcs = [
     payload: GitCommitInput,
     success: GitCommitResult,
   }),
-  /** Makes the project's folder a git repository, when writing to git is on and it is none. */
-  Rpc.make("git.init", { error: GitWriteError }),
-  Rpc.make("checkpoints.list", { success: Schema.Array(Checkpoint) }),
-  Rpc.make("checkpoints.diff", {
-    error: CheckpointError,
-    payload: { id: Schema.String },
-    success: Schema.Array(FileDiff),
+  /** The open project's history: its points, newest first, and the edits not in one yet. */
+  Rpc.make("history.get", { error: NotConfigured, success: History }),
+  /**
+   * A point named, which makes it a version: the one given, or the designs as they are now (the
+   * edits not in a point yet closed into one first).
+   */
+  Rpc.make("history.save", {
+    error: HistoryError,
+    payload: { id: Schema.optional(Schema.String), name: Schema.String },
+    success: HistoryPoint,
   }),
-  /** The design files put back as the checkpoint kept them: one undo step. */
-  Rpc.make("checkpoints.revert", {
+  /** A point's name changed; null takes it out of the versions. */
+  Rpc.make("history.rename", {
+    error: HistoryError,
+    payload: { id: Schema.String, name: Schema.NullOr(Schema.String) },
+  }),
+  /**
+   * The designs put back as the point kept them: the edits not in a point yet closed into one
+   * first, then one undo step, then a point that says so.
+   */
+  Rpc.make("history.restore", {
     error: EditError,
     payload: { id: Schema.String },
   }),
-
-  /** Named points in the history of the designs, newest first. */
-  Rpc.make("snapshots.list", {
-    error: NotConfigured,
-    success: Schema.Array(Snapshot),
-  }),
-  /** The designs as they are now, or as an agent turn's checkpoint kept them, under a name. */
-  Rpc.make("snapshots.create", {
-    error: CheckpointError,
-    payload: {
-      /** Name that checkpoint instead of the designs as they are now. */
-      checkpoint: Schema.optional(Schema.String),
-      name: Schema.String,
-    },
-    success: Snapshot,
-  }),
-  /** Out of the list, the last few deleted kept a while: `snapshots.undelete` brings one back. */
-  Rpc.make("snapshots.delete", {
-    error: CheckpointError,
+  /** The pages the point changed, as they were before it and after it. */
+  Rpc.make("history.compare", {
+    error: HistoryError,
     payload: { id: Schema.String },
+    success: Schema.Array(PageChange),
   }),
-  Rpc.make("snapshots.undelete", {
-    error: CheckpointError,
+  /** The point to look at, without touching a file. */
+  Rpc.make("history.view", {
+    error: HistoryError,
     payload: { id: Schema.String },
-  }),
-  /** What changed since: one diff per design file that is not as the snapshot kept it. */
-  Rpc.make("snapshots.diff", {
-    error: CheckpointError,
-    payload: { id: Schema.String },
-    success: Schema.Array(FileDiff),
-  }),
-  /** The snapshot to look at, without touching a file. */
-  Rpc.make("snapshots.view", {
-    error: CheckpointError,
-    payload: { id: Schema.String },
-    success: SnapshotView,
-  }),
-  /** The design files put back as the snapshot kept them: one undo step. */
-  Rpc.make("snapshots.restore", {
-    error: EditError,
-    payload: { id: Schema.String },
+    success: PointView,
   }),
 
   /**
@@ -869,8 +857,6 @@ const eventSchemas = {
   "agent.focus": AgentFocus,
   "agent.terminal": AgentTerminalOutput,
   canvas: Schema.Struct({ canvas: Schema.String, layout: CanvasLayout }),
-  /** The open repository's agent turn checkpoints, newest first: one taken, or let go of. */
-  checkpoints: Schema.Array(Checkpoint),
   comments: Schema.Struct({ canvas: Schema.String, list: CommentList }),
   /** A component's file changed (ADR 0041). */
   components: ComponentList,
@@ -887,6 +873,10 @@ const eventSchemas = {
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
+  /** The history's points, newest first: one made, named or renamed. */
+  history: Schema.Array(HistoryPoint),
+  /** The person's edits not in a point yet: one more made, or closed into a point. */
+  "history.pending": Schema.NullOr(PendingEdits),
   /** A binding, a design or a bound file changed (ADR 0030). */
   implementation: ImplementationList,
   log: LogLine,
@@ -896,8 +886,6 @@ const eventSchemas = {
   screenshot: ScreenshotRequest,
   /** A skill file changed, or the settings turned one on or off. */
   skills: SkillList,
-  /** The open repository's named snapshots, newest first: one saved, or deleted. */
-  snapshots: Schema.Array(Snapshot),
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,
 } as const;

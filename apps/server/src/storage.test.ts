@@ -245,7 +245,7 @@ eachTest(Unsaved)("a session started without a configuration", (test) => {
         agentId: "fake",
         title: "before saving",
       });
-      const snapshot = yield* client["snapshots.create"]({ name: "kept" });
+      const version = yield* client["history.save"]({ name: "kept" });
       const configPath = path.join(repo, "ultrapaint.json");
 
       const events = yield* subscribed(
@@ -280,7 +280,7 @@ eachTest(Unsaved)("a session started without a configuration", (test) => {
       );
       assert.isTrue(
         yield* fs.exists(
-          path.join(state, "store", "refs", "designs", snapshot.id)
+          path.join(state, "store", "refs", "history", version.id)
         )
       );
       assert.strictEqual(

@@ -1,12 +1,7 @@
 import type { GitStatus } from "@ultrapaint/contracts/git";
-import { writesGit } from "@ultrapaint/contracts/settings";
-import type {
-  Checkpoint,
-  FileDiff,
-  Snapshot,
-} from "@ultrapaint/contracts/snapshots";
+import type { FileDiff } from "@ultrapaint/contracts/snapshots";
 import { plural } from "@ultrapaint/shared/text";
-import { ArrowLeft, ChevronDown, Ellipsis, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, GitBranch } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -20,16 +15,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -40,20 +27,14 @@ import {
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
-import { undoOrRedo } from "../lib/shortcuts.ts";
-import {
-  deleteSnapshot,
-  openSnapshot,
-  restoreSnapshot,
-  saveSnapshot,
-} from "../lib/snapshot-actions.ts";
+import { Segmented } from "../components/segmented.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { useKept } from "../state/kept.ts";
+import { useHistory } from "../state/history.ts";
 import { useRequest } from "../state/panels.ts";
-import { reportError, useProject } from "../state/project.ts";
+import { useProject } from "../state/project.ts";
 import { follow } from "../state/server-data.ts";
-import { useSnapshotView } from "../state/snapshot-view.ts";
+import { HistoryTab } from "./changes-history.tsx";
 
 /** Where the lines that name a diff's files end: its `+++ b/…`, or git's first range after it. */
 const FILES_NAMED_RE = /^(\+\+\+ |@@)/;
@@ -67,18 +48,11 @@ const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
 /** How long the files are left to settle before the panel asks again what changed. */
 const FILES_SETTLE_MS = 250;
 
-/** A point of the history: a snapshot or an agent's checkpoint. */
-type Point = "snapshot" | "checkpoint";
-
-/**
- * What the panel can show in place of its lists, and how it is read: one file's diff, under its
- * path, or all since a point, under the point's name (a checkpoint's is a sentence: "Before the
- * header pass").
- */
-type DiffTarget = { read: () => Promise<readonly FileDiff[]> } & (
-  | { kind: "file"; path: string }
-  | { kind: Point; name: string }
-);
+/** What the panel can show in place of its lists, and how it is read: one file's git diff. */
+interface DiffTarget {
+  readonly path: string;
+  readonly read: () => Promise<readonly FileDiff[]>;
+}
 
 /** A diff shown, from the moment it is asked for: its lines once read, or that they weren't. */
 type OpenDiff = DiffTarget & {
@@ -164,14 +138,6 @@ export const statusWord = (code: string): string | null => {
   return null;
 };
 
-/**
- * What a diff since a point says above the files: how many changed since it, or that none did.
- */
-export const changedSince = (count: number, point: Point) =>
-  count === 0
-    ? `No design file has changed since this ${point}.`
-    : `${plural(count, "design file", "design files")} changed since this ${point}.`;
-
 /** Commit's button: how many files it takes, once some are ticked; its verb while it goes. */
 export const commitLabel = (busy: boolean, ticked: number) => {
   if (busy) {
@@ -184,25 +150,27 @@ export const commitLabel = (busy: boolean, ticked: number) => {
 export const gitSaid = (message: string) =>
   message.replace(GIT_EXITED_RE, "").trim() || message;
 
-/**
- * The history, read: a list that cannot be read says so in its own section, with the way to read
- * it again (`load` reports the failure too).
- */
-const readHistory = () => useKept.getState().load();
+/** The history, read: one that cannot be read says so where it would be, with Try again. */
+const readHistory = () => useHistory.getState().load();
 
+/** The panel's two tabs, while the folder is a repository. */
+type Tab = "history" | "git";
+
+/**
+ * The Changes panel (ADR 0087): the designs' history, Ultrapaint's own, and, only while the
+ * folder is a git repository, a second tab by its branch with what git sees changed and the
+ * commit the person makes. Without a repository nothing of git is shown.
+ */
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
-  // Without git, or in a folder that is no repository, the panel has its history only.
   const repository = useProject((s) => s.info.gitRepository === true);
-  // Committing, or making the folder a repository, is for when writing to git is on.
-  const writes = useProject(
-    (s) => s.settings !== null && writesGit(s.settings)
-  );
+  const branch = useProject((s) => s.info.branch);
   // Looked at: the rail stops saying an agent changed something.
   useEffect(() => {
     useAgents.getState().clearChanged();
   }, []);
   const repoPath = useProject((s) => s.info.repoPath);
+  const [tab, setTab] = useState<Tab>("history");
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [gitFailed, setGitFailed] = useState(false);
   const [open, setOpen] = useState<OpenDiff | null>(null);
@@ -210,14 +178,10 @@ export const Changes = () => {
   const [message, setMessage] = useState("");
   // Files Ultrapaint did not write are listed only when asked for.
   const [showOther, setShowOther] = useState(false);
-  const checkpoints = useKept((s) => s.checkpoints);
-  const checkpointsFailed = useKept((s) => s.checkpointsFailed);
-  const snapshots = useKept((s) => s.snapshots);
-  const snapshotsFailed = useKept((s) => s.snapshotsFailed);
   const [busy, setBusy] = useState(false);
   // Commit pressed before it could commit: the bar says what is missing until it is there.
   const [asked, setAsked] = useState(false);
-  // What git said when the last commit, or making the repository, failed: under its button.
+  // What git said when the last commit failed: under its button.
   const [failure, setFailure] = useState<string | null>(null);
   const messageField = useRef<HTMLInputElement>(null);
   const readGit = useRef<(() => void) | null>(null);
@@ -234,7 +198,7 @@ export const Changes = () => {
     );
   });
 
-  // The history, read as the panel opens on a repository and followed from then on.
+  // The history, read as the panel opens on a project and followed from then on.
   useEffect(() => {
     if (configured && repoPath !== undefined) {
       readHistory();
@@ -287,13 +251,19 @@ export const Changes = () => {
   };
   const showFile = (path: string) =>
     showDiff({
-      kind: "file",
       path,
       read: async () => [await api().request("git.diff", { path })],
     });
 
-  // A file asked for from elsewhere, before the panel was open or while it is.
-  useRequest("diff", showFile, configured);
+  // A file asked for from elsewhere, before the panel was open or while it is: git's tab.
+  useRequest(
+    "diff",
+    (path: string) => {
+      setTab("git");
+      showFile(path);
+    },
+    configured
+  );
   // Its rail item clicked again: back to the lists.
   useRequest("back", () => setOpen(null), configured);
 
@@ -339,8 +309,6 @@ export const Changes = () => {
     }
   };
 
-  const init = () => run(() => api().request("git.init", undefined));
-
   const onMessageChange = (e: ChangeEvent<HTMLInputElement>) =>
     setMessage(e.target.value);
   const onMessageKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -384,6 +352,7 @@ export const Changes = () => {
     setGitFailed(false);
     readGit.current?.();
   };
+  const onGit = repository && tab === "git";
 
   return (
     <div className="flex h-full flex-col">
@@ -391,71 +360,81 @@ export const Changes = () => {
       <div className="flex h-11 shrink-0 items-center pr-2 pl-4">
         <h2 className="flex-1 font-heading-xsmall">Changes</h2>
       </div>
-      {/* One scroller: the files, then the history, set apart by space alone. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-auto px-2 pt-3 pb-3">
-        {repository ? null : (
-          <NoRepository
-            busy={busy}
-            failure={failure}
-            onInit={writes ? init : null}
+      {repository ? (
+        <div className="shrink-0 px-2 pb-2">
+          <Segmented
+            aria-label="Changes"
+            onChange={setTab}
+            options={[
+              { label: "History", value: "history" },
+              {
+                label: (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <GitBranch />
+                    <span className="truncate">{branch ?? "Git"}</span>
+                    {design.length > 0 ? (
+                      <span className="font-body-small-medium text-muted-foreground">
+                        {design.length}
+                      </span>
+                    ) : null}
+                  </span>
+                ),
+                value: "git",
+              },
+            ]}
+            value={tab}
           />
+        </div>
+      ) : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-2 pt-1 pb-3">
+        {onGit ? (
+          <>
+            <FilesState
+              failed={gitFailed}
+              listed={files.length > 0}
+              loading={shown === null}
+              onRetry={retryGit}
+            />
+            <FileGroup
+              files={design}
+              onShow={showFile}
+              selected={selected}
+              setSelected={setSelected}
+              title="Design files"
+            />
+            {/* They are "other" only beside the design files. */}
+            <FileGroup
+              files={other}
+              fold={{ onToggle: toggleOther, open: showOther }}
+              onShow={showFile}
+              selected={selected}
+              setSelected={setSelected}
+              title={design.length > 0 ? "Other files" : "Files"}
+            />
+            {design.length > 0 || showOther ? (
+              <CommitBar
+                busy={busy}
+                failure={failure}
+                message={message}
+                messageField={messageField}
+                missing={asked ? commitBlocked(selected.size, message) : null}
+                onCommit={commit}
+                onMessageChange={onMessageChange}
+                onMessageKeyDown={onMessageKeyDown}
+                ticked={selected.size}
+              />
+            ) : null}
+          </>
+        ) : (
+          <HistoryTab onRetry={readHistory} />
         )}
-        {repository && writes && (design.length > 0 || showOther) ? (
-          <CommitBar
-            busy={busy}
-            failure={failure}
-            message={message}
-            messageField={messageField}
-            missing={asked ? commitBlocked(selected.size, message) : null}
-            onCommit={commit}
-            onMessageChange={onMessageChange}
-            onMessageKeyDown={onMessageKeyDown}
-            ticked={selected.size}
-          />
-        ) : null}
-        {repository ? (
-          <FilesState
-            failed={gitFailed}
-            listed={files.length > 0}
-            loading={shown === null}
-            onRetry={retryGit}
-          />
-        ) : null}
-        <FileGroup
-          files={design}
-          onShow={showFile}
-          selected={writes ? selected : null}
-          setSelected={setSelected}
-          title="Design files"
-        />
-        {/* They are "other" only beside the design files. */}
-        <FileGroup
-          files={other}
-          fold={{ onToggle: toggleOther, open: showOther }}
-          onShow={showFile}
-          selected={writes ? selected : null}
-          setSelected={setSelected}
-          title={design.length > 0 ? "Other files" : "Files"}
-        />
-        <Snapshots
-          failed={snapshotsFailed}
-          onOpen={showDiff}
-          onRetry={readHistory}
-          snapshots={snapshots}
-        />
-        <Checkpoints
-          checkpoints={checkpoints}
-          failed={checkpointsFailed}
-          onOpen={showDiff}
-          onRetry={readHistory}
-        />
       </div>
     </div>
   );
 };
 
 /**
- * One file's diff, or all since a point, in place of the lists, with the way back to them: Back,
+ * One file's diff in place of the lists, with the way back to them: Back,
  * or Escape inside the view. It opens at once, its lines drawn as they load, and says in place
  * when they didn't, with Try again. It takes the focus the row it was opened from took with it.
  */
@@ -500,15 +479,12 @@ const OpenDiffView = ({
           <ArrowLeft />
         </IconButton>
         <h2 className="wrap-anywhere min-w-0 font-heading-xsmall">
-          {open.kind === "file" ? open.path : open.name}
+          {open.path}
         </h2>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {open.diffs ? (
-          <DiffView
-            diffs={open.diffs}
-            since={open.kind === "file" ? null : open.kind}
-          />
+          <DiffView diffs={open.diffs} />
         ) : (
           <div className="px-2 pb-3">
             {open.failed ? (
@@ -525,33 +501,6 @@ const OpenDiffView = ({
 
 /** A section of the panel: its title, then its rows, 2px apart so their fills never touch. */
 const SECTION = "flex flex-col gap-0.5";
-
-/** Without a repository: that the history is kept all the same, and the way to make one. */
-const NoRepository = ({
-  busy,
-  failure,
-  onInit,
-}: {
-  busy: boolean;
-  failure: string | null;
-  onInit: (() => void) | null;
-}) => (
-  <div className="flex flex-col items-start gap-2 px-2">
-    <p className="font-body-small text-muted-foreground">
-      This folder is not a git repository. Snapshots and checkpoints still keep
-      the designs’ history.
-    </p>
-    {onInit ? (
-      <Button disabled={busy} onClick={onInit} size="sm" variant="secondary">
-        {busy ? <Spinner /> : null}
-        Make it a git repository
-      </Button>
-    ) : null}
-    {onInit && failure ? (
-      <GitFailure what="Couldn’t make it a repository">{failure}</GitFailure>
-    ) : null}
-  </div>
-);
 
 /** What git said when a command of the panel failed, under its button, and what to do. */
 const GitFailure = ({ children, what }: { children: string; what: string }) => (
@@ -724,25 +673,13 @@ const BAR = "h-3 rounded-sm bg-foreground/10 motion-safe:animate-pulse";
  * Rows in the shape of the ones on their way: a history row's name, its time and its menu's
  * column, so nothing moves when they come.
  */
-const LoadingRows = ({ history = false }: { history?: boolean }) => (
+const LoadingRows = () => (
   <div aria-label="Loading" className={SECTION} role="status">
     {SKELETON_WIDTHS.map((width) => (
-      <div
-        className={cn(
-          "flex h-7 items-center gap-2 pl-2",
-          history ? "pr-1" : "pr-2"
-        )}
-        key={width}
-      >
+      <div className="flex h-7 items-center gap-2 pr-2 pl-2" key={width}>
         <span className="min-w-0 flex-1">
           <span className={cn(BAR, "block", width)} />
         </span>
-        {history ? (
-          <>
-            <span className={cn(BAR, "w-10 shrink-0")} />
-            <span className="size-6 shrink-0" />
-          </>
-        ) : null}
       </div>
     ))}
   </div>
@@ -769,292 +706,6 @@ const ROW =
   "relative flex h-7 shrink-0 items-center gap-2 rounded-md pl-2 transition-colors duration-100 hover:bg-accent/50 has-[[data-row-button]:focus-visible]:ring-2 has-[[data-row-button]:focus-visible]:ring-ring";
 const ROW_BUTTON =
   "flex min-w-0 flex-1 items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-md";
-
-/** What the panel calls to show what changed, in place of its lists. */
-type ShowDiff = (target: DiffTarget) => void;
-
-/** What can be done to a row of the history, in a menu at its end, there at rest. */
-const RowMenu = ({ children, name }: { children: ReactNode; name: string }) => (
-  <DropdownMenu>
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <DropdownMenuTrigger
-            render={
-              <Button
-                aria-label={`Actions for ${name}`}
-                className="relative text-muted-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
-                size="icon-sm"
-                variant="ghost"
-              />
-            }
-          />
-        }
-      >
-        <Ellipsis />
-      </TooltipTrigger>
-      <TooltipContent>Actions</TooltipContent>
-    </Tooltip>
-    <DropdownMenuContent align="end" className="w-44">
-      {children}
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
-
-const timeFormat = new Intl.DateTimeFormat(undefined, {
-  hour: "numeric",
-  minute: "2-digit",
-});
-const dayTimeFormat = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "short",
-});
-const yearFormat = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-/**
- * When a point was taken: the time today, the day and the time earlier this year, so the turns
- * of one day are told apart, and the day and the year before that.
- */
-export const whenTaken = (at: number, now = new Date()) => {
-  const taken = new Date(at);
-  if (taken.toDateString() === now.toDateString()) {
-    return timeFormat.format(at);
-  }
-  return taken.getFullYear() === now.getFullYear()
-    ? dayTimeFormat.format(at)
-    : yearFormat.format(at);
-};
-
-/** A point of the history: its name, when it was taken, its menu. */
-const HistoryRow = ({
-  at,
-  children,
-  current = false,
-  name,
-  onShow,
-}: {
-  at: number;
-  /** The menu's items. */
-  children: ReactNode;
-  /** Open on the canvas: said in a word as well as by the row's fill. */
-  current?: boolean;
-  name: string;
-  onShow: () => void;
-}) => (
-  <li className={cn(ROW, "pr-1", current && "bg-accent hover:bg-accent")}>
-    {/* The row has room for part of the name; its tooltip has the whole of it. */}
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            aria-current={current ? "true" : undefined}
-            className={ROW_BUTTON}
-            data-row-button
-            onClick={onShow}
-            type="button"
-          >
-            <span className="min-w-0 flex-1 truncate font-body-medium">
-              {name}
-            </span>
-            {current ? (
-              <span className="shrink-0 font-body-small">Open</span>
-            ) : null}
-            <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
-              {whenTaken(at)}
-            </span>
-          </button>
-        }
-      />
-      <TooltipContent className="wrap-anywhere">{name}</TooltipContent>
-    </Tooltip>
-    <RowMenu name={name}>{children}</RowMenu>
-  </li>
-);
-
-/**
- * Named points in the history of the designs, kept until deleted: compared with now, opened to
- * look at as they were, restored.
- */
-const Snapshots = ({
-  failed,
-  onOpen,
-  onRetry,
-  snapshots,
-}: {
-  failed: boolean;
-  onOpen: ShowDiff;
-  onRetry: () => void;
-  snapshots: readonly Snapshot[] | null;
-}) => {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className={SECTION}>
-      <GroupLabel
-        action={
-          <IconButton
-            className="text-muted-foreground"
-            onClick={() => saveSnapshot()}
-            size="icon-sm"
-            tooltip="Save snapshot"
-          >
-            <Plus />
-          </IconButton>
-        }
-        id={id}
-      >
-        Snapshots
-      </GroupLabel>
-      <HistoryRows
-        failed={failed}
-        items={snapshots}
-        label={id}
-        onRetry={onRetry}
-        row={(snapshot) => (
-          <SnapshotRow key={snapshot.id} onOpen={onOpen} snapshot={snapshot} />
-        )}
-      />
-    </section>
-  );
-};
-
-/** A history list's rows: being read, unread, none yet, or the points, as a list. */
-const HistoryRows = <T,>({
-  failed,
-  items,
-  label,
-  onRetry,
-  row,
-}: {
-  failed: boolean;
-  items: readonly T[] | null;
-  /** The id of the title that names the list. */
-  label: string;
-  onRetry: () => void;
-  row: (item: T) => ReactNode;
-}) => {
-  if (items === null) {
-    return failed ? (
-      <Unread onRetry={onRetry}>The history didn’t load</Unread>
-    ) : (
-      <LoadingRows history />
-    );
-  }
-  return items.length === 0 ? (
-    <NoneRow>None yet</NoneRow>
-  ) : (
-    <ul aria-labelledby={label} className={SECTION}>
-      {items.map(row)}
-    </ul>
-  );
-};
-
-const SnapshotRow = ({
-  onOpen,
-  snapshot,
-}: {
-  onOpen: ShowDiff;
-  snapshot: Snapshot;
-}) => {
-  const open = useSnapshotView((s) => s.view?.snapshot.id === snapshot.id);
-  const show = () =>
-    onOpen({
-      kind: "snapshot",
-      name: snapshot.name,
-      read: () => api().request("snapshots.diff", { id: snapshot.id }),
-    });
-  return (
-    <HistoryRow
-      at={snapshot.at}
-      current={open}
-      name={snapshot.name}
-      onShow={show}
-    >
-      <DropdownMenuItem onClick={() => openSnapshot(snapshot)}>
-        Open on canvas
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => restoreSnapshot(snapshot)}>
-        Restore
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        onClick={() => deleteSnapshot(snapshot)}
-        variant="destructive"
-      >
-        Delete
-      </DropdownMenuItem>
-    </HistoryRow>
-  );
-};
-
-/** The designs as they were before each agent turn, the last ones kept. */
-const Checkpoints = ({
-  checkpoints,
-  failed,
-  onOpen,
-  onRetry,
-}: {
-  checkpoints: readonly Checkpoint[] | null;
-  failed: boolean;
-  onOpen: ShowDiff;
-  onRetry: () => void;
-}) => {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className={SECTION}>
-      <GroupLabel id={id}>Agent checkpoints</GroupLabel>
-      <HistoryRows
-        failed={failed}
-        items={checkpoints}
-        label={id}
-        onRetry={onRetry}
-        row={(c) => <CheckpointRow checkpoint={c} key={c.id} onOpen={onOpen} />}
-      />
-    </section>
-  );
-};
-
-/** Back to a checkpoint at once: it is one step, so the toast's Undo takes it back. */
-const restoreCheckpoint = async (checkpoint: Checkpoint) => {
-  try {
-    await api().request("checkpoints.revert", { id: checkpoint.id });
-    toast.success(`Restored ${checkpoint.label}`, {
-      action: { label: "Undo", onClick: () => undoOrRedo(false) },
-    });
-  } catch (error) {
-    reportError(error);
-  }
-};
-
-const CheckpointRow = ({
-  checkpoint,
-  onOpen,
-}: {
-  checkpoint: Checkpoint;
-  onOpen: ShowDiff;
-}) => {
-  const name = checkpoint.label;
-  const show = () =>
-    onOpen({
-      kind: "checkpoint",
-      name,
-      read: () => api().request("checkpoints.diff", { id: checkpoint.id }),
-    });
-  return (
-    <HistoryRow at={checkpoint.at} name={name} onShow={show}>
-      <DropdownMenuItem onClick={() => saveSnapshot(checkpoint)}>
-        Save snapshot…
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => restoreCheckpoint(checkpoint)}>
-        Restore
-      </DropdownMenuItem>
-    </HistoryRow>
-  );
-};
 
 /**
  * A group of changed files under its title, with a select-all before it while they can be ticked.
@@ -1332,30 +983,11 @@ export const diffLines = (diff: string) => {
     });
 };
 
-/**
- * The diffs: one file's alone, under the title that names it; or all since a point, saying how
- * many changed, each under its path.
- */
-const DiffView = ({
-  diffs,
-  since,
-}: {
-  diffs: readonly FileDiff[];
-  since: Point | null;
-}) => (
+/** A file's diff, under the title that names it. */
+const DiffView = ({ diffs }: { diffs: readonly FileDiff[] }) => (
   <div className="flex flex-col gap-3 px-2 pb-3">
-    {since ? (
-      <p className="px-2 font-body-small text-muted-foreground">
-        {changedSince(diffs.length, since)}
-      </p>
-    ) : null}
     {diffs.map((d) => (
       <div className="flex flex-col gap-1" key={d.path}>
-        {since ? (
-          <div className="wrap-anywhere px-2 font-body-small text-muted-foreground">
-            {d.path}
-          </div>
-        ) : null}
         {d.diff.trim() === "" ? (
           <p className="px-2 font-body-small text-muted-foreground">
             No text changes in this file

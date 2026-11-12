@@ -1,9 +1,8 @@
 import { DESIGN_MD_FILE } from "@ultrapaint/contracts/design-system";
-import { BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
+import { type BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
 import type { GitFileStatus, GitStatus } from "@ultrapaint/contracts/git";
-import { writesGit } from "@ultrapaint/contracts/settings";
 import type { FileDiff } from "@ultrapaint/contracts/snapshots";
-import { Context, Effect, Layer, PubSub, Semaphore, Stream } from "effect";
+import { Context, Effect, Layer, Semaphore } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { EventBus } from "../events.ts";
 import { runCommand } from "../process.ts";
@@ -65,8 +64,6 @@ export class GitService extends Context.Service<
   GitService,
   {
     readonly branch: Effect.Effect<string, CommandFailed>;
-    /** Each time `init` makes the project's folder a repository. */
-    readonly changes: Stream.Stream<void>;
     /**
      * Whether git is installed and the project's folder is in a repository: what git says is
      * read only then. Asked each time, since a repository can be made while the project is open.
@@ -78,18 +75,14 @@ export class GitService extends Context.Service<
       readonly name?: string;
     }>;
     /**
-     * Commits the files; refused unless writing to git is on in the settings. Like every change
-     * this service makes to the repository, the editor is told the status after it.
+     * Commits the files: only ever when the person presses Commit, which is their approval
+     * (ADR 0087). Like every change this service makes to the repository, the editor is told the
+     * status after it.
      */
     readonly commit: (
       message: string,
       paths: readonly string[]
     ) => Effect.Effect<string, BadRequest | CommandFailed | ForbiddenPathError>;
-    /**
-     * Makes the project's folder a repository when it is none; refused unless writing to git is
-     * on in the settings. Nothing else ever runs `git init`.
-     */
-    readonly init: Effect.Effect<void, BadRequest | CommandFailed>;
     readonly diff: (
       rel: string
     ) => Effect.Effect<FileDiff, CommandFailed | ForbiddenPathError>;
@@ -148,16 +141,6 @@ export class GitService extends Context.Service<
         return { diff: untracked.stdout, path: rel };
       });
 
-      /** Writing to git is the user's to allow, per project (PLAN-desktop D9). */
-      const writable = (what: string) =>
-        writesGit(paths.settings)
-          ? Effect.void
-          : Effect.fail(
-              new BadRequest({
-                message: `Writing to git is off for this project: turn it on in Settings to ${what}.`,
-              })
-            );
-
       /** Takes files out of the index again; with no commit yet, there is no HEAD to reset to. */
       const unstage = (files: readonly string[]) =>
         files.length === 0
@@ -184,7 +167,6 @@ export class GitService extends Context.Service<
         message: string,
         files: readonly string[]
       ) {
-        yield* writable("commit");
         yield* Effect.forEach(files, paths.resolve, { discard: true });
         // Paths, not pathspecs: `:/` or `*` would commit far more than the files the user picked.
         const stagedBefore = new Set(
@@ -246,25 +228,12 @@ export class GitService extends Context.Service<
         Effect.orElseSucceed(() => false)
       );
 
-      const changes = yield* PubSub.unbounded<void>();
-      const init = Effect.gen(function* () {
-        yield* writable("make this folder a repository");
-        if (yield* repository) {
-          return;
-        }
-        yield* run(["init", "--quiet"]);
-        yield* PubSub.publish(changes, undefined);
-        yield* publishStatus;
-      }).pipe(Effect.withSpan("GitService.init"));
-
       return GitService.of({
         branch: Effect.map(run(["rev-parse", "--abbrev-ref", "HEAD"]), (out) =>
           out.trim()
         ),
-        changes: Stream.fromPubSub(changes),
         commit,
         diff,
-        init,
         repository,
         status,
         user,

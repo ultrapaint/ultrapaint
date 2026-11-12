@@ -3,6 +3,10 @@
 Status: accepted, 2026-09-30. Amends 0012 (spaces become canvases, variants are built), 0014 (the
 tools take `canvas`) and 0015 (assets are shared).
 
+> Snapshots replaced by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md),
+> 2026-11-12: a named point of the designs' history is a version, a point named rather than a
+> copy; one is opened on the canvas as a snapshot was. The snapshots kept were brought in.
+
 > Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a canvas also lists `states`,
 > a page drawn again in a state of the same screen, which a link can open.
 >

@@ -125,16 +125,17 @@ refactor and the board view left.
   new frame past every frame and its views, a copy, variant or state beside its page when nothing
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
   page and the view's name.
-- **Snapshot**: a named point in the designs' history (ADR 0019), a ref of the `designs`
-  namespace in the tool's **snapshot store**. A **checkpoint**, the designs before an agent's
-  turn (ADR 0008), is a ref of its `checkpoints` namespace, the last 30 kept. Both keep every
-  design file but the comments, are compared with now and put back one way (`design-refs`: one
-  undo step), and keeping a checkpoint as a snapshot names its files again. A snapshot deleted is
-  named again under `designs-deleted`, the last ten kept, so its delete can be undone. Whenever
-  one is kept or let go of, the server publishes the open repository's list of that kind
-  (`checkpoints`, `snapshots`), which the Changes panel follows (`kept`). A checkpoint and a
-  file's diff are contracts' `snapshots` (`Checkpoint`, `FileDiff`), the diff worked out by the
-  server's `file-diff`.
+- **History**: Ultrapaint's own record of how the design files changed (ADR 0087), git or not:
+  a list of **points**, each the designs right after the person's edits, an agent's **turn**,
+  files changed from **outside**, or a **restore**, kept in the `history` namespace of the tool's
+  **snapshot store** and never let go of (`History`, the server's `history`). The person's edits
+  not in a point yet are **pending** (`PendingEdits`), closed two minutes after the last one,
+  every ten minutes, and before anything else writes. A **version** is a point the person named.
+  A point's pages before and after are a `PageChange`; one opened on the canvas is a `PointView`.
+  The editor follows the points and the pending edits as the server publishes them (`history`,
+  `history.pending`; `state/history.ts`). A snapshot (ADR 0019) and a checkpoint (ADR 0008) are
+  what versions and turns' points were before; the ones kept were brought in as `imported`
+  points.
 
 ## Agents
 

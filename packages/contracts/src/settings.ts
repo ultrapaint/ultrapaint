@@ -4,26 +4,12 @@ import { ReviewSettings } from "./review.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
 
-/** Whether the tool may write to git (PLAN-desktop D9). */
-const GitWrites = Schema.Literals(["off", "on"]);
-type GitWrites = typeof GitWrites.Type;
-
-/** Whether writing to git is on in these settings; off unless said. */
-export const writesGit = (settings: { readonly git?: GitWrites | undefined }) =>
-  settings.git === "on";
-
 const common = {
   /**
    * Whether a token changed in the design is written to the code at once (`auto`) or waits in
    * Sync for an export (`manual`, the default): the design holds the values (ADR 0028).
    */
   codeTokens: Schema.optional(Schema.Literals(["manual", "auto"])),
-  /**
-   * Whether the tool writes to git: commits from the Changes panel, and `git init` in a folder
-   * that is no repository. Off when absent. Off or on, a repository that is there is read: its
-   * status, its diffs and its branch.
-   */
-  git: Schema.optional(GitWrites),
   /**
    * Writes a PNG of every page beside its file (`orders.page.png`), drawn again whenever the page,
    * its frame or the design system changes. Off when absent.

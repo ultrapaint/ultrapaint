@@ -30,6 +30,7 @@ import {
   type Answers,
   EDITOR_MCP_SERVER,
   isBusy,
+  modelNameOf,
   type PromptInput,
   type QueuedPrompt,
   type Thread,
@@ -57,6 +58,7 @@ import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
 import { OpenProject } from "../../project.ts";
 import { DesignFiles } from "../design-files.ts";
+import { History } from "../history.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ReviewLoop, type ToDesigner } from "../review/review-loop.ts";
@@ -66,7 +68,6 @@ import { AgentDiscovery } from "./agent-discovery.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
 import { agentFailure, makeSessionOpener } from "./agent-session.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
-import { Checkpoints } from "./checkpoints.ts";
 import { makePendingCards, type PendingCards } from "./pending-cards.ts";
 import {
   makePromptContent,
@@ -94,6 +95,9 @@ export type ThreadFailure =
 
 /** How long a stopped turn is waited for before what comes next goes ahead without it. */
 const TURN_END_WAIT = "10 seconds";
+
+/** How much of a prompt a turn's point of the history keeps as its words. */
+const PROMPT_WORDS = 200;
 
 // ---- status ----
 
@@ -257,10 +261,23 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const discovery = yield* AgentDiscovery;
   const launcher = yield* AgentLauncher;
   const access = yield* McpAccess;
-  const checkpoints = yield* Checkpoints;
   const reviews = yield* ReviewLoop;
   const { mcp: mcpEnabled } = yield* ServerConfig;
   const project = yield* OpenProject;
+  /**
+   * The open project's history, told of a turn (ADR 0087). Telling it is a nicety: a project
+   * closed meanwhile must not fail the turn.
+   */
+  const historyOf = (
+    tell: (history: History["Service"]) => Effect.Effect<void>
+  ) =>
+    project
+      .use(
+        Effect.flatMap(Effect.serviceOption(History), (history) =>
+          history._tag === "Some" ? tell(history.value) : Effect.void
+        )
+      )
+      .pipe(Effect.ignore);
   const events = yield* EventBus;
   const log = yield* AppLog;
   const path = yield* Path.Path;
@@ -297,6 +314,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       }
     });
     const turn = makeTurn(threadId, {
+      // The turn's point of the history, whichever way it ended.
+      ended: historyOf((h) => h.turnEnded(threadId)),
       log,
       newItemId,
       project,
@@ -634,12 +653,26 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         const before = yield* project
           .use(Effect.flatMap(WorkingTree, (tree) => tree.stamp))
           .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
-        // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
+        // The person's edits closed first; what changes from now on is the turn's (ADR 0087).
+        // Not cut short by a cancel: a point half written is worse than a late cancel.
         yield* Effect.uninterruptible(
-          checkpoints.create(threadId, input.text.slice(0, 60))
+          historyOf((h) =>
+            h.turnStarted(threadId, {
+              agentId: thread.agentId,
+              label: input.text.slice(0, PROMPT_WORDS),
+              model: modelNameOf(thread.configOptions),
+            })
+          )
         );
         yield* turn.atAgent(before, witness);
-      }).pipe(Effect.onError(() => witness.close));
+      }).pipe(
+        Effect.onError(() =>
+          Effect.andThen(
+            witness.close,
+            historyOf((h) => h.turnEnded(threadId))
+          )
+        )
+      );
       yield* Effect.forkIn(
         runTurn(
           session,

@@ -154,6 +154,14 @@ export const withNamedChoices = (
       : { ...o, currentValue: fallback };
   });
 
+/** The model a thread answers with, by the name its agent gives it; undefined when none says. */
+export const modelNameOf = (
+  options: readonly ConfigOption[] | undefined
+): string | undefined => {
+  const model = withNamedChoices(options ?? []).find(isModelOption);
+  return model?.options.find((c) => c.value === model.currentValue)?.name;
+};
+
 const AUTO_MODE_RE = /^auto\b/i;
 
 /** The mode a thread starts in: the agent's automatic one where it has it, else its current one. */

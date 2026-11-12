@@ -6,7 +6,6 @@ import { EventBus } from "./events.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
-import { GitService } from "./services/git.ts";
 import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
@@ -308,28 +307,16 @@ describe("the settings in force", () => {
     );
   });
 
-  eachTest(ProjectTest({ git: false, settings: { git: "on" } }))((it) => {
-    it.effect(
-      "tells the editor of the user's name and of a repository made",
-      () =>
-        Effect.gen(function* () {
-          const project = yield* ProjectManager;
-          const profile = yield* ProfileService;
-          const named = yield* toldOf(
-            (info) => info.displayName === "Ada",
-            profile.set({ displayName: "Ada" })
-          );
-          assert.isDefined(named.told);
-
-          assert.isFalse((yield* project.info).gitRepository);
-          const made = yield* toldOf(
-            (info) => info.gitRepository === true,
-            Effect.flatMap(OpenProject, (open) =>
-              open.use(Effect.flatMap(GitService, (git) => git.init))
-            )
-          );
-          assert.isDefined(made.told);
-        })
+  eachTest(ProjectTest({ git: false }))((it) => {
+    it.effect("tells the editor of the user's name", () =>
+      Effect.gen(function* () {
+        const profile = yield* ProfileService;
+        const named = yield* toldOf(
+          (info) => info.displayName === "Ada",
+          profile.set({ displayName: "Ada" })
+        );
+        assert.isDefined(named.told);
+      })
     );
   });
 });

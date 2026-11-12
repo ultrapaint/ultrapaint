@@ -97,34 +97,16 @@ eachTest(PlainFolder, { realClock: AGENT_PROCESS })(
         })
     );
 
-    it.effect(
-      "makes the folder a repository only once writing to git is on",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* client["settings.set"](settings);
-          const refused = yield* Effect.flip(client["git.init"]());
-          assert.strictEqual(refused._tag, "BadRequest");
-          const commit = yield* Effect.flip(
-            client["git.commit"]({ message: "m", paths: ["designs"] })
-          );
-          assert.strictEqual(commit._tag, "BadRequest");
-          assert.isFalse(yield* fs.exists(path.join(repo, ".git")));
-
-          assert.isTrue(
-            (yield* client["settings.set"]({ ...settings, git: "on" })).ok
-          );
-          yield* client["git.init"]();
-          assert.isTrue(yield* fs.exists(path.join(repo, ".git")));
-          const info = yield* client["project.info"]();
-          assert.isTrue(info.gitRepository);
-          const status = yield* client["git.status"]();
-          assert.include(
-            status.files.map((f) => f.path),
-            "designs/home.page.json"
-          );
-        })
+    it.effect("keeps the designs' history without a repository", () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["settings.set"](settings);
+        const version = yield* client["history.save"]({ name: "Kept" });
+        assert.strictEqual(version.name, "Kept");
+        assert.isFalse(yield* fs.exists(path.join(repo, ".git")));
+        assert.isFalse((yield* client["project.info"]()).gitRepository);
+      })
     );
 
     it.effect("tells which files an agent's turn changed, without git", () =>

@@ -173,12 +173,14 @@ describe("the settings save as they change (ADR 0079)", () => {
       ok: false,
       problems: ["Settings were set in the meantime."],
     }));
-    act(() => container.querySelector<HTMLElement>("#settings-git")?.click());
+    act(() =>
+      container.querySelector<HTMLElement>("#settings-page-pngs")?.click()
+    );
     await act(async () => {
       await fakeApi.requested("settings.set");
     });
     expect(
-      row("settings-git")?.querySelector("[role=alert]")?.textContent
+      row("settings-page-pngs")?.querySelector("[role=alert]")?.textContent
     ).toBe("Couldn’t save this change.Settings were set in the meantime.");
   });
 });

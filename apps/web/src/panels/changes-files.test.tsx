@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
-import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,10 +44,15 @@ const ticked = () =>
     (c) => c.getAttribute("aria-label")
   );
 
+/** The panel on screen, on the tab of git's branch: the repository's has no branch here. */
+const showGit = () => {
+  act(() => mounted.render(<Changes />));
+  act(() => button("Git")?.click());
+};
+
 beforeEach(() => {
   fakeApi.reset();
-  fakeApi.respond("snapshots.list", () => []);
-  fakeApi.respond("checkpoints.list", () => []);
+  fakeApi.respond("history.get", () => ({ pending: null, points: [] }));
   fakeApi.respond("git.status", () => ({
     files: [
       { code: " M", design: true, path: "DESIGN.md" },
@@ -80,7 +84,7 @@ afterEach(() => {
 
 describe("Changes › the files", () => {
   it("lists Ultrapaint's files, and folds the others under a header that opens them", async () => {
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
     expect(fold()).toMatchObject({ open: false, title: "Other files 2" });
     expect(container.textContent).not.toContain("notes.txt");
@@ -95,10 +99,7 @@ describe("Changes › the files", () => {
   });
 
   it("unticks the other files as it folds them, so a commit takes only files in view", async () => {
-    useProject.setState({
-      settings: { ...defaultSettings("/repo"), git: "on" },
-    });
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
     act(() => fold()?.click());
     act(() =>
@@ -117,15 +118,15 @@ describe("Changes › the files", () => {
     fakeApi.respond("git.status", () => ({
       files: [{ code: "??", design: false, path: "notes.txt" }],
     }));
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(fold()?.title).toBe("Files 1"));
 
     act(() => fold()?.click());
-    expect(titles()).toEqual(["Files 1", "Snapshots", "Agent checkpoints"]);
+    expect(titles()).toEqual(["Files 1"]);
   });
 
   it("says git didn't answer over the files it listed before, which stay", async () => {
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
     const stop = followServer({ report: () => undefined });
     fakeApi.respond("git.status", () =>
@@ -145,7 +146,7 @@ describe("Changes › the files", () => {
 describe("Changes › a file's diff", () => {
   it("says a file without text changes has none, and Escape goes back to the files", async () => {
     fakeApi.respond("git.diff", ({ path }) => ({ diff: "", path }));
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
 
     act(() =>
@@ -178,7 +179,7 @@ describe("Changes › a diff on its way", () => {
           fail = reject;
         })
     );
-    act(() => mounted.render(<Changes />));
+    showGit();
     await vi.waitFor(() => expect(titles()).toContain("Design files"));
 
     act(() => button("DESIGN.md")?.click());

@@ -20,6 +20,7 @@ import { EditService } from "./services/edit.ts";
 import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
+import { History } from "./services/history.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagesService } from "./services/pages.ts";
@@ -28,11 +29,9 @@ import { Screenshots } from "./services/screenshots.ts";
 import { SetupService } from "./services/setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
-import { Snapshots } from "./services/snapshots.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
-import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import {
   type ThreadSession,
@@ -61,8 +60,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       threadId: string,
       act: (session: ThreadSession) => Effect.Effect<A, E>
     ) => Effect.flatMap(threads.of(threadId), act);
-    const checkpoints = yield* Checkpoints;
-    const snapshots = yield* Snapshots;
     const access = yield* McpAccess;
     const selection = yield* EditorSelection;
     const commands = yield* SlashCommands;
@@ -76,6 +73,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const comments = open.service(CommentsService);
     const edit = open.service(EditService);
     const git = open.service(GitService);
+    const history = open.service(History);
     const documents = open.service(DocumentService);
     const designSystem = open.service(DesignSystemService);
     const designMd = open.service(DesignMd);
@@ -116,9 +114,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
-      "checkpoints.diff": ({ id }) => checkpoints.diff(id),
-      "checkpoints.list": () => checkpoints.list,
-      "checkpoints.revert": ({ id }) => checkpoints.revert(id),
 
       "code.write": ({ node, ...options }) =>
         designSystem((d) =>
@@ -193,9 +188,14 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "git.commit": ({ message, paths }) =>
         git((g) => Effect.map(g.commit(message, paths), (sha) => ({ sha }))),
       "git.diff": ({ path }) => git((g) => g.diff(path)),
-      "git.init": () => git((g) => g.init),
 
       "git.status": () => git((g) => g.status),
+      "history.compare": ({ id }) => history((h) => h.compare(id)),
+      "history.get": () => history((h) => h.get),
+      "history.rename": ({ id, name }) => history((h) => h.rename(id, name)),
+      "history.restore": ({ id }) => history((h) => h.restore(id)),
+      "history.save": ({ id, name }) => history((h) => h.save(name, id)),
+      "history.view": ({ id }) => history((h) => h.view(id)),
       "implementation.changes": ({ target }) =>
         implementation((s) => s.changes(target)),
       "implementation.list": () => implementation((s) => s.list),
@@ -246,14 +246,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           figma((f) => f.theme)
         ),
       "skills.list": () => skills((s) => s.list),
-      "snapshots.create": ({ checkpoint, name }) =>
-        snapshots.create(name, checkpoint),
-      "snapshots.delete": ({ id }) => snapshots.delete(id),
-      "snapshots.diff": ({ id }) => snapshots.diff(id),
-      "snapshots.list": () => snapshots.list,
-      "snapshots.restore": ({ id }) => snapshots.restore(id),
-      "snapshots.undelete": ({ id }) => snapshots.undelete(id),
-      "snapshots.view": ({ id }) => snapshots.view(id),
       "sync.apply": ({ decisions, only, source, tokens }) =>
         sync.apply(source, decisions, only, tokens),
       "sync.match": ({ entries, source }) =>

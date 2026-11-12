@@ -55,15 +55,19 @@ type DesignKind =
   | "skill"
   | "tokens";
 
-/** A file of the designs changed: its repository-relative path, and its content's hash ("" gone). */
+/**
+ * A file of the designs changed: its repository-relative path, its content's hash ("" gone), and
+ * who it was written for.
+ */
 export interface DesignChange {
+  readonly by: Writer;
   readonly file: string;
   readonly hash: string;
   readonly kind: DesignKind;
 }
 
 /** Who a file was written for, as far as the server knows. */
-type Writer =
+export type Writer =
   /** A thread's agent, through the editor: a file it asked the editor to write, an MCP tool. */
   | { readonly _tag: "Thread"; readonly threadId: string }
   /** The editor's user, or an agent from outside the editor, through the editor's requests. */
@@ -272,7 +276,7 @@ const makeDesignFiles = Effect.gen(function* () {
     yield* events.publish("file.changed", { file, hash });
     yield* PubSub.publish(written, { by, file });
     if (kind !== null) {
-      yield* PubSub.publish(changed, { file, hash, kind });
+      yield* PubSub.publish(changed, { by, file, hash, kind });
     }
   });
 

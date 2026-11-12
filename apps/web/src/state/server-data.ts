@@ -27,7 +27,7 @@ import {
   type EventPayload,
   eventNames,
 } from "@ultrapaint/contracts/rpc";
-import type { SnapshotView } from "@ultrapaint/contracts/snapshots";
+import type { PointView } from "@ultrapaint/contracts/snapshots";
 import { api, useConnection } from "./connection.ts";
 import { useSnapshotView } from "./snapshot-view.ts";
 
@@ -57,7 +57,7 @@ interface Piece<T, K = undefined> {
   /** Reads it from the server. */
   readonly read: (key: K) => Promise<T>;
   /** What a snapshot keeps in its place, for what a snapshot keeps. */
-  readonly snapshot?: (view: SnapshotView, key: K) => T;
+  readonly snapshot?: (view: PointView, key: K) => T;
   /**
    * The events of `on` that bring the whole of it, as a read does (a state, not news of a
    * change): an answer to a read begun before one of them is older, and is dropped.
@@ -251,7 +251,7 @@ export const followServer = (options: {
  * pages before the layouts drawn with them). One that fails leaves the others to be read, and
  * the first failure is the promise's.
  */
-export const viewSnapshot = async (view: SnapshotView | null) => {
+export const viewSnapshot = async (view: PointView | null) => {
   useSnapshotView.setState({ view });
   const failures: unknown[] = [];
   for (const entry of entries) {

@@ -639,13 +639,11 @@ describe("ids that would name a path somewhere else", () => {
 });
 
 describe("writing to git", () => {
-  onAServer("commits design files once writing to git is on", () =>
+  onAServer("commits the design files the person ticks", () =>
     Effect.gen(function* () {
       const { client, repo, settings } = yield* TestEnv;
       const fs = yield* FileSystem.FileSystem;
-      assert.isTrue(
-        (yield* client["settings.set"]({ ...settings, git: "on" })).ok
-      );
+      assert.isTrue((yield* client["settings.set"](settings)).ok);
       yield* fs.writeFileString(
         path.join(repo, "designs/notes.page.json"),
         '{ "version": 1 }\n'
@@ -695,7 +693,7 @@ describe("writing to git", () => {
       Effect.gen(function* () {
         const { client, repo, settings } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
-        yield* client["settings.set"]({ ...settings, git: "on" });
+        yield* client["settings.set"](settings);
         const hook = path.join(repo, ".git", "hooks", "pre-commit");
         yield* fs.makeDirectory(path.dirname(hook), { recursive: true });
         yield* fs.writeFileString(hook, "#!/bin/sh\nexit 1\n");
@@ -728,7 +726,7 @@ describe("writing to git", () => {
     Effect.gen(function* () {
       const { client, repo, settings } = yield* TestEnv;
       const fs = yield* FileSystem.FileSystem;
-      yield* client["settings.set"]({ ...settings, git: "on" });
+      yield* client["settings.set"](settings);
       yield* fs.writeFileString(path.join(repo, "notes.txt"), "mine\n");
       for (const spec of [":/", "*", "*.txt"]) {
         const error = yield* Effect.flip(

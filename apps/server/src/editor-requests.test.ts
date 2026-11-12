@@ -651,30 +651,33 @@ describe("the editor's requests on a project", () => {
     })
   );
 
-  inGitProject("reports git status and diffs, and commits nothing", () =>
-    Effect.gen(function* () {
-      const { client } = yield* TestEnv;
-      yield* headingSays("External");
-      yield* client["pages.create"]({ canvas: "", name: "Log in" });
-      const status = yield* client["git.status"]();
-      const changed = status.files.map((f) => f.path);
-      assert.include(changed, HOME_FILE);
-      assert.include(changed, "designs/log-in.page.json");
-      assert.isTrue(status.files.every((f) => f.design));
+  inGitProject(
+    "reports git status and diffs, and commits nothing unasked",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* headingSays("External");
+        yield* client["pages.create"]({ canvas: "", name: "Log in" });
+        const status = yield* client["git.status"]();
+        const changed = status.files.map((f) => f.path);
+        assert.include(changed, HOME_FILE);
+        assert.include(changed, "designs/log-in.page.json");
+        assert.isTrue(status.files.every((f) => f.design));
 
-      const tracked = yield* client["git.diff"]({ path: HOME_FILE });
-      assert.include(tracked.diff, "External");
-      const untracked = yield* client["git.diff"]({
-        path: "designs/log-in.page.json",
-      });
-      assert.include(untracked.diff, '+  "version": 1');
+        const tracked = yield* client["git.diff"]({ path: HOME_FILE });
+        assert.include(tracked.diff, "External");
+        const untracked = yield* client["git.diff"]({
+          path: "designs/log-in.page.json",
+        });
+        assert.include(untracked.diff, '+  "version": 1');
 
-      // Reading needs nothing; committing waits until writing to git is on.
-      const refused = yield* Effect.flip(
-        client["git.commit"]({ message: "designs", paths: changed })
-      );
-      assert.strictEqual(refused._tag, "BadRequest");
-    })
+        // The history's points are no commits: git still says the files changed.
+        yield* client["history.save"]({ name: "Kept" });
+        assert.deepStrictEqual(
+          (yield* client["git.status"]()).files.map((f) => f.path).sort(),
+          [...changed].sort()
+        );
+      })
   );
 
   inGitProject(
@@ -1080,17 +1083,17 @@ describe("the editor's requests on a project", () => {
   );
 
   inProject(
-    "keeps a named snapshot, shows it as it was, and restores it in one step",
+    "names a version, shows it as it was, and restores it in one step",
     () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
-        const snapshot = yield* client["snapshots.create"]({
+        const version = yield* client["history.save"]({
           name: "Shown to the client",
         });
-        assert.strictEqual(snapshot.name, "Shown to the client");
+        assert.strictEqual(version.name, "Shown to the client");
         assert.deepStrictEqual(
-          (yield* client["snapshots.list"]()).map((s) => s.id),
-          [snapshot.id]
+          (yield* client["history.get"]()).points.map((p) => p.name),
+          ["Shown to the client"]
         );
         const before = yield* client["documents.get"]({ doc: HOME });
         yield* client["documents.apply"]({
@@ -1107,25 +1110,20 @@ describe("the editor's requests on a project", () => {
             },
           ],
         });
-        const diffs = yield* client["snapshots.diff"]({ id: snapshot.id });
-        assert.deepStrictEqual(
-          diffs.map((d) => d.path),
-          [HOME_FILE]
-        );
-        const view = yield* client["snapshots.view"]({ id: snapshot.id });
+        const view = yield* client["history.view"]({ id: version.id });
         const kept = view.documents.find((d) => d.doc === HOME);
         assert.notInclude(childIds(kept?.root), "later");
         assert.isTrue(view.pages.some((p) => p.id === HOME));
 
-        yield* client["snapshots.restore"]({ id: snapshot.id });
+        yield* client["history.restore"]({ id: version.id });
         const restored = yield* client["documents.get"]({ doc: HOME });
         assert.notInclude(childIds(restored.root), "later");
+        const [restore, edits] = (yield* client["history.get"]()).points;
+        assert.strictEqual(restore?.kind, "restore");
+        assert.deepStrictEqual(edits?.files, [HOME_FILE]);
         yield* client["edit.undo"]();
         const undone = yield* client["documents.get"]({ doc: HOME });
         assert.include(childIds(undone.root), "later");
-
-        yield* client["snapshots.delete"]({ id: snapshot.id });
-        assert.deepStrictEqual(yield* client["snapshots.list"](), []);
       })
   );
 

@@ -181,7 +181,6 @@ export class NewDesignService extends Context.Service<
                 const settings = {
                   ...defaultSettings(folder),
                   ...made.settings,
-                  ...(options.git && { git: "on" as const }),
                 };
                 // Last: a configuration says the files are all there.
                 yield* Effect.mapError(

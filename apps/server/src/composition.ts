@@ -33,6 +33,7 @@ import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
+import { History } from "./services/history.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagePngs } from "./services/page-pngs.ts";
@@ -46,7 +47,6 @@ import { SetupService } from "./services/setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
 import { SnapshotStore } from "./services/snapshot-store.ts";
-import { Snapshots } from "./services/snapshots.ts";
 import { Storage } from "./services/storage.ts";
 import { ProjectStyleSystem } from "./services/style-system.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
@@ -55,7 +55,6 @@ import { AgentLauncher } from "./services/threads/agent-launcher.ts";
 import { AgentSandbox } from "./services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
-import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
@@ -100,7 +99,9 @@ export const projectLayer = (
   Layer.mergeAll(
     PagePngs.layer,
     DesignTargets.layer,
-    FigmaImportService.layer
+    FigmaImportService.layer,
+    // The designs' history, the project's own whether git is there or not (ADR 0087).
+    History.layer
   ).pipe(
     // The link to the code reads the pages, their documents and the design system (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),
@@ -162,7 +163,6 @@ export const Foundation = ProfileService.layer.pipe(
 export const ThreadsLayer = ThreadSessions.layer.pipe(
   // A design turn's review runs the review models through the same launcher (ADR 0063).
   Layer.provideMerge(ReviewLoop.layer),
-  Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(AgentDiscovery.layer),
   Layer.provideMerge(
     Layer.mergeAll(
@@ -178,7 +178,6 @@ export const ThreadsLayer = ThreadSessions.layer.pipe(
 export const ApplicationLayer = <Agents>(adapters: Adapters<Agents>) =>
   SetupSteps.layer.pipe(
     // A step of the setup starts with its thread, so its runner sits above the threads.
-    Layer.provideMerge(Snapshots.layer),
     Layer.provideMerge(ThreadsLayer),
     // The briefing says what the sandbox allows, so it is built on it.
     Layer.provideMerge(

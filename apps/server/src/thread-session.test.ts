@@ -16,6 +16,8 @@ import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
 import { OpenProject } from "./project.ts";
 import { DesignFiles } from "./services/design-files.ts";
+import { EditService } from "./services/edit.ts";
+import { History } from "./services/history.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import {
@@ -1117,7 +1119,23 @@ describe("a turn", () => {
       const fs = yield* FileSystem.FileSystem;
       const store = path.join(home, "store");
       const { id: threadId } = yield* threads.create({ agentId: "scripted" });
-      // The checkpoint taken before the turn cannot be written: an I/O error, a defect.
+      // An edit of the person's, which the history keeps in a point before the turn.
+      const project = yield* OpenProject;
+      yield* project.use(
+        Effect.flatMap(EditService, (edit) =>
+          edit.transaction("An edit", (tx) =>
+            tx.write("designs/edited.page.json", "{}\n")
+          )
+        )
+      );
+      yield* project.use(
+        Effect.flatMap(History, (history) =>
+          Effect.repeat(history.get, {
+            until: (list) => list.pending !== null,
+          })
+        )
+      );
+      // That point cannot be written: an I/O error, a defect.
       yield* fs.remove(store, { force: true, recursive: true });
       yield* fs.writeFileString(store, "not a directory");
       yield* send(threadId, "hello");

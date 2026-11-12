@@ -1,10 +1,10 @@
 /**
- * A snapshot opened to look at (ADR 0019). While one is open the editor shows the canvases,
+ * A point of the history opened to look at (ADR 0087, as a snapshot was in ADR 0019). While one is open the editor shows the canvases,
  * pages and documents it kept instead of the files as they are, nothing is saved, and the
  * server's news about the files waits until the editor goes back to now. `viewSnapshot`
  * (`server-data.ts`) puts one on screen, switching what the editor reads.
  */
-import type { SnapshotView } from "@ultrapaint/contracts/snapshots";
+import type { PointView } from "@ultrapaint/contracts/snapshots";
 import { create } from "zustand";
 
 interface SnapshotViewStore {
@@ -15,7 +15,7 @@ interface SnapshotViewStore {
     route: string | null;
     variant: string | null;
   } | null;
-  view: SnapshotView | null;
+  view: PointView | null;
 }
 
 export const useSnapshotView = create<SnapshotViewStore>(() => ({

@@ -194,7 +194,7 @@ describe("flows in the services", () => {
     );
   });
 
-  eachTest(ProjectTest({ git: true, settings: { git: "on" } }))((it) => {
+  eachTest(ProjectTest({ git: true }))((it) => {
     it.effect("tells the editor git's status after a commit it makes", () =>
       Effect.gen(function* () {
         const project = yield* OpenProject;

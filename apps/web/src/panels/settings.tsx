@@ -5,7 +5,6 @@ import {
   CONFIG_FILE_NAME,
   defaultSettings,
   LEGACY_CONFIG_FILE_NAME,
-  writesGit,
 } from "@ultrapaint/contracts/settings";
 import {
   describeSuggestions,
@@ -411,7 +410,6 @@ type ProblemRow = "application" | "components" | "designs" | "path";
 type ChangedAt =
   | ProblemRow
   | "detect"
-  | "git"
   | "pagePngs"
   | "review"
   | "skills"
@@ -989,20 +987,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             id="settings-page-pngs"
             onCheckedChange={(on) =>
               change({ pagePngs: on || undefined }, "pagePngs", "now")
-            }
-          />
-        </Row>
-        <Row
-          description="Lets the Changes panel commit. Off, git is only read."
-          htmlFor="settings-git"
-          message={messageAt("git")}
-          title="Write to git"
-        >
-          <Switch
-            checked={writesGit(draft)}
-            id="settings-git"
-            onCheckedChange={(on) =>
-              change({ git: on ? "on" : undefined }, "git", "now")
             }
           />
         </Row>

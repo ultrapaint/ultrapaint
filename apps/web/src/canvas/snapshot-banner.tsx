@@ -1,7 +1,8 @@
 import { History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CutText } from "../components/cut-text.tsx";
-import { closeSnapshot, restoreSnapshot } from "../lib/snapshot-actions.ts";
+import { closePoint, restorePoint } from "../lib/history-actions.ts";
+import { pointTitle } from "../lib/history-words.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 import { Banner } from "./banner.tsx";
 
@@ -11,35 +12,30 @@ const when = new Intl.DateTimeFormat(undefined, {
 });
 
 /**
- * Says the designs on screen are a snapshot's, to look at, with the two ways out: back to the
- * files as they are, or the files put back as the snapshot kept them.
+ * Says the designs on screen are a point's of the history, to look at, with the two ways out:
+ * back to the files as they are, or the files put back as the point kept them.
  */
 export const SnapshotBanner = () => {
   const view = useSnapshotView((s) => s.view);
   if (!view) {
     return null;
   }
-  const { snapshot } = view;
+  const { point } = view;
+  const title = pointTitle(point);
   return (
     <Banner
       icon={<History className="text-warning" />}
-      label={`Snapshot ${snapshot.name}, read only`}
+      label={`${title}, read only`}
     >
-      <CutText className="min-w-0 truncate font-body-medium">
-        {snapshot.name}
-      </CutText>
+      <CutText className="min-w-0 truncate font-body-medium">{title}</CutText>
       <span className="shrink-0 font-body-small text-muted-foreground">
-        {when.format(snapshot.at)} · Read only
+        {when.format(point.at)} · Read only
       </span>
       <span className="flex shrink-0 items-center gap-1 pl-1">
-        <Button
-          onClick={() => restoreSnapshot(snapshot)}
-          size="sm"
-          variant="ghost"
-        >
+        <Button onClick={() => restorePoint(point)} size="sm" variant="ghost">
           Restore
         </Button>
-        <Button onClick={closeSnapshot} size="sm">
+        <Button onClick={closePoint} size="sm">
           Back to now
         </Button>
       </span>
