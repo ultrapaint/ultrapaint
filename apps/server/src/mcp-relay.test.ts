@@ -2,7 +2,7 @@ import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Option, Ref, Schedule, Stream } from "effect";
+import { Effect, FileSystem, Option, Ref, Stream } from "effect";
 import { answerWithoutProject, makeRouting } from "./mcp-command.ts";
 import {
   eventMessages,
@@ -17,6 +17,7 @@ import {
 } from "./mcp-relay.ts";
 import { KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 const STATELESS = "2026-07-28";
 
@@ -414,11 +415,13 @@ describe("a server as it starts (ADR 0083)", () => {
       Effect.gen(function* () {
         const { home } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
-        const kept = yield* fs
-          .readFileString(path.join(home, KEPT_TOOLS_FILE))
-          .pipe(
-            Effect.retry({ schedule: Schedule.spaced("50 millis"), times: 100 })
-          );
+        // The server lists its tools once it answers, a moment after it started.
+        const kept = yield* waitFor(
+          fs
+            .readFileString(path.join(home, KEPT_TOOLS_FILE))
+            .pipe(Effect.orElseSucceed(() => "")),
+          (text) => text !== ""
+        );
         assert.include(
           (JSON.parse(kept) as { tools: { name: string }[] }).tools.map(
             (tool) => tool.name
