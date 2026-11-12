@@ -9,6 +9,7 @@
  *   pnpm evals gallery                             choose the shots to take references from
  *   pnpm evals patterns annotate | book            a well-made product's patterns, counted
  *   pnpm evals study annotate | book               what a library of well-made sites does, counted
+ *   pnpm evals study read                          every page and screen read once with the study's questions
  *   pnpm evals extract <round> [families…]         track A: a design system made from pictures
  *   pnpm evals judge-components <round>            track A: its components against the product's
  *   pnpm evals freeze <family> <round> <run>       make a run's design system the family's library
@@ -79,6 +80,7 @@ import { review } from "./review.ts";
 import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
+import { studyRead } from "./study-read.ts";
 import { tells } from "./tells.ts";
 import { applyTriage, triage } from "./triage.ts";
 import { variety } from "./variety.ts";
@@ -680,6 +682,52 @@ const studyCommand = Command.make("study").pipe(
       Command.withDescription(
         "Look at each site not yet looked at, every dimension at once"
       )
+    ),
+    Command.make(
+      "read",
+      {
+        concurrency: judgeFlags.concurrency,
+        effort: Flag.String("effort").pipe(
+          Flag.withDescription(
+            "The reasoning effort, for a model in Codex or Cursor"
+          ),
+          Flag.withDefault("high")
+        ),
+        limit: Flag.Int("limit").pipe(
+          Flag.withDescription("At most this many pages this time"),
+          Flag.optional
+        ),
+        model: model("opus", "that reads the pages"),
+        sample: Flag.Int("sample").pipe(
+          Flag.withDescription(
+            "At most this many public pages, taken in turn from each source; every app screen is read"
+          ),
+          Flag.optional
+        ),
+        sources: Flag.String("sources").pipe(
+          Flag.withDescription(
+            "Sources, comma-separated: opl,typewolf,awwwards,landing (captured sites), screenrove (packs), untitled-ui (shots)"
+          ),
+          Flag.withDefault(
+            "opl,typewolf,awwwards,landing,screenrove,untitled-ui"
+          )
+        ),
+      },
+      Effect.fn(function* (input) {
+        yield* studyRead({
+          concurrency: input.concurrency,
+          effort: input.effort,
+          limit: Option.getOrUndefined(input.limit),
+          model: input.model,
+          sample: Option.getOrUndefined(input.sample),
+          sources: input.sources.split(","),
+        });
+      })
+    ).pipe(
+      Command.withDescription(
+        "Read each page and screen not yet read with the study's questions (fifth version): sections boxed, the system as values, moves, weak points, tells, craft"
+      ),
+      Command.provide(Browser.layer)
     ),
     Command.make(
       "book",

@@ -592,6 +592,25 @@ pnpm evals study book --dimension <dimension> --skills-from <round> [--character
   `studies/<model>/notes/`, and `book` writes `studies/<model>/<dimension>.md` from the notes of
   `--notes <model>` (gpt-6.1-sol).
 
+`study read` replaces `annotate` for every source from 12 November (ADR 0082): one call a page,
+the questions of `prompts/study-read.md` (their fifth version, tried on 59 pages and checked
+against Screenrove's measured tokens before the corpus was read), asked once and kept, so a
+source added later is read the same way and joins the counts:
+
+```sh
+pnpm evals study read [--sources opl,typewolf,awwwards,landing,screenrove,untitled-ui] [--sample <n>] [--limit <n>] [--model opus]
+```
+
+It reads captured sites (`corpus/<source>/<key>/desktop.jpg`, with `mobile.jpg` and
+`motion.json`), Screenrove packs (`corpus/screenrove/<pack>/catalog.json`: product screens as app
+screens, marketing pages as public pages) and gallery samples (`corpus/untitled-ui/index.json`).
+A page's pictures are cut once into `studies/<model>-questions-5/pictures/<source>__<key>/` (up
+to four tiles spread down the page, the phone's first screen), and its note, in `notes/` beside
+them, records the questions' version, the model and the pictures. `--sample <n>` takes at most
+`n` public pages in turn from each source; app screens are all read. What the notes are good
+for, from that check: grounds and text colours (within ΔE 4 and 2 of the measured), type sizes
+(±2px), sections and moves boxed on their pictures; not muted greys (ΔE 7–20).
+
 What a book says the skill should change is evidence for a gap, never a change to the skill.
 
 ## Decisions
