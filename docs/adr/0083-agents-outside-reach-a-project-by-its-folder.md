@@ -84,4 +84,4 @@ token is no longer shown.
 - The command must be on the agent's PATH; the app offers it, and the Settings row says how.
 - An agent outside the editor has no thread: its edits show on the canvas, its presence does not
   (`focus` needs a thread). A presence for outside agents is left for later.
-- The plan is `docs/plans/PLAN-outside-agents.md`.
+- The plan is `docs/plans/done/PLAN-outside-agents.md`.
