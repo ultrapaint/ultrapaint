@@ -54,8 +54,7 @@ export const IsolationBanner = () => {
         tip={file.name}
       >
         Editing{" "}
-        <span className="font-body-medium text-foreground">{file.name}</span> ·
-        every instance updates
+        <span className="font-body-medium text-foreground">{file.name}</span>
       </CutText>
       {choices.length > 0 && !onBoard ? (
         <Tooltip>
