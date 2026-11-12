@@ -13,6 +13,7 @@
     "design-system-color.page.json": "/design-system-color",
     "design.page.json": "/design",
     "element-toolbar.page.json": "/element-toolbar",
+    "frame-header.page.json": "/frame-header",
     "library-app-component.page.json": "/library-app-component",
     "library-button.page.json": "/library-button",
     "library-insert.page.json": "/library-insert",
@@ -64,6 +65,13 @@
       "width": 1514,
       "x": 0,
       "y": 1140
+    },
+    "frame-header.page.json": {
+      "height": 2500,
+      "preset": "custom",
+      "width": 1440,
+      "x": 13660,
+      "y": 0
     },
     "library-app-component.page.json": {
       "height": 900,
