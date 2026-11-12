@@ -37,9 +37,10 @@ the editor's and the same as a thread's agent gets.
 working directory upwards, as the server does, and reads the state directory beside it: the run
 file (`run.json`, ADR 0031) for where the server is, and `mcp-token` for the project's token,
 which the server now writes when it starts. Nothing about a port or a token is copied anywhere.
-A port that changed is read again from the run file when a call fails to connect. A folder the
-desktop app keeps a session for (one with no configuration file) is found through the app's
-project list.
+A port that changed is read again from the run file when a call fails to connect. A folder with
+no configuration file, which the desktop app keeps a session for in its own data, is not looked
+for there: the answer says to save the configuration (Settings › Repository › Save to file…),
+after which the folder is found like any other.
 
 **A project with no server running is started, without a window.** The command starts the
 project's server as the app does (`--port 0 --ready-json --stop-with-stdin`) and holds it; the
@@ -48,9 +49,13 @@ project is opened. The editor keeps its server when the agent's session ends: a 
 is connected to outlives the stdin it was started with, and stops when the last editor leaves.
 
 **A link names the project, for a chat in another folder.** The link the editor copies
-(`…?canvas=redesign&route=/vibe&node=c_1`, AGENTS.md) also names the project's folder. Given such
-a link, the command passes the calls to that project's server instead of the folder's. Tools that
-take a page or a node take the whole link, as they take `/vibe#c_1` today.
+(`…?canvas=redesign&route=/vibe&node=c_1`, AGENTS.md) also names the folder of the project's
+configuration (`project=`), once it is saved. A call with such a link among its arguments goes to
+that project's server, and so do the calls after it, until a link names another: an agent that
+read a page by its link goes on working on that page's project. The tools take the whole link,
+as they take `/vibe#c_1`. In a folder with no project the command offers the tools a project's
+server last listed, kept in the user's directory (`~/.ultrapaint/mcp-tools.json`), so a link
+pasted there can be used; a call before any link answers why there is no project.
 
 **The selection is a place too.** "What I've selected" is what is selected in the editor open on
 the project: a read-only tool returns it as node references, which every tool takes. It is the

@@ -5,8 +5,11 @@ import { Effect, FileSystem, Ref, Stream } from "effect";
 import { answerWithoutProject } from "./mcp-command.ts";
 import {
   eventMessages,
+  linkedProject,
   type McpTarget,
   makeRelay,
+  type RelayMessage,
+  RelayNoProject,
   RelayUnreachable,
 } from "./mcp-relay.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
@@ -33,13 +36,18 @@ const stateless = (id: number, method: string, params = {}) =>
 
 /** The relay to the test's server, with what it says to the agent collected. */
 const relayTo = (
-  locate: (again: boolean) => Effect.Effect<McpTarget, RelayUnreachable>
+  locate: (
+    again: boolean,
+    message: RelayMessage
+  ) => Effect.Effect<McpTarget, RelayUnreachable | RelayNoProject>
 ) =>
   Effect.gen(function* () {
     const said = yield* Ref.make<readonly string[]>([]);
     const relay = yield* makeRelay({
       locate,
       say: (text) => Ref.update(said, (lines) => [...lines, text]),
+      withoutProject: (text, why) =>
+        Effect.succeed(answerWithoutProject(text, why, undefined)),
     });
     const answers = Effect.map(Ref.get(said), (lines) =>
       lines.map((text) => JSON.parse(text) as Record<string, unknown>)
@@ -190,39 +198,94 @@ describe("an event stream's messages", () => {
   );
 });
 
-describe("in a folder with no project", () => {
-  const cwd = "/somewhere";
-  it("connects, offering no tools, and says why", () => {
-    const initialized = JSON.parse(
-      answerWithoutProject(
+describe("a call that names its project by a link (ADR 0083)", () => {
+  it("is to the project the link's folder is, wherever among its arguments the link is", () => {
+    const link =
+      "http://127.0.0.1:41234/?project=%2Fhome%2Fu%2Facme&route=/pricing&node=c_1";
+    assert.strictEqual(
+      linkedProject({
+        method: "tools/call",
+        params: {
+          arguments: { operations: [{ node: link, type: "set" }] },
+          name: "apply_operations",
+        },
+      }),
+      "/home/u/acme"
+    );
+    assert.isUndefined(
+      linkedProject({
+        method: "tools/call",
+        params: { arguments: { page: "/pricing" }, name: "read_page" },
+      })
+    );
+  });
+
+  it.effect("with no project to send it to, is answered here, saying why", () =>
+    Effect.gen(function* () {
+      const why = "No Ultrapaint project in /somewhere";
+      const { answers, handle } = yield* relayTo(() =>
+        Effect.fail(new RelayNoProject({ message: why }))
+      );
+      yield* handle(
         line({
           id: 1,
           method: "initialize",
           params: { protocolVersion: "2025-11-25" },
-        }),
-        cwd
-      ) ?? "{}"
+        })
+      );
+      yield* handle(line({ id: 2, method: "tools/call" }));
+      const [initialized, called] = yield* answers;
+      assert.strictEqual(
+        (initialized?.result as { instructions?: string } | undefined)
+          ?.instructions,
+        why
+      );
+      assert.deepStrictEqual(called?.error, { code: -32_601, message: why });
+    })
+  );
+});
+
+describe("in a folder with no project", () => {
+  const why = "No Ultrapaint project in /somewhere";
+  const answered = (request: Record<string, unknown>, tools?: unknown) =>
+    JSON.parse(answerWithoutProject(line(request), why, tools) ?? "{}");
+
+  it("connects, says why, and offers the tools a server listed last, so a pasted link can be used", () => {
+    const kept = { tools: [{ name: "read_page" }] };
+    const initialized = answered(
+      {
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-11-25" },
+      },
+      kept
     );
     assert.strictEqual(initialized.result.protocolVersion, "2025-11-25");
-    assert.include(
-      initialized.result.instructions,
-      "No Ultrapaint project in /somewhere"
-    );
+    assert.strictEqual(initialized.result.instructions, why);
+    assert.deepStrictEqual(initialized.result.capabilities, { tools: {} });
     assert.deepStrictEqual(
-      JSON.parse(
-        answerWithoutProject(line({ id: 2, method: "tools/list" }), cwd) ?? "{}"
-      ).result,
-      { tools: [] }
+      answered({ id: 2, method: "tools/list" }, kept).result,
+      kept
     );
   });
 
+  it("offers no tools before any server listed them", () => {
+    assert.deepStrictEqual(answered({ id: 2, method: "tools/list" }).result, {
+      tools: [],
+    });
+  });
+
   it("answers anything else with why, and a notification with nothing", () => {
-    const called = JSON.parse(
-      answerWithoutProject(line({ id: 3, method: "tools/call" }), cwd) ?? "{}"
+    assert.strictEqual(
+      answered({ id: 3, method: "tools/call" }).error.code,
+      -32_601
     );
-    assert.strictEqual(called.error.code, -32_601);
     assert.isUndefined(
-      answerWithoutProject(line({ method: "notifications/initialized" }), cwd)
+      answerWithoutProject(
+        line({ method: "notifications/initialized" }),
+        why,
+        undefined
+      )
     );
   });
 });

@@ -1,14 +1,16 @@
 /**
  * The relay behind `ultrapaint mcp` (ADR 0083): an agent outside the editor speaks MCP over stdio
  * to it, and it passes each message to the `/mcp` of the project's server, and the answers back.
- * It holds no tools of its own. Where the server is, it asks `locate` again whenever a call cannot
- * connect, which reads the run file anew or starts a server.
+ * It holds no tools of its own. Where the server is, it asks `locate` for each message (a link
+ * among a call's arguments may name another project), and again whenever a call cannot connect,
+ * which reads the run file anew or starts a server.
  *
  * Over HTTP a message carries what stdio does not: the project's token, the protocol version a
  * stateless request names in its `_meta` (or the one `initialize` agreed), and the session the
  * server gave an older revision's `initialize`. A server that restarted has forgotten that
  * session: the relay says `initialize` to it again, as the agent first did, and sends the call.
  */
+import { projectOfLink } from "@ultrapaint/shared/node-ref";
 import { Effect, Option, Predicate, Ref, Schema, Stream } from "effect";
 
 /** Where the project's server answers MCP, and the token it asks for. */
@@ -20,6 +22,12 @@ export interface McpTarget {
 
 export class RelayUnreachable extends Schema.TaggedError<RelayUnreachable>()(
   "RelayUnreachable",
+  { message: Schema.String }
+) {}
+
+/** No project to send a message to: the folder has none, and no link has named one. */
+export class RelayNoProject extends Schema.TaggedError<RelayNoProject>()(
+  "RelayNoProject",
   { message: Schema.String }
 ) {}
 
@@ -129,23 +137,69 @@ export const errorAnswer = (
   JSON.stringify({ error: { code, message }, id: id ?? null, jsonrpc: "2.0" });
 
 interface Session {
-  /** What `initialize` asked, to say it again to a server that forgot the session. */
+  /** What `initialize` asked, to say it again to a server that has not heard it. */
   readonly initialize: string | undefined;
+  /** The server `initialize` was last said to, whose session the calls carry. */
+  readonly initializedAt: string | undefined;
   /** The version `initialize` agreed, for the calls after it. */
   readonly protocolVersion: string | undefined;
   readonly sessionId: string | undefined;
 }
 
+/** The strings in a value, however deep: a tool's arguments, where a link may be. */
+const stringsIn = (value: unknown): readonly string[] => {
+  if (Predicate.isString(value)) {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap(stringsIn);
+  }
+  return Predicate.isObject(value)
+    ? Object.values(value).flatMap(stringsIn)
+    : [];
+};
+
+/**
+ * The project a call names by an editor link among its arguments (ADR 0083): the link's folder,
+ * which the relay reaches that project's server by.
+ */
+export const linkedProject = (message: Message): string | undefined => {
+  const { params } = message;
+  if (!(Predicate.isObject(params) && "arguments" in params)) {
+    return;
+  }
+  for (const text of stringsIn(params.arguments)) {
+    const project = projectOfLink(text);
+    if (project) {
+      return project;
+    }
+  }
+};
+
+export type { Message as RelayMessage };
+
 export const makeRelay = Effect.fnUntraced(function* (options: {
-  /** Where the server is; asked again with `again` when the last answer did not connect. */
+  /**
+   * Where the server for this message is; asked again with `again` when the last answer did
+   * not connect. No project to send it to fails with `RelayNoProject`.
+   */
   readonly locate: (
-    again: boolean
-  ) => Effect.Effect<McpTarget, RelayUnreachable>;
+    again: boolean,
+    message: Message
+  ) => Effect.Effect<McpTarget, RelayUnreachable | RelayNoProject>;
   /** One message for the agent, a line of JSON. */
   readonly say: (line: string) => Effect.Effect<void>;
+  /** The answer to a message there is no project for, if it has one: why, and what to do. */
+  readonly withoutProject: (
+    text: string,
+    why: string
+  ) => Effect.Effect<string | undefined>;
+  /** A server's list of tools, as it answered: kept for when there is no project to ask. */
+  readonly toolsListed?: (result: unknown) => Effect.Effect<void>;
 }) {
   const session = yield* Ref.make<Session>({
     initialize: undefined,
+    initializedAt: undefined,
     protocolVersion: undefined,
     sessionId: undefined,
   });
@@ -164,7 +218,7 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
       "content-type": "application/json",
       [TOKEN_HEADER]: target.token,
       ...(version && { [PROTOCOL_HEADER]: version }),
-      ...(known.sessionId && { [SESSION_HEADER]: known.sessionId }),
+      ...(!named && known.sessionId && { [SESSION_HEADER]: known.sessionId }),
       // A stateless request says in its headers what its body says.
       ...(named && routedHeaders(message)),
     };
@@ -189,17 +243,26 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
     const type = response.headers.get("content-type") ?? "";
     const remember = (line: string) =>
       Effect.gen(function* () {
+        const answered = decodeMessage(line);
         // The version `initialize` agreed goes on every call after it.
         if (message.method === "initialize") {
-          const answered = Option.flatMap(decodeMessage(line), (m) =>
+          const agreed = Option.flatMap(answered, (m) =>
             decodeVersioned(m.result)
           );
-          if (Option.isSome(answered)) {
+          if (Option.isSome(agreed)) {
             yield* Ref.update(session, (s) => ({
               ...s,
-              protocolVersion: answered.value.protocolVersion,
+              protocolVersion: agreed.value.protocolVersion,
             }));
           }
+        }
+        if (
+          message.method === "tools/list" &&
+          options.toolsListed &&
+          Option.isSome(answered) &&
+          answered.value.result !== undefined
+        ) {
+          yield* options.toolsListed(answered.value.result);
         }
         yield* options.say(line);
       });
@@ -250,8 +313,11 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
     });
   });
 
-  /** Says `initialize` again to a server that forgot the session, as the agent first did. */
-  const reinitialize = Effect.fnUntraced(function* (target: McpTarget) {
+  /**
+   * Says `initialize` to a server, as the agent first did: one that forgot the session, or one
+   * the relay has not said it to, a call naming another project having turned it there.
+   */
+  const initializeAt = Effect.fnUntraced(function* (target: McpTarget) {
     const { initialize } = yield* Ref.get(session);
     if (!initialize) {
       return false;
@@ -262,7 +328,24 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
       initialize,
       Option.getOrElse(decodeMessage(initialize), () => ({}))
     );
-    yield* Effect.promise(() => response.text());
+    // The version this server agreed, which the calls after it name: a JSON answer, or one event.
+    const body = yield* Effect.promise(() => response.text());
+    const lines = (response.headers.get("content-type") ?? "").includes(
+      "text/event-stream"
+    )
+      ? yield* eventMessages(Stream.make(body)).pipe(Stream.runCollect)
+      : [body];
+    for (const text of lines) {
+      const agreed = Option.flatMap(decodeMessage(text), (m) =>
+        decodeVersioned(m.result)
+      );
+      if (Option.isSome(agreed)) {
+        yield* Ref.update(session, (s) => ({
+          ...s,
+          protocolVersion: agreed.value.protocolVersion,
+        }));
+      }
+    }
     const initialized = JSON.stringify({
       jsonrpc: "2.0",
       method: "notifications/initialized",
@@ -271,7 +354,29 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
       method: "notifications/initialized",
     });
     yield* Effect.promise(() => sent.text());
+    if (response.ok) {
+      yield* Ref.update(session, (s) => ({ ...s, initializedAt: target.url }));
+    }
     return response.ok;
+  });
+
+  /**
+   * An older revision's calls go in a session, which is the server's: a server the relay has
+   * not said `initialize` to is told it first. A stateless call needs none.
+   */
+  const ready = Effect.fnUntraced(function* (
+    target: McpTarget,
+    message: Message
+  ) {
+    const known = yield* Ref.get(session);
+    if (
+      message.method !== "initialize" &&
+      !namedVersion(message) &&
+      known.initialize &&
+      known.initializedAt !== target.url
+    ) {
+      yield* initializeAt(target);
+    }
   });
 
   /** One message from the agent: passed on, its answers passed back, failures said as answers. */
@@ -289,13 +394,16 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
       yield* Ref.update(session, (s) => ({ ...s, initialize: text }));
     }
     const sent = Effect.gen(function* () {
-      const target = yield* options.locate(false);
+      let target = yield* options.locate(false, message);
+      yield* ready(target, message);
       const response = yield* post(target, text, message).pipe(
         // The port moved, or the server went: where it is now, and once more.
         Effect.catchTag("RelayUnreachable", () =>
-          Effect.flatMap(options.locate(true), (again) =>
-            post(again, text, message)
-          )
+          Effect.gen(function* () {
+            target = yield* options.locate(true, message);
+            yield* ready(target, message);
+            return yield* post(target, text, message);
+          })
         )
       );
       const known = yield* Ref.get(session);
@@ -303,20 +411,31 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
         response.status === 404 &&
         known.sessionId &&
         message.method !== "initialize" &&
-        (yield* reinitialize(target))
+        (yield* initializeAt(target))
       ) {
         yield* answer(yield* post(target, text, message), message);
         return;
       }
+      if (message.method === "initialize" && response.ok) {
+        yield* Ref.update(session, (s) => ({
+          ...s,
+          initializedAt: target.url,
+        }));
+      }
       yield* answer(response, message);
     });
     yield* sent.pipe(
-      Effect.catchTag("RelayUnreachable", (error) =>
-        // A notification has no answer to carry the failure.
-        message.id === undefined
-          ? Effect.logWarning(error.message)
-          : options.say(errorAnswer(message.id, error.message))
-      )
+      Effect.catchTags({
+        RelayNoProject: (error) =>
+          Effect.flatMap(options.withoutProject(text, error.message), (line) =>
+            line === undefined ? Effect.void : options.say(line)
+          ),
+        RelayUnreachable: (error) =>
+          // A notification has no answer to carry the failure.
+          message.id === undefined
+            ? Effect.logWarning(error.message)
+            : options.say(errorAnswer(message.id, error.message)),
+      })
     );
   });
 

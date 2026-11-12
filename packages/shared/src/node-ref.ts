@@ -43,6 +43,11 @@ interface EditorLink {
   readonly nodeId?: string;
   /** The page's URL or id; null for the canvas beside the pages, which a node's link says. */
   readonly page: string | null;
+  /**
+   * The project's folder, where its configuration is: an agent outside the editor reaches that
+   * project's server by it, wherever the agent works (ADR 0083).
+   */
+  readonly project?: string;
   /** The variant the URL is served in: the link is to that variant's page, not the base page. */
   readonly variant?: string;
 }
@@ -70,9 +75,13 @@ const queryOf = (query: string): Map<string, string> | null => {
   return params;
 };
 
+/** The project a text names, when it is an editor link that names one (ADR 0083). */
+export const projectOfLink = (text: string): string | undefined =>
+  parseEditorLink(text)?.project;
+
 /**
  * What a link the editor copies says (`…/?canvas=redesign&route=/vibe&node=c_1`, `page=` for a
- * page without a URL, `variant=` for a variant's page), so that it is taken wherever a reference
+ * page without a URL, `variant=` for a variant's page, `project=` for the project's folder), so that it is taken wherever a reference
  * is: pasted to an agent inside the editor or outside it. A node's link with neither route nor
  * page is a node beside the pages. Null for any other text, a URL of anything else included.
  */
@@ -95,9 +104,11 @@ export const parseEditorLink = (text: string): EditorLink | null => {
   }
   const canvas = at.get("canvas");
   const variant = at.get("variant");
+  const project = at.get("project");
   return {
     page,
     ...(canvas ? { canvas } : {}),
+    ...(project ? { project } : {}),
     ...(nodeId === undefined ? {} : { nodeId }),
     ...(variant ? { variant } : {}),
   };

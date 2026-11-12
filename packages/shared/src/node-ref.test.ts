@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatNodeRef, parseEditorLink, parseNodeRef } from "./node-ref.ts";
+import {
+  formatNodeRef,
+  parseEditorLink,
+  parseNodeRef,
+  projectOfLink,
+} from "./node-ref.ts";
 
 describe("node references", () => {
   it("read a route and a node id", () => {
@@ -85,6 +90,18 @@ describe("node references", () => {
     });
   });
 
+  it("name the project's folder, for an agent outside the editor to reach it (ADR 0083)", () => {
+    const link =
+      "http://127.0.0.1:41234/?project=%2Fhome%2Fu%2FCode%2Facme&route=/pricing&node=c_1";
+    expect(parseEditorLink(link)).toEqual({
+      nodeId: "c_1",
+      page: "/pricing",
+      project: "/home/u/Code/acme",
+    });
+    expect(projectOfLink(link)).toBe("/home/u/Code/acme");
+    expect(projectOfLink("/pricing#c_1")).toBeUndefined();
+  });
+
   it("are not read out of anything else", () => {
     expect(parseNodeRef("c_8x2k1q")).toBeNull();
     expect(parseNodeRef("/orders")).toBeNull();
@@ -161,6 +178,18 @@ describe("editor links", () => {
     expect(
       parseEditorLink("http://localhost:4643/?route=/pricing&variant=")
     ).toEqual({ page: "/pricing" });
+  });
+
+  it("name the project's folder, for an agent outside the editor to reach it (ADR 0083)", () => {
+    const link =
+      "http://127.0.0.1:41234/?project=%2Fhome%2Fu%2FCode%2Facme&route=/pricing&node=c_1";
+    expect(parseEditorLink(link)).toEqual({
+      nodeId: "c_1",
+      page: "/pricing",
+      project: "/home/u/Code/acme",
+    });
+    expect(projectOfLink(link)).toBe("/home/u/Code/acme");
+    expect(projectOfLink("/pricing#c_1")).toBeUndefined();
   });
 
   it("are not read out of anything else", () => {

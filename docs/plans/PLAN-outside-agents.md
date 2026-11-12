@@ -15,8 +15,9 @@ Each slice ships on its own, tested, and leaves the product working.
 3. (Done, 2026-11-12.) **Install the command.** The desktop app writes an `ultrapaint` launcher
    of its own server into the PATH, on macOS and Linux, from the Settings row, which offers it
    when the command is not found (the app has no menu of its own).
-4. **Links name the project.** The copied link carries the project's folder; the command routes a
-   call given a link to that project's server; tools take the whole link. Folders the app keeps a
-   session for are found through its project list.
+4. (Done, 2026-11-12.) **Links name the project.** The copied link carries the project's folder;
+   the command routes a call given a link, and the calls after it, to that project's server; a
+   folder with no project offers the tools last listed. A folder without a configuration file is
+   told to save one, not looked for in the desktop app's data.
 5. **The selection.** A read-only tool for what is selected in the editor open on the project,
    within the budget test.

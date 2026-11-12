@@ -106,13 +106,28 @@ export const writeSettingsSection = (section: string | null) =>
 export const clearNodeParam = () =>
   writeQuery((params) => params.delete("node"), false);
 
+/** The folder of the project's configuration, which the links name; none while nothing is saved. */
+let linkProject: string | undefined;
+
+/**
+ * Where the links say the project is (ADR 0083): the folder its configuration file is in, which
+ * an agent outside the editor reaches the project's server by, wherever it works.
+ */
+export const setLinkProject = (configPath: string | undefined) => {
+  linkProject = configPath?.slice(
+    0,
+    Math.max(configPath.lastIndexOf("/"), configPath.lastIndexOf("\\"), 1)
+  );
+};
+
 /**
  * A link to a page or a node of it, as the editor's own URL: its canvas, its page's route (`/`
  * written too, so a node of the home page is not one beside the pages) or the page itself when it
  * has none (neither for a node on the canvas beside the pages), the variant when the page is a
  * variant's, whose route is its base page's, and the node, which the editor selects and brings
  * into view. A board view open is no part of it: the link leads to the page.
- * Agents take it as they take a node reference (`parseEditorLink`), inside the editor or outside.
+ * Agents take it as they take a node reference (`parseEditorLink`), inside the editor or outside;
+ * the project's folder, when it is saved, lets one outside the editor reach it from anywhere.
  */
 export const linkToNode = (target: {
   nodeId?: string;
@@ -141,6 +156,10 @@ export const linkToNode = (target: {
   }
   if (target.nodeId) {
     params.set("node", target.nodeId);
+  }
+  // Last, as the longest: the editor itself has no use for it.
+  if (linkProject) {
+    params.set("project", linkProject);
   }
   return `${url.origin}${url.pathname}?${params.toString()}`;
 };

@@ -1,7 +1,15 @@
 import "../testing/fake-browser.ts";
+import { parseEditorLink } from "@ultrapaint/shared/node-ref";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "../testing/fake-browser.ts";
-import { linkToNode, readUrl, tidyUrl, writeBoard, writeUrl } from "./url.ts";
+import {
+  linkToNode,
+  readUrl,
+  setLinkProject,
+  tidyUrl,
+  writeBoard,
+  writeUrl,
+} from "./url.ts";
 
 beforeEach(() => {
   fakeBrowser.visit("/?canvas=main&route=/pricing");
@@ -56,6 +64,24 @@ describe("a board view in the URL", () => {
 });
 
 describe("a link to a page or a node", () => {
+  it("names the project's folder once the project is saved, for an agent outside the editor (ADR 0083)", () => {
+    setLinkProject("/home/u/Code/acme/ultrapaint.config.json");
+    try {
+      const link = linkToNode({ canvas: "main", nodeId: "hero", route: "/" });
+      expect(parseEditorLink(link)).toMatchObject({
+        nodeId: "hero",
+        project: "/home/u/Code/acme",
+      });
+    } finally {
+      setLinkProject(undefined);
+    }
+    expect(
+      new URL(linkToNode({ canvas: "main", route: "/" })).searchParams.has(
+        "project"
+      )
+    ).toBe(false);
+  });
+
   it("says the variant of a variant's page beside its route, as the editor's own URL does", () => {
     const link = linkToNode({
       canvas: "main",

@@ -55,8 +55,9 @@ The agent starts `ultrapaint mcp` in the folder it works in, and that folder say
 the nearest `ultrapaint.config.json` from there upwards. When the project is open in Ultrapaint,
 the agent works on that editor's server, and what it changes shows there as it changes. When it
 is not, the command starts the project's server without a window; opening the project then
-attaches to it, and it stops once the agent and every editor on it are gone. In a folder with no
-project the agent sees no Ultrapaint tools, and is told why. The `ultrapaint` command has to be
+attaches to it, and it stops once the agent and every editor on it are gone. A link the editor
+copies (**Copy link** on a page or an element) names its project, so pasting one in a chat
+anywhere, even in a folder with no project, has the agent work on that project from then on. The `ultrapaint` command has to be
 on the agent's `PATH`: in the desktop app, the same Settings row offers **Install the command**
 when this computer has none; from a checkout, `pnpm install:cli` ([Install and start](install.md)).
 

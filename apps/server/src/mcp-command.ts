@@ -1,9 +1,10 @@
 /**
  * `ultrapaint mcp` (ADR 0083): the editor's MCP server for an agent outside the editor, over
  * stdio. An agent registers it once and starts it in the folder it works in; the folder says
- * which project, by the configuration found from there upwards, and the relay passes every
- * message to that project's server: the one running, found by its run file, or one this command
- * starts without a window.
+ * which project, by the configuration found from there upwards, until a link among a call's
+ * arguments names another (the editor's links name their project's folder), and the calls after
+ * it go there too. The relay passes every message to that project's server: the one running,
+ * found by its run file, or one this command starts without a window.
  */
 import { homedir } from "node:os";
 import {
@@ -28,8 +29,11 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import product from "../../../package.json" with { type: "json" };
 import {
   errorAnswer,
+  linkedProject,
   type McpTarget,
   makeRelay,
+  type RelayMessage,
+  RelayNoProject,
   RelayUnreachable,
 } from "./mcp-relay.ts";
 import { liveRun } from "./run-file.ts";
@@ -58,14 +62,21 @@ const Request = Schema.fromJsonString(
   })
 );
 const decodeRequest = Schema.decodeUnknownOption(Request);
+/** The tools a server listed, as kept: any JSON. */
+const Kept = Schema.fromJsonString(Schema.Unknown);
 
 /**
- * In a folder with no project, the command still connects, offering nothing, and says why: an
- * agent registered once starts it in every folder, and a server that failed to start would be
- * reported in each of them.
+ * With no project to send it to (a folder with none, and no link naming one yet), a message is
+ * answered here: the command connects all the same, and says why, since an agent registered once
+ * starts it in every folder. It offers the tools a project's server last listed, so that a link
+ * pasted in the chat (which names its project) can be used from here too.
  */
-export const answerWithoutProject = (line: string, cwd: string) => {
-  const why = `No Ultrapaint project in ${cwd}: no ultrapaint.config.json there or above. Run \`ultrapaint\` in the repository to set one up, or work in a folder that has one.`;
+export const answerWithoutProject = (
+  line: string,
+  why: string,
+  /** The tools a server listed last, kept in the user's directory; nothing before any did. */
+  tools: unknown
+) => {
   const request = decodeRequest(line);
   if (Option.isNone(request)) {
     return errorAnswer(null, "Not a JSON-RPC message", -32_700);
@@ -79,7 +90,7 @@ export const answerWithoutProject = (line: string, cwd: string) => {
   switch (method) {
     case "initialize":
       return result({
-        capabilities: {},
+        capabilities: tools === undefined ? {} : { tools: {} },
         instructions: why,
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         serverInfo: { name: "ultrapaint", version: product.version },
@@ -87,7 +98,7 @@ export const answerWithoutProject = (line: string, cwd: string) => {
     case "ping":
       return result({});
     case "tools/list":
-      return result({ tools: [] });
+      return result(tools ?? { tools: [] });
     case "resources/list":
       return result({ resources: [] });
     case "prompts/list":
@@ -211,17 +222,39 @@ const makeLocator = Effect.fnUntraced(function* (
       .pipe(Effect.provideContext(services));
 });
 
+/** Where the tools a server listed are kept, for a folder with no project (ADR 0083). */
+const TOOLS_FILE = "mcp-tools.json";
+
 const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
   const stdio = yield* Stdio.Stdio;
+  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const cwd = process.cwd();
-  const { storage } = yield* resolveStorage({
-    config: undefined,
-    cwd,
-    ephemeral: false,
-    home: undefined,
-    userHome: process.env.HOME || homedir(),
-  });
+  const userHome = process.env.HOME || homedir();
+  /** The project whose configuration is found from `dir` upwards: its folder and state. */
+  const projectAt = (dir: string) =>
+    Effect.map(
+      resolveStorage({
+        config: undefined,
+        cwd: dir,
+        ephemeral: false,
+        home: undefined,
+        userHome,
+      }),
+      ({ storage, userDir }) => ({
+        project:
+          storage.mode === "file"
+            ? Option.some({
+                dir: path.dirname(storage.configPath),
+                stateDir: storage.stateDir,
+              })
+            : Option.none(),
+        userDir,
+      })
+    );
+  const here = yield* projectAt(cwd);
+  const toolsFile = path.join(here.userDir, TOOLS_FILE);
+
   const out = yield* Queue.unbounded<string, Cause.Done>();
   const say = (line: string) => Effect.asVoid(Queue.offer(out, line));
   const writing = yield* Stream.fromQueue(out).pipe(
@@ -230,20 +263,72 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
     Effect.forkScoped
   );
 
-  let handle: (line: string) => Effect.Effect<void>;
-  if (storage.mode === "file") {
-    const locate = yield* makeLocator(
-      { dir: path.dirname(storage.configPath), stateDir: storage.stateDir },
-      serve
+  /** The project the calls go to: the folder's, until a link names another. */
+  const current = yield* Ref.make(Option.map(here.project, (p) => p.dir));
+  /** Each project's way to its server, made once. */
+  const locators = new Map<
+    string,
+    (again: boolean) => Effect.Effect<McpTarget, RelayUnreachable>
+  >();
+  const making = yield* Semaphore.make(1);
+  const locatorFor = (dir: string) =>
+    making.withPermits(1)(
+      Effect.gen(function* () {
+        const known = locators.get(dir);
+        if (known) {
+          return known;
+        }
+        const found = yield* projectAt(dir);
+        if (Option.isNone(found.project)) {
+          return yield* new RelayNoProject({
+            message: `No Ultrapaint configuration in ${dir}: in Ultrapaint, Settings › Repository › Save to file… writes it there.`,
+          });
+        }
+        const locate = yield* makeLocator(found.project.value, serve);
+        locators.set(dir, locate);
+        return locate;
+      })
     );
-    ({ handle } = yield* makeRelay({ locate, say }));
-  } else {
-    handle = (line) =>
-      Option.match(Option.fromNullishOr(answerWithoutProject(line, cwd)), {
-        onNone: () => Effect.void,
-        onSome: say,
-      });
-  }
+
+  // What the servers are found and started with, each time a message is located.
+  const services = yield* Effect.context<
+    ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
+  >();
+  const locate = (again: boolean, message: RelayMessage) =>
+    Effect.gen(function* () {
+      const linked = linkedProject(message);
+      if (linked) {
+        yield* Ref.set(current, Option.some(linked));
+      }
+      const dir = yield* Ref.get(current);
+      if (Option.isNone(dir)) {
+        return yield* new RelayNoProject({
+          message: `No Ultrapaint project in ${cwd}: no ultrapaint.config.json there or above. Paste the link of an Ultrapaint page or node (Copy link in the editor) to work on its project, or work in a project's folder.`,
+        });
+      }
+      const locator = yield* locatorFor(dir.value);
+      return yield* locator(again);
+    }).pipe(Effect.provideContext(services));
+
+  const keptTools = fs.readFileString(toolsFile).pipe(
+    Effect.map((text) => Schema.decodeUnknownOption(Kept)(text)),
+    Effect.map(Option.getOrUndefined),
+    Effect.orElseSucceed(() => undefined)
+  );
+  const { handle } = yield* makeRelay({
+    locate,
+    say,
+    toolsListed: (result) =>
+      fs.makeDirectory(here.userDir, { recursive: true }).pipe(
+        Effect.andThen(
+          fs.writeFileString(toolsFile, `${JSON.stringify(result)}\n`)
+        ),
+        // A list not kept is only a list the next folder without a project goes without.
+        Effect.ignore
+      ),
+    withoutProject: (text, why) =>
+      Effect.map(keptTools, (tools) => answerWithoutProject(text, why, tools)),
+  });
 
   yield* stdio.stdin.pipe(
     Stream.decodeText(),

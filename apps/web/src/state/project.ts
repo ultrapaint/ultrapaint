@@ -7,7 +7,7 @@ import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
 import { api } from "./connection.ts";
 import { follow } from "./server-data.ts";
-import { readUrl, writeSettingsSection } from "./url.ts";
+import { readUrl, setLinkProject, writeSettingsSection } from "./url.ts";
 
 interface ProjectStore {
   canvases: readonly Canvas[];
@@ -71,17 +71,20 @@ const projectOpen = () => useProject.getState().info.configured;
 
 /** The project's info, with the settings in force: read first at every connection open. */
 const projectData = follow({
-  apply: (info) =>
+  apply: (info) => {
+    setLinkProject(info.storage.configPath);
     useProject.setState({
       info,
       loadError: null,
       loaded: true,
       settings: info.settings ?? null,
-    }),
+    });
+  },
   atOpen: () => true,
   on: {
     project: (info) => {
       const before = useProject.getState().info;
+      setLinkProject(info.storage.configPath);
       useProject.setState({ info, settings: info.settings ?? null });
       // A project opened by the server on its own (detected at start, a changed configuration
       // file) brings pages the editor has not read yet; the settings come with the info.
