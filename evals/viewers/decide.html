@@ -91,8 +91,8 @@
       gap: 20px;
       min-height: 0;
       padding: 28px 32px 36px;
-      font-size: 17px;
       overflow-y: auto;
+      font-size: 17px;
     }
     main.solo .text {
       justify-self: center;
@@ -284,9 +284,20 @@
     .option:hover {
       border-color: var(--line-strong);
     }
-    .option[aria-pressed="true"] {
+    .option[aria-pressed="true"],
+    .option.chosen,
+    .option.own:focus-within {
       border-color: var(--accent);
       box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .option.own {
+      grid-template-columns: 26px 1fr;
+      cursor: text;
+    }
+    .written {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
     }
     .key {
       display: grid;
@@ -300,7 +311,8 @@
       border: 1px solid var(--line);
       border-radius: 6px;
     }
-    .option[aria-pressed="true"] .key {
+    .option[aria-pressed="true"] .key,
+    .option.chosen .key {
       color: var(--card);
       background: var(--accent);
       border-color: var(--accent);
@@ -329,20 +341,38 @@
       border: 1px solid var(--line);
       border-radius: 10px;
     }
-    textarea.over {
+    textarea:focus {
+      outline: none;
       border-color: var(--accent);
     }
-    .under {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 12px;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 8px;
+    textarea.over {
+      border-color: var(--accent);
     }
     .actions {
       display: flex;
       gap: 6px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .written .actions {
+      margin-top: 0;
+    }
+    .status {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .link {
+      padding: 0;
+      font-size: 14px;
+      color: var(--accent);
+      white-space: nowrap;
+      background: none;
+      border: 0;
+    }
+    .link:hover {
+      text-decoration: underline;
     }
     .saved {
       min-height: 18px;
@@ -355,9 +385,6 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-    }
-    .attached:not(:empty) {
-      margin-top: 8px;
     }
     .thumb {
       position: relative;
@@ -730,17 +757,32 @@
         )
         .join("");
       $("main").classList.toggle("solo", !card?.pictures?.length);
+      for (const picture of pictures.querySelectorAll(".frame")) {
+        picture.onclick = () => {
+          $("lightbox").replaceChildren(picture.cloneNode(true));
+          $("lightbox").classList.add("open");
+        };
+      }
       for (const scroller of [$("main"), el, pictures]) {
         scroller.scrollTop = 0;
       }
       if (at === -1) {
-        el.innerHTML = `<h2>${esc(deck.title)}</h2><div class="body">${markdown(deck.intro)}</div>
-            <div><button type="button" class="ghost" id="start">Start <kbd>Enter</kbd></button></div>`;
-        $("start").onclick = () => show(firstOpen());
-        return;
+        showIntro(el);
+      } else if (at === deck.cards.length) {
+        showSummary(el);
+      } else {
+        showCard(el, card);
       }
-      if (at === deck.cards.length) {
-        el.innerHTML = `<div><div class="kicker">${esc(deck.title)} · ${answered()} of ${deck.cards.length} answered · saved as you went</div>
+    }
+
+    function showIntro(el) {
+      el.innerHTML = `<h2>${esc(deck.title)}</h2><div class="body">${markdown(deck.intro)}</div>
+            <div><button type="button" class="ghost" id="start">Start <kbd>Enter</kbd></button></div>`;
+      $("start").onclick = () => show(firstOpen());
+    }
+
+    function showSummary(el) {
+      el.innerHTML = `<div><div class="kicker">${esc(deck.title)} · ${answered()} of ${deck.cards.length} answered · saved as you went</div>
             <h2>Your answers</h2></div><div class="summary">${deck.cards
               .map((c, j) => {
                 const a = answers[c.id];
@@ -749,19 +791,33 @@
                   ${a?.comment ? `<span class="said">“${esc(a.comment)}”</span>` : ""}</button>`;
               })
               .join("")}</div>`;
-        for (const row of el.querySelectorAll(".row")) {
-          row.onclick = () => show(Number(row.dataset.j));
-        }
-        return;
+      for (const row of el.querySelectorAll(".row")) {
+        row.onclick = () => show(Number(row.dataset.j));
       }
+    }
+
+    /** A card: its text, its options and the person's own answer, or its call and a comment. */
+    function showCard(el, card) {
+      const called = hasCall(card);
       const given = answers[card.id];
+      const own = given !== undefined && given.choice === undefined;
+      // The words field: on a card with options, the last option, the person's own answer; on a
+      // card with a call, a comment that goes with Right or Wrong, or the person's own answer.
+      const field = (
+        placeholder,
+        value
+      ) => `<textarea id="comment" placeholder="${placeholder}">${esc(value)}</textarea>
+          <div class="attached" id="attached"></div>
+          <div class="actions"><label class="ghost" for="pick">Add image</label>
+          <input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="pick" multiple type="file" />
+          <button type="button" class="ghost" id="own">Send as my answer</button></div>`;
       el.innerHTML = `
           <div><div class="kicker">${esc(deck.title)}${card.eyebrow ? ` · ${esc(card.eyebrow)}` : ""}</div><h2>${esc(card.title)}</h2></div>
           ${called ? `<div class="call">${markdown(card.proposal)}</div>` : ""}
           ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
           ${
             called
-              ? ""
+              ? `<div>${field("A comment with Right or Wrong, or your own answer. Paste or drop an image here", given?.comment ?? "")}</div>`
               : `<div class="options">${card.options
                   .map(
                     (
@@ -773,16 +829,43 @@
                 ${card.recommend === o.key ? `<span class="tag">Recommended</span>` : ""}
               </button>`
                   )
-                  .join("")}</div>`
+                  .join("")}
+              <div class="option own${own ? " chosen" : ""}" id="ownrow"><span class="key">${card.options.length + 1}</span>
+              <div class="written"><span class="label">Your own answer</span>
+              ${field("None of these fits: write what you want instead. Paste or drop an image here", own ? (given.comment ?? "") : "")}</div></div></div>`
           }
-          <div><textarea id="comment" placeholder="${called ? "A comment with Right or Wrong, or your own answer. Paste or drop an image here" : "Your own answer, or a comment with the option you pick. Paste or drop an image here"}">${esc(given?.comment ?? "")}</textarea>
-          <div class="attached" id="attached"></div>
-          <div class="under"><span class="saved" id="saved">${savedLine(card, given)}</span>
-          <span class="actions"><label class="ghost" for="pick">Add image</label>
-          <input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="pick" multiple type="file" />
-          <button type="button" class="ghost" id="own">Send as my answer</button></span></div></div>`;
-      images = [...(given?.images ?? [])];
+          <div class="status"><span class="saved" id="saved">${savedLine(card, given)}</span>
+          ${given ? `<button type="button" class="link" id="clear">Clear answer</button>` : ""}</div>`;
+      images = called || own ? [...(given?.images ?? [])] : [];
       showImages();
+      wireField();
+      for (const button of el.querySelectorAll("button.option")) {
+        button.onclick = () => choose(button.dataset.key);
+      }
+      $("own").onclick = () => choose(undefined);
+      if (given) {
+        $("clear").onclick = clearAnswer;
+      }
+      if (called) {
+        $("right").setAttribute(
+          "aria-pressed",
+          String(given?.choice === card.recommend)
+        );
+        $("wrong").setAttribute(
+          "aria-pressed",
+          String(given?.choice !== undefined && given.choice !== card.recommend)
+        );
+      } else {
+        $("ownrow").onclick = (event) => {
+          if (!event.target.closest("button, label, textarea, input")) {
+            $("comment").focus();
+          }
+        };
+      }
+    }
+
+    /** The words field takes images too: picked, pasted or dropped on it. */
+    function wireField() {
       $("pick").onchange = (event) => {
         addImages([...event.target.files]);
         event.target.value = "";
@@ -807,26 +890,6 @@
         comment.classList.remove("over");
         addImages([...(event.dataTransfer?.files ?? [])]);
       });
-      for (const button of el.querySelectorAll(".option")) {
-        button.onclick = () => choose(button.dataset.key);
-      }
-      $("own").onclick = () => choose(undefined);
-      if (called) {
-        $("right").setAttribute(
-          "aria-pressed",
-          String(given?.choice === card.recommend)
-        );
-        $("wrong").setAttribute(
-          "aria-pressed",
-          String(given?.choice !== undefined && given.choice !== card.recommend)
-        );
-      }
-      for (const picture of pictures.querySelectorAll(".frame")) {
-        picture.onclick = () => {
-          $("lightbox").replaceChildren(picture.cloneNode(true));
-          $("lightbox").classList.add("open");
-        };
-      }
     }
 
     // The images added to the shown card's answer, by their path from the data directory.
@@ -900,7 +963,7 @@
       }
       return given
         ? "Saved."
-        : `Press 1–${card.options.length} to answer, or write your own and press ${MOD}↵; ← and → to move.`;
+        : `Press 1–${card.options.length} to answer, or ${card.options.length + 1} to write your own and ${MOD}↵ to send it; ← and → to move.`;
     }
 
     /**
@@ -909,7 +972,10 @@
      */
     async function choose(key) {
       const card = deck.cards[at];
-      const comment = $("comment").value;
+      // The words and images go with Right or Wrong, but are an answer of their own beside options.
+      const withWords = key === undefined || hasCall(card);
+      const comment = withWords ? $("comment").value : "";
+      const sent = withWords ? images : [];
       if (key === undefined && !comment.trim() && images.length === 0) {
         $("saved").textContent =
           "Write your answer or add an image first, or press a number.";
@@ -917,7 +983,12 @@
         return;
       }
       const response = await fetch("/api/answer", {
-        body: JSON.stringify({ choice: key, comment, id: card.id, images }),
+        body: JSON.stringify({
+          choice: key,
+          comment,
+          id: card.id,
+          images: sent,
+        }),
         headers: { "content-type": "application/json" },
         method: "POST",
       });
@@ -929,7 +1000,7 @@
       answers[card.id] = {
         choice: key,
         comment: comment.trim() || undefined,
-        images: images.length > 0 ? [...images] : undefined,
+        images: sent.length > 0 ? [...sent] : undefined,
         label:
           key === undefined
             ? "Own answer"
@@ -937,6 +1008,25 @@
         title: card.title,
       };
       show(at + 1);
+    }
+
+    /** Takes the card's answer back: it is unanswered again. */
+    async function clearAnswer() {
+      const card = deck.cards[at];
+      if (!answers[card?.id]) {
+        return;
+      }
+      const response = await fetch(
+        `/api/answer?id=${encodeURIComponent(card.id)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        $("saved").textContent =
+          `Not cleared: ${(await response.json()).message}`;
+        return;
+      }
+      delete answers[card.id];
+      show(at);
     }
 
     // The theme the page is set to, kept in this browser only; without one it follows the system.
@@ -1011,17 +1101,28 @@
       } else if (event.key.toLowerCase() === "c" && $("comment")) {
         event.preventDefault();
         $("comment").focus();
+      } else if (event.key === "Backspace" || event.key === "Delete") {
+        clearAnswer();
       } else if (
         DIGIT_RE.test(event.key) &&
         at >= 0 &&
         at < deck.cards.length
       ) {
-        const option = deck.cards[at].options[Number(event.key) - 1];
-        if (option) {
-          choose(option.key);
-        }
+        pressDigit(event, deck.cards[at]);
       }
     });
+
+    /** A number key picks its option; the one after the last opens the person's own answer. */
+    function pressDigit(event, card) {
+      const n = Number(event.key);
+      const option = card.options[n - 1];
+      if (option) {
+        choose(option.key);
+      } else if (n === card.options.length + 1 && !hasCall(card)) {
+        event.preventDefault();
+        $("comment").focus();
+      }
+    }
     $("lightbox").onclick = () => $("lightbox").classList.remove("open");
     $("back").onclick = () => show(at - 1);
     $("next").onclick = () => show(at + 1);

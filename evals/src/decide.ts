@@ -317,9 +317,38 @@ export const decide = Effect.fn("decide")(function* (
     )
   );
 
+  // An answer taken back: the card is unanswered again, as if it had never been answered.
+  const clear = Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const id = new URL(request.url, "http://deck").searchParams.get("id") ?? "";
+    if (!byId.has(id)) {
+      return HttpServerResponse.jsonUnsafe(
+        { message: `no card ${id}` },
+        { status: 400 }
+      );
+    }
+    yield* lock.withPermits(1)(
+      Effect.gen(function* () {
+        const { [id]: _taken, ...rest } = yield* readAnswers;
+        yield* writeJson(answersFile, rest);
+      })
+    );
+    return HttpServerResponse.jsonUnsafe({ ok: true });
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed(
+        HttpServerResponse.jsonUnsafe(
+          { message: String(error) },
+          { status: 400 }
+        )
+      )
+    )
+  );
+
   const routes = Layer.mergeAll(
     HttpRouter.add("GET", "/api/session", session),
     HttpRouter.add("POST", "/api/answer", save),
+    HttpRouter.add("DELETE", "/api/answer", clear),
     HttpRouter.add("POST", "/api/image", addImage),
     HttpRouter.add("GET", "/", Effect.succeed(HttpServerResponse.html(page))),
     HttpStaticServer.layer({ prefix: "/data", root: data.root })

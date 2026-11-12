@@ -574,8 +574,11 @@ What a book says the skill should change is evidence for a gap, never a change t
 
 When an agent needs several decisions from the person, it writes them as a deck and the person
 answers in the browser, one card at a time: a number key answers and moves on, and the answers
-are saved as they are given. When no option fits, the person writes their own answer and sends it
-(⌘/Ctrl+Enter); words written before a number key go with that option as a comment. Images go with an answer too: pasted or dropped on the comment, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the bottom
+are saved as they are given. The last choice of every card is the person's own answer: its number
+key opens a field they write in and send (⌘/Ctrl+Enter), and an option picked after it leaves the
+words out. On a card with a call, the field is a comment that goes with Right or Wrong instead, or
+the own answer when sent alone. Backspace, or Clear answer, takes an answer back. Images go with
+the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the bottom
 moves through the deck (← →, A for every answer). The page follows the system's light or dark
 theme; the bar's switch (or T) sets one, kept in that browser.
 
@@ -589,7 +592,8 @@ A deck is `{ title, intro?, cards }`. Each card has:
 - `pictures?`: `{ src, caption, marks? }`, with `src` a path from the data directory. `marks`
   are boxes drawn around what the card asks about, `{ x, y, width, height, label?, at? }` in
   fractions of the picture, the label `above`, `below`, `right` or `inside` it;
-- `options`: `{ key, label, leads? }`, where `leads` says what choosing it leads to;
+- `options`: `{ key, label, leads? }`, where `leads` says what choosing it leads to. The page
+  adds the person's own answer after them, so no option asks for words ("Change it: say how");
 - `recommend?`: an option's key;
 - `proposal?`: the agent's own call, in markdown. With `recommend` and two options, the page
   shows it and asks only Right or Wrong (R, W), from a bar that stays in reach.
