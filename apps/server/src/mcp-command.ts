@@ -1,10 +1,13 @@
 /**
  * `ultrapaint mcp` (ADR 0083): the editor's MCP server for an agent outside the editor, over
- * stdio. An agent registers it once and starts it in the folder it works in; the folder says
- * which project, by the configuration found from there upwards, until a link among a call's
- * arguments names another (the editor's links name their project's folder), and the calls after
- * it go there too. The relay passes every message to that project's server: the one running,
- * found by its run file, or one this command starts without a window.
+ * stdio. An agent registers it once, directly or through a hub that shares one for all its
+ * agents. Each call names the folder its agent works in (`cwd`, an argument the relay adds to
+ * every tool), and the folder says which project, by the configuration found from there upwards;
+ * a call without one is for the folder the command was started in. A link among a call's
+ * arguments names another project (the editor's links name their project's folder), and the
+ * calls from the same folder after it go there too. The relay passes every message to that
+ * project's server: the one running, found by its run file, or one this command starts without a
+ * window.
  */
 import { homedir } from "node:os";
 import {
@@ -29,15 +32,19 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import product from "../../../package.json" with { type: "json" };
 import {
   errorAnswer,
+  FOLDER_ARG,
+  folderOf,
   linkedProject,
   type McpTarget,
   makeRelay,
   type RelayMessage,
   RelayNoProject,
   RelayUnreachable,
+  withFolder,
 } from "./mcp-relay.ts";
 import { liveRun } from "./run-file.ts";
 import { MCP_PATH } from "./services/mcp/access.ts";
+import { KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
 import { resolveStorage } from "./storage-resolve.ts";
 
 /**
@@ -98,7 +105,7 @@ export const answerWithoutProject = (
     case "ping":
       return result({});
     case "tools/list":
-      return result(tools ?? { tools: [] });
+      return result(withFolder(tools ?? { tools: [] }));
     case "resources/list":
       return result({ resources: [] });
     case "prompts/list":
@@ -222,8 +229,45 @@ const makeLocator = Effect.fnUntraced(function* (
       .pipe(Effect.provideContext(services));
 });
 
-/** Where the tools a server listed are kept, for a folder with no project (ADR 0083). */
-const TOOLS_FILE = "mcp-tools.json";
+/**
+ * Which project a message is for, by its project's folder (ADR 0083): the one a link among its
+ * arguments names, else the one a link from the same folder named last, else the one found from
+ * the folder its agent works in upwards. The folder is the one the call names (`cwd`), or the
+ * one the command was started in. A link is remembered for its folder alone: two agents sharing
+ * the command through a hub, in two folders, do not turn each other's calls.
+ */
+export const makeRouting = <R>(options: {
+  /** The folder the command was started in: an agent's, or a hub's. */
+  readonly started: string;
+  readonly isAbsolute: (folder: string) => boolean;
+  /** The folder of the project whose configuration is found from `folder` upwards. */
+  readonly projectAt: (
+    folder: string
+  ) => Effect.Effect<Option.Option<string>, never, R>;
+}) => {
+  const linked = new Map<string, string>();
+  return Effect.fnUntraced(function* (message: RelayMessage) {
+    const named = folderOf(message);
+    if (named !== undefined && !options.isAbsolute(named)) {
+      return yield* new RelayNoProject({
+        message: `${FOLDER_ARG} is "${named}": give the absolute path of your working directory.`,
+      });
+    }
+    const from = named ?? options.started;
+    const link = linkedProject(message);
+    if (link) {
+      linked.set(from, link);
+    }
+    const dir =
+      linked.get(from) ?? Option.getOrUndefined(yield* options.projectAt(from));
+    if (dir === undefined) {
+      return yield* new RelayNoProject({
+        message: `No Ultrapaint project in ${from}: no ultrapaint.config.json there or above. Give each tool your working directory as ${FOLDER_ARG}, a project's folder or one inside it, or paste the link of an Ultrapaint page or node (Copy link in the editor) to work on its project.`,
+      });
+    }
+    return dir;
+  });
+};
 
 const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
   const stdio = yield* Stdio.Stdio;
@@ -253,7 +297,7 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
       })
     );
   const here = yield* projectAt(cwd);
-  const toolsFile = path.join(here.userDir, TOOLS_FILE);
+  const toolsFile = path.join(here.userDir, KEPT_TOOLS_FILE);
 
   const out = yield* Queue.unbounded<string, Cause.Done>();
   const say = (line: string) => Effect.asVoid(Queue.offer(out, line));
@@ -263,8 +307,16 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
     Effect.forkScoped
   );
 
-  /** The project the calls go to: the folder's, until a link names another. */
-  const current = yield* Ref.make(Option.map(here.project, (p) => p.dir));
+  const routing = makeRouting({
+    isAbsolute: path.isAbsolute,
+    projectAt: (folder) =>
+      projectAt(folder).pipe(
+        Effect.map(({ project }) => Option.map(project, (p) => p.dir)),
+        // A folder that cannot be read has no project to offer.
+        Effect.orElseSucceed(() => Option.none<string>())
+      ),
+    started: cwd,
+  });
   /** Each project's way to its server, made once. */
   const locators = new Map<
     string,
@@ -296,17 +348,7 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
   >();
   const locate = (again: boolean, message: RelayMessage) =>
     Effect.gen(function* () {
-      const linked = linkedProject(message);
-      if (linked) {
-        yield* Ref.set(current, Option.some(linked));
-      }
-      const dir = yield* Ref.get(current);
-      if (Option.isNone(dir)) {
-        return yield* new RelayNoProject({
-          message: `No Ultrapaint project in ${cwd}: no ultrapaint.config.json there or above. Paste the link of an Ultrapaint page or node (Copy link in the editor) to work on its project, or work in a project's folder.`,
-        });
-      }
-      const locator = yield* locatorFor(dir.value);
+      const locator = yield* locatorFor(yield* routing(message));
       return yield* locator(again);
     }).pipe(Effect.provideContext(services));
 

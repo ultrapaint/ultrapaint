@@ -176,6 +176,89 @@ export const linkedProject = (message: Message): string | undefined => {
   }
 };
 
+/**
+ * The argument every tool takes through the relay: the folder the agent works in, which says
+ * which project the call is for (ADR 0083). MCP has no other way for a server to learn it once
+ * roots are gone, and a server shared by several agents (a hub) is started in one folder for all
+ * of them. The relay adds it to each tool it lists and takes it off each call it passes on: the
+ * server's tools never see it, nor do the editor's own agents, which reach the server directly.
+ */
+export const FOLDER_ARG = "cwd";
+/**
+ * Without a description: every agent reads it on every tool, and the name says it. One that gives
+ * a relative path is told to give it whole.
+ */
+const FOLDER_SCHEMA = { type: "string" };
+
+/** A server's list of tools, each one taking the folder too, as the agent is given it. */
+export const withFolder = (listed: unknown): unknown => {
+  if (!(Predicate.isObject(listed) && Array.isArray(listed.tools))) {
+    return listed;
+  }
+  const tools = listed.tools.map((tool: unknown) => {
+    if (!(Predicate.isObject(tool) && Predicate.isObject(tool.inputSchema))) {
+      return tool;
+    }
+    const schema = tool.inputSchema;
+    const required = Array.isArray(schema.required) ? schema.required : [];
+    return {
+      ...tool,
+      inputSchema: {
+        ...schema,
+        properties: {
+          ...(Predicate.isObject(schema.properties) && schema.properties),
+          [FOLDER_ARG]: FOLDER_SCHEMA,
+        },
+        required: required.includes(FOLDER_ARG)
+          ? required
+          : [...required, FOLDER_ARG],
+      },
+    };
+  });
+  return { ...listed, tools };
+};
+
+/** An answer to `tools/list`, each tool taking the folder too. */
+const listedWithFolder = (line: string) => {
+  const listed = Option.filter(decodeJson(line), Predicate.isObject);
+  return Option.isSome(listed) && "result" in listed.value
+    ? JSON.stringify({
+        ...listed.value,
+        result: withFolder(listed.value.result),
+      })
+    : line;
+};
+
+/** The arguments of a call, when it has any. */
+const argumentsOf = (message: Message) => {
+  const { params } = message;
+  return Predicate.isObject(params) && Predicate.isObject(params.arguments)
+    ? params.arguments
+    : undefined;
+};
+
+/** The folder a call says its agent works in, if it says one. */
+export const folderOf = (message: Message): string | undefined => {
+  const folder = argumentsOf(message)?.[FOLDER_ARG];
+  return Predicate.isString(folder) && folder !== "" ? folder : undefined;
+};
+
+/** A call as the server takes it: without the folder, which was the relay's to read. */
+const withoutFolder = (text: string, message: Message) => {
+  const args = argumentsOf(message);
+  if (!(args && FOLDER_ARG in args)) {
+    return text;
+  }
+  const { [FOLDER_ARG]: _folder, ...rest } = args;
+  return JSON.stringify({
+    ...Option.getOrElse(
+      Option.filter(decodeJson(text), Predicate.isObject),
+      () => ({})
+    ),
+    params: { ...(message.params as object), arguments: rest },
+  });
+};
+
 export type { Message as RelayMessage };
 
 export const makeRelay = Effect.fnUntraced(function* (options: {
@@ -264,7 +347,10 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
         ) {
           yield* options.toolsListed(answered.value.result);
         }
-        yield* options.say(line);
+        // The agent is given each tool with the folder it works in among its arguments.
+        yield* options.say(
+          message.method === "tools/list" ? listedWithFolder(line) : line
+        );
       });
     const { body: events } = response;
     if (type.includes("text/event-stream") && events) {
@@ -393,16 +479,17 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
     if (message.method === "initialize") {
       yield* Ref.update(session, (s) => ({ ...s, initialize: text }));
     }
+    const forwarded = withoutFolder(text, message);
     const sent = Effect.gen(function* () {
       let target = yield* options.locate(false, message);
       yield* ready(target, message);
-      const response = yield* post(target, text, message).pipe(
+      const response = yield* post(target, forwarded, message).pipe(
         // The port moved, or the server went: where it is now, and once more.
         Effect.catchTag("RelayUnreachable", () =>
           Effect.gen(function* () {
             target = yield* options.locate(true, message);
             yield* ready(target, message);
-            return yield* post(target, text, message);
+            return yield* post(target, forwarded, message);
           })
         )
       );
@@ -413,7 +500,7 @@ export const makeRelay = Effect.fnUntraced(function* (options: {
         message.method !== "initialize" &&
         (yield* initializeAt(target))
       ) {
-        yield* answer(yield* post(target, text, message), message);
+        yield* answer(yield* post(target, forwarded, message), message);
         return;
       }
       if (message.method === "initialize" && response.ok) {

@@ -42,6 +42,19 @@ no configuration file, which the desktop app keeps a session for in its own data
 for there: the answer says to save the configuration (Settings › Repository › Save to file…),
 after which the folder is found like any other.
 
+**Each call names its folder too, for a command shared by several agents.** A hub such as
+mcp-hub starts one `ultrapaint mcp` for all its agents, in a folder of its own, and passes no
+agent's folder along: MCP's roots, the protocol's way to say it, are deprecated in the 2026-07-28
+revision, which says to pass folders as tool parameters instead. So every tool takes `cwd`, the
+absolute path of the folder the agent works in, required. The command adds it to each tool it
+lists and takes it off each call it passes on: the server's tools do not have it, and the
+editor's own agents, which reach the server directly, never see it; the definitions an outside
+agent reads grow by about 1,500 characters (39 tools; the parameter has no description, its
+name says it). A call is for the project found from its `cwd` upwards; a call without one
+(`initialize`, `tools/list`) is for the folder the command was started in. A `cwd` that is not
+absolute is answered with why. Through a hub, a command stopped for being idle is started again
+by the next call, and the servers it started go with it unless an editor is connected.
+
 **A project with no server running is started, without a window.** The command starts the
 project's server as the app does (`--port 0 --ready-json --stop-with-stdin`) and holds it; the
 designs are files in the project, and the app or `ultrapaint` attaches to that server when the
@@ -51,11 +64,14 @@ is connected to outlives the stdin it was started with, and stops when the last 
 **A link names the project, for a chat in another folder.** The link the editor copies
 (`…?canvas=redesign&route=/vibe&node=c_1`, AGENTS.md) also names the folder of the project's
 configuration (`project=`), once it is saved. A call with such a link among its arguments goes to
-that project's server, and so do the calls after it, until a link names another: an agent that
-read a page by its link goes on working on that page's project. The tools take the whole link,
-as they take `/vibe#c_1`. In a folder with no project the command offers the tools a project's
-server last listed, kept in the user's directory (`~/.ultrapaint/mcp-tools.json`), so a link
-pasted there can be used; a call before any link answers why there is no project.
+that project's server, and so do the calls from the same folder after it, until a link names
+another: an agent that read a page by its link goes on working on that page's project. A link is
+remembered for the folder its call came from, so that two agents sharing one command, in two
+folders, do not turn each other's calls. The tools take the whole link, as they take
+`/vibe#c_1`. In a folder with no project, a hub's among them, the command offers the tools a
+server listed, kept in the user's directory (`~/.ultrapaint/mcp-tools.json`): every server
+writes its list there as it starts, and the command each list it passes on. A call before any
+folder or link names a project answers why there is none.
 
 **The selection is a place too.** "What I've selected" is what is selected in the editor open on
 the project. The editor says its selection to its server as it changes (`editor.select`, once it
@@ -81,7 +97,11 @@ token is no longer shown.
 
 - One line of configuration serves every project, every restart and every chat; a design an
   agent makes lands in the project's designs and appears live in an editor open on it.
-- The command must be on the agent's PATH; the app offers it, and the Settings row says how.
+- The command must be on the agent's PATH, or the hub's; the app offers it, and the Settings
+  row says how. A hub's PATH is usually minimal: its entry gives the command's whole path and a
+  PATH with Node on it.
+- Every outside agent passes its folder on every call, a cost in tokens the editor's own agents
+  do not pay.
 - An agent outside the editor has no thread: its edits show on the canvas, its presence does not
   (`focus` needs a thread). A presence for outside agents is left for later.
 - The plan is `docs/plans/done/PLAN-outside-agents.md`.

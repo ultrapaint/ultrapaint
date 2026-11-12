@@ -34,6 +34,7 @@ import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
 import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
+import { KeepToolList } from "./services/mcp/kept-tools.ts";
 import { McpRoute } from "./services/mcp/route.ts";
 import { SettingsService } from "./services/settings.ts";
 import { Storage } from "./services/storage.ts";
@@ -380,9 +381,12 @@ const Served = HttpRouter.serve(Routes, {
   Layer.provideMerge(ApplicationLayer(ServerAdapters))
 );
 
-/** And once it all answers, the run file and the ready line say so (PLAN-desktop D5). */
-/** The server, and how many editors it has, for whoever started it to wait on (ADR 0083). */
-export const ServerLive = Announce.pipe(
+/**
+ * The server, and how many editors it has, for whoever started it to wait on (ADR 0083). Once it
+ * all answers, the run file and the ready line say so (PLAN-desktop D5), and its tools are kept
+ * for `ultrapaint mcp` in a folder with no project.
+ */
+export const ServerLive = Layer.merge(Announce, KeepToolList).pipe(
   Layer.provide(Served),
   Layer.provideMerge(EditorsConnected.layer)
 );

@@ -1,17 +1,21 @@
+import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Ref, Stream } from "effect";
-import { answerWithoutProject } from "./mcp-command.ts";
+import { Effect, FileSystem, Option, Ref, Schedule, Stream } from "effect";
+import { answerWithoutProject, makeRouting } from "./mcp-command.ts";
 import {
   eventMessages,
+  FOLDER_ARG,
   linkedProject,
   type McpTarget,
   makeRelay,
   type RelayMessage,
   RelayNoProject,
   RelayUnreachable,
+  withFolder,
 } from "./mcp-relay.ts";
+import { KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
 const STATELESS = "2026-07-28";
@@ -80,10 +84,20 @@ describe("the relay of ultrapaint mcp (ADR 0083)", () => {
         );
         yield* handle(stateless(1, "tools/list"));
         yield* handle(
-          stateless(2, "tools/call", { arguments: {}, name: "list_pages" })
+          stateless(2, "tools/call", {
+            arguments: { [FOLDER_ARG]: "/somewhere" },
+            name: "list_pages",
+          })
         );
         const [listed, called] = yield* answers;
         assert.include(toolsIn(listed), "create_page");
+        // Each tool is given with the folder among its arguments, which the server never sees.
+        const { tools } = (listed?.result ?? { tools: [] }) as {
+          tools: { inputSchema: { required: string[] } }[];
+        };
+        for (const tool of tools) {
+          assert.include(tool.inputSchema.required, FOLDER_ARG);
+        }
         assert.strictEqual(called?.id, 2);
         assert.isUndefined(called?.error);
       }).pipe(Effect.provide(TestServer), Effect.scoped),
@@ -154,6 +168,56 @@ describe("the relay of ultrapaint mcp (ADR 0083)", () => {
         assert.include(toolsIn((yield* answers)[0]), "create_page");
       }).pipe(Effect.provide(TestServer), Effect.scoped),
     60_000
+  );
+
+  // real clock: a server of the test's own, over a real socket.
+  it.live("passes a call on without the folder, which is the relay's", () =>
+    Effect.gen(function* () {
+      const bodies: string[] = [];
+      const port = yield* Effect.acquireRelease(
+        Effect.promise(
+          () =>
+            new Promise<{ close: () => void; port: number }>((resolve) => {
+              const server = createHttpServer((request, response) => {
+                let body = "";
+                request.on("data", (chunk) => {
+                  body += chunk;
+                });
+                request.on("end", () => {
+                  bodies.push(body);
+                  response.setHeader("content-type", "application/json");
+                  response.end(line({ id: 1, result: {} }));
+                });
+              });
+              server.listen(0, "127.0.0.1", () => {
+                const address = server.address();
+                resolve({
+                  close: () => server.close(),
+                  port:
+                    address && typeof address === "object" ? address.port : 0,
+                });
+              });
+            })
+        ),
+        (server) => Effect.sync(server.close)
+      );
+      const { handle } = yield* relayTo(() =>
+        Effect.succeed({
+          token: "t",
+          url: `http://127.0.0.1:${port.port}/mcp`,
+        })
+      );
+      yield* handle(
+        stateless(1, "tools/call", {
+          arguments: { [FOLDER_ARG]: "/code/acme", page: "/pricing" },
+          name: "read_page",
+        })
+      );
+      const sent = JSON.parse(bodies[0] ?? "{}");
+      assert.deepStrictEqual(sent.params.arguments, { page: "/pricing" });
+      assert.strictEqual(sent.params.name, "read_page");
+      assert.strictEqual(sent.jsonrpc, "2.0");
+    }).pipe(Effect.scoped)
   );
 
   it.effect("answers a request with why, when no server can be reached", () =>
@@ -245,6 +309,127 @@ describe("a call that names its project by a link (ADR 0083)", () => {
   );
 });
 
+describe("the folder a tool is called from (ADR 0083)", () => {
+  const projects: Record<string, string> = {
+    "/code/acme": "/code/acme",
+    "/code/acme/web": "/code/acme",
+    "/code/shop": "/code/shop",
+  };
+  const route = () =>
+    makeRouting({
+      isAbsolute: (folder) => folder.startsWith("/"),
+      projectAt: (folder) =>
+        Effect.succeed(Option.fromNullishOr(projects[folder])),
+      started: "/home/u",
+    });
+  const call = (args: Record<string, unknown>) => ({
+    method: "tools/call",
+    params: { arguments: args, name: "read_page" },
+  });
+  const link =
+    "http://127.0.0.1:41234/?project=%2Fcode%2Fshop&route=/pricing&node=c_1";
+
+  it("is given to every tool, once, as one the agent must say", () => {
+    const listed = withFolder({
+      tools: [
+        { inputSchema: { type: "object" }, name: "list_pages" },
+        {
+          inputSchema: {
+            properties: { page: { type: "string" } },
+            required: ["page"],
+            type: "object",
+          },
+          name: "read_page",
+        },
+      ],
+    }) as { tools: { inputSchema: { required: string[] } }[] };
+    assert.deepStrictEqual(
+      listed.tools.map((tool) => tool.inputSchema.required),
+      [[FOLDER_ARG], ["page", FOLDER_ARG]]
+    );
+    assert.deepStrictEqual(withFolder(listed), listed);
+  });
+
+  it.effect(
+    "says the project, by the configuration found from it upwards",
+    () =>
+      Effect.gen(function* () {
+        const to = route();
+        assert.strictEqual(
+          yield* to(call({ [FOLDER_ARG]: "/code/acme/web" })),
+          "/code/acme"
+        );
+        assert.strictEqual(
+          yield* to(call({ [FOLDER_ARG]: "/code/shop" })),
+          "/code/shop"
+        );
+      })
+  );
+
+  it.effect(
+    "keeps a link's project for the calls from that folder after it, and not for another folder's",
+    () =>
+      Effect.gen(function* () {
+        const to = route();
+        assert.strictEqual(
+          yield* to(call({ [FOLDER_ARG]: "/notes", node: link })),
+          "/code/shop"
+        );
+        assert.strictEqual(
+          yield* to(call({ [FOLDER_ARG]: "/notes" })),
+          "/code/shop"
+        );
+        assert.strictEqual(
+          yield* to(call({ [FOLDER_ARG]: "/code/acme" })),
+          "/code/acme"
+        );
+      })
+  );
+
+  it.effect(
+    "with none, is the command's own, and a folder without a project, or not absolute, is said why",
+    () =>
+      Effect.gen(function* () {
+        const to = route();
+        const failed = (message: Record<string, unknown>) =>
+          Effect.map(Effect.flip(to(message)), (error) => error.message);
+        assert.include(yield* failed({ method: "tools/list" }), "/home/u");
+        assert.include(
+          yield* failed(call({ [FOLDER_ARG]: "/notes" })),
+          "No Ultrapaint project in /notes"
+        );
+        assert.include(
+          yield* failed(call({ [FOLDER_ARG]: "." })),
+          "absolute path"
+        );
+      })
+  );
+});
+
+describe("a server as it starts (ADR 0083)", () => {
+  // real clock: the list is asked of the real server once it answers.
+  it.live(
+    "keeps its tools in the user's directory, for a folder with no project",
+    () =>
+      Effect.gen(function* () {
+        const { home } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const kept = yield* fs
+          .readFileString(path.join(home, KEPT_TOOLS_FILE))
+          .pipe(
+            Effect.retry({ schedule: Schedule.spaced("50 millis"), times: 100 })
+          );
+        assert.include(
+          (JSON.parse(kept) as { tools: { name: string }[] }).tools.map(
+            (tool) => tool.name
+          ),
+          "create_page"
+        );
+      }).pipe(Effect.provide(TestServer), Effect.scoped),
+    60_000
+  );
+});
+
 describe("in a folder with no project", () => {
   const why = "No Ultrapaint project in /somewhere";
   const answered = (request: Record<string, unknown>, tools?: unknown) =>
@@ -265,7 +450,7 @@ describe("in a folder with no project", () => {
     assert.deepStrictEqual(initialized.result.capabilities, { tools: {} });
     assert.deepStrictEqual(
       answered({ id: 2, method: "tools/list" }, kept).result,
-      kept
+      withFolder(kept)
     );
   });
 
