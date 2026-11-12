@@ -152,6 +152,13 @@ const SetupStepRef = { step: SetupStepId };
 const ThreadRef = { threadId: FileId };
 
 /** Every request the editor can make. Tags are the method names the editor already uses. */
+/** A node selected in the editor: the reference the tools take (`/vibe#c_1`), and its name. */
+export const SelectedNode = Schema.Struct({
+  name: Schema.String,
+  ref: Schema.String,
+});
+export type SelectedNode = typeof SelectedNode.Type;
+
 const requestRpcs = [
   Rpc.make("settings.set", { payload: Settings, success: SettingsValidation }),
   // Only while nothing is saved: writes the configuration file and keeps saving from then on.
@@ -595,6 +602,13 @@ const requestRpcs = [
   Rpc.make("commands.list", { success: Schema.Array(SlashCommand) }),
   /** What an agent outside the editor needs to reach the editor's own MCP server. */
   Rpc.make("mcp.connection", { success: McpConnection }),
+  /**
+   * What is selected in the editor, as it changes: each node by the reference agents' tools take
+   * and its name, for an agent outside the editor asked about "what I've selected" (ADR 0083).
+   */
+  Rpc.make("editor.select", {
+    payload: { nodes: Schema.Array(SelectedNode) },
+  }),
   Rpc.make("threads.list", { success: Schema.Array(Thread) }),
   Rpc.make("threads.create", {
     error: ThreadError,

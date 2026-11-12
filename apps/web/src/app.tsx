@@ -79,6 +79,7 @@ import { canvasDefaults } from "./state/page-layout.ts";
 import { usePanels, useRightSubject } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
+import { startSelectionReport } from "./state/selection-report.ts";
 import { followServer } from "./state/server-data.ts";
 import { useSurface } from "./state/surface.ts";
 import { useSync } from "./state/sync.ts";
@@ -520,6 +521,8 @@ export const App = () => {
   // The server's data, read at every connection open and followed in between.
   useEffect(() => followServer({ report: reportError }), []);
   useEffect(() => bindScreenshots(), []);
+  // What is selected, for an agent outside the editor to ask about (ADR 0083).
+  useEffect(() => startSelectionReport(), []);
 
   // The tab reads the project first, so several open projects stay apart in the tab strip.
   useEffect(() => {

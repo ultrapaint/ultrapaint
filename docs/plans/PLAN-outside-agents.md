@@ -19,5 +19,5 @@ Each slice ships on its own, tested, and leaves the product working.
    the command routes a call given a link, and the calls after it, to that project's server; a
    folder with no project offers the tools last listed. A folder without a configuration file is
    told to save one, not looked for in the desktop app's data.
-5. **The selection.** A read-only tool for what is selected in the editor open on the project,
-   within the budget test.
+5. (Done, 2026-11-12.) **The selection.** The editor says its selection to its server as it
+   changes; `get_context` returns it, so no tool is added.

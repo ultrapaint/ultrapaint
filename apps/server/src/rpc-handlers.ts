@@ -17,6 +17,7 @@ import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
+import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { ImplementationService } from "./services/implementation.ts";
@@ -63,6 +64,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const checkpoints = yield* Checkpoints;
     const snapshots = yield* Snapshots;
     const access = yield* McpAccess;
+    const selection = yield* EditorSelection;
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
     const dsSetup = yield* DesignSystemSetupService;
@@ -187,6 +189,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "edit.undo": () => edit((e) => e.undo),
 
       ...eventHandlers,
+      "editor.select": ({ nodes }) => selection.set(nodes),
       "git.commit": ({ message, paths }) =>
         git((g) => Effect.map(g.commit(message, paths), (sha) => ({ sha }))),
       "git.diff": ({ path }) => git((g) => g.diff(path)),

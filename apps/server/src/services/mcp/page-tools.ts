@@ -5,9 +5,11 @@
  */
 
 import { Json } from "@ultrapaint/contracts/base";
+import { SelectedNode } from "@ultrapaint/contracts/rpc";
 import { pageTemplates } from "@ultrapaint/design-document/factories";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
+import { EditorSelection } from "../editor-selection.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { makeLookup } from "./lookup.ts";
 import {
@@ -41,7 +43,7 @@ const CanvasSummary = Schema.Struct({
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: root, designs directory and canvases. Call it first unless told the pages.",
+    "The project: root, designs directory, canvases, and the nodes selected in the editor. Call it first unless told the pages.",
   failure: ToolFailure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -49,6 +51,8 @@ export const GetContext = Tool.make("get_context", {
     pageCount: Schema.Number,
     resolveFrom: Schema.String,
     root: Schema.String,
+    /** What the person selected in the editor, by the references the tools take (ADR 0083). */
+    selection: Schema.Array(SelectedNode),
   }),
 }).annotateMerge(doing("read"));
 
@@ -180,6 +184,7 @@ export const PageToolsLive = PageTools.toLayer(
   Effect.gen(function* () {
     const { canvasOf, documents, pageAt, pagesOf, pagesService, project } =
       yield* makeLookup;
+    const selected = yield* EditorSelection;
 
     return PageTools.of({
       create_page: Effect.fn("EditorTools.create_page")(function* ({
@@ -223,6 +228,7 @@ export const PageToolsLive = PageTools.toLayer(
       get_context: Effect.fn("EditorTools.get_context")(function* () {
         const paths = yield* reported(project.use(RepoPaths));
         const pages = yield* reported(pagesOf);
+        const selection = yield* selected.current;
         return {
           canvases: pages.canvases.map((canvas) => ({
             home: canvas.home,
@@ -235,6 +241,7 @@ export const PageToolsLive = PageTools.toLayer(
           pageCount: pages.pages.length,
           resolveFrom: paths.settings.resolveFrom ?? paths.settings.designsDir,
           root: paths.root,
+          selection,
         };
       }),
 

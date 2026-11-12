@@ -62,12 +62,15 @@ export const copyPageLink = (page: Page) =>
     })
   );
 
-export const copyNodeRef = async (target: Selection) => {
+/** A node's reference as the tools take it: its canvas named only when there are several. */
+export const nodeRefText = (target: Selection) => {
   const ref = refOfSelection(target);
   const several = useProject.getState().canvases.length > 1;
-  const text = formatNodeRef(
-    several ? ref : { nodeId: ref.nodeId, page: ref.page }
-  );
+  return formatNodeRef(several ? ref : { nodeId: ref.nodeId, page: ref.page });
+};
+
+export const copyNodeRef = async (target: Selection) => {
+  const text = nodeRefText(target);
   try {
     await writeClipboard(text);
     toast.success("Element ID copied", {

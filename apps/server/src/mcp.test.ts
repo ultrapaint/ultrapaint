@@ -265,6 +265,23 @@ describe("the editor's MCP server, over the wire", () => {
   );
 
   onAServer(
+    "tells an agent what the editor has selected, as the editor last said (ADR 0083)",
+    () =>
+      Effect.gen(function* () {
+        const { client, port, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const { token } = yield* client["mcp.connection"]();
+        const call = toolCaller(port, token);
+        const before = yield* call("get_context", {});
+        assert.deepStrictEqual(before.result.structuredContent.selection, []);
+        const nodes = [{ name: "Header", ref: "/home#c_1" }];
+        yield* client["editor.select"]({ nodes });
+        const after = yield* call("get_context", {});
+        assert.deepStrictEqual(after.result.structuredContent.selection, nodes);
+      })
+  );
+
+  onAServer(
     "answers a thread's agent with the token its session was given, as that thread",
     () =>
       Effect.gen(function* () {

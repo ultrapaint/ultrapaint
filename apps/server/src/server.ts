@@ -32,6 +32,7 @@ import { ListenPort } from "./listen-port.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
+import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { McpRoute } from "./services/mcp/route.ts";
 import { SettingsService } from "./services/settings.ts";
@@ -90,6 +91,7 @@ const RpcRoute = Layer.effectDiscard(
   Effect.gen(function* () {
     const router = yield* HttpRouter.HttpRouter;
     const editors = yield* EditorsConnected;
+    const selection = yield* EditorSelection;
     const { httpEffect, protocol } =
       yield* RpcServer.makeProtocolWithHttpEffectWebsocket;
     yield* router.add(
@@ -100,8 +102,10 @@ const RpcRoute = Layer.effectDiscard(
         if (!originAllowed(request.headers)) {
           return originRefused();
         }
-        // The socket's request lasts as long as the editor holds it open.
+        // The socket's request lasts as long as the editor holds it open; the editor that goes
+        // takes its selection along (ADR 0083), the others say theirs again as it changes.
         yield* editors.hold;
+        yield* Effect.addFinalizer(() => selection.set([]));
         return yield* httpEffect;
       })
     );

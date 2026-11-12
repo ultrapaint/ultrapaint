@@ -58,8 +58,11 @@ server last listed, kept in the user's directory (`~/.ultrapaint/mcp-tools.json`
 pasted there can be used; a call before any link answers why there is no project.
 
 **The selection is a place too.** "What I've selected" is what is selected in the editor open on
-the project: a read-only tool returns it as node references, which every tool takes. It is the
-one tool this adds, paid for within the budget test.
+the project. The editor says its selection to its server as it changes (`editor.select`, once it
+has stayed put a moment, and again when its connection opens anew), each node by the reference
+the tools take and its name; an editor that closes takes its selection along. `get_context`
+returns it as `selection`: no tool is added for it, and the tools' definitions grow by a few
+words, within the budget test.
 
 **The app puts the command on the PATH.** The desktop app has no menu of its own, so the offer
 is where the lines are: Settings › Agents › Connect over MCP says when this computer has no

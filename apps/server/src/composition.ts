@@ -29,6 +29,7 @@ import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { DesignTargets } from "./services/design-targets.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
+import { EditorSelection } from "./services/editor-selection.ts";
 import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
@@ -141,6 +142,8 @@ export const projectLayer = (
  * and the port the server listens on. None of them needs a project.
  */
 export const Foundation = ProfileService.layer.pipe(
+  // What the editor has selected, which the agents outside it may ask for (ADR 0083).
+  Layer.provideMerge(EditorSelection.layer),
   Layer.provideMerge(SnapshotStore.layer),
   Layer.provideMerge(Screenshots.layer),
   Layer.provideMerge(SettingsService.layer),
