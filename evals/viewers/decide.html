@@ -8,25 +8,27 @@
     >
     <title>Decisions</title>
     <style>
+    /* Three text sizes: the title, the card's text (it is short, so it reads large) and the small
+       text of controls, captions and status. Spacing takes the steps 4, 8, 12, 16, 24, 32. */
     :root {
       --bg: #f4f4f2;
       --card: #fff;
       --ink: #18181b;
-      --muted: #71717a;
+      --muted: #66666e;
       --line: #e4e4e7;
+      --line-strong: #a1a1aa;
+      --field-edge: #8a8a93;
       --soft: #ececea;
       --accent: #2563eb;
-      --accent-soft: #e8effd;
+      --on-accent: #fff;
       --mark: #e11d48;
-      --line-strong: #a1a1aa;
       --error: #dc2626;
-      --shadow: rgb(0 0 0 / 0.06);
-      font:
-        15px / 1.5 ui-sans-serif,
-        system-ui,
-        -apple-system,
-        "Segoe UI",
-        sans-serif;
+      --image-edge: rgb(0 0 0 / 0.1);
+      --title: 600 26px / 1.25 var(--face);
+      --read: 17px;
+      --small: 14px;
+      --face: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      font: 400 var(--small) / 1.5 var(--face);
       color: var(--ink);
       color-scheme: light;
       background: var(--bg);
@@ -36,39 +38,45 @@
       :root:not([data-theme="light"]) {
         --bg: #121214;
         --card: #1c1c1f;
-        --ink: #ececee;
-        --muted: #9f9fa9;
+        --ink: #f4f4f5;
+        --muted: #8c8c96;
         --line: #2f2f35;
+        --line-strong: #5b5b66;
+        --field-edge: #6e6e78;
         --soft: #17171a;
         --accent: #7aa5ff;
-        --accent-soft: #1b2438;
-        --mark: #f43f5e;
-        --line-strong: #5b5b66;
+        --on-accent: #121214;
+        --mark: #e11d48;
         --error: #f87171;
-        --shadow: rgb(0 0 0 / 0.4);
+        --image-edge: rgb(255 255 255 / 0.1);
         color-scheme: dark;
       }
     }
     :root[data-theme="dark"] {
       --bg: #121214;
       --card: #1c1c1f;
-      --ink: #ececee;
-      --muted: #9f9fa9;
+      --ink: #f4f4f5;
+      --muted: #8c8c96;
       --line: #2f2f35;
+      --line-strong: #5b5b66;
+      --field-edge: #6e6e78;
       --soft: #17171a;
       --accent: #7aa5ff;
-      --accent-soft: #1b2438;
-      --mark: #f43f5e;
-      --line-strong: #5b5b66;
+      --on-accent: #121214;
+      --mark: #e11d48;
       --error: #f87171;
-      --shadow: rgb(0 0 0 / 0.4);
+      --image-edge: rgb(255 255 255 / 0.1);
       color-scheme: dark;
     }
     * {
       box-sizing: border-box;
     }
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     /* The card fills the window above the bar: its text on the left, its pictures on the right,
-       each scrolling on its own. */
+       each scrolling on its own so the question stays beside the picture being read. */
     body {
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
@@ -88,11 +96,11 @@
     .text {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 24px;
       min-height: 0;
-      padding: 28px 32px 36px;
+      padding: 32px;
       overflow-y: auto;
-      font-size: 17px;
+      font-size: var(--read);
     }
     main.solo .text {
       justify-self: center;
@@ -104,7 +112,7 @@
       gap: 16px;
       align-content: start;
       min-height: 0;
-      padding: 24px 24px 32px 4px;
+      padding: 32px 32px 32px 0;
       overflow-y: auto;
     }
     .pictures:empty {
@@ -117,9 +125,11 @@
     }
     .ghost {
       display: inline-flex;
-      gap: 6px;
+      gap: 8px;
       align-items: center;
-      padding: 7px 14px;
+      padding: 8px 12px;
+      font-size: var(--small);
+      font-weight: 500;
       white-space: nowrap;
       background: var(--card);
       border: 1px solid var(--line);
@@ -127,9 +137,6 @@
     }
     .ghost:hover:not(:disabled) {
       border-color: var(--line-strong);
-    }
-    .text .ghost {
-      font-size: 15px;
     }
     label.ghost {
       cursor: pointer;
@@ -141,72 +148,90 @@
     .ghost[hidden] {
       display: none;
     }
+    .primary {
+      color: var(--on-accent);
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .primary:hover:not(:disabled) {
+      border-color: var(--accent);
+      opacity: 0.9;
+    }
+    .ghost svg {
+      width: 16px;
+      height: 16px;
+    }
     kbd {
       font: inherit;
       font-size: 12px;
       font-weight: 400;
-      opacity: 0.6;
+      opacity: 0.7;
+    }
+    .primary kbd,
+    .verdict button[aria-pressed="true"] kbd {
+      opacity: 1;
     }
     .kicker {
-      margin-bottom: 6px;
-      font-size: 14px;
+      margin-bottom: 4px;
+      font-size: var(--small);
       color: var(--muted);
     }
     h2 {
       margin: 0;
-      font-size: 26px;
-      font-weight: 650;
-      line-height: 1.3;
+      font: var(--title);
+      letter-spacing: -0.02em;
       text-wrap: balance;
     }
+    .body {
+      max-width: 65ch;
+    }
     .body p {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
     }
     .body p:last-child {
       margin-bottom: 0;
     }
     .body ul {
-      padding-left: 20px;
-      margin: 0 0 10px;
+      padding-left: 24px;
+      margin: 0 0 12px;
     }
     .body li {
       margin: 4px 0;
     }
     code {
-      padding: 2px 5px;
+      padding: 2px 4px;
       font:
         0.85em / 1 ui-monospace,
         SFMono-Regular,
         Menlo,
         monospace;
-      background: var(--soft);
+      background: rgb(127 127 127 / 0.16);
       border-radius: 4px;
     }
-    /* A picture in its panel: the caption on top, the picture centred below it. */
+    /* A picture in its panel: the caption on top, the picture centred below it on a sunken
+       well, so the two are told apart by their surfaces alone. */
     .shot {
       display: grid;
       grid-template-rows: auto 1fr;
       margin: 0;
       background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 12px;
     }
     .shot figcaption {
-      padding: 9px 14px;
-      font-size: 13px;
-      line-height: 1.45;
-      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      font-size: var(--small);
+      text-wrap: pretty;
     }
     .shot figcaption b {
       font-weight: 600;
-      color: var(--accent);
     }
     .stage {
       display: grid;
       place-items: center;
       padding: 12px;
       background: var(--soft);
-      border-radius: 0 0 10px 10px;
+      border-radius: 0 0 11px 11px;
     }
     /* The frame wraps the picture exactly, so a mark's fractions are fractions of the picture. */
     .frame {
@@ -218,8 +243,9 @@
       display: block;
       max-width: 100%;
       max-height: calc(100dvh - 190px);
+      outline: 1px solid var(--image-edge);
+      outline-offset: -1px;
       border-radius: 4px;
-      box-shadow: 0 0 0 1px var(--line);
     }
     .mark {
       position: absolute;
@@ -231,7 +257,7 @@
       position: absolute;
       bottom: calc(100% + 4px);
       left: -2px;
-      padding: 1px 6px;
+      padding: 0 8px;
       font-size: 12px;
       font-weight: 600;
       color: #fff;
@@ -246,7 +272,7 @@
     .mark.right span {
       top: 50%;
       bottom: auto;
-      left: calc(100% + 6px);
+      left: calc(100% + 8px);
       transform: translateY(-50%);
     }
     .mark.inside span {
@@ -256,12 +282,12 @@
     }
     /* The agent's own call, when it made one: what the person says is right or wrong. */
     .call {
-      padding: 14px 16px;
-      background: var(--accent-soft);
-      border-radius: 10px;
+      padding: 16px;
+      background: var(--card);
+      border-radius: 12px;
     }
     .call p {
-      margin: 0 0 6px;
+      margin: 0 0 8px;
     }
     .call p:last-child {
       margin: 0;
@@ -272,39 +298,67 @@
     }
     .option {
       display: grid;
-      grid-template-columns: 26px 1fr auto;
+      grid-template-columns: 24px 1fr auto;
       gap: 12px;
       align-items: start;
-      padding: 12px 14px;
+      padding: 12px 16px;
       text-align: left;
       background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 12px;
     }
     .option:hover {
       border-color: var(--line-strong);
     }
     .option[aria-pressed="true"],
-    .option.chosen,
-    .option.own:focus-within {
+    .option.chosen {
       border-color: var(--accent);
       box-shadow: inset 0 0 0 1px var(--accent);
     }
     .option.own {
-      grid-template-columns: 26px 1fr;
+      grid-template-columns: 24px 1fr;
       cursor: text;
     }
+    .option.own.open:not(.chosen) {
+      border-color: var(--line-strong);
+    }
+    .own-head {
+      padding: 0;
+      text-align: left;
+      background: none;
+      border: 0;
+    }
+    .hint {
+      font-size: var(--small);
+      color: var(--muted);
+    }
+    .hint[hidden] {
+      display: none;
+    }
+    .field-label {
+      font-size: var(--small);
+      font-weight: 600;
+    }
+    /* The own answer's field shows once it is the choice: chosen, being written, or holding words. */
     .written {
       display: grid;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+    .own:not(.open) .field {
+      display: none;
     }
     .key {
       display: grid;
       place-items: center;
-      width: 26px;
-      height: 26px;
-      font-size: 14px;
+      width: 24px;
+      height: 24px;
+      margin-top: 2px;
+      font-size: 12px;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       background: var(--soft);
@@ -313,7 +367,7 @@
     }
     .option[aria-pressed="true"] .key,
     .option.chosen .key {
-      color: var(--card);
+      color: var(--on-accent);
       background: var(--accent);
       border-color: var(--accent);
     }
@@ -321,51 +375,49 @@
       font-weight: 600;
     }
     .then {
-      font-size: 15px;
+      font-size: var(--small);
       color: var(--muted);
     }
     .tag {
-      padding-top: 3px;
-      font-size: 13px;
-      color: var(--accent);
+      padding: 2px 8px;
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
       white-space: nowrap;
+      background: var(--soft);
+      border-radius: 6px;
     }
     textarea {
       width: 100%;
       min-height: 72px;
-      padding: 10px 12px;
+      padding: 8px 12px;
       font: inherit;
       color: inherit;
       resize: vertical;
       background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-    textarea:focus {
-      outline: none;
-      border-color: var(--accent);
+      border: 1px solid var(--field-edge);
+      border-radius: 8px;
     }
     textarea.over {
       border-color: var(--accent);
     }
     .actions {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       justify-content: flex-end;
-      margin-top: 8px;
-    }
-    .written .actions {
-      margin-top: 0;
     }
     .status {
       display: flex;
       gap: 12px;
       align-items: baseline;
       justify-content: space-between;
+      min-height: 21px;
+      margin-top: -8px;
     }
     .link {
       padding: 0;
-      font-size: 14px;
+      font-size: var(--small);
       color: var(--accent);
       white-space: nowrap;
       background: none;
@@ -375,16 +427,21 @@
       text-decoration: underline;
     }
     .saved {
-      min-height: 18px;
-      font-size: 14px;
+      font-size: var(--small);
       color: var(--muted);
     }
-    /* Images added to the answer: thumbnails under the comment, each with its remove. */
+    .saved.failed {
+      color: var(--error);
+    }
+    /* Images added to the answer: thumbnails under the field, each with its remove. */
     .attached {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+    }
+    .attached:empty {
+      display: none;
     }
     .thumb {
       position: relative;
@@ -393,18 +450,19 @@
       display: block;
       width: 88px;
       height: 64px;
+      outline: 1px solid var(--image-edge);
+      outline-offset: -1px;
       object-fit: cover;
-      border: 1px solid var(--line);
       border-radius: 8px;
     }
     .thumb button {
       position: absolute;
-      top: -6px;
-      right: -6px;
+      top: -8px;
+      right: -8px;
       display: grid;
       place-items: center;
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       padding: 0;
       background: var(--card);
       border: 1px solid var(--line);
@@ -416,14 +474,14 @@
     }
     .summary {
       display: grid;
-      gap: 2px;
+      gap: 4px;
     }
     .row {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 16px;
+      gap: 4px 16px;
       align-items: baseline;
-      padding: 10px 12px;
+      padding: 8px 12px;
       text-align: left;
       background: none;
       border: 0;
@@ -433,23 +491,24 @@
       background: var(--card);
     }
     .row .answer {
+      font-size: var(--small);
       color: var(--muted);
     }
     .row .answer.none {
-      color: var(--error);
+      color: var(--ink);
     }
     .row .said {
       grid-column: 1 / -1;
-      font-size: 15px;
+      font-size: var(--small);
       color: var(--muted);
     }
     /* The bar: moving through the deck on the left, Right and Wrong in the middle when the card
        has a call, the progress and the page's switches on the right. */
     .bar {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
-      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
       background: var(--card);
       border-top: 1px solid var(--line);
     }
@@ -471,54 +530,23 @@
       display: none;
     }
     .verdict button {
-      display: flex;
-      gap: 10px;
-      align-items: center;
       justify-content: center;
       min-width: 140px;
-      padding: 8px 18px;
       font-weight: 600;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .verdict button:hover {
-      border-color: var(--line-strong);
     }
     .verdict button[aria-pressed="true"] {
-      color: var(--card);
-      background: var(--ink);
-      border-color: var(--ink);
+      color: var(--on-accent);
+      background: var(--accent);
+      border-color: var(--accent);
     }
     .progress {
+      margin-right: 8px;
       font-variant-numeric: tabular-nums;
       color: var(--muted);
       white-space: nowrap;
     }
-    .meter {
-      flex: 0 0 96px;
-      height: 4px;
-      overflow: hidden;
-      background: var(--line);
-      border-radius: 2px;
-    }
-    .meter i {
-      display: block;
-      width: 0;
-      height: 100%;
-      background: var(--accent);
-      transition: width 0.2s;
-    }
-    .ghost svg {
-      width: 16px;
-      height: 16px;
-    }
     .ghost.icon {
-      padding: 7px 9px;
-    }
-    .icon svg {
-      width: 18px;
-      height: 18px;
+      padding: 8px;
     }
     .lightbox {
       position: fixed;
@@ -526,7 +554,7 @@
       z-index: 5;
       display: none;
       place-items: center;
-      padding: 20px;
+      padding: 24px;
       cursor: zoom-out;
       background: rgb(0 0 0 / 0.85);
     }
@@ -537,7 +565,7 @@
       cursor: zoom-out;
     }
     .lightbox .frame img {
-      max-height: calc(100dvh - 40px);
+      max-height: calc(100dvh - 48px);
     }
     /* Narrower: one column that scrolls as a whole, the pictures under the text. */
     @media (max-width: 960px) {
@@ -554,7 +582,7 @@
         padding: 0 16px 24px;
       }
       .text {
-        padding: 20px 16px 24px;
+        padding: 24px 16px;
       }
       main.solo .text {
         margin: 0 auto;
@@ -563,7 +591,6 @@
     @media (max-width: 640px) {
       .bar {
         flex-wrap: wrap;
-        gap: 8px;
         padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
       }
       .verdict {
@@ -573,14 +600,12 @@
       .verdict button {
         flex: 1 1 0;
         min-width: 0;
+        padding: 12px;
       }
       .word,
       #intro,
       kbd,
-      .meter,
-      .progress {
-        display: none;
-      }
+      .progress,
       .spacer {
         display: none;
       }
@@ -592,42 +617,53 @@
   </head>
   <body>
     <main id="main">
-      <section class="text" id="text"></section>
+      <section class="text" id="text">
+        <p class="saved">Loading the deck…</p>
+      </section>
       <section aria-label="Pictures" class="pictures" id="pictures"></section>
     </main>
     <footer class="bar">
       <button class="ghost" id="back" title="Previous (←)" type="button">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
-          <path
-            d="M13 8H3m4-4L3 8l4 4"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-          />
+        <svg
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="m12 19-7-7 7-7" />
+          <path d="M19 12H5" />
         </svg><span class="word">Previous</span>
       </button>
       <span class="count" id="count"></span>
       <button class="ghost" id="next" title="Next (→)" type="button">
         <span class="word">Next</span
-        ><svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
-          <path
-            d="M3 8h10M9 4l4 4-4 4"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-          />
+        ><svg
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
         </svg>
       </button>
       <span class="spacer"></span>
       <div class="verdict" hidden id="verdict">
-        <button id="wrong" type="button">Wrong <kbd>W</kbd></button>
-        <button id="right" type="button">Right <kbd>R</kbd></button>
+        <button class="ghost" id="right" type="button">
+          Right <kbd>R</kbd>
+        </button>
+        <button class="ghost" id="wrong" type="button">
+          Wrong <kbd>W</kbd>
+        </button>
       </div>
       <span class="spacer"></span>
       <span class="progress" id="progress"></span>
-      <span class="meter"><i id="meter"></i></span>
       <button class="ghost" hidden id="intro" type="button">Intro</button>
       <button class="ghost" id="all" title="Every answer (A)" type="button">
         Answers <kbd>A</kbd>
@@ -637,18 +673,7 @@
         id="theme"
         title="Light or dark (T)"
         type="button"
-      >
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-          <circle
-            cx="10"
-            cy="10"
-            r="7.25"
-            stroke="currentColor"
-            stroke-width="1.5"
-          />
-          <path d="M10 2.75a7.25 7.25 0 0 1 0 14.5z" fill="currentColor" />
-        </svg>
-      </button>
+      ></button>
     </footer>
     <div class="lightbox" id="lightbox"></div>
     <script>
@@ -733,9 +758,9 @@
     function bar() {
       const n = deck.cards.length;
       $("progress").textContent = `${answered()} of ${n} answered`;
-      $("meter").style.width = `${(answered() / n) * 100}%`;
-      const where = { [-1]: "Intro", [n]: "Answers" };
-      $("count").textContent = where[at] ?? `${at + 1} / ${n}`;
+      // The intro and the summary say what they are in their heading; only a card has a place.
+      $("count").textContent = at >= 0 && at < n ? `${at + 1} / ${n}` : "";
+      $("all").disabled = at === n;
       $("back").disabled = at <= (deck.intro ? -1 : 0);
       $("next").disabled = at >= n;
       $("intro").hidden = !deck.intro || at === -1;
@@ -777,20 +802,19 @@
 
     function showIntro(el) {
       el.innerHTML = `<h2>${esc(deck.title)}</h2><div class="body">${markdown(deck.intro)}</div>
-            <div><button type="button" class="ghost" id="start">Start <kbd>Enter</kbd></button></div>`;
+            <div><button type="button" class="ghost primary" id="start">Start <kbd>Enter</kbd></button></div>`;
       $("start").onclick = () => show(firstOpen());
     }
 
     function showSummary(el) {
-      el.innerHTML = `<div><div class="kicker">${esc(deck.title)} · ${answered()} of ${deck.cards.length} answered · saved as you went</div>
-            <h2>Your answers</h2></div><div class="summary">${deck.cards
-              .map((c, j) => {
-                const a = answers[c.id];
-                return `<button type="button" class="row" data-j="${j}"><span>${esc(c.title)}</span>
-                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label + ofCall(c, a) + (a.images?.length ? ` · ${a.images.length} image${a.images.length === 1 ? "" : "s"}` : "")) : "not answered"}</span>
+      el.innerHTML = `<h2>Your answers</h2><div class="summary">${deck.cards
+        .map((c, j) => {
+          const a = answers[c.id];
+          return `<button type="button" class="row" data-j="${j}"><span>${esc(c.title)}</span>
+                  <span class="answer ${a ? "" : "none"}">${a ? esc(a.label + ofCall(c, a) + (a.images?.length ? ` · ${a.images.length} image${a.images.length === 1 ? "" : "s"}` : "")) : "Not answered"}</span>
                   ${a?.comment ? `<span class="said">“${esc(a.comment)}”</span>` : ""}</button>`;
-              })
-              .join("")}</div>`;
+        })
+        .join("")}</div>`;
       for (const row of el.querySelectorAll(".row")) {
         row.onclick = () => show(Number(row.dataset.j));
       }
@@ -805,19 +829,25 @@
       // card with a call, a comment that goes with Right or Wrong, or the person's own answer.
       const field = (
         placeholder,
-        value
-      ) => `<textarea id="comment" placeholder="${placeholder}">${esc(value)}</textarea>
+        value,
+        sendLabel
+      ) => `<div class="field">${called ? `<label class="field-label" for="comment">Comment</label>` : ""}<textarea ${called ? "" : 'aria-label="Your own answer" '}id="comment" placeholder="${placeholder}">${esc(value)}</textarea>
+          ${called ? `<span class="hint" hidden id="hint">Esc, then R or W, sends it with your verdict; ${MOD}↵ sends it alone, as your own answer.</span>` : ""}
           <div class="attached" id="attached"></div>
           <div class="actions"><label class="ghost" for="pick">Add image</label>
           <input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="pick" multiple type="file" />
-          <button type="button" class="ghost" id="own">Send as my answer</button></div>`;
+          <button type="button" class="ghost" id="own">${sendLabel} <kbd>${MOD}↵</kbd></button></div></div>`;
       el.innerHTML = `
-          <div><div class="kicker">${esc(deck.title)}${card.eyebrow ? ` · ${esc(card.eyebrow)}` : ""}</div><h2>${esc(card.title)}</h2></div>
+          <div>${card.eyebrow ? `<div class="kicker">${esc(card.eyebrow)}</div>` : ""}<h2>${esc(card.title)}</h2></div>
           ${called ? `<div class="call">${markdown(card.proposal)}</div>` : ""}
           ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
           ${
             called
-              ? `<div>${field("A comment with Right or Wrong, or your own answer. Paste or drop an image here", given?.comment ?? "")}</div>`
+              ? field(
+                  "What I missed, or your own answer",
+                  given?.comment ?? "",
+                  "Send as my answer"
+                )
               : `<div class="options">${card.options
                   .map(
                     (
@@ -830,12 +860,12 @@
               </button>`
                   )
                   .join("")}
-              <div class="option own${own ? " chosen" : ""}" id="ownrow"><span class="key">${card.options.length + 1}</span>
-              <div class="written"><span class="label">Your own answer</span>
-              ${field("None of these fits: write what you want instead. Paste or drop an image here", own ? (given.comment ?? "") : "")}</div></div></div>`
+              <div class="option own${own ? " chosen open" : ""}" id="ownrow"><span class="key">${card.options.length + 1}</span>
+              <div class="written"><button type="button" class="own-head label" id="ownhead">Your own answer</button>
+              ${field("What you want instead. Paste or drop images here too", own ? (given.comment ?? "") : "", "Send")}</div></div></div>`
           }
-          <div class="status"><span class="saved" id="saved">${savedLine(card, given)}</span>
-          ${given ? `<button type="button" class="link" id="clear">Clear answer</button>` : ""}</div>`;
+          <div class="status"><span class="saved" id="saved" role="status">${savedLine(given)}</span>
+          ${given ? `<button type="button" class="link" id="clear">Clear answer <kbd>⌫</kbd></button>` : ""}</div>`;
       images = called || own ? [...(given?.images ?? [])] : [];
       showImages();
       wireField();
@@ -847,6 +877,11 @@
         $("clear").onclick = clearAnswer;
       }
       if (called) {
+        const showHint = () => {
+          $("hint").hidden = !$("comment").value.trim();
+        };
+        $("comment").addEventListener("input", showHint);
+        showHint();
         $("right").setAttribute(
           "aria-pressed",
           String(given?.choice === card.recommend)
@@ -856,9 +891,10 @@
           String(given?.choice !== undefined && given.choice !== card.recommend)
         );
       } else {
+        $("ownhead").onclick = openField;
         $("ownrow").onclick = (event) => {
           if (!event.target.closest("button, label, textarea, input")) {
-            $("comment").focus();
+            openField();
           }
         };
       }
@@ -896,7 +932,7 @@
     let images = [];
     const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
     const REMOVE_ICON =
-      '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
+      '<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
 
     function showImages() {
       const el = $("attached");
@@ -914,31 +950,56 @@
       }
     }
 
+    /** The line under the answer: what was saved, or what went wrong and what to do. */
+    const say = (text, failed = false) => {
+      $("saved").textContent = text;
+      $("saved").classList.toggle("failed", failed);
+    };
+
+    /** A request to the deck's server, its reply or why there is none. */
+    async function send(url, init) {
+      try {
+        const response = await fetch(url, init);
+        return { ok: response.ok, ...(await response.json()) };
+      } catch {
+        return {
+          message:
+            "the deck's server isn't answering. Start `pnpm evals decide` again and retry",
+          ok: false,
+        };
+      }
+    }
+
+    /** Opens the person's own answer and puts the cursor in it. */
+    function openField() {
+      $("ownrow")?.classList.add("open");
+      $("comment").focus();
+    }
+
     /** Saves each image as it is added; it goes with the answer when the answer is sent. */
     async function addImages(files) {
       const card = deck.cards[at];
       const wrong = files.find((file) => !IMAGE_TYPES.includes(file.type));
       if (wrong) {
-        $("saved").textContent =
-          `${wrong.name || "That file"} is not a PNG, JPEG, WebP or GIF.`;
+        say(
+          `${wrong.name || "That file"} is not a PNG, JPEG, WebP or GIF.`,
+          true
+        );
         return;
       }
       if (files.length === 0) {
         return;
       }
-      $("saved").textContent = "Adding…";
+      $("ownrow")?.classList.add("open");
+      say("Adding…");
       const saved = await Promise.all(
-        files.map(async (file) => {
-          const response = await fetch(
-            `/api/image?id=${encodeURIComponent(card.id)}`,
-            {
-              body: file,
-              headers: { "content-type": file.type },
-              method: "POST",
-            }
-          );
-          return { ok: response.ok, ...(await response.json()) };
-        })
+        files.map((file) =>
+          send(`/api/image?id=${encodeURIComponent(card.id)}`, {
+            body: file,
+            headers: { "content-type": file.type },
+            method: "POST",
+          })
+        )
       );
       if (deck.cards[at] !== card) {
         return;
@@ -946,24 +1007,15 @@
       images.push(...saved.filter((r) => r.ok).map((r) => r.path));
       showImages();
       const failed = saved.find((r) => !r.ok);
-      $("saved").textContent = failed
-        ? `Not added: ${failed.message}`
-        : "Added: it goes with your answer, an option or your own.";
+      say(failed ? `Not added: ${failed.message}.` : "", Boolean(failed));
     }
 
-    /** What the line under the comment says: how to answer, or what was saved. */
-    function savedLine(card, given) {
-      if (given && given.choice === undefined) {
-        return "Saved as your own answer.";
+    /** What the line under the answer says once the card is answered. */
+    function savedLine(given) {
+      if (given === undefined) {
+        return "";
       }
-      if (hasCall(card)) {
-        return given
-          ? "Saved."
-          : `Press R if my call is right, W if it is wrong, or write your own and press ${MOD}↵; ← and → to move.`;
-      }
-      return given
-        ? "Saved."
-        : `Press 1–${card.options.length} to answer, or ${card.options.length + 1} to write your own and ${MOD}↵ to send it; ← and → to move.`;
+      return given.choice === undefined ? "Saved as your own answer" : "Saved";
     }
 
     /**
@@ -977,12 +1029,11 @@
       const comment = withWords ? $("comment").value : "";
       const sent = withWords ? images : [];
       if (key === undefined && !comment.trim() && images.length === 0) {
-        $("saved").textContent =
-          "Write your answer or add an image first, or press a number.";
-        $("comment").focus();
+        say("Write your answer or add an image, then send it.", true);
+        openField();
         return;
       }
-      const response = await fetch("/api/answer", {
+      const reply = await send("/api/answer", {
         body: JSON.stringify({
           choice: key,
           comment,
@@ -992,9 +1043,8 @@
         headers: { "content-type": "application/json" },
         method: "POST",
       });
-      if (!response.ok) {
-        $("saved").textContent =
-          `Not saved: ${(await response.json()).message}`;
+      if (!reply.ok) {
+        say(`Not saved: ${reply.message}.`, true);
         return;
       }
       answers[card.id] = {
@@ -1016,17 +1066,44 @@
       if (!answers[card?.id]) {
         return;
       }
-      const response = await fetch(
+      const reply = await send(
         `/api/answer?id=${encodeURIComponent(card.id)}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+        }
       );
-      if (!response.ok) {
-        $("saved").textContent =
-          `Not cleared: ${(await response.json()).message}`;
+      if (!reply.ok) {
+        say(`Not cleared: ${reply.message}.`, true);
         return;
       }
+      const taken = answers[card.id];
       delete answers[card.id];
       show(at);
+      $("saved").innerHTML =
+        'Answer cleared · <button type="button" class="link" id="undo">Undo</button>';
+      $("undo").onclick = () => restore(card, taken);
+    }
+
+    /** Puts a cleared answer back as it was, words and images with it. */
+    async function restore(card, answer) {
+      const reply = await send("/api/answer", {
+        body: JSON.stringify({
+          choice: answer.choice,
+          comment: answer.comment,
+          id: card.id,
+          images: answer.images ?? [],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      if (!reply.ok) {
+        say(`Not restored: ${reply.message}.`, true);
+        return;
+      }
+      answers[card.id] = answer;
+      if (deck.cards[at] === card) {
+        show(at);
+      }
     }
 
     // The theme the page is set to, kept in this browser only; without one it follows the system.
@@ -1036,8 +1113,16 @@
     const isDark = () =>
       document.documentElement.dataset.theme === "dark" ||
       (document.documentElement.dataset.theme !== "light" && systemDark());
+    const ICON = (paths) =>
+      `<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">${paths}</svg>`;
+    // The switch shows the theme it turns on: the sun in the dark, the moon in the light.
+    const SUN = ICON(
+      '<circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />'
+    );
+    const MOON = ICON('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />');
     const showTheme = () => {
-      const label = isDark() ? "Light (T)" : "Dark (T)";
+      $("theme").innerHTML = isDark() ? SUN : MOON;
+      const label = isDark() ? "Light theme (T)" : "Dark theme (T)";
       $("theme").title = label;
       $("theme").setAttribute("aria-label", label);
     };
@@ -1068,19 +1153,38 @@
     function whileTyping(event) {
       if (event.key === "Escape") {
         event.target.blur();
+        // An own answer left empty closes again.
+        const row = $("ownrow");
+        if (
+          row &&
+          !row.classList.contains("chosen") &&
+          !event.target.value.trim() &&
+          images.length === 0
+        ) {
+          row.classList.remove("open");
+        }
       } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         choose(undefined);
       }
     }
 
-    document.addEventListener("keydown", (event) => {
+    /** A key the page's shortcuts leave alone: it closes the picture, is typed, or is the browser's. */
+    function notAShortcut(event) {
       if ($("lightbox").classList.contains("open")) {
         $("lightbox").classList.remove("open");
-        return;
+        return true;
       }
       if (event.target.tagName === "TEXTAREA") {
         whileTyping(event);
+        return true;
+      }
+      // ⌘C, Ctrl+R and the like are the browser's.
+      return event.metaKey || event.ctrlKey || event.altKey;
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (notAShortcut(event)) {
         return;
       }
       if (event.key === "ArrowLeft") {
@@ -1100,7 +1204,7 @@
         choose(optionFor(deck.cards[at], event.key.toLowerCase() === "r"));
       } else if (event.key.toLowerCase() === "c" && $("comment")) {
         event.preventDefault();
-        $("comment").focus();
+        openField();
       } else if (event.key === "Backspace" || event.key === "Delete") {
         clearAnswer();
       } else if (
@@ -1114,13 +1218,17 @@
 
     /** A number key picks its option; the one after the last opens the person's own answer. */
     function pressDigit(event, card) {
+      // A card with a call is answered by R and W alone, the keys its buttons show.
+      if (hasCall(card)) {
+        return;
+      }
       const n = Number(event.key);
       const option = card.options[n - 1];
       if (option) {
         choose(option.key);
-      } else if (n === card.options.length + 1 && !hasCall(card)) {
+      } else if (n === card.options.length + 1) {
         event.preventDefault();
-        $("comment").focus();
+        openField();
       }
     }
     $("lightbox").onclick = () => $("lightbox").classList.remove("open");
@@ -1131,13 +1239,16 @@
     $("right").onclick = () => choose(optionFor(deck.cards[at], true));
     $("wrong").onclick = () => choose(optionFor(deck.cards[at], false));
 
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then((session) => {
-        ({ answers, deck } = session);
-        document.title = deck.title;
-        show(deck.intro && answered() === 0 ? -1 : firstOpen());
-      });
+    send("/api/session").then((session) => {
+      if (!session.ok) {
+        $("text").innerHTML =
+          `<p class="saved failed">Couldn't load the deck: ${esc(session.message)}, then reload this page.</p>`;
+        return;
+      }
+      ({ answers, deck } = session);
+      document.title = deck.title;
+      show(deck.intro && answered() === 0 ? -1 : firstOpen());
+    });
     </script>
   </body>
 </html>

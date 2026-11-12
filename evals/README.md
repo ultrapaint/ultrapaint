@@ -577,7 +577,8 @@ answers in the browser, one card at a time: a number key answers and moves on, a
 are saved as they are given. The last choice of every card is the person's own answer: its number
 key opens a field they write in and send (⌘/Ctrl+Enter), and an option picked after it leaves the
 words out. On a card with a call, the field is a comment that goes with Right or Wrong instead, or
-the own answer when sent alone. Backspace, or Clear answer, takes an answer back. Images go with
+the own answer when sent alone (Esc, then R or W, sends it with the verdict). Backspace, or
+Clear answer, takes an answer back, with an Undo until the card is left. Images go with
 the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the bottom
 moves through the deck (← →, A for every answer). The page follows the system's light or dark
 theme; the bar's switch (or T) sets one, kept in that browser.
