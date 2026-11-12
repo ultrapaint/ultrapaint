@@ -8,6 +8,7 @@ import { useComments } from "../state/comments.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { viewFrameOf } from "../state/frame-ref.ts";
+import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
@@ -139,6 +140,7 @@ afterEach(() => {
   act(() => mounted.unmount());
   handlers = null;
   under.chain = ["home-root", "t1"];
+  useIsolation.setState({ isolated: null });
 });
 
 describe("a node dragged inside a page", () => {
@@ -192,6 +194,49 @@ describe("a marquee", () => {
     expect(useEditor.getState().selection).toEqual({
       frame: HOME,
       nodeId: "t2",
+    });
+  });
+});
+
+describe("a component edited in place", () => {
+  /** A click at a point, as the frame's select layer is clicked. */
+  const clickAt = (x: number, y: number) =>
+    ({ ...pointerAt(x, y), detail: 1 }) as unknown as Parameters<
+      Handlers["onSelectClick"]
+    >[0];
+  const editing = (frame: string) =>
+    useIsolation.setState({
+      isolated: {
+        component: "Promo",
+        entered: "t1",
+        frame,
+        instance: "t1",
+        variant: null,
+      },
+    });
+
+  it("is kept by a click on it, and left by a click on the page dimmed around it", () => {
+    editing(HOME);
+    act(() => current().onSelectClick(clickAt(20, 20)));
+    expect(useIsolation.getState().isolated).not.toBeNull();
+    // The page around it is not hit: nothing is under the pointer there.
+    under.chain = [];
+    act(() => current().onSelectClick(clickAt(600, 600)));
+    expect(useIsolation.getState().isolated).toBeNull();
+    // The instance it was entered from is selected again.
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "t1",
+    });
+  });
+
+  it("is left by a click in another frame, which selects there", () => {
+    editing(TABLET);
+    act(() => current().onSelectClick(clickAt(20, 20)));
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "t1",
     });
   });
 });

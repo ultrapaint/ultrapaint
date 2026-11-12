@@ -25,7 +25,7 @@ import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { isolate, useIsolation } from "./isolation.ts";
 import { select } from "./selection.ts";
-import { allFrames } from "./surface.ts";
+import { allFrames, surfaceNow } from "./surface.ts";
 import { readUrl } from "./url.ts";
 
 vi.mock(
@@ -372,6 +372,12 @@ describe("an app component's board", () => {
     // Nothing else of a board takes a selection.
     select({ frame: "board:library/Plan/elsewhere", nodeId: "x" });
     expect(useEditor.getState().selection?.frame).toBe(FEATURED);
+    // A press on the ground around the boards leaves the tree, and selects nothing.
+    surfaceNow().onGroundPress();
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection).toBeNull();
+    select({ frame: FEATURED, nodeId: "price" });
+    expect(useIsolation.getState().isolated).not.toBeNull();
     // Another item leaves the tree, and selects nothing.
     openBoard({ item: "Button", view: "library" });
     expect(useIsolation.getState().isolated).toBeNull();

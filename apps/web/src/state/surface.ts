@@ -31,6 +31,7 @@ import {
   railTabs,
   useEditor,
 } from "./editor.ts";
+import { leaveIsolation } from "./isolation.ts";
 import { pageCanvasFrames } from "./page-layout.ts";
 import { selectPage } from "./selection.ts";
 
@@ -52,7 +53,10 @@ export interface Surface {
   readonly modes: readonly Mode[];
   /** Whether a command of `commands.ts`, by its id, is offered there, by the palette and its keys. */
   readonly offers: (commandId: string) => boolean;
-  /** A press on the ground, on nothing: what is selected or picked is let go. */
+  /**
+   * A press on the ground, on nothing: a component edited in place is left, what is selected or
+   * picked let go.
+   */
   readonly onGroundPress: () => void;
   /**
    * The rail's places on it: Canvas mode's on the page canvas, Design System mode's on a board
@@ -89,6 +93,7 @@ const pageSurface: Surface = {
     return panel === null || railTabs.includes(panel);
   },
   onGroundPress: () => {
+    leaveIsolation();
     clearCanvasPicks();
     selectPage(null);
     useComments.getState().setDraft(null);
@@ -137,7 +142,10 @@ const boardSurface = (place: BoardPlace): Surface => {
       }
       return !NOT_ON_BOARDS.has(id);
     },
-    onGroundPress: () => pickOnBoard(null),
+    onGroundPress: () => {
+      leaveIsolation();
+      pickOnBoard(null);
+    },
     railTabs: tabs,
     rightPanel: "inspector",
     selectedIn: editSelectedOnBoard,

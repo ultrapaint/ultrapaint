@@ -78,7 +78,9 @@ instance follows. The inspector adds, renames and takes out properties (a choice
 exposes a node's field as a property ("Expose as property": its text, its visibility, its
 picture, a nested instance's text or prop), and makes a container a slot. A text edited in place
 is its property's default. The banner at the canvas's foot picks the member of a choice edits land
-on, recorded as an override as a view records a breakpoint's, and leaves with Done or Escape.
+on, recorded as an override as a view records a breakpoint's, and leaves with Done or Escape;
+a click anywhere outside the component (the dimmed page, the ground, another frame) leaves too,
+as nothing is lost by leaving: every edit is saved as it is made.
 "Make an app component…" turns sibling nodes of a page into one, an instance in their place;
 "Detach" puts the nodes an instance draws in its place, its values baked in. The Assets panel
 lists System and App components apart; the inspector edits an instance's properties as props and

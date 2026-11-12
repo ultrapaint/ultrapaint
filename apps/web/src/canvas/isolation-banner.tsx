@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CutText } from "../components/cut-text.tsx";
+import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import {
@@ -21,8 +22,9 @@ import { Banner } from "./banner.tsx";
 
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, or Escape (the `escape` command). On its board (ADR 0045) the board
- * edited says the member, a board a variant, and the banner only names it.
+ * on, and the way out: Done, Escape (the `escape` command), or a click anywhere outside it. On its
+ * board (ADR 0045) the board edited says the member, its title a variant's, and the banner only
+ * names the component.
  */
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
@@ -49,13 +51,8 @@ export const IsolationBanner = () => {
       >
         Editing{" "}
         <span className="font-body-medium text-foreground">{file.name}</span> ·
-        every instance follows
+        every instance updates
       </CutText>
-      {onBoard && isolated.variant ? (
-        <span className="shrink-0 font-code text-muted-foreground">
-          {isolated.variant.property}={isolated.variant.member}
-        </span>
-      ) : null}
       {choices.length > 0 && !onBoard ? (
         <Tooltip>
           <TooltipTrigger
@@ -91,9 +88,18 @@ export const IsolationBanner = () => {
           <TooltipContent>Edits land on</TooltipContent>
         </Tooltip>
       ) : null}
-      <Button className="shrink-0" onClick={leaveIsolation} size="sm">
-        Done
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button className="shrink-0" onClick={leaveIsolation} size="sm">
+              Done
+            </Button>
+          }
+        />
+        <TooltipContent>
+          Stop editing <CommandKeys id="escape" />
+        </TooltipContent>
+      </Tooltip>
     </Banner>
   );
 };

@@ -13,6 +13,7 @@ import {
   useIsolation,
 } from "./isolation.ts";
 import { frameBreakpoint } from "./selection.ts";
+import { surfaceNow } from "./surface.ts";
 
 vi.mock(
   "./connection.ts",
@@ -120,6 +121,14 @@ describe("an app component edited in place", () => {
     });
     leaveIsolation();
     expect(docOfFrame(board, "")).toBe(board);
+    expect(useEditor.getState().selection).toBeNull();
+  });
+
+  it("is left by a press on the ground, letting the selection go", () => {
+    isolate(HOME, PROMO);
+    surfaceNow().onGroundPress();
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(docOfFrame(HOME, "")).toBe(HOME);
     expect(useEditor.getState().selection).toBeNull();
   });
 

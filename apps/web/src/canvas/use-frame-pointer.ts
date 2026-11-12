@@ -16,7 +16,7 @@ import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
-import { isolate } from "../state/isolation.ts";
+import { isolate, leaveIsolation, useIsolation } from "../state/isolation.ts";
 import {
   isSelected,
   select,
@@ -152,7 +152,17 @@ export const useFramePointer = ({
       selectFrame();
       return;
     }
+    // A component edited in place is left by a click outside it: in another frame, or on the
+    // page dimmed around it, where nothing is hit. Its edits are saved as they are made.
+    const editing = useIsolation.getState().isolated?.frame;
+    if (editing !== undefined && editing !== frameId) {
+      leaveIsolation();
+    }
     const id = nodeAt(e);
+    if (editing === frameId && id === null) {
+      leaveIsolation();
+      return;
+    }
     if (id && e.shiftKey) {
       toggleSelected({ frame: frameId, nodeId: id });
     } else if (id) {
