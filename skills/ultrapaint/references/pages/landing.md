@@ -41,8 +41,10 @@ or a pressed button. What moves on its own has a pause control.
 
 ## Hero
 
-An announcement pill only with news; the headline, 2–4 lines; a muted `18–20px` subhead `16–24px`
-below; the actions `24–40px` lower; at most one muted reassurance line; the visual or the logos.
+An announcement pill only with news; the headline, one line under about 30 characters, else 2–4
+lines, broken right before a set-apart phrase by a forced break, never by `text-wrap: balance` or a
+width cap; a muted `18–20px` subhead `16–24px` below, two sentences broken between them; the
+actions `24–40px` lower; at most one muted reassurance line; the visual or the logos.
 
 - A filled primary beside a secondary of its height and shape (outline, grey or translucent fill,
   or a text link with an arrow); white on a dark ground; stacked full width on a phone, primary
@@ -90,7 +92,7 @@ below; the actions `24–40px` lower; at most one muted reassurance line; the vi
   labelled ticks; a discount strikes the old price above the new; "Current plan" is muted. A term
   with a tooltip takes a dotted underline.
 - **Comparison:** hairline rows of one height that grow to wrap, no cell borders or stripes;
-  labels left, plan columns equal and centred, names in a sticky header. Included a check; absent
+  labels left in the label style, values regular; plan columns equal and centred, names in a sticky header. Included a check; absent
   empty or a faint dash, a cross only against competitors. The recommended column is one band
   through every group, its checks inverted; category rows a filled band or a muted caption.
 
@@ -126,3 +128,5 @@ below; the actions `24–40px` lower; at most one muted reassurance line; the vi
 | Images of one set in mixed crops or treatments | One ratio, corner and treatment |
 | A glow or pattern behind several sections | One, behind the hero, or none |
 | An "i" on every comparison row, an icon per feature cell | Remove them |
+| Comparison values as heavy as their row labels | Values `400` |
+| Customer logos with no logo files, drawn as interface icons, invented shapes or mixed faces | Their names in the page's own face, one weight and one grey, no boxes or captions; tell the user they stand in |

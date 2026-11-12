@@ -2,7 +2,7 @@
 id: g68
 title: A short headline broken onto two lines at a fixed size
 kind: missing
-status: testing
+status: done
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [references/pages/landing.md, references/typography.md]
@@ -20,3 +20,4 @@ sections: []
 **Result.**
 
 - `pp-in`, `held-pp`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). Tracking: shipped 2/3 on hcare-landing ("tracked tighter than the range"), candidate 0/9; held-out, shipped 6 of 12 ("Tight tracking stacked on tight, condensed or serif faces"), candidate 0 of 12. Line breaks: shipped 2 of 9 ("undersized and wrapped by a narrow column"), candidate 3 of 9 ("Line breaks left to balance or a width cap"); held-out, 2 of 12 each. Pairwise hcare-landing hierarchy: candidate 2, tie 1. The candidate's 3 breaks are not short headlines: twice `text-wrap: balance` broke AlignUI's 41-character headline so a grey "the" led the emphasised line, once a width cap split a subhead mid-sentence; hcare-landing's 25-character headline, the only short one, stayed on one line in all 3 candidate runs. Reading: the tracking bound works on both sets; the one-line rule held where it applied, and the break before a set-apart phrase needs its own line (no `text-wrap: balance` on it).
+- Accepted (decisions `public-pages-ship` and `lab-direction-nov12`, 11–12 November): `landing.md`'s Hero says one line under about 30 characters, else 2–4 lines broken right before a set-apart phrase by a forced break, never by `text-wrap: balance` or a width cap, and a two-sentence subhead broken between them; `SKILL.md` keeps `balance` for headings except that one; `typography.md` has the Check row for tracking past `-0.03em`.

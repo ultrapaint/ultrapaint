@@ -20,3 +20,4 @@ sections: []
 **Result.**
 
 - `pp-in`, `held-pp`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). Shipped 3 of 9 runs ("Blue-grey neutrals on a character that is not cool"), candidate 0 of 9; held-out, neither raised. The count from the tokens, without a judge, is not done yet.
+- The person, 11 November (`public-pages-ship`): blue-grey is judged against the character's primary: a cool primary allows cooler neutrals, a warm one warm. The fixed chroma-and-hue number is to be reworked into that before a candidate.

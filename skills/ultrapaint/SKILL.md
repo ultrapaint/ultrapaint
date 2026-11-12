@@ -180,7 +180,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   placeholders). In one region, muted plays at most two roles; a group label outranks its
   details by weight or space.
 - A name in a dense row truncates to one line, its full value in a tooltip; messages wrap.
-  Headings `text-wrap: balance`, descriptions `pretty`.
+  Headings `text-wrap: balance`, except a headline with a set-apart phrase, broken right before
+  it; descriptions `pretty`.
 - Typeset: curly quotes, `…`, an en dash for ranges, `×` for dimensions; sentence case in the
   copy, capitals from the style. Tabular figures only in columns compared down.
 - More: `references/typography.md`, when you choose or load a face, or set a public page's type.

@@ -69,6 +69,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 | A headline with two or more accents | One, or none |
 | An eyebrow that states nothing the heading does not | Remove it |
 | A running headline tracked wide | Tight; wide tracking only for small capitals |
+| A headline tracked tighter than `-0.03em`, its word spaces closing | `-0.02em` to `-0.03em` |
 | A link bold, in the accent, or on its own line after its sentence | In the sentence, at its weight, underlined |
 | A placeholder in the foreground, or showing a real value | Muted, an example |
 | An inline edit that moves the text or changes its weight | The field takes the text's style and place |
