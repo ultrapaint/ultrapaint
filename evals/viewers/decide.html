@@ -671,8 +671,8 @@
       const given = answers[card.id];
       el.innerHTML = `
           <div>${card.eyebrow ? `<div class="eyebrow">${esc(card.eyebrow)}</div>` : ""}<h2>${esc(card.title)}</h2></div>
-          ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
           ${called ? `<div class="call">${markdown(card.proposal)}</div>` : ""}
+          ${card.body ? `<div class="body">${markdown(card.body)}</div>` : ""}
           ${
             card.pictures?.length
               ? `<div class="pictures">${card.pictures
