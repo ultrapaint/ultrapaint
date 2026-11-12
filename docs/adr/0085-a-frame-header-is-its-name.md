@@ -16,8 +16,10 @@ quietest one: the name alone on the canvas, the page's notes shown when the page
 
 ## Decision
 
-- **The header is the name**, and the breakpoint while the page has views (ADR 0036). The route
-  and the size are the inspector's, where they already were.
+- **The header is the name**, and the breakpoint while the page has views (ADR 0036), at the
+  header's right end, against the frame's right edge, so the breakpoints of views side by side
+  read down one edge; before it a view's button that takes it away, and an agent's label while
+  one works on the page. The route and the size are the inspector's, where they already were.
 - **A comment without a spot is the page's own.** One at 0 0 was written through a tool, never
   placed (`hasSpot`). It is not pinned on the canvas, nor in the prototype; it is drawn only while
   its card is open, at the corner as before.

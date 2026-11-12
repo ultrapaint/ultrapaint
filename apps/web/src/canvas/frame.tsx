@@ -42,7 +42,7 @@ import {
   useFrameBreakpoint,
   useSelectedIn,
 } from "../state/selection.ts";
-import { FramePresence } from "./agent-presence.tsx";
+import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
@@ -475,8 +475,9 @@ export const Marquee = ({
 );
 
 /**
- * The breakpoint a page's frame or view is drawn at, once the page has views (ADR 0036), and on a
- * view the button that takes it away, shown while the pointer is over the frame.
+ * The breakpoint a page's frame or view is drawn at, once the page has views (ADR 0036), at the
+ * header's right end (ADR 0085); before it on a view the button that takes it away, shown while
+ * the pointer is over the frame.
  */
 const ViewBadge = ({ frameId }: { frameId: string }) => {
   const breakpoint = useFrameBreakpoint(frameId);
@@ -490,16 +491,6 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
   const name = breakpoint ?? "base";
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small-medium text-muted-foreground" />
-          }
-        >
-          {name}
-        </TooltipTrigger>
-        <TooltipContent>Breakpoint {name}</TooltipContent>
-      </Tooltip>
       {isView ? (
         <IconButton
           className="text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover/frame:opacity-100"
@@ -511,6 +502,16 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
           <X className="size-3.5" />
         </IconButton>
       ) : null}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="flex h-4 items-center rounded-sm bg-foreground/8 px-1 font-body-small-medium text-muted-foreground" />
+          }
+        >
+          {name}
+        </TooltipTrigger>
+        <TooltipContent>Breakpoint {name}</TooltipContent>
+      </Tooltip>
     </>
   );
 };
@@ -704,7 +705,13 @@ const FrameChrome = ({
         >
           <CutText className="block truncate">{name}</CutText>
         </button>
-        {isNode ? null : <ViewBadge frameId={frameId} />}
+        {isNode ? null : (
+          // The header's right end: an agent at work on the page, then the breakpoint.
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5">
+            <PresenceLabel pageId={frameId} />
+            <ViewBadge frameId={frameId} />
+          </div>
+        )}
       </FrameHeader>
       {lit || titleHover ? (
         <div
@@ -714,7 +721,7 @@ const FrameChrome = ({
           }}
         />
       ) : null}
-      {isNode ? null : <FramePresence pageId={frameId} width={frame.width} />}
+      {isNode ? null : <FramePresence pageId={frameId} />}
     </>
   );
 };

@@ -10,7 +10,7 @@ import { useAgentActivityOf } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useProject } from "../state/project.ts";
-import { onScreen, screenPx, UNZOOM } from "./camera.ts";
+import { screenPx } from "./camera.ts";
 
 const VERBS: Record<AgentActivity["action"], string> = {
   editing: "editing",
@@ -19,18 +19,8 @@ const VERBS: Record<AgentActivity["action"], string> = {
   thinking: "thinking",
 };
 
-/**
- * The outline and label of an agent working on one page. Drawn inside the frame's own chrome, at
- * a constant size whatever the zoom, the way the page's name is.
- */
-export const FramePresence = ({
-  pageId,
-  width,
-}: {
-  pageId: string;
-  /** The page's width on the canvas: the label is no wider than the page on screen. */
-  width: number;
-}) => {
+/** The agent working on one page, if one is: its thread's id, its name and what it is doing. */
+const usePresenceOn = (pageId: string) => {
   const here = useAgentActivityOf((activity) =>
     activityOnPage(activity, pageId)
   );
@@ -39,32 +29,40 @@ export const FramePresence = ({
     return null;
   }
   const name = threads.find((t) => t.id === here.threadId)?.title ?? "Agent";
+  return { action: here.action, name, threadId: here.threadId };
+};
+
+/** The outline of an agent working on one page, in the agents' colour over the frame's edge. */
+export const FramePresence = ({ pageId }: { pageId: string }) =>
+  usePresenceOn(pageId) ? (
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{ outline: `${screenPx(2)} solid var(--agent)` }}
+    />
+  ) : null;
+
+/**
+ * The label of an agent working on one page, in the frame's header at the right end, before the
+ * breakpoint (ADR 0085): half the header's width at most.
+ */
+export const PresenceLabel = ({ pageId }: { pageId: string }) => {
+  const here = usePresenceOn(pageId);
+  if (!here) {
+    return null;
+  }
   return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ outline: `${screenPx(2)} solid var(--agent)` }}
-      />
-      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
-      <div
-        className="absolute right-0 flex h-5 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-sm bg-agent px-1.5 font-body-small-medium text-agent-foreground"
-        onContextMenu={(e) =>
-          openMenuAt(e, { kind: "thread", threadId: here.threadId })
-        }
-        style={{
-          // On the header's line, beside the page's name: half the page's width at most.
-          bottom: `calc(100% + ${screenPx(6)})`,
-          maxWidth: onScreen(width / 2),
-          transform: UNZOOM,
-          transformOrigin: "bottom right",
-        }}
-      >
-        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-agent-foreground motion-reduce:animate-none" />
-        <span className="min-w-0 truncate">
-          {name} · {VERBS[here.action]}
-        </span>
-      </div>
-    </>
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu.
+    <div
+      className="flex h-5 min-w-0 max-w-[50cqw] items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-sm bg-agent px-1.5 font-body-small-medium text-agent-foreground"
+      onContextMenu={(e) =>
+        openMenuAt(e, { kind: "thread", threadId: here.threadId })
+      }
+    >
+      <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-agent-foreground motion-reduce:animate-none" />
+      <span className="min-w-0 truncate">
+        {here.name} · {VERBS[here.action]}
+      </span>
+    </div>
   );
 };
 
