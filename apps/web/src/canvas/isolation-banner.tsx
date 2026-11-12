@@ -23,10 +23,10 @@ import { Banner } from "./banner.tsx";
 /**
  * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
  * on, and the way out: Done, Escape (the `escape` command, its key on Done), or a click anywhere
- * outside it. It sits just over the tools, where the hand already is while editing, the top left
- * to the place, edged in the component colour the canvas outlines an instance in. On its
- * board (ADR 0045) the board edited says the member, its title a variant's, and the banner only
- * names the component.
+ * outside it. It sits just over the tools, on their centre line, where the hand already is while
+ * editing, the top left to the place, edged in the component colour the canvas outlines an
+ * instance in. On its board (ADR 0045) the board edited says the member, its title a variant's,
+ * and the banner only names the component.
  */
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
@@ -44,7 +44,7 @@ export const IsolationBanner = () => {
     : "";
   return (
     <Banner
-      at="bottom"
+      at="tools"
       className="border-component"
       icon={<Component className="text-component" />}
       label={`Editing ${file.name}`}

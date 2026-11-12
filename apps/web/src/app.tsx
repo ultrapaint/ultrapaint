@@ -634,12 +634,12 @@ export const App = () => {
               <ShellNotices />
               <CanvasStatus />
               <SnapshotBanner />
-              {workspace === "prototype" ? null : <IsolationBanner />}
             </div>
             {/* Centred on the window, as the place switch is: the right panel comes and goes
                 with the selection, and the tools stay where they are. */}
             {workspace === "prototype" ? null : (
-              <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-2">
+              <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-4 px-4">
+                <IsolationBanner />
                 <Toolbar />
               </div>
             )}

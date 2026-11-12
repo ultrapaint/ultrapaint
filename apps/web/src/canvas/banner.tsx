@@ -4,8 +4,9 @@ import { cn } from "@/lib/cn";
 /**
  * A compact note floating over the canvas, as the place switch and the tools do: what the canvas
  * is showing at the top, just under the place switch, with its way out at its right end; what
- * the editor is waiting on, or a mode the tools work in, at the bottom, just over the tools. One
- * line, never wider than the canvas; what it names is cut short first.
+ * the editor is waiting on at the bottom, just over the tools; a mode the tools work in in the
+ * tools' own column, on their centre line (`tools`, placed there by the app). One line, never
+ * wider than the canvas; what it names is cut short first.
  */
 export const Banner = ({
   at = "top",
@@ -14,7 +15,7 @@ export const Banner = ({
   icon,
   label,
 }: {
-  at?: "bottom" | "top";
+  at?: "bottom" | "top" | "tools";
   children: ReactNode;
   /** The card's own look besides the floating one's: a mode's edge in its colour. */
   className?: string;
@@ -22,13 +23,8 @@ export const Banner = ({
   icon: ReactNode;
   /** What a screen reader says of it. */
   label: string;
-}) => (
-  <div
-    className={cn(
-      "pointer-events-none absolute inset-x-0 z-20 flex justify-center px-4",
-      at === "top" ? "top-14" : "bottom-16"
-    )}
-  >
+}) => {
+  const card = (
     <div
       aria-label={label}
       className={cn(
@@ -40,5 +36,18 @@ export const Banner = ({
       {icon}
       {children}
     </div>
-  </div>
-);
+  );
+  if (at === "tools") {
+    return card;
+  }
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-0 z-20 flex justify-center px-4",
+        at === "top" ? "top-14" : "bottom-16"
+      )}
+    >
+      {card}
+    </div>
+  );
+};
