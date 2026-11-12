@@ -48,5 +48,11 @@ annotations count what is common; what makes a page stand out sits unused in the
   (g62, g63, g64, g69), and those that hold for any page went into the skill (g65, g68, g73).
 - The October notes are reused; what they lack (the moves, measured numbers) is read again from
   the pictures.
+- Sources join as they come; nothing waits for all of them. A new set of screens (real app
+  screens the person gathers, say) goes through the same steps: noted with the same questions,
+  its moves found and checked on its own pictures, then merged into the catalogue, repeats
+  folded and their examples joined. A candidate with what changed is measured on fresh briefs
+  before it ships, as any other. The lab does not capture open-source products for app screens
+  (the person, 12 November).
 - A screenshot reader can't measure what the DOM knows (exact sizes, tokens); it is checked by
   the rebuild test before the study trusts its numbers.
