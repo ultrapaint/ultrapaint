@@ -116,13 +116,20 @@ export const answerWithoutProject = (
 };
 
 /**
+ * Where a server this command starts writes its log, in the project's state directory: not this
+ * command's stderr, which over SSH is the session's, and which a server outliving the command (an
+ * editor connected to it) would hold open, and the agent's session with it.
+ */
+const SERVER_LOG = "mcp-server.log";
+
+/**
  * Where the project's server answers MCP: the running one's, by its run file and the token
  * beside it, or, with none running, one started for it. The server is started out of this
  * command's scope, on purpose: it stops when the pipe on its stdin closes, which is when this
  * command goes, unless an editor is still connected to it (`--linger`), as when the desktop app
  * attached to it meanwhile.
  */
-const makeLocator = Effect.fnUntraced(function* (
+export const makeLocator = Effect.fnUntraced(function* (
   project: { readonly dir: string; readonly stateDir: string },
   /** How to start the project's server: the program and its arguments, as JSON. */
   serve: Option.Option<string>
@@ -150,6 +157,16 @@ const makeLocator = Effect.fnUntraced(function* (
       )
     );
 
+  const serverLog = path.join(project.stateDir, SERVER_LOG);
+  /** The last lines a server that did not start wrote, to say why. */
+  const logTail = fs.readFileString(serverLog).pipe(
+    Effect.map((text) => {
+      const last = text.trim().split("\n").slice(-5).join("\n");
+      return last === "" ? "" : ` Its log (${serverLog}) ends:\n${last}`;
+    }),
+    Effect.orElseSucceed(() => "")
+  );
+
   const start = Effect.gen(function* () {
     const argv = Option.flatMap(serve, Schema.decodeUnknownOption(Argv));
     if (Option.isNone(argv)) {
@@ -158,21 +175,31 @@ const makeLocator = Effect.fnUntraced(function* (
       });
     }
     const [command, ...args] = argv.value;
+    const server = [
+      command,
+      ...args,
+      "--port",
+      "0",
+      "--ready-json",
+      "--stop-with-stdin",
+      "--linger",
+    ];
     yield* Effect.logInfo(`starting Ultrapaint for ${project.dir}`);
+    yield* fs.makeDirectory(project.stateDir, { recursive: true });
+    // The shell sends the server's log to its file and becomes the server (`exec`): the
+    // process this command holds is the server's.
     const child = yield* spawner
       .spawn(
-        ChildProcess.make(
-          command,
-          [
-            ...args,
-            "--port",
-            "0",
-            "--ready-json",
-            "--stop-with-stdin",
-            "--linger",
-          ],
-          { cwd: project.dir, stderr: "inherit" }
-        )
+        process.platform === "win32"
+          ? ChildProcess.make(command, server.slice(1), {
+              cwd: project.dir,
+              stderr: "inherit",
+            })
+          : ChildProcess.make(
+              "/bin/sh",
+              ["-c", 'exec "$@" 2>"$0"', serverLog, ...server],
+              { cwd: project.dir, stderr: "ignore" }
+            )
       )
       .pipe(Scope.provide(outliving));
     const lines = child.stdout.pipe(Stream.decodeText(), Stream.splitLines);
@@ -187,10 +214,12 @@ const makeLocator = Effect.fnUntraced(function* (
   }).pipe(
     Effect.catchTags({
       NoSuchElementError: () =>
-        Effect.fail(
-          new RelayUnreachable({
-            message: `Ultrapaint did not start for ${project.dir}.`,
-          })
+        Effect.flatMap(logTail, (tail) =>
+          Effect.fail(
+            new RelayUnreachable({
+              message: `Ultrapaint did not start for ${project.dir}.${tail}`,
+            })
+          )
         ),
       PlatformError: (error) =>
         Effect.fail(

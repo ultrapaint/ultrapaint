@@ -102,6 +102,16 @@ token is no longer shown.
   PATH with Node on it.
 - Every outside agent passes its folder on every call, a cost in tokens the editor's own agents
   do not pay.
+- Over SSH the command works where the project is. An agent on that machine (a terminal's session
+  there, T3 Code running there) uses the server the desktop app started over SSH, by its run file,
+  or starts one. A server the command starts writes its log to `mcp-server.log` in the state
+  directory, not to the command's stderr: over SSH that is the session's channel, which a server
+  outliving the command for an editor would hold open. Over a non-interactive SSH session the
+  `PATH` may lack Node and the command, as it does for the app, so a registration over SSH runs
+  it in a login shell (`ssh host bash -ilc 'ultrapaint mcp'`). The folder a call names is a path
+  on that machine, so an agent here registered that way reaches a project there by its links, not
+  by its own folder. An agent here with its own command cannot reach a project the app opened
+  over SSH: that server's run file is on the other machine.
 - The editor's own agents may load the same hub, and would find the editor's tools there a
   second time, without their thread's presence. Every agent the editor starts has
   `ULTRAPAINT_AGENT` set, and the hub's entry skips them on it (`"skipWhenEnv"`).

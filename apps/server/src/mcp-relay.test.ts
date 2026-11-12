@@ -1,9 +1,14 @@
 import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import path from "node:path";
+import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Option, Ref, Stream } from "effect";
-import { answerWithoutProject, makeRouting } from "./mcp-command.ts";
+import {
+  answerWithoutProject,
+  makeLocator,
+  makeRouting,
+} from "./mcp-command.ts";
 import {
   eventMessages,
   FOLDER_ARG,
@@ -430,6 +435,34 @@ describe("a server as it starts (ADR 0083)", () => {
         );
       }).pipe(Effect.provide(TestServer), Effect.scoped),
     60_000
+  );
+});
+
+describe("a server the relay starts (ADR 0083)", () => {
+  it.effect(
+    "writes its log to the project's state, not the relay's stderr, which over SSH is the session's, and a server that does not start is said with its log's end",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const stateDir = path.join(dir, ".ultrapaint");
+        // A "server" that says why it cannot start, and ends.
+        const locate = yield* makeLocator(
+          { dir, stateDir },
+          Option.some(
+            JSON.stringify(["/bin/sh", "-c", "echo 'port taken' >&2; exit 1"])
+          )
+        );
+        const failed = yield* Effect.flip(locate(false));
+        assert.include(failed.message, "did not start");
+        assert.include(failed.message, "port taken");
+        assert.strictEqual(
+          (yield* fs.readFileString(
+            path.join(stateDir, "mcp-server.log")
+          )).trim(),
+          "port taken"
+        );
+      }).pipe(Effect.provide(NodeServices.layer), Effect.scoped)
   );
 });
 

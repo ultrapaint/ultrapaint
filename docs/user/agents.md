@@ -61,7 +61,12 @@ is not, the command starts the project's server without a window; opening the pr
 attaches to it, and it stops once the agent and every editor on it are gone. A link the editor
 copies (**Copy link** on a page or an element) names its project, so pasting one in a chat
 anywhere, even in a folder with no project, has the agent work on that project from then on.
-What you have selected in the editor is there for it too: "redesign what I've selected" works
+Over SSH, run the agent where the project is (a terminal's SSH session, or T3 Code on that
+machine): it finds the server the desktop app started there over SSH, or starts one. An agent
+on your own machine can register the command over SSH instead
+(`claude mcp add ultrapaint -- ssh myhost bash -ilc 'ultrapaint mcp'`, a login shell for the
+`PATH`); it then works on that machine's projects through their links, since its own folder is
+not one there. What you have selected in the editor is there for it too: "redesign what I've selected" works
 while the editor is open on the project. The `ultrapaint` command has to be
 on the agent's `PATH`: in the desktop app, the same Settings row offers **Install the command**
 when this computer has none; from a checkout, `pnpm install:cli` ([Install and start](install.md)).
