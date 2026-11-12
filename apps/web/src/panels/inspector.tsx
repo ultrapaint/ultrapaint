@@ -593,9 +593,16 @@ const InstanceSection = ({
         title={
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="truncate">{node.component}</span>
-            <CutText className="truncate font-code text-muted-foreground">
-              {node.from}
-            </CutText>
+            {/* An app component's instance is set here alone; its main component, in place. */}
+            {node.from === APP_FROM ? (
+              <span className="shrink-0 font-body-small text-muted-foreground">
+                Instance
+              </span>
+            ) : (
+              <CutText className="truncate font-code text-muted-foreground">
+                {node.from}
+              </CutText>
+            )}
           </span>
         }
       >

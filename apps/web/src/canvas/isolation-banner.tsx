@@ -1,4 +1,9 @@
+import {
+  APP_FROM,
+  componentOfDoc,
+} from "@ultrapaint/contracts/component-names";
 import { Component } from "lucide-react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   NativeSelect,
@@ -11,7 +16,9 @@ import {
 } from "@/components/ui/tooltip";
 import { CutText } from "../components/cut-text.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
+import { instanceCountOf } from "../lib/component-uses.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
+import { useDocuments } from "../state/documents.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import {
   editVariant,
@@ -28,11 +35,38 @@ import { Banner } from "./banner.tsx";
  * instance in. On its board (ADR 0045) the board edited says the member, its title a variant's,
  * and the banner only names the component.
  */
+/**
+ * How many instances an edit of the main component `name` reaches: those the pages read place, and
+ * those of the app components' trees, as its inspector's "Used in" counts them.
+ */
+const useInstanceCount = (name: string | undefined): number => {
+  const docs = useDocuments((s) => s.docs);
+  const components = useComponents((s) => s.components);
+  return useMemo(() => {
+    if (name === undefined) {
+      return 0;
+    }
+    // A component's tree is counted from its file, not again as a page.
+    const pages = Object.values(docs)
+      .filter((d) => componentOfDoc(d.doc) === null)
+      .map((d) => ({ name: d.doc, root: d.root }));
+    return instanceCountOf(name, APP_FROM, { components, pages });
+  }, [components, docs, name]);
+};
+
+const instancesLabel = (count: number) => {
+  if (count === 0) {
+    return "no instances yet";
+  }
+  return count === 1 ? "1 instance" : `${count} instances`;
+};
+
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
   const file = useComponents((s) =>
     isolated ? appComponentOf(s.components, isolated.component) : undefined
   );
+  const instances = useInstanceCount(isolated?.component);
 
   if (!(isolated && file?.origin === "app")) {
     return null;
@@ -47,14 +81,15 @@ export const IsolationBanner = () => {
       at="tools"
       className="border-component"
       icon={<Component className="text-component" />}
-      label={`Editing ${file.name}`}
+      label={`Editing main component ${file.name}, ${instancesLabel(instances)}`}
     >
       <CutText
         className="min-w-0 truncate font-body-small text-muted-foreground"
         tip={file.name}
       >
-        Editing{" "}
-        <span className="font-body-medium text-foreground">{file.name}</span>
+        Editing main component{" "}
+        <span className="font-body-medium text-foreground">{file.name}</span> ·{" "}
+        {instancesLabel(instances)}
       </CutText>
       {choices.length > 0 && !onBoard ? (
         <Tooltip>

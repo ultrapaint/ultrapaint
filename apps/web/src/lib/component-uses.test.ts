@@ -1,7 +1,7 @@
 import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { componentUsesOf } from "./component-uses.ts";
+import { componentUsesOf, instanceCountOf } from "./component-uses.ts";
 
 const button = (id: string): DesignNode => ({
   component: "Button",
@@ -59,5 +59,20 @@ describe("where a component is used", () => {
     expect(
       componentUsesOf("Card", "#app", { components: [CARD], pages: [] })
     ).toEqual([]);
+  });
+
+  it("adds up the instances the pages and the app components place", () => {
+    expect(
+      instanceCountOf("Button", "@ultrapaint/system", {
+        components: [CARD],
+        pages: [
+          { name: "Pricing", root: page([button("a"), button("b")]) },
+          { name: "Unread", root: null },
+        ],
+      })
+    ).toBe(3);
+    expect(
+      instanceCountOf("Card", "#app", { components: [CARD], pages: [] })
+    ).toBe(0);
   });
 });

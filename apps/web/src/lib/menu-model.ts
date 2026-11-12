@@ -253,7 +253,7 @@ const instanceEntries = (f: NodeFacts): (Entry<NodeAction> | false)[] => {
   const app = node.from === APP_FROM;
   return [
     app &&
-      item({ kind: "editComponent" }, "Edit component", {
+      item({ kind: "editComponent" }, "Edit main component", {
         disabled: several,
       }),
     app && item({ kind: "detach" }, "Detach"),

@@ -351,7 +351,9 @@ refactor and the board view left.
   components and other app components; an instance names one with `from: "#app"`. Its file is a
   **tree**, its **properties** and its **slots**, drawn in an instance's place by
   `expandAppInstance`. Edited **in place** (`isolation.ts`), its tree is a document of its own,
-  `component:<Name>`, that the frame's selection and edits go to.
+  `component:<Name>`, that the frame's selection and edits go to. The editor's words call it the
+  **main component** where it stands against an **instance**: "Edit main component" changes every
+  instance, an instance's props change that one alone.
 - **Property**: what an instance of an app component sets, by name (its `props`): a text, a
   boolean, an image or a choice of members, with a default, set on the nodes it **targets**, a
   node's own field for its kind or a prop of the instance a node is.

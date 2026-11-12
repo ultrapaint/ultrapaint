@@ -64,3 +64,8 @@ export const componentUsesOf = (
     return count > 0 ? [{ count, kind: "component", name: c.name }] : [];
   }),
 ];
+
+/** How many instances of the component `name` the pages and the app components place, in all. */
+export const instanceCountOf = (
+  ...args: Parameters<typeof componentUsesOf>
+): number => componentUsesOf(...args).reduce((n, use) => n + use.count, 0);
