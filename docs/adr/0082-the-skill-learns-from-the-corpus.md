@@ -46,8 +46,8 @@ annotations count what is common; what makes a page stand out sits unused in the
 - The reference rounds (`round`, `out-land`-style pairwise against a reference) stop being the
   design skill's measure; the gaps they produced that are single-page recipes are set aside
   (g62, g63, g64, g69), and those that hold for any page went into the skill (g65, g68, g73).
-- The October notes are reused; what they lack (the moves, measured numbers) is read again from
-  the pictures.
+- The October notes are not reused for counting: they saw two screens of each page and asked a
+  landing page's questions only. Every page is read again (below).
 - Sources join as they come; nothing waits for all of them. A new set of screens (real app
   screens the person gathers, say) goes through the same steps: noted with the same questions,
   its moves found and checked on its own pictures, then merged into the catalogue, repeats
@@ -56,3 +56,30 @@ annotations count what is common; what makes a page stand out sits unused in the
   (the person, 12 November).
 - A screenshot reader can't measure what the DOM knows (exact sizes, tokens); it is checked by
   the rebuild test before the study trusts its numbers.
+
+## Since 12 November (decks `moves-strong` and `study-questions`)
+
+- **The questions are asked once.** Tried in five versions on 59 pages and screens, every
+  version's answers checked against the pictures and, for app screens, against Screenrove's
+  measured tokens. The fifth (`evals/prompts/study-read.md`, `pnpm evals study read`) asks what a
+  page is for (the brief, kind, domain and expression apart, mood, the skill's own seven dials),
+  how it is seen (its sections in order, each boxed on its picture), its system as values, its
+  words, mobile and motion, an app screen's shell and staging, its moves and weak points placed by
+  section, the tells g53–g60, and its craft. Capture faults are kept apart from the design. A note
+  records the questions' version, so a later source is read the same way. Trusted from the check:
+  ground and text colours, type sizes to ±2px, the boxes, the answers that repeat when a page is
+  read twice (domain 23 of 24, expression 24 of 24); not muted greys.
+- **Moves:** a move is taught when it is seen on the pictures, distinctive, reusable on another
+  product and costs no usability. Left out: repeats, devices so common they read as a template
+  (one serif-italic word in a sans headline, a display serif on a tech product, a giant type
+  marquee, text lit by scrolling, an eyebrow over every section), devices that cost reading or
+  finding, and those that need what an agent rarely has. 74 of the 105 strongest were accepted
+  (`candidates/moves`); the rest of the catalogue is rebuilt from the re-read's notes.
+- **App screens:** Screenrove's packs and a sample of Untitled UI's shots, studied together;
+  public pages from the four captured corpora. Each pack's measured tokens are also the ground
+  truth for the extraction track (§5).
+- **Fresh briefs:** 20 invented products' facts (`references/fresh-*`), public pages and app
+  screens across the characters; judged pairwise against each other and the brief
+  (`prompts/pairwise-fresh.md`), the tells counted, and `pnpm evals variety` for how alike a
+  version's runs of one brief are. A skill gap is tested on fresh briefs it did not come from
+  (`evals/gaps/README.md`).
