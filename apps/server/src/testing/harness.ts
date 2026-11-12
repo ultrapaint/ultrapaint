@@ -295,14 +295,15 @@ export const waitForThread = (
 ) =>
   Effect.flatMap(TestEnv, ({ client }) =>
     waitFor(
-      Effect.all({
-        items: client["threads.items"]({ threadId }),
-        // The thread first: the server writes an item before the status it leads to, so a
-        // transcript read after the thread holds whatever led to the status read.
-        thread: Effect.map(client["threads.list"](), (all) =>
+      // The thread first: the server writes an item before the status it leads to, so a
+      // transcript read after the thread holds whatever led to the status read. The two are
+      // read in turn, as listed.
+      Effect.all([
+        Effect.map(client["threads.list"](), (all) =>
           all.find((t) => t.id === threadId)
         ),
-      }),
+        client["threads.items"]({ threadId }),
+      ]).pipe(Effect.map(([thread, items]) => ({ items, thread }))),
       ({ items, thread }) => thread !== undefined && done(thread, items)
     )
   );
