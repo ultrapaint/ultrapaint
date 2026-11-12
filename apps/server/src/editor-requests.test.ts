@@ -663,6 +663,15 @@ describe("the editor's requests on a project", () => {
         assert.include(changed, HOME_FILE);
         assert.include(changed, "designs/log-in.page.json");
         assert.isTrue(status.files.every((f) => f.design));
+        // Each file's lines added and removed, a new one's all added; the branch and its last commit.
+        const lines = (file: string) =>
+          status.files.find((f) => f.path === file)?.lines;
+        assert.isAbove(lines(HOME_FILE)?.added ?? 0, 0);
+        assert.isAbove(lines(HOME_FILE)?.removed ?? 0, 0);
+        assert.deepInclude(lines("designs/log-in.page.json"), { removed: 0 });
+        assert.isAbove(lines("designs/log-in.page.json")?.added ?? 0, 0);
+        assert.strictEqual(status.branch, "main");
+        assert.strictEqual(status.lastCommit?.message, "init");
 
         const tracked = yield* client["git.diff"]({ path: HOME_FILE });
         assert.include(tracked.diff, "External");

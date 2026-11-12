@@ -2,7 +2,7 @@ import { DESIGN_MD_FILE } from "@ultrapaint/contracts/design-system";
 import { type BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
 import type { GitFileStatus, GitStatus } from "@ultrapaint/contracts/git";
 import type { FileDiff } from "@ultrapaint/contracts/snapshots";
-import { Context, Effect, Layer, Semaphore } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { EventBus } from "../events.ts";
 import { runCommand } from "../process.ts";
@@ -35,6 +35,36 @@ export const git = Effect.fnUntraced(function* (
   }
   return result.stdout;
 });
+
+/**
+ * `git diff --numstat -z`: each file's lines added and removed, by its path now; null for a
+ * binary file, whose lines git does not count. A rename names both paths after its counts.
+ */
+export const parseNumstat = (out: string) => {
+  const counted = new Map<string, { added: number; removed: number } | null>();
+  const entries = out.split("\0");
+  for (let i = 0; i < entries.length; i += 1) {
+    const [added, removed, file = ""] = (entries[i] ?? "").split("\t");
+    if (added === undefined || removed === undefined) {
+      continue;
+    }
+    let path = file;
+    if (path === "") {
+      // A rename: the old path, then the new one, as entries of their own.
+      path = entries[i + 2] ?? "";
+      i += 2;
+    }
+    if (path !== "") {
+      counted.set(
+        path,
+        added === "-"
+          ? null
+          : { added: Number(added), removed: Number(removed) }
+      );
+    }
+  }
+  return counted;
+};
 
 const parseStatus = (
   out: string,
@@ -94,6 +124,8 @@ export class GitService extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const events = yield* EventBus;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       // `git status` and friends are cheap; a few at once is plenty.
       const processes = yield* Semaphore.make(8);
@@ -110,15 +142,77 @@ export class GitService extends Context.Service<
       const run = (args: readonly string[], env?: Record<string, string>) =>
         provide(git(paths.root, args, env));
 
-      const status = Effect.map(
-        run(["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
-        (out) =>
-          parseStatus(
-            out,
-            // Ultrapaint's own: the designs, and the design system's document (ADR 0027).
-            (p) => paths.isInDesigns(p) || p === DESIGN_MD_FILE
-          )
-      ).pipe(Effect.withSpan("GitService.status"));
+      /** What git says when it runs, or null when it says nothing (no commit yet, no branch). */
+      const said = (args: readonly string[]) =>
+        provide(runGit(paths.root, args)).pipe(
+          Effect.map((r) => (r.exitCode === 0 ? r.stdout : null)),
+          Effect.orElseSucceed(() => null)
+        );
+
+      /** A file's lines, all of them added: one git does not track yet. Null when unreadable. */
+      const linesOf = (rel: string) =>
+        fs.readFileString(path.join(paths.root, rel)).pipe(
+          Effect.map((text) =>
+            text === ""
+              ? 0
+              : text.split("\n").length - (text.endsWith("\n") ? 1 : 0)
+          ),
+          Effect.orElseSucceed(() => null)
+        );
+
+      const status = Effect.gen(function* () {
+        const listed = parseStatus(
+          yield* run([
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+          ]),
+          // Ultrapaint's own: the designs, and the design system's document (ADR 0027).
+          (p) => paths.isInDesigns(p) || p === DESIGN_MD_FILE
+        );
+        const [numstat, last, branch] = yield* Effect.all(
+          [
+            said(["diff", "--numstat", "-z", "HEAD"]),
+            said(["log", "-1", "--format=%ct%x00%s"]),
+            said(["symbolic-ref", "--short", "-q", "HEAD"]),
+          ],
+          { concurrency: "unbounded" }
+        );
+        const counted = parseNumstat(numstat ?? "");
+        const files = yield* Effect.forEach(
+          listed.files,
+          (file) =>
+            Effect.gen(function* () {
+              const known = counted.get(file.path);
+              if (known !== undefined) {
+                return known === null ? file : { ...file, lines: known };
+              }
+              if (file.code !== "??") {
+                return file;
+              }
+              const added = yield* linesOf(file.path);
+              return added === null
+                ? file
+                : { ...file, lines: { added, removed: 0 } };
+            }),
+          { concurrency: 8 }
+        );
+        const [at, ...subject] = (last ?? "").trim().split("\0");
+        const branchName = (branch ?? "").trim();
+        return {
+          ...(branchName === "" ? {} : { branch: branchName }),
+          files,
+          ...(at && subject.length > 0
+            ? {
+                lastCommit: {
+                  at: Number(at) * 1000,
+                  message: subject.join(""),
+                },
+              }
+            : {}),
+        } satisfies GitStatus;
+      }).pipe(Effect.withSpan("GitService.status"));
 
       /** The editor told the status after a change made here; the change stands if it cannot be read. */
       const publishStatus = Effect.ignore(

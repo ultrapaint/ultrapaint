@@ -1,8 +1,9 @@
 import path from "node:path";
 import { assert, describe } from "@effect/vitest";
 import type { History as HistoryList } from "@ultrapaint/contracts/snapshots";
-import { Effect, FileSystem } from "effect";
+import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { TestClock } from "effect/testing";
+import { EventBus } from "./events.ts";
 import { OpenProject, type ProjectServices } from "./project.ts";
 import { DesignFiles } from "./services/design-files.ts";
 import { EditService } from "./services/edit.ts";
@@ -68,18 +69,32 @@ const read = (file: string) =>
 
 /**
  * The history once it says what `done` waits for: the changes are heard on a fiber of their
- * own, which runs as this one yields.
+ * own, which publishes `event` as the history changes, so this waits for that news.
  */
-const once = (done: (list: HistoryList) => boolean) =>
+const once = (
+  event: "history" | "history.pending",
+  done: (list: HistoryList) => boolean
+) =>
   Effect.gen(function* () {
-    for (let i = 0; i < 200; i += 1) {
-      const list = yield* listed;
-      if (done(list)) {
-        return list;
-      }
-      yield* Effect.yieldNow;
+    const events = yield* EventBus;
+    // Started at once, the fiber has subscribed by the time the fork returns.
+    const told = yield* Effect.forkScoped(
+      events.subscribe(event).pipe(
+        Stream.mapEffect(() => listed),
+        Stream.filter(done),
+        Stream.runHead
+      ),
+      { startImmediately: true }
+    );
+    const now = yield* listed;
+    if (done(now)) {
+      yield* Fiber.interrupt(told);
+      return now;
     }
-    return assert.fail("the history never said so");
+    const heard = yield* Fiber.join(told);
+    return Option.isSome(heard)
+      ? heard.value
+      : assert.fail("the history never said so");
   });
 
 const kinds = (list: HistoryList) => list.points.map((p) => p.kind);
@@ -98,12 +113,15 @@ describe("the designs' history", () => {
     it.effect("closes the person's edits two minutes after the last one", () =>
       Effect.gen(function* () {
         yield* edit(ABOUT_FILE, "{}\n");
-        const pending = yield* once((l) => l.pending !== null);
+        const pending = yield* once(
+          "history.pending",
+          (l) => l.pending !== null
+        );
         assert.strictEqual(pending.pending?.edits, 1);
         yield* TestClock.adjust("1 minute");
         assert.deepStrictEqual(kinds(yield* listed), ["start"]);
         yield* TestClock.adjust("1 minute");
-        const list = yield* once((l) => l.points.length === 2);
+        const list = yield* once("history", (l) => l.points.length === 2);
         assert.deepStrictEqual(kinds(list), ["edits", "start"]);
         assert.deepStrictEqual(list.points[0]?.files, [ABOUT_FILE]);
         assert.strictEqual(list.points[0]?.edits, 1);
@@ -116,10 +134,10 @@ describe("the designs' history", () => {
         // Seven edits a minute and a half apart: the tenth minute closes them, two before the last.
         for (let i = 0; i < 7; i += 1) {
           yield* edit(ABOUT_FILE, `{ "step": ${i} }\n`);
-          yield* once((l) => l.pending?.edits === i + 1);
+          yield* once("history.pending", (l) => l.pending?.edits === i + 1);
           yield* TestClock.adjust("90 seconds");
         }
-        const list = yield* once((l) => l.points.length === 2);
+        const list = yield* once("history", (l) => l.points.length === 2);
         assert.strictEqual(list.points[0]?.edits, 7);
       })
     );
@@ -129,7 +147,7 @@ describe("the designs' history", () => {
       () =>
         Effect.gen(function* () {
           yield* edit(ABOUT_FILE, "{}\n");
-          yield* once((l) => l.pending !== null);
+          yield* once("history.pending", (l) => l.pending !== null);
           yield* history((h) =>
             h.turnStarted("t-1", {
               agentId: "claude-code",
@@ -168,13 +186,18 @@ describe("the designs' history", () => {
       () =>
         Effect.gen(function* () {
           yield* edit(ABOUT_FILE, "{}\n");
-          yield* once((l) => l.pending !== null);
+          yield* once("history.pending", (l) => l.pending !== null);
+          const closed = yield* Effect.forkScoped(
+            once("history", (l) => l.points.length === 3),
+            { startImmediately: true }
+          );
           yield* fromOutside(PULLED_FILE, "{}\n");
-          for (let i = 0; i < 20; i += 1) {
-            yield* Effect.yieldNow;
+          // The change settles a second after it is heard, on a fiber of its own that nothing
+          // tells of: the clock steps a second at a time until its point is made.
+          for (let i = 0; i < 30 && !closed.pollUnsafe(); i += 1) {
+            yield* TestClock.adjust("1 second");
           }
-          yield* TestClock.adjust("1 second");
-          const list = yield* once((l) => l.points.length === 3);
+          const list = yield* Fiber.join(closed);
           assert.deepStrictEqual(kinds(list), ["outside", "edits", "start"]);
           assert.deepStrictEqual(list.points[0]?.files, [PULLED_FILE]);
           assert.deepStrictEqual(list.points[1]?.files, [ABOUT_FILE]);
@@ -189,7 +212,7 @@ describe("the designs' history", () => {
           const home = yield* read(HOME_FILE);
           const [start] = (yield* listed).points;
           yield* edit(HOME_FILE, '{ "edited": true }\n');
-          yield* once((l) => l.pending !== null);
+          yield* once("history.pending", (l) => l.pending !== null);
           yield* history((h) => h.restore(start?.id ?? ""));
           assert.strictEqual(yield* read(HOME_FILE), home);
           const list = yield* listed;
@@ -207,7 +230,7 @@ describe("the designs' history", () => {
     it.effect("names a point a version, and takes the name away", () =>
       Effect.gen(function* () {
         yield* edit(ABOUT_FILE, "{}\n");
-        yield* once((l) => l.pending !== null);
+        yield* once("history.pending", (l) => l.pending !== null);
         const saved = yield* history((h) => h.save("Shown to the client"));
         assert.strictEqual(saved.kind, "edits");
         assert.strictEqual(saved.name, "Shown to the client");
@@ -234,13 +257,14 @@ describe("the designs' history", () => {
             version: 1,
           });
         yield* edit(ABOUT_FILE, page("Before"));
-        yield* once((l) => l.pending !== null);
+        yield* once("history.pending", (l) => l.pending !== null);
         yield* TestClock.adjust("2 minutes");
-        yield* once((l) => l.points.length === 2);
+        yield* once("history", (l) => l.points.length === 2);
         yield* edit(ABOUT_FILE, page("After"));
-        yield* once((l) => l.pending !== null);
+        yield* once("history.pending", (l) => l.pending !== null);
         yield* TestClock.adjust("2 minutes");
-        const [point] = (yield* once((l) => l.points.length === 3)).points;
+        const [point] = (yield* once("history", (l) => l.points.length === 3))
+          .points;
         const [change] = yield* history((h) => h.compare(point?.id ?? ""));
         assert.strictEqual(change?.file, ABOUT_FILE);
         assert.notDeepEqual(change?.before, change?.after);

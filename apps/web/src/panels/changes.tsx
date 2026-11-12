@@ -1,29 +1,18 @@
+/**
+ * The Changes panel (ADR 0087): the designs' history, Ultrapaint's own, and, only while the
+ * folder is a git repository, a Git tab with what git sees changed and the commit the person
+ * makes. Without a repository nothing of git is shown.
+ */
 import type { GitStatus } from "@ultrapaint/contracts/git";
 import type { FileDiff } from "@ultrapaint/contracts/snapshots";
-import { plural } from "@ultrapaint/shared/text";
-import { ArrowLeft, ChevronDown, GitBranch } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
-  type ChangeEvent,
-  type Dispatch,
   type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
-  type SetStateAction,
   useEffect,
   useEffectEvent,
-  useId,
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
@@ -34,6 +23,7 @@ import { useHistory } from "../state/history.ts";
 import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { follow } from "../state/server-data.ts";
+import { BAR, GitTab, Unread } from "./changes-git.tsx";
 import { HistoryTab } from "./changes-history.tsx";
 
 /** Where the lines that name a diff's files end: its `+++ b/…`, or git's first range after it. */
@@ -43,7 +33,6 @@ const CHANGE_LINE_RE = /^[-+ @\\]/;
 /** A line of a file's changes that git marks in its first column: added, removed or context. */
 const MARKED_LINE_RE = /^[-+ ]/;
 const TRAILING_NEWLINE_RE = /\n$/;
-const GIT_EXITED_RE = /^git \S+ exited \d+:\s*/;
 
 /** How long the files are left to settle before the panel asks again what changed. */
 const FILES_SETTLE_MS = 250;
@@ -60,111 +49,15 @@ type OpenDiff = DiffTarget & {
   failed: boolean;
 };
 
-/** The files still ticked after a commit: those ticked while it was on its way stay ticked. */
-export const tickedAfterCommit = (
-  ticked: ReadonlySet<string>,
-  committed: readonly string[]
-): Set<string> => {
-  const left = new Set(ticked);
-  for (const path of committed) {
-    left.delete(path);
-  }
-  return left;
-};
-
-/** A group's select-all: ticked when all its files are, mixed when some are. */
-export const groupTicked = (
-  paths: readonly string[],
-  ticked: ReadonlySet<string>
-): "all" | "some" | "none" => {
-  const count = paths.filter((p) => ticked.has(p)).length;
-  if (count === 0) {
-    return "none";
-  }
-  return count === paths.length ? "all" : "some";
-};
-
-/** What Commit, pressed, says is missing; null when it commits. */
-export const commitBlocked = (ticked: number, message: string) => {
-  if (ticked === 0) {
-    return "Tick the files to commit";
-  }
-  if (!message.trim()) {
-    return `Write a message to commit ${plural(ticked, "file", "files")}`;
-  }
-  return null;
-};
-
-/**
- * The folder every path of a group shares, left off its rows: two files or more only, so a
- * lone file still says where it is.
- */
-export const sharedFolder = (paths: readonly string[]) => {
-  if (paths.length < 2) {
-    return "";
-  }
-  const folders = paths.map((p) => p.split("/").slice(0, -1));
-  const [first = [], ...rest] = folders;
-  let { length } = first;
-  for (const folder of rest) {
-    let i = 0;
-    while (i < length && folder[i] === first[i]) {
-      i += 1;
-    }
-    length = i;
-  }
-  return first.slice(0, length).join("/");
-};
-
-/**
- * What git says of a file, in a word, from its status code. A modified file says nothing: the
- * list is of changed files. A conflict comes first: git writes some (`AA`, `DD`, `AU`, `DU`)
- * with the letters of a new or deleted file.
- */
-export const statusWord = (code: string): string | null => {
-  const c = code.trim();
-  if (c.includes("U") || c === "AA" || c === "DD") {
-    return "Conflict";
-  }
-  if (c === "??" || c.startsWith("A")) {
-    return "New";
-  }
-  if (c.includes("D")) {
-    return "Deleted";
-  }
-  if (c.startsWith("R")) {
-    return "Renamed";
-  }
-  return null;
-};
-
-/** Commit's button: how many files it takes, once some are ticked; its verb while it goes. */
-export const commitLabel = (busy: boolean, ticked: number) => {
-  if (busy) {
-    return "Committing…";
-  }
-  return ticked === 0 ? "Commit" : `Commit ${plural(ticked, "file", "files")}`;
-};
-
-/** What git said when a command failed, without the server's "git commit exited 1:" before it. */
-export const gitSaid = (message: string) =>
-  message.replace(GIT_EXITED_RE, "").trim() || message;
-
 /** The history, read: one that cannot be read says so where it would be, with Try again. */
 const readHistory = () => useHistory.getState().load();
 
 /** The panel's two tabs, while the folder is a repository. */
 type Tab = "history" | "git";
 
-/**
- * The Changes panel (ADR 0087): the designs' history, Ultrapaint's own, and, only while the
- * folder is a git repository, a second tab by its branch with what git sees changed and the
- * commit the person makes. Without a repository nothing of git is shown.
- */
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
   const repository = useProject((s) => s.info.gitRepository === true);
-  const branch = useProject((s) => s.info.branch);
   // Looked at: the rail stops saying an agent changed something.
   useEffect(() => {
     useAgents.getState().clearChanged();
@@ -174,28 +67,11 @@ export const Changes = () => {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [gitFailed, setGitFailed] = useState(false);
   const [open, setOpen] = useState<OpenDiff | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [message, setMessage] = useState("");
-  // Files Ultrapaint did not write are listed only when asked for.
-  const [showOther, setShowOther] = useState(false);
-  const [busy, setBusy] = useState(false);
-  // Commit pressed before it could commit: the bar says what is missing until it is there.
-  const [asked, setAsked] = useState(false);
-  // What git said when the last commit failed: under its button.
-  const [failure, setFailure] = useState<string | null>(null);
-  const messageField = useRef<HTMLInputElement>(null);
   const readGit = useRef<(() => void) | null>(null);
 
-  /** Git's status, with the files no longer changed unticked. */
   const takeStatus = useEffectEvent((s: GitStatus) => {
     setStatus(s);
     setGitFailed(false);
-    setSelected(
-      (prev) =>
-        new Set(
-          Array.from(prev).filter((p) => s.files.some((f) => f.path === p))
-        )
-    );
   });
 
   // The history, read as the panel opens on a project and followed from then on.
@@ -255,7 +131,7 @@ export const Changes = () => {
       read: async () => [await api().request("git.diff", { path })],
     });
 
-  // A file asked for from elsewhere, before the panel was open or while it is: git's tab.
+  // A file asked for from elsewhere, before the panel was open or while it is: the Git tab's.
   useRequest(
     "diff",
     (path: string) => {
@@ -266,56 +142,6 @@ export const Changes = () => {
   );
   // Its rail item clicked again: back to the lists.
   useRequest("back", () => setOpen(null), configured);
-
-  /** Runs a git command from the panel: busy while it goes, what git said under it if it fails. */
-  const run = async (request: () => Promise<unknown>) => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await request();
-      return true;
-    } catch (error) {
-      setFailure(
-        gitSaid(error instanceof Error ? error.message : String(error))
-      );
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const commit = async () => {
-    // Enter again while a commit is on its way is not a second commit.
-    if (busy) {
-      return;
-    }
-    // Pressed too soon, it says what is missing, and takes the keys to the message it wants.
-    if (commitBlocked(selected.size, message) !== null) {
-      setAsked(true);
-      if (selected.size > 0) {
-        messageField.current?.focus();
-      }
-      return;
-    }
-    const sent = message;
-    const paths = Array.from(selected);
-    const done = await run(() =>
-      api().request("git.commit", { message: sent, paths })
-    );
-    if (done) {
-      setAsked(false);
-      setMessage((current) => (current === sent ? "" : current));
-      setSelected((current) => tickedAfterCommit(current, paths));
-    }
-  };
-
-  const onMessageChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setMessage(e.target.value);
-  const onMessageKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      commit();
-    }
-  };
 
   if (!configured) {
     return <NoFolder />;
@@ -333,21 +159,7 @@ export const Changes = () => {
 
   // Without a repository, a status read before is not this folder's.
   const shown = repository ? status : null;
-  const files = shown?.files ?? [];
-  const design = files.filter((f) => f.design);
-  const other = files.filter((f) => !f.design);
-  // A ticked file stays in view: folding the other files unticks them.
-  const toggleOther = () => {
-    if (!showOther) {
-      setShowOther(true);
-      return;
-    }
-    setShowOther(false);
-    setSelected(
-      (prev) =>
-        new Set([...prev].filter((p) => !other.some((f) => f.path === p)))
-    );
-  };
+  const changed = shown?.files.filter((f) => f.design).length ?? 0;
   const retryGit = () => {
     setGitFailed(false);
     readGit.current?.();
@@ -369,12 +181,11 @@ export const Changes = () => {
               { label: "History", value: "history" },
               {
                 label: (
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <GitBranch />
-                    <span className="truncate">{branch ?? "Git"}</span>
-                    {design.length > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    Git
+                    {changed > 0 ? (
                       <span className="font-body-small-medium text-muted-foreground">
-                        {design.length}
+                        {changed}
                       </span>
                     ) : null}
                   </span>
@@ -386,49 +197,18 @@ export const Changes = () => {
           />
         </div>
       ) : null}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-2 pt-1 pb-3">
-        {onGit ? (
-          <>
-            <FilesState
-              failed={gitFailed}
-              listed={files.length > 0}
-              loading={shown === null}
-              onRetry={retryGit}
-            />
-            <FileGroup
-              files={design}
-              onShow={showFile}
-              selected={selected}
-              setSelected={setSelected}
-              title="Design files"
-            />
-            {/* They are "other" only beside the design files. */}
-            <FileGroup
-              files={other}
-              fold={{ onToggle: toggleOther, open: showOther }}
-              onShow={showFile}
-              selected={selected}
-              setSelected={setSelected}
-              title={design.length > 0 ? "Other files" : "Files"}
-            />
-            {design.length > 0 || showOther ? (
-              <CommitBar
-                busy={busy}
-                failure={failure}
-                message={message}
-                messageField={messageField}
-                missing={asked ? commitBlocked(selected.size, message) : null}
-                onCommit={commit}
-                onMessageChange={onMessageChange}
-                onMessageKeyDown={onMessageKeyDown}
-                ticked={selected.size}
-              />
-            ) : null}
-          </>
-        ) : (
+      {onGit ? (
+        <GitTab
+          failed={gitFailed}
+          onRetry={retryGit}
+          onShowFile={showFile}
+          status={shown}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto px-2 pt-1 pb-3">
           <HistoryTab onRetry={readHistory} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -499,192 +279,6 @@ const OpenDiffView = ({
   );
 };
 
-/** A section of the panel: its title, then its rows, 2px apart so their fills never touch. */
-const SECTION = "flex flex-col gap-0.5";
-
-/** What git said when a command of the panel failed, under its button, and what to do. */
-const GitFailure = ({ children, what }: { children: string; what: string }) => (
-  <div
-    className="wrap-anywhere w-full rounded-md bg-destructive/10 px-2 py-1.5 font-body-small"
-    role="alert"
-  >
-    {/* Git's own lines, as it wrote them. */}
-    <p className="whitespace-pre-line text-destructive">
-      {what}: {children}
-    </p>
-    <p className="mt-1 text-muted-foreground">
-      Fix what git says, then try again.
-    </p>
-  </div>
-);
-
-/**
- * What the changed files' read says above them: that it failed, over the files listed before
- * since they may no longer be so; or, with none to list, being read or none.
- */
-const FilesState = ({
-  failed,
-  listed,
-  loading,
-  onRetry,
-}: {
-  failed: boolean;
-  listed: boolean;
-  loading: boolean;
-  onRetry: () => void;
-}) => {
-  if (failed) {
-    return <Unread onRetry={onRetry}>Git didn’t answer</Unread>;
-  }
-  if (listed) {
-    return null;
-  }
-  if (loading) {
-    return <LoadingRows />;
-  }
-  return <NoneRow>No changes</NoneRow>;
-};
-
-/**
- * The message and the commit of the ticked files: the one action the panel is for. Commit is
- * always pressable; pressed too soon, it says what is missing under the bar.
- */
-const CommitBar = ({
-  busy,
-  failure,
-  message,
-  messageField,
-  missing,
-  onCommit,
-  onMessageChange,
-  onMessageKeyDown,
-  ticked,
-}: {
-  busy: boolean;
-  failure: string | null;
-  message: string;
-  messageField: RefObject<HTMLInputElement | null>;
-  /** How many files are ticked: the commit's scope, on its button. */
-  ticked: number;
-  /** What Commit, pressed, said is missing, while it still is. */
-  missing: string | null;
-  onCommit: () => void;
-  onMessageChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onMessageKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
-}) => {
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-2">
-      <div className={SECTION}>
-        <label
-          className="flex h-8 items-center px-2 font-heading-xsmall"
-          htmlFor={id}
-        >
-          Commit message
-        </label>
-        <div className="flex gap-2">
-          <Input
-            aria-describedby={missing ? `${id}-missing` : undefined}
-            id={id}
-            onChange={onMessageChange}
-            onKeyDown={onMessageKeyDown}
-            placeholder="Tighten the header’s spacing"
-            ref={messageField}
-            value={message}
-          />
-          <Button aria-busy={busy} disabled={busy} onClick={onCommit}>
-            {busy ? <Spinner /> : null}
-            {commitLabel(busy, ticked)}
-          </Button>
-        </div>
-      </div>
-      {missing && !busy ? (
-        <p
-          className="px-2 font-body-small text-muted-foreground"
-          id={`${id}-missing`}
-        >
-          {missing}
-        </p>
-      ) : null}
-      {failure ? (
-        <GitFailure what="Couldn’t commit">{failure}</GitFailure>
-      ) : null}
-    </div>
-  );
-};
-
-/** A section's title over its rows, with what can be done to it at its end. */
-const GroupLabel = ({
-  action,
-  children,
-  id,
-  lead,
-}: {
-  action?: ReactNode;
-  children: ReactNode;
-  /** The title's id, which names the section's list. */
-  id?: string;
-  /** Before the title, in the column the rows' checkboxes are in. */
-  lead?: ReactNode;
-}) => (
-  <div className="flex h-8 shrink-0 items-center gap-2 pr-1 pl-2">
-    {lead}
-    <h3 className="min-w-0 flex-1 truncate font-heading-xsmall" id={id}>
-      {children}
-    </h3>
-    {action}
-  </div>
-);
-
-/** An empty section's one row, in muted. */
-const NoneRow = ({ children }: { children: ReactNode }) => (
-  <p className="flex h-7 items-center px-2 font-body-small text-muted-foreground">
-    {children}
-  </p>
-);
-
-/**
- * A section whose read failed: what happened, in full on the errors' red box, and the way to read
- * it again.
- */
-const Unread = ({
-  children,
-  onRetry,
-}: {
-  children: ReactNode;
-  onRetry: () => void;
-}) => (
-  <div className="flex min-h-7 items-center justify-between gap-2 rounded-md bg-destructive/10 py-0.5 pr-0.5 pl-2">
-    <span className="wrap-anywhere min-w-0 font-body-small text-destructive">
-      {children}
-    </span>
-    <Button className="shrink-0" onClick={onRetry} size="sm" variant="ghost">
-      Try again
-    </Button>
-  </div>
-);
-
-const SKELETON_WIDTHS = ["w-3/5", "w-2/5", "w-1/2"] as const;
-
-/** A skeleton's bar, plain to see on the panel in both themes. */
-const BAR = "h-3 rounded-sm bg-foreground/10 motion-safe:animate-pulse";
-
-/**
- * Rows in the shape of the ones on their way: a history row's name, its time and its menu's
- * column, so nothing moves when they come.
- */
-const LoadingRows = () => (
-  <div aria-label="Loading" className={SECTION} role="status">
-    {SKELETON_WIDTHS.map((width) => (
-      <div className="flex h-7 items-center gap-2 pr-2 pl-2" key={width}>
-        <span className="min-w-0 flex-1">
-          <span className={cn(BAR, "block", width)} />
-        </span>
-      </div>
-    ))}
-  </div>
-);
-
 const DIFF_SKELETON_WIDTHS = ["w-2/5", "w-4/5", "w-3/5", "w-3/4", "w-1/2"];
 
 /** A diff's lines on their way: bars on its block, one per line, as tall as a line. */
@@ -697,238 +291,6 @@ const LoadingDiff = () => (
     ))}
   </div>
 );
-
-/**
- * A row of a list: its button covers the whole row, so a click anywhere on it shows what changed,
- * and keyboard focus rings the whole row. What else the row holds sits above the button.
- */
-const ROW =
-  "relative flex h-7 shrink-0 items-center gap-2 rounded-md pl-2 transition-colors duration-100 hover:bg-accent/50 has-[[data-row-button]:focus-visible]:ring-2 has-[[data-row-button]:focus-visible]:ring-ring";
-const ROW_BUTTON =
-  "flex min-w-0 flex-1 items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-md";
-
-/**
- * A group of changed files under its title, with a select-all before it while they can be ticked.
- * A folded group (the files Ultrapaint did not write) is a header alone until opened: its title,
- * how many files it holds and a chevron, the whole header the toggle.
- */
-const FileGroup = ({
-  files,
-  fold,
-  onShow,
-  selected,
-  setSelected,
-  title,
-}: {
-  files: GitStatus["files"];
-  /** Whether the group is open, and the way to open or fold it; none for a group always open. */
-  fold?: { onToggle: () => void; open: boolean };
-  onShow: (path: string) => void;
-  /** The ticked files; null while there is nothing to commit with, and so no checkboxes. */
-  selected: Set<string> | null;
-  setSelected: Dispatch<SetStateAction<Set<string>>>;
-  title: string;
-}) => {
-  const id = useId();
-  if (files.length === 0) {
-    return null;
-  }
-  const open = fold?.open ?? true;
-  const paths = files.map((f) => f.path);
-  const ticked = selected ? groupTicked(paths, selected) : "none";
-  const toggleAll = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const path of paths) {
-        if (ticked === "all") {
-          next.delete(path);
-        } else {
-          next.add(path);
-        }
-      }
-      return next;
-    });
-  const selectAll =
-    selected && open ? (
-      <Checkbox
-        aria-label={`Select all ${title.toLowerCase()}`}
-        checked={ticked === "all"}
-        className="z-10"
-        indeterminate={ticked === "some"}
-        onCheckedChange={toggleAll}
-      />
-    ) : null;
-  const shared = sharedFolder(paths);
-  return (
-    <section aria-labelledby={id} className={SECTION}>
-      {fold ? (
-        <FoldHeader
-          count={files.length}
-          id={id}
-          lead={selectAll}
-          onToggle={fold.onToggle}
-          open={open}
-        >
-          {title}
-        </FoldHeader>
-      ) : (
-        <GroupLabel id={id} lead={selectAll}>
-          {title}
-        </GroupLabel>
-      )}
-      {open ? (
-        <ul aria-labelledby={id} className={SECTION}>
-          {files.map((f) => (
-            <FileRow
-              file={f}
-              key={f.path}
-              onShow={onShow}
-              selected={selected ? selected.has(f.path) : null}
-              setSelected={setSelected}
-              shared={shared}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
-};
-
-/**
- * A folded group's header: a section's title, its count beside it and a chevron at the row's end,
- * pointing down while folded and up while open. Its button covers the whole header, as a row's
- * does, so a click anywhere on it opens or folds the group; the select-all sits above it.
- */
-const FoldHeader = ({
-  children,
-  count,
-  id,
-  lead,
-  onToggle,
-  open,
-}: {
-  children: ReactNode;
-  count: number;
-  /** The title's id, which names the section's list. */
-  id: string;
-  /** Before the title, in the column the rows' checkboxes are in. */
-  lead?: ReactNode;
-  onToggle: () => void;
-  open: boolean;
-}) => (
-  <div className={cn(ROW, "h-8 pr-2")}>
-    {lead}
-    <h3 className="min-w-0 flex-1 font-heading-xsmall" id={id}>
-      <button
-        aria-expanded={open}
-        className={cn(ROW_BUTTON, "w-full")}
-        data-row-button
-        onClick={onToggle}
-        type="button"
-      >
-        <span className="min-w-0 truncate">{children}</span>
-        {/* Read as "Other files 5"; a flex row draws no space. */}{" "}
-        <span className="shrink-0 font-body-small-medium text-muted-foreground">
-          {count}
-        </span>
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            "ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-150",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-    </h3>
-  </div>
-);
-
-const FileRow = ({
-  file,
-  selected,
-  setSelected,
-  onShow,
-  shared,
-}: {
-  file: GitStatus["files"][number];
-  selected: boolean | null;
-  setSelected: Dispatch<SetStateAction<Set<string>>>;
-  onShow: (path: string) => void;
-  /** The folder the group's files share, left off the row. */
-  shared: string;
-}) => {
-  const { path } = file;
-  const toggle = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-  const parts = path.split("/");
-  const name = parts.at(-1) ?? path;
-  const folder = parts
-    .slice(0, -1)
-    .join("/")
-    .slice(shared ? shared.length + 1 : 0);
-  const word = statusWord(file.code);
-  // A conflict stops the commit: a warning dot beside its word says it waits on the user.
-  const conflict = word === "Conflict";
-  return (
-    <li className={cn(ROW, "pr-2")}>
-      {selected === null ? null : (
-        <Checkbox
-          aria-label={`Select ${path}`}
-          checked={selected}
-          className="z-10"
-          onCheckedChange={toggle}
-        />
-      )}
-      {/* The row has room for part of the path; its tooltip has the whole of it. */}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              className={cn(ROW_BUTTON, "items-baseline")}
-              data-row-button
-              onClick={() => onShow(path)}
-              type="button"
-            >
-              <span className="min-w-0 truncate font-body-medium">{name}</span>
-              {folder ? (
-                // The folder gives way first; the name truncates only once it is gone.
-                <span className="min-w-0 shrink-[999] truncate font-body-small text-muted-foreground">
-                  {folder}
-                </span>
-              ) : null}
-              {/* On the name's baseline, at the row's end. */}
-              {word ? (
-                <span
-                  className={cn(
-                    "ml-auto shrink-0 font-body-small",
-                    conflict ? "text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  {conflict ? (
-                    <span
-                      aria-hidden
-                      className="mr-1 inline-block size-1.5 rounded-full bg-warning align-middle"
-                    />
-                  ) : null}
-                  {word}
-                </span>
-              ) : null}
-            </button>
-          }
-        />
-        <TooltipContent className="wrap-anywhere">{path}</TooltipContent>
-      </Tooltip>
-    </li>
-  );
-};
 
 /** What a line of a diff is: what is drawn as context includes the lines that name the files. */
 type LineKind = "added" | "removed" | "context";

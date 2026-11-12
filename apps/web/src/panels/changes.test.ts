@@ -1,15 +1,16 @@
 import "../testing/fake-browser.ts";
 import { describe, expect, it, vi } from "vitest";
+import { diffLines } from "./changes.tsx";
 import {
+  ago,
+  changeName,
   commitBlocked,
   commitLabel,
-  diffLines,
   gitSaid,
-  groupTicked,
   sharedFolder,
   statusWord,
-  tickedAfterCommit,
-} from "./changes.tsx";
+  toCommit,
+} from "./changes-git.tsx";
 import { dayOf } from "./changes-history.tsx";
 
 vi.mock(
@@ -17,31 +18,81 @@ vi.mock(
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 
-describe("tickedAfterCommit", () => {
-  it("unticks only the committed files, keeping one ticked while the commit went", () => {
-    const ticked = new Set(["a.ts", "b.ts", "c.ts"]);
-    expect(tickedAfterCommit(ticked, ["a.ts", "b.ts"])).toEqual(
-      new Set(["c.ts"])
-    );
-    // What it was given is left as it was.
-    expect(ticked.size).toBe(3);
+describe("what a commit takes", () => {
+  it("takes the designs' changes unless unticked, and the other files only once ticked", () => {
+    const files = [
+      { code: " M", design: true, path: "designs/home.page.json" },
+      { code: "??", design: true, path: "designs/pricing.page.json" },
+      { code: " M", design: false, path: "src/app.tsx" },
+      { code: " M", design: false, path: "notes.txt" },
+    ];
+    expect(
+      toCommit(files, {
+        ticked: new Set(["notes.txt"]),
+        unticked: new Set(["designs/pricing.page.json"]),
+      })
+    ).toEqual(["designs/home.page.json", "notes.txt"]);
   });
 });
 
-describe("a group's select-all", () => {
-  it("is ticked with all its files, mixed with some, empty with none", () => {
-    const paths = ["a.ts", "b.ts"];
-    expect(groupTicked(paths, new Set(["a.ts", "b.ts", "c.ts"]))).toBe("all");
-    expect(groupTicked(paths, new Set(["b.ts"]))).toBe("some");
-    expect(groupTicked(paths, new Set(["c.ts"]))).toBe("none");
+describe("a changed file as the editor names it", () => {
+  const pages = [
+    {
+      canvas: "redesign",
+      file: "docs/designs/redesign/home.page.json",
+      name: "Home",
+    },
+  ];
+  const canvasName = (id: string) =>
+    id === "redesign" ? "Redesign" : undefined;
+
+  it("is a page by its name and canvas, a component by its name, the design system by its file", () => {
+    expect(
+      changeName("docs/designs/redesign/home.page.json", pages, canvasName)
+    ).toEqual({ name: "Home", where: "Redesign" });
+    expect(
+      changeName(
+        "docs/designs/components/Button.component.json",
+        pages,
+        canvasName
+      )
+    ).toEqual({ name: "Button", where: "Component" });
+    expect(changeName("DESIGN.md", pages, canvasName)).toEqual({
+      name: "DESIGN.md",
+      where: "Design system",
+    });
+    expect(
+      changeName(
+        "docs/designs/redesign/canvas.json",
+        pages,
+        canvasName,
+        "docs/designs"
+      )
+    ).toEqual({ name: "Redesign", where: "Canvas" });
+    expect(changeName("docs/notes.txt", pages, canvasName)).toEqual({
+      name: "notes.txt",
+      where: "docs",
+    });
+  });
+});
+
+describe("when the last commit was made", () => {
+  it("is said as a person says it", () => {
+    const now = Date.UTC(2026, 10, 12, 18);
+    expect(ago(now - 2 * 60_000, now)).toBe(
+      new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+        -2,
+        "minute"
+      )
+    );
   });
 });
 
 describe("what Commit, pressed too soon, says is missing", () => {
   it("asks for ticked files first, then a message, and is nothing once both are there", () => {
-    expect(commitBlocked(0, "Header pass")).toBe("Tick the files to commit");
-    expect(commitBlocked(2, "  ")).toBe("Write a message to commit 2 files");
-    expect(commitBlocked(1, "")).toBe("Write a message to commit 1 file");
+    expect(commitBlocked(0, "Header pass")).toBe("Tick the changes to commit");
+    expect(commitBlocked(2, "  ")).toBe("Write a message to commit 2 changes");
+    expect(commitBlocked(1, "")).toBe("Write a message to commit 1 change");
     expect(commitBlocked(1, "Header pass")).toBeNull();
   });
 });
@@ -87,11 +138,10 @@ describe("a file's status in a word", () => {
 });
 
 describe("Commit's button", () => {
-  it("says how many files it takes once some are ticked, and its verb while it goes", () => {
-    expect(commitLabel(false, 0)).toBe("Commit");
-    expect(commitLabel(false, 1)).toBe("Commit 1 file");
-    expect(commitLabel(false, 3)).toBe("Commit 3 files");
-    expect(commitLabel(true, 3)).toBe("Committing…");
+  it("says how many changes it takes once some are ticked", () => {
+    expect(commitLabel(0)).toBe("Commit");
+    expect(commitLabel(1)).toBe("Commit 1 change");
+    expect(commitLabel(3)).toBe("Commit 3 changes");
   });
 });
 

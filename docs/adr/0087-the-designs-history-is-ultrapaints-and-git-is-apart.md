@@ -59,8 +59,14 @@ with Undo. Its menu: Restore, Open on canvas, Open the chat, Save as version… 
 Remove from versions.
 
 **Git stands apart and is written only by the person's Commit.** The "Write to git" setting
-goes, and with it `git.init`: the git tab lists the files git sees (Ultrapaint's, the others
-folded, ADR 0076) and commits the ticked ones with a message; pressing Commit is the approval.
+goes, and with it `git.init`. The **Git** tab (named so, with how many design files changed)
+lists what git sees, each named as the editor names it (a page by its name and canvas, a canvas,
+a component, the design system's file), its lines added and removed as git counts them (`+12`
+in the success colour, `−3` in the destructive one), a tick on each: Ultrapaint's ticked unless
+the person unticks them, the others folded and unticked (ADR 0076). The **commit card** sits at
+the panel's foot whatever the list holds: "Message" and the branch it commits to, a message box
+that grows, and a full-width **Commit 3 changes**; git's words go under the box when it refuses.
+With nothing changed the tab says so and names the last commit. Pressing Commit is the approval.
 Saving a version never commits, and nothing commits on its own. Without a repository nothing of
 git is shown. `ultrapaint new --git` still makes a repository with a first commit, asked for.
 
