@@ -182,14 +182,15 @@ systemd-run --user --collect --unit=lab-<name> \
   node .work/probe/lab-guard.mjs <name> .work/probe/<name>.sh
 ```
 
-The shell fills in the thread and the path to `t3` when it starts the job, so the end hook holds
-no `$` and no `%`: systemd expands both, and a `$$` in a job's command comes back from a
-`daemon-reload` as the shell's pid. The guard reads every quota: a job that runs only Claude takes `--setenv=CODEX=101
---setenv=CURSOR=101`, or Codex's or Cursor's own window stops it at its start. The job has no timeout and outlives the agent's session, a
-restart of T3 Code and a logout. The guard exits with the round's own code, or 75 when it
-stopped the round, and says why in its log. `systemctl --user list-units 'lab-*'` lists the jobs
-running, `journalctl --user -u lab-<name>` has what the guard printed and how it exited, and
-`systemctl --user stop lab-<name>` stops one with everything it started.
+The shell fills in the thread and the path to `t3` when it starts the job, so the end hook holds no
+`$` and no `%`: systemd expands both, and a `$$` in a job's command comes back from a
+`daemon-reload` as the shell's pid. The guard reads every quota: a job that runs only Claude takes
+`--setenv=CODEX=101 --setenv=CURSOR=101`, or Codex's or Cursor's own window stops it at its start.
+The job has no timeout and outlives the agent's session, a restart of T3 Code and a logout. The
+guard exits with the round's own code, or 75 when it stopped the round, and says why in its log.
+`systemctl --user list-units 'lab-*'` lists the jobs running, `journalctl --user -u lab-<name>` has
+what the guard printed and how it exited, and `systemctl --user stop lab-<name>` stops one with
+everything it started.
 
 ## Reviews in a round
 
