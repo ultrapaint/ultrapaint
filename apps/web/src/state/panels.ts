@@ -5,6 +5,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useAgents } from "./agents.ts";
 import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
 import { useCanvasPicks } from "./canvas-picks.ts";
+import { useDesignSystem } from "./design-system.ts";
+import { useDesignSystemSetup } from "./design-system-setup.ts";
 import {
   type LeftTab,
   type RightTab,
@@ -128,6 +130,8 @@ type LeftShown =
  * thread before it answers the request that created it).
  */
 interface Requests {
+  /** The panel to take back to where it starts, from a view it opened in place of its lists. */
+  readonly back: LeftTab | null;
   /** The file whose changes the Changes panel shows. */
   readonly diff: string | null;
   /** Prompt text for a thread's composer, by thread. */
@@ -137,13 +141,14 @@ interface Requests {
 }
 
 const useRequests = create<Requests>(() => ({
+  back: null,
   diff: null,
   drafts: {},
   rename: null,
 }));
 
 /** A request, by what it asks of which panel. */
-type Requested = "diff" | "rename" | { readonly draft: string };
+type Requested = "back" | "diff" | "rename" | { readonly draft: string };
 
 type RequestOf<R extends Requested> = R extends "rename" ? Selection : string;
 
@@ -161,7 +166,7 @@ export const takeRequest = <R extends Requested>(
     useRequests.setState({ drafts });
     return draft as RequestOf<R>;
   }
-  const which = requested as "diff" | "rename";
+  const which = requested as "back" | "diff" | "rename";
   const value = requests[which];
   if (value !== null) {
     useRequests.setState({ [which]: null });
@@ -270,6 +275,27 @@ export const showLeftPanel = async (shown: LeftShown) => {
     useRequests.setState({ rename: shown.layers.rename });
   } else {
     await showThread(shown.chat, shown.draft);
+  }
+};
+
+/**
+ * The rail's item for the panel on screen, clicked again: the panel goes back to where it starts
+ * (ADR 0086), the chat's list from a thread, Changes' lists from a diff, the foundations from the
+ * Sync. It stays open: put away only by its own command. Where it already starts, nothing happens.
+ */
+export const showLeftPanelStart = (tab: LeftTab) => {
+  if (tab === "chat") {
+    if (useAgents.getState().view === "thread") {
+      useAgents.getState().back();
+    }
+  } else if (tab === "changes") {
+    useRequests.setState({ back: tab });
+  } else if (tab === "designSystem") {
+    // The Sync is the panel itself while there is no design system yet: no list to go back to.
+    const setup = useDesignSystemSetup.getState();
+    if (setup.shown && useDesignSystem.getState().designSystem) {
+      setup.show(false);
+    }
   }
 };
 

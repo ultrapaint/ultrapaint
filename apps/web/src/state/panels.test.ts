@@ -10,12 +10,15 @@ import { useAgents } from "./agents.ts";
 import { useAttachments } from "./attachments.ts";
 import { openBoard, useBoard } from "./board.ts";
 import { measureViewportWith } from "./camera.ts";
+import { useDesignSystem } from "./design-system.ts";
+import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { LOOK_ITEM } from "./look-page.ts";
 import {
   rightHasSubject,
   showLeftPanel,
+  showLeftPanelStart,
   showMode,
   takeRequest,
   usePanels,
@@ -96,7 +99,14 @@ beforeEach(() => {
     threads: [thread("t1"), thread("t2")],
     view: "thread",
   });
-  for (const requested of ["diff", "rename", { draft: "t2" }] as const) {
+  useDesignSystemSetup.setState({ shown: false });
+  useDesignSystem.setState({ designSystem: null });
+  for (const requested of [
+    "back",
+    "diff",
+    "rename",
+    { draft: "t2" },
+  ] as const) {
     takeRequest(requested);
   }
 });
@@ -217,6 +227,33 @@ describe("showLeftPanel", () => {
     expect(useEditor.getState().leftTab).toBe("layers");
     expect(takeRequest("rename")).toEqual(HERO);
     expect(takeRequest("rename")).toBeNull();
+  });
+});
+
+describe("the open panel's rail item again (ADR 0086)", () => {
+  it("takes the chat back to its list from a thread, the panel kept", () => {
+    usePanels.setState({ left: false });
+    showLeftPanelStart("chat");
+    expect(useAgents.getState().view).toBe("list");
+    expect(usePanels.getState().left).toBe(false);
+    showLeftPanelStart("chat");
+    expect(useAgents.getState().view).toBe("list");
+  });
+
+  it("asks Changes for its lists", () => {
+    showLeftPanelStart("changes");
+    expect(takeRequest("back")).toBe("changes");
+  });
+
+  it("takes the foundations back from the Sync, unless the Sync is all there is", () => {
+    useDesignSystemSetup.setState({ shown: true });
+    showLeftPanelStart("designSystem");
+    expect(useDesignSystemSetup.getState().shown).toBe(true);
+    useDesignSystem.setState({
+      designSystem: {} as never,
+    });
+    showLeftPanelStart("designSystem");
+    expect(useDesignSystemSetup.getState().shown).toBe(false);
   });
 });
 

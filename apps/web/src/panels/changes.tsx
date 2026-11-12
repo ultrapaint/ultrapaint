@@ -294,6 +294,8 @@ export const Changes = () => {
 
   // A file asked for from elsewhere, before the panel was open or while it is.
   useRequest("diff", showFile, configured);
+  // Its rail item clicked again: back to the lists.
+  useRequest("back", () => setOpen(null), configured);
 
   /** Runs a git command from the panel: busy while it goes, what git said under it if it fails. */
   const run = async (request: () => Promise<unknown>) => {

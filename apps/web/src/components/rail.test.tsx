@@ -3,8 +3,11 @@ import "../testing/fake-browser.ts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useAgents } from "../state/agents.ts";
 import { useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
+import { useEditor } from "../state/editor.ts";
+import { usePanels } from "../state/panels.ts";
 import { Rail } from "./rail.tsx";
 
 vi.mock(
@@ -51,5 +54,20 @@ describe("the rail on an app component's board (ADR 0053)", () => {
     expect(places()).not.toContain("Layers");
     act(() => useComponents.setState({ components: [PLAN] }));
     expect(places()).toContain("Layers");
+  });
+});
+
+describe("the open panel's item clicked again (ADR 0086)", () => {
+  it("takes the chat back to its list and keeps the panel", () => {
+    useEditor.setState({ leftTab: "chat", workspace: "design" });
+    usePanels.setState({ left: false });
+    useAgents.setState({ current: "t1", view: "thread" });
+    act(() => root.render(<Rail />));
+    const agents = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Agents"]'
+    );
+    act(() => agents?.click());
+    expect(useAgents.getState().view).toBe("list");
+    expect(usePanels.getState().left).toBe(false);
   });
 });

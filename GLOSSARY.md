@@ -451,7 +451,9 @@ refactor and the board view left.
 - **Showing a panel**: one verb a side, which brings a panel put away back and leaves the
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
-  rename in its Layers row) that waits until the panel takes it up (`useRequest`).
+  rename in its Layers row) that waits until the panel takes it up (`useRequest`). The open
+  panel's rail item, clicked again, takes it back to where it starts (`showLeftPanelStart`,
+  ADR 0086).
 - **Mode**: Canvas or Design system (ADR 0053; the web's `useEditorMode`, `showMode`): the page
   canvas, or the design system on boards. It is Design system exactly while a board view is open,
   and the rail shows the mode's places.

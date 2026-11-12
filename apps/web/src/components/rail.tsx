@@ -18,7 +18,11 @@ import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { useComponents } from "../state/components.ts";
 import { type LeftTab, useEditor } from "../state/editor.ts";
-import { showLeftPanel, usePanels } from "../state/panels.ts";
+import {
+  showLeftPanel,
+  showLeftPanelStart,
+  usePanels,
+} from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
@@ -110,10 +114,10 @@ const RailButton = ({ value }: { value: LeftTab }) => {
     dot = "The design system and the code need syncing";
   }
   const item = railItems[value];
-  // The open panel's button puts it away, as a second click on a tab of pen.dev or Figma does.
+  // The open panel's button takes it back to where it starts, and never puts it away (ADR 0086).
   const onClick = () => {
     if (active) {
-      usePanels.getState().setHidden({ left: true });
+      showLeftPanelStart(value);
     } else {
       showLeftPanel(value);
     }
