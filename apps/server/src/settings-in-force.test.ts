@@ -103,6 +103,26 @@ describe("the settings in force", () => {
           assert.isUndefined(yield* undoLabel);
         })
     );
+
+    it.effect(
+      "answers what asks for the project while it opens once it is open, as a server started for an outside agent is asked (ADR 0083)",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { settings } = yield* ProjectFixture;
+          yield* project.close;
+          // With nothing opening, there is no project to wait for.
+          const none = yield* Effect.flip(running);
+          assert.strictEqual(none._tag, "NotConfigured");
+
+          const opening = yield* Effect.forkChild(
+            project.apply({ ...settings, codeTokens: "auto" }, "a test"),
+            { startImmediately: true }
+          );
+          assert.strictEqual((yield* running).codeTokens, "auto");
+          yield* Fiber.join(opening);
+        })
+    );
   });
 
   eachTest(

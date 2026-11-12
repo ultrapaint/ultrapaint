@@ -29,6 +29,7 @@ import {
   Scope,
   Semaphore,
   Stream,
+  SubscriptionRef,
 } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
@@ -226,6 +227,34 @@ export class ProjectManager extends Context.Service<
         const inForce = yield* Semaphore.make(1);
         const publishing = yield* Semaphore.make(1);
         let current: Opened | null = null;
+        /**
+         * How many openings are under way. Whatever asks for the open project while there is none
+         * waits for them (`OpenProject`): a server started for an agent outside the editor is
+         * asked before it has opened its project (ADR 0083), and the answer is the project, not
+         * that none is open.
+         */
+        const opening = yield* SubscriptionRef.make(0);
+        const counted = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          Effect.acquireUseRelease(
+            SubscriptionRef.update(opening, (n) => n + 1),
+            () => effect,
+            () => SubscriptionRef.update(opening, (n) => n - 1)
+          );
+        const settled = SubscriptionRef.changes(opening).pipe(
+          Stream.filter((n) => n === 0),
+          Stream.runHead,
+          Effect.asVoid
+        );
+        const scopeNow = Effect.suspend(() =>
+          current ? Effect.succeed(current.scope) : Effect.fail(notConfigured())
+        );
+        /** The open project's services, once any opening under way has ended. */
+        const useOnceOpened = <A, E>(
+          effect: Effect.Effect<A, E, ProjectServices>
+        ): Effect.Effect<A, E | NotConfigured> =>
+          Effect.suspend(() =>
+            current ? use(effect) : Effect.andThen(settled, use(effect))
+          );
         // The info the editor was last told, to tell it only of a change.
         let published: string | null = null;
 
@@ -334,6 +363,7 @@ export class ProjectManager extends Context.Service<
               // goes away in between must not leave the server with neither.
               (effect) =>
                 Effect.flatMap(Effect.forkIn(effect, managerScope), Fiber.join),
+              counted,
               Effect.withSpan("ProjectManager.open")
             );
 
@@ -357,7 +387,7 @@ export class ProjectManager extends Context.Service<
         const apply = (settings: Settings, why: string) =>
           inForce
             .withPermits(1)(putInForce(settings, why))
-            .pipe(Effect.withSpan("ProjectManager.apply"));
+            .pipe(counted, Effect.withSpan("ProjectManager.apply"));
 
         const set = Effect.fn("ProjectManager.set")(function* (
           settings: Settings
@@ -526,7 +556,9 @@ export class ProjectManager extends Context.Service<
                 yield* putInForce(adopted, "detected settings");
               })
             );
-          }
+          },
+          // A detection that opens the project is an opening too.
+          counted
         );
 
         // The configuration file changed under us (an editor, a branch switch), or one appeared
@@ -560,12 +592,10 @@ export class ProjectManager extends Context.Service<
             OpenProject,
             OpenProject.of({
               scope: Effect.suspend(() =>
-                current
-                  ? Effect.succeed(current.scope)
-                  : Effect.fail(notConfigured())
+                current ? scopeNow : Effect.andThen(settled, scopeNow)
               ),
-              service: (key) => (f) => use(Effect.flatMap(key, f)),
-              use,
+              service: (key) => (f) => useOnceOpened(Effect.flatMap(key, f)),
+              use: useOnceOpened,
             })
           )
         );
