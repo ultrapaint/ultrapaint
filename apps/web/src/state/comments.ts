@@ -91,6 +91,21 @@ export const pageOfComment = (comment: Comment): Page | undefined =>
     (p) => p.path === comment.page
   );
 
+/**
+ * Whether a comment has a spot on its page. One written through a tool (an agent's behaviour
+ * note, ADR 0030) was never placed and sits at the page's corner, 0 0: it is the page's own, not
+ * pinned on the canvas but said in the page's toolbar and listed in the Comments panel (ADR 0085).
+ */
+export const hasSpot = (comment: Pick<Comment, "x" | "y">) =>
+  comment.x !== 0 || comment.y !== 0;
+
+/** A page's open comments without a spot on it, oldest first, as the file keeps them. */
+export const pageNotesOf = (
+  comments: readonly Comment[],
+  pagePath: string
+): Comment[] =>
+  comments.filter((c) => c.page === pagePath && !c.resolved && !hasSpot(c));
+
 const currentCanvas = () => useComments.getState().canvas ?? "";
 
 /**
@@ -176,6 +191,12 @@ const showComments = () => {
   if (!useComments.getState().visible) {
     useComments.getState().toggleVisible();
   }
+};
+
+/** Opens a comment's card where it is, without moving the canvas: a page's note from its toolbar. */
+export const openComment = (id: string) => {
+  showComments();
+  useComments.getState().setOpen(id);
 };
 
 /**

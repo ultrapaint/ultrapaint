@@ -189,7 +189,9 @@ refactor and the board view left.
   looked for and lists that kind. The other tools name a page by the page half of the rule
   (`pageTargetNamed`), a miss worded the same (`pageMissed`). The link to the code keys it by its **canonical target**, a
   page's id or `component:<Name>`. A design's **behaviour notes** (ADR 0030) are read and added
-  through it whichever way they are kept: a page's are comments pinned on it, resolved when done;
+  through it whichever way they are kept: a page's are comments pinned on it, resolved when done
+  (written through a tool, with no **spot**, `hasSpot`, they are said in the page's toolbar, not
+  pinned on the canvas: ADR 0085);
   a component's are in its file, deleted when done.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`), decided per session: the server offers its tools and the

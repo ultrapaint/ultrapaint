@@ -1,12 +1,16 @@
 /**
  * What the element toolbar adds for a page's root, which is the page (ADR 0075): the viewports
- * it can be drawn at and the views it is drawn in beside its frame (ADR 0036). The frame's header
- * keeps its name and size; the inspector keeps its Viewport field.
+ * it can be drawn at, the views it is drawn in beside its frame (ADR 0036), and the notes on the
+ * page as a whole (ADR 0085). The frame's header keeps its name; the inspector keeps its Viewport
+ * field, its route and its size.
  */
+import type { Comment } from "@ultrapaint/contracts/comments";
 import { presetSize, type ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
+  Cog,
   Columns2,
   type LucideIcon,
+  MessageSquare,
   Monitor,
   Scaling,
   Smartphone,
@@ -21,12 +25,23 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
+import { openComment, pageNotesOf, useComments } from "../state/comments.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { addView, setPreset } from "../state/page-layout.ts";
+import { useProject } from "../state/project.ts";
 import { selectPage } from "../state/selection.ts";
-import { MenuHead, ValueTrigger } from "./element-toolbar-selects.tsx";
+import {
+  MenuHead,
+  TRIGGER_CLASS,
+  ValueTrigger,
+} from "./element-toolbar-selects.tsx";
 
 const PRESET_ICON: Record<ViewportPreset, LucideIcon> = {
   custom: Scaling,
@@ -130,6 +145,75 @@ const ViewsMenu = ({ pageId }: { pageId: string }) => {
   );
 };
 
+/** "1 note", "3 comments": behaviour notes (ADR 0030) by that name, anything else as comments. */
+const notesLabel = (notes: readonly Comment[]) => {
+  const word = notes.every((n) => n.kind === "behaviour") ? "note" : "comment";
+  return `${notes.length} ${word}${notes.length === 1 ? "" : "s"}`;
+};
+
+const NoteIcon = ({ notes }: { notes: readonly Comment[] }) =>
+  notes.every((n) => n.kind === "behaviour") ? (
+    <Cog className="size-4 shrink-0 text-muted-foreground" />
+  ) : (
+    <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+  );
+
+/**
+ * The open notes on the page as a whole, those without a spot on it (ADR 0085), which the canvas
+ * does not pin: one opens its card, several are listed to pick from. None, no button.
+ */
+const PageNotes = ({ pageId }: { pageId: string }) => {
+  const path = useProject((s) => s.pages.find((p) => p.id === pageId)?.path);
+  const comments = useComments((s) => s.comments);
+  const notes = path === undefined ? [] : pageNotesOf(comments, path);
+  const [first] = notes;
+  if (first === undefined) {
+    return null;
+  }
+  if (notes.length === 1) {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              className={TRIGGER_CLASS}
+              onClick={() => openComment(first.id)}
+              type="button"
+            />
+          }
+        >
+          <NoteIcon notes={notes} />
+          <span className="truncate pr-0.5">{notesLabel(notes)}</span>
+        </TooltipTrigger>
+        <TooltipContent>Open the note on this page</TooltipContent>
+      </Tooltip>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <ValueTrigger tooltip="Notes on this page">
+        <span className="flex items-center gap-1.5">
+          <NoteIcon notes={notes} />
+          {notesLabel(notes)}
+        </span>
+      </ValueTrigger>
+      <DropdownMenuContent className="w-72">
+        <DropdownMenuGroup>
+          {notes.map((note) => (
+            <DropdownMenuItem
+              key={note.id}
+              onClick={() => openComment(note.id)}
+            >
+              {note.kind === "behaviour" ? <Cog /> : <MessageSquare />}
+              <span className="flex-1 truncate">{note.text}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 /** In the element toolbar while the page's root is selected. */
 export const PageControls = ({ pageId }: { pageId: string }) => {
   const preset = useEditor((s) => presetOf(s.frames[pageId]));
@@ -137,6 +221,7 @@ export const PageControls = ({ pageId }: { pageId: string }) => {
     <>
       <ViewportSelect pageId={pageId} preset={preset} />
       <ViewsMenu pageId={pageId} />
+      <PageNotes pageId={pageId} />
     </>
   );
 };

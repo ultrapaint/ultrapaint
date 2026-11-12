@@ -3,7 +3,13 @@ import type { Comment } from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
-import { postDraft, startComment, useComments } from "./comments.ts";
+import {
+  openComment,
+  pageNotesOf,
+  postDraft,
+  startComment,
+  useComments,
+} from "./comments.ts";
 import { useEditor } from "./editor.ts";
 import { viewFrameOf } from "./frame-ref.ts";
 import { useProject } from "./project.ts";
@@ -94,5 +100,40 @@ describe("a comment started on a view of a page", () => {
       },
     ]);
     expect(useComments.getState()).toMatchObject({ draft: null, open: "c1" });
+  });
+});
+
+describe("the notes on a page as a whole", () => {
+  const note = (id: string, change: Partial<Comment>): Comment => ({
+    ...posted({
+      element: null,
+      nodeId: null,
+      page: HOME,
+      text: "Only admins see this",
+      x: 0,
+      y: 0,
+    }),
+    id,
+    kind: "behaviour",
+    ...change,
+  });
+
+  it("are the page's open comments that were never placed on it", () => {
+    const comments = [
+      note("tool", {}),
+      note("placed", { x: 40, y: 12 }),
+      note("done", { resolved: true }),
+      note("elsewhere", { page: "about.page.json" }),
+    ];
+    expect(pageNotesOf(comments, HOME).map((c) => c.id)).toEqual(["tool"]);
+  });
+
+  it("open their card with the comments shown", () => {
+    useComments.setState({ visible: false });
+    openComment("tool");
+    expect(useComments.getState()).toMatchObject({
+      open: "tool",
+      visible: true,
+    });
   });
 });

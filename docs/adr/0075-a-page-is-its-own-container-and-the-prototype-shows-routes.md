@@ -1,6 +1,6 @@
 # ADR 0075: A page is its own container, and the prototype shows the routes
 
-Status: accepted, 2026-11-10. Amends 0015 (a page's root), 0020 (the Pages panel, a page without
+Status: accepted, 2026-11-10; the route on the canvas: amended by 0085. Amends 0015 (a page's root), 0020 (the Pages panel, a page without
 a URL in the prototype) and 0021 (a link to a page without a URL).
 
 ## Context

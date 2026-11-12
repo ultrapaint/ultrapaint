@@ -40,6 +40,7 @@ import { initialsOf } from "../lib/initials.ts";
 import {
   deleteComment,
   deleteReply,
+  hasSpot,
   postDraft,
   replyTo,
   startComment,
@@ -181,9 +182,11 @@ export const FrameComments = ({
   if (!visible) {
     return null;
   }
-  // A resolved comment is gone from the canvas, unless the panel asked to show it.
+  // A resolved comment is gone from the canvas, and one without a spot is the page's own, in its
+  // toolbar (ADR 0085): either is drawn only while its card is open.
   const shown = all.filter(
-    (c) => c.page === page.path && (!c.resolved || c.id === open)
+    (c) =>
+      c.page === page.path && ((!c.resolved && hasSpot(c)) || c.id === open)
   );
   return (
     <>
