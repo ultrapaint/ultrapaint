@@ -27,6 +27,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { editorBuild } from "./editor-build.ts";
+import { EditorsConnected } from "./editors-connected.ts";
 import { ListenPort } from "./listen-port.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
@@ -88,6 +89,7 @@ const originRefused = () =>
 const RpcRoute = Layer.effectDiscard(
   Effect.gen(function* () {
     const router = yield* HttpRouter.HttpRouter;
+    const editors = yield* EditorsConnected;
     const { httpEffect, protocol } =
       yield* RpcServer.makeProtocolWithHttpEffectWebsocket;
     yield* router.add(
@@ -98,6 +100,8 @@ const RpcRoute = Layer.effectDiscard(
         if (!originAllowed(request.headers)) {
           return originRefused();
         }
+        // The socket's request lasts as long as the editor holds it open.
+        yield* editors.hold;
         return yield* httpEffect;
       })
     );
@@ -373,4 +377,8 @@ const Served = HttpRouter.serve(Routes, {
 );
 
 /** And once it all answers, the run file and the ready line say so (PLAN-desktop D5). */
-export const ServerLive = Announce.pipe(Layer.provide(Served));
+/** The server, and how many editors it has, for whoever started it to wait on (ADR 0083). */
+export const ServerLive = Announce.pipe(
+  Layer.provide(Served),
+  Layer.provideMerge(EditorsConnected.layer)
+);

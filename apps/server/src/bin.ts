@@ -2,10 +2,21 @@ import { randomBytes } from "node:crypto";
 import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { AgentRuntimeJson } from "@ultrapaint/acp/runtime";
-import { Config, Console, Effect, Layer, Logger, Option, Schema } from "effect";
+import {
+  Config,
+  Console,
+  Context,
+  Effect,
+  Layer,
+  Logger,
+  Option,
+  Schema,
+} from "effect";
 import { Command, Flag } from "effect/cli";
 import product from "../../../package.json" with { type: "json" };
 import { ServerConfig, type StorageTarget } from "./config.ts";
+import { EditorsConnected } from "./editors-connected.ts";
+import { mcpCommand } from "./mcp-command.ts";
 import { newCommand } from "./new-command.ts";
 import { liveRun } from "./run-file.ts";
 import { ServerLive } from "./server.ts";
@@ -112,6 +123,12 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_HOST")),
       Flag.withDefault("127.0.0.1")
     ),
+    linger: Flag.Boolean("linger").pipe(
+      Flag.withDescription(
+        "With --stop-with-stdin: once stdin closes, keep serving while an editor is connected, and stop when the last one leaves"
+      ),
+      Flag.withDefault(false)
+    ),
     noBriefing: Flag.Boolean("no-briefing").pipe(
       Flag.withDescription(
         "Do not tell agents about the project before their first prompt"
@@ -171,6 +188,7 @@ const serve = Command.make(
     ephemeral,
     home,
     host,
+    linger,
     noBriefing,
     noDiscovery,
     noMcp,
@@ -248,12 +266,23 @@ const serve = Command.make(
       version: VERSION,
       webDist: Option.getOrUndefined(webDist),
     });
-    const served = Layer.launch(
-      ServerLive.pipe(Layer.provide(Layer.succeed(ServerConfig, resolved)))
+    // Served until stopped; with --stop-with-stdin, until stdin closes, and with --linger then
+    // until no editor is connected either (ADR 0083).
+    const served = Effect.scoped(
+      Effect.gen(function* () {
+        const server = yield* Layer.build(
+          ServerLive.pipe(Layer.provide(Layer.succeed(ServerConfig, resolved)))
+        );
+        if (!stopWithStdin) {
+          return yield* Effect.never;
+        }
+        yield* stdinClosed;
+        if (linger) {
+          yield* Context.get(server, EditorsConnected).noneLeft;
+        }
+      })
     );
-    return yield* (
-      stopWithStdin ? Effect.raceFirst(served, stdinClosed) : served
-    ).pipe(
+    return yield* served.pipe(
       // With the ready line on stdout, stdout carries nothing else.
       Effect.provideService(Logger.LogToStderr, readyJson)
     );
@@ -262,7 +291,7 @@ const serve = Command.make(
 
 serve.pipe(
   // `ultrapaint new <folder>`: a design from nothing, written before any server runs in it.
-  Command.withSubcommands([newCommand]),
+  Command.withSubcommands([newCommand, mcpCommand]),
   Command.run({ version: VERSION }),
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain

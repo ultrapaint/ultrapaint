@@ -149,6 +149,12 @@ export class McpAccess extends Context.Service<
         url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
       }));
 
+      // Written as the server starts, so that `ultrapaint mcp` finds it beside the run file
+      // (ADR 0083) before anyone has opened the settings.
+      if (enabled) {
+        yield* external;
+      }
+
       return McpAccess.of({
         // A thread's token is answered from memory; only anything else is compared to the file.
         allows: (token) => {

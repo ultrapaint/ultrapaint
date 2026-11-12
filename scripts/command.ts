@@ -229,6 +229,8 @@ interface RunOptions {
   readonly ready?: Deferred.Deferred<ReadyLine>;
   /** Given with `name`, the child's output is printed on stderr, stdout being kept for another. */
   readonly toStderr?: boolean;
+  /** This command's stdin given to the child, which talks over it (`ultrapaint mcp`). */
+  readonly withStdin?: boolean;
 }
 
 const run = (
@@ -248,7 +250,7 @@ const run = (
         env: options.env ?? {},
         extendEnv: true,
         forceKillAfter: "3 seconds",
-        stdin: "ignore",
+        stdin: options.withStdin ? "inherit" : "ignore",
         ...stdio,
       })
     );
@@ -502,6 +504,23 @@ export const main = (args: readonly string[]): void => {
   );
 
   /**
+   * `ultrapaint mcp` (ADR 0083): the server's relay, talking over this command's stdin and stdout,
+   * told how to start the project's server as this command does, should none be running.
+   */
+  const relay = Effect.suspend(() =>
+    run(process.execPath, [...serverEntry(), ...serverArgs], cwd, {
+      env: {
+        ULTRAPAINT_SERVE: JSON.stringify([
+          process.execPath,
+          ...process.execArgv,
+          process.argv[1] ?? "",
+        ]),
+      },
+      withStdin: true,
+    })
+  );
+
+  /**
    * The server from its sources, serving the built editor. It says on stdout, in one line of
    * JSON, where it listens once it does, and logs to stderr. A server already running for the
    * project answers with its own line, from another process, and this one ends: the editor is
@@ -664,6 +683,10 @@ export const main = (args: readonly string[]): void => {
     });
 
   const program = Effect.gen(function* () {
+    if (serverArgs[0] === "mcp") {
+      process.exitCode = Number(yield* relay);
+      return;
+    }
     if (informational) {
       process.exitCode = Number(yield* inform);
       if (serverArgs.includes("--help") || serverArgs.includes("-h")) {

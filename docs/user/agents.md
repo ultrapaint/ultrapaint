@@ -42,8 +42,22 @@ tasks with the model pinned, two runs each, that was 32 tool calls on average wi
 of the four the three arms do not overlap at all; on the hardest one they still do
 ([the measurements](../feature/benchmarks/), which say what they cannot yet tell apart).
 
-An agent outside the editor can use the same tools: **Settings** › **Agents** › **Connect over
-MCP** shows the line that adds it.
+An agent outside the editor can use the same tools: a terminal's Claude Code or Codex, or a chat
+in another app such as T3 Code. Add Ultrapaint to it once, for every project
+(**Settings** › **Agents** › **Connect over MCP** shows the same lines):
+
+```bash
+claude mcp add ultrapaint -s user -- ultrapaint mcp
+codex mcp add ultrapaint -- ultrapaint mcp
+```
+
+The agent starts `ultrapaint mcp` in the folder it works in, and that folder says which project:
+the nearest `ultrapaint.config.json` from there upwards. When the project is open in Ultrapaint,
+the agent works on that editor's server, and what it changes shows there as it changes. When it
+is not, the command starts the project's server without a window; opening the project then
+attaches to it, and it stops once the agent and every editor on it are gone. In a folder with no
+project the agent sees no Ultrapaint tools, and is told why. The `ultrapaint` command has to be
+on the agent's `PATH` ([Install and start](install.md)).
 
 ## Chats
 

@@ -42,6 +42,8 @@ export default defineConfig({
     port: webPort,
     proxy: {
       "/api": { target: `http://${serverHost}:${serverPort}` },
+      // The editor's MCP server, for `ultrapaint mcp` reaching a --dev session (ADR 0083).
+      "/mcp": { target: `http://${serverHost}:${serverPort}` },
       "/ws": { target: `ws://${serverHost}:${serverPort}`, ws: true },
     },
     strictPort: true,

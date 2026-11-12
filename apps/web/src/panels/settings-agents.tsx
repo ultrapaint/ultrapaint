@@ -74,22 +74,21 @@ const sendKeys = [
 ];
 
 /**
- * How to point something else at this project: an agent in a terminal, another editor. The same
- * tools the threads here use, over the same server, reached with the project's own token.
+ * How an agent outside the editor reaches the projects (ADR 0083): one line, registered once, the
+ * same for every project and every restart. The agent starts `ultrapaint mcp` in the folder it
+ * works in, which says which project.
  */
-export const McpConnectionGroup = () => {
-  const [connection, setConnection] = useState<McpConnection | null>(null);
+export const OUTSIDE_COMMANDS = [
+  {
+    agent: "Claude Code",
+    command: "claude mcp add ultrapaint -s user -- ultrapaint mcp",
+  },
+  { agent: "Codex", command: "codex mcp add ultrapaint -- ultrapaint mcp" },
+] as const;
+
+/** A command to copy, on one line that scrolls. */
+const CopyLine = ({ command, label }: { command: string; label: string }) => {
   const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    api()
-      .request("mcp.connection", undefined)
-      .then(setConnection)
-      .catch(reportError);
-  }, []);
-  if (!connection?.enabled) {
-    return null;
-  }
-  const command = `claude mcp add --transport http ultrapaint ${connection.url} --header "${connection.header}: ${connection.token}"`;
   const copy = () => {
     navigator.clipboard
       .writeText(command)
@@ -100,19 +99,49 @@ export const McpConnectionGroup = () => {
       .catch(reportError);
   };
   return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="w-20 shrink-0 font-body-small text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex min-w-0 flex-1 items-center gap-1 rounded-md bg-muted py-0.5 pr-0.5 pl-2">
+        <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre py-1 font-code">
+          {command}
+        </code>
+        <IconButton
+          onClick={copy}
+          size="icon-sm"
+          tooltip={`Copy the ${label} command`}
+        >
+          {copied ? <Check /> : <Copy />}
+        </IconButton>
+      </div>
+    </div>
+  );
+};
+
+/** The lines that connect an agent outside the editor, unless the server offers no MCP. */
+export const McpConnectionGroup = () => {
+  const [connection, setConnection] = useState<McpConnection | null>(null);
+  useEffect(() => {
+    api()
+      .request("mcp.connection", undefined)
+      .then(setConnection)
+      .catch(reportError);
+  }, []);
+  if (!connection?.enabled) {
+    return null;
+  }
+  return (
     <Group title="Outside the editor">
       <Row
-        description="Lets an agent in a terminal use this project. Anyone with the token can."
+        description="Once, for every project: an agent in a terminal or another app then designs in the project of the folder it works in."
         layout="below"
         title="Connect over MCP"
       >
-        <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted py-0.5 pr-0.5 pl-2">
-          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre py-1 font-code">
-            {command}
-          </code>
-          <IconButton onClick={copy} size="icon-sm" tooltip="Copy command">
-            {copied ? <Check /> : <Copy />}
-          </IconButton>
+        <div className="flex flex-col gap-1.5">
+          {OUTSIDE_COMMANDS.map(({ agent, command }) => (
+            <CopyLine command={command} key={agent} label={agent} />
+          ))}
         </div>
       </Row>
     </Group>

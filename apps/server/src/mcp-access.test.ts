@@ -62,6 +62,21 @@ describe("McpAccess", () => {
   );
 
   it.effect(
+    "writes the project's token as it starts, for ultrapaint mcp to find (ADR 0083)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const token = yield* Effect.gen(function* () {
+          yield* McpAccess;
+          return yield* fs.readFileString(path.join(home, "mcp-token"));
+        }).pipe(Effect.provide(accessIn(home)));
+        assert.match(token.trim(), TOKEN_RE);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "keeps the token it handed out when the unsaved session is saved",
     () =>
       Effect.gen(function* () {

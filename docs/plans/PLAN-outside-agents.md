@@ -2,12 +2,13 @@
 
 Each slice ships on its own, tested, and leaves the product working.
 
-1. **`ultrapaint mcp`, by the folder.** The stdio command: find the configuration upwards, read
+1. (Done, 2026-11-12.) **`ultrapaint mcp`, by the folder.** The stdio command: find the configuration upwards, read
    `run.json` and `mcp-token`, pass messages to `/mcp` (JSON or event-stream answers, the session
    header of older revisions passed along), read the run file again when a call cannot connect.
-   The server writes `mcp-token` when it starts. A project with no server: say so for now.
+   The server writes `mcp-token` when it starts. A folder with no project connects, offering no
+   tools, and says why.
    Settings show the one-time `claude mcp add` and Codex lines. Docs: `docs/user/agents.md`.
-2. **Start a server without a window.** No server running: the command starts one
+2. (Done, 2026-11-12.) **Start a server without a window.** No server running: the command starts one
    (`--port 0 --ready-json --stop-with-stdin`) and holds it. A server an editor is connected to
    outlives its stdin and stops when the last editor leaves; the app attaches to it as it
    attaches to any running server.

@@ -1,0 +1,228 @@
+import { createServer } from "node:net";
+import path from "node:path";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect, FileSystem, Ref, Stream } from "effect";
+import { answerWithoutProject } from "./mcp-command.ts";
+import {
+  eventMessages,
+  type McpTarget,
+  makeRelay,
+  RelayUnreachable,
+} from "./mcp-relay.ts";
+import { TestEnv, TestServer } from "./testing/harness.ts";
+
+const STATELESS = "2026-07-28";
+
+const line = (message: Record<string, unknown>) =>
+  JSON.stringify({ jsonrpc: "2.0", ...message });
+
+/** A stateless request, as an agent speaking the 2026 revision sends it. */
+const stateless = (id: number, method: string, params = {}) =>
+  line({
+    id,
+    method,
+    params: {
+      ...params,
+      _meta: {
+        "io.modelcontextprotocol/clientCapabilities": {},
+        "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" },
+        "io.modelcontextprotocol/protocolVersion": STATELESS,
+      },
+    },
+  });
+
+/** The relay to the test's server, with what it says to the agent collected. */
+const relayTo = (
+  locate: (again: boolean) => Effect.Effect<McpTarget, RelayUnreachable>
+) =>
+  Effect.gen(function* () {
+    const said = yield* Ref.make<readonly string[]>([]);
+    const relay = yield* makeRelay({
+      locate,
+      say: (text) => Ref.update(said, (lines) => [...lines, text]),
+    });
+    const answers = Effect.map(Ref.get(said), (lines) =>
+      lines.map((text) => JSON.parse(text) as Record<string, unknown>)
+    );
+    return { answers, handle: relay.handle };
+  });
+
+/** The test server's MCP, with the project's token the server wrote as it started. */
+const theServer = Effect.gen(function* () {
+  const { home, port } = yield* TestEnv;
+  const fs = yield* FileSystem.FileSystem;
+  const token = (yield* fs.readFileString(path.join(home, "mcp-token"))).trim();
+  return { token, url: `http://127.0.0.1:${port}/mcp` } satisfies McpTarget;
+});
+
+const toolsIn = (answer: Record<string, unknown> | undefined) =>
+  (
+    (answer?.result as { tools?: { name: string }[] } | undefined)?.tools ?? []
+  ).map((tool) => tool.name);
+
+describe("the relay of ultrapaint mcp (ADR 0083)", () => {
+  // real clock: the relay over a real socket to a real server.
+  it.live(
+    "passes a stateless agent's calls to the project's server and its answers back",
+    () =>
+      Effect.gen(function* () {
+        const target = yield* theServer;
+        const { answers, handle } = yield* relayTo(() =>
+          Effect.succeed(target)
+        );
+        yield* handle(stateless(1, "tools/list"));
+        yield* handle(
+          stateless(2, "tools/call", { arguments: {}, name: "list_pages" })
+        );
+        const [listed, called] = yield* answers;
+        assert.include(toolsIn(listed), "create_page");
+        assert.strictEqual(called?.id, 2);
+        assert.isUndefined(called?.error);
+      }).pipe(Effect.provide(TestServer), Effect.scoped),
+    60_000
+  );
+
+  // real clock: the relay over a real socket to a real server.
+  it.live(
+    "keeps an older revision's session from initialize to the calls after it",
+    () =>
+      Effect.gen(function* () {
+        const target = yield* theServer;
+        const { answers, handle } = yield* relayTo(() =>
+          Effect.succeed(target)
+        );
+        yield* handle(
+          line({
+            id: 1,
+            method: "initialize",
+            params: {
+              capabilities: {},
+              clientInfo: { name: "test", version: "1" },
+              protocolVersion: "2025-06-18",
+            },
+          })
+        );
+        yield* handle(line({ method: "notifications/initialized" }));
+        yield* handle(line({ id: 2, method: "tools/list" }));
+        const [initialized, listed] = yield* answers;
+        assert.strictEqual(
+          (initialized?.result as { protocolVersion?: string } | undefined)
+            ?.protocolVersion,
+          "2025-06-18"
+        );
+        assert.include(toolsIn(listed), "create_page");
+      }).pipe(Effect.provide(TestServer), Effect.scoped),
+    60_000
+  );
+
+  // real clock: the relay over a real socket to a real server.
+  it.live(
+    "looks for the server again when the address it knew answers no more",
+    () =>
+      Effect.gen(function* () {
+        const target = yield* theServer;
+        // A server that has gone: its port, closed by now.
+        const gone = yield* Effect.promise(
+          () =>
+            new Promise<number>((resolve) => {
+              const probe = createServer();
+              probe.listen(0, "127.0.0.1", () => {
+                const address = probe.address();
+                const port =
+                  address && typeof address === "object" ? address.port : 0;
+                probe.close(() => resolve(port));
+              });
+            })
+        );
+        const asked = yield* Ref.make<readonly boolean[]>([]);
+        const { answers, handle } = yield* relayTo((again) =>
+          Effect.as(
+            Ref.update(asked, (all) => [...all, again]),
+            again ? target : { ...target, url: `http://127.0.0.1:${gone}/mcp` }
+          )
+        );
+        yield* handle(stateless(1, "tools/list"));
+        assert.deepStrictEqual(yield* Ref.get(asked), [false, true]);
+        assert.include(toolsIn((yield* answers)[0]), "create_page");
+      }).pipe(Effect.provide(TestServer), Effect.scoped),
+    60_000
+  );
+
+  it.effect("answers a request with why, when no server can be reached", () =>
+    Effect.gen(function* () {
+      const { answers, handle } = yield* relayTo(() =>
+        Effect.fail(
+          new RelayUnreachable({ message: "Ultrapaint isn't running" })
+        )
+      );
+      yield* handle(stateless(7, "tools/list"));
+      // A notification has nothing to answer with.
+      yield* handle(line({ method: "notifications/initialized" }));
+      assert.deepStrictEqual(yield* answers, [
+        {
+          error: { code: -32_603, message: "Ultrapaint isn't running" },
+          id: 7,
+          jsonrpc: "2.0",
+        },
+      ]);
+    })
+  );
+});
+
+describe("an event stream's messages", () => {
+  it.effect(
+    "are each event's data, its lines joined, the last one kept at the end",
+    () =>
+      Effect.gen(function* () {
+        const messages = yield* eventMessages(
+          Stream.make(
+            'event: message\ndata: {"id":1}\n\n',
+            ': a comment\ndata: {"id":\ndata: 2}\n\n',
+            'data: {"id":3}'
+          )
+        ).pipe(Stream.runCollect);
+        assert.deepStrictEqual(messages, [
+          '{"id":1}',
+          '{"id":\n2}',
+          '{"id":3}',
+        ]);
+      })
+  );
+});
+
+describe("in a folder with no project", () => {
+  const cwd = "/somewhere";
+  it("connects, offering no tools, and says why", () => {
+    const initialized = JSON.parse(
+      answerWithoutProject(
+        line({
+          id: 1,
+          method: "initialize",
+          params: { protocolVersion: "2025-11-25" },
+        }),
+        cwd
+      ) ?? "{}"
+    );
+    assert.strictEqual(initialized.result.protocolVersion, "2025-11-25");
+    assert.include(
+      initialized.result.instructions,
+      "No Ultrapaint project in /somewhere"
+    );
+    assert.deepStrictEqual(
+      JSON.parse(
+        answerWithoutProject(line({ id: 2, method: "tools/list" }), cwd) ?? "{}"
+      ).result,
+      { tools: [] }
+    );
+  });
+
+  it("answers anything else with why, and a notification with nothing", () => {
+    const called = JSON.parse(
+      answerWithoutProject(line({ id: 3, method: "tools/call" }), cwd) ?? "{}"
+    );
+    assert.strictEqual(called.error.code, -32_601);
+    assert.isUndefined(
+      answerWithoutProject(line({ method: "notifications/initialized" }), cwd)
+    );
+  });
+});
