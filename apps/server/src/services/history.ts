@@ -582,7 +582,6 @@ export class History extends Context.Service<
           "implementation",
           "notes",
           "page",
-          "skill",
           "tokens",
         ])
         .pipe(

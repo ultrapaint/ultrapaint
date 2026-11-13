@@ -249,6 +249,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           input,
           figma((f) => f.theme)
         ),
+      "skills.install": ({ into }) => skills((s) => s.install(into)),
       "skills.list": () => skills((s) => s.list),
       "sync.apply": ({ decisions, only, source, tokens }) =>
         sync.apply(source, decisions, only, tokens),

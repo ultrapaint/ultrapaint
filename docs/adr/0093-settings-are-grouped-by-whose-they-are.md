@@ -22,9 +22,10 @@ every proposal kept, a few accents to pick from, a search, and the dialog kept r
 
 - Eleven sections in three groups (`apps/web/src/panels/settings-sections.ts`): **You** (General,
   Appearance, Chats, Shortcuts), **Project · its name** (Repository, Design system, Review,
-  Skills), **This computer** (Agents, Connections, About). A project page names the file its
-  settings are saved in beside its title; Rename and Save to file… are a notice at the top of
-  Repository only while they apply. Sections needing a saved project (Design system, Review,
+  Skills), **This computer** (Agents, Connections, About). The header names the section alone
+  (the file name beside a project page's title was tried and dropped, 2026-11-13); the project's
+  file is named only in Repository's notice while one applies (not saved yet, `--ephemeral` with
+  Save to file…, the file's earlier name with Rename) and in About's folders. Sections needing a saved project (Design system, Review,
   Skills) wait for one. Narrow, the sections are a select over the page.
 - **The search** sits at the top of the sections (`/` reaches it): it matches each setting's
   name, its section and the words it is looked for by (`SETTINGS_INDEX`), the setting's own name
@@ -40,8 +41,16 @@ every proposal kept, a few accents to pick from, a search, and the dialog kept r
   and ⌘/Ctrl+wheel always zoom), the interface's **Text size** (the type tokens scaled by
   `--text-scale`, spacing and controls left as they are), **Increase contrast** (darker muted
   text and firmer edges in both themes) and **Motion** (System, Reduced, Full; Tailwind's
-  `motion-safe`/`motion-reduce` and the camera follow it). The person's, in the browser
-  (`state/preferences.ts`), drawn as data attributes on the root; the designs keep their look.
+  `motion-safe`/`motion-reduce` and the camera follow it). The person's, drawn as data
+  attributes on the root (`state/preferences.ts`); the designs keep their look.
+- **Where the person's preferences are kept**: in their profile, `profile.json`'s `preferences`
+  in the person's folder (`state/person-preferences.ts`): the theme, the send key, the grid and
+  comments shown, Appearance's and the shortcuts changed (ADR 0090). In the desktop app each
+  project's editor is a page of its own, on another port with its own browser storage, so the
+  browser alone lost them from one project to the next. The browser keeps a copy, which draws them
+  before the server answers; the profile's are taken as the editor starts, except what the person
+  changed meanwhile, and each change is saved to it a moment later. The start screen, which has
+  no server, keeps its own.
 - **Chats**: New chats (agent, model, effort, permissions) and the send key, under Composer.
 - **Repository**: Folder, Designs, Write a PNG of every design, then Your code (Application,
   Components as one field per folder with Add a folder); **Detect again** is in the page's

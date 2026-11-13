@@ -5,6 +5,8 @@
  * makes new projects in, `~/Ultrapaint` unless they changed it. Both choices are the app's own
  * settings, `folders.json` in its data directory.
  */
+
+import { UserFolderLocationJson } from "@ultrapaint/contracts/user-folder";
 import {
   Context,
   Effect,
@@ -15,7 +17,7 @@ import {
   Semaphore,
 } from "effect";
 import { writeAtomic } from "./atomic-write.ts";
-import { FolderMoveRefused, StoreError } from "./errors.ts";
+import { FolderMovedOldKept, FolderMoveRefused, StoreError } from "./errors.ts";
 
 /** The person's folder's name, wherever it is: the server's `STATE_DIR_NAME`. */
 export const USER_DIR_NAME = ".ultrapaint";
@@ -37,6 +39,8 @@ const decodeFile = Schema.decodeUnknownEffect(FoldersFile);
 const encodeFile = Schema.encodeEffect(FoldersFile);
 
 const FOLDERS_FILE = "folders.json";
+
+const encodeLocation = Schema.encodeEffect(UserFolderLocationJson);
 
 /** The folders as the app has them now, each absolute. */
 export interface CurrentFolders {
@@ -66,15 +70,23 @@ export class Folders extends Context.Service<
      */
     readonly moveUser: (
       parent: string
-    ) => Effect.Effect<string, FolderMoveRefused | StoreError>;
+    ) => Effect.Effect<
+      string,
+      FolderMoveRefused | FolderMovedOldKept | StoreError
+    >;
     /** Makes new projects in `dir` from now on. */
     readonly setNewProjects: (dir: string) => Effect.Effect<void, StoreError>;
   }
 >()("ultrapaint/desktop/Folders") {
-  /** `dataDir` is the app's data directory; `home`, the person's home folder. */
+  /**
+   * `dataDir` is the app's data directory; `home`, the person's home folder; `location`, the file
+   * every server reads a moved person's folder from (`userFolderLocationFile`), so an agent
+   * outside the app finds it too.
+   */
   static readonly layer = (options: {
     readonly dataDir: string;
     readonly home: string;
+    readonly location?: string;
   }) =>
     Layer.effect(
       Folders,
@@ -101,6 +113,31 @@ export class Folders extends Context.Service<
               Effect.provideService(Path.Path, path)
             );
           }).pipe(Effect.mapError(fail("the folders couldn’t be written to")));
+
+        /**
+         * Where every server finds the person's folder once moved; none once it is back home.
+         * Not written, an agent outside the app looks in the home folder: the move stands.
+         */
+        const recordLocation = (userDirIn: string | undefined) => {
+          const { location } = options;
+          if (location === undefined) {
+            return Effect.void;
+          }
+          const done =
+            userDirIn === undefined
+              ? fs.remove(location, { force: true })
+              : Effect.gen(function* () {
+                  const text = yield* encodeLocation({ userDirIn, version: 1 });
+                  yield* fs.makeDirectory(path.dirname(location), {
+                    recursive: true,
+                  });
+                  yield* writeAtomic(location, `${text}\n`).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path)
+                  );
+                });
+          return Effect.ignore(done, { log: true });
+        };
 
         const current = Effect.map(read, (kept): CurrentFolders => {
           const userDirIn = kept.userDirIn ?? options.home;
@@ -169,19 +206,16 @@ export class Folders extends Context.Service<
             );
           }
           // Back in the home folder, it is the default again.
-          yield* write({
-            ...kept,
-            userDirIn:
-              path.resolve(parent) === path.resolve(options.home)
-                ? undefined
-                : parent,
-          });
+          const home = path.resolve(parent) === path.resolve(options.home);
+          yield* write({ ...kept, userDirIn: home ? undefined : parent });
+          yield* recordLocation(home ? undefined : path.resolve(parent));
           if (there) {
             yield* fs.remove(user, { recursive: true }).pipe(
               Effect.mapError(
                 (error) =>
-                  new FolderMoveRefused({
+                  new FolderMovedOldKept({
                     message: `Your folder is now in ${parent}, but the old one couldn’t be removed (${error.message}). Delete ${user} yourself.`,
+                    user: to,
                   })
               )
             );

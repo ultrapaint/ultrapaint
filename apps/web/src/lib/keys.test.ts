@@ -266,9 +266,13 @@ describe("sameChord", () => {
     );
   });
 
-  it("tells ⌃ from ⌘ on a Mac only", () => {
-    expect(sameChord("ctrl+k", "mod+k", true)).toBe(false);
+  it("takes ⌃ and ⌘ for the same press, as matching a `mod` chord takes either", () => {
+    expect(sameChord("ctrl+k", "mod+k", true)).toBe(true);
     expect(sameChord("ctrl+k", "mod+k", false)).toBe(true);
+    // And ⌃Z on a Mac is refused for another command: it would also be Undo's ⌘Z.
+    expect(
+      matchesChord(parseChord("mod+z"), press("z", { ctrlKey: true }))
+    ).toBe(true);
   });
 });
 

@@ -41,6 +41,24 @@ export class FolderMoveRefused extends Schema.TaggedError<FolderMoveRefused>()(
   { message: Schema.String }
 ) {}
 
+/**
+ * The person's folder moved, but its old copy couldn't be removed: where it is now, and what is
+ * left for the person to delete.
+ */
+export class FolderMovedOldKept extends Schema.TaggedError<FolderMovedOldKept>()(
+  "FolderMovedOldKept",
+  { message: Schema.String, user: Schema.String }
+) {}
+
+/**
+ * The open project's server was started outside the app (the app only attached to it): it uses
+ * the folder it was started with, which the app cannot stop or point elsewhere.
+ */
+export class ServerNotOurs extends Schema.TaggedError<ServerNotOurs>()(
+  "ServerNotOurs",
+  { message: Schema.String }
+) {}
+
 /** The system's file manager couldn't show a folder: gone, say. */
 export class PathNotShown extends Schema.TaggedError<PathNotShown>()(
   "PathNotShown",

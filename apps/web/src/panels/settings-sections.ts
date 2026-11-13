@@ -150,13 +150,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     id: "grid",
     section: "appearance",
     terms: "snap cells canvas",
-    title: "Grid",
+    title: "Show the grid",
   },
   {
     id: "comments",
     section: "appearance",
     terms: "pins notes canvas",
-    title: "Comments",
+    title: "Show comments",
   },
   {
     id: "scroll-wheel",

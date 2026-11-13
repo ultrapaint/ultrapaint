@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { IconButton } from "../components/icon-button.tsx";
 import { platform, type ShellFolders } from "../platform.ts";
-import { useProject } from "../state/project.ts";
+import { reportError, useProject } from "../state/project.ts";
 import { Group, Row, RowMessage } from "./settings-group.tsx";
 
 /** A path as the row's control: the text filling the column, its buttons at the far right. */

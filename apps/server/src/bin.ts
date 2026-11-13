@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { AgentRuntimeJson } from "@ultrapaint/acp/runtime";
+import { userFolderLocationFile } from "@ultrapaint/contracts/user-folder";
 import {
   Config,
   Console,
@@ -215,6 +216,11 @@ const serve = Command.make(
       home: Option.getOrUndefined(home),
       sessionDir: Option.getOrUndefined(sessionDir),
       userDir: Option.getOrUndefined(userDirIn),
+      userFolderLocation: userFolderLocationFile({
+        env: process.env,
+        home: userHome,
+        platform: process.platform,
+      }),
       userHome,
     });
     // A project's server runs once: a second start finds the first by its run file in the

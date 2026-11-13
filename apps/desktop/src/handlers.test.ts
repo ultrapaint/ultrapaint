@@ -97,7 +97,13 @@ const withHandlers = <A, E>(
       })
     ).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
-      Layer.provideMerge(Folders.layer({ dataDir: dir, home })),
+      Layer.provideMerge(
+        Folders.layer({
+          dataDir: dir,
+          home,
+          location: `${home}/.config/Ultrapaint/user-folder.json`,
+        })
+      ),
       Layer.provideMerge(AgentSettings.layer(dir)),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(fakeAgents(asked)),
@@ -613,6 +619,15 @@ describe("the person's folders (ADR 0091)", () => {
             "start shop",
           ]);
           assert.strictEqual(recorded.starts[1]?.userDirIn, sync);
+          // Recorded where every server looks, so an agent outside the app finds it too.
+          assert.deepStrictEqual(
+            JSON.parse(
+              yield* fs.readFileString(
+                path.join(home, ".config", "Ultrapaint", "user-folder.json")
+              )
+            ),
+            { userDirIn: sync, version: 1 }
+          );
           assert.deepStrictEqual(yield* handlers["folders.current"](), {
             newProjects: path.join(home, "Ultrapaint"),
             user: moved,
@@ -653,6 +668,31 @@ describe("the person's folders (ADR 0091)", () => {
             problem: `${taken} already has a .ultrapaint folder. Choose another folder, or move that one away first.`,
           });
           assert.deepStrictEqual(recorded.events, ["start shop"]);
+          assert.isTrue(
+            yield* fs.exists(path.join(home, ".ultrapaint", "profile.json"))
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "refuse to move it under a server started outside the app, which keeps using it",
+    () =>
+      withHome((handlers, recorded, home) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const store = yield* ProjectStore;
+          yield* handlers["projects.open"](
+            (yield* store.add("/work/attached")).id
+          );
+          const sync = path.join(home, "Sync");
+          yield* fs.makeDirectory(sync);
+          recorded.picks.push(sync);
+          const moved = yield* handlers["folders.moveUser"]();
+          assert.include(moved.problem ?? "", "started outside the app");
+          assert.isUndefined(moved.user);
+          assert.isFalse(yield* fs.exists(path.join(sync, ".ultrapaint")));
           assert.isTrue(
             yield* fs.exists(path.join(home, ".ultrapaint", "profile.json"))
           );

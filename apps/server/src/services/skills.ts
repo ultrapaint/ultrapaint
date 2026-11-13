@@ -1,30 +1,30 @@
+import { BadRequest } from "@ultrapaint/contracts/errors";
 import {
   DESIGN_SKILL,
   describeSkill,
   parseSkillFile,
-  SKILL_EXTENSION,
   SKILL_FILE,
   SKILL_FOLDERS,
-  SKILLS_DIR,
   type Skill,
+  type SkillInstallFolder,
   type SkillList,
   skillFrontMatter,
   skillUri,
 } from "@ultrapaint/contracts/skills";
-import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
-import { toPosix } from "../hash.ts";
 import {
   CORE_FILE,
   coreText,
+  installedSkillFiles,
   naming,
   referenceFiles,
+  skillDescription,
   skillDirOf,
   skillFiles,
   skillFilesAt,
 } from "../skills/index.ts";
-import { DesignFiles } from "./design-files.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 /**
@@ -53,9 +53,10 @@ export const choiceName = (skill: Skill) =>
 
 /**
  * The design skills an agent is told: the design skill the tool ships (`ultrapaint`), on unless the
- * settings turn it off, then the project's own the settings turn on (ADR 0094): the files under
- * `<designsDir>/skills/` and the skill folders under `.claude/skills/`, `.agents/skills/` and
- * `skills/`. Read on every call, so a file saved by hand is the next briefing's.
+ * settings turn it off and never read from the project, then the project's own the settings turn
+ * on (ADR 0094): the skill folders under `.claude/skills/`, `.agents/skills/` and `skills/`. Read
+ * on every call, so a skill saved by hand is the next briefing's. The design skill can be saved
+ * into the repository for agents outside the tool.
  */
 export class SkillsService extends Context.Service<
   SkillsService,
@@ -69,6 +70,10 @@ export class SkillsService extends Context.Service<
       tools: boolean,
       chosen?: readonly string[]
     ) => Effect.Effect<SkillsTold>;
+    /** Saves the design skill in `<into>/ultrapaint/`, replacing a copy there; answers with it. */
+    readonly install: (
+      into: SkillInstallFolder
+    ) => Effect.Effect<string, BadRequest>;
     readonly list: Effect.Effect<SkillList>;
   }
 >()("ultrapaint/server/SkillsService") {
@@ -79,8 +84,6 @@ export class SkillsService extends Context.Service<
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const dir = path.join(paths.designsDir, SKILLS_DIR);
-      const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
       const enabled = new Set(paths.settings.skills?.enabled ?? []);
       const told = paths.settings.skills?.briefing ?? "router";
@@ -110,8 +113,7 @@ export class SkillsService extends Context.Service<
         source: "built-in",
         text: naming(coreText, skillDir),
         ...describeSkill(DESIGN_SKILL, coreText),
-        summary:
-          "Interface design rules: designing and reviewing screens and pages, writing their words, and making their design system.",
+        summary: skillDescription,
       };
 
       /**
@@ -145,31 +147,6 @@ export class SkillsService extends Context.Service<
       /** A file's text, or nothing when it cannot be read. */
       const readText = (file: string) =>
         Effect.option(fs.readFileString(path.join(paths.root, file)));
-
-      /** The files under `<designsDir>/skills/`, each a skill. */
-      const designFiles = Effect.gen(function* () {
-        const names = yield* Effect.orElseSucceed(
-          fs.readDirectory(dir),
-          (): string[] => []
-        );
-        return yield* Effect.forEach(
-          names.filter((n) => n.endsWith(SKILL_EXTENSION)).sort(),
-          (name) => {
-            const file = toPosix(path.join(relDir, name));
-            return Effect.map(readText(file), (text) =>
-              text._tag === "Some"
-                ? [
-                    projectSkill(
-                      name.slice(0, -SKILL_EXTENSION.length),
-                      file,
-                      text.value
-                    ),
-                  ]
-                : []
-            );
-          }
-        ).pipe(Effect.map((read) => read.flat()));
-      });
 
       /**
        * The skill folders agents keep in the repository, each with its `SKILL.md`. A folder of
@@ -213,16 +190,29 @@ export class SkillsService extends Context.Service<
         });
       };
 
-      /** The project's own skills: the designs' files first, then the agents' folders. */
-      const projectFiles = Effect.map(
-        Effect.all([designFiles, agentFolders]),
-        ([own, folders]) => named([...own, ...folders])
+      /** The project's own skills, from the agents' folders. */
+      const projectFiles = Effect.map(agentFolders, named);
+
+      /** The folders of the repository holding a copy of the design skill. */
+      const installed = Effect.filter(
+        SKILL_FOLDERS.map((parent) => `${parent}/${DESIGN_SKILL}`),
+        (folder) =>
+          Effect.orElseSucceed(
+            fs.exists(path.join(paths.root, folder, SKILL_FILE)),
+            () => false
+          )
       );
 
       // Written before any skill is read, whole or in the briefing, so its folder is there.
-      const list = Effect.andThen(written, projectFiles).pipe(
+      const list = Effect.andThen(
+        written,
+        Effect.all([projectFiles, installed])
+      ).pipe(
         Effect.map(
-          (own): SkillList => ({ dir: relDir, skills: [designSkill, ...own] })
+          ([own, copies]): SkillList => ({
+            installed: copies,
+            skills: [designSkill, ...own],
+          })
         ),
         Effect.withSpan("SkillsService.list")
       );
@@ -270,16 +260,34 @@ export class SkillsService extends Context.Service<
         return { dir: at, listed: [], names, whole: whole.join("\n\n") };
       });
 
-      // Whoever changes the files: an undo, an agent, an editor, a checkout.
-      yield* (yield* DesignFiles).changes(["skill"]).pipe(
-        Stream.debounce("50 millis"),
-        Stream.runForEach(() =>
-          Effect.flatMap(list, (state) => events.publish("skills", state))
-        ),
-        Effect.forkScoped
-      );
+      const install = Effect.fn("SkillsService.install")(function* (
+        into: SkillInstallFolder
+      ) {
+        const folder = `${into}/${DESIGN_SKILL}`;
+        const at = path.join(paths.root, folder);
+        // A copy there is the tool's own, replaced whole: no file of an older version stays.
+        yield* Effect.gen(function* () {
+          yield* fs.remove(at, { force: true, recursive: true });
+          yield* Effect.forEach(installedSkillFiles(), ([file, text]) =>
+            Effect.gen(function* () {
+              const to = path.join(at, file);
+              yield* fs.makeDirectory(path.dirname(to), { recursive: true });
+              yield* fs.writeFileString(to, text);
+            })
+          );
+        }).pipe(
+          Effect.mapError(
+            (error) =>
+              new BadRequest({
+                message: `Couldn’t write ${folder}: ${error.message}`,
+              })
+          )
+        );
+        yield* events.publish("skills", yield* list);
+        return folder;
+      });
 
-      return SkillsService.of({ briefing, list });
+      return SkillsService.of({ briefing, install, list });
     })
   );
 }

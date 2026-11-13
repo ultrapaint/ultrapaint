@@ -458,7 +458,12 @@ export class SettingsService extends Context.Service<
           )
         );
         yield* storage.promote(configPath);
-        yield* store(input.settings);
+        // The file holds them already: in force, not written a second time.
+        yield* Ref.set(current, {
+          ...input.settings,
+          repoPath: path.resolve(input.settings.repoPath),
+        });
+        detected = false;
         const file = yield* settingsFile;
         if (file) {
           yield* watch(file);

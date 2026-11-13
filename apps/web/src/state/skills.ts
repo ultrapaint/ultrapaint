@@ -1,6 +1,7 @@
 /**
- * The design skills agents are told: the design skill the tool ships, the project's own files,
- * and what the settings turn off. The settings list them from here.
+ * The design skills agents are told: the design skill the tool ships, the project's own skill
+ * folders, what the settings turn on and off, and where the repository keeps a copy of the
+ * design skill. The settings list them from here.
  */
 import type { SkillList } from "@ultrapaint/contracts/skills";
 import { create } from "zustand";
@@ -14,7 +15,7 @@ interface SkillsStore extends SkillList {
 }
 
 export const useSkills = create<SkillsStore>(() => ({
-  dir: "",
+  installed: [],
   load: () => skillsData.read().catch(reportError),
   loaded: false,
   skills: [],

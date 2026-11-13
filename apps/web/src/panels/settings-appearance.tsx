@@ -59,7 +59,7 @@ const Editor = ({ dark }: { dark: boolean }) => (
       </div>
     ))}
     <div className="order-2 flex flex-1 items-center justify-center">
-      <span className="h-7 w-10 rounded-[2px] bg-white shadow-sm" />
+      <span className="h-7 w-10 rounded-[2px] bg-white" />
     </div>
   </div>
 );
@@ -149,13 +149,13 @@ const ThemeCards = () => {
   );
 };
 
-/** The swatch's colour, as the accent draws in the theme on screen. */
+/** The swatch's colour: each accent's primary as the light theme draws it (styles.css). */
 const SWATCH: Record<Accent, string> = {
   graphite: "bg-foreground",
-  green: "bg-[oklch(0.55_0.13_150)]",
-  orange: "bg-[oklch(0.6_0.16_45)]",
-  teal: "bg-[oklch(0.55_0.1_195)]",
-  ultramarine: "bg-[oklch(0.55_0.2_263)]",
+  green: "bg-[oklch(0.5_0.13_150)]",
+  orange: "bg-[oklch(0.54_0.16_45)]",
+  teal: "bg-[oklch(0.5_0.1_195)]",
+  ultramarine: "bg-[oklch(0.53_0.21_263)]",
 };
 
 /** The accents as swatches, the chosen one checked; each named by its tooltip. */
@@ -237,7 +237,7 @@ export const AppearanceSection = () => {
           description="Shows 8px cells; what you place snaps to them."
           htmlFor="settings-grid"
           setting="grid"
-          title="Grid"
+          title="Show the grid"
         >
           <Switch
             checked={grid}
@@ -249,7 +249,7 @@ export const AppearanceSection = () => {
           description="Pins on the designs they’re left on."
           htmlFor="settings-comments"
           setting="comments"
-          title="Comments"
+          title="Show comments"
         >
           <Switch
             checked={comments}

@@ -79,7 +79,7 @@ import {
   ScaffoldResult,
   SetupSuggestions,
 } from "./setup.ts";
-import { SkillList } from "./skills.ts";
+import { SkillInstallFolder, SkillList } from "./skills.ts";
 import {
   FileDiff,
   History,
@@ -525,6 +525,16 @@ const requestRpcs = [
     success: SkillList,
   }),
 
+  /**
+   * Saves the design skill into the repository, for agents outside the tool: its `SKILL.md` and
+   * `references/` in `<into>/ultrapaint/`, replacing a copy there. Answers with that folder.
+   */
+  Rpc.make("skills.install", {
+    error: Schema.Union([BadRequest, NotConfigured]),
+    payload: { into: SkillInstallFolder },
+    success: Schema.String,
+  }),
+
   /** Thumbnails of the Library drawn earlier, under the key of what they were drawn from. */
   Rpc.make("thumbnails.get", {
     error: NotConfigured,
@@ -898,7 +908,7 @@ const eventSchemas = {
    * the editor says once (ADR 0092).
    */
   "settings.savedOnChange": SavedOnChange,
-  /** A skill file changed, or the settings turned one on or off. */
+  /** The skills changed: one turned on or off, or the design skill saved into the repository. */
   skills: SkillList,
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,

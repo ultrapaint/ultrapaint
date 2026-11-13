@@ -22,7 +22,6 @@ import {
   DESIGN_SYSTEM_FILE,
 } from "@ultrapaint/contracts/design-system";
 import { IMPLEMENTATION_FILE } from "@ultrapaint/contracts/implementation";
-import { SKILL_EXTENSION, SKILLS_DIR } from "@ultrapaint/contracts/skills";
 import { isPageFile } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, CANVASES_FILE } from "@ultrapaint/shared/canvas";
 import {
@@ -52,7 +51,6 @@ export const DESIGN_KINDS = [
   "implementation",
   "notes",
   "page",
-  "skill",
   "tokens",
 ] as const;
 
@@ -109,9 +107,6 @@ export const kindOf = (rel: string): DesignKind | null => {
   }
   if (inDir(COMPONENTS_DIR) && name.endsWith(COMPONENT_EXTENSION)) {
     return "component";
-  }
-  if (inDir(SKILLS_DIR) && name.endsWith(SKILL_EXTENSION)) {
-    return "skill";
   }
   const atTheRoot: Readonly<Record<string, DesignKind>> = {
     [CANVASES_FILE]: "canvases",

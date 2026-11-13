@@ -1,5 +1,6 @@
 import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
-import { Config, Effect, FileSystem, Path } from "effect";
+import { UserFolderLocationJson } from "@ultrapaint/contracts/user-folder";
+import { Config, Effect, FileSystem, Path, Schema } from "effect";
 import { Flag } from "effect/cli";
 import type { StorageTarget } from "./config.ts";
 
@@ -36,9 +37,16 @@ interface StorageFlags {
    * absolute. It wins over `--home` for that folder, and changes nothing of the storage.
    */
   readonly userDir?: string | undefined;
+  /**
+   * The file the desktop app records a moved person's folder in (`userFolderLocationFile`):
+   * read when neither `--user-dir` nor `--home` says where the folder is.
+   */
+  readonly userFolderLocation?: string | undefined;
   /** The user's home directory. */
   readonly userHome: string;
 }
+
+const decodeLocation = Schema.decodeUnknownEffect(UserFolderLocationJson);
 
 interface ResolvedStorage {
   readonly storage: StorageTarget;
@@ -50,15 +58,28 @@ interface ResolvedStorage {
  * with none of them the nearest `ultrapaint.config.json` (or, from before v0.2,
  * `ultrapaint.json`) from the working directory upwards is used,
  * and when there is none nothing is saved until the first change. The person's folder is apart
- * from all of it: `.ultrapaint` in `--user-dir`, else `--home` itself, else `~/.ultrapaint`.
+ * from all of it: `.ultrapaint` in `--user-dir`, else `--home` itself, else where the desktop
+ * app moved it (its location file), else `~/.ultrapaint`.
  */
 export const resolveStorage = Effect.fn("resolveStorage")(function* (
   flags: StorageFlags
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const userDir = flags.userDir
-    ? path.join(path.resolve(flags.cwd, flags.userDir), STATE_DIR_NAME)
+  // A location file that is missing or unreadable means the folder was never moved.
+  const moved =
+    flags.userDir === undefined &&
+    flags.home === undefined &&
+    flags.userFolderLocation !== undefined
+      ? yield* fs.readFileString(flags.userFolderLocation).pipe(
+          Effect.flatMap(decodeLocation),
+          Effect.map((location) => location.userDirIn),
+          Effect.orElseSucceed(() => undefined)
+        )
+      : undefined;
+  const userDirIn = flags.userDir ?? moved;
+  const userDir = userDirIn
+    ? path.join(path.resolve(flags.cwd, userDirIn), STATE_DIR_NAME)
     : (flags.home ?? path.join(flags.userHome, STATE_DIR_NAME));
 
   const fileTarget = (configPath: string): ResolvedStorage => ({

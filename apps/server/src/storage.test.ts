@@ -223,6 +223,49 @@ describe("resolveStorage", () => {
         );
       }).pipe(Effect.provide(NodeServices.layer))
   );
+  it.effect(
+    "finds the person's folder where the desktop app moved it, unless told otherwise (ADR 0091)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cwd = yield* tempDir;
+        const location = path.join(cwd, "user-folder.json");
+        // Never moved: no file, and the folder is in the home folder.
+        const never = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userFolderLocation: location,
+        });
+        assert.strictEqual(never.userDir, "/users/someone/.ultrapaint");
+        yield* fs.writeFileString(
+          location,
+          JSON.stringify({ userDirIn: "/mnt/data", version: 1 })
+        );
+        const moved = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userFolderLocation: location,
+        });
+        assert.strictEqual(moved.userDir, "/mnt/data/.ultrapaint");
+        // --user-dir, or ULTRAPAINT_USER_DIR, still wins.
+        const given = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userDir: "/sync",
+          userFolderLocation: location,
+        });
+        assert.strictEqual(given.userDir, "/sync/.ultrapaint");
+        // A file that cannot be read is no move.
+        yield* fs.writeFileString(location, "not json");
+        const broken = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userFolderLocation: location,
+        });
+        assert.strictEqual(broken.userDir, "/users/someone/.ultrapaint");
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
 });
 
 describe("--user-dir", () => {

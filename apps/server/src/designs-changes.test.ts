@@ -43,7 +43,8 @@ describe("a file of the designs", () => {
         "designSystem",
         "tokens",
         "notes",
-        "skill",
+        // The designs hold no skills (ADR 0094).
+        null,
         "implementation",
         null,
         null,

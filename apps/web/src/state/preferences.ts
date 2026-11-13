@@ -59,26 +59,30 @@ const CHOICES: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   textSize: ["small", "default", "large"],
 };
 
-/** What the browser kept, each value checked against its choices: anything else is the default. */
-export const readPreferences = (raw: string | null): Preferences => {
-  let parsed: Record<string, unknown> = {};
-  try {
-    const value: unknown = JSON.parse(raw ?? "{}");
-    if (value && typeof value === "object") {
-      parsed = value as Record<string, unknown>;
-    }
-  } catch {
-    // A value another version wrote, or nothing: the defaults stand.
-    parsed = {};
-  }
+/** Preferences from what was kept (the browser's or the profile's), each value checked against its choices: anything else is the default. */
+export const preferencesOf = (value: unknown): Preferences => {
+  const parsed: Record<string, unknown> =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
   const out = { ...DEFAULT_PREFERENCES };
   for (const key of Object.keys(CHOICES) as (keyof Preferences)[]) {
-    const value = parsed[key];
-    if ((CHOICES[key] as readonly unknown[]).includes(value)) {
-      (out as Record<string, unknown>)[key] = value;
+    const kept = parsed[key];
+    if ((CHOICES[key] as readonly unknown[]).includes(kept)) {
+      (out as Record<string, unknown>)[key] = kept;
     }
   }
   return out;
+};
+
+/** What the browser kept, as text: unreadable, the defaults. */
+export const readPreferences = (raw: string | null): Preferences => {
+  try {
+    return preferencesOf(JSON.parse(raw ?? "{}"));
+  } catch {
+    // A value another version wrote, or nothing: the defaults stand.
+    return { ...DEFAULT_PREFERENCES };
+  }
 };
 
 const stored = (): Preferences => {
@@ -110,6 +114,8 @@ interface PreferencesStore extends Preferences {
   reset: (key: keyof Preferences) => void;
   /** Changes one preference, kept at once. */
   set: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
+  /** Takes every preference at once: the profile's, as the editor starts. */
+  setAll: (preferences: Preferences) => void;
 }
 
 const valuesOf = (s: PreferencesStore): Preferences => ({
@@ -137,8 +143,12 @@ export const usePreferences = create<PreferencesStore>((set, get) => {
     reset: (key) =>
       keep({ ...valuesOf(get()), [key]: DEFAULT_PREFERENCES[key] }),
     set: (key, value) => keep({ ...valuesOf(get()), [key]: value }),
+    setAll: keep,
   };
 });
+
+/** The preferences now, as they are kept. */
+export const preferencesNow = () => valuesOf(usePreferences.getState());
 
 /** Draws the kept preferences as the editor starts. */
 export const followPreferences = () =>

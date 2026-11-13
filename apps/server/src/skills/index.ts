@@ -55,6 +55,22 @@ export const skillDirOf = (
     hashContent(JSON.stringify(skillFiles))
   );
 
+/** When to use the skill, as its `SKILL.md`'s front matter says it. */
+export const skillDescription = designSkill.description;
+
+/**
+ * The skill as a repository keeps it for agents outside the tool (`skills.install`): `SKILL.md`
+ * with its front matter, by which agents choose it, and its references, named as the core names
+ * them, beside it.
+ */
+export const installedSkillFiles = (): readonly (readonly [string, string])[] =>
+  Object.entries(skillFiles).map(([file, text]) => [
+    file,
+    file === CORE_FILE
+      ? `---\nname: ultrapaint\ndescription: ${JSON.stringify(skillDescription)}\n---\n\n${text}`
+      : text,
+  ]);
+
 /** How the skill names a file of its references (`` `references/layout.md` ``). */
 export const REFERENCES_MENTION = "`references/";
 

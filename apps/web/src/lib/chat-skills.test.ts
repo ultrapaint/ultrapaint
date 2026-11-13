@@ -14,7 +14,7 @@ const skill = (o: Partial<Skill> & Pick<Skill, "name">): Skill => ({
 const design = skill({ enabled: true, name: "ultrapaint", source: "built-in" });
 const voice = skill({
   enabled: true,
-  file: "docs/designs/skills/voice.md",
+  file: ".claude/skills/voice/SKILL.md",
   name: "voice",
 });
 const grilling = skill({
@@ -26,14 +26,14 @@ describe("a chat's design skills", () => {
   it("names the design skill by its name and a project's by its file", () => {
     expect([design, voice].map(skillKey)).toEqual([
       "ultrapaint",
-      "docs/designs/skills/voice.md",
+      ".claude/skills/voice/SKILL.md",
     ]);
   });
 
   it("are the project's defaults until the chat chooses its own", () => {
     expect(chosenSkills({}, [design, voice, grilling])).toEqual([
       "ultrapaint",
-      "docs/designs/skills/voice.md",
+      ".claude/skills/voice/SKILL.md",
     ]);
   });
 

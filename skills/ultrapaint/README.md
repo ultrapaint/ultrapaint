@@ -33,8 +33,8 @@ editor's words: the briefing's `skillTerms` says them in the editor (`textStyle`
 `pnpm -F @ultrapaint/server skills` writes the skill into the server
 (`apps/server/src/skills/design.generated.ts`), and a test fails when the two differ, so run it
 after an edit. It is one built-in skill, `ultrapaint`, turned off with
-`skills.disabled: ["ultrapaint"]`; a project's own files in `<designsDir>/skills/` are told after
-it. `skills.briefing`: `router` (the default) tells the core, `full` the core and every reference,
+`skills.disabled: ["ultrapaint"]`; a project's own skill folders turned on in Settings are told
+after it (ADR 0094). Settings also install it for agents outside the tool. `skills.briefing`: `router` (the default) tells the core, `full` the core and every reference,
 `summaries` one line. The whole skill is written to `~/.cache/ultrapaint/skills/<hash>/`, which
 the agent sandbox lets agents read, with each `references/…` mention named there; MCP clients
 read `skill://ultrapaint/SKILL.md` and `skill://ultrapaint/references/<path>`.

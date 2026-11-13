@@ -170,8 +170,9 @@ export type KeyPress = Pick<
 >;
 
 /**
- * Whether two chords are pressed the same on this platform. Elsewhere than on a Mac, `ctrl` is
- * pressed as `mod` is.
+ * Whether two chords fire on the same press, as `matchesChord` matches them: a `mod` chord takes
+ * ⌘ or Ctrl (⌃ on a Mac) whatever else is held, so `ctrl` and `mod` collide on every platform,
+ * and ⌃Z recorded on a Mac would also be Undo's ⌘Z.
  */
 export const sameChord = (a: Keys, b: Keys, mac = isMac): boolean => {
   const x = parseChord(chordText(a, mac));
@@ -180,9 +181,7 @@ export const sameChord = (a: Keys, b: Keys, mac = isMac): boolean => {
     x.key === y.key &&
     x.alt === y.alt &&
     x.shift === y.shift &&
-    (mac
-      ? x.mod === y.mod && x.ctrl === y.ctrl
-      : (x.mod || x.ctrl) === (y.mod || y.ctrl))
+    (x.mod || x.ctrl) === (y.mod || y.ctrl)
   );
 };
 

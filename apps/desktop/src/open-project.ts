@@ -25,6 +25,7 @@ import {
 import { Agents } from "./agents.ts";
 import {
   ProjectOpen,
+  ServerNotOurs,
   type ServerStartError,
   StoreError,
   type UnknownProject,
@@ -152,13 +153,17 @@ export class OpenProject extends Context.Service<
      * Runs `change` with the open project's server stopped, then starts it again, the editor
      * coming back where it was: for a change the server must not be running through, as the
      * person's folder moving (ADR 0091). Asks first when agents are at work; none, and `change`
-     * does not run, when the user says no. With no server of the app's own open (none, one only
-     * attached to, one on another machine), `change` just runs. The server starts again whether
-     * `change` failed or not, which then fails with its error.
+     * does not run, when the user says no. With no server open, or one on another machine,
+     * `change` just runs; a server only attached to (started outside the app, which cannot stop
+     * it) refuses it with `ServerNotOurs`. The server starts again whether `change` failed or
+     * not, which then fails with its error.
      */
     readonly whileStopped: <A, E>(
       change: Effect.Effect<A, E>
-    ) => Effect.Effect<Option.Option<A>, E | StoreError | ServerStartError>;
+    ) => Effect.Effect<
+      Option.Option<A>,
+      E | ServerNotOurs | StoreError | ServerStartError
+    >;
     /**
      * The start screen's prompt for the open project, once: the editor takes it as it loads.
      * None when the project was opened without one, or it was taken.
@@ -628,11 +633,12 @@ export class OpenProject extends Context.Service<
             switching.withPermits(1)(
               Effect.gen(function* () {
                 const was = open;
-                if (
-                  !was ||
-                  was.server.attached ||
-                  was.project.kind !== "local"
-                ) {
+                if (was?.server.attached && was.project.kind === "local") {
+                  return yield* new ServerNotOurs({
+                    message: `${was.project.name} runs on a server started outside the app, which uses your folder where it is. Stop it, open the project here, then try again.`,
+                  });
+                }
+                if (was?.project.kind !== "local") {
                   return Option.some(yield* change);
                 }
                 if (!(yield* release("move", true))) {

@@ -70,12 +70,16 @@ export class ProfileService extends Context.Service<
       const set = Effect.fn("ProfileService.set")(function* (
         profile: UserProfile
       ) {
-        // A field the request leaves out keeps its value: the name is set apart from the rest.
-        const merged = { ...(yield* Ref.get(current)), ...profile };
+        // A field the request leaves out keeps its value: the name is set apart from the rest,
+        // and each preference apart from the others.
+        const kept = yield* Ref.get(current);
+        const merged = { ...kept, ...profile };
         const name = merged.displayName?.trim();
+        const preferences = { ...kept.preferences, ...profile.preferences };
         const next: UserProfile = {
           ...(name ? { displayName: name } : {}),
           ...(merged.keepFindings === true && { keepFindings: true }),
+          ...(Object.keys(preferences).length > 0 && { preferences }),
         };
         const text = yield* encodeProfile(next).pipe(Effect.orDie);
         yield* writeAtomic(file, `${text}\n`).pipe(

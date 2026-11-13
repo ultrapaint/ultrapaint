@@ -226,16 +226,17 @@ refactor and the board view left.
   (`system/`), the words (`words/`). A **kind** is the one file the agent names in step 2 and
   opens before the first element. The skill speaks the web's terms; the briefing says what they
   are in the editor (`skillTerms`). It is written whole to `~/.cache/ultrapaint/skills/<hash>/`,
-  each mention of a reference named there, and a project's own skill files in
-  `<designsDir>/skills/` are told after it. A review **category** names a concern, held by one
+  each mention of a reference named there, and the project's own skills turned on are told after
+  it (ADR 0094). A review **category** names a concern, held by one
   file of the skill (contracts' `CATEGORY_FILES`).
   _Avoid_: router, part, override (the per-part skills, replaced or extended by a project's file,
   before the core).
-- **Project skills**: a project's own skills (ADR 0094; `SkillsService`): the files in
-  `<designsDir>/skills/` and the folders with a `SKILL.md` in `.claude/skills/`,
-  `.agents/skills/` and `skills/`, listed in Settings › Skills and told to the project's chats
-  only once turned on (`skills.enabled`, by their files' paths). The design skill stays on by
-  default.
+- **Project skills**: a project's own skills (ADR 0094; `SkillsService`): the folders with a
+  `SKILL.md` in `.claude/skills/`, `.agents/skills/` and `skills/`, listed in Settings › Skills and
+  told to the project's chats only once turned on (`skills.enabled`, by their `SKILL.md`'s path).
+  The design skill is the tool's own and on by default; **saved in the repository**
+  (`skills.install`) it is a copy for agents outside the tool. The designs directory holds no
+  skills.
 - **Content**: the words of a design, and the design skill's references for them (ADR 0067):
   `references/words/` (`voice.md`, `interface.md`, `pages.md`), followed with a design or alone
   when a task writes only the words. What a product chose for its words (how they sound, the one
@@ -484,10 +485,13 @@ refactor and the board view left.
   `components/place-switch.tsx`): the two modes and the prototype workspace in one control.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.
-- **Preferences**: how the editor looks and behaves for the person, in every project, kept in the
-  browser and drawn on the root as data attributes (ADR 0093; `state/preferences.ts`): the
-  **accent**, the **text size**, **increase contrast**, **motion**, the **scroll wheel** and
-  **notifications**. The chrome only, never a design.
+- **Preferences**: how the editor looks and behaves for the person, in every project, drawn on
+  the root as data attributes (ADR 0093; `state/preferences.ts`): the **accent**, the **text
+  size**, **increase contrast**, **motion**, the **scroll wheel** and **notifications**. The
+  chrome only, never a design. With the theme, the send key, the grid and comments shown and the
+  person's keys, they are kept in the profile (`profile.json`'s `preferences`,
+  `state/person-preferences.ts`), which carries them from one project's page to the next, and in
+  the browser, which draws them before the server answers.
 - **Settings sections**: the dialog's pages under whose they are (ADR 0093;
   `panels/settings-sections.ts`): **You** (General, Appearance, Chats, Shortcuts), **Project**
   (Repository, Design system, Review, Skills), **This computer** (Agents, Connections, About).

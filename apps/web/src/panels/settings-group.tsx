@@ -378,7 +378,10 @@ export const PathList = ({
   // The fields' own text while typed in: a new, empty field stays until it is left.
   const [rows, setRows] = useState<string[]>(() => [...value]);
   const [shown, setShown] = useState(value);
-  if (shown !== value && rows.filter(Boolean).join("\n") !== value.join("\n")) {
+  // What the rows say, as the settings have it (trimmed, empty ones out): only a list changed
+  // from elsewhere (Detect, its Undo) replaces the fields, never a space being typed.
+  const typed = rows.map((p) => p.trim()).filter(Boolean);
+  if (shown !== value && typed.join("\n") !== value.join("\n")) {
     setShown(value);
     setRows([...value]);
   }

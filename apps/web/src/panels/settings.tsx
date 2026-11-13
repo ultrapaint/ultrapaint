@@ -55,13 +55,10 @@ import {
   SECTIONS,
   type SectionId,
   scopeLabel,
-  scopeOf,
   searchSettings,
   sectionNamed,
 } from "./settings-sections.ts";
 import { ShortcutsSection } from "./settings-shortcuts.tsx";
-
-const TRAILING_SLASH_RE = /\/+$/;
 
 const MISSING_DESIGNS_PREFIX = "Designs directory does not exist";
 
@@ -286,9 +283,8 @@ const showSetting = (page: HTMLElement | null, setting: string) => {
 
 /**
  * The dialog around a section: the sections down its whole side on the frame ({rail}), headed by
- * Settings and the search; beside them the page on {sidebar}, headed by the section's name (and,
- * for the project's, the file its settings are saved in), the section's own action and the close
- * button, the one way out, over a hairline the page scrolls under. No footer, as everything saves
+ * Settings and the search; beside them the page on {sidebar}, headed by the section's name, the
+ * section's own action and the close button, the one way out, over a hairline the page scrolls under. No footer, as everything saves
  * as it changes (ADR 0079). Narrow, the sections are a select over the page.
  */
 const SettingsFrame = ({
@@ -326,14 +322,6 @@ const SettingsFrame = ({
       page.current?.scrollTo({ top: 0 });
     }
   };
-  const configPath = useProject((s) => s.info.storage.configPath);
-  const repoPath = useProject(
-    (s) => s.settings?.repoPath ?? s.info.repoPath ?? ""
-  );
-  const savedIn =
-    scopeOf(section) === "project" && configPath
-      ? shortPath(configPath, repoPath)
-      : null;
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-rail md:flex-row">
       <Sidebar onSelect={pick} section={section} shown={shown} />
@@ -341,14 +329,9 @@ const SettingsFrame = ({
         <header className="flex h-12 shrink-0 items-center gap-3 border-b px-5">
           {/* Wide, Settings heads the sections and the page names its section. Narrow, the
               select of sections over the page names the one shown, and the page says Settings. */}
-          <h2 className="flex min-w-0 flex-1 items-baseline gap-2.5 font-heading-xsmall">
+          <h2 className="min-w-0 flex-1 truncate font-heading-xsmall">
             <span className="md:hidden">Settings</span>
             <span className="max-md:sr-only">{labelOf(section)}</span>
-            {savedIn ? (
-              <span className="min-w-0 truncate font-code text-muted-foreground max-md:hidden">
-                {savedIn}
-              </span>
-            ) : null}
           </h2>
           {actions}
           <IconButton
@@ -369,14 +352,6 @@ const SettingsFrame = ({
   );
 };
 
-/** The configuration file as its header names it: from the repository when it lies inside it. */
-const shortPath = (configPath: string, repoPath: string) => {
-  const root = `${repoPath.replace(TRAILING_SLASH_RE, "")}/`;
-  return repoPath && configPath.startsWith(root)
-    ? configPath.slice(root.length)
-    : configPath;
-};
-
 /** Moves a configuration file still under its earlier name to the current one. */
 const renameConfig = () =>
   api()
@@ -387,8 +362,7 @@ const renameConfig = () =>
 /**
  * What the project's settings file asks of the person, at the top of Repository, only when it
  * asks something: a session the first change will save (ADR 0092), one started never to save,
- * with Save to file…, or a file still under its earlier name, with Rename. Where the settings
- * are saved is said beside each project page's title.
+ * with Save to file…, or a file still under its earlier name, with Rename.
  */
 const ConfigFileNotice = ({
   onSaveToFile,

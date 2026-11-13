@@ -34,14 +34,8 @@ const isKeys = (value: unknown): value is Keys =>
     isChord((value as { other?: unknown }).other));
 
 /** What was saved, each command's keys read on their own: one that cannot be read is dropped. */
-const saved = (): Overrides => {
-  let value: unknown;
-  try {
-    value = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-  } catch {
-    // Not JSON: nothing is kept.
-    return {};
-  }
+/** The person's keys from what was kept (the browser's or the profile's): what can't be read, dropped. */
+export const overridesOf = (value: unknown): Overrides => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return {};
   }
@@ -51,6 +45,15 @@ const saved = (): Overrides => {
         Array.isArray(entry[1]) && entry[1].every(isKeys)
     )
   );
+};
+
+const saved = (): Overrides => {
+  try {
+    return overridesOf(JSON.parse(localStorage.getItem(KEY) ?? "{}"));
+  } catch {
+    // Not JSON, or storage the browser refuses: nothing is kept.
+    return {};
+  }
 };
 
 interface KeybindingsStore {
@@ -66,10 +69,14 @@ interface KeybindingsStore {
 }
 
 const keep = (overrides: Overrides) => {
-  if (Object.keys(overrides).length === 0) {
-    localStorage.removeItem(KEY);
-  } else {
-    localStorage.setItem(KEY, JSON.stringify(overrides));
+  try {
+    if (Object.keys(overrides).length === 0) {
+      localStorage.removeItem(KEY);
+    } else {
+      localStorage.setItem(KEY, JSON.stringify(overrides));
+    }
+  } catch {
+    // Storage the browser refuses (a private window): kept for this visit, and in the profile.
   }
   return { overrides };
 };

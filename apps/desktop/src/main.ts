@@ -9,6 +9,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import type { StateName } from "@ultrapaint/contracts/shell-bridge";
+import { userFolderLocationFile } from "@ultrapaint/contracts/user-folder";
 import { Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import {
   app,
@@ -303,7 +304,17 @@ const runtime = ManagedRuntime.make(
     })
   ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
-    Layer.provideMerge(Folders.layer({ dataDir, home: app.getPath("home") })),
+    Layer.provideMerge(
+      Folders.layer({
+        dataDir,
+        home: app.getPath("home"),
+        location: userFolderLocationFile({
+          env: process.env,
+          home: app.getPath("home"),
+          platform: process.platform,
+        }),
+      })
+    ),
     Layer.provideMerge(
       Agents.layer({
         adaptersDir: path.join(appDir, "adapters"),

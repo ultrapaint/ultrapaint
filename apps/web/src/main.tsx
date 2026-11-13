@@ -16,6 +16,7 @@ import { useEditor } from "./state/editor.ts";
 import { useIsolation } from "./state/isolation.ts";
 import { goTo } from "./state/location.ts";
 import { showLeftPanel } from "./state/panels.ts";
+import { followPersonPreferences } from "./state/person-preferences.ts";
 import { followPreferences } from "./state/preferences.ts";
 import { useProject } from "./state/project.ts";
 import { select } from "./state/selection.ts";
@@ -59,5 +60,6 @@ if (import.meta.env.DEV) {
 followTheme();
 followPreferences();
 followAgentNotifications();
+followPersonPreferences();
 
 createRoot(document.getElementById("root") as HTMLElement).render(<App />);

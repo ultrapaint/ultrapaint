@@ -8,7 +8,7 @@
  * - `skill://ultrapaint/SKILL.md`: the design skill's core;
  * - `skill://ultrapaint/references/<path>`: each of its references by its path in the skill
  *   (`skill://ultrapaint/references/kinds/dialog.md`);
- * - `skill://ultrapaint/<name>`: a project's own skill, `<designsDir>/skills/<name>.md`.
+ * - `skill://ultrapaint/<name>`: a project's own skill turned on, its folder's `SKILL.md` (ADR 0094).
  *
  * The design skill's files are each a resource of its own, listed: a template's parameter is one
  * segment of the URI (the router stops it at a `/`), so it could not carry a reference's path. A
@@ -73,7 +73,7 @@ export const SkillResources = Layer.effectDiscard(
             ? naming(coreText, SKILL_ROOT_URI)
             : skill.text
         ),
-      description: "A project's own design skill by its name.",
+      description: "A project's own skill by its folder's name.",
       mimeType: MARKDOWN,
       name: "skill",
     });

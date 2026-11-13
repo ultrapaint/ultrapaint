@@ -5,17 +5,14 @@
  *
  * The tool ships one, the design skill `ultrapaint`: its core (`SKILL.md`, every rule and the
  * steps) and its references (`references/…`, read when the core sends the agent there), on unless
- * the settings turn it off. A project may hold skills of its own (ADR 0094): a markdown file in
- * `<designsDir>/skills/`, or a folder with a `SKILL.md` in `.claude/skills/`, `.agents/skills/` or
- * `skills/`, each found and listed, and told only once the settings turn it on. A skill's title and
- * summary are its front matter's `name` and `description`, else its first heading and the
- * paragraph after it.
+ * the settings turn it off; it is part of the tool, never read from the project. A project may
+ * hold skills of its own (ADR 0094): a folder with a `SKILL.md` in `.claude/skills/`,
+ * `.agents/skills/` or `skills/`, each found and listed, and told only once the settings turn it
+ * on. The designs directory holds designs only. A skill's title and summary are its front
+ * matter's `name` and `description`, else its first heading and the paragraph after it. The
+ * design skill can be saved into the repository for agents outside the tool (`skills.install`).
  */
 import { Schema } from "effect";
-
-/** Directory of a project's own skill files, inside the designs directory. */
-export const SKILLS_DIR = "skills";
-export const SKILL_EXTENSION = ".md";
 
 /**
  * Where agents' skill folders are kept in a repository, each skill a folder with its `SKILL.md`:
@@ -30,19 +27,29 @@ export const SKILL_FOLDERS = [
 /** The file a skill folder is told by. */
 export const SKILL_FILE = "SKILL.md";
 
+/** Where the design skill can be saved in a repository: for Claude Code, or other agents. */
+export const SkillInstallFolder = Schema.Literals([
+  ".claude/skills",
+  ".agents/skills",
+]);
+export type SkillInstallFolder = typeof SkillInstallFolder.Type;
+
+/**
+ * The command that installs the design skill for agents outside the tool, from its repository,
+ * with the open skills installer.
+ */
+export const SKILL_INSTALL_COMMAND = "npx skills add ultrapaint/ultrapaint";
+
 const SkillSource = Schema.Literals(["built-in", "project"]);
 
 export const Skill = Schema.Struct({
   /** On in the settings: agents are told it. */
   enabled: Schema.Boolean,
-  /**
-   * Repo-relative path of the file a project skill is told by (its `.md`, or a folder's
-   * `SKILL.md`): what `skills.enabled` names.
-   */
+  /** Repo-relative path of a project skill's `SKILL.md`: what `skills.enabled` names. */
   file: Schema.optional(Schema.String),
   /**
-   * `ultrapaint` for the design skill; a project skill's file stem or folder name, numbered when
-   * two share one: its MCP resource's name.
+   * `ultrapaint` for the design skill; a project skill's folder name, numbered when two share
+   * one: its MCP resource's name.
    */
   name: Schema.String,
   source: SkillSource,
@@ -55,8 +62,8 @@ export const Skill = Schema.Struct({
 export type Skill = typeof Skill.Type;
 
 export const SkillList = Schema.Struct({
-  /** Where a project's own skills go, relative to the repository. */
-  dir: Schema.String,
+  /** The folders of the repository holding a copy of the design skill (`.claude/skills/ultrapaint`). */
+  installed: Schema.Array(Schema.String),
   skills: Schema.Array(Skill),
 });
 export type SkillList = typeof SkillList.Type;

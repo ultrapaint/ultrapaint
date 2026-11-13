@@ -91,7 +91,7 @@ describe("the settings save as they change (ADR 0079)", () => {
     expect(buttons).not.toContain("Save");
   });
 
-  it("has no footer: the close button is the way out, and the file written is beside the title", () => {
+  it("has no footer: the close button is the way out, and the header names the section alone", () => {
     const buttons = [...container.querySelectorAll("button")].map(
       (b) => b.textContent
     );
@@ -99,7 +99,7 @@ describe("the settings save as they change (ADR 0079)", () => {
     expect(buttons).not.toContain("Done");
     expect(container.querySelector("button[aria-label=Close]")).not.toBeNull();
     expect(container.querySelector("header h2")?.textContent).toBe(
-      "SettingsRepositoryultrapaint.config.json"
+      "SettingsRepository"
     );
   });
 

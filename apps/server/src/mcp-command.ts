@@ -10,6 +10,7 @@
  * window.
  */
 import { homedir } from "node:os";
+import { userFolderLocationFile } from "@ultrapaint/contracts/user-folder";
 import {
   type Cause,
   Config,
@@ -324,6 +325,12 @@ const relayStdio = Effect.fnUntraced(function* (
         ephemeral: false,
         home: undefined,
         userDir: userDirGiven,
+        // Moved by the desktop app, the folder is found where the app recorded it (ADR 0091).
+        userFolderLocation: userFolderLocationFile({
+          env: process.env,
+          home: userHome,
+          platform: process.platform,
+        }),
         userHome,
       }),
       ({ storage, userDir }) => ({

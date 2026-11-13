@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import "./testing/fake-browser.ts";
 import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { afterAll, describe, expect, it } from "vitest";
 import { type Platform, setPlatform } from "./platform.ts";
+import { WelcomePage } from "./welcome.tsx";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -33,10 +35,13 @@ setPlatform({
   serverUrl: "",
 } as unknown as Platform);
 
-// The page is the window's entry: it draws itself into `#root` as its module is read, here
-// rather than in the test, whose time is not the time reading the editor's modules takes.
 document.body.innerHTML = '<div id="root"></div>';
-await act(() => import("./welcome.tsx"));
+await act(async () => {
+  createRoot(document.getElementById("root") as HTMLElement).render(
+    <WelcomePage />
+  );
+  await Promise.resolve();
+});
 
 /** Lets what a click set off (a picker's answer, the page's news of it) land. */
 const settled = () => act(() => Promise.resolve());

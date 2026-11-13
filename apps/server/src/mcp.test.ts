@@ -403,16 +403,16 @@ describe("the editor's MCP server, over the wire", () => {
         }
         assert.strictEqual(yield* read("skill://ultrapaint/ultrapaint"), core);
 
-        yield* fs.makeDirectory(path.join(repo, "designs/skills"), {
+        yield* fs.makeDirectory(path.join(repo, ".claude/skills/voice"), {
           recursive: true,
         });
         yield* fs.writeFileString(
-          path.join(repo, "designs/skills/voice.md"),
+          path.join(repo, ".claude/skills/voice/SKILL.md"),
           "# Voice\n\nPlain words.\n"
         );
         // A project's own skill is read once the settings turn it on (ADR 0094).
         assert.isUndefined(yield* read("skill://ultrapaint/voice"));
-        const voiceOn = { enabled: ["designs/skills/voice.md"] };
+        const voiceOn = { enabled: [".claude/skills/voice/SKILL.md"] };
         yield* client["settings.set"]({ ...settings, skills: voiceOn });
         assert.include(yield* read("skill://ultrapaint/voice"), "Plain words.");
 

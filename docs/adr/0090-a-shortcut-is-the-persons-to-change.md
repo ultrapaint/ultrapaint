@@ -1,6 +1,6 @@
 # ADR 0090: A shortcut is the person's to change
 
-Status: accepted, 2026-11-13. Amends 0032 (the command list's keys are now its defaults).
+Status: accepted, 2026-11-13. Amends 0032 (the command list's keys are now its defaults). (Where the person's keys are kept: amended by 0093, their profile too.)
 
 ## Context
 

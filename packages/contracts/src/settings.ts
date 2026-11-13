@@ -167,5 +167,13 @@ export const UserProfile = Schema.Struct({
    * 0060, 0066). The person's choice, since the log is theirs.
    */
   keepFindings: Schema.optional(Schema.Boolean),
+  /**
+   * How the editor looks and behaves for the person, in every project (ADR 0093): the theme, the
+   * accent, the text size, the shortcuts they changed… by the editor's own names. The editor
+   * owns their shape and reads each value as it would a value it kept itself, dropping what it
+   * can't read; the server keeps them as they come. A request's preferences are merged into
+   * the kept ones, one name at a time.
+   */
+  preferences: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type UserProfile = typeof UserProfile.Type;

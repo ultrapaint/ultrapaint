@@ -69,9 +69,10 @@ has one. A move shows Moving… on its button, and a refusal says why under its 
 ## Consequences
 
 - The folder moves whole: whatever an older or newer version keeps there goes with it.
-- `ultrapaint mcp` started by an outside agent, and the server it starts without a window, read
-  `ULTRAPAINT_USER_DIR` from the agent’s environment, not the app’s setting: after a move in the
-  app, the variable set in the shell the agents start from keeps them on the same folder.
-  Otherwise they use `~/.ultrapaint`, which the move removed, and start a new one there.
+- A move is recorded where every server looks (amended 2026-11-13): `Ultrapaint/user-folder.json`
+  in the system's per-user configuration folder (`userFolderLocationFile`: `%APPDATA%`,
+  `~/Library/Application Support`, `$XDG_CONFIG_HOME` or `~/.config`), removed once the folder
+  is back home. A server or `ultrapaint mcp` given no `--user-dir` or `ULTRAPAINT_USER_DIR` reads
+  it, so an agent outside the app reaches the moved folder with nothing set in its shell.
 - `pnpm dev` keeps `ULTRAPAINT_HOME`, and with it the person’s folder at `~/.ultrapaint`, unless
   `ULTRAPAINT_USER_DIR` is set too.

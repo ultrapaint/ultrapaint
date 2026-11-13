@@ -11,7 +11,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { parseSkillFile } from "@ultrapaint/contracts/skills";
+import { parseSkillFile, skillFrontMatter } from "@ultrapaint/contracts/skills";
 
 /** `skills/ultrapaint/` from this module, in the checkout's sources. */
 export const SKILLS_SOURCE = path.resolve(
@@ -20,6 +20,8 @@ export const SKILLS_SOURCE = path.resolve(
 );
 
 export interface SkillSource {
+  /** `SKILL.md`'s front matter's description: when to use it, as agents choose skills by it. */
+  readonly description: string;
   /** Every file under `references/`, by its path there (`kinds/dialog.md`). */
   readonly references: Readonly<Record<string, string>>;
   /** The core: `SKILL.md`'s markdown, its front matter left out. */
@@ -43,10 +45,14 @@ const markdownUnder = (dir: string, prefix = ""): [string, string][] =>
     });
 
 /** The skill under `dir`: its core and every file of its references. */
-export const readSkillSource = (dir: string): SkillSource => ({
-  references: Object.fromEntries(markdownUnder(path.join(dir, "references"))),
-  router: `${parseSkillFile(readFileSync(path.join(dir, "SKILL.md"), "utf8")).body.trim()}\n`,
-});
+export const readSkillSource = (dir: string): SkillSource => {
+  const core = readFileSync(path.join(dir, "SKILL.md"), "utf8");
+  return {
+    description: skillFrontMatter(core).description ?? "",
+    references: Object.fromEntries(markdownUnder(path.join(dir, "references"))),
+    router: `${parseSkillFile(core).body.trim()}\n`,
+  };
+};
 
 /** The generated module's source for the skill found. */
 export const renderSkills = (skill: SkillSource) =>

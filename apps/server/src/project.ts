@@ -472,21 +472,41 @@ export class ProjectManager extends Context.Service<
           if (!(target.mode === "ephemeral" && target.saveOnChange)) {
             return;
           }
-          const settings = yield* settingsService.get;
-          if (!settings || firstChangeTaken) {
+          if (firstChangeTaken || !(yield* settingsService.get)) {
             return;
           }
           firstChangeTaken = true;
-          const saved: SavedOnChange = yield* saveSettings(settings).pipe(
-            // A folder that can't be written to: the change stands, unsaved.
-            Effect.catchDefect((defect) =>
-              Effect.succeed({
-                problems: [
-                  defect instanceof Error ? defect.message : String(defect),
-                ],
+          // Read under the lock a settings change takes, so the file gets the latest settings,
+          // never ones a change made meanwhile replaced.
+          const saved: SavedOnChange = yield* inForce
+            .withPermits(1)(
+              Effect.gen(function* () {
+                const now = yield* settingsService.get;
+                if (!now) {
+                  return { problems: [] };
+                }
+                const result = yield* settingsService.persist({
+                  configPath: path.join(now.repoPath, CONFIG_FILE_NAME),
+                  settings: now,
+                });
+                const inForceNow = yield* settingsService.get;
+                if (result.validation.ok && inForceNow) {
+                  yield* putInForce(inForceNow, "settings saved to a file");
+                }
+                return {
+                  ...(result.configPath !== undefined && {
+                    configPath: result.configPath,
+                  }),
+                  problems: result.validation.problems,
+                };
               })
             )
-          );
+            .pipe(
+              // A folder that refuses the file: the change stands, unsaved, and the editor says why.
+              Effect.catch((error) =>
+                Effect.succeed({ problems: [error.message] })
+              )
+            );
           yield* log.log(
             "server",
             saved.problems.length === 0 ? "info" : "warn",

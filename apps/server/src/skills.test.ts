@@ -28,7 +28,7 @@ const namedFiles = Effect.fnUntraced(function* (text: string) {
 
 describe("design skills", () => {
   inProject.effect(
-    "ships the design skill on, lists the project's own skills off, and the settings turn each on or off",
+    "ships the design skill on, lists the project's skill folders off, never reads the designs directory, and the settings turn each on or off",
     () =>
       Effect.gen(function* () {
         const { client, repo, settings } = yield* TestEnv;
@@ -36,33 +36,35 @@ describe("design skills", () => {
         const path = yield* Path.Path;
 
         const shipped = yield* client["skills.list"]();
-        assert.strictEqual(shipped.dir, "designs/skills");
+        assert.deepStrictEqual(shipped.installed, []);
         assert.deepStrictEqual(
           shipped.skills.map((s) => [s.name, s.source, s.enabled]),
           [["ultrapaint", "built-in", true]]
         );
         const [design] = shipped.skills;
         assert.strictEqual(design?.title, "Ultrapaint");
-        assert.isNotEmpty(design?.summary);
+        assert.include(design?.summary ?? "", "Interface design rules");
         assert.isUndefined(design?.file);
 
-        const dir = path.join(repo, "designs", "skills");
-        yield* fs.makeDirectory(dir, { recursive: true });
+        // The designs directory holds designs only: a markdown file there is no skill.
+        const designs = path.join(repo, "designs", "skills");
+        yield* fs.makeDirectory(designs, { recursive: true });
         yield* fs.writeFileString(
-          path.join(dir, "brand.md"),
+          path.join(designs, "brand.md"),
           "# Brand\n\nThe logo never sits on a photograph.\n"
         );
-        // A file that once extended a part of the skill is a skill of its own, told as written.
-        yield* fs.writeFileString(
-          path.join(dir, "color.md"),
-          "---\nextends: true\n---\nBlue is the brand; never use it for status.\n"
-        );
-        // An agent's skill folder, and a copy of the design skill, which is left out.
+        // An agent's skill folder, two of one name, and a copy of the design skill, left out.
         const grilling = path.join(repo, ".claude", "skills", "grilling");
         yield* fs.makeDirectory(grilling, { recursive: true });
         yield* fs.writeFileString(
           path.join(grilling, "SKILL.md"),
           "---\nname: grilling\ndescription: >\n  Grill the user about a plan,\n  relentlessly.\n---\n\n# Grilling\n\nAsk one question at a time.\n"
+        );
+        const voice = path.join(repo, "skills", "grilling");
+        yield* fs.makeDirectory(voice, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(voice, "SKILL.md"),
+          "# Voice\n\nPlain words.\n"
         );
         const copy = path.join(repo, ".agents", "skills", "ultrapaint");
         yield* fs.makeDirectory(copy, { recursive: true });
@@ -71,13 +73,13 @@ describe("design skills", () => {
           "# Ultrapaint\n"
         );
         const own = yield* client["skills.list"]();
+        assert.deepStrictEqual(own.installed, [".agents/skills/ultrapaint"]);
         assert.deepStrictEqual(
           own.skills.map((s) => [s.name, s.source, s.file, s.enabled]),
           [
             ["ultrapaint", "built-in", undefined, true],
-            ["brand", "project", "designs/skills/brand.md", false],
-            ["color", "project", "designs/skills/color.md", false],
             ["grilling", "project", ".claude/skills/grilling/SKILL.md", false],
+            ["grilling-2", "project", "skills/grilling/SKILL.md", false],
           ]
         );
         const folder = own.skills.find((s) => s.name === "grilling");
@@ -91,27 +93,52 @@ describe("design skills", () => {
             "The skill’s files are in `.claude/skills/grilling/`"
           )
         );
-        const colour = own.skills.find((s) => s.name === "color");
-        assert.strictEqual(
-          colour?.text,
-          "Blue is the brand; never use it for status.\n"
-        );
 
         yield* client["settings.set"]({
           ...settings,
           skills: {
             disabled: ["ultrapaint"],
-            enabled: [
-              "designs/skills/brand.md",
-              ".claude/skills/grilling/SKILL.md",
-            ],
+            enabled: ["skills/grilling/SKILL.md"],
           },
         });
         const chosen = yield* client["skills.list"]();
         assert.deepStrictEqual(
           chosen.skills.filter((s) => s.enabled).map((s) => s.name),
-          ["brand", "grilling"]
+          ["grilling-2"]
         );
+      })
+  );
+
+  inProject.effect(
+    "saves the design skill into the repository for agents outside the tool, whole and replaced",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const at = path.join(repo, ".claude", "skills", "ultrapaint");
+        // An older copy's file that the skill no longer has goes.
+        yield* fs.makeDirectory(at, { recursive: true });
+        yield* fs.writeFileString(path.join(at, "old.md"), "gone\n");
+        assert.strictEqual(
+          yield* client["skills.install"]({ into: ".claude/skills" }),
+          ".claude/skills/ultrapaint"
+        );
+        assert.isFalse(yield* fs.exists(path.join(at, "old.md")));
+        const core = yield* fs.readFileString(path.join(at, "SKILL.md"));
+        assert.isTrue(core.startsWith("---\nname: ultrapaint\ndescription: "));
+        assert.include(core, "\n# Ultrapaint\n");
+        // The core names its references beside it, as the source does.
+        assert.include(core, "`references/");
+        for (const file of referenceFiles) {
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(at, file)),
+            skillFiles[file]
+          );
+        }
+        assert.deepStrictEqual((yield* client["skills.list"]()).installed, [
+          ".claude/skills/ultrapaint",
+        ]);
       })
   );
 
@@ -193,7 +220,9 @@ describe("design skills", () => {
       }).pipe(
         Effect.provide(
           ProjectTest({
-            files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
+            files: {
+              ".claude/skills/voice/SKILL.md": "# Voice\n\nPlain words.\n",
+            },
           })
         ),
         Effect.scoped
@@ -211,11 +240,13 @@ describe("design skills", () => {
       }).pipe(
         Effect.provide(
           ProjectTest({
-            files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
+            files: {
+              ".claude/skills/voice/SKILL.md": "# Voice\n\nPlain words.\n",
+            },
             settings: {
               skills: {
                 disabled: ["ultrapaint"],
-                enabled: ["designs/skills/voice.md"],
+                enabled: [".claude/skills/voice/SKILL.md"],
               },
             },
           })
@@ -226,7 +257,7 @@ describe("design skills", () => {
 
   /** A project with a skill of its own, which its settings leave off. */
   const withVoice = ProjectTest({
-    files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
+    files: { ".claude/skills/voice/SKILL.md": "# Voice\n\nPlain words.\n" },
   });
 
   /** The briefing a design thread is told for the chat's choice of skills. */
@@ -250,15 +281,18 @@ describe("design skills", () => {
         assert.notInclude(design, "Plain words.");
 
         // A name that matches no skill is passed over.
-        const own = yield* toldFor(["designs/skills/voice.md", "gone.md"]);
+        const own = yield* toldFor([
+          ".claude/skills/voice/SKILL.md",
+          "gone.md",
+        ]);
         assert.include(own, "# Voice\n\nPlain words.");
         assert.include(own, "How you work in this chat");
         assert.notInclude(own, "# Ultrapaint");
         assert.notInclude(own, "The design skill in this tool");
         const briefing = yield* ProjectBriefing;
         assert.deepStrictEqual(
-          yield* briefing.told(["designs/skills/voice.md", "gone.md"]),
-          ["designs/skills/voice.md"]
+          yield* briefing.told([".claude/skills/voice/SKILL.md", "gone.md"]),
+          [".claude/skills/voice/SKILL.md"]
         );
         assert.deepStrictEqual(yield* briefing.told(undefined), ["ultrapaint"]);
       }).pipe(Effect.provide(withVoice), Effect.scoped)
@@ -273,7 +307,10 @@ describe("design skills", () => {
         assert.strictEqual(yield* briefing.changed([], options), SKILLS_OFF);
 
         const own =
-          (yield* briefing.changed(["designs/skills/voice.md"], options)) ?? "";
+          (yield* briefing.changed(
+            [".claude/skills/voice/SKILL.md"],
+            options
+          )) ?? "";
         assert.include(own, "The user changed this chat's design skills");
         assert.include(own, "# Voice\n\nPlain words.");
         assert.notInclude(own, "# Ultrapaint");
@@ -305,12 +342,12 @@ describe("design skills", () => {
         yield* client["threads.setSkills"]({ skills: [], threadId });
         assert.deepStrictEqual(yield* skillsOf, []);
         yield* client["threads.setSkills"]({
-          skills: ["ultrapaint", "designs/skills/voice.md"],
+          skills: ["ultrapaint", ".claude/skills/voice/SKILL.md"],
           threadId,
         });
         assert.deepStrictEqual(yield* skillsOf, [
           "ultrapaint",
-          "designs/skills/voice.md",
+          ".claude/skills/voice/SKILL.md",
         ]);
         yield* client["threads.setSkills"]({ skills: null, threadId });
         assert.isUndefined(yield* skillsOf);

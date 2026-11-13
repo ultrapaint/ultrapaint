@@ -46,4 +46,32 @@ describe("the user's profile", () => {
         assert.deepStrictEqual(read, { displayName: "Ada" });
       }).pipe(Effect.provide(NodeServices.layer))
   );
+
+  it.effect(
+    "keeps the editor's preferences across servers, each one apart from the others (ADR 0093)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const user = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.scoped(
+          ProfileService.use((profile) =>
+            Effect.gen(function* () {
+              yield* profile.set({ displayName: "Ada" });
+              yield* profile.set({ preferences: { theme: "dark" } });
+              yield* profile.set({ preferences: { accent: "teal" } });
+            })
+          ).pipe(Effect.provide(profileOf(user)))
+        );
+        // The next project's server, on another port, reads them from the person's folder.
+        const read = yield* Effect.scoped(
+          ProfileService.use((profile) => profile.get).pipe(
+            Effect.provide(profileOf(user))
+          )
+        );
+        assert.deepStrictEqual(read, {
+          displayName: "Ada",
+          preferences: { accent: "teal", theme: "dark" },
+        });
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
 });

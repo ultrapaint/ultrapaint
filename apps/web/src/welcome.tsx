@@ -17,7 +17,6 @@ import {
   Plus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,11 +65,8 @@ import {
   type PlatformProject,
   platform,
 } from "./platform.ts";
-import { followPreferences } from "./state/preferences.ts";
 import { isSendKey, useSendKey } from "./state/send-key.ts";
-import { followTheme } from "./state/theme.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
-import "./styles.css";
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -750,11 +746,8 @@ const WindowTop = () =>
     <div className="window-drag fixed inset-x-0 top-0 h-11" />
   ) : null;
 
-// The editor's theme, or the system's: the page is the editor's first face.
-followTheme();
-followPreferences();
-
-createRoot(document.getElementById("root") as HTMLElement).render(
+/** The whole page, as the window's entry draws it (`welcome-main.tsx`) and the tests do. */
+export const WelcomePage = () => (
   <TooltipProvider delay={300}>
     <WindowTop />
     <Welcome />

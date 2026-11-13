@@ -168,7 +168,10 @@ const answerAll = () => {
   fakeApi.respond("dsSetup.inventory", () => null);
   fakeApi.respond("dsSetup.audit", () => null);
   fakeApi.respond("dsSetup.mapping", () => null);
-  fakeApi.respond("skills.list", () => ({ dir: `skills ${v()}`, skills: [] }));
+  fakeApi.respond("skills.list", () => ({
+    installed: [`skills ${v()}`],
+    skills: [],
+  }));
   fakeApi.respond("commands.list", () =>
     Array.from({ length: v() }, (_, i) => ({
       description: "",
@@ -192,7 +195,7 @@ const held = () => ({
   project: useProject.getState().info.name,
   settings: useProject.getState().settings?.libraryDirs,
   setup: useDesignSystemSetup.getState().setup?.updatedAt,
-  skills: useSkills.getState().dir,
+  skills: useSkills.getState().installed[0],
   sync: useSync.getState().plan?.at,
   undo: useProject.getState().undo.canUndo,
 });

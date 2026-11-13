@@ -2,10 +2,12 @@
  * The settings of the agents: the MCP connection they reach the editor by, the skills they are
  * given, the key that sends a prompt, and what a new chat starts with.
  */
-import type {
-  Skill,
-  SkillsBriefing,
-  SkillsConfig,
+import {
+  SKILL_INSTALL_COMMAND,
+  type Skill,
+  type SkillInstallFolder,
+  type SkillsBriefing,
+  type SkillsConfig,
 } from "@ultrapaint/contracts/skills";
 import {
   type AgentOptions,
@@ -19,6 +21,7 @@ import {
 } from "@ultrapaint/contracts/threads";
 import { Check, Copy, Ellipsis } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -80,6 +83,18 @@ export const skillsWith = (
   };
   return Object.keys(next).length === 0 ? undefined : next;
 };
+
+/**
+ * Whether a skill is on in the settings being edited: the design skill unless turned off, a
+ * project's once turned on. Read from the form, so a switch moves as it is pressed.
+ */
+export const skillOn = (
+  config: SkillsConfig | undefined,
+  skill: Pick<Skill, "file" | "name" | "source">
+) =>
+  skill.source === "built-in"
+    ? !(config?.disabled ?? []).includes(skill.name)
+    : (config?.enabled ?? []).includes(skill.file ?? skill.name);
 
 /** The skills with one turned on or off: the design skill by its name, a project's by its file. */
 export const skillToggled = (
@@ -327,7 +342,6 @@ export const SkillsGroup = ({
   message?: ReactNode;
   onChange: (config: SkillsConfig | undefined) => void;
 }) => {
-  const dir = useSkills((s) => s.dir);
   const loaded = useSkills((s) => s.loaded);
   const skills = useSkills((s) => s.skills);
   useEffect(() => {
@@ -340,7 +354,7 @@ export const SkillsGroup = ({
   const briefing = config?.briefing ?? "router";
   const row = (skill: Skill) => (
     <SkillRow
-      enabled={skill.enabled}
+      enabled={skillOn(config, skill)}
       key={skill.file ?? skill.name}
       onToggle={(on) => onChange(skillToggled(config, skill, on))}
       skill={skill}
@@ -390,17 +404,111 @@ export const SkillsGroup = ({
             <div className="flex flex-col gap-0.5 px-4 py-3">
               <span className="font-body">No other skills yet</span>
               <span className="text-pretty font-body-small text-muted-foreground">
-                Add a folder with a <code className="font-code">SKILL.md</code>{" "}
-                in <code className="font-code">.claude/skills</code>,{" "}
+                A skill is a folder with a{" "}
+                <code className="font-code">SKILL.md</code> in{" "}
+                <code className="font-code">.claude/skills</code>,{" "}
                 <code className="font-code">.agents/skills</code> or{" "}
-                <code className="font-code">skills</code>, or a markdown file in{" "}
-                <code className="font-code">{dir}</code>.
+                <code className="font-code">skills</code>.
               </span>
             </div>
           )}
         </Group>
       </section>
+      <InstallSkillGroup />
     </>
+  );
+};
+
+/** What goes before the `i`th of `count` things in a sentence: "a, b and c". */
+const listJoin = (i: number, count: number) => {
+  if (i === 0) {
+    return null;
+  }
+  return i === count - 1 ? " and " : ", ";
+};
+
+const INSTALL_INTO: readonly { into: SkillInstallFolder; label: string }[] = [
+  { into: ".claude/skills", label: "For Claude Code" },
+  { into: ".agents/skills", label: "For other agents" },
+];
+
+/**
+ * Ultrapaint's skill for agents outside the tool (ADR 0094): installed with the open skills
+ * installer, or saved into this repository, where a copy already there is said and replaced.
+ */
+const InstallSkillGroup = () => {
+  const installed = useSkills((s) => s.installed);
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (into: SkillInstallFolder) => {
+    setSaving(true);
+    setProblem(null);
+    api()
+      .request("skills.install", { into })
+      .then((folder) => toast.success(`Saved Ultrapaint’s skill in ${folder}`))
+      .catch((error: Error) =>
+        setProblem(`Couldn’t save the skill (${error.message}). Try again.`)
+      )
+      .finally(() => setSaving(false));
+  };
+  return (
+    <section data-setting="install-skill">
+      <Group
+        note="Ultrapaint tells its own skill to its chats. To use it with agents outside Ultrapaint, install it, or save a copy in this repository."
+        title="Use it outside Ultrapaint"
+      >
+        <Row
+          description="With the open skills installer, for the agents you pick."
+          layout="field"
+          title="Install"
+        >
+          <CopyLine command={SKILL_INSTALL_COMMAND} label="install" />
+        </Row>
+        <Row
+          description={
+            installed.length > 0 ? (
+              <>
+                Saved in{" "}
+                {installed.map((folder, i) => (
+                  <span key={folder}>
+                    {listJoin(i, installed.length)}
+                    <code className="font-code">{folder}</code>
+                  </span>
+                ))}
+                . Saving again brings it up to date.
+              </>
+            ) : (
+              "A copy your team’s agents read, committed with the code."
+            )
+          }
+          message={
+            problem ? <RowMessage kind="error">{problem}</RowMessage> : null
+          }
+          title="Save in this repository"
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button disabled={saving} variant="outline" />}
+            >
+              {saving ? <Spinner /> : null}
+              {saving ? "Saving…" : "Save…"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {INSTALL_INTO.map(({ into, label }) => (
+                <DropdownMenuItem key={into} onClick={() => save(into)}>
+                  <span className="flex flex-col">
+                    <span>{label}</span>
+                    <code className="font-code text-muted-foreground">
+                      {into}/ultrapaint
+                    </code>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Row>
+      </Group>
+    </section>
   );
 };
 

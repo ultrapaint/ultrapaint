@@ -1,17 +1,21 @@
 // @vitest-environment happy-dom
 import "./testing/fake-browser.ts";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Platform } from "./platform.ts";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it } from "vitest";
+import { type Platform, setPlatform } from "./platform.ts";
+import { WelcomePage } from "./welcome.tsx";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The page on a shell with two projects, `shop` open behind it, which records removals. The
- * page is the window's entry and draws itself into `#root` as its module is read: read anew for
- * each test, with the modules it stands on, so that each has a page of its own.
+ * The page on a shell with two projects, `shop` open behind it, which records removals: a page
+ * of its own for each test, drawn into a root it unmounts after.
  */
+let mounted: Root | null = null;
+
 const draw = async (
   shell: {
     /** Whether the shell keeps a session for `blog` that holds what its folder does not. */
@@ -20,9 +24,6 @@ const draw = async (
     readonly refuses?: string;
   } = {}
 ) => {
-  vi.resetModules();
-  const { act } = await import("react");
-  const { setPlatform } = await import("./platform.ts");
   const removed: string[] = [];
   setPlatform({
     projects: {
@@ -48,7 +49,12 @@ const draw = async (
     serverUrl: "",
   } as unknown as Platform);
   document.body.innerHTML = '<div id="root"></div>';
-  await act(() => import("./welcome.tsx"));
+  const root = createRoot(document.getElementById("root") as HTMLElement);
+  mounted = root;
+  await act(async () => {
+    root.render(<WelcomePage />);
+    await Promise.resolve();
+  });
   return {
     press: (element: Element | null | undefined) =>
       act(() => (element as HTMLElement | null | undefined)?.click()),
@@ -81,11 +87,13 @@ const answer = (name: string) =>
   );
 
 afterEach(() => {
+  act(() => mounted?.unmount());
+  mounted = null;
+  setPlatform(null);
   document.body.innerHTML = "";
 });
 
 describe("the start screen's projects", () => {
-  // Reading the editor's modules again takes a second or two, and more on a busy machine.
   it("takes a project off the list from its row's menu, but not the one open behind the page", async () => {
     const { press, removed, settled } = await draw();
     await settled();
@@ -102,7 +110,7 @@ describe("the start screen's projects", () => {
     await settled();
     expect(removed).toEqual(["blog"]);
     expect(rows()).toEqual(["Shop/work/shop"]);
-  }, 20_000);
+  });
 
   it("asks before it removes a project whose designs are not saved to its folder", async () => {
     const { press, removed, settled } = await draw({ unsaved: true });
@@ -127,7 +135,7 @@ describe("the start screen's projects", () => {
     await settled();
     expect(removed).toEqual(["blog"]);
     expect(rows()).toEqual(["Shop/work/shop"]);
-  }, 20_000);
+  });
 
   it("says a project could not be removed, and why", async () => {
     const { press, settled } = await draw({
@@ -142,5 +150,5 @@ describe("the start screen's projects", () => {
       "Couldn’t remove the projectThe project list could not be written."
     );
     expect(rows()).toEqual(["Blog/work/blog", "Shop/work/shop"]);
-  }, 20_000);
+  });
 });

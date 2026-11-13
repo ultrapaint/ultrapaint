@@ -632,8 +632,9 @@ describe("the briefing", () => {
 
   /** The project's own skills: one with a heading, and one without. */
   const ownSkills = {
-    "designs/skills/color.md": "Blue is the brand; never use it for status.\n",
-    "designs/skills/voice.md":
+    ".claude/skills/color/SKILL.md":
+      "Blue is the brand; never use it for status.\n",
+    ".claude/skills/voice/SKILL.md":
       "# Voice\n\nShort words, said plainly.\n\nNo exclamation marks.\n",
   };
 
@@ -669,7 +670,10 @@ describe("the briefing", () => {
             settings: {
               skills: {
                 briefing: "summaries",
-                enabled: ["designs/skills/color.md", "designs/skills/voice.md"],
+                enabled: [
+                  ".claude/skills/color/SKILL.md",
+                  ".claude/skills/voice/SKILL.md",
+                ],
               },
             },
           })
@@ -691,7 +695,7 @@ describe("the briefing", () => {
         assert.include(yield* fs.readFileString(core), "# Ultrapaint");
         assert.include(
           text,
-          "- Voice (designs/skills/voice.md): Short words, said plainly."
+          "- Voice (.claude/skills/voice/SKILL.md): Short words, said plainly."
         );
         assert.notInclude(text, "No exclamation marks.");
       }).pipe(
@@ -701,7 +705,10 @@ describe("the briefing", () => {
             settings: {
               skills: {
                 briefing: "summaries",
-                enabled: ["designs/skills/color.md", "designs/skills/voice.md"],
+                enabled: [
+                  ".claude/skills/color/SKILL.md",
+                  ".claude/skills/voice/SKILL.md",
+                ],
               },
             },
           })

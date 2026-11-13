@@ -106,9 +106,18 @@ const moveUserFolder = Effect.gen(function* () {
     onSome: (user): FolderMove => ({ user }),
   });
 }).pipe(
-  Effect.catchTag("FolderMoveRefused", (refused) =>
-    Effect.succeed({ problem: refused.message } satisfies FolderMove)
-  )
+  Effect.catchTags({
+    // Moved, its old copy left: where it is now, and what to delete.
+    FolderMovedOldKept: (kept) =>
+      Effect.succeed({
+        problem: kept.message,
+        user: kept.user,
+      } satisfies FolderMove),
+    FolderMoveRefused: (refused) =>
+      Effect.succeed({ problem: refused.message } satisfies FolderMove),
+    ServerNotOurs: (theirs) =>
+      Effect.succeed({ problem: theirs.message } satisfies FolderMove),
+  })
 );
 
 /** What a folder may hold and still count as empty: what a system or `git init` leaves. */
