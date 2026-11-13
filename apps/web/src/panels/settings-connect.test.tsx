@@ -55,7 +55,7 @@ afterEach(() => {
   setPlatform(null);
 });
 
-describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
+describe("Settings › Connections (ADR 0083)", () => {
   it("shows the one-time lines, the same for every project, with no port or token", async () => {
     await render();
     for (const { command } of OUTSIDE_COMMANDS) {
@@ -75,7 +75,7 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
     );
     await render();
     await act(() => Promise.resolve());
-    act(() => button("Install the command")?.click());
+    act(() => button("Install")?.click());
     await act(async () => {
       resolve({
         onPath: false,
@@ -85,8 +85,9 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
       });
       await Promise.resolve();
     });
+    expect(container.textContent).toContain("/home/u/.local/bin/ultrapaint");
     expect(container.textContent).toContain(
-      "Installed in /home/u/.local/bin/ultrapaint, a folder not on your PATH yet"
+      "Its folder isn’t on your PATH yet: add it, then start the agent again."
     );
   });
 
@@ -102,8 +103,8 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
     );
     await render();
     await act(() => Promise.resolve());
-    expect(button("Install the command")).toBeUndefined();
-    expect(container.textContent).not.toContain("installed at");
+    expect(button("Install")).toBeUndefined();
+    expect(button("Install again")).toBeUndefined();
   });
 
   it("says where Homebrew linked the app's command, and offers no second one (ADR 0088)", async () => {
@@ -118,10 +119,9 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
     );
     await render();
     await act(() => Promise.resolve());
-    expect(container.textContent).toContain(
-      "The command is installed at /opt/homebrew/bin/ultrapaint, linked to this app."
-    );
-    expect(button("Install the command")).toBeUndefined();
+    expect(container.textContent).toContain("/opt/homebrew/bin/ultrapaint");
+    expect(container.textContent).toContain("Installed, linked to this app");
+    expect(button("Install")).toBeUndefined();
     expect(button("Install again")).toBeUndefined();
   });
 
@@ -139,9 +139,7 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
     });
     await render();
     await act(() => Promise.resolve());
-    expect(container.textContent).toContain(
-      "The command is installed at /home/u/.local/bin/ultrapaint."
-    );
+    expect(container.textContent).toContain("/home/u/.local/bin/ultrapaint");
     await act(async () => {
       button("Install again")?.click();
       await Promise.resolve();

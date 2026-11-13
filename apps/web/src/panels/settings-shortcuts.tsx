@@ -276,7 +276,7 @@ export const ShortcutsSection = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-setting="shortcuts">
         <InputGroup>
           <InputGroupAddon>
             <Search />

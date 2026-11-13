@@ -1,0 +1,146 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
+    {"type": "row", "id": "r_s10v", "crossAlign": "start", "gap": 32, "children": [
+      {"type": "row", "id": "r_s10j", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": 16, "shadow": "0 2px 6px rgba(0,0,0,0.35), 0 16px 40px -8px rgba(0,0,0,0.6)", "width": 1040, "children": [
+        {"type": "column", "id": "c_s10b", "name": "Sections", "gap": 2, "padding": {"bottom": 12, "left": 12, "right": 12}, "width": 220, "children": [
+          {"type": "row", "id": "r_s109", "crossAlign": "center", "height": 48, "padding": {"left": 8}, "width": "fill", "children": [
+            {"type": "text", "id": "t_s108", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Settings", "tracking": "0.02em"}
+          ]},
+          {"type": "row", "id": "r_sz6", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_sz5", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "You", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_sz9", "name": "Nav · General", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_sz7", "name": "sliders-horizontal", "height": 16, "src": "assets/icons/sliders-horizontal.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_sz8", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "General", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szc", "name": "Nav · Appearance", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_sza", "name": "palette", "height": 16, "src": "assets/icons/palette.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Appearance", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szf", "name": "Nav · Chats", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szd", "name": "message-square", "height": 16, "src": "assets/icons/message-square.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_sze", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Chats", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szi", "name": "Nav · Shortcuts", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szg", "name": "keyboard", "height": 16, "src": "assets/icons/keyboard.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szh", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Shortcuts", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szk", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_szj", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Project · ultrapaint", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_szn", "name": "Nav · Repository", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szl", "name": "folder-git-2", "height": 16, "src": "assets/icons/folder-git-2.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szm", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Repository", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szq", "name": "Nav · Design system", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szo", "name": "swatch-book", "height": 16, "src": "assets/icons/swatch-book.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szp", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szt", "name": "Nav · Review", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szr", "name": "message-square-check", "height": 16, "src": "assets/icons/message-square-check.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szs", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Review", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szw", "name": "Nav · Skills", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szu", "name": "book-open", "height": 16, "src": "assets/icons/book-open.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_szv", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Skills", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_szy", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_szx", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "This computer", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_s101", "name": "Nav · Agents", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_szz", "name": "bot", "height": 16, "src": "assets/icons/bot.svg", "tint": "$color-foreground", "width": 16},
+            {"type": "text", "id": "t_s100", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Agents", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_s104", "name": "Nav · Connections", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_s102", "name": "plug", "height": 16, "src": "assets/icons/plug.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_s103", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Connections", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_s107", "name": "Nav · About", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_s105", "name": "info", "height": 16, "src": "assets/icons/info.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_s106", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "About", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "column", "id": "c_s10a", "name": "Spacer", "height": "fill", "width": "fill", "children": []}
+        ]},
+        {"type": "column", "id": "c_s10i", "name": "Page", "border": {"color": "$color-border", "style": "solid", "width": "0 0 0 1px"}, "fill": "$color-sidebar", "radius": "0 16px 16px 0", "width": "fill", "children": [
+          {"type": "row", "id": "r_s10g", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 24, "right": 12}, "width": "fill", "children": [
+            {"type": "row", "id": "r_s10d", "crossAlign": "center", "gap": 10, "width": "fill", "children": [
+              {"type": "text", "id": "t_s10c", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Agents", "tracking": "0.02em"}
+            ]},
+            {"type": "row", "id": "r_s10f", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+              {"type": "image", "id": "m_s10e", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 16}
+            ]}
+          ]},
+          {"type": "column", "id": "c_s10h", "name": "Scroll", "gap": 32, "maxWidth": 820, "padding": 24, "width": "fill", "children": [
+            {"type": "column", "id": "c_sz4", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+              {"type": "column", "id": "c_sz3", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+                {"type": "row", "id": "r_sym", "crossAlign": "center", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_syg", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 8, "width": 32, "children": [
+                    {"type": "image", "id": "m_syf", "name": "agent-claude", "height": 18, "src": "assets/icons/agent-claude.svg", "tint": "$color-foreground", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_syj", "gap": 2, "width": "fill", "children": [
+                    {"type": "row", "id": "r_syi", "crossAlign": "center", "gap": 10, "children": [
+                      {"type": "text", "id": "t_syh", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Claude Code", "weight": 600},
+                      {"type": "row", "id": "r_sya", "crossAlign": "center", "gap": 6, "children": [
+                        {"type": "row", "id": "r_sy8", "fill": "$color-success", "height": 6, "radius": 999, "width": 6, "children": []},
+                        {"type": "text", "id": "t_sy9", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Signed in"}
+                      ]}
+                    ]},
+                    {"type": "row", "id": "r_sye", "crossAlign": "baseline", "gap": 0, "wrap": true, "children": [
+                      {"type": "text", "id": "t_syb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "2.4.1 · "},
+                      {"type": "text", "id": "t_syc", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "/usr/local/bin/claude"},
+                      {"type": "text", "id": "t_syd", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": ", on your PATH"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_syl", "name": "Icon button · ellipsis", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_syk", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_sz2", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+                {"type": "row", "id": "r_sz1", "crossAlign": "center", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_syv", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 8, "width": 32, "children": [
+                    {"type": "image", "id": "m_syu", "name": "agent-codex", "height": 18, "src": "assets/icons/agent-codex.svg", "tint": "$color-foreground", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_syy", "gap": 2, "width": "fill", "children": [
+                    {"type": "row", "id": "r_syx", "crossAlign": "center", "gap": 10, "children": [
+                      {"type": "text", "id": "t_syw", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Codex", "weight": 600},
+                      {"type": "row", "id": "r_syp", "crossAlign": "center", "gap": 6, "children": [
+                        {"type": "row", "id": "r_syn", "fill": "$color-warning", "height": 6, "radius": 999, "width": 6, "children": []},
+                        {"type": "text", "id": "t_syo", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Signed out"}
+                      ]}
+                    ]},
+                    {"type": "row", "id": "r_syr", "crossAlign": "baseline", "gap": 0, "wrap": true, "children": [
+                      {"type": "text", "id": "t_syq", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "0.98.0 · downloaded by the app"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_syt", "name": "Button · Sign in with ChatGPT", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_sys", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Sign in with ChatGPT", "weight": 500}
+                  ]},
+                  {"type": "row", "id": "r_sz0", "name": "Icon button · ellipsis", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_syz", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s10u", "name": "Notes", "gap": 12, "padding": {"top": 8}, "width": 300, "children": [
+        {"type": "column", "id": "c_s10o", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_s10m", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_s10k", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_s10l", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_s10n", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Each agent is a row with its mark, its status, where it was found, its one next action, and the rest (Choose executable…, Use PATH, Forget key) in its ⋯ menu."}
+        ]},
+        {"type": "column", "id": "c_s10t", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_s10r", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_s10p", "fill": "#8b5cf6", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_s10q", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Moved", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_s10s", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New chats → Chats; Review, Design skills and Outside the editor → their own sections. Agents is only what is installed on this computer."}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

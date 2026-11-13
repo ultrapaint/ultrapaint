@@ -9,6 +9,7 @@
  */
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { motionReduced } from "./preferences.ts";
 import { selectedPageNow } from "./selection.ts";
 import { allFrames } from "./surface.ts";
 
@@ -141,10 +142,7 @@ export const zoomNotches = (
       zoom,
     });
   };
-  if (
-    typeof matchMedia !== "undefined" &&
-    matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
+  if (typeof matchMedia !== "undefined" && motionReduced()) {
     toward(target);
     return;
   }
@@ -177,7 +175,7 @@ const flyTo = (to: View, viewport: Viewport) => {
   const still =
     typeof requestAnimationFrame === "undefined" ||
     typeof matchMedia === "undefined" ||
-    matchMedia("(prefers-reduced-motion: reduce)").matches;
+    motionReduced();
   if (still || (from.x === to.x && from.y === to.y && from.zoom === to.zoom)) {
     show(to);
     return;

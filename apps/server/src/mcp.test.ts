@@ -410,12 +410,16 @@ describe("the editor's MCP server, over the wire", () => {
           path.join(repo, "designs/skills/voice.md"),
           "# Voice\n\nPlain words.\n"
         );
+        // A project's own skill is read once the settings turn it on (ADR 0094).
+        assert.isUndefined(yield* read("skill://ultrapaint/voice"));
+        const voiceOn = { enabled: ["designs/skills/voice.md"] };
+        yield* client["settings.set"]({ ...settings, skills: voiceOn });
         assert.include(yield* read("skill://ultrapaint/voice"), "Plain words.");
 
         // Turned off, the design skill is not read.
         yield* client["settings.set"]({
           ...settings,
-          skills: { disabled: ["ultrapaint"] },
+          skills: { ...voiceOn, disabled: ["ultrapaint"] },
         });
         assert.isUndefined(yield* read("skill://ultrapaint/SKILL.md"));
       })

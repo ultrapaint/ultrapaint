@@ -142,6 +142,8 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   4.4:1 on a selected row, and kept there rather than darkened to 4.5.
 - {colors.primary} (ultramarine) is the one colour of the chrome: the one primary button of a view,
   a checked switch or checkbox, the active tool, the focus ring. Never on headings, icons or rows.
+  Ultramarine is the default accent; the person may pick another in Settings › Appearance (teal,
+  green, orange or graphite), which takes its place in every role above and nowhere else.
 - Selected and hovered rows, the active tab, the current rail item: a neutral fill
   ({colors.accent}), never a wash of blue.
 - {colors.destructive} for deleting and errors: red text on a 10–15% tint. {colors.success} and
@@ -239,7 +241,11 @@ floating cards. {rounded.2xl} (16px) for dialogs. Avatars, badges and switches a
 - A diff's added lines are the foreground on {colors.accent}; removed ones {colors.destructive} on
   its 10% tint; context muted.
 - A select in a form row is the default select, filled and edged as a field, never a quiet value
-  and chevron; it and a field there are 13rem wide, on the row's right edge.
+  and chevron; it and a field there are 13rem wide, on the row's right edge. A path, or a list of
+  paths (one field each, with its remove and an Add after them), fills the row's control column.
+- A settings dialog lists its sections under small muted labels of whose they are (You, the
+  project, This computer), a search over them; a setting changed from its default has a reset
+  arrow after its name.
 - A panel action with nothing to act on is not drawn, rather than drawn disabled.
 - An error tied to a row sits under it in full, across the row, on a 10% red box. A notice takes
   the same place, muted, with a warning icon. A status that blocks the action (a conflict) is in

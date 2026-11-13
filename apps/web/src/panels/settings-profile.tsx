@@ -116,6 +116,7 @@ export const ProfileRow = () => {
           </RowMessage>
         ) : null
       }
+      setting="display-name"
       title="Display name"
     >
       {status.kind === "loading" ? (
@@ -174,10 +175,11 @@ export const KeepFindingsRow = () => {
   };
   return (
     <Row
-      description="Saves review findings for the design skill, in ~/.ultrapaint/findings."
+      description="Saves what review models find, so the design skill can learn from it."
       htmlFor="settings-keep-findings"
       message={failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
-      title="Keep findings"
+      setting="keep-findings"
+      title="Keep review findings"
     >
       <Switch
         checked={kept === true}

@@ -187,7 +187,7 @@ export const ReviewChip = ({ thread }: { thread: Thread }) => {
       .catch(reportError);
   const onChange = (next: ReviewLevel) =>
     set(next === projectLevel ? null : chatLevel(next));
-  const openSettings = () => useProject.getState().openSettings(true, "agents");
+  const openSettings = () => useProject.getState().openSettings(true, "review");
   return (
     <Popover>
       <PopoverTrigger

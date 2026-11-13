@@ -1,0 +1,220 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
+    {"type": "row", "id": "r_s1ax", "crossAlign": "start", "gap": 32, "width": 1620, "wrap": true, "children": [
+      {"type": "column", "id": "c_s17l", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s17j", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Repository · a first run: what was detected, saved with the first change"},
+        {"type": "column", "id": "c_s17k", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "row", "id": "r_s178", "crossAlign": "start", "fill": "$color-muted", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "radius": 10, "width": "fill", "children": [
+            {"type": "image", "id": "m_s174", "name": "file-search", "height": 16, "margin": {"top": 2}, "src": "assets/icons/file-search.svg", "tint": "$color-foreground", "width": 16},
+            {"type": "column", "id": "c_s177", "gap": 2, "width": "fill", "children": [
+              {"type": "text", "id": "t_s175", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Found a React app with Vite and Tailwind v4", "weight": 600},
+              {"type": "text", "id": "t_s176", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "The fields below are filled from the folder. Change any; nothing is saved until you do."}
+            ]}
+          ]},
+          {"type": "column", "id": "c_s17i", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_s17h", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "column", "id": "c_s17g", "name": "Row · Designs", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_s17f", "crossAlign": "start", "gap": 24, "width": "fill", "children": [
+                  {"type": "column", "id": "c_s17d", "gap": 2, "padding": {"top": 4}, "width": 264, "children": [
+                    {"type": "text", "id": "t_s17b", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Designs", "weight": 600},
+                    {"type": "text", "id": "t_s17c", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Pages, canvases and their pictures."}
+                  ]},
+                  {"type": "column", "id": "c_s17e", "gap": 6, "width": "fill", "children": [
+                    {"type": "row", "id": "r_s17a", "name": "Field", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_s179", "color": "$color-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": "20px", "role": "paragraph", "size": 12, "text": "docs/designs", "width": "fill"}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s183", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s181", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Repository · a refused save, under the row it is about"},
+        {"type": "column", "id": "c_s182", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "column", "id": "c_s180", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_s17z", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "column", "id": "c_s17y", "name": "Row · Designs", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_s17x", "crossAlign": "start", "gap": 24, "width": "fill", "children": [
+                  {"type": "column", "id": "c_s17v", "gap": 2, "padding": {"top": 4}, "width": 264, "children": [
+                    {"type": "text", "id": "t_s17t", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Designs", "weight": 600},
+                    {"type": "text", "id": "t_s17u", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Pages, canvases and their pictures."}
+                  ]},
+                  {"type": "column", "id": "c_s17w", "gap": 6, "width": "fill", "children": [
+                    {"type": "row", "id": "r_s17n", "name": "Field", "border": {"color": "$color-destructive", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_s17m", "color": "$color-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": "20px", "role": "paragraph", "size": 12, "text": "design", "width": "fill"}
+                    ]}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_s17s", "border": {"color": "$color-destructive", "style": "solid", "width": 1}, "crossAlign": "center", "gap": 8, "padding": {"bottom": 8, "left": 12, "right": 8, "top": 8}, "radius": 6, "width": "fill", "children": [
+                  {"type": "image", "id": "m_s17o", "name": "circle-alert", "height": 14, "src": "assets/icons/circle-alert.svg", "tint": "$color-destructive", "width": 14},
+                  {"type": "text", "id": "t_s17p", "color": "$color-destructive", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "There is no folder design in the repository.", "width": "fill"},
+                  {"type": "row", "id": "r_s17r", "name": "Button · Create design", "align": "center", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_s17q", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Create design", "weight": 500}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s193", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s191", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Agents · one to install, one downloading"},
+        {"type": "column", "id": "c_s192", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "column", "id": "c_s190", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_s18z", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_s18i", "crossAlign": "center", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_s18c", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 8, "width": 32, "children": [
+                  {"type": "image", "id": "m_s18b", "name": "agent-claude", "height": 18, "src": "assets/icons/agent-claude.svg", "tint": "$color-foreground", "width": 18}
+                ]},
+                {"type": "column", "id": "c_s18f", "gap": 2, "width": "fill", "children": [
+                  {"type": "row", "id": "r_s18e", "crossAlign": "center", "gap": 10, "children": [
+                    {"type": "text", "id": "t_s18d", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Claude Code", "weight": 600},
+                    {"type": "row", "id": "r_s186", "crossAlign": "center", "gap": 6, "children": [
+                      {"type": "row", "id": "r_s184", "fill": "$color-muted-foreground", "height": 6, "radius": 999, "width": 6, "children": []},
+                      {"type": "text", "id": "t_s185", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Not installed"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_s188", "crossAlign": "baseline", "gap": 0, "wrap": true, "children": [
+                    {"type": "text", "id": "t_s187", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Install it, or download 2.4.1 into the app."}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_s18a", "name": "Button · Download (48 MB)", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+                  {"type": "text", "id": "t_s189", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Download (48 MB)", "weight": 500}
+                ]},
+                {"type": "row", "id": "r_s18h", "name": "Icon button · ellipsis", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                  {"type": "image", "id": "m_s18g", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+                ]}
+              ]},
+              {"type": "row", "id": "r_s18y", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+              {"type": "row", "id": "r_s18x", "crossAlign": "center", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_s18r", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 8, "width": 32, "children": [
+                  {"type": "image", "id": "m_s18q", "name": "agent-codex", "height": 18, "src": "assets/icons/agent-codex.svg", "tint": "$color-foreground", "width": 18}
+                ]},
+                {"type": "column", "id": "c_s18u", "gap": 2, "width": "fill", "children": [
+                  {"type": "row", "id": "r_s18t", "crossAlign": "center", "gap": 10, "children": [
+                    {"type": "text", "id": "t_s18s", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Codex", "weight": 600},
+                    {"type": "row", "id": "r_s18l", "crossAlign": "center", "gap": 6, "children": [
+                      {"type": "row", "id": "r_s18j", "fill": "$color-muted-foreground", "height": 6, "radius": 999, "width": 6, "children": []},
+                      {"type": "text", "id": "t_s18k", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Downloading"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_s18n", "crossAlign": "baseline", "gap": 0, "wrap": true, "children": [
+                    {"type": "text", "id": "t_s18m", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "0.98.0 · 42%"}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_s18p", "fill": "$color-muted", "height": 4, "radius": 999, "width": 120, "children": [
+                  {"type": "row", "id": "r_s18o", "fill": "$color-foreground", "height": 4, "radius": 999, "width": 50, "children": []}
+                ]},
+                {"type": "row", "id": "r_s18w", "name": "Icon button · ellipsis", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                  {"type": "image", "id": "m_s18v", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s19r", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s19p", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Connections and About · the command missing, an update ready"},
+        {"type": "column", "id": "c_s19q", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "column", "id": "c_s19d", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_s19c", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "column", "id": "c_s19b", "name": "Row · Command line", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_s19a", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                  {"type": "column", "id": "c_s198", "gap": 2, "width": 264, "children": [
+                    {"type": "text", "id": "t_s196", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Command line", "weight": 600},
+                    {"type": "text", "id": "t_s197", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Agents outside the editor start it; this computer doesn’t have it yet."}
+                  ]},
+                  {"type": "row", "id": "r_s199", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                    {"type": "row", "id": "r_s195", "name": "Button · Install", "align": "center", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+                      {"type": "text", "id": "t_s194", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Install", "weight": 500}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "row", "id": "r_s19o", "crossAlign": "center", "gap": 16, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
+            {"type": "image", "id": "m_s19e", "name": "ultrapaint-mark", "height": 40, "src": "assets/icons/ultrapaint-mark.svg", "tint": "$color-foreground", "width": 40},
+            {"type": "column", "id": "c_s19l", "gap": 2, "width": "fill", "children": [
+              {"type": "text", "id": "t_s19f", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 16, "text": "Ultrapaint", "tracking": "0.02em"},
+              {"type": "row", "id": "r_s19k", "crossAlign": "center", "gap": 10, "children": [
+                {"type": "text", "id": "t_s19g", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": "20px", "role": "paragraph", "size": 12, "text": "0.1.5"},
+                {"type": "row", "id": "r_s19j", "crossAlign": "center", "gap": 6, "children": [
+                  {"type": "row", "id": "r_s19h", "fill": "$color-primary", "height": 6, "radius": 999, "width": 6, "children": []},
+                  {"type": "text", "id": "t_s19i", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "0.1.6 is ready"}
+                ]}
+              ]}
+            ]},
+            {"type": "row", "id": "r_s19n", "name": "Button · Restart to update", "align": "center", "crossAlign": "center", "fill": "$color-primary", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+              {"type": "text", "id": "t_s19m", "color": "$color-primary-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Restart to update", "weight": 500}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s1a1", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s19z", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Shortcuts · nothing matches"},
+        {"type": "column", "id": "c_s1a0", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "row", "id": "r_s19u", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_s19s", "name": "search", "height": 14, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 14},
+            {"type": "text", "id": "t_s19t", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "zoom out of", "width": "fill"}
+          ]},
+          {"type": "column", "id": "c_s19y", "crossAlign": "center", "gap": 8, "padding": {"bottom": 16, "top": 16}, "width": "fill", "children": [
+            {"type": "text", "id": "t_s19v", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "No shortcut matches “zoom out of”."},
+            {"type": "row", "id": "r_s19x", "name": "Button · Clear search", "align": "center", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+              {"type": "text", "id": "t_s19w", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Clear search", "weight": 500}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_s1aw", "gap": 12, "width": 772, "children": [
+        {"type": "text", "id": "t_s1au", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Any section · loading: the rows as skeletons; a failed read says why, with Try again"},
+        {"type": "column", "id": "c_s1av", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 24, "padding": 24, "radius": 12, "width": "fill", "children": [
+          {"type": "column", "id": "c_s1an", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_s1am", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_s1a7", "crossAlign": "center", "gap": 24, "padding": {"bottom": 14, "left": 16, "right": 16, "top": 14}, "width": "fill", "children": [
+                {"type": "column", "id": "c_s1a4", "gap": 6, "width": 264, "children": [
+                  {"type": "row", "id": "r_s1a2", "fill": "$color-muted", "height": 12, "radius": 4, "width": 112, "children": []},
+                  {"type": "row", "id": "r_s1a3", "fill": "$color-muted", "height": 12, "radius": 4, "width": 192, "children": []}
+                ]},
+                {"type": "row", "id": "r_s1a6", "align": "end", "width": "fill", "children": [
+                  {"type": "row", "id": "r_s1a5", "fill": "$color-muted", "height": 28, "radius": 4, "width": 208, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_s1ak", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+              {"type": "row", "id": "r_s1ad", "crossAlign": "center", "gap": 24, "padding": {"bottom": 14, "left": 16, "right": 16, "top": 14}, "width": "fill", "children": [
+                {"type": "column", "id": "c_s1aa", "gap": 6, "width": 264, "children": [
+                  {"type": "row", "id": "r_s1a8", "fill": "$color-muted", "height": 12, "radius": 4, "width": 112, "children": []},
+                  {"type": "row", "id": "r_s1a9", "fill": "$color-muted", "height": 12, "radius": 4, "width": 192, "children": []}
+                ]},
+                {"type": "row", "id": "r_s1ac", "align": "end", "width": "fill", "children": [
+                  {"type": "row", "id": "r_s1ab", "fill": "$color-muted", "height": 28, "radius": 4, "width": 208, "children": []}
+                ]}
+              ]},
+              {"type": "row", "id": "r_s1al", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+              {"type": "row", "id": "r_s1aj", "crossAlign": "center", "gap": 24, "padding": {"bottom": 14, "left": 16, "right": 16, "top": 14}, "width": "fill", "children": [
+                {"type": "column", "id": "c_s1ag", "gap": 6, "width": 264, "children": [
+                  {"type": "row", "id": "r_s1ae", "fill": "$color-muted", "height": 12, "radius": 4, "width": 112, "children": []},
+                  {"type": "row", "id": "r_s1af", "fill": "$color-muted", "height": 12, "radius": 4, "width": 192, "children": []}
+                ]},
+                {"type": "row", "id": "r_s1ai", "align": "end", "width": "fill", "children": [
+                  {"type": "row", "id": "r_s1ah", "fill": "$color-muted", "height": 28, "radius": 4, "width": 208, "children": []}
+                ]}
+              ]}
+            ]}
+          ]},
+          {"type": "column", "id": "c_s1at", "crossAlign": "center", "gap": 12, "padding": {"bottom": 8, "top": 8}, "width": "fill", "children": [
+            {"type": "image", "id": "m_s1ao", "name": "circle-alert", "height": 20, "src": "assets/icons/circle-alert.svg", "tint": "$color-muted-foreground", "width": 20},
+            {"type": "text", "id": "t_s1ap", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Couldn’t load the settings"},
+            {"type": "text", "id": "t_s1aq", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "The server didn’t answer (timed out after 10 s)."},
+            {"type": "row", "id": "r_s1as", "name": "Button · Try again", "align": "center", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 6, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "children": [
+              {"type": "text", "id": "t_s1ar", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Try again", "weight": 500}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

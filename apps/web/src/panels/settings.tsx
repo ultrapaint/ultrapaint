@@ -13,28 +13,21 @@ import {
 import type { SkillsConfig } from "@ultrapaint/contracts/skills";
 import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { plural } from "@ultrapaint/shared/text";
-import {
-  Bot,
-  FolderGit2,
-  FolderSearch,
-  type LucideIcon,
-  SlidersHorizontal,
-  SwatchBook,
-  Wand2,
-  X,
-} from "lucide-react";
+import { FolderSearch, Search, Wand2, X } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 import { IconButton } from "../components/icon-button.tsx";
+import { OptionSelect } from "../components/option-select.tsx";
 import { useAutosave } from "../lib/autosave.ts";
+import { isTyping } from "../lib/keys.ts";
 import { placeDocument } from "../lib/place-document.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
@@ -43,6 +36,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { AboutSection } from "./settings-about.tsx";
 import {
   ChatDefaultsGroup,
   MachineAgentsGroup,
@@ -50,109 +44,81 @@ import {
   SendKeyRow,
   SkillsGroup,
 } from "./settings-agents.tsx";
-import { Group, Row, RowMessage } from "./settings-group.tsx";
-import { KeepFindingsRow, ProfileRow } from "./settings-profile.tsx";
+import { AppearanceSection } from "./settings-appearance.tsx";
+import { FoldersGroup } from "./settings-folders.tsx";
+import { GeneralSection } from "./settings-general.tsx";
+import { Group, PathList, Row, RowMessage, Status } from "./settings-group.tsx";
 import { ReviewGroup } from "./settings-review.tsx";
-import { ThemeRow } from "./settings-theme.tsx";
-
-const LIST_SEPARATOR_RE = /[\n,]/;
+import {
+  labelOf,
+  SECTION_GROUPS,
+  SECTIONS,
+  type SectionId,
+  scopeLabel,
+  scopeOf,
+  searchSettings,
+  sectionNamed,
+} from "./settings-sections.ts";
+import { ShortcutsSection } from "./settings-shortcuts.tsx";
 
 const TRAILING_SLASH_RE = /\/+$/;
 
 const MISSING_DESIGNS_PREFIX = "Designs directory does not exist";
 
-const list = (v: string) =>
-  v
-    .split(LIST_SEPARATOR_RE)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
 /**
- * A list of paths, one per line. The text is the field's own while it is typed in, so a new
- * line stays until something is written on it; the settings get the list.
- */
-const ListField = ({
-  id,
-  invalid,
-  onBlur,
-  onChange,
-  placeholder,
-  value,
-}: {
-  id: string;
-  /** Its ties to the reasons a refused save gave under its row. */
-  invalid?: React.AriaAttributes;
-  /** Left: what was typed is saved. */
-  onBlur: () => void;
-  onChange: (value: string[]) => void;
-  placeholder: string;
-  value: readonly string[];
-}) => {
-  const [text, setText] = useState(value.join("\n"));
-  // Detection replaces the list: the field shows what it found.
-  const [shown, setShown] = useState(value);
-  if (shown !== value && list(text).join("\n") !== value.join("\n")) {
-    setShown(value);
-    setText(value.join("\n"));
-  }
-  return (
-    <Textarea
-      className="min-h-16 font-code"
-      id={id}
-      onBlur={onBlur}
-      onChange={(e) => {
-        setText(e.target.value);
-        onChange(list(e.target.value));
-      }}
-      placeholder={placeholder}
-      spellCheck={false}
-      value={text}
-      {...invalid}
-    />
-  );
-};
-
-/**
- * The settings, in a dialog over the editor: their sections down its side, and the section's
+ * The settings, in a dialog over the editor: their sections down its side, grouped by whose they
+ * are (yours, the project's, this computer's), with a search over every setting; the section's
  * groups of rows, one setting per row, its control on the right.
  */
-type SectionId = "repository" | "designSystem" | "editor" | "agents";
 
-const sections: readonly {
-  icon: LucideIcon;
-  id: SectionId;
-  label: string;
-  /** Sections that only make sense once there are settings to work against. */
-  needsSaved?: boolean;
-}[] = [
-  { icon: FolderGit2, id: "repository", label: "Repository" },
-  { icon: SwatchBook, id: "designSystem", label: "Design system" },
-  // The person's own, in every project: not one more part of the project.
-  { icon: SlidersHorizontal, id: "editor", label: "Preferences" },
-  { icon: Bot, id: "agents", label: "Agents", needsSaved: true },
-];
+/** Sections that only make sense once the project has settings to work against. */
+const NEEDS_SAVED: ReadonlySet<SectionId> = new Set([
+  "designSystem",
+  "review",
+  "skills",
+]);
 
 /** DESIGN.md in a line: where it is, and what the format's linter says of it. */
-const documentDescription = (document: DesignDocument | null) => {
+const documentStatus = (
+  document: DesignDocument | null
+): { line: string; status?: React.ReactNode } => {
   if (!document) {
-    return "Not written yet. Agents everywhere read it at the repository’s root.";
+    return {
+      line: "Not written yet. Every agent reads it at the repository’s root.",
+    };
   }
   if (document.legacy) {
-    return `${document.path}, in the designs directory. At the root, agents outside the editor find it too.`;
+    return {
+      line: "In the designs directory. At the root, agents outside the editor find it too.",
+    };
   }
   const errors = document.findings.filter((f) => f.severity === "error").length;
   const warnings = document.findings.filter(
     (f) => f.severity === "warning"
   ).length;
-  const lint =
-    errors + warnings === 0
-      ? "The linter finds nothing"
-      : `${[errors > 0 ? plural(errors, "error") : "", warnings > 0 ? plural(warnings, "warning") : ""].filter(Boolean).join(", ")}, listed in the Design system panel`;
-  return `${document.path} · ${lint}.`;
+  if (errors + warnings === 0) {
+    return {
+      line: "At the repository’s root, where every agent finds it.",
+      status: <Status tone="success">No problems</Status>,
+    };
+  }
+  return {
+    line: "Listed in the Design system panel.",
+    status: (
+      <Status tone="warning">
+        {[
+          errors > 0 ? plural(errors, "error") : "",
+          warnings > 0 ? plural(warnings, "warning") : "",
+        ]
+          .filter(Boolean)
+          .join(", ")}
+      </Status>
+    ),
+  };
 };
 
 /** The design system the agents and the inspector know, and DESIGN.md beside it. */
-const DesignSystemRows = () => {
+const DesignSystemSummary = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const document = useDesignSystem((s) => s.document);
   const detecting = useDesignSystem((s) => s.detecting);
@@ -170,44 +136,56 @@ const DesignSystemRows = () => {
     useProject.getState().openSettings(false);
     startInit();
   };
+  const doc = documentStatus(document);
   return (
     <>
-      <Row
-        description={
-          designSystem
-            ? `${plural(tokensOfKind(designSystem, "color").length, "colour")} and ${plural(designSystem.typography.styles.length, "text style")}, in design-system.json.`
-            : "Not set up yet. An agent reads your theme and components, asks about the product, and writes it."
-        }
-        title="Design system"
+      <div
+        className="flex @xl:flex-row flex-col @xl:items-center gap-3 rounded-lg bg-muted px-4 py-3"
+        data-setting="design-system"
       >
-        <div className="flex flex-wrap @xl:justify-end gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-body-semibold">
+            {designSystem ? "Design system" : "No design system yet"}
+          </span>
+          <span className="text-pretty font-body-small text-muted-foreground">
+            {designSystem
+              ? `${plural(tokensOfKind(designSystem, "color").length, "colour")} and ${plural(designSystem.typography.styles.length, "text style")}.`
+              : "Pages are drawn in the default look. An agent reads your theme and components, asks about the product, and writes one."}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1">
           {designSystem ? (
             <Button onClick={open} variant="ghost">
-              Show
+              Open
             </Button>
-          ) : null}
-          <Button
-            disabled={detecting}
-            onClick={() => useDesignSystem.getState().detect()}
-            variant="ghost"
-          >
-            {detecting ? <Spinner /> : null}
-            Detect
-          </Button>
+          ) : (
+            <Button
+              disabled={detecting}
+              onClick={() => useDesignSystem.getState().detect()}
+              variant="ghost"
+            >
+              {detecting ? <Spinner /> : null}
+              {detecting ? "Reading the code…" : "Read from the code"}
+            </Button>
+          )}
           <Button onClick={init} variant="outline">
             <Wand2 />
-            {designSystem ? "Update with an agent" : "Set up with an agent"}
+            {designSystem ? "Update with an agent" : "Make one with an agent"}
           </Button>
         </div>
-      </Row>
+      </div>
       {designSystem ? (
-        <Row description={documentDescription(document)} title="DESIGN.md">
-          {document?.legacy || !document ? (
-            <Button onClick={placeDocument} variant="outline">
-              {document ? "Move to the root" : "Write DESIGN.md"}
-            </Button>
-          ) : null}
-        </Row>
+        <Group>
+          <Row description={doc.line} setting="design-md" title="DESIGN.md">
+            {document?.legacy || !document ? (
+              <Button onClick={placeDocument} variant="outline">
+                {document ? "Move to the root" : "Write DESIGN.md"}
+              </Button>
+            ) : (
+              doc.status
+            )}
+          </Row>
+        </Group>
       ) : null}
     </>
   );
@@ -226,6 +204,12 @@ const Bone = ({ className }: { className: string }) => (
   <div className={cn("rounded-sm bg-foreground/10", className)} />
 );
 
+/** The section a URL or a caller asks for, if the dialog shows it; General otherwise. */
+const sectionShown = (wanted: string, shown: (id: SectionId) => boolean) => {
+  const id = sectionNamed(wanted);
+  return id && shown(id) ? id : "general";
+};
+
 /**
  * The dialog before the settings are read: its sections, and the page's rows as skeletons, or,
  * when the read failed, why, with Try again.
@@ -235,8 +219,7 @@ const SettingsLoading = () => {
   const loadError = useProject((s) => s.loadError);
   // Every section is listed while the settings are read, as a project with settings has them
   // all: a first run is the one that loses those needing a project once the read lands.
-  const section: SectionId =
-    sections.find((s) => s.id === wanted)?.id ?? "repository";
+  const section = sectionShown(wanted, () => true);
   const tryAgain = () => {
     useProject.setState({ loadError: null });
     useProject.getState().load();
@@ -245,7 +228,7 @@ const SettingsLoading = () => {
     <SettingsFrame
       onSelect={(id) => useProject.getState().openSettings(true, id)}
       section={section}
-      showAll
+      shown={() => true}
     >
       {loadError ? (
         <RowMessage kind="error">
@@ -276,49 +259,117 @@ const SettingsLoading = () => {
   );
 };
 
+/** How long a setting found by the search is outlined. */
+const PULSE_MS = 1400;
+
+/** Scrolls the page to the setting found and outlines it a moment, as T3 Code does. */
+const showSetting = (page: HTMLElement | null, setting: string) => {
+  const target = page?.querySelector<HTMLElement>(
+    `[data-setting="${setting}"]`
+  );
+  if (!target) {
+    return;
+  }
+  target.scrollIntoView({ block: "center" });
+  target.classList.remove("settings-found");
+  // A frame later, so the outline starts again when the same setting is found twice.
+  requestAnimationFrame(() => {
+    target.classList.add("settings-found");
+    setTimeout(() => target.classList.remove("settings-found"), PULSE_MS);
+  });
+  target
+    .querySelector<HTMLElement>(
+      "input, button[role=switch], button[role=radio][aria-checked=true], button, [role=combobox]"
+    )
+    ?.focus({ preventScroll: true });
+};
+
 /**
  * The dialog around a section: the sections down its whole side on the frame ({rail}), headed by
- * Settings; beside them the page on {sidebar}, headed by the section's name and the close button,
- * the one way out, over a hairline the page scrolls under. Flush with the dialog's edges, the page is square
- * and parted from the sections by a hairline. No footer, as everything saves as it changes
- * (ADR 0079).
+ * Settings and the search; beside them the page on {sidebar}, headed by the section's name (and,
+ * for the project's, the file its settings are saved in), the section's own action and the close
+ * button, the one way out, over a hairline the page scrolls under. No footer, as everything saves
+ * as it changes (ADR 0079). Narrow, the sections are a select over the page.
  */
 const SettingsFrame = ({
+  actions,
   children,
   onSelect,
   section,
-  showAll,
+  shown,
 }: {
+  /** The section's own action over its whole page (Repository's Detect again). */
+  actions?: React.ReactNode;
   children: React.ReactNode;
   onSelect: (id: SectionId) => void;
   section: SectionId;
-  showAll: boolean;
-}) => (
-  <div className="flex h-full min-w-0 flex-1 flex-col bg-rail md:flex-row">
-    <Sidebar onSelect={onSelect} section={section} showAll={showAll} />
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b px-5">
-        {/* Wide, Settings heads the sections and the page names its section. Narrow, the row
-            of sections over the page names the one shown, and the page says Settings. */}
-        <h2 className="min-w-0 truncate font-heading-xsmall">
-          <span className="md:hidden">Settings</span>
-          <span className="max-md:sr-only">{labelOf(section)}</span>
-        </h2>
-        <IconButton
-          onClick={() => useProject.getState().openSettings(false)}
-          tooltip="Close"
-        >
-          <X />
-        </IconButton>
-      </header>
-      <div className="@container min-h-0 flex-1 overflow-y-auto">
-        <div className="flex max-w-3xl flex-col gap-12 p-5">{children}</div>
+  shown: (id: SectionId) => boolean;
+}) => {
+  const page = useRef<HTMLDivElement>(null);
+  const [found, setFound] = useState<string | null>(null);
+  // A setting picked in the search is shown once its section is drawn.
+  useEffect(() => {
+    if (!found) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      showSetting(page.current, found);
+      setFound(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [found]);
+  const pick = (id: SectionId, setting?: string) => {
+    onSelect(id);
+    if (setting) {
+      setFound(setting);
+    } else {
+      page.current?.scrollTo({ top: 0 });
+    }
+  };
+  const configPath = useProject((s) => s.info.storage.configPath);
+  const repoPath = useProject(
+    (s) => s.settings?.repoPath ?? s.info.repoPath ?? ""
+  );
+  const savedIn =
+    scopeOf(section) === "project" && configPath
+      ? shortPath(configPath, repoPath)
+      : null;
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-rail md:flex-row">
+      <Sidebar onSelect={pick} section={section} shown={shown} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar md:border-l">
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b px-5">
+          {/* Wide, Settings heads the sections and the page names its section. Narrow, the
+              select of sections over the page names the one shown, and the page says Settings. */}
+          <h2 className="flex min-w-0 flex-1 items-baseline gap-2.5 font-heading-xsmall">
+            <span className="md:hidden">Settings</span>
+            <span className="max-md:sr-only">{labelOf(section)}</span>
+            {savedIn ? (
+              <span className="min-w-0 truncate font-code text-muted-foreground max-md:hidden">
+                {savedIn}
+              </span>
+            ) : null}
+          </h2>
+          {actions}
+          <IconButton
+            onClick={() => useProject.getState().openSettings(false)}
+            tooltip="Close"
+          >
+            <X />
+          </IconButton>
+        </header>
+        <div className="@container min-h-0 flex-1 overflow-y-auto" ref={page}>
+          <div className="flex max-w-3xl flex-col gap-8 p-5">
+            <NarrowSections onSelect={pick} section={section} shown={shown} />
+            {children}
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-/** The configuration file as its row names it: from the repository when it lies inside it. */
+/** The configuration file as its header names it: from the repository when it lies inside it. */
 const shortPath = (configPath: string, repoPath: string) => {
   const root = `${repoPath.replace(TRAILING_SLASH_RE, "")}/`;
   return repoPath && configPath.startsWith(root)
@@ -334,73 +385,59 @@ const renameConfig = () =>
     .catch(reportError);
 
 /**
- * Where a change is written, in the words of the storage mode the server runs in: the file (in
- * mono, from the repository when it lies inside it, else in full), Rename while it has its
- * earlier name; or, as a notice, why nothing is written yet, with Save to file… in a session
- * with no configuration file.
+ * What the project's settings file asks of the person, at the top of Repository, only when it
+ * asks something: a session the first change will save (ADR 0092), one started never to save,
+ * with Save to file…, or a file still under its earlier name, with Rename. Where the settings
+ * are saved is said beside each project page's title.
  */
-const ConfigFileGroup = ({
-  detected,
+const ConfigFileNotice = ({
   onSaveToFile,
-  repoPath,
   storage,
 }: {
-  detected: boolean;
   onSaveToFile: () => void;
-  repoPath: string;
   storage: StorageInfo;
 }) => {
-  const unsaved = storage.mode === "ephemeral";
-  let notice: string | null = null;
-  if (detected) {
-    notice = "Detected, not saved yet.";
-  } else if (unsaved) {
-    notice = storage.session
-      ? "No configuration file: kept until the command stops."
-      : "No configuration file: these settings are not kept.";
-  }
-  const path = notice ? undefined : storage.configPath;
-  if (!(notice || path)) {
-    return null;
-  }
-  let action: React.ReactNode = null;
-  if (unsaved) {
-    action = (
-      <Button onClick={onSaveToFile} variant="outline">
-        Save to file…
-      </Button>
-    );
-  } else if (path?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`)) {
-    action = (
-      <Button onClick={renameConfig} variant="outline">
-        Rename to {CONFIG_FILE_NAME}
-      </Button>
+  if (storage.mode === "ephemeral" && storage.saveOnChange) {
+    return (
+      <Alert role="status">
+        <AlertDescription>
+          Not saved yet. Your first change saves it to {CONFIG_FILE_NAME}.
+        </AlertDescription>
+      </Alert>
     );
   }
-  return (
-    <Group>
-      <Row
-        description={
-          path ? (
-            <>
-              {shortPath(path, repoPath) === path
-                ? "Where these settings are saved:"
-                : "Where these settings are saved, in the repository:"}{" "}
-              <code className="break-all font-code">
-                {shortPath(path, repoPath)}
-              </code>
-            </>
-          ) : undefined
-        }
-        message={
-          notice ? <RowMessage kind="notice">{notice}</RowMessage> : null
-        }
-        title="Configuration file"
-      >
-        {action}
-      </Row>
-    </Group>
-  );
+  if (storage.mode === "ephemeral") {
+    return (
+      <Alert role="status">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+          <span>
+            {storage.session
+              ? "Ultrapaint was started with --ephemeral: these settings are kept until the command stops."
+              : "Ultrapaint was started with --ephemeral: these settings aren’t kept."}
+          </span>
+          <Button onClick={onSaveToFile} size="sm" variant="outline">
+            Save to file…
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  if (storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`)) {
+    return (
+      <Alert role="status">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+          <span>
+            The settings are in {LEGACY_CONFIG_FILE_NAME}, the file’s earlier
+            name.
+          </span>
+          <Button onClick={renameConfig} size="sm" variant="outline">
+            Rename to {CONFIG_FILE_NAME}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  return null;
 };
 
 /** The Repository rows a refused save can name. */
@@ -501,38 +538,45 @@ const Reasons = ({ reasons }: { reasons: readonly string[] }) => (
   </>
 );
 
-/**
- * Whether a section is there before anything is saved: not one that needs a project, except the
- * agents where the shell has agents of its own to set up (the desktop app).
- */
-const shown = (id: SectionId) =>
-  !sections.find((s) => s.id === id)?.needsSaved ||
-  (id === "agents" && platform().agents !== undefined);
-
-const SIDEBAR_STEPS: Record<string, number> = {
-  ArrowDown: 1,
-  ArrowLeft: -1,
-  ArrowRight: 1,
-  ArrowUp: -1,
-};
+const SEARCH_STEPS: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 };
 
 /**
- * The sections, down the dialog's side, or in a row over the page where the dialog is narrow. The
- * first run hides what needs a project. Tab reaches the section shown alone; the arrows move
- * between them, showing each.
+ * The sections, down the dialog's side under their groups' names, and the search over every
+ * setting: typed into, the sections give way to what it found, each named with its section;
+ * picking one shows its section and outlines the setting. `/` reaches the search. Tab reaches the
+ * section shown alone; the arrows move between them, showing each.
  */
 const Sidebar = ({
   onSelect,
   section,
-  showAll,
+  shown,
 }: {
-  onSelect: (id: SectionId) => void;
+  onSelect: (id: SectionId, setting?: string) => void;
   section: SectionId;
-  showAll: boolean;
+  shown: (id: SectionId) => boolean;
 }) => {
-  const listed = sections.filter((s) => showAll || shown(s.id));
-  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    const step = SIDEBAR_STEPS[e.key];
+  const project = useProject((s) => s.info.name);
+  const [query, setQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  const results = searchSettings(query, shown);
+  const listed = SECTIONS.filter((s) => shown(s.id));
+  // `/` reaches the search wherever the dialog is, unless something is being typed.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && !isTyping(e)) {
+        e.preventDefault();
+        search.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const pickResult = (id: SectionId, setting: string) => {
+    setQuery("");
+    onSelect(id, setting);
+  };
+  const onNavKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = SEARCH_STEPS[e.key] ?? { ArrowLeft: -1, ArrowRight: 1 }[e.key];
     if (step === undefined) {
       return;
     }
@@ -541,92 +585,180 @@ const Sidebar = ({
     const next = listed[(at + step + listed.length) % listed.length];
     if (next) {
       onSelect(next.id);
-      e.currentTarget.parentElement
+      e.currentTarget
+        .closest("nav")
         ?.querySelector<HTMLElement>(`[data-section=${next.id}]`)
         ?.focus();
     }
   };
+  const onResultKey = (e: React.KeyboardEvent<HTMLElement>) => {
+    const step = SEARCH_STEPS[e.key];
+    if (step === undefined) {
+      return;
+    }
+    e.preventDefault();
+    const buttons = [
+      ...(e.currentTarget
+        .closest("aside")
+        ?.querySelectorAll<HTMLElement>("[data-result]") ?? []),
+    ];
+    const at = buttons.indexOf(e.currentTarget);
+    if (at === -1) {
+      buttons[step > 0 ? 0 : buttons.length - 1]?.focus();
+    } else if (at + step < 0) {
+      search.current?.focus();
+    } else {
+      buttons[Math.min(at + step, buttons.length - 1)]?.focus();
+    }
+  };
   return (
-    <aside className="shrink-0 md:w-52">
+    <aside className="hidden shrink-0 flex-col md:flex md:w-56">
       {/* The dialog's title is said once, by its DialogTitle; this one is what is seen. */}
       <div
         aria-hidden
-        className="hidden h-12 items-center px-5 font-heading-xsmall md:flex"
+        className="flex h-12 items-center px-5 font-heading-xsmall"
       >
         Settings
       </div>
-      <nav
-        aria-label="Settings sections"
-        className="flex gap-0.5 overflow-x-auto p-3 md:flex-col md:pt-0"
-      >
-        {listed.map(({ icon: Icon, id, label }) => {
-          const active = id === section;
-          return (
-            <button
-              aria-current={active ? "page" : undefined}
-              // The section shown is raised as the groups are, as the left card's rail raises
-              // its place; the focus is the ring alone, 2px off the row.
-              className={cn(
-                "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-rail",
-                active
-                  ? "bg-sidebar text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
-                  : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
-              )}
-              data-section={id}
-              key={id}
-              onClick={() => onSelect(id)}
-              onKeyDown={onKeyDown}
-              tabIndex={active ? 0 : -1}
-              type="button"
-            >
-              <Icon className="size-4 shrink-0" />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Search settings"
+            className="pr-7 pl-7"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && query) {
+                e.stopPropagation();
+                setQuery("");
+              } else if (e.key === "Enter" && results[0]) {
+                pickResult(results[0].section, results[0].id);
+              } else {
+                onResultKey(e);
+              }
+            }}
+            placeholder="Search"
+            ref={search}
+            value={query}
+          />
+          {query ? null : (
+            <Kbd className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2">
+              /
+            </Kbd>
+          )}
+        </div>
+      </div>
+      {query.trim() ? (
+        <div className="flex min-h-0 flex-col overflow-y-auto px-3 pb-3">
+          {results.length === 0 ? (
+            <div className="flex flex-col items-start gap-2 px-2 py-2">
+              <p className="font-body-small text-muted-foreground">
+                No setting matches “{query.trim()}”.
+              </p>
+              <Button onClick={() => setQuery("")} size="sm" variant="ghost">
+                Clear search
+              </Button>
+            </div>
+          ) : (
+            <ul aria-label="Settings found" className="flex flex-col gap-0.5">
+              {results.map((r) => (
+                <li key={r.id}>
+                  <button
+                    className="flex w-full flex-col items-start rounded-md px-2 py-1 text-left outline-none hover:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring"
+                    data-result
+                    onClick={() => pickResult(r.section, r.id)}
+                    onKeyDown={onResultKey}
+                    type="button"
+                  >
+                    <span className="font-body-medium">{r.title}</span>
+                    <span className="font-body-small text-muted-foreground">
+                      {labelOf(r.section)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <nav
+          aria-label="Settings sections"
+          className="flex min-h-0 flex-col gap-0.5 overflow-y-auto px-3 pb-3"
+        >
+          {SECTION_GROUPS.map((group) => {
+            const items = group.sections.filter((s) => shown(s.id));
+            if (items.length === 0) {
+              return null;
+            }
+            return (
+              <div className="flex flex-col gap-0.5" key={group.scope}>
+                <div className="truncate px-2 pt-3 pb-1 font-body-small text-muted-foreground">
+                  {scopeLabel(group.scope, project)}
+                </div>
+                {items.map(({ icon: Icon, id, label }) => {
+                  const active = id === section;
+                  return (
+                    <button
+                      aria-current={active ? "page" : undefined}
+                      // The section shown is raised as the groups are, as the left card's rail
+                      // raises its place; the focus is the ring alone, 2px off the row.
+                      className={cn(
+                        "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-rail",
+                        active
+                          ? "bg-sidebar text-foreground not-focus-visible:ring-1 not-focus-visible:ring-border"
+                          : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
+                      )}
+                      data-section={id}
+                      key={id}
+                      onClick={() => onSelect(id)}
+                      onKeyDown={onNavKey}
+                      tabIndex={active ? 0 : -1}
+                      type="button"
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+      )}
     </aside>
   );
 };
 
-/** The agents: before anything is saved, only those on this computer, which need no project. */
-const AgentsSection = ({
-  messageAt,
-  onReview,
-  onSkills,
-  review,
-  saved,
-  skills,
+/** Narrow, the sections are one select over the page, under their groups' names. */
+const NarrowSections = ({
+  onSelect,
+  section,
+  shown,
 }: {
-  messageAt: (at: ChangedAt) => React.ReactNode;
-  onReview: (review: ReviewSettings | undefined) => void;
-  onSkills: (skills: SkillsConfig | undefined) => void;
-  review: ReviewSettings | undefined;
-  saved: boolean;
-  skills: SkillsConfig | undefined;
-}) =>
-  saved ? (
-    <>
-      <MachineAgentsGroup />
-      <ChatDefaultsGroup />
-      <ReviewGroup
-        message={messageAt("review")}
-        onChange={onReview}
-        review={review}
+  onSelect: (id: SectionId) => void;
+  section: SectionId;
+  shown: (id: SectionId) => boolean;
+}) => {
+  const project = useProject((s) => s.info.name);
+  return (
+    <div className="md:hidden">
+      <OptionSelect
+        aria-label="Section"
+        onChange={(id) => onSelect(id as SectionId)}
+        options={SECTION_GROUPS.flatMap((g) =>
+          g.sections
+            .filter((s) => shown(s.id))
+            .map((s) => ({
+              group: scopeLabel(g.scope, project),
+              label: s.label,
+              value: s.id,
+            }))
+        )}
+        value={section}
       />
-      <SkillsGroup
-        config={skills}
-        message={messageAt("skills")}
-        onChange={onSkills}
-      />
-      <McpConnectionGroup />
-    </>
-  ) : (
-    <MachineAgentsGroup />
+    </div>
   );
-
-const labelOf = (id: SectionId) =>
-  sections.find((s) => s.id === id)?.label ?? id;
+};
 
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -638,7 +770,6 @@ const same = (a: unknown, b: unknown) =>
  */
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
-  const detected = useProject((s) => s.info.setup === "detected");
   const [opened] = useState<Settings>(
     () => saved ?? defaultSettings(storage.defaultRepoPath ?? "")
   );
@@ -650,10 +781,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   /** The settings last sent, so a field left unchanged sends nothing. */
   const sent = useRef<Settings | null>(saved);
   const wanted = useProject((s) => s.settingsSection);
+  // The desktop app sets agents up before anything is saved; the project's own pages wait.
+  const shown = (id: SectionId) => saved !== null || !NEEDS_SAVED.has(id);
   // The URL may name a section that does not exist, or one the first run hides.
-  const section: SectionId =
-    sections.find((s) => s.id === wanted && (saved || shown(s.id)))?.id ??
-    "repository";
+  const section = sectionShown(wanted, shown);
   const setSection = (id: SectionId) =>
     useProject.getState().openSettings(true, id);
   // A configuration file in the repository says where the repository is by where it lies.
@@ -729,7 +860,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const [found, setFound] = useState<SetupSuggestions | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [detectProblem, setDetectProblem] = useState<string | null>(null);
-  /** Detect: the fields filled from the repository and saved, with Undo in its toast. */
+  /** Detect again: the fields filled from the repository and saved, with Undo in its toast. */
   const detectNow = async () => {
     const before = latest.current;
     if (!before.repoPath) {
@@ -741,13 +872,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       const detection = await detect(before.repoPath);
       setFound(detection.found);
       replace(detection.onto(latest.current));
-      toast("Detected from the repository", {
+      toast("Filled in from the folder", {
         action: { label: "Undo", onClick: () => replace(before) },
       });
     } catch (error) {
-      setDetectProblem(
-        `Couldn’t detect the repository: ${(error as Error).message}`
-      );
+      setDetectProblem(`Couldn’t read the folder: ${(error as Error).message}`);
     }
     setDetecting(false);
   };
@@ -849,19 +978,17 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const repository = (
     <>
-      {found ? (
+      <ConfigFileNotice onSaveToFile={saveToFile} storage={storage} />
+      {found && !saved ? (
         <Alert>
           <FolderSearch />
           <AlertDescription>{describeSuggestions(found)}</AlertDescription>
         </Alert>
       ) : null}
+      {problemLine(detectProblem) ?? messageAt("detect")}
       <Group>
         <Row
-          description={
-            repoFromFile
-              ? "The folder the configuration file is in."
-              : "Git and a package.json are optional."
-          }
+          description={repoFromFile ? "Where the settings file is." : undefined}
           htmlFor={repoFromFile ? undefined : "settings-repo"}
           layout="field"
           message={
@@ -870,7 +997,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               {messageAt("path")}
             </>
           }
-          title="Path"
+          setting="folder"
+          title="Folder"
         >
           <PathField
             invalid={invalid("path")}
@@ -884,21 +1012,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Fills the fields below from this folder, over what you typed."
-          message={problemLine(detectProblem) ?? messageAt("detect")}
-          title="Detect from the repository"
-        >
-          <Button
-            disabled={!draft.repoPath || detecting}
-            onClick={detectNow}
-            variant="outline"
-          >
-            {detecting ? <Spinner /> : <FolderSearch />}
-            Detect
-          </Button>
-        </Row>
-        <Row
-          description="Relative to the repository. Designs stay put."
+          description="Pages, canvases and their pictures, from the folder."
           htmlFor="settings-designs"
           layout="field"
           message={messageAt(
@@ -913,7 +1027,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               Create {draft.designsDir}
             </Button>
           )}
-          title="Designs directory"
+          setting="designs"
+          title="Designs"
         >
           <Input
             className="font-code"
@@ -928,16 +1043,32 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             {...leaves}
           />
         </Row>
+        <Row
+          description="Saved beside each design, so pull requests show image diffs."
+          htmlFor="settings-page-pngs"
+          message={messageAt("pagePngs")}
+          setting="page-pngs"
+          title="Write a PNG of every design"
+        >
+          <Switch
+            checked={draft.pagePngs === true}
+            id="settings-page-pngs"
+            onCheckedChange={(on) =>
+              change({ pagePngs: on || undefined }, "pagePngs", "now")
+            }
+          />
+        </Row>
       </Group>
       <Group
-        note="Hints for the agents that build a design. The canvas draws Ultrapaint’s own components either way. Paths are relative to the repository."
+        note="Hints for the agents that build a design. The canvas draws Ultrapaint’s own components either way."
         title="Your code"
       >
         <Row
-          description="The application designs are built in."
+          description="The app designs are built in, with its package.json. None is needed to design."
           htmlFor="settings-resolve"
           layout="field"
           message={messageAt("application")}
+          setting="application"
           title="Application"
         >
           <Input
@@ -958,109 +1089,124 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
+          description="Folders whose components agents may use."
           htmlFor="settings-libs"
           layout="field"
           message={messageAt("components")}
-          title="Component directories"
+          setting="components"
+          title="Components"
         >
-          <ListField
+          <PathList
+            addLabel="Add a folder"
             id="settings-libs"
             invalid={invalid("components")}
-            onBlur={saver.flush}
             onChange={(libraryDirs) =>
               change({ libraryDirs }, "components", "later")
             }
-            placeholder={"src/components\npackages/ui/src"}
+            onLeave={saver.flush}
+            placeholder="src/components"
             value={draft.libraryDirs}
           />
         </Row>
       </Group>
-      <Group>
-        <Row
-          description="Saved beside each design, so pull requests show image diffs."
-          htmlFor="settings-page-pngs"
-          message={messageAt("pagePngs")}
-          title="Write a PNG of every design"
-        >
-          <Switch
-            checked={draft.pagePngs === true}
-            id="settings-page-pngs"
-            onCheckedChange={(on) =>
-              change({ pagePngs: on || undefined }, "pagePngs", "now")
-            }
-          />
-        </Row>
-      </Group>
-      <ConfigFileGroup
-        detected={detected}
-        onSaveToFile={saveToFile}
-        repoPath={draft.repoPath}
-        storage={storage}
-      />
     </>
   );
 
   const designSystem = (
-    <Group>
-      {saved ? <DesignSystemRows /> : null}
-      <Row
-        description="The Tailwind v4 entry and its fonts, one per line, from .ultrapaint. Sync reads and writes their tokens."
-        htmlFor="settings-css"
-        layout="field"
-        message={
-          <>
-            <StylesNotice found={found} />
-            {messageAt("stylesheets")}
-          </>
+    <>
+      {saved ? <DesignSystemSummary /> : null}
+      <Group>
+        <Row
+          description="The Tailwind entry and its fonts. Sync reads and writes their tokens."
+          htmlFor="settings-css"
+          layout="field"
+          message={
+            <>
+              <StylesNotice found={found} />
+              {messageAt("stylesheets")}
+            </>
+          }
+          setting="stylesheets"
+          title="Stylesheets"
+        >
+          <PathList
+            addLabel="Add a stylesheet"
+            id="settings-css"
+            onChange={(hostCss) => change({ hostCss }, "stylesheets", "later")}
+            onLeave={saver.flush}
+            placeholder="src/index.css"
+            value={draft.hostCss}
+          />
+        </Row>
+      </Group>
+    </>
+  );
+
+  const body: Record<SectionId, React.ReactNode> = {
+    about: (
+      <AboutSection
+        folders={
+          <section data-setting="folders">
+            <FoldersGroup />
+          </section>
         }
-        title="Stylesheets"
-      >
-        <ListField
-          id="settings-css"
-          onBlur={saver.flush}
-          onChange={(hostCss) => change({ hostCss }, "stylesheets", "later")}
-          placeholder="../../src/index.css"
-          value={draft.hostCss}
-        />
-      </Row>
-    </Group>
-  );
-
-  // The person's own, in every project, each saved by its row.
-  const editor = (
-    <Group>
-      <ThemeRow />
-      <ProfileRow />
-      <SendKeyRow />
-      <KeepFindingsRow />
-    </Group>
-  );
-
-  const agents = (
-    <AgentsSection
-      messageAt={messageAt}
-      onReview={(review) => change({ review }, "review", "now")}
-      onSkills={(skills) => change({ skills }, "skills", "now")}
-      review={draft.review}
-      saved={saved !== null}
-      skills={draft.skills}
-    />
-  );
-
-  const body = {
-    agents,
+      />
+    ),
+    agents: <MachineAgentsGroup />,
+    appearance: <AppearanceSection />,
+    chats: (
+      <>
+        <ChatDefaultsGroup />
+        <Group title="Composer">
+          <SendKeyRow />
+        </Group>
+      </>
+    ),
+    connections: <McpConnectionGroup />,
     designSystem,
-    editor,
+    general: <GeneralSection />,
     repository,
-  }[section];
+    review: (
+      <ReviewGroup
+        message={messageAt("review")}
+        onChange={(review: ReviewSettings | undefined) =>
+          change({ review }, "review", "now")
+        }
+        review={draft.review}
+      />
+    ),
+    shortcuts: <ShortcutsSection />,
+    skills: (
+      <SkillsGroup
+        config={draft.skills}
+        message={messageAt("skills")}
+        onChange={(skills: SkillsConfig | undefined) =>
+          change({ skills }, "skills", "now")
+        }
+      />
+    ),
+  };
 
   return (
     <SettingsFrame
+      actions={
+        section === "repository" && draft.repoPath ? (
+          <Button
+            data-setting="detect"
+            disabled={detecting}
+            onClick={detectNow}
+            variant="ghost"
+          >
+            {detecting ? <Spinner /> : <FolderSearch />}
+            {detecting ? "Reading the folder…" : "Detect again"}
+          </Button>
+        ) : null
+      }
       onSelect={setSection}
       section={section}
-      showAll={saved !== null}
+      shown={shown}
     >
-      {body}
+      {body[section]}
     </SettingsFrame>
   );
 };

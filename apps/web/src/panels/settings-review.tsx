@@ -1,5 +1,5 @@
 /**
- * Settings › Agents › Review (ADR 0063): how much review a design gets and which models review it
+ * Settings › Review (ADR 0063): how much review a design gets and which models review it
  * in which order. Saved with the project's configuration, so the team shares it; a chat sets its
  * own level from the composer's Review chip.
  */
@@ -49,7 +49,13 @@ import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { LEVEL_LINES, LEVEL_NAMES } from "./review-level.tsx";
-import { Group, Row, rowField } from "./settings-group.tsx";
+import {
+  Group,
+  OptionList,
+  ResetButton,
+  Row,
+  rowField,
+} from "./settings-group.tsx";
 
 const EACH_ROUND_NAMES: Record<EachRound, string> = {
   all: "All",
@@ -479,43 +485,44 @@ const GoalRow = ({
 }) => {
   const [draft, setDraft] = useState(String(score ?? 90));
   return (
-    <Row
-      description={
-        score === undefined
-          ? "Each review model decides when the design is good enough."
-          : "Every review model scores the design at least this, out of 100."
-      }
-      title="Goal"
-    >
-      <div className="flex items-center gap-2">
-        {score === undefined ? null : (
-          <Input
-            aria-label="Score"
-            className="h-7 w-16 text-right"
-            inputMode="numeric"
-            onBlur={() => {
-              const n = Math.round(Number(draft));
-              const valid = Number.isFinite(n) && n >= 1 && n <= 100;
-              onChange(valid ? n : score);
-              setDraft(String(valid ? n : score));
-            }}
-            onChange={(e) => setDraft(e.target.value)}
-            value={draft}
+    <div className="flex flex-col gap-1">
+      <CustomRow title="Goal">
+        <div className="flex items-center gap-2">
+          <Segmented
+            aria-label="Goal"
+            className="@xl:w-auto"
+            onChange={(v) =>
+              onChange(v === "score" ? Number(draft) || 90 : undefined)
+            }
+            options={[
+              { label: "Until they approve", value: "approve" },
+              { label: "A score", value: "score" },
+            ]}
+            value={score === undefined ? "approve" : "score"}
           />
-        )}
-        <Segmented
-          aria-label="Goal"
-          onChange={(v) =>
-            onChange(v === "score" ? Number(draft) || 90 : undefined)
-          }
-          options={[
-            { label: "Until they approve", value: "approve" },
-            { label: "A score", value: "score" },
-          ]}
-          value={score === undefined ? "approve" : "score"}
-        />
-      </div>
-    </Row>
+          {score === undefined ? null : (
+            <Input
+              aria-label="Score, out of 100"
+              className="h-7 w-16 text-right"
+              inputMode="numeric"
+              onBlur={() => {
+                const n = Math.round(Number(draft));
+                const valid = Number.isFinite(n) && n >= 1 && n <= 100;
+                onChange(valid ? n : score);
+                setDraft(String(valid ? n : score));
+              }}
+              onChange={(e) => setDraft(e.target.value)}
+              value={draft}
+            />
+          )}
+        </div>
+      </CustomRow>
+      <p className="font-body-small text-muted-foreground">
+        {score === undefined
+          ? "Each review model decides when the design is good enough."
+          : "Every review model scores the design at least this, out of 100."}
+      </p>
+    </div>
   );
 };
 
@@ -560,81 +567,125 @@ export const ReviewGroup = ({
     one: "The first one reviews.",
     rotate: "They take turns in this order.",
   }[eachRound ?? "rotate"];
+  const levels = [...REVIEW_LEVELS, "custom" as const].map((value) => ({
+    description:
+      // Custom opened, nothing changed yet: the settings are still the level's.
+      value === "custom" && shown === "custom" && level !== "custom"
+        ? `Choose the rounds, approval and goal. Until then, reviews run as ${LEVEL_NAMES[level]}.`
+        : LEVEL_LINES[value]
+            .replace(" Not recommended.", "")
+            .replace("Not recommended. ", ""),
+    label: LEVEL_NAMES[value],
+    ...(value === "standard" ? { tag: "Recommended" } : {}),
+    value,
+  }));
   return (
-    <Group message={message} title="Review">
-      <Row
-        description={
-          // Custom opened, nothing changed yet: the settings are still the level's.
-          shown === "custom" && level !== "custom"
-            ? `Choose the rounds, approval and goal. Until then, reviews run as ${LEVEL_NAMES[level]}.`
-            : LEVEL_LINES[shown]
-        }
-        title="Level"
-      >
-        <Segmented
-          aria-label="Level"
-          className="@xl:w-auto"
-          onChange={onLevel}
-          options={[...REVIEW_LEVELS, "custom" as const].map((value) => ({
-            label: LEVEL_NAMES[value],
-            value,
-          }))}
-          value={shown}
-        />
-      </Row>
+    <>
+      <section className="flex flex-col gap-2" data-setting="review-level">
+        <div className="flex items-center gap-1 px-4">
+          <h3 className="font-heading-xsmall">Level</h3>
+          {level === "standard" ? null : (
+            <ResetButton
+              label="the level"
+              onReset={() => onLevel("standard")}
+            />
+          )}
+        </div>
+        <div className="rounded-lg border">
+          <OptionList
+            aria-label="Level"
+            onChange={onLevel}
+            options={levels}
+            value={shown}
+          >
+            {shown === "custom" ? (
+              <>
+                <CustomRow title="Each round">
+                  <Segmented
+                    aria-label="Each round"
+                    className="@xl:w-auto"
+                    onChange={(next) => set({ eachRound: next, on: true })}
+                    options={EACH_ROUND.map((value) => ({
+                      label: EACH_ROUND_NAMES[value],
+                      value,
+                    }))}
+                    value={merged.eachRound ?? "rotate"}
+                  />
+                </CustomRow>
+                <CustomRow htmlFor="settings-review-approval" title="Approval">
+                  <OptionSelect
+                    className={rowField}
+                    id="settings-review-approval"
+                    onChange={(value) =>
+                      set({ approval: value as Approval, on: true })
+                    }
+                    options={APPROVAL.map((value) => ({
+                      label: APPROVAL_NAMES[value],
+                      value,
+                    }))}
+                    value={merged.approval ?? "all"}
+                  />
+                </CustomRow>
+                <GoalRow
+                  // A score set elsewhere (a level chosen) starts the field again.
+                  key={score ?? "approve"}
+                  onChange={(next) => {
+                    const { score: _score, ...rest } = merged.goal ?? {};
+                    set({
+                      goal:
+                        next === undefined ? rest : { ...rest, score: next },
+                      on: true,
+                    });
+                  }}
+                  score={score}
+                />
+              </>
+            ) : null}
+          </OptionList>
+        </div>
+        {message}
+      </section>
       {shown === "off" ? null : (
-        <Row description={modelsLine} title="Review models">
-          <ReviewModelsPicker
-            models={review?.reviewModels ?? []}
-            onChange={(reviewModels) =>
-              set({ reviewModels: [...reviewModels] })
+        <Group>
+          <Row
+            description={modelsLine}
+            layout="field"
+            onReset={
+              (review?.reviewModels ?? []).length === 0
+                ? undefined
+                : () => set({ reviewModels: [] })
             }
-            ordered={ordered}
-          />
-        </Row>
-      )}
-      {shown === "custom" ? (
-        <>
-          <Row title="Each round">
-            <Segmented
-              aria-label="Each round"
-              className="@xl:w-auto"
-              onChange={(next) => set({ eachRound: next, on: true })}
-              options={EACH_ROUND.map((value) => ({
-                label: EACH_ROUND_NAMES[value],
-                value,
-              }))}
-              value={merged.eachRound ?? "rotate"}
-            />
-          </Row>
-          <Row htmlFor="settings-review-approval" title="Approval">
-            <OptionSelect
-              className={rowField}
-              id="settings-review-approval"
-              onChange={(value) =>
-                set({ approval: value as Approval, on: true })
+            setting="review-models"
+            title="Review models"
+          >
+            <ReviewModelsPicker
+              models={review?.reviewModels ?? []}
+              onChange={(reviewModels) =>
+                set({ reviewModels: [...reviewModels] })
               }
-              options={APPROVAL.map((value) => ({
-                label: APPROVAL_NAMES[value],
-                value,
-              }))}
-              value={merged.approval ?? "all"}
+              ordered={ordered}
             />
           </Row>
-          <GoalRow
-            // A score set elsewhere (Cancel, a level chosen) starts the field again.
-            key={score ?? "approve"}
-            onChange={(next) => {
-              const { score: _score, ...rest } = merged.goal ?? {};
-              set({
-                goal: next === undefined ? rest : { ...rest, score: next },
-                on: true,
-              });
-            }}
-            score={score}
-          />
-        </>
-      ) : null}
-    </Group>
+        </Group>
+      )}
+    </>
   );
 };
+
+/** A setting of Custom's, indented under it: its name, its control at the end. */
+const CustomRow = ({
+  children,
+  htmlFor,
+  title,
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  title: string;
+}) => (
+  <div className="flex @xl:flex-row flex-col @xl:items-center @xl:justify-between gap-2">
+    <label className="shrink-0 font-body-medium" htmlFor={htmlFor}>
+      {title}
+    </label>
+    {children}
+  </div>
+);

@@ -236,7 +236,11 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       "settings.persist": (input) => project.persist(input),
       "settings.renameConfig": () => project.renameConfig,
-      "settings.set": (input) => project.set(input),
+      // A setting changed is a change too: an unsaved session saves on it (ADR 0092, 0093).
+      "settings.set": (input) =>
+        Effect.tap(project.set(input), (validation) =>
+          validation.ok ? project.changed : Effect.void
+        ),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
       // The open project's latest Figma import starts the application's theme.

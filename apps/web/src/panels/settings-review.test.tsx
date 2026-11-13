@@ -30,13 +30,22 @@ const render = (review: ReviewSettings | undefined) => {
   });
 };
 
+/** A level's option, or a segmented control's button, by its name. */
 const level = (name: string) =>
+  container.querySelector<HTMLElement>(
+    `[data-choice="${name.toLowerCase()}"]`
+  ) ??
   [...container.querySelectorAll("button")].find((b) => b.textContent === name);
 
-const pressed = () =>
-  [...container.querySelectorAll("button[aria-pressed=true]")].map(
+/** The level chosen and the segments pressed, by their names. */
+const pressed = () => [
+  ...[...container.querySelectorAll("[role=radio][aria-checked=true]")].map(
+    (b) => b.querySelector(".font-body-semibold")?.firstChild?.textContent
+  ),
+  ...[...container.querySelectorAll("button[aria-pressed=true]")].map(
     (b) => b.textContent
-  );
+  ),
+];
 
 const rows = () =>
   [...container.querySelectorAll("label")].map((l) => l.textContent);
@@ -56,15 +65,19 @@ afterEach(() => {
   useAgents.setState(noAgents, true);
 });
 
-describe("Settings › Agents › Review", () => {
-  it("shows the project's level, Standard when nothing is set, with what it does", () => {
+describe("Settings › Review", () => {
+  it("shows the project's level, Standard when nothing is set, every level's line in view", () => {
     render(undefined);
     expect(pressed()).toEqual(["Standard"]);
     expect(container.textContent).toContain(
       "One model looks, in turn; then all check the fixes."
     );
-    // Keeping findings is the person's, in Preferences (ADR 0066).
-    expect(rows()).toEqual(["Level", "Review models"]);
+    expect(container.textContent).toContain(
+      "Your first review model looks, then checks the fixes."
+    );
+    expect(container.textContent).toContain("Recommended");
+    // Keeping findings is the person's, in General (ADR 0066).
+    expect(rows()).toEqual(["Review models"]);
   });
 
   it("saves a level as its settings, the defaults left out", () => {
@@ -75,24 +88,21 @@ describe("Settings › Agents › Review", () => {
     expect(saved.at(-1)).toEqual({ on: false });
   });
 
-  it("shows Off with its warning, and no review models to choose", () => {
+  it("shows Off, and no review models to choose", () => {
     render({ on: false });
     expect(pressed()).toEqual(["Off"]);
-    expect(container.textContent).toContain("Not recommended.");
-    expect(rows()).toEqual(["Level"]);
+    expect(container.textContent).toContain(
+      "Nothing checks the design before it’s done."
+    );
+    expect(rows()).toEqual([]);
   });
 
   it("opens Custom's rows when chosen, and is Custom with a goal", () => {
     render(undefined);
     act(() => level("Custom")?.click());
     expect(saved).toEqual([]);
-    expect(rows()).toEqual([
-      "Level",
-      "Review models",
-      "Each round",
-      "Approval",
-      "Goal",
-    ]);
+    // Custom's own rows sit under it, before the models.
+    expect(rows()).toEqual(["Each round", "Approval", "Goal", "Review models"]);
     render({ goal: { score: 90 } });
     expect(pressed()).toContain("Custom");
     expect(pressed()).toContain("A score");
@@ -101,9 +111,9 @@ describe("Settings › Agents › Review", () => {
   it("names each row's choices by the row", () => {
     render(undefined);
     act(() => level("Custom")?.click());
-    const groups = [...container.querySelectorAll('[role="group"]')].map((g) =>
-      g.getAttribute("aria-label")
-    );
+    const groups = [
+      ...container.querySelectorAll('[role="group"], [role="radiogroup"]'),
+    ].map((g) => g.getAttribute("aria-label"));
     expect(groups).toEqual(["Level", "Each round", "Goal"]);
   });
 
@@ -116,18 +126,12 @@ describe("Settings › Agents › Review", () => {
     expect(saved.at(-1)).toEqual({ approval: "one", eachRound: "one" });
     render(saved.at(-1));
     expect(pressed()).toContain("Custom");
-    expect(rows()).toEqual([
-      "Level",
-      "Review models",
-      "Each round",
-      "Approval",
-      "Goal",
-    ]);
-    // A level pressed puts them away.
+    expect(rows()).toEqual(["Each round", "Approval", "Goal", "Review models"]);
+    // A level chosen puts them away.
     act(() => level("Quick")?.click());
     render(saved.at(-1));
     expect(pressed()).toEqual(["Quick"]);
-    expect(rows()).toEqual(["Level", "Review models"]);
+    expect(rows()).toEqual(["Review models"]);
   });
 
   it("moves nothing on a drop after a drag let go outside the list", () => {

@@ -28,7 +28,7 @@ const namedFiles = Effect.fnUntraced(function* (text: string) {
 
 describe("design skills", () => {
   inProject.effect(
-    "ships the design skill, with each of the project's files beside it, and the settings turn any off",
+    "ships the design skill on, lists the project's own skills off, and the settings turn each on or off",
     () =>
       Effect.gen(function* () {
         const { client, repo, settings } = yield* TestEnv;
@@ -57,14 +57,39 @@ describe("design skills", () => {
           path.join(dir, "color.md"),
           "---\nextends: true\n---\nBlue is the brand; never use it for status.\n"
         );
+        // An agent's skill folder, and a copy of the design skill, which is left out.
+        const grilling = path.join(repo, ".claude", "skills", "grilling");
+        yield* fs.makeDirectory(grilling, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(grilling, "SKILL.md"),
+          "---\nname: grilling\ndescription: >\n  Grill the user about a plan,\n  relentlessly.\n---\n\n# Grilling\n\nAsk one question at a time.\n"
+        );
+        const copy = path.join(repo, ".agents", "skills", "ultrapaint");
+        yield* fs.makeDirectory(copy, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(copy, "SKILL.md"),
+          "# Ultrapaint\n"
+        );
         const own = yield* client["skills.list"]();
         assert.deepStrictEqual(
-          own.skills.map((s) => [s.name, s.source, s.file]),
+          own.skills.map((s) => [s.name, s.source, s.file, s.enabled]),
           [
-            ["ultrapaint", "built-in", undefined],
-            ["brand", "project", "designs/skills/brand.md"],
-            ["color", "project", "designs/skills/color.md"],
+            ["ultrapaint", "built-in", undefined, true],
+            ["brand", "project", "designs/skills/brand.md", false],
+            ["color", "project", "designs/skills/color.md", false],
+            ["grilling", "project", ".claude/skills/grilling/SKILL.md", false],
           ]
+        );
+        const folder = own.skills.find((s) => s.name === "grilling");
+        assert.strictEqual(folder?.title, "grilling");
+        assert.strictEqual(
+          folder?.summary,
+          "Grill the user about a plan, relentlessly."
+        );
+        assert.isTrue(
+          folder?.text.startsWith(
+            "The skill’s files are in `.claude/skills/grilling/`"
+          )
         );
         const colour = own.skills.find((s) => s.name === "color");
         assert.strictEqual(
@@ -74,12 +99,18 @@ describe("design skills", () => {
 
         yield* client["settings.set"]({
           ...settings,
-          skills: { disabled: ["ultrapaint", "brand"] },
+          skills: {
+            disabled: ["ultrapaint"],
+            enabled: [
+              "designs/skills/brand.md",
+              ".claude/skills/grilling/SKILL.md",
+            ],
+          },
         });
-        const off = yield* client["skills.list"]();
+        const chosen = yield* client["skills.list"]();
         assert.deepStrictEqual(
-          off.skills.filter((s) => !s.enabled).map((s) => s.name),
-          ["ultrapaint", "brand"]
+          chosen.skills.filter((s) => s.enabled).map((s) => s.name),
+          ["brand", "grilling"]
         );
       })
   );
@@ -153,7 +184,24 @@ describe("design skills", () => {
   );
 
   it.effect(
-    "tells none of the design skill when the settings turn it off, and the project's own still",
+    "tells none of the project's own skills the settings leave off",
+    () =>
+      Effect.gen(function* () {
+        const text = yield* told;
+        assert.include(text, "\n# Ultrapaint\n");
+        assert.notInclude(text, "Plain words.");
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+
+  it.effect(
+    "tells none of the design skill when the settings turn it off, and the project's own turned on",
     () =>
       Effect.gen(function* () {
         const text = yield* told;
@@ -164,7 +212,12 @@ describe("design skills", () => {
         Effect.provide(
           ProjectTest({
             files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
-            settings: { skills: { disabled: ["ultrapaint"] } },
+            settings: {
+              skills: {
+                disabled: ["ultrapaint"],
+                enabled: ["designs/skills/voice.md"],
+              },
+            },
           })
         ),
         Effect.scoped

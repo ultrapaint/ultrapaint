@@ -1,0 +1,118 @@
+{
+  "defaults": {
+    "color": "$color-foreground",
+    "fill": "$color-background",
+    "font": "'Figtree Variable', system-ui, sans-serif",
+    "theme": "dark"
+  },
+  "name": "Settings",
+  "routes": {
+    "about.page.json": "/about",
+    "agents.page.json": "/agents",
+    "appearance.page.json": "/appearance",
+    "chats.page.json": "/chats",
+    "connections.page.json": "/connections",
+    "design-system.page.json": "/design-system",
+    "general-narrow.page.json": "/general-narrow",
+    "general.page.json": "/general",
+    "repository.page.json": "/repository",
+    "review.page.json": "/review",
+    "shortcuts.page.json": "/shortcuts",
+    "skills.page.json": "/skills",
+    "states.page.json": "/states"
+  },
+  "frames": {
+    "about.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 15200,
+      "y": 0
+    },
+    "agents.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 10640,
+      "y": 0
+    },
+    "appearance.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "chats.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 12160,
+      "y": 0
+    },
+    "connections.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 13680,
+      "y": 0
+    },
+    "design-system.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 6080,
+      "y": 0
+    },
+    "general-narrow.page.json": {
+      "height": 760,
+      "preset": "custom",
+      "width": 600,
+      "x": 16720,
+      "y": 0
+    },
+    "general.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "repository.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "review.page.json": {
+      "height": 980,
+      "preset": "custom",
+      "width": 1440,
+      "x": 7600,
+      "y": 0
+    },
+    "shortcuts.page.json": {
+      "height": 940,
+      "preset": "custom",
+      "width": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "skills.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 9120,
+      "y": 0
+    },
+    "states.page.json": {
+      "height": 1240,
+      "preset": "custom",
+      "width": 1700,
+      "x": 17400,
+      "y": 0
+    }
+  },
+  "version": 1
+}

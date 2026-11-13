@@ -91,15 +91,15 @@ describe("the settings save as they change (ADR 0079)", () => {
     expect(buttons).not.toContain("Save");
   });
 
-  it("has no footer: the close button is the way out, and the file written is a row", () => {
+  it("has no footer: the close button is the way out, and the file written is beside the title", () => {
     const buttons = [...container.querySelectorAll("button")].map(
       (b) => b.textContent
     );
     expect(container.querySelector("footer")).toBeNull();
     expect(buttons).not.toContain("Done");
     expect(container.querySelector("button[aria-label=Close]")).not.toBeNull();
-    expect(container.textContent).toContain(
-      "Configuration fileWhere these settings are saved, in the repository: ultrapaint.config.json"
+    expect(container.querySelector("header h2")?.textContent).toBe(
+      "SettingsRepositoryultrapaint.config.json"
     );
   });
 
@@ -216,7 +216,7 @@ describe("the settings before they are read", () => {
     expect(
       container.querySelector("[role=status][aria-busy=true]")
     ).not.toBeNull();
-    expect(container.querySelector("input")).toBeNull();
+    expect(container.querySelector("[role=status] input")).toBeNull();
   });
 
   it("list the sections a saved project has, so none appears when the read lands", async () => {

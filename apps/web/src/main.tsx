@@ -1,10 +1,10 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./app.tsx";
 import { frameErrors, frameOf } from "./canvas/editor-frame.ts";
+import { followAgentNotifications } from "./lib/agent-notifications.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
 import { openLookPage } from "./lib/look-page.ts";
 import { pageById, zoomToPage } from "./lib/page-actions.ts";
-
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
 import { leaveBoard, openBoard, useBoard } from "./state/board.ts";
@@ -16,6 +16,7 @@ import { useEditor } from "./state/editor.ts";
 import { useIsolation } from "./state/isolation.ts";
 import { goTo } from "./state/location.ts";
 import { showLeftPanel } from "./state/panels.ts";
+import { followPreferences } from "./state/preferences.ts";
 import { useProject } from "./state/project.ts";
 import { select } from "./state/selection.ts";
 import { followTheme } from "./state/theme.ts";
@@ -56,5 +57,7 @@ if (import.meta.env.DEV) {
 }
 
 followTheme();
+followPreferences();
+followAgentNotifications();
 
 createRoot(document.getElementById("root") as HTMLElement).render(<App />);

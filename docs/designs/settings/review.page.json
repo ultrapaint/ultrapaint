@@ -1,0 +1,285 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
+    {"type": "row", "id": "r_sur", "crossAlign": "start", "gap": 32, "children": [
+      {"type": "row", "id": "r_su0", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": 16, "shadow": "0 2px 6px rgba(0,0,0,0.35), 0 16px 40px -8px rgba(0,0,0,0.6)", "width": 1040, "children": [
+        {"type": "column", "id": "c_str", "name": "Sections", "gap": 2, "padding": {"bottom": 12, "left": 12, "right": 12}, "width": 220, "children": [
+          {"type": "row", "id": "r_stp", "crossAlign": "center", "height": 48, "padding": {"left": 8}, "width": "fill", "children": [
+            {"type": "text", "id": "t_sto", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Settings", "tracking": "0.02em"}
+          ]},
+          {"type": "row", "id": "r_ssm", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_ssl", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "You", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_ssp", "name": "Nav · General", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_ssn", "name": "sliders-horizontal", "height": 16, "src": "assets/icons/sliders-horizontal.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_sso", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "General", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_sss", "name": "Nav · Appearance", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_ssq", "name": "palette", "height": 16, "src": "assets/icons/palette.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_ssr", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Appearance", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_ssv", "name": "Nav · Chats", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_sst", "name": "message-square", "height": 16, "src": "assets/icons/message-square.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_ssu", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Chats", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_ssy", "name": "Nav · Shortcuts", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_ssw", "name": "keyboard", "height": 16, "src": "assets/icons/keyboard.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_ssx", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Shortcuts", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_st0", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_ssz", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Project · ultrapaint", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_st3", "name": "Nav · Repository", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_st1", "name": "folder-git-2", "height": 16, "src": "assets/icons/folder-git-2.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_st2", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Repository", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_st6", "name": "Nav · Design system", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_st4", "name": "swatch-book", "height": 16, "src": "assets/icons/swatch-book.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_st5", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_st9", "name": "Nav · Review", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_st7", "name": "message-square-check", "height": 16, "src": "assets/icons/message-square-check.svg", "tint": "$color-foreground", "width": 16},
+            {"type": "text", "id": "t_st8", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Review", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_stc", "name": "Nav · Skills", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_sta", "name": "book-open", "height": 16, "src": "assets/icons/book-open.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_stb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Skills", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_ste", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_std", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "This computer", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_sth", "name": "Nav · Agents", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_stf", "name": "bot", "height": 16, "src": "assets/icons/bot.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_stg", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Agents", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_stk", "name": "Nav · Connections", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_sti", "name": "plug", "height": 16, "src": "assets/icons/plug.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_stj", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Connections", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_stn", "name": "Nav · About", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "m_stl", "name": "info", "height": 16, "src": "assets/icons/info.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_stm", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "About", "weight": 500, "width": "fill"}
+          ]},
+          {"type": "column", "id": "c_stq", "name": "Spacer", "height": "fill", "width": "fill", "children": []}
+        ]},
+        {"type": "column", "id": "c_stz", "name": "Page", "border": {"color": "$color-border", "style": "solid", "width": "0 0 0 1px"}, "fill": "$color-sidebar", "radius": "0 16px 16px 0", "width": "fill", "children": [
+          {"type": "row", "id": "r_stx", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 24, "right": 12}, "width": "fill", "children": [
+            {"type": "row", "id": "r_stu", "crossAlign": "center", "gap": 10, "width": "fill", "children": [
+              {"type": "text", "id": "t_sts", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Review", "tracking": "0.02em"},
+              {"type": "text", "id": "t_stt", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": "20px", "role": "paragraph", "size": 12, "text": "ultrapaint.config.json"}
+            ]},
+            {"type": "row", "id": "r_stw", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+              {"type": "image", "id": "m_stv", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 16}
+            ]}
+          ]},
+          {"type": "column", "id": "c_sty", "name": "Scroll", "gap": 32, "maxWidth": 820, "padding": 24, "width": "fill", "children": [
+            {"type": "column", "id": "c_srt", "name": "Group · Level", "gap": 8, "width": "fill", "children": [
+              {"type": "column", "id": "c_spo", "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
+                {"type": "text", "id": "t_spn", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Level", "tracking": "0.02em"}
+              ]},
+              {"type": "column", "id": "c_srs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+                {"type": "column", "id": "c_spw", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_spv", "crossAlign": "start", "gap": 12, "width": "fill", "children": [
+                    {"type": "column", "id": "c_spq", "padding": {"top": 2}, "children": [
+                      {"type": "row", "id": "r_spp", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []}
+                    ]},
+                    {"type": "column", "id": "c_spu", "gap": 2, "width": "fill", "children": [
+                      {"type": "row", "id": "r_sps", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "text", "id": "t_spr", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Off", "weight": 600}
+                      ]},
+                      {"type": "text", "id": "t_spt", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Nothing checks the design before it’s done."}
+                    ]}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_spx", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+                {"type": "column", "id": "c_sq5", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_sq4", "crossAlign": "start", "gap": 12, "width": "fill", "children": [
+                    {"type": "column", "id": "c_spz", "padding": {"top": 2}, "children": [
+                      {"type": "row", "id": "r_spy", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []}
+                    ]},
+                    {"type": "column", "id": "c_sq3", "gap": 2, "width": "fill", "children": [
+                      {"type": "row", "id": "r_sq1", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "text", "id": "t_sq0", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Quick", "weight": 600}
+                      ]},
+                      {"type": "text", "id": "t_sq2", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Your first review model looks, then checks the fixes."}
+                    ]}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_sq6", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+                {"type": "column", "id": "c_sqg", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_sqf", "crossAlign": "start", "gap": 12, "width": "fill", "children": [
+                    {"type": "column", "id": "c_sq8", "padding": {"top": 2}, "children": [
+                      {"type": "row", "id": "r_sq7", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []}
+                    ]},
+                    {"type": "column", "id": "c_sqe", "gap": 2, "width": "fill", "children": [
+                      {"type": "row", "id": "r_sqc", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "text", "id": "t_sq9", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Standard", "weight": 600},
+                        {"type": "row", "id": "r_sqb", "name": "Badge · Recommended", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 20, "padding": {"left": 6, "right": 8}, "radius": 999, "children": [
+                          {"type": "text", "id": "t_sqa", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Recommended", "weight": 500}
+                        ]}
+                      ]},
+                      {"type": "text", "id": "t_sqd", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "One model looks, in turn; then all check the fixes."}
+                    ]}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_sqh", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+                {"type": "column", "id": "c_sqp", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_sqo", "crossAlign": "start", "gap": 12, "width": "fill", "children": [
+                    {"type": "column", "id": "c_sqj", "padding": {"top": 2}, "children": [
+                      {"type": "row", "id": "r_sqi", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []}
+                    ]},
+                    {"type": "column", "id": "c_sqn", "gap": 2, "width": "fill", "children": [
+                      {"type": "row", "id": "r_sql", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "text", "id": "t_sqk", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Thorough", "weight": 600}
+                      ]},
+                      {"type": "text", "id": "t_sqm", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "All your review models look, then all check the fixes. Slower, and the most thorough."}
+                    ]}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_sqq", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+                {"type": "column", "id": "c_srr", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_srp", "crossAlign": "start", "gap": 12, "width": "fill", "children": [
+                    {"type": "column", "id": "c_srk", "padding": {"top": 2}, "children": [
+                      {"type": "row", "id": "r_srj", "align": "center", "crossAlign": "center", "fill": "$color-primary", "height": 16, "radius": 999, "width": 16, "children": [
+                        {"type": "row", "id": "r_sri", "fill": "$color-primary-foreground", "height": 6, "radius": 999, "width": 6, "children": []}
+                      ]}
+                    ]},
+                    {"type": "column", "id": "c_sro", "gap": 2, "width": "fill", "children": [
+                      {"type": "row", "id": "r_srm", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "text", "id": "t_srl", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Custom", "weight": 600}
+                      ]},
+                      {"type": "text", "id": "t_srn", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "You choose who reviews each round, who approves, and the goal."}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_srq", "gap": 12, "padding": {"left": 28}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_sr0", "crossAlign": "center", "gap": 12, "width": "fill", "children": [
+                      {"type": "text", "id": "t_sqy", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Each round", "weight": 500, "width": 160},
+                      {"type": "row", "id": "r_sqz", "align": "end", "width": "fill", "children": [
+                        {"type": "row", "id": "r_sqx", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "padding": 2, "radius": 6, "children": [
+                          {"type": "row", "id": "r_sqs", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
+                            {"type": "text", "id": "t_sqr", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "One", "weight": 500}
+                          ]},
+                          {"type": "row", "id": "r_squ", "align": "center", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
+                            {"type": "text", "id": "t_sqt", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "In turn", "weight": 500}
+                          ]},
+                          {"type": "row", "id": "r_sqw", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
+                            {"type": "text", "id": "t_sqv", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "All", "weight": 500}
+                          ]}
+                        ]}
+                      ]}
+                    ]},
+                    {"type": "row", "id": "r_sr6", "crossAlign": "center", "gap": 12, "width": "fill", "children": [
+                      {"type": "text", "id": "t_sr4", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Approval", "weight": 500, "width": 160},
+                      {"type": "row", "id": "r_sr5", "align": "end", "width": "fill", "children": [
+                        {"type": "row", "id": "r_sr3", "name": "Select · All review models", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 8, "height": 28, "padding": {"left": 10, "right": 8}, "radius": 6, "width": 208, "children": [
+                          {"type": "text", "id": "t_sr1", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "All review models", "width": "fill"},
+                          {"type": "image", "id": "m_sr2", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
+                        ]}
+                      ]}
+                    ]},
+                    {"type": "row", "id": "r_srh", "crossAlign": "center", "gap": 12, "width": "fill", "children": [
+                      {"type": "text", "id": "t_srf", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Goal", "weight": 500, "width": 160},
+                      {"type": "row", "id": "r_srg", "align": "end", "width": "fill", "children": [
+                        {"type": "row", "id": "r_sre", "crossAlign": "center", "gap": 8, "children": [
+                          {"type": "row", "id": "r_srb", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "padding": 2, "radius": 6, "children": [
+                            {"type": "row", "id": "r_sr8", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
+                              {"type": "text", "id": "t_sr7", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Until they approve", "weight": 500}
+                            ]},
+                            {"type": "row", "id": "r_sra", "align": "center", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
+                              {"type": "text", "id": "t_sr9", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "A score", "weight": 500}
+                            ]}
+                          ]},
+                          {"type": "row", "id": "r_srd", "name": "Field", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 6, "width": 56, "children": [
+                            {"type": "text", "id": "t_src", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "90", "width": "fill"}
+                          ]}
+                        ]}
+                      ]}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_ssk", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+              {"type": "column", "id": "c_ssj", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+                {"type": "column", "id": "c_ssi", "name": "Row · Review models", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_ssh", "crossAlign": "start", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_ssf", "gap": 2, "padding": {"top": 4}, "width": 264, "children": [
+                      {"type": "row", "id": "r_ssd", "crossAlign": "center", "gap": 6, "children": [
+                        {"type": "text", "id": "t_ssb", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Review models", "weight": 600},
+                        {"type": "image", "id": "m_ssc", "name": "Reset to default", "height": 12, "src": "assets/icons/rotate-ccw.svg", "tint": "$color-muted-foreground", "width": 12}
+                      ]},
+                      {"type": "text", "id": "t_sse", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "They take turns in this order. Drag to reorder."}
+                    ]},
+                    {"type": "column", "id": "c_ssg", "gap": 6, "width": "fill", "children": [
+                      {"type": "column", "id": "c_ssa", "gap": 6, "width": "fill", "children": [
+                        {"type": "row", "id": "r_ss6", "gap": 6, "wrap": true, "children": [
+                          {"type": "row", "id": "r_srz", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                            {"type": "text", "id": "t_sru", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "1", "weight": 500},
+                            {"type": "image", "id": "m_srv", "name": "agent-claude", "height": 14, "src": "assets/icons/agent-claude.svg", "tint": "$color-foreground", "width": 14},
+                            {"type": "text", "id": "t_srw", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5"},
+                            {"type": "row", "id": "r_sry", "name": "Icon button · x", "align": "center", "crossAlign": "center", "height": 20, "radius": 6, "width": 20, "children": [
+                              {"type": "image", "id": "m_srx", "name": "x", "height": 12, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 12}
+                            ]}
+                          ]},
+                          {"type": "row", "id": "r_ss5", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                            {"type": "text", "id": "t_ss0", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "2", "weight": 500},
+                            {"type": "image", "id": "m_ss1", "name": "agent-codex", "height": 14, "src": "assets/icons/agent-codex.svg", "tint": "$color-foreground", "width": 14},
+                            {"type": "text", "id": "t_ss2", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "GPT-6.1 Sol"},
+                            {"type": "row", "id": "r_ss4", "name": "Icon button · x", "align": "center", "crossAlign": "center", "height": 20, "radius": 6, "width": 20, "children": [
+                              {"type": "image", "id": "m_ss3", "name": "x", "height": 12, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 12}
+                            ]}
+                          ]}
+                        ]},
+                        {"type": "row", "id": "r_ss9", "crossAlign": "center", "gap": 6, "padding": {"top": 2}, "children": [
+                          {"type": "image", "id": "m_ss7", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "$color-muted-foreground", "width": 14},
+                          {"type": "text", "id": "t_ss8", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Add a model", "weight": 500}
+                        ]}
+                      ]}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_suq", "name": "Notes", "gap": 12, "padding": {"top": 8}, "width": 300, "children": [
+        {"type": "column", "id": "c_su5", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_su3", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_su1", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_su2", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_su4", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review leaves Agents for a section of its own, under the project."}
+        ]},
+        {"type": "column", "id": "c_sua", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_su8", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_su6", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_su7", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_su9", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Level is a list of five options, each with its line always in view, not a segmented control whose line changes. Standard says Recommended."}
+        ]},
+        {"type": "column", "id": "c_suf", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_sud", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_sub", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_suc", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_sue", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Custom’s rows sit indented under Custom, shown when it is chosen; the score field follows ‘A score’."}
+        ]},
+        {"type": "column", "id": "c_suk", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_sui", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_sug", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_suh", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_suj", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review models are chips in their order, each removable, with Add a model."}
+        ]},
+        {"type": "column", "id": "c_sup", "gap": 4, "width": "fill", "children": [
+          {"type": "row", "id": "r_sun", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_sul", "fill": "#ec4899", "height": 8, "radius": 999, "width": 8, "children": []},
+            {"type": "text", "id": "t_sum", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New", "weight": 500}
+          ]},
+          {"type": "text", "id": "t_suo", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "A reset arrow beside a setting changed from its default (T3 Code’s ↺)."}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

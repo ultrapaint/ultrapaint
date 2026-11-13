@@ -25,6 +25,7 @@ import {
 } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { usePreferences } from "../state/preferences.ts";
 import { allFrames } from "../state/surface.ts";
 import { useDrag } from "./drag.ts";
 import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
@@ -234,7 +235,12 @@ export const wheelView = (
   origin: { left: number; top: number }
 ) => {
   const { x, y, zoom } = nextView();
-  if (e.ctrlKey || e.metaKey) {
+  // A mouse wheel zooms on its own when the person chose so; a trackpad's two fingers still pan.
+  const wheelZooms =
+    usePreferences.getState().scrollWheel === "zoom" &&
+    !e.shiftKey &&
+    notchesOf(e) !== null;
+  if (e.ctrlKey || e.metaKey || wheelZooms) {
     const cx = e.clientX - origin.left;
     const cy = e.clientY - origin.top;
     // A mouse wheel zooms a step a notch, gliding; a pinch or a trackpad follows the fingers.

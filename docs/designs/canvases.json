@@ -2,7 +2,8 @@
   "order": [
     "redesign",
     "samples",
-    "onboarding"
+    "onboarding",
+    "settings"
   ],
   "version": 1
 }

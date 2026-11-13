@@ -666,7 +666,12 @@ describe("the briefing", () => {
           ProjectTest({
             files: ownSkills,
             mcp: true,
-            settings: { skills: { briefing: "summaries" } },
+            settings: {
+              skills: {
+                briefing: "summaries",
+                enabled: ["designs/skills/color.md", "designs/skills/voice.md"],
+              },
+            },
           })
         ),
         Effect.scoped
@@ -693,7 +698,12 @@ describe("the briefing", () => {
         Effect.provide(
           ProjectTest({
             files: ownSkills,
-            settings: { skills: { briefing: "summaries" } },
+            settings: {
+              skills: {
+                briefing: "summaries",
+                enabled: ["designs/skills/color.md", "designs/skills/voice.md"],
+              },
+            },
           })
         ),
         Effect.scoped

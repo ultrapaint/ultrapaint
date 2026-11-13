@@ -66,6 +66,7 @@ import {
   type PlatformProject,
   platform,
 } from "./platform.ts";
+import { followPreferences } from "./state/preferences.ts";
 import { isSendKey, useSendKey } from "./state/send-key.ts";
 import { followTheme } from "./state/theme.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
@@ -751,6 +752,7 @@ const WindowTop = () =>
 
 // The editor's theme, or the system's: the page is the editor's first face.
 followTheme();
+followPreferences();
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <TooltipProvider delay={300}>

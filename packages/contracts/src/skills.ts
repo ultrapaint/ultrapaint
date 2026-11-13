@@ -4,25 +4,46 @@
  * them.
  *
  * The tool ships one, the design skill `ultrapaint`: its core (`SKILL.md`, every rule and the
- * steps) and its references (`references/…`, read when the core sends the agent there). A project
- * adds skills of its own as markdown files in `<designsDir>/skills/`, each told whole, and the
- * settings turn any of them off, the design skill included. The file is the skill: its first
- * heading is the title, the paragraph after it the summary the settings show.
+ * steps) and its references (`references/…`, read when the core sends the agent there), on unless
+ * the settings turn it off. A project may hold skills of its own (ADR 0094): a markdown file in
+ * `<designsDir>/skills/`, or a folder with a `SKILL.md` in `.claude/skills/`, `.agents/skills/` or
+ * `skills/`, each found and listed, and told only once the settings turn it on. A skill's title and
+ * summary are its front matter's `name` and `description`, else its first heading and the
+ * paragraph after it.
  */
 import { Schema } from "effect";
 
-/** Directory of a project's own skills, inside the designs directory. */
+/** Directory of a project's own skill files, inside the designs directory. */
 export const SKILLS_DIR = "skills";
 export const SKILL_EXTENSION = ".md";
+
+/**
+ * Where agents' skill folders are kept in a repository, each skill a folder with its `SKILL.md`:
+ * Claude Code's, the open Agent Skills' and a plain `skills/`.
+ */
+export const SKILL_FOLDERS = [
+  ".claude/skills",
+  ".agents/skills",
+  "skills",
+] as const;
+
+/** The file a skill folder is told by. */
+export const SKILL_FILE = "SKILL.md";
 
 const SkillSource = Schema.Literals(["built-in", "project"]);
 
 export const Skill = Schema.Struct({
-  /** Off in the settings: agents are not told it. */
+  /** On in the settings: agents are told it. */
   enabled: Schema.Boolean,
-  /** Repo-relative path of the file, for a project skill. */
+  /**
+   * Repo-relative path of the file a project skill is told by (its `.md`, or a folder's
+   * `SKILL.md`): what `skills.enabled` names.
+   */
   file: Schema.optional(Schema.String),
-  /** `ultrapaint` for the design skill, a file's stem for a project's: what `skills.disabled` names. */
+  /**
+   * `ultrapaint` for the design skill; a project skill's file stem or folder name, numbered when
+   * two share one: its MCP resource's name.
+   */
   name: Schema.String,
   source: SkillSource,
   /** The first paragraph after the title, or the first line when there is no title. */
@@ -64,11 +85,17 @@ export const skillUri = (nameOrPath: string) =>
 export const SkillsBriefing = Schema.Literals(["full", "summaries", "router"]);
 export type SkillsBriefing = typeof SkillsBriefing.Type;
 
-/** The skills part of the settings: which ones are not sent to agents, and how the rest are. */
+/**
+ * The skills part of the settings, the project's defaults for its chats: the project's own skills
+ * that are told (none when absent), whether the design skill is not, and how they are told.
+ */
 export const SkillsConfig = Schema.Struct({
   /** `router` when absent. */
   briefing: Schema.optional(SkillsBriefing),
+  /** `ultrapaint` here turns the design skill off. */
   disabled: Schema.optional(Schema.Array(Schema.String)),
+  /** The project's own skills told to its chats, by their files' repo-relative paths. */
+  enabled: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SkillsConfig = typeof SkillsConfig.Type;
 
@@ -80,6 +107,54 @@ export const parseSkillFile = (text: string): { readonly body: string } => ({
 });
 
 const TITLE_RE = /^#\s+(.+?)\s*$/;
+const FIELD_RE = /^([A-Za-z_-]+):\s*(.*)$/;
+const LINE_BREAK_RE = /\r?\n/;
+const INDENTED_RE = /^\s+\S/;
+/** A front matter value folded or kept over the lines after it, or none on its line. */
+const BLOCK_VALUES = new Set([">", "|", ">-", "|-", ""]);
+const QUOTED_RE = /^(["'])(.*)\1$/;
+
+/**
+ * A skill file's front matter's `name` and `description`, the two the open skill format gives:
+ * a value on its line, quoted or not, or folded over the indented lines after it (`>`, `|`).
+ */
+export const skillFrontMatter = (
+  text: string
+): { readonly description?: string; readonly name?: string } => {
+  const block: RegExpExecArray | null = FRONT_MATTER_RE.exec(text);
+  if (block === null) {
+    return {};
+  }
+  const lines = block[0].split(LINE_BREAK_RE).slice(1, -1);
+  const out: Record<string, string> = {};
+  lines.forEach((line, i) => {
+    const field: RegExpExecArray | null = FIELD_RE.exec(line);
+    if (field === null) {
+      return;
+    }
+    const [, key = "", raw = ""] = field;
+    if (key !== "name" && key !== "description") {
+      return;
+    }
+    let value = raw.trim();
+    if (BLOCK_VALUES.has(value)) {
+      const folded: string[] = [];
+      for (const next of lines.slice(i + 1)) {
+        if (!INDENTED_RE.test(next)) {
+          break;
+        }
+        folded.push(next.trim());
+      }
+      value = folded.join(" ");
+    }
+    const quoted: RegExpExecArray | null = QUOTED_RE.exec(value);
+    out[key] = (quoted === null ? value : (quoted[2] ?? "")).trim();
+  });
+  return {
+    ...(out.description ? { description: out.description } : {}),
+    ...(out.name ? { name: out.name } : {}),
+  };
+};
 
 /** What a skill's markdown says about itself, the same way for a shipped one and a file. */
 export const describeSkill = (

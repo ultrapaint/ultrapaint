@@ -3,9 +3,12 @@ import {
   describeSkill,
   parseSkillFile,
   SKILL_EXTENSION,
+  SKILL_FILE,
+  SKILL_FOLDERS,
   SKILLS_DIR,
   type Skill,
   type SkillList,
+  skillFrontMatter,
   skillUri,
 } from "@ultrapaint/contracts/skills";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
@@ -43,9 +46,10 @@ export interface SkillsTold {
 }
 
 /**
- * The design skills an agent is told: the design skill the tool ships (`ultrapaint`), then every
- * file of the project's under `<designsDir>/skills/`, minus what the settings turn off. Read on
- * every call, so a file saved by hand is the next briefing's.
+ * The design skills an agent is told: the design skill the tool ships (`ultrapaint`), on unless the
+ * settings turn it off, then the project's own the settings turn on (ADR 0094): the files under
+ * `<designsDir>/skills/` and the skill folders under `.claude/skills/`, `.agents/skills/` and
+ * `skills/`. Read on every call, so a file saved by hand is the next briefing's.
  */
 export class SkillsService extends Context.Service<
   SkillsService,
@@ -65,6 +69,7 @@ export class SkillsService extends Context.Service<
       const dir = path.join(paths.designsDir, SKILLS_DIR);
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
+      const enabled = new Set(paths.settings.skills?.enabled ?? []);
       const told = paths.settings.skills?.briefing ?? "router";
       const { machine } = yield* ServerConfig;
       const skillDir = skillDirOf(machine.home, path.join);
@@ -92,44 +97,114 @@ export class SkillsService extends Context.Service<
         source: "built-in",
         text: naming(coreText, skillDir),
         ...describeSkill(DESIGN_SKILL, coreText),
+        summary:
+          "Interface design rules: designing and reviewing screens and pages, writing their words, and making their design system.",
       };
 
-      const fileOf = (name: string) =>
-        toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
-
-      /** A project's own file, told whole. */
-      const fromFile = (name: string, file: string): Skill => {
-        const { body } = parseSkillFile(file);
+      /**
+       * A project's skill, told whole: its title and summary from its front matter, else its
+       * first heading and paragraph. A folder's says where its other files are, which it names
+       * from there.
+       */
+      const projectSkill = (
+        stem: string,
+        file: string,
+        text: string,
+        folder?: string
+      ): Skill => {
+        const { body } = parseSkillFile(text);
+        const front = skillFrontMatter(text);
+        const described = describeSkill(stem, body);
+        const whole = folder
+          ? `The skill’s files are in \`${folder}/\`: read the files it names from there.\n\n${body}`
+          : body;
         return {
-          enabled: !disabled.has(name),
-          file: fileOf(name),
-          name,
+          enabled: enabled.has(file),
+          file,
+          name: stem,
           source: "project",
-          text: body,
-          ...describeSkill(name, body),
+          summary: front.description ?? described.summary,
+          text: whole,
+          title: front.name ?? described.title,
         };
       };
 
-      /** The project's own files, by name; a file that cannot be read is left out. */
-      const projectFiles = Effect.gen(function* () {
+      /** A file's text, or nothing when it cannot be read. */
+      const readText = (file: string) =>
+        Effect.option(fs.readFileString(path.join(paths.root, file)));
+
+      /** The files under `<designsDir>/skills/`, each a skill. */
+      const designFiles = Effect.gen(function* () {
         const names = yield* Effect.orElseSucceed(
           fs.readDirectory(dir),
           (): string[] => []
         );
         return yield* Effect.forEach(
           names.filter((n) => n.endsWith(SKILL_EXTENSION)).sort(),
-          (file) =>
-            Effect.option(
-              Effect.map(fs.readFileString(path.join(dir, file)), (text) =>
-                fromFile(file.slice(0, -SKILL_EXTENSION.length), text)
-              )
-            )
-        ).pipe(
-          Effect.map((read) =>
-            read.flatMap((e) => (e._tag === "Some" ? [e.value] : []))
-          )
-        );
+          (name) => {
+            const file = toPosix(path.join(relDir, name));
+            return Effect.map(readText(file), (text) =>
+              text._tag === "Some"
+                ? [
+                    projectSkill(
+                      name.slice(0, -SKILL_EXTENSION.length),
+                      file,
+                      text.value
+                    ),
+                  ]
+                : []
+            );
+          }
+        ).pipe(Effect.map((read) => read.flat()));
       });
+
+      /**
+       * The skill folders agents keep in the repository, each with its `SKILL.md`. A folder of
+       * the design skill's own name is a copy of the one the tool ships, and left out.
+       */
+      const agentFolders = Effect.forEach(SKILL_FOLDERS, (parent) =>
+        Effect.gen(function* () {
+          const names = yield* Effect.orElseSucceed(
+            fs.readDirectory(path.join(paths.root, parent)),
+            (): string[] => []
+          );
+          const found = yield* Effect.forEach(
+            names
+              .filter((n) => n !== DESIGN_SKILL && !n.startsWith("."))
+              .sort(),
+            (name) => {
+              const folder = `${parent}/${name}`;
+              const file = `${folder}/${SKILL_FILE}`;
+              return Effect.map(readText(file), (text) =>
+                text._tag === "Some"
+                  ? [projectSkill(name, file, text.value, folder)]
+                  : []
+              );
+            }
+          );
+          return found.flat();
+        })
+      ).pipe(Effect.map((read) => read.flat()));
+
+      /** Two skills of one name are told apart by a number, for their resources' names. */
+      const named = (skills: readonly Skill[]): Skill[] => {
+        const taken = new Set<string>([DESIGN_SKILL]);
+        return skills.map((skill) => {
+          const { name: stem } = skill;
+          let name = stem;
+          for (let n = 2; taken.has(name); n += 1) {
+            name = `${stem}-${n}`;
+          }
+          taken.add(name);
+          return { ...skill, name };
+        });
+      };
+
+      /** The project's own skills: the designs' files first, then the agents' folders. */
+      const projectFiles = Effect.map(
+        Effect.all([designFiles, agentFolders]),
+        ([own, folders]) => named([...own, ...folders])
+      );
 
       // Written before any skill is read, whole or in the briefing, so its folder is there.
       const list = Effect.andThen(written, projectFiles).pipe(

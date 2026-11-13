@@ -11,6 +11,29 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Motion follows the person's Motion preference (state/preferences.ts) before the system's:
+   Reduced stops it, Full keeps it, System asks the system. */
+@custom-variant motion-reduce {
+  &:where([data-motion="reduced"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:where(:root:not([data-motion="full"]) *) {
+      @slot;
+    }
+  }
+}
+@custom-variant motion-safe {
+  &:where([data-motion="full"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:root:not([data-motion="reduced"]) *) {
+      @slot;
+    }
+  }
+}
+
 /* The faces: Cal Sans for headings, Figtree for bodies, Geist Mono for values, tokens and code
    (ADR 0070), all loaded, so the editor looks the same on every machine. Kept out of the theme,
    so no `font-sans` or `font-mono` utility sets a face of its own. */
@@ -84,129 +107,129 @@
 
 @utility font-heading-xxlarge {
   font-family: var(--face-heading);
-  font-size: 2rem;
+  font-size: calc(2rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 2.25rem;
+  line-height: calc(2.25rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 @utility font-heading-xlarge {
   font-family: var(--face-heading);
-  font-size: 1.75rem;
+  font-size: calc(1.75rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 2rem;
+  line-height: calc(2rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 @utility font-heading-large {
   font-family: var(--face-heading);
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1.75rem;
+  line-height: calc(1.75rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 @utility font-heading-medium {
   font-family: var(--face-heading);
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1.5rem;
+  line-height: calc(1.5rem * var(--text-scale, 1));
   letter-spacing: 0.01em;
 }
 
 /* A dialog's or a page's title. */
 @utility font-heading-small {
   font-family: var(--face-heading);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0.02em;
 }
 
 /* A panel's, a section's or a card's title, a field's label. */
 @utility font-heading-xsmall {
   font-family: var(--face-heading);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0.02em;
 }
 
 @utility font-heading-xxsmall {
   font-family: var(--face-heading);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1rem;
+  line-height: calc(1rem * var(--text-scale, 1));
   letter-spacing: 0.02em;
 }
 
 /* A page's lead. */
 @utility font-body-large {
   font-family: var(--face-body);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   font-weight: 400;
-  line-height: 1.5rem;
+  line-height: calc(1.5rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* Everything read. */
 @utility font-body {
   font-family: var(--face-body);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--text-scale, 1));
   font-weight: 400;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* Control text (buttons, tabs, menu items) and names in a list. */
 @utility font-body-medium {
   font-family: var(--face-body);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--text-scale, 1));
   font-weight: 500;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* Bold in running text, a table's header. */
 @utility font-body-semibold {
   font-family: var(--face-body);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--text-scale, 1));
   font-weight: 600;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* What qualifies its neighbour: a size, a route, a time, a hint, an inspector row's label. */
 @utility font-body-small {
   font-family: var(--face-body);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   font-weight: 400;
-  line-height: 1rem;
+  line-height: calc(1rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* Keys, counts, badges and avatars' initials. */
 @utility font-body-small-medium {
   font-family: var(--face-body);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   font-weight: 500;
-  line-height: 1rem;
+  line-height: calc(1rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
 /* Values, tokens, routes and code, a value on its row or a block of lines. */
 @utility font-code {
   font-family: var(--face-code);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   font-weight: 400;
-  line-height: 1.25rem;
+  line-height: calc(1.25rem * var(--text-scale, 1));
   letter-spacing: 0;
 }
 
@@ -477,6 +500,120 @@ input[type="number"]::-webkit-inner-spin-button {
   --shadow-overlay:
     0 2px 6px oklch(0 0 0 / 35%), 0 16px 40px -8px oklch(0 0 0 / 60%);
   color-scheme: dark;
+}
+
+/* The person's preferences (state/preferences.ts), drawn on the root as data attributes: the
+   editor's chrome only, never the designs, which keep their own look in their shadow roots. */
+
+/* Text size: every type token scales by it; spacing and controls keep their size. */
+:root[data-text-size="small"] {
+  --text-scale: 0.9286;
+}
+:root[data-text-size="large"] {
+  --text-scale: 1.0714;
+}
+
+/* The accent: what is acted on, a checked control, the focus ring, in each theme. */
+:root[data-accent="teal"] {
+  --primary: oklch(0.5 0.1 195);
+  --ring: oklch(0.5 0.1 195);
+  --brand: oklch(0.5 0.1 195);
+  --sidebar-primary: oklch(0.5 0.1 195);
+  --sidebar-ring: oklch(0.5 0.1 195);
+}
+:root.dark[data-accent="teal"] {
+  --primary: oklch(0.52 0.1 195);
+  --ring: oklch(0.68 0.1 195);
+  --brand: oklch(0.52 0.1 195);
+  --sidebar-primary: oklch(0.52 0.1 195);
+  --sidebar-ring: oklch(0.68 0.1 195);
+}
+:root[data-accent="green"] {
+  --primary: oklch(0.5 0.13 150);
+  --ring: oklch(0.5 0.13 150);
+  --brand: oklch(0.5 0.13 150);
+  --sidebar-primary: oklch(0.5 0.13 150);
+  --sidebar-ring: oklch(0.5 0.13 150);
+}
+:root.dark[data-accent="green"] {
+  --primary: oklch(0.52 0.13 150);
+  --ring: oklch(0.68 0.14 150);
+  --brand: oklch(0.52 0.13 150);
+  --sidebar-primary: oklch(0.52 0.13 150);
+  --sidebar-ring: oklch(0.68 0.14 150);
+}
+:root[data-accent="orange"] {
+  --primary: oklch(0.54 0.16 45);
+  --ring: oklch(0.54 0.16 45);
+  --brand: oklch(0.54 0.16 45);
+  --sidebar-primary: oklch(0.54 0.16 45);
+  --sidebar-ring: oklch(0.54 0.16 45);
+}
+:root.dark[data-accent="orange"] {
+  --primary: oklch(0.56 0.16 45);
+  --ring: oklch(0.7 0.15 50);
+  --brand: oklch(0.56 0.16 45);
+  --sidebar-primary: oklch(0.56 0.16 45);
+  --sidebar-ring: oklch(0.7 0.15 50);
+}
+:root[data-accent="graphite"] {
+  --primary: oklch(0.21 0.006 60);
+  --primary-foreground: oklch(0.99 0.001 80);
+  --ring: oklch(0.45 0.006 60);
+  --brand: oklch(0.21 0.006 60);
+  --sidebar-primary: oklch(0.21 0.006 60);
+  --sidebar-primary-foreground: oklch(0.99 0.001 80);
+  --sidebar-ring: oklch(0.45 0.006 60);
+}
+:root.dark[data-accent="graphite"] {
+  --primary: oklch(0.93 0.003 80);
+  --primary-foreground: oklch(0.2 0.004 70);
+  --ring: oklch(0.75 0.004 70);
+  --brand: oklch(0.93 0.003 80);
+  --sidebar-primary: oklch(0.93 0.003 80);
+  --sidebar-primary-foreground: oklch(0.2 0.004 70);
+  --sidebar-ring: oklch(0.75 0.004 70);
+}
+
+/* Increase contrast: darker muted text and firmer edges, in each theme. */
+:root[data-contrast="more"] {
+  --muted-foreground: oklch(0.43 0.01 65);
+  --border: oklch(0.21 0.006 60 / 20%);
+  --sidebar-border: oklch(0.21 0.006 60 / 20%);
+  --input: oklch(0.72 0.005 70);
+  --input-hover: oklch(0.6 0.005 70);
+}
+:root.dark[data-contrast="more"] {
+  --muted-foreground: oklch(0.8 0.006 75);
+  --border: oklch(1 0 0 / 18%);
+  --sidebar-border: oklch(1 0 0 / 18%);
+  --input: oklch(0.5 0.005 70);
+  --input-hover: oklch(0.6 0.005 70);
+}
+
+/* A setting the settings' search found: outlined a moment, where it is (settings.tsx). */
+@keyframes settings-found {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+  15%,
+  70% {
+    box-shadow: inset 0 0 0 2px var(--color-ring);
+  }
+}
+.settings-found {
+  animation: settings-found 1.4s ease-in-out;
+}
+
+/* Motion: Reduced stops it whatever the system says; Full keeps it whatever the system says. */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 @layer base {

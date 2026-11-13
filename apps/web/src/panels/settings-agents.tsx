@@ -17,22 +17,25 @@ import {
   startingMode,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Ellipsis } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { AgentIcon } from "../components/agent-icon.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { isMac } from "../lib/keys.ts";
 import {
   type AgentSetup,
   type InstalledCommand,
@@ -45,7 +48,10 @@ import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
-import { Group, Row, RowMessage, rowField } from "./settings-group.tsx";
+import { Group, Row, RowMessage, rowField, Status } from "./settings-group.tsx";
+
+/** A folder skill's file, shown as its folder. */
+const SKILL_FILE_RE = /\/SKILL\.md$/;
 
 const skillsBriefings = [
   { label: "Core", value: "router" },
@@ -62,21 +68,39 @@ const briefingDescriptions: Record<SkillsBriefing, string> = {
 };
 
 /** The settings' skills with one changed, absent when they say only what is the default. */
-const skillsWith = (
+export const skillsWith = (
   config: SkillsConfig | undefined,
   change: SkillsConfig
 ): SkillsConfig | undefined => {
-  const { briefing, disabled } = { ...config, ...change };
+  const { briefing, disabled, enabled } = { ...config, ...change };
   const next = {
     ...(briefing === undefined || briefing === "router" ? {} : { briefing }),
     ...(disabled && disabled.length > 0 ? { disabled } : {}),
+    ...(enabled && enabled.length > 0 ? { enabled } : {}),
   };
   return Object.keys(next).length === 0 ? undefined : next;
 };
 
+/** The skills with one turned on or off: the design skill by its name, a project's by its file. */
+export const skillToggled = (
+  config: SkillsConfig | undefined,
+  skill: Pick<Skill, "file" | "name" | "source">,
+  on: boolean
+): SkillsConfig | undefined => {
+  if (skill.source === "built-in") {
+    const others = (config?.disabled ?? []).filter((n) => n !== skill.name);
+    return skillsWith(config, {
+      disabled: on ? others : [...others, skill.name],
+    });
+  }
+  const file = skill.file ?? skill.name;
+  const others = (config?.enabled ?? []).filter((f) => f !== file);
+  return skillsWith(config, { enabled: on ? [...others, file] : others });
+};
+
 const sendKeys = [
   { label: "Enter", value: "enter" },
-  { label: "⌘/Ctrl+Enter", value: "modEnter" },
+  { label: isMac ? "⌘ Enter" : "Ctrl+Enter", value: "modEnter" },
 ];
 
 /**
@@ -106,9 +130,6 @@ const CopyLine = ({ command, label }: { command: string; label: string }) => {
   };
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="w-20 shrink-0 font-body-small text-muted-foreground">
-        {label}
-      </span>
       <div className="flex min-w-0 flex-1 items-center gap-1 rounded-md bg-muted py-0.5 pr-0.5 pl-2">
         <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre py-1 font-code">
           {command}
@@ -116,7 +137,7 @@ const CopyLine = ({ command, label }: { command: string; label: string }) => {
         <IconButton
           onClick={copy}
           size="icon-sm"
-          tooltip={`Copy the ${label} command`}
+          tooltip={copied ? "Copied" : `Copy the ${label} command`}
         >
           {copied ? <Check /> : <Copy />}
         </IconButton>
@@ -129,7 +150,7 @@ const CopyLine = ({ command, label }: { command: string; label: string }) => {
  * Whether the `ultrapaint` command the lines start is on this computer, where the shell can tell
  * (the desktop app), with the way to install it when it is not (ADR 0083).
  */
-const CommandStatus = () => {
+const CommandRow = () => {
   const { command } = platform();
   const [installed, setInstalled] = useState<InstalledCommand | null>();
   const [installing, setInstalling] = useState(false);
@@ -138,19 +159,6 @@ const CommandStatus = () => {
     command?.installed().then(setInstalled).catch(reportError);
   }, [command]);
   if (!command || installed === undefined) {
-    return null;
-  }
-  if (installed && !installed.onPath) {
-    return (
-      <RowMessage kind="notice">
-        <p>
-          Installed in <code className="font-code">{installed.path}</code>, a
-          folder not on your PATH yet: add it, then start the agent again.
-        </p>
-      </RowMessage>
-    );
-  }
-  if (installed && !installed.ours) {
     return null;
   }
   const install = () => {
@@ -163,46 +171,62 @@ const CommandStatus = () => {
       )
       .finally(() => setInstalling(false));
   };
-  // The app's command is there: where it is, and, for one the app wrote, the way to write it
-  // again (for an app that moved). Homebrew's link follows the app (ADR 0088).
-  if (installed && !problem) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-body-small text-muted-foreground">
-        <p className="min-w-0">
-          The command is installed at{" "}
-          <code className="font-code">{installed.path}</code>
-          {installed.shipped ? ", linked to this app." : "."}
-        </p>
-        {installed.shipped ? null : (
-          <Button
-            disabled={installing}
-            onClick={install}
-            size="sm"
-            variant="ghost"
-          >
-            {installing ? <Spinner /> : null}
-            Install again
-          </Button>
-        )}
-      </div>
-    );
+  const installButton = (label: string) => (
+    <Button disabled={installing} onClick={install} variant="outline">
+      {installing ? (
+        <>
+          <Spinner />
+          Installing…
+        </>
+      ) : (
+        label
+      )}
+    </Button>
+  );
+  let description: ReactNode;
+  let control: ReactNode;
+  let message: ReactNode = problem ? (
+    <RowMessage kind="error">
+      <p>Couldn’t install the command: {problem}</p>
+    </RowMessage>
+  ) : null;
+  if (installed) {
+    description = <code className="break-all font-code">{installed.path}</code>;
+    if (!installed.onPath) {
+      control = <Status tone="warning">Not on your PATH</Status>;
+      message = (
+        <RowMessage kind="notice">
+          Its folder isn’t on your PATH yet: add it, then start the agent again.
+        </RowMessage>
+      );
+    } else if (installed.ours && !installed.shipped) {
+      control = (
+        <div className="flex items-center gap-3">
+          <Status tone="success">Installed</Status>
+          {installButton("Install again")}
+        </div>
+      );
+    } else {
+      control = (
+        <Status tone="success">
+          {installed.shipped ? "Installed, linked to this app" : "Installed"}
+        </Status>
+      );
+    }
+  } else {
+    description =
+      "The lines above start it; this computer doesn’t have it yet.";
+    control = installButton("Install");
   }
   return (
-    <RowMessage kind={problem ? "error" : "notice"}>
-      <p>
-        {problem ??
-          "The lines start the ultrapaint command, which this computer doesn’t have yet."}
-      </p>
-      <Button
-        disabled={installing}
-        onClick={install}
-        size="sm"
-        variant="outline"
-      >
-        {installing ? <Spinner /> : null}
-        Install the command
-      </Button>
-    </RowMessage>
+    <Row
+      description={description}
+      message={message}
+      setting="command"
+      title="Command line"
+    >
+      {control}
+    </Row>
   );
 };
 
@@ -219,20 +243,25 @@ export const McpConnectionGroup = () => {
     return null;
   }
   return (
-    <Group title="Outside the editor">
-      <Row
-        description="Once, for every project: an agent in a terminal or another app then designs in the project of the folder it works in."
-        layout="below"
-        title="Connect over MCP"
-      >
-        <div className="flex flex-col gap-1.5">
+    <>
+      <section data-setting="mcp">
+        <Group
+          note="Run one of these once. An agent in a terminal or another app then designs in the project of the folder it works in."
+          title="Agents outside the editor"
+        >
           {OUTSIDE_COMMANDS.map(({ agent, command }) => (
-            <CopyLine command={command} key={agent} label={agent} />
+            <Row key={agent} layout="field" title={agent}>
+              <CopyLine command={command} label={agent} />
+            </Row>
           ))}
-        </div>
-        <CommandStatus />
-      </Row>
-    </Group>
+        </Group>
+      </section>
+      {platform().command ? (
+        <Group>
+          <CommandRow />
+        </Group>
+      ) : null}
+    </>
   );
 };
 
@@ -254,7 +283,9 @@ const SkillRow = ({
         <>
           <CutText className="line-clamp-2">{skill.summary}</CutText>
           {skill.file ? (
-            <span className="mt-0.5 block">{skill.file}</span>
+            <code className="mt-0.5 block truncate font-code">
+              {skill.file.replace(SKILL_FILE_RE, "")}
+            </code>
           ) : null}
           {shown ? (
             <div className="mt-2 max-h-96 overflow-y-auto rounded-md bg-muted p-3 font-body text-foreground">
@@ -268,7 +299,7 @@ const SkillRow = ({
     >
       <div className="flex items-center gap-1">
         <Button onClick={() => setShown((v) => !v)} size="sm" variant="ghost">
-          {shown ? "Hide" : "View"}
+          {shown ? "Hide" : "Read"}
         </Button>
         <Switch
           aria-label={skill.title}
@@ -304,53 +335,72 @@ export const SkillsGroup = ({
       useSkills.getState().load();
     }
   }, [loaded]);
-  if (skills.length === 0) {
-    return null;
-  }
-  const off = new Set(config?.disabled);
-  const onToggle = (name: string, enabled: boolean) => {
-    const others = [...off].filter((n) => n !== name);
-    onChange(
-      skillsWith(config, { disabled: enabled ? others : [...others, name] })
-    );
-  };
+  const shipped = skills.filter((s) => s.source === "built-in");
+  const own = skills.filter((s) => s.source === "project");
   const briefing = config?.briefing ?? "router";
+  const row = (skill: Skill) => (
+    <SkillRow
+      enabled={skill.enabled}
+      key={skill.file ?? skill.name}
+      onToggle={(on) => onChange(skillToggled(config, skill, on))}
+      skill={skill}
+    />
+  );
   return (
-    <Group
-      message={message}
-      note={
-        <>
-          Told to every agent before it designs. Each file in{" "}
-          <code className="font-code">{dir}</code> is a skill of the project’s
-          own, told after the design skill.
-        </>
-      }
-      title="Design skills"
-    >
-      <Row
-        description={briefingDescriptions[briefing]}
-        htmlFor="settings-skills-told-as"
-        title="Told as"
-      >
-        <OptionSelect
-          className={rowField}
-          id="settings-skills-told-as"
-          onChange={(value) =>
-            onChange(skillsWith(config, { briefing: value as SkillsBriefing }))
-          }
-          options={skillsBriefings}
-          value={briefing}
-        />
-      </Row>
-      {skills.map((skill) => (
-        <SkillRow
-          enabled={!off.has(skill.name)}
-          key={skill.name}
-          onToggle={(enabled) => onToggle(skill.name, enabled)}
-          skill={skill}
-        />
-      ))}
-    </Group>
+    <>
+      <section data-setting="skills">
+        <Group
+          message={message}
+          note="Told to every chat in this project before it designs."
+          title="Design skill"
+        >
+          {shipped.map(row)}
+          <Row
+            description={briefingDescriptions[briefing]}
+            onReset={
+              briefing === "router"
+                ? undefined
+                : () => onChange(skillsWith(config, { briefing: "router" }))
+            }
+            setting="skills-sent-as"
+            title="Sent as"
+          >
+            <Segmented<SkillsBriefing>
+              aria-label="Sent as"
+              onChange={(value) =>
+                onChange(skillsWith(config, { briefing: value }))
+              }
+              options={skillsBriefings.map((b) => ({
+                label: b.label,
+                value: b.value as SkillsBriefing,
+              }))}
+              value={briefing}
+            />
+          </Row>
+        </Group>
+      </section>
+      <section data-setting="project-skills">
+        <Group
+          note="Skills found in this project. One turned on is told to every new chat here, after Ultrapaint’s."
+          title="In this project"
+        >
+          {own.length > 0 ? (
+            own.map(row)
+          ) : (
+            <div className="flex flex-col gap-0.5 px-4 py-3">
+              <span className="font-body">No other skills yet</span>
+              <span className="text-pretty font-body-small text-muted-foreground">
+                Add a folder with a <code className="font-code">SKILL.md</code>{" "}
+                in <code className="font-code">.claude/skills</code>,{" "}
+                <code className="font-code">.agents/skills</code> or{" "}
+                <code className="font-code">skills</code>, or a markdown file in{" "}
+                <code className="font-code">{dir}</code>.
+              </span>
+            </div>
+          )}
+        </Group>
+      </section>
+    </>
   );
 };
 
@@ -365,14 +415,17 @@ export const SendKeyRow = () => {
           ? "Shift+Enter starts a new line."
           : "Enter starts a new line."
       }
-      htmlFor="settings-send-key"
+      onReset={sendKey === "enter" ? undefined : () => setSendKey("enter")}
+      setting="send-key"
       title="Send key"
     >
-      <OptionSelect
-        className={rowField}
-        id="settings-send-key"
-        onChange={(v) => setSendKey(v as SendKey)}
-        options={sendKeys}
+      <Segmented<SendKey>
+        aria-label="Send key"
+        onChange={setSendKey}
+        options={sendKeys.map((k) => ({
+          label: k.label,
+          value: k.value as SendKey,
+        }))}
         value={sendKey}
       />
     </Row>
@@ -478,8 +531,11 @@ export const ChatDefaultsGroup = () => {
     defaults.modeId ?? startingMode(modes, listed?.currentModeId) ?? null;
   const mode = modes.find((m) => m.id === modeId);
   return (
-    <Group title="New chats">
-      <Row htmlFor="settings-chat-agent" title="Agent">
+    <Group
+      note="What a new chat in this project starts with. A chat can change each in its model menu."
+      title="New chats"
+    >
+      <Row htmlFor="settings-chat-agent" setting="chat-agent" title="Agent">
         <OptionSelect
           className={rowField}
           id="settings-chat-agent"
@@ -489,6 +545,7 @@ export const ChatDefaultsGroup = () => {
             return {
               ...(word === null ? {} : { description: word }),
               label: a.name,
+              preview: <AgentIcon agentId={a.id} className="size-4" />,
               value: a.id,
             };
           })}
@@ -498,6 +555,7 @@ export const ChatDefaultsGroup = () => {
       <Row
         description={modelDescription}
         htmlFor="settings-chat-model"
+        setting="chat-model"
         title="Model"
       >
         <OptionSelect
@@ -515,12 +573,15 @@ export const ChatDefaultsGroup = () => {
         />
       </Row>
       {efforts.length > 0 ? (
-        <Row title="Effort">
+        <Row setting="chat-effort" title="Effort">
           <Segmented
             aria-label="Effort"
             className="@xl:w-auto"
             onChange={(value) => save({ ...kept, effort: value })}
-            options={efforts.map((e) => ({ label: e.name, value: e.value }))}
+            options={efforts.map((e) => ({
+              label: effortWord(e.name),
+              value: e.value,
+            }))}
             value={effort}
           />
         </Row>
@@ -529,6 +590,7 @@ export const ChatDefaultsGroup = () => {
         <Row
           description={mode?.description}
           htmlFor="settings-chat-permissions"
+          setting="chat-permissions"
           title="Permissions"
         >
           <OptionSelect
@@ -543,6 +605,13 @@ export const ChatDefaultsGroup = () => {
     </Group>
   );
 };
+
+/** An effort's name as the agents write "extra high". */
+const XHIGH_RE = /^x[- ]?high$/i;
+
+/** An effort's name as a word: the agents' "xhigh" is "Extra high". */
+export const effortWord = (name: string) =>
+  XHIGH_RE.test(name.trim()) ? "Extra high" : name;
 
 /** Where an agent's executable was found, for the row that says so. */
 const foundAt = (agent: PlatformAgent) => {
@@ -602,7 +671,19 @@ const ApiKeyField = ({
   );
 };
 
-/** One agent on this computer: where it is, whether it is signed in, and what can be done. */
+const STATE_WORDS: Record<
+  PlatformAgent["state"],
+  { tone: "success" | "warning" | "muted"; word: string }
+> = {
+  missing: { tone: "muted", word: "Not installed" },
+  ready: { tone: "success", word: "Signed in" },
+  "signed-out": { tone: "warning", word: "Signed out" },
+};
+
+/**
+ * One agent on this computer: its mark, how it stands, where it was found, the one thing to do
+ * next as a button, and the rest in its ⋯ menu.
+ */
 const MachineAgentRow = ({
   agent,
   busy,
@@ -618,109 +699,115 @@ const MachineAgentRow = ({
   const downloading = progress !== undefined && progress.phase !== "failed";
   const offersKey =
     agent.canKeepKey === true && !agent.apiKey && agent.state === "signed-out";
+  const status = downloading
+    ? { tone: "muted" as const, word: downloadLabel(progress) }
+    : STATE_WORDS[agent.state];
+  let next: ReactNode = null;
+  if (agent.state === "missing" && agent.download && !downloading) {
+    next = (
+      <Button
+        disabled={busy}
+        onClick={() => change(() => setup.download(agent.id))}
+        variant="secondary"
+      >
+        Download ({megabytes(agent.download.size)})
+      </Button>
+    );
+  } else if (agent.state === "signed-out" && agent.signInWith) {
+    next = (
+      <Button
+        disabled={busy}
+        onClick={() => change(() => setup.signIn(agent.id))}
+        variant="secondary"
+      >
+        Sign in with {agent.signInWith}
+      </Button>
+    );
+  }
   return (
-    <Row
-      description={
-        <>
-          {agent.executable ? (
-            <CutText className="block truncate">{foundAt(agent)}</CutText>
-          ) : null}
-          {agent.detail ? <span className="block">{agent.detail}</span> : null}
-          {progress?.phase === "failed" ? (
-            <span className="block text-destructive">
-              The download failed: {progress.message}
-            </span>
-          ) : null}
-          {agent.state === "missing" ? (
-            <span className="block">
-              <a
-                className="underline underline-offset-3 hover:text-foreground"
-                href={agent.install}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Install {agent.name}
-              </a>
-              {agent.download
-                ? `, or download ${agent.download.version} into the app.`
-                : null}
-            </span>
-          ) : null}
-        </>
-      }
-      title={agent.name}
-    >
-      <div className="flex flex-col @xl:items-end gap-1.5">
-        <div className="flex flex-wrap items-center @xl:justify-end gap-1">
-          {downloading ? (
-            <span className="font-body-small text-muted-foreground">
-              {downloadLabel(progress)}
-            </span>
-          ) : null}
-          {agent.state === "missing" && agent.download && !downloading ? (
-            <Button
-              disabled={busy}
-              onClick={() => change(() => setup.download(agent.id))}
-              size="sm"
-              variant="secondary"
-            >
-              Download ({megabytes(agent.download.size)})
-            </Button>
-          ) : null}
-          {agent.state === "signed-out" && agent.signInWith ? (
-            <Button
-              disabled={busy}
-              onClick={() => change(() => setup.signIn(agent.id))}
-              size="sm"
-              variant="secondary"
-            >
-              Sign in with {agent.signInWith}
-            </Button>
-          ) : null}
-          {agent.apiKey ? (
-            <Button
-              disabled={busy}
-              onClick={() => change(() => setup.setApiKey(agent.id, null))}
-              size="sm"
-              variant="ghost"
-            >
-              Forget key
-            </Button>
-          ) : null}
-          {agent.customPath ? (
-            <Button
-              disabled={busy}
-              onClick={() => change(() => setup.clearPath(agent.id))}
-              size="sm"
-              variant="ghost"
-            >
-              Use PATH
-            </Button>
-          ) : null}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  disabled={busy}
-                  onClick={() => change(() => setup.choosePath(agent.id))}
-                  size="sm"
-                  variant="outline"
-                />
-              }
-            >
-              Choose…
-            </TooltipTrigger>
-            <TooltipContent>Choose the {agent.name} executable</TooltipContent>
-          </Tooltip>
+    <div className="flex flex-col gap-3 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <AgentIcon agentId={agent.id} className="size-4.5" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex items-center gap-2.5">
+            <span className="font-body-semibold">{agent.name}</span>
+            <Status tone={status.tone}>{status.word}</Status>
+          </div>
+          <div className="font-body-small text-muted-foreground">
+            {agent.executable ? (
+              <CutText className="block truncate">{foundAt(agent)}</CutText>
+            ) : null}
+            {agent.detail ? (
+              <span className="block">{agent.detail}</span>
+            ) : null}
+            {agent.state === "missing" ? (
+              <span className="block">
+                <a
+                  className="underline underline-offset-3 hover:text-foreground"
+                  href={agent.install}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Install {agent.name}
+                </a>
+                {agent.download
+                  ? `, or download ${agent.download.version} into the app.`
+                  : null}
+              </span>
+            ) : null}
+          </div>
         </div>
-        {offersKey ? (
+        {next}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <IconButton disabled={busy} tooltip={`More for ${agent.name}`} />
+            }
+          >
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => change(() => setup.choosePath(agent.id))}
+            >
+              Choose the executable…
+            </DropdownMenuItem>
+            {agent.customPath ? (
+              <DropdownMenuItem
+                onClick={() => change(() => setup.clearPath(agent.id))}
+              >
+                Use the one on your PATH
+              </DropdownMenuItem>
+            ) : null}
+            {agent.apiKey ? (
+              <DropdownMenuItem
+                onClick={() => change(() => setup.setApiKey(agent.id, null))}
+              >
+                Forget the API key
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {progress?.phase === "failed" ? (
+        <RowMessage kind="error">
+          <p>The download failed: {progress.message}</p>
+        </RowMessage>
+      ) : null}
+      {offersKey ? (
+        <div className="flex flex-col gap-1.5 pl-11">
+          <span className="font-body-small text-muted-foreground">
+            Or sign in with an API key, kept in your system’s keychain.
+          </span>
           <ApiKeyField
             busy={busy}
             onSave={(key) => change(() => setup.setApiKey(agent.id, key))}
           />
-        ) : null}
-      </div>
-    </Row>
+        </div>
+      ) : null}
+    </div>
   );
 };
 
@@ -735,8 +822,10 @@ export const MachineAgentsGroup = () => {
   const agents = useMachineAgents((s) => s.agents);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    useMachineAgents.getState().load().catch(reportError);
-  }, []);
+    if (setup) {
+      useMachineAgents.getState().load().catch(reportError);
+    }
+  }, [setup]);
   // While something runs (a download, a sign-in in the browser), how it goes is asked again.
   useEffect(() => {
     if (!busy) {
@@ -748,7 +837,7 @@ export const MachineAgentsGroup = () => {
     return () => clearInterval(timer);
   }, [busy]);
   if (!setup) {
-    return null;
+    return <ServerAgents />;
   }
   const change = (run: () => Promise<void>) => {
     setBusy(true);
@@ -759,16 +848,55 @@ export const MachineAgentsGroup = () => {
       .finally(() => setBusy(false));
   };
   return (
-    <Group title="On this computer">
-      {Object.values(agents).map((agent) => (
-        <MachineAgentRow
-          agent={agent}
-          busy={busy}
-          change={change}
-          key={agent.id}
-          setup={setup}
-        />
-      ))}
-    </Group>
+    <section data-setting="machine-agents">
+      <Group>
+        {Object.values(agents).map((agent) => (
+          <MachineAgentRow
+            agent={agent}
+            busy={busy}
+            change={change}
+            key={agent.id}
+            setup={setup}
+          />
+        ))}
+      </Group>
+    </section>
+  );
+};
+
+/**
+ * In a browser there is no app to install or sign in agents: the server starts those it finds
+ * on its computer, and says how to install one.
+ */
+const ServerAgents = () => {
+  const agents = useAgents((s) => s.agents);
+  useEffect(() => {
+    useAgents.getState().load();
+  }, []);
+  return (
+    <section data-setting="machine-agents">
+      <Group note="The agents Ultrapaint starts on this computer. Install or sign in to one in a terminal, then start a new chat.">
+        {agents.map((agent) => (
+          <div className="flex items-center gap-3 px-4 py-3" key={agent.id}>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <AgentIcon agentId={agent.id} className="size-4.5" />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-body-semibold">{agent.name}</span>
+              <span className="truncate font-body-small text-muted-foreground">
+                {agent.package ? (
+                  <>
+                    <code className="font-code">{agent.package}</code>, run with
+                    npx when it isn’t installed
+                  </>
+                ) : (
+                  <code className="font-code">{agent.command}</code>
+                )}
+              </span>
+            </div>
+          </div>
+        ))}
+      </Group>
+    </section>
   );
 };

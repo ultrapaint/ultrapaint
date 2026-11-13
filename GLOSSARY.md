@@ -231,6 +231,11 @@ refactor and the board view left.
   file of the skill (contracts' `CATEGORY_FILES`).
   _Avoid_: router, part, override (the per-part skills, replaced or extended by a project's file,
   before the core).
+- **Project skills**: a project's own skills (ADR 0094; `SkillsService`): the files in
+  `<designsDir>/skills/` and the folders with a `SKILL.md` in `.claude/skills/`,
+  `.agents/skills/` and `skills/`, listed in Settings › Skills and told to the project's chats
+  only once turned on (`skills.enabled`, by their files' paths). The design skill stays on by
+  default.
 - **Content**: the words of a design, and the design skill's references for them (ADR 0067):
   `references/words/` (`voice.md`, `interface.md`, `pages.md`), followed with a design or alone
   when a task writes only the words. What a product chose for its words (how they sound, the one
@@ -472,6 +477,15 @@ refactor and the board view left.
   `components/place-switch.tsx`): the two modes and the prototype workspace in one control.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.
+- **Preferences**: how the editor looks and behaves for the person, in every project, kept in the
+  browser and drawn on the root as data attributes (ADR 0093; `state/preferences.ts`): the
+  **accent**, the **text size**, **increase contrast**, **motion**, the **scroll wheel** and
+  **notifications**. The chrome only, never a design.
+- **Settings sections**: the dialog's pages under whose they are (ADR 0093;
+  `panels/settings-sections.ts`): **You** (General, Appearance, Chats, Shortcuts), **Project**
+  (Repository, Design system, Review, Skills), **This computer** (Agents, Connections, About).
+  The **settings search** finds a setting by its name or the words it is looked for by
+  (`SETTINGS_INDEX`) and outlines its row.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
   `library` in the code): **App components**, then **System components**. In Canvas mode it is
   the **insert list** (a click inserts into the selection, a drag places anywhere, its chevron or
